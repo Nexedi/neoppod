@@ -1,0 +1,353 @@
+Nexedi Enterprise Objects (NEO) Specification
+
+  Overview
+
+    Nexedi Enterprise Objects (NEO) is a storage system for Zope
+    Object Database (ZODB). NEO is a novel technology in that it provides
+    an extremely robust and scalable storage service which may not be found
+    in existing solutions.
+
+    NEO provides these features for the robustness and the scalability:
+
+      - distributed storage nodes
+
+      - redundant copies
+
+      - backup master nodes
+
+      - automatic recovery
+
+      - dynamic storage allocations
+
+      - fail-safe protocol
+
+    This documents how NEO works from the protocol level to the software level.
+    This specification is version 3, last updated at 2006-07-08.
+
+  Components
+
+    Overview
+
+      NEO consists of three components: master nodes, storage nodes and client nodes.
+      Here, node means a software component which runs on a computer. These nodes can
+      run in the same computer or different computers in a network. A node communicates
+      with another node via the TCP protocol.
+
+      Master nodes are responsible for coordinating the whole cluster. They manage
+      information on nodes in the same cluster, and direct states of other nodes to
+      implement the semantics of ZODB transactions. At a time, only a single master node
+      is current; the other nodes are secondary.
+
+      Storage nodes maintain raw data. They store data committed by each transaction,
+      and hold redundant copies of ZODB objects.
+
+      Client nodes are usually Zope servers, and clients from the viewpoint of NEO.
+      They interact with current master node and storage nodes to perform transactions
+      and obtain data.
+
+    Master Node
+
+      Configuration
+
+        Each master node must have a configuration which describes all the list of master nodes.
+        Also, the configuration must specify how many copies of objects should be made in the cluster.
+
+      Database
+
+        Each master node must have a database. The database must record the list of known master
+        nodes, the list of known storage nodes, the list of known client nodes, the mapping
+        between transaction IDs and storage nodes which hold corresponding transactions, the mapping
+        between object IDs and transaction IDs. This database must be reinitialized when it turns
+        out to be out-of-dated, excluding the list of storage nodes. The list of storage nodes
+        must be persistent so that the master node can examine the necessity of recovery.
+
+      Roles
+
+        Each master node must be one of "Primary", "Secondary" and "Unknown". At most one
+        master node in a cluster is "Primary", and responsible for managing the whole cluster.
+        "Secondary" master nodes must obey the "Primary" master node, as long as it is working
+        correctly. If the "Primary" master node is disconnected or broken, one of the "Secondary"
+        master nodes must take over the "Primary" role.
+
+      Sorting Order
+
+        The master nodes have a defined sorting order. The sorting algorithm is defined by comparing
+        the listening IP addresss and the listening port numbers. Each IP address is converted into
+        the network byte order. If two nodes have different IP addresses, the node with the lower IP address
+        is smaller. If two nodes have the same IP address but different port numbers, the node with the
+        lower port number is smaller.
+
+      States
+
+        Bootstrap State
+
+          Initially, each master node has the role "Unknown". In this state, the master node
+          must try to connect to all other known master nodes and accept connections from other
+          master nodes. If a smaller node gets a connection from a larger node in the sorting order,
+          the smaller node must connect to the larger node and drop the connection from the larger
+          node, in order to reduce the number of connections.
+
+          Each node must wait until it establishes connections with all known master nodes. Once
+          this has been done, each node must advertise what master nodes are available. If a node
+          gets a different answer from another node, that node must report an error and exit.
+          Otherwise, it must move to the discussion state.
+
+        Discussion State
+
+          First, a master node must ask if any other node is "Primary". If so,
+          it must query which node is "Primary" and move to the recovery state.
+
+          Then, a master node must send the latest transaction ID it holds in the database,
+          and compare which has the newest transaction ID. The node which has the newest
+          transaction ID must be selected to "Primary". If multiple nodes hold the same
+          newest transaction ID, the smallest node must be "Primary".
+
+          If a node becomes "Primary", it must move to the verification state.
+
+          If a node becomes "Secondary", it must move to the recovery state.
+
+        Verification State
+
+          A master node must verify its database up-to-date. The node verifies the database
+          by querying the latest transaction ID and the number of transaction IDs for each
+          storage node to the storage node. For this, it is necessary to wait for all known
+          storage nodes which are not broken or down to connect to the master node.
+
+          If a storage node is not connected, the node must be marked as "Temporarily Down".
+          If a storage node is temporarily down for over 10 minutes, the node must be remarked
+          as "Down", and stop waiting for the node.
+
+          If any storage node disagrees, the node must move to the reconstruction state.
+          Otherwise, the node must move to the ready state.
+
+        Reconstruction State
+
+          The master node must reinitialize the database, except for the list of nodes.
+          Then, it must ask each storage nodes to send object IDs and transactions IDs it
+          has.
+
+          After updating the database, the master node must examine if there is any
+          transaction or object which does not have a good number of replicates in
+          storage nodes. If any, the master must initiate the process of a replication.
+          The detailed information about the replication is described below.
+
+          Once this is finished, the node must move to the ready state.
+
+        Recovery State
+
+          The master node must wait for the "Primary" master node to be in the ready
+          or working state.
+
+          Once the "Primary" master node becomes working, the "Secondary" master node
+          must verify if its database is up-to-date with the same algorithm described
+          in the verification state.
+
+          If it is not up-to-date, the "Secondary" master node must ask all information
+          the "Primary" master node holds, and update the database.
+
+          The node must move to the backup state after this.
+
+        Ready State
+
+          The master node must wait for all "Secondary" master nodes to be in the backup
+          state.
+
+          Once this is finished, the node must move to the working state.
+
+        Working State
+
+          When entering a working state, the master node must check the list of known storage
+          nodes which are broken or down. If so, the master node must initiate a replication
+          process appropriately.
+
+          In this state, all protocol commands are supported, and client nodes must be able
+          to function normally.
+
+          If a "Secondary" master node is available, the "Primary" master node must send
+          all updating messages to it, when any data in the "Primary" database changes.
+
+          If a storage node appears in this state, the master node must interrupt any replication
+          process, and query all data from the storage node. Once the information is transferred
+          to the master node, the master node must re-examine the database for interrupted
+          replication processes, and re-issue replication processes, if necessary.
+
+          If a storage node disappears, it must be marked as "Temporarily Down". If
+          this persists over 10 minutes, it must be remarked as "Down", and the master node
+          must initiate a replication process. Also, the master node must report
+          an error and continue the operation.
+
+          If a storage node gets broken, it must marked as "Broken". The master node
+          must initiate a replication process, and report an error, but it must continue
+          the operation.
+
+        Backup State
+
+          The master node must listen to the "Primary" node, and synchronize the database
+          with the "Primary" database. The "Secondary" master node is not allowed to
+          change the database contents without any command from the "Primary" master node.
+
+          If a storage node or a client node reports that the "Primary" node is not
+          available or broken, the master node must issue a re-discussion to all other
+          "Secondary" master nodes. Then, it must move back to the discussion state.
+
+          If the node gets a message that the "Primary" node is malfunctioning, the node
+          must drop out the connection with the "Primary" node, and move back to
+          the discussion state again.
+
+        Shutdown State
+
+          This is a special state to shutdown the whole cluster. The transition to this
+          state is only possible with a manual issue. Once this instruction is issued,
+          the node must request shutdown to all nodes.
+
+          When the node gets this message, it must enter the shutdown state. In this state,
+          client nodes are not allowed to make any new transaction, and stop as soon as
+          possible. Once all ongoing transactions are finished, the "Primary" master node
+          must direct all nodes to shutdown immediately, and the "Primary" master node
+          itself must exit, after all the other nodes are down.
+
+    Storage Node
+
+      Configuration
+
+        The storage node may find master nodes by broadcasting. Alternatively, it
+        may specify master nodes by a configuration.
+
+      Database
+
+        The storage node must have a persistent database to hold transactions and
+        objects.
+
+      States
+
+        Initial State
+
+          The storage node must generate a Universally Unique ID (UUID), if not
+          present yet, so that master nodes can identify the storage node.
+
+          The storage node must connect to one master node, and wait for a
+          "Primary" master node is selected. Once it is selected, the storage
+          node must make sure that it has a connection to the "Primary" master
+          node.
+
+          Then, the storage node must move to the working state.
+
+        Working State
+
+          The storage node must interact with master nodes, client nodes and
+          other storage nodes. This is mainly retrieving and storing data.
+
+        Shutdown State
+
+          The storage node must shutdown immediately, when the "Primary"
+          master node asks it.
+
+    Client Node
+
+      Configuration
+
+        The client node may find master nodes by broadcasting. Alternatively, it
+        may specify master nodes by a configuration.
+
+      Database
+
+        The client node may have a volatile database to cache information.
+        The database must be cleared out, when connecting to the "Primary"
+        master node.
+
+      States
+
+        Initial State
+
+          The client node must connect to one master node, and wait for a
+          "Primary" master node is selected. Once it is selected, the client
+          node must make sure that it has a connection to the "Primary" master
+          node.
+
+          Then, the client node must move to the working state.
+
+        Working State
+
+          The client node must interact with master nodes and storage nodes.
+          This is mainly commiting and aborting transactions. Also, the client
+          node must detect a broken storage node.
+
+          If a "Primary" master node is not available, the client node must
+          connect to another master node, and notify that the "Primary" master
+          node is not available. Then, it must move back to the initial state.
+
+          If no master node is available, the client node must report an error
+          and exit.
+
+        Shutdown State
+
+          The client node must not issue any new transaction. It must shutdown
+          immediately, once all ongoing transactions are finished.
+
+  Protocol
+
+    Format
+
+      NEO sends messages among cluster nodes via TCP connections. Each message has
+      the following header::
+
+        +----+------+--------+----------+----
+        | ID | Type | Length | Reserved | ...
+        +----+------+--------+----------+----
+        0    2      4        8          10
+
+      ID -- 2-byte unsigned integer which distinguishes a message.
+
+      Type -- 2-byte unsigned integer which specifies a message type.
+
+      Length -- 4-byte unsigned integer which specifies the length of this
+                message, including the header.
+
+      Reserved -- 2-byte unsigned integer for future expansion. This must be
+                  set to zero in this version.
+
+      When a message requires a reply, the ID of the reply message must be identical
+      with the ID of the original request message. In addition, the type of a reply
+      must be identical with the type of a request with the 15th bit set.
+
+      Every multi-byte integers must be the network order (big-endian) for portability.
+
+    Message Classes
+
+      Messages are classified into asynchronous messages and synchronous messages.
+      Asynchronous messages are request-only messages which do not require any reply,
+      while synchronous messages require replies, one reply to one request.
+
+      Asynchronous messages are used to notify status changes in the cluster. They
+      include additions and deletions of nodes.
+
+      Synchronous messages are used to exchange data between nodes. A sender never
+      sends multiple synchronous request messages before getting a reply. Note that,
+      however, a receiver may get multiple synchronous requests from a single connection,
+      because such a connection may be used by multiple threads.
+
+    Message Types
+
+      FIXME
+
+  Operations
+
+    Transactions
+
+      FIXME
+
+    Replications
+
+      FIXME
+
+  Notes
+
+    It might be better to improve the verification algorithm of checking the data integrity.
+    The difficulty is that it would be very heavy to check all data.
+
+    It would be better to add a monitoring protocol to watch the whole cluster, to get
+    information about each node, such as working, broken, and so on. Also, it might be
+    interesting to support performance monitoring, such as the CPU load, disk space, etc.
+    of each node. A web interface is desirable, but probably it is not a good idea to
+    implement this in a client node with Zope, because Zope will not start up correctly,
+    if master nodes are not working well.
