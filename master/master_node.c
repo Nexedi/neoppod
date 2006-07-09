@@ -39,7 +39,7 @@ static int soc = -1;
 static uuid_t master_id;
 static char ID[UUID_LEN+1];	/* uuid is unparse into a 36 byte string */
 static u_int64_t ltid;		/* store last transaction id */
-static u_int16_t last_generated_tid[ID_LEN];	/* last generated tid, use to check if tid increases */
+static unsigned char last_generated_tid[ID_LEN];	/* last generated tid, use to check if tid increases */
 static u_int16_t replication_nb = DEFAULT_REPLICATION_NB;	/* number of replication for a transaction on storages nodes */
 static u_int16_t last_storage_replication;	/* id of the last storage node used for replication */
 static struct storageInfo DBinfo;	/* store informations about storage system */
@@ -120,7 +120,7 @@ cleanup_handler (int sig)
   /* must store last oid and tid */
   fd = fopen (MASTER_DATA_FILE, "w");
   fwrite (ascii, sizeof (int), 8, fd);
-  fwrite (last_generated_tid, sizeof (u_int16_t), 8, fd);
+  fwrite (last_generated_tid, sizeof (unsigned char), 8, fd);
   fclose (fd);
 
   /* send message of master close to all storages first */
@@ -721,7 +721,7 @@ h_beginTrans (int conn, char *hbuf)
   u_int64_t tid;
   u_int32_t len = 0, data_len = 0, i;
   char rflags[FLAG_LEN], *buf = NULL, *id = NULL;
-  u_int16_t s[ID_LEN];
+  unsigned char s[ID_LEN];
   struct stringList storages;
 
   /* header */
@@ -1817,7 +1817,7 @@ main (int argc, char **argv)
     {
       fd = fopen (MASTER_DATA_FILE, "r");
       fread (ascii, sizeof (int), 8, fd);
-      fread (last_generated_tid, sizeof (u_int16_t), 8, fd);
+      fread (last_generated_tid, sizeof (unsigned char), 8, fd);
       fclose (fd);
     }
   else
