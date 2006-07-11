@@ -1,6 +1,6 @@
 Nexedi Enterprise Objects (NEO) Specification
 
-  Overview
+  Introduction
 
     Nexedi Enterprise Objects (NEO) is a storage system for Zope
     Object Database (ZODB). NEO is a novel technology in that it provides
@@ -220,7 +220,7 @@ Nexedi Enterprise Objects (NEO) Specification
 
       States
 
-        Initial State
+        Bootstrap State
 
           The storage node must generate a Universally Unique ID (UUID), if not
           present yet, so that master nodes can identify the storage node.
@@ -257,7 +257,7 @@ Nexedi Enterprise Objects (NEO) Specification
 
       States
 
-        Initial State
+        Bootstrap State
 
           The client node must connect to one master node, and wait for a
           "Primary" master node is selected. Once it is selected, the client
@@ -274,7 +274,7 @@ Nexedi Enterprise Objects (NEO) Specification
 
           If a "Primary" master node is not available, the client node must
           connect to another master node, and notify that the "Primary" master
-          node is not available. Then, it must move back to the initial state.
+          node is not available. Then, it must move back to the bootstrap state.
 
           If no master node is available, the client node must report an error
           and exit.
@@ -283,6 +283,176 @@ Nexedi Enterprise Objects (NEO) Specification
 
           The client node must not issue any new transaction. It must shutdown
           immediately, once all ongoing transactions are finished.
+
+  Operations
+
+    Transactions
+
+      Overview
+
+        Transactions must be serialized with a lock in the commit phase to ensure the
+        atomicity and the integrity of every transaction. Thus only a single transaction
+        commit is allowed at a time for ZODB. For Zope, however, multiple transactions may run
+        at a time, until they reach the commit phase.
+
+        ZODB's transaction commit follows this order:
+
+          1. Begin a commit (tpc_begin).
+
+          2. Vote for a commit (tpc_vote).
+
+          3. Finish or abort a commit (tpc_finish or tpc_abort).
+
+        At tpc_begin, a new transaction begins. At tpc_vote, object data is sent to
+        storages. And, finally, at tpc_finish, the transaction is finished. If anything
+        wrong happens in tpc_vote, tpc_abort may be called to abort the transaction.
+
+        In NEO, a transaction commit is realized in this way:
+
+          1. A client node calls tpc_begin, and demand a new transaction ID from a "Primary"
+            master node. The "Primary" master node must send back storage node IDs to the
+            client node so that the client node will store objects in the set of specified
+            storage nodes.
+
+          2. The client node calls tpc_vote, and send object data to the specified storage
+            nodes, and meta information to the "Primary" master node.
+
+          3. The client node calls tpc_finish, and confirm that the transaction is complete
+            with the "Primary" master node. The "Primary" master node then must contact
+            storage nodes to ensure that the data has been stored, and must ask all client
+            nodes but the sending client node to invalidate their cached items, because
+            data is updated, and keeping older data will make conflicts.
+
+          4. Instead, the client node may call tpc_abort. In this case, the client node
+            must tell the "Primary" master node to cancel the transaction. The "Primary"
+            master node then must contact storage nodes to drop out the object data.
+
+        That above is the normal situation where everything goes well. It is possible, however,
+        that one or more errors may happen in a commit phase, at the client side, the master side
+        and the storage side. Thus care must be taken of the following situations.
+
+      Error Cases
+
+        In the following cases, abbriviations are used for simplicity: "CN" for a client node,
+        "PMN" for a "Primary" master node, "SMN" for a "Secondary" master node, and "SN" for
+        a storage node.
+
+        CN calls tpc_begin, then PMN does not reply
+
+          In this case, CN must stop the transaction, and notify SMN that PMN is broken.
+
+        PMN replies to tpc_begin, but CN does not go ahead
+
+          In theory, tpc_vote may take a lot of time when committing a lot of data. However,
+          PMN must take care of not stopping the whole cluster, as a transaction commit is
+          an exclusive operation. Therefore, in reality, a lock must not be obtained in tpc_begin.
+          At the beginning, PMN must only generate a new transaction ID.
+
+          Nevertheless, if CN does not issue tpc_vote to PMN, garbage can remain in SN,
+          because CN may have sent data to SN already. Thus SN must implement a garbage collection
+          which may expire pending transactional data.
+
+        CN calls tpc_vote, but SN does not reply or is buggy
+
+          CN must not wait for each SN too long. If CN cannot connect to a SN, CN must assume
+          that the SN is down, thus must report it to PMN. If CN connected to a SN but the SN
+          does not reply or the reply indicates an error, CN must report that the SN is broken
+          to PMN, so that PMN may abandone the SN. This requires a timeout, as SN may send
+          no rely forever. The timeout should be at least 10 seconds, because an operating
+          system flushes cache in every 5 second typically, and this disk activity may delay
+          the operation in SN significantly.
+
+          If all SNs specified by PMN fail, CN may ask PMN to send a new set of storage nodes.
+          As it is quite rare that all fail, this feature is not obligatory.
+
+          If all SNs specified by PMN, including newly acquired SNs, fail, CN must stop the
+          transaction.
+
+        CN calls tpc_vote, SN accepts data, but PMN does not reply
+
+          At this stage, PMN really needs to obtain a lock, thus PMN may spend some time
+          to wait for other transactions to finish. However, PMN should not need much time
+          for this, as the lock is held only when PMN writes small meta information to its
+          database, and send notifications to other nodes.
+
+        PMN replies to tpc_vote, but CN does not go ahead
+
+          Because CN may vote for other storage adapters as well, this may need some time.
+          However, as the lock is held already, PMN must not stop other clients too long.
+          PMN must abort the transaction with a proper timeout.
+
+        CN calls tpc_finish, but PMN does not reply
+
+          CN must drop the connection to PMN, and report it to SMN. When CN reconnects to
+          a new PMN, the cache is invalidated, thus CN does not have to invalidate the
+          cached data for the unfinished transaction explicitly.
+
+        PMN asks SN to finish a transaction, but SN does not reply
+
+          PNM must send an error message to CN, so that CN can invalidate the cached data.
+          CN may not do anything else, because ZODB does not have a facility to make an
+          error at tpc_finish appropriately.
+
+        PMN asks CN to invalidate cache, but CN is down
+
+          PMN must ignore this error, as the CN will invalidate cache when reconnecting.
+
+        CN or PMN may ask data when a transaction is in an intermediate state
+
+          SN must take care that it does not send meta information to PMN when it is
+          not finished. SN should remove pending data when PMN asks for meta information,
+          because PMN does that only when all transactions are aborted.
+
+          PMN must take care that it does not send meta information to CN when it is
+          not finished. PMN should not write meta information to the database when it is not
+          finish.
+
+    Replications
+
+      Overview
+
+        Replications are used to make redundant copies of objects among a cluster.
+        This guarantees that a single node failure (or even more, depending on a
+        configuration) does not cause a data loss, and helps to distribute the load
+        of reading data.
+
+        When a client node commits a transaction, the client node itself makes
+        redundant copies by contact multiple storage nodes. In the normal mode of
+        the cluster management, a "Primary" master node is involved only with assigning
+        storage nodes to every transaction.
+
+        However, if a storage node is down or broken, the "Primary" master node must
+        undergo a recovery by making a new replication in another storage node. In
+        this case, the "Primary" master node must check all data which a non-functional
+        storage node had, and determine a new storage node for a given transaction.
+
+        When the cluster does not have a good number of storage nodes any longer,
+        the "Primary" master node may not proceed a replication. In this case, the only
+        solution is to add a new storage node to the cluster, or to reduce the required
+        number of replications. If a new storage node is connected, the "Primary" master
+        node must check if the storage node already contains data, and update its
+        database, if necessary, because the storage node may have a lost replication.
+
+        Another case is when meta information is reconstructed by collecting data from
+        all storage nodes. A "Primary" master node must undertake a complete examination
+        of the database to obtain a list of transactions which have fewer replications.
+
+      Considerations
+
+        As replications are only that storage nodes exchange data under the management
+        by a "Primary" master node, this specification does not define how a "Primary"
+        master node must implement a replication policy.
+
+        However, an implementation should take care that replications should not affect
+        the system performance too much, as replications are not always urgent, in comparison
+        with transactions. For instance, replications should be divided into smaller
+        parts. Replications should be scheduled appropriately, so that they run only when
+        the system load of a node is low.
+
+        When a replication process is finished, a "Primary" master node should remove
+        a broken or down storage node from the database, if the node is not referred to
+        any longer. Otherwise, the database may grow up over time, and slows down replications
+        gradually.
 
   Protocol
 
@@ -330,16 +500,6 @@ Nexedi Enterprise Objects (NEO) Specification
 
       FIXME
 
-  Operations
-
-    Transactions
-
-      FIXME
-
-    Replications
-
-      FIXME
-
   Notes
 
     It might be better to improve the verification algorithm of checking the data integrity.
@@ -351,3 +511,16 @@ Nexedi Enterprise Objects (NEO) Specification
     of each node. A web interface is desirable, but probably it is not a good idea to
     implement this in a client node with Zope, because Zope will not start up correctly,
     if master nodes are not working well.
+
+    In the current specification, disk full is not dealt with correctly. If the disk space
+    of a node is full, the node is reported to be broken mistakenly. This might be inevitable
+    for master nodes, since unwritable master nodes are really useless, but storage nodes
+    may function in read-only, as they still work for a part of replications. Possibly
+    it would be better to add a read-only state to a storage node.
+
+    It is interesting how to export and import data. FileStorage's Data.fs would be the
+    best option. However, this is not very suitable for making a backup remotely, because
+    it must send all the data every time. One way is to make a clever protocol which asks
+    for only updated data. This is not difficult, because Data.fs is a pending-only structure.
+    Another way is to make a replicated storage node distantly, which is not used for reading
+    data by client nodes.
