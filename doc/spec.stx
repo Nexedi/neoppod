@@ -21,8 +21,11 @@ Nexedi Enterprise Objects (NEO) Specification
 
       - fail-safe protocol
 
+    For now, this specification corresponds to ZODB version 3.2, which is
+    bundled with Zope version 2.7.
+
     This documents how NEO works from the protocol level to the software level.
-    This specification is version 3, last updated at 2006-07-08.
+    This specification is version 3.0, last updated at 2006-07-08.
 
   Components
 
@@ -123,7 +126,7 @@ Nexedi Enterprise Objects (NEO) Specification
         Reconstruction State
 
           The master node must reinitialize the database, except for the list of nodes.
-          Then, it must ask each storage nodes to send object IDs and transactions IDs it
+          Then, it must ask each storage node to send object IDs and transaction IDs it
           has.
 
           After updating the database, the master node must examine if there is any
@@ -480,7 +483,16 @@ Nexedi Enterprise Objects (NEO) Specification
       with the ID of the original request message. In addition, the type of a reply
       must be identical with the type of a request with the 15th bit set.
 
-      Every multi-byte integers must be the network order (big-endian) for portability.
+      Most messages add additional data into packets, followed by the header.
+      The Length field of a header specifies the size of a message in bytes,
+      including the header itself. Thus a receiver of a packet previse the size
+      before reading the whole packet.
+
+      All integer values in packets are always encoded in the network byte order
+      for portability.
+
+      When the number of parameters or the size of a parameter is variable, the
+      number is specified before the parameters.
 
     Message Classes
 
@@ -496,9 +508,489 @@ Nexedi Enterprise Objects (NEO) Specification
       however, a receiver may get multiple synchronous requests from a single connection,
       because such a connection may be used by multiple threads.
 
+    Common Parameters
+
+      Messages use the same types of parameters frequently. Here are the definitions of
+      those types:
+
+        OID -- Object ID. It is a 8-byte array used to identify an object, regardless
+               of transactions.
+
+        TID -- Transaction ID. It is a 8-byte array used to identify a transaction.
+
+        Serial -- Serial number of an object, which identifies a certain generation
+                  of an object. In NEO, this is identical to TID, because NEO does
+                  not support versioning.
+
+        UUID -- Universally Unique ID. It is a 16-byte array used to identify a node.
+
+        NID -- Node ID. It is a 4-byte unsigned integer used to identify a node. A "Primary"
+               master node maps an UUID to an NID for efficiency.
+
+        IP address -- For now, NEO only supports IPv4. So the address is a 4-byte array.
+
+        Port Number -- TCP's port number. It is a 2-byte unsigned integer.
+
+        INVALID_OID -- Invalid OID. It indicates that an OID is invalid. It is
+                       '\xff\xff\xff\xff\xff\xff\xff\xff'.
+
+        INVALID_TID -- Invalid TID. It indicates that a TID is invalid. It is
+                       '\xff\xff\xff\xff\xff\xff\xff\xff'.
+
+        INVALID_SERIAL -- Invalid Serial Number. It indicates that a Serial Number is invalid.
+                          It is '\xff\xff\xff\xff\xff\xff\xff\xff'.
+
+    Error Messages
+
+      A sychronous message allows a receiver to return an error message, when an error occurs.
+      An error message must specify the same ID as a request, and the same Message Type but with
+      the 15th bit set, as well as the other return messages. Successful code indicates that
+      the message is not an error message but an usual message. In this case, the message format
+      is documented in each return message description.
+
+      Type -- Vary
+
+      Sender -- MN, SN
+
+      Receiver -- CN, MN, SN
+
+      Class -- Synchronous
+
+      Format::
+
+          +------------+----------------------+---------------+
+          | Error Code | Error Message Length | Error Message |
+          +------------+----------------------+---------------+
+          10           12                     16              16+n
+
+      Error Code is a 2-byte unsigned integer, and it is one of these:
+
+        0 -- Success. The request is successfully completed. In this case, neither
+             Error Message Length nor Error Message follows the Error Code.
+
+        1 -- Not Ready. The node is not ready to accept a given request yet.
+
+        2 -- OID Not Found. A given OID is not found in the database.
+
+        3 -- Serial Number Not Found. A given Serial Number is not found in the database.
+
+        4 -- TID Not Found. A given TID is not found in the database.
+
+        5 -- Disk Full. The node cannot store data due to too little disk space.
+
+        6 -- Conflict Found. A given transaction may not be committed because of a conflict.
+
+        7 -- Inconsistent Configuration. A master node does not have an identical list of
+             master nodes with another, or a foreign cluster node is connected.
+
+        8 -- Protocol Version Mismatch. Nodes do not talk in the same protocol.
+
+        9 -- Protocol Error. A node does not follow the protocol.
+
+        10 -- Timeout. A node may not wait for too long.
+
+        11 -- Broken Node Disallowed. A node is known to be broken, so it is not allowed to connect.
+
+        12 -- Internal Error. A node is corrupted in software or hardware internally.
+
+      Error Message Length specifies the length of Error Message, including the trailing NUL character.
+
+      Error Message is a human-readable string which describes an error. The string is terminated with
+      a NUL character.
+
     Message Types
 
-      FIXME
+      Each message type defines what nodes can send it to what nodes. Node types
+      are abbrivated to CN, SN, MN, PMN and SMN for client node, storage node,
+      master node, primary master node and secondary master node, respectively.
+
+      Each message type is shown as a hexadecimal value.
+
+      Get New OIDs
+
+        Type -- 0003
+
+        Sender -- CN
+
+        Receiver -- PMN
+
+        Class -- Synchronous
+
+        Format::
+
+          +---+
+          | n |
+          +---+
+          10  12
+
+        Request new OIDs to assign to objects. 'n' is a 2-byte unsigned integer
+        which specifies the number of requested OIDs.
+
+      Return New OIDs
+
+        Type -- 8003
+
+        Sender -- PMN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format::
+
+          +------------+---+-------+-----+-------+
+          | Error Code | n | OID 1 | ... | OID n |
+          +------------+---+-------+-----+-------+
+          10           12  14      22    14+n*4  22+n*4
+
+        Return new OIDs. 'n' is a 2-byte unsigned integer, specifying the number
+        of returned OIDs.
+
+      Request Node Identification
+
+        Type -- 0004
+
+        Sender -- CN, SN, MN
+
+        Receiver -- MN, SN
+
+        Class -- Synchronous
+
+        Format::
+
+          +---------------+---------------+-----------+------+------------+-------------+
+          | Major Version | Minor Version | Node Type | UUID | IP Address | Port Number |
+          +---------------+---------------+-----------+------+------------+-------------+
+          10              14              18          20     36           40            42
+
+        Every client node must issue this request before any other request,
+        to identify itself.
+
+        Major Version and Minor Version must specify the protocol
+        versions, and each parameter is a 4-byte unsigned integer. In this version
+        Major Version must be '3', and Minor Version must be '0'.
+
+        Node Type is a 2-byte unsigned integer, and it must be one of these:
+
+          1 -- Master Node
+
+          2 -- Storage Node
+
+          3 -- Client Node
+
+        UUID is unique to each node, and this may be zero for CN,
+        because the UUID will not be used for any purpose. For MN, the UUID is
+        a cluster UUID but not a MN UUID. The difference is that a cluster UUID is
+        shared by all nodes joining the same cluster.
+
+        IP Address and Port Number are a listening address and a port to accept connections.
+        They must be zero for CN.
+
+      Accept Node Identification
+
+        Type -- 8004
+
+        Sender -- MN, SN
+
+        Receiver -- CN, SN, MN
+
+        Class -- Synchronous
+
+        Format::
+
+          +------------+------+
+          | Error Code | UUID |
+          +------------+------+
+          10           12     28
+
+        Accept a connection. This returns a cluster UUID which idenfies the cluster.
+
+      Get Database Information
+
+        Type -- 0005
+
+        Sender -- SN, CN
+
+        Receiver -- PMN
+
+        Class -- Synchronous
+
+        Format::
+
+          +
+          |
+          +
+          10
+
+        Request database information.
+
+      Return Database Information
+
+        Type -- 8005
+
+        Sender -- PMN
+
+        Receiver -- SN, CN
+
+        Class -- Synchronous
+
+        Format::
+
+          +------------+-----------------+--------------+--------------------------+
+          | Error Code | Version Support | Undo Support | Transaction Undo Support |
+          +------------+-----------------+--------------+--------------------------+
+          10           12                13             14                         15
+
+          +-----------+-------------+------+------------------+-----------+
+          | Read Only | Name Length | Name | Extension Length | Extension |
+          +-----------+-------------+------+------------------+-----------+
+          15          16            18     18+n               20+n        20+n+m
+
+        Version Support, Undo Support, Transaction Undo Support and Read Only are 1-byte
+        boolean parameters. They must be either 1 or 0.
+
+        Name Length and Extension Length are 2-byte unsigned integers, and they specify
+        the lengths of Name and Extension, respectively, including trailing NUL characters.
+
+        Name and Extension are human-readable, NUL-terminated strings.
+
+        In this version, Version Support, Undo Support and Transaction Undo Support must be
+        always 0, 1 and 1, respectively. Name must be "NEO" and Extension must be empty.
+
+      Get Transaction Information
+
+        Type -- 0006
+
+        Sender -- CN
+
+        Receiever -- PMN
+
+        Class -- Synchronous
+
+        Format::
+
+          +-----+-----+---+
+          | OID | TID | n |
+          +-----+-----+---+
+          10    18    26  30
+
+        Request transaction information. The first transaction is specified by TID.
+        If TID is INVALID_TID, the last transaction is selected. 'n' is a 4-byte
+        unsigned integer which requests the maximum number of transactions returned,
+        starting from TID or the last transaction. The positions of transactions are
+        defined in the descending order of transaction IDs, namely, a larger
+        transactions ID is earlier, excluding unfinished transactions.
+
+        If OID is not INVALID_OID, only transactions with which the object is
+        committed are selected. Otherwise, all transactions are used.
+
+      Return Transaction Information
+
+        Type -- 8006
+
+        Sender -- PMN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format::
+
+          +------------+---+-------+---+-------+-----+-------+------+
+          | Error Code | n | TID 1 | m | NID 1 | ... | NID m | .... |
+          +------------+---+-------+---+-------+-----+-------+------+
+          10           12  16      24  28      32    28+m*4  32+m*4
+
+        Return the number of transactions and storage nodes for the transactions.
+        'n' is a 4-byte unsigned integer, the number of transactions following
+        this parameter. The transaction IDs must be sorted in the descending order,
+        and each transaction information specifies 'm' which is a 4-byte unsigned
+        integer describing the number of storage nodes, and storage node IDs.
+
+      Request Undo
+
+        Type -- 0007
+
+        Sender -- CN
+
+        Receiver -- PMN, SN
+
+        Class -- Synchronous
+
+        Format::
+
+          +-----+
+          | TID |
+          +-----+
+          10    18
+
+        Request undoing a transaction. This must be performed within a transaction.
+        A client node is responsible for sending the same transaction ID to all
+        storage nodes.
+
+      Accept Undo
+
+        Type -- 8007
+
+        Sender -- PMN, SN
+
+        Receiever -- CN
+
+        Class -- Synchronous
+
+        Format::
+
+          +------------+
+          | Error Code |
+          +------------+
+          10           12
+
+        Return only if undo was successful or not.
+
+      Request New TID
+
+        Type -- 0008
+
+        Sender -- CN
+
+        Receiver -- PMN
+
+        Class -- Synchronous
+
+        Format::
+
+          +
+          |
+          +
+          10
+
+        Request a new transaction. This implies the beginning of a transaction.
+
+      Return New TID
+
+        Type -- 8008
+
+        Sender -- PMN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format::
+
+          +------------+-----+
+          | Error Code | TID |
+          +------------+-----+
+          10           12    20
+
+        Return a new transaction ID.
+
+      Request Confirmation For Transaction
+
+        Type -- 0009
+
+        Sender -- CN
+
+        Receiver -- PMN
+
+        Class -- Synchronous
+
+        Format::
+
+          +-----+---+-------+-----+-------+---+-------+----------+-----+-------+----------+
+          | TID | n | NID 1 | ... | NID n | m | OID 1 | Serial 1 | ... | OID m | Serial m |
+          +-----+---+-------+-----+-------+---+-------+----------+-----+-------+----------+
+          10    18  22      26    22+n*4      30+n*4  38+n*4     46+n*4                   30+n*4+m*16
+
+        Send information about a stored transaction. 'n' is a 4-byte unsigned integer which
+        specifies the number of storage nodes holding the transaction data. 'm' is another
+        4-byte unsigned integer which specifies the number of OIDs and Serial Numbers. Each
+        pair of an OID and a Serial Number are the objects which were modified. Note that
+        a Serial Number must be the previous Serial Number for a modified object, but not
+        the new Serial Number.
+
+      Confirm Transaction
+
+        Type -- 8009
+
+        Sender -- PMN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format::
+
+          +------------+
+          | Error Code |
+          +------------+
+          10           12
+
+        Return only if the request was successful.
+
+      Send Transaction Data
+
+        Type -- 000A
+
+        Sender -- CN
+
+        Receiver -- SN
+
+        Class -- Synchronous
+
+        Format::
+
+          +-----+-------------+------+--------------------+-------------+------------------+-----------+
+          | TID | User Length | User | Description Length | Description | Extension Length | Extension |
+          +-----+-------------+------+--------------------+-------------+------------------+-----------+
+          10    18           20      20+ul                22+ul         22+ul+dl           24+ul+dl    24+ul+dl+el
+
+          +---+-------+---------------+------------+----------+--------+----
+          | n | OID 1 | Compression 1 | Checksum 1 | Length 1 | Data 1 | ...
+          +---+-------+---------------+------------+----------+--------+----
+          x   x+4     x+12            x+13         x+17       x+25     x+25+l1
+
+        Send all the data in a transaction. User Length, Description Length and Extension Length
+        are 2-byte unsigned integers, and the lengths of User, Description and Extension, respectively,
+        including trailing NUL characters. User, Descrption and Extension are NUL-terminated strings.
+
+        Following Extension, the 4-byte unsigned integer 'n' specifies the number of objects in this
+        transaction. Each object is described with an OID, a compression algorithm, a Adler-32 checksum,
+        the length of data, and data. The compression algorithm is a 1-byte unsigned integer. Currently,
+        these values are defined:
+
+          0 -- No Compression
+
+          1 -- zlib's Compression
+
+        All other values are undefined.
+
+        The checksum is based on Adler-32, which is implemented in zlib. The checksum must be computed
+        after a compression is applied, if any. The 8-byte unsigned integer, Length, defines the length
+        of data. Data is raw object data, and it must be treated as opaque data for storage nodes.
+
+      Accept Transaction Data
+
+        Type -- 800A
+
+        Sender -- SN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format::
+
+          +------------+
+          | Error Code |
+          +------------+
+          10           12
+
+        Return only if the request was successful.
+
+      FIXME: more message types must be defined.
+      FIXME: the message types should be renumbered for clarity.
+
 
   Notes
 
@@ -524,3 +1016,8 @@ Nexedi Enterprise Objects (NEO) Specification
     for only updated data. This is not difficult, because Data.fs is a pending-only structure.
     Another way is to make a replicated storage node distantly, which is not used for reading
     data by client nodes.
+
+    Undo is hard. If a storage node is down, undo is not performed to that storage node.
+    If the storage node is reconnected, the storage node believes that the undone transaction
+    is still effective. To solve this problem, it is necessary to record what have been undone,
+    and replay the undo when reconnecting.
