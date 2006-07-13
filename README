@@ -1,1 +1,8 @@
 Nexedi Enterprise Objects
+
+  This implementation is based on the protocol version 2,
+  which is documented in doc/protocol.txt.
+
+  NEO must be rewritten based on the protocol version 3.0,
+  which is being documented in doc/spec.stx. The specification
+  is being worked on, and requires more effort to finish.
