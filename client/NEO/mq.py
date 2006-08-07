@@ -201,6 +201,8 @@ class MQ:
     self._data[id] = data
     self._size += len(value) # XXX inaccurate
     
+    self._time += 1
+
     # Expire old elements.
     for level in range(self._buffer_levels):
       cache_buffer = self._cache_buffers[level]
