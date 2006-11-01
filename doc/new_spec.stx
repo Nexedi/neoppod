@@ -19,7 +19,7 @@ Nexedi Enterprise Objects (NEO) Specification
 
     For now, this specification corresponds to ZODB version 3.2, which is bundled with Zope version 2.7.
 
-    This documents how NEO works from the protocol level to the software level. This specification is version 3.0, last updated at 2006-10-29.
+    This documents how NEO works from the protocol level to the software level. This specification is version 3.0, last updated at 2006-11-01.
 
 
   Components
@@ -27,15 +27,15 @@ Nexedi Enterprise Objects (NEO) Specification
     Overview
       NEO consists of three components: master nodes, storage nodes and client nodes. Here, node means a software component which runs on a computer. These nodes can run in the same computer or different computers in a network. A node communicates with another node via the TCP protocol.
 
-      Master nodes are responsible for coordinating the whole system. They manage information on NEO nodes, keep track of their states in order to implement the semantics of ZODB transactions. At a time, only a single master node is current, the other nodes are secondary.
+      Master nodes hold the information about the system. They manage central information on NEO nodes and their states; every node addition or failure is registered in the master and resent to other nodes by the master. At a time, only a single master node is current, other nodes are secondary.
 
-      Storage nodes maintain raw data. They store data committed by each transaction, and hold redundant copies of ZODB objects.
+      Storage nodes maintain raw data. They store data committed by each transaction, and hold redundant copies of ZODB objects. They are grouped into clusters of replicas. In each storage nodes cluster one node is distinguished as a primary which implements the semantics of ZODB transactions and assures data consistency within the cluster.
 
       Client nodes are usually Zope servers, and clients from the viewpoint of NEO. They interact with current master node and storage nodes to perform transactions and retrieve data.
 
 
     Master Node
-      Master node is the coordinating server of NEO. It works in a cluster of master nodes among which only one has the role of primary master node, other are replicas that take over the role of the primary master node in case of failure.
+      Master node is the server of system information of NEO. It works in a cluster of master nodes among which only one has the role of primary master node, other are replicas that take over the role of the primary master node in case of failure.
 
       The main functions of master node can be summarized as:
 
@@ -45,20 +45,20 @@ Nexedi Enterprise Objects (NEO) Specification
 
 	- storing information about transactions
 
-	- keeping track of storage nodes' states,
+	- generating new transactions id
 
-	- transactions management
+	- generating new objects id
 
-	- invalidating clients' cache
-
-      Configuration
-	A master node that is started as the first in the system becomes automatically primary. Each following master connects to the existing primary on start and replicates some of its data in order to be ready to take over its role in case of failure. During the replication the primary master should be locked for writing, that is no transactions can be voted or finished, storage or master nodes states' verifications are halted. All this to ensure the consistency of data among master nodes. In order to keep this locking relatively short not all data is replicated.
+      Node start
+        Master nodes have a defined sorting order. The sorting algorithm is defined by comparing the listening IP addresses and the listening port numbers. Each IP address is converted into the network byte order. If two nodes have different IP addresses, the node with the lower IP address is smaller. If two nodes have the same IP address but different port numbers, the node with the lower port number is smaller.
+	Starting application starts master nodes supplied in the configuration data sequentially until the first one is started successfully. The first started master node is the primary. Each following master nodes have the address of the running primary supplied on the start. Secondary masters connect to the primary and replicate some of its data in order to be ready to take over its role in case of failure. During the replication the primary master is locked for writing, that is no information change about the nodes is performed. This is neccessary to ensure the consistency of data among master nodes.
+	*TODO* replication specification
 
       Replicas
 	Replicas maintain copies of the master database but only the primary master initiates read and write operations. Each update is sent to all replicas. Read is performed by the primary alone.
 	Keeping track of the state of master nodes is done by constant sending hanshake messages among the primary and the rest of nodes in the cluster. It allows for both detecting a node failure by the primary and detecting the primary failure by others.
-	In case of a primary master failure a new primary is elected. New primary sends the information about the election to all clients in the system. This information allows the clients to decide whether their transaction is in jeopardy and whether it should be aborted due to the primary failure. New primary performs the abort operation of running transactions independently of clients (as they may fail as well and not call the abort operation while holding the lock) - the master unlocks locked objects and sends abort informations to corresponding storage nodes.
-	In case of a replica failure or an addition of a new one a notification is sent to each of the master replicas.
+	In case of a primary master failure a new primary is elected. New primary sends the information about the election to all clients and storage nodes in the system.
+	In case of a replica failure or addition of a new one a notification is sent to each of the master replicas.
 
       Database
 	Masters keep simple databases for storing the following information:
@@ -69,84 +69,93 @@ Nexedi Enterprise Objects (NEO) Specification
 
 	  - master nodes information
 
-	  - transactions information - a table mapping data object to transactions, holding the information on the lock of an object
-
 	The data that is stored in memory before being commited to the database and sent to masters is:
 
 	  - last transaction id
 
-	  - storage nodes not replying to hanshakes (see description below)
+	  - last generated object id
 
       Primary node election
-	On primary master node fail a new one is selected among the other nodes in the cluster. Each of the replicas has an unique id of a sortable type as well as a list of other master nodes. This allows a master to decide whether it should take over the role of primary. Other replicas redirect their handshakes to the new master. Newly elected primary sends notifications to all clients, storages and masters in the system about the change. Uncommited transactions are then aborted. Storages that are performing a replication should restart the replication process (see description below).
-	As masters are not informed about new transactions that have started on the primary, in order to ensure transaction ids uniqueness the id of primary master that issues the transaction id should be incorporated in the transaction id.
+	On primary node fail a new one is selected among the other nodes in the cluster. The cluster nodes can be sorted according to their IP address and port number as described above. The node that comes as a first in this sorting order takes over the role of primary in the cluster. Other replicas after a certain lease period, during which all the nodes should detect the primary node failure, redirect their handshakes to the new primary. Newly elected primary sends notifications to all clients and storages in the system about the change.
+	*TODO* precise election algorithm
+	In order to ensure transactions id uniqueness the new primary master queries all client nodes about the last transaction performed. Following transaction numbers are issued in the ascending order.
 
       Storage nodes communication
-	Similar to the system of tracking master nodes' states is the way of keeping contact with the storage nodes. Primary master sends constant hanshake messages to all storages. If a storage node does not reply, it is considered to be idle and a notification is sent to clients. When a node wakes up again or is recovered it must first check the consistency of data against other nodes in the cluster (as it is described below). Nodes that don't reply to handshakes after a given lease period are considered to be dead. The data on this storage node is updated in the database, the handshaking with the node is no longer performed.
+	With each change in the states of storage nodes, the primary master is notified - either by a client or by a primary storage - then a proper change is introduced in the database and sent to all clients. Storage nodes maintain information on their cluster within it as they communicate within the cluster (described below).
 
       Clients nodes tracking
-	To reduce the number of handshakes clients nodes failures are not detected. Later we may think of a system of filtering the list of dead clients in order to reduce the invalidation messages sent to clients on each write operation.
+	Clients nodes failures are detected by storage nodes or by other clients. Similarly, master is informed, it updates the database and sends the information to all clients and storage nodes. For the safety, all storage nodes keep the list of all clients and reply to requests only from the known clients. If a request is received from an unknown client, a special error code is returned and a clients needs to ask the master to insert it again on the clients list. This is to avoid a situation where a client is down for a while, it is reported to be down and then it wakes up again. It is important that the clients list stays consistent for maintaining the cache invalidations among clients.
 
 
     Storage Node
-      The main role of storage nodes is storing the raw data. Storage nodes are groupped in clusters of replicas.
+      The main role of storage nodes is storing the raw data and ZODB transaction implementation. Storage nodes are grouped in clusters of replicas similar to master nodes cluster. Within each cluster one of the nodes is the primary that initiates write operations on all nodes in the cluster. The write operations are resent through the primary to the cluster nodes in order to ensure the data consistency within the cluster.
+      In case of primary failure one of the replicas takes over the role of the primary. The same mechanism of handshaking as in the master nodes cluster is implemented for the storage nodes. A constant hanshake messages among the primary and the rest of nodes in the cluster allows for both detecting a node failure by the primary and detecting the primary failure by others. In case of a primary master failure a new primary is elected (see primary node election in the master nodes description). New primary sends the information about the election to the master who resends it to all the clients in the system.
 
-      Configuration
-	Storage node connects to the primary master node on the start. On the first connection the primary assignes it to a cluster by sending him an id. Then, in order to replicate the data of its cluster, the storage node should send a request to the primary to lock the objects in this cluster for writing. Because there is no system of queue on a lock in NEO, the storage node iteratively sends the request until a lock is obtained. With obtaining the lock the list of storage nodes in the cluster is sent, the new node connects direcly to one of replicas and makes a copy of the data.
-	If a storage node is a first in its cluster no copy of the data is done.
-	During the replication the objects stored in the cluster are locked on the master. This prevent a situation when a client sends updates to the incomplete cluster not knowing that a new node has been added. This would make the data within the cluster inconsistent.
-	After the replication, the storage node is ready to be a part of the cluster, it sends a confirmation to the master who puts it on the storages list, updates its database, sends an update information to other masters and clients and unlocks the cluster objects.
-	Another mode of starting a storage is recovery, that is after a fail, a node can be restarted manually as a member of the previous cluster. Another possibility is that the connection between a storage and master can be broken for some time so that the storage does not reply to handshakes. In both cases the storage data consistency check is performed:
+      Node start
+	Storage node connects to the primary master node on the start. On the first connection the primary assignes it to a cluster and sends the list of the nodes in the cluster. Then, in order to replicate the data of its cluster, the storage node sends a request to the primary storage in the cluster to lock the objects in this cluster for writing. Because there is no system of queue on a lock in NEO, the storage node iteratively sends the request until a lock is obtained. With obtaining the lock the data is replicated from the primary.
+	If a storage node is a first in its cluster no copy of the data is done and it becomes a primary.
+	During the replication the objects stored in the cluster are locked for writing on the primary storage of the cluster to avoid the data inconsistency within the cluster.
+	After a successful replication, the storage node is ready to be a part of the cluster, it sends a confirmation to the master. The primary master updates the storages list in its database, sends an update information to other masters and clients. The primary storage unlocks the cluster objects. The primary storage sends the information on a new storage node to all other nodes in its cluster.
+	Another mode of starting a storage is recovery, that is after a fail, a node can be restarted manually as a member of the previous cluster. One more possibility is that the connection between a storage and primary storage is broken for some time so that the storage does not reply to handshakes. In both cases the storage data consistency check is performed:
 
 	  - if there are already nodes in the clusters, the storage should ask for a lock and refresh its data against one of the nodes in its cluster
 
-	  - if there are no working nodes in the cluster and the latest transaction on the recovered node is not consistent with the master transactions register, several undos are performed till the consistency is achieved, that is the master actualises its data according to the storage and informs clients to invalidate those data in their caches
+	  - if there are no working nodes in the cluster the node becomes primary of its cluster with the current state of its data
 
-	In the second case some data might be lost, due to whole storage cluster fail.
+	In the second case in this case we cannot assure that the latest transaction data is recovered as the whole storage cluster failed.
 
-	During both data consistency check and storage node replication all cluster objects are locked for writing. Since in NEO no kind of queue for locking exists the new or recovered storage node iteratively sends requests for locking the cluster to the master until the objects of the cluster are not locked. Then the master locks those objects for writing (but keeps them cachable) and unlocks after the replication or check finish.
+	During both data consistency check and storage node replication the cluster is locked for writing. Since in NEO no kind of queue for locking exists the new or recovered storage node iteratively sends requests for locking the cluster to the primary storage until the objects of the cluster are not locked. Then the primary locks the cluster for writing (but keeps the objects cachable) and unlocks after the replication or check is finished.
+	*TODO* replcation description
 
       Failures
-	Master keeps track of the states of storage nodes by constant hanshakes. On the first hanshake failure the connection to the node is considered to be temporarily out of reach. Clients are notified not ot send updates to this node. If the communication is not reestablished after several handshakes the storage node is considered to be broken. If the communication is reestablished the node is requested to make a consistency check as described above.
+	Storage nodes in a cluster keep track of the states of each other in a similar manner as master nodes cluster, that is by constant hanshakes. Primary storage sends constant hanshake messages to all storages in its cluster. On the first hanshake failure the connection to the node is considered to be temporarily out of reach. No updates are sent to this node. If the communication is not reestablished after some time, the storage node is considered to be broken. If the communication is reestablished the node is requested to make a consistency check as described above. Nodes that don't reply to handshakes after a given lease period are considered to be dead. The information is sent to the master, the handshaking with the node is no longer performed.
+	On the other hand, a lack of handshakes from the primary incites a new primary election (as described in the primary master election). Once there is a new primary it sends an update to primary master that resends it to clients. The information on the change of primary storage allows the clients to decide whether their transaction is in jeopardy and whether it should be aborted due to the failure. New primary performs the abort operation of running transactions independently of clients (as they may fail as well and not call the abort operation while holding the lock) it compares the latest transactions among the storage nodes in the cluster and removes the ones that are not committed on all nodes. Any uncachable objects are marked as cachable again. An information that is not replicated on all nodes must be a transaction that was being comitted during the failure. In case an unfinished transaction was nevertheless replicated on all nodes the client performing a transaction sends an abort message to the cluster where the failure occurred.
+
+      Client transactions
+	In order to prevent a situation where a client holding a lock fails, primary storage nodes performs constant handshakes with the clients that have started transactions on the cluster. If a client node failure is detected, its transaction is aborted, data unlocked and the master is notified.
 
       Garbage collection
 	An extra feature that might be elaborated later is a background process in clusters that would remove part of the history of an object is the disc space is limited.
 
 
     Client Node
-      Client nodes connect both to the primary master and to storage nodes. Master node is contacted during the transaction operations, storage nodes are used for querying and updating data. Client nodes maintain a local cache for both storage nodes information and recently accessed data.
+      Client nodes connect both to the primary master, to storage nodes and other clients. Master node is contacted during the change of nodes states in the system, storage nodes are used for querying and updating data. Client nodes maintain a local cache for both storage nodes information and recently accessed data. They inform other clients nodes on the modified cache data invalidation.
 
       Configuration
-	On start a client node connects to master to retrieves the list of storage nodes. On each change on the storage nodes list all clients are informed by the master.
+	On the start a client node connects to the primary master to retrieve the list of storage nodes and clients. On each change on the storage or clients nodes list all clients are informed by the master.
 
       Data accessing
-	Data is regrouped on the storage nodes. There is a mapping function that allows to identify the cluster where an object is stored according to an object's id. The history of an object is therefore stored within one cluster of storage nodes and a client doesn't need to contact master in order to retrieve the list storages where the data is placed.
+	Data is regrouped on the storage nodes. There is a mapping function that allows to identify the cluster where an object is stored according to an object's id. The history of an object is therefore stored within one cluster of storage nodes and a client does not need to contact master in order to retrieve the list storages where the data is placed.
 	According to the load of certain clusters, a new object id is generated in such a way that it would be placed on a less loades cluster. This is an extra feature that can be elaborated later.
-
+	*TODO* precise the object id->cluster mapping
+	Data write operation is always performed through the primary storage of a cluster whereas the reading can be done on any storage node.
 
     Transactions
-      Transactions' design take into account not only the concurrent data manipulation issues but the effects of independent machine failures on locks as well.
+      Transactions' design take into account not only the concurrent data manipulation issues but the effects of independent machine failures on uncomitted transactions as well.
 
       Overview
-	Multiple transaction can run at the same time. On the transaction vote the transaction objects are locked. The lock is released on commit or abort.
+	Multiple transactions can run at the same time. On the transaction vote the transaction objects are locked. The lock is released on commit or abort.
 	Transaction outline:
 
 	  1. Client calls tpc_begin on the primary master. The master generates new transaction id and sends it back to the client.
 
-	  2. Client modifies data locally and calls tpc_vote on the master passing metadata of all modified objects. Master checks whether the modifications are performed on latest versions of objects and whether they are not locked by some other transaction. In any of the cases voting fails and the client must restart the transaction as the data it has been operating on is no longer consistent. If the transaction objects are up to date, master locks the objects for writing in its database and sends the information to storage nodes to mark them as "uncachable". The uncachable state of an object allows clients to keep on reading the data even though the transaction is not finished. When the client receives the confirmation from the master it sends all updates to storage nodes.
-	  Note: Such implementation of tpc_vote brings a risk of starving a client who wants to write but fails to win the race to lock on tpc_vote. However this solution is safe and should work in case of objects on which a concurrent writing is not often performed. If the starving problem becomes important we should consider an algorithm of decision making as e.g. timestamp concurrency control.
+	  2. Client modifies data locally and calls tpc_vote. This is sent to all storage clusters whose data has been changed in this transaction. Clients send tpc_vote to primary storages along with the transaction id and ids of modified objects. Primary master checks whether modifications are performed on the latest versions of objects and whether they are not locked by some other transaction. In any of the cases voting fails and the client must first abort the transaction on other storage clusters where tpc_vote has already been sent and then restart the transaction as the data it has been operating on is not up to date. If the transaction objects are up to date and unlocked, primary storage locks the objects for writing and marks them as "uncachable" on all storage nodes in the cluster. The uncachable state of an object allows clients to keep on reading the data even though the transaction is not finished. When the client receives the confirmation from all primary storages it can start to commit the data.
+	  Once the client has calles tpc_vote on primary storages, constant handshakes are performed between primary storages and the client. In case of a client failure during a transaction, the transaction is aborted in the cluster and the master node is notified.
+	  Note: Such implementation of tpc_vote brings a risk of starving a client who wants to write but fails to vote at the moment when the transaction objects are unlocked. However this solution is safe and should work in case of objects on which a concurrent writing is not often performed. If the starving problem becomes important we should consider an algorithm of decision making as e.g. timestamp concurrency control.
 
-	  3a. Client calls tpc_finish. Master checks for the consistency of data on storage nodes. When the update has not reached some of the storage nodes an error value is returned to the client and undo to the updated storage nodes. If the update was correct, the master sends invalidation messagess to all clients to remove modified data from their cache. The storages are informed to mark objects as cachable again. Once this is done the transaction is finished, stored in the master database and a confirmation is sent to the client.
+	  3. Client sends the data to primary storages. The primaries write the data in their databases.
 
-	  3b. Client calls tpc_abort instead of tpc_finish. The master unlocks locked objects and sends undo messages to storage nodes. Storage nodes on undo mark the objects as cachable again.
+	  3a. Client calls tpc_finish on each of the primary storages. The primaries sends updates to all the nodes in the cluster, unlocks the transaction objects and marks them as cachable again. The client sends invalidation messagess to all clients to remove modified data from their cache.
+
+	  3b. Client calls tpc_abort instead of tpc_finish. The primary storage removes the update from the database, unlocks locked objects and marks them as cachable again.
 
 
       Failures
-	An error that is dangerous for the system functioning is a fail of a client holding a lock. To avoid the effects of such a fail, the master should keep track of the clients holding locks by constant handshakes. In case a client does not respond to a handshake the transaction is cancelled, master unlocks the objects and sends invalidations to storage nodes.
-	Many master failures problems should be avoided using the system of master replications and new primary election.
+	An error that is dangerous for the system functioning is a fail of a client performing a transaction. To avoid the effects of such a fail, each primary storage should keep track of the clients holding locks on it by constant handshakes. In case a client does not respond to a handshake the transaction is cancelled, primary storage unlocks the objects and removes any changes performed during this transaction.
+	Many nodes failures effects should be minimized by the replications and new primary election.
 
       Error Cases
-	In the following cases, abbreviations are used for simplicity: "CN" for a client node, "PMN" for a "Primary" master node, "SMN" for a "Secondary" master node, and "SN" for a storage node.
+	In the following cases, abbreviations are used for simplicity: "CN" for a client node, "PMN" for a "Primary" master node, "SMN" for a "Secondary" master node, and "PSN" for a primary storage node, "SN" for a storage node that is not primary.
 
 	1. CN calls tpc_begin, then PMN does not reply
 	   As soon as a new master is elected the CN should call tpc_begin once more on it.
@@ -154,25 +163,26 @@ Nexedi Enterprise Objects (NEO) Specification
 	2. PMN replies to tpc_begin, but CN does not go ahead
           This causes no problems as on tpc_begin only a new transaction id is generated. On tpc_begin no locking is done, but the new transaction id necessary for data consistence verification on tpc_vote.
 
-	3. CN calls tpc_vote, but SN does not reply or is buggy
-	  CN must not report it to PMN as the PMN keeps the track of SNs through handshakes. A case when all SNs in a cluster fail is described below.
+	3. CN calls tpc_vote, but PSN does not reply or is buggy
+	  CN sends the abort call to any PSNs where the tpc_vote was already called. It should wait a certain "lease period" during which a new PSN should be established in the cluster and restart the transaction again.
+	*TODO* think of the system of informing the master on the storage cluster fail
 
-        4. CN calls tpc_vote but PMN does not reply
-	  Since the client node is not sure what changes or locking has been done by the primary before its fail it should call tpc_abort on the newly selected master and repeat the whole transaction.
+        4. CN sends updates but the PSN does not reply
+	  Since the client node is not sure what changes or locking has been done by the primary before its fail it should call tpc_abort on all the PSNs where the transaction was started wait a certain "lease period" during which a new PSN should be established in the cluster and restart the transaction again.
 
-	5. PMN replies to tpc_vote, but CN does not go ahead
-          This situation is detected by constant hanshakes with clients holding locks. When a client failure is detected the master aborts his transaction, that is unlocks the data, send undo messages to SNs.
+	5. SMN replies to tpc_vote, but CN does not go ahead
+          This situation is detected by constant hanshakes with clients holding locks. When a client failure is detected the PSNs abort his transaction, that is unlock the data, mark it as cachable on storage nodes.
 
-	6. CN calls tpc_finish, but PMN does not reply
-	  As in the case of master fail on tpc_vote, the client does not know what updates or unlocking has been done by the master before its fail. Therefore it should call tpc_abort on the newly selected master and repeat the whole transaction.
+	6. CN calls tpc_finish, but PSN does not reply
+	  As in the case of tpc_vote or data updates, the client does not know what updates or unlocking has been done by the primary before its fail. Therefore it should call tpc_abort on all transaction PSNs the and repeat the whole transaction.
 
-	7. PMN asks SN to finish a transaction, but SN does not reply; data consistency check on SNs fails
-	  PNM sends an error message to CN and the transaction is aborted.
+	7. CN asks another CN to invalidate cache, but it is down
+	  PMN is notified, it resends the information to other nodes in the system. All transactions of this client are aborted.
 
-	8. PMN asks CN to invalidate cache, but CN is down
-	  PMN does not keep track of the clients state. At some point we should add a process verifying the accessibility of clients and updating the clients list.
+	8. CN receives an error code saying that it is an unknowned CN
+	  It is an information that the node was down for some time and it was reported to be dead. It must clear all its cache and call the PMN to register him as a new CN.
 
-	9. CN or PMN may ask data when a transaction is in an intermediate state
+	9. CN may ask data when a transaction is in an intermediate state
 	  The transaction objects are marked as uncachable on storage nodes.
 
       Critical Error Cases
@@ -180,10 +190,7 @@ Nexedi Enterprise Objects (NEO) Specification
 	  A new master should be started manually. Clients when detected the failure of primary should wait a limited amout of time for a new master to appear, after that time they should cancel their transactions and clear cache.
 
 	2. All SN in a cluster fail
-	  This should be discussed in more details later. I described above a scenario of restarting a storage node from a cluster that failed. This however prevents the client from the writing the data to NEO until one of SNs of the cluster is ready. In order to prevent the blocking of the client I see two options:
-	  - master reassigns a SN from a cluster that is not locked to the failed cluster
-	  - client deals with it - it restarts its transaction and treats the modified objects as newly created, that is asks the master for new ids and saves them in clusters to which the ids are mapped
-	  In both cases we assume that the history of an object cannot be recovered.
+	  *TODO*
 
 	3. Error on start of a node
 	  When there is a connection failure to the master right after the SN or CN start then the started node should finish with an error.
@@ -195,11 +202,64 @@ Nexedi Enterprise Objects (NEO) Specification
       Master->Client
 
 	new_primary(address)
-	storages_list(storages)
-	storage_add(sid, address)
-	storage_remove(sid)
+	nodes_list(nodes)
+	node_add(id, address, storage)
+	node_remove(id)
 
 	new_transaction_id(tid)
+	new_object_id(oid)
+	new_node_id(id)
+
+      Master->Storage
+
+	new_primary(address)
+	new_node_id(id)
+
+      Primary Master->Master
+
+	new_primary(id, address)
+	handshake()
+	database_update(data)
+
+	replication_data(data)
+	new_master_added(id, address)
+
+      Master->Primary Master
+
+	handshake()
+	new_master(address)
+	get_replication_data() - locks the primary for writing
+
+      Client->Master:
+
+	new_client(address)
+	get_new_object_id(cid)
+	tpc_begin(cid)
+	client_fail(id)
+
+      Storage->Master
+
+	new_storage(address)
+
+      Primary Storage->Master
+	storage_fail(id)
+	client_fail(id)
+
+      Client->Storage
+
+	read(cid, oid)
+	tpc_vote(tid, oids)
+	write(oid, data)
+	tpc_abort(tid)
+	tpc_finish(tid)
+	hanshake_reply()
+
+	undo(tids)
+
+      Storage->Client
+
+	data(oid, data, cachable)
+	write_ok()
 	vote_ok()
 	vote_fail()
 	abort_ok()
@@ -207,59 +267,27 @@ Nexedi Enterprise Objects (NEO) Specification
 	finish_fail()	
 	handshake()
 
-	invalidate_cache(oids)
-	new_object_id(oid)
-
-      Master->Storage
-
-	new_primary(address)
-	handshake()
-
-	replicate(sid)
-	cluster_locked(cluster_nodes_addresses)
-
-	set_cachable(oids, cachable)
-	undo(tids)
-	get_last_transaction(oids) - for update consistency check
-
-      Master->Master
-
-	new_primary(id, address)
-	handshake()
-	database_update(data)
-
-	new_master(address)
-	get_replication_data() - locks the primary for writing
-	replication_data(data)
-	new_master_added(id, address)
-
-      Client->Master:
-
-	new_client(address)
-	get_new_object_id()
-	tpc_begin()
-	tpc_vote(tid, oids)
-	tpc_abort(tid)
-	tpc_finish(tid)
-	hanshake_reply()
-
-      Storage->Master
-
-	new_storage(address)
-	handshake_reply()
-	last_transaction(oid_tid_list) - on update consistency check
-
-      Client->Storage
-
-	read(oid)
-	write(oid, data)
-
-      Storage->Client
-
-	data(oid, data, cachable)
-	write_ok()
-
       Storage->Storage
 
-	get_replication_data(data_scope)
+	get_last_transactions() - on replication consistency check after fail
+	last_transactions(tids)
+
+      Primary Storage->Storage
+
+	handshake()
+	cluster_lock_ok()
 	replication_data(data)
+	new_storage(id, address)
+	set_cacheble(oids, cachable)
+
+      Storage->Primary Storage
+
+	handshake()
+	lock_cluster()
+	get_replication_data()
+
+      Client->Client
+	invalidate_cache(oids)
+
+  Protocol
+*TODO*
