@@ -176,7 +176,7 @@ Nexedi Enterprise Objects (NEO) Specification
 	Many nodes failures effects should be minimized by the replications and new primary election.
 
       Error Cases
-	In the following cases, abbreviations are used for simplicity: "CN" for a client node, "PMN" for a "Primary" master node, "SMN" for a "Secondary" master node, and "PSN" for a primary storage node, "SN" for a storage node that is not primary.
+	In the following cases, abbreviations are used for simplicity: "CN" for a client node, "PMN" for a primary master node, "MN" for a secondary master node, and "PSN" for a primary storage node, "SN" for a storage node that is not primary.
 
 	1. CN calls tpc_begin, then PMN does not reply
 	   As soon as a new master is elected the CN should call tpc_begin once more on it.
@@ -185,40 +185,50 @@ Nexedi Enterprise Objects (NEO) Specification
           This causes no problems as on tpc_begin only a new transaction id is generated. On tpc_begin no locking is done, but the new transaction id necessary for data consistence verification on tpc_vote.
 
 	3. CN calls tpc_vote, but PSN does not reply or is buggy
-	  CN sends the abort call to any PSNs where the tpc_vote was already called. It should wait a certain "lease period" during which a new PSN should be established in the cluster and restart the transaction again.
-	*TODO* think of the system of informing the master on the storage cluster fail
+	  CN sends the abort call to any PSNs where the tpc_vote was already called. It informs primary master on a node failure. Primary master tries to connect to the node itself. This is to prevent a situation when an information on a node "wake-up" reaches the master before the failure notice and the node is considered to be down even though it has recovered since. CN waits a certain lease period during which a new PSN should be established in the cluster. Then CN restarts the transaction again.
 
-        4. CN sends updates but the PSN does not reply
-	  Since the client node is not sure what changes or locking has been done by the primary before its fail it should call tpc_abort on all the PSNs where the transaction was started wait a certain "lease period" during which a new PSN should be established in the cluster and restart the transaction again.
+        4. CN sends transaction data but the PSN does not reply
+	  Since the client node is not sure what changes have been done by the primary before its fail it calls tpc_abort on all the PSNs where the transaction was started, informs the PMN (as in the previous point), waits a certain "lease period" during which a new PSN should be established in the cluster and restarts the transaction again.
 
-	5. SMN replies to tpc_vote, but CN does not go ahead
-          This situation is detected by constant hanshakes with clients holding locks. When a client failure is detected the PSNs abort his transaction, that is unlock the data, mark it as cachable on storage nodes.
+	5. PSN replies to tpc_vote, but CN does not go ahead
+          This situation is detected by constant hanshakes with clients holding locks. When a client failure is detected the PSNs abort his transaction, that is unlock the data, mark it as cachable on storage nodes. A failure information is sent to the PMN, PMN resends the information to all nodes in the system.
 
 	6. CN calls tpc_finish, but PSN does not reply
-	  As in the case of tpc_vote or data updates, the client does not know what updates or unlocking has been done by the primary before its fail. Therefore it should call tpc_abort on all transaction PSNs the and repeat the whole transaction.
+	  As in the case of tpc_vote or data updates, the client does not know what updates or unlocking has been done by the primary before its fail. Therefore it calls tpc_abort on all transaction PSNs, informs the PMN (as in point 3), waits a lease period and repeats the whole transaction. Similarly a PSN receiving a notice of a CN failure aborts this client's transaction in its cluster. Even though client's failure would be detected by handshakes later.
 
-	7. CN asks another CN to invalidate cache, but it is down
+	7. CN sends a cache invalidation call to another CN that does not reply
 	  PMN is notified, it resends the information to other nodes in the system. All transactions of this client are aborted.
 
 	8. CN receives an error code saying that it is an unknowned CN
 	  It is an information that the node was down for some time and it was reported to be dead. It must clear all its cache and call the PMN to register him as a new CN.
 
 	9. CN may ask data when a transaction is in an intermediate state
-	  The transaction objects are marked as uncachable on storage nodes.
+	  The transaction objects are marked as uncachable on storage nodes. CN receives the data but does not store them in the cache.
+
+	10. CN reads from a SN but it does not reply
+	  CN reads from another SN in the cluster. If the SN is down then this situation will be detected by the PSN in the cluster and reported to the PMN.
+
+	11. PSN receives a handshake from a SN that was considered to be dead
+	  PMS returns an error message to the SN, the SN performs a data consistency check against the PSN and then informs the PMN on an addition of a new SN.
+
+	12. SN receives a call from an unknown client
+	  This indicates that a client was considered to be down by the system. SN returns an error message to the CN the CN clears the cache and contacts the PMN to register it as a client in the system again.
+
 
       Critical Error Cases
 	1. All masters fail
-	  A new master should be started manually. Clients when detected the failure of primary should wait a limited amout of time for a new master to appear, after that time they should cancel their transactions and clear cache.
+	  A new master should be started manually. Clients on PMN failure detection wait a lease period of time for a new master to appear. If nevertheless the no PMN shows up, CNs continue but no transaction can be started.
 
 	2. All SN in a cluster fail
-	  *TODO*
+	  The data of the cluster is no longer available, nor can it be consistent after the cluster restart. All clients remove it from their cache. No write or read of the data can be performed. After a restart of one of the nodes of the cluster, the PMN registers it as the PSN of the cluster. All nodes of this cluster that are restarted later are Secondary SNs of the cluster and make the data consistency check against the PSN.
 
 	3. Error on start of a node
-	  When there is a connection failure to the master right after the SN or CN start then the started node should finish with an error.
+	  When there is a connection failure to the master right after the SN or CN start then the started node exits with an error.
 
 
-    Messages
-      Instead of a protocol specification in this version of the document only a messages listing is given. This can be a measure of how complex the protocol should be. For conviniency: oid identifies object, sid - storage node, tid - transaction.
+  Messages
+  *TODO* this will be removed as the protocol is developped
+    For conviniency: oid identifies object, sid - storage node, tid - transaction.
 
       Master->Client
 
@@ -311,4 +321,33 @@ Nexedi Enterprise Objects (NEO) Specification
 	invalidate_cache(oids)
 
   Protocol
-*TODO*
+
+    Format
+
+      NEO sends messages among cluster nodes via TCP connections. Each message has the following header:
+
+        +----+------+--------+----------+----
+        | ID | Type | Length | Reserved | ...
+        +----+------+--------+----------+----
+        0    2      4        8          10
+
+      ID -- 2-byte unsigned integer which distinguishes a message.
+
+      Type -- 2-byte unsigned integer which specifies a message type.
+
+      Length -- 4-byte unsigned integer which specifies the length of this
+                message, including the header.
+
+      Reserved -- 2-byte unsigned integer for future expansion. This must be
+                  set to zero in this version.
+
+      When a message requires a reply, the ID of the reply message must be identical with the ID of the original request message. In addition, the type of a reply must be identical with the type of a request with the 15th bit set.
+
+      Most messages add additional data into packets, followed by the header. The Length field of a header specifies the size of a message in bytes, including the header itself. Thus a receiver of a packet previse the size before reading the whole packet.
+
+      All integer values in packets are always encoded in the network byte order for portability.
+
+      When the number of parameters or the size of a parameter is variable, the number is specified before the parameters.
+
+    Message Classes
+    *TODO*
