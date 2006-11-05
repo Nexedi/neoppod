@@ -145,7 +145,7 @@ Nexedi Enterprise Objects (NEO) Specification
       Data accessing
 	Data is regrouped on the storage nodes. There is a mapping function that allows to identify the cluster where an object is stored according to an object's id. The history of an object is therefore stored within one cluster of storage nodes and a client does not need to contact other nodes to localise the data.
 	According to the load of certain clusters, a new object id is generated in such a way that it would be placed on a less loades cluster. This is an extra feature that can be elaborated later.
-	*TODO* precise the object id->cluster mapping
+	The number of storge clusters in the system is defined. Each object can be localised among te storage clusters according to its ID by a hashing function OID % number of clusters.
 	Data write operation is always performed through the primary storage of a cluster whereas the reading can be done on any storage node in the cluster.
 
       Cache
@@ -225,101 +225,6 @@ Nexedi Enterprise Objects (NEO) Specification
 	3. Error on start of a node
 	  When there is a connection failure to the master right after the SN or CN start then the started node exits with an error.
 
-
-  Messages
-  *TODO* this will be removed as the protocol is developped
-    For conviniency: oid identifies object, sid - storage node, tid - transaction.
-
-      Master->Client
-
-	new_primary(address)
-	nodes_list(nodes)
-	node_add(id, address, storage)
-	node_remove(id)
-
-	new_transaction_id(tid)
-	new_object_id(oid)
-	new_node_id(id)
-
-      Master->Storage
-
-	new_primary(address)
-	new_node_id(id)
-
-      Primary Master->Master
-
-	new_primary(id, address)
-	handshake()
-	database_update(data)
-
-	replication_data(data)
-	new_master_added(id, address)
-
-      Master->Primary Master
-
-	handshake()
-	new_master(address)
-	get_replication_data() - locks the primary for writing
-
-      Client->Master:
-
-	new_client(address)
-	get_new_object_id(cid)
-	tpc_begin(cid)
-	client_fail(id)
-
-      Storage->Master
-
-	new_storage(address)
-
-      Primary Storage->Master
-	storage_fail(id)
-	client_fail(id)
-
-      Client->Storage
-
-	read(cid, oid)
-	tpc_vote(tid, oids)
-	write(oid, data)
-	tpc_abort(tid)
-	tpc_finish(tid)
-	hanshake_reply()
-
-	undo(tids)
-
-      Storage->Client
-
-	data(oid, data, cachable)
-	write_ok()
-	vote_ok()
-	vote_fail()
-	abort_ok()
-	finish_ok()
-	finish_fail()	
-	handshake()
-
-      Storage->Storage
-
-	get_last_transactions() - on replication consistency check after fail
-	last_transactions(tids)
-
-      Primary Storage->Storage
-
-	handshake()
-	cluster_lock_ok()
-	replication_data(data)
-	new_storage(id, address)
-	set_cacheble(oids, cachable)
-
-      Storage->Primary Storage
-
-	handshake()
-	lock_cluster()
-	get_replication_data()
-
-      Client->Client
-	invalidate_cache(oids)
-
   Protocol
 
     Format
@@ -350,4 +255,775 @@ Nexedi Enterprise Objects (NEO) Specification
       When the number of parameters or the size of a parameter is variable, the number is specified before the parameters.
 
     Message Classes
-    *TODO*
+      Messages are classified into asynchronous messages and synchronous messages. Asynchronous messages are request-only messages which do not require any reply, while synchronous messages require replies, one reply to one request.
+
+      Asynchronous messages are used e.g. to notify status changes in the cluster. They include additions and deletions of nodes.
+
+      Synchronous messages are used to exchange data between nodes. A sender never sends multiple synchronous request messages before getting a reply. Note that,     however, a receiver may get multiple synchronous requests from a single connection, since such a connection may be used by multiple threads.
+
+    Common Parameters
+      Common parrameters used in the communication are:
+
+        OID -- Object ID, an 8-byte array used to identify an object, regardless
+               of transactions.
+
+        TID -- Transaction ID, an 8-byte array used to identify a transaction.
+
+        Serial -- Serial number of an object, which corresponds to a version of an
+                  object. In NEO objects versioning is implemented through transaction numbers, therefore the serial number is identical to TID.
+
+        UUID -- Universally Unique ID. It is a 16-byte array used to identify a node.
+        *TODO* application? exchange it into a cluster ID?
+
+        NID -- Node ID. It is a 4-byte unsigned integer used to identify a node. A "Primary"
+               master node maps an UUID to an NID for efficiency.
+
+        IP address -- For now, NEO only supports IPv4. So the address is a 4-byte array.
+
+        Port Number -- TCP's port number. It is a 2-byte unsigned integer.
+
+        INVALID_OID -- Invalid OID. It indicates that an OID is invalid. It is
+                       '\xff\xff\xff\xff\xff\xff\xff\xff'.
+
+        INVALID_TID -- Invalid TID. It indicates that a TID is invalid. It is
+                       '\xff\xff\xff\xff\xff\xff\xff\xff'.
+
+        INVALID_SERIAL -- Invalid Serial Number. It indicates that a Serial Number is invalid.
+                          It is '\xff\xff\xff\xff\xff\xff\xff\xff'.
+
+    Error Messages
+      A sychronous message allows a receiver to return an error message, when an error occurs. An error message must specify the same ID as a request, and the same Message Type but with the 15th bit set, as well as the other return messages. Successful code indicates that the message is not an error message but an usual message. In this case, the message format is documented in each return message description.
+
+      Type -- Vary
+
+      Sender -- MN, SN
+
+      Receiver -- CN, MN, SN
+
+      Class -- Synchronous
+
+      Format:
+
+          +------------+----------------------+---------------+
+          | Error Code | Error Message Length | Error Message |
+          +------------+----------------------+---------------+
+          10           12                     16              16+n
+
+      Error Code is a 2-byte unsigned integer with the following meaning:
+
+        0 -- Success. The request is successfully completed. In this case, neither
+             Error Message Length nor Error Message follows the Error Code.
+
+        1 -- Not Ready. The node is not ready to accept a given request yet.
+
+        2 -- OID Not Found. A given OID is not found in the database.
+
+        3 -- Serial Number Not Found. A given Serial Number is not found in the database.
+
+        4 -- TID Not Found. A given TID is not found in the database.
+
+        5 -- Disk Full. The node cannot store data due to too little disk space.
+
+        6 -- Conflict Found. A given transaction may not be committed because of a conflict.
+
+        7 -- Inconsistent Configuration. A foreign storage/master cluster node is connected, a request from an unknown client has been received.
+
+        8 -- Protocol Version Mismatch. Nodes do not talk in the same protocol.
+
+        9 -- Protocol Error. A node does not follow the protocol.
+
+        10 -- Timeout. A node may not wait for too long.
+        *TODO* check for the timeout error application
+
+        11 -- Broken Node Disallowed. A node is known to be broken, so it is not allowed to connect.
+
+        12 -- Internal Error. A node is corrupted in software or hardware internally.
+
+      Error Message Length specifies the length of Error Message, including the trailing NUL character.
+
+      Error Message is a human-readable string which describes an error. The string is terminated with a NUL character.
+
+    Message Types
+      Each message type defines what nodes can send it to what nodes. Node types are abbreviated to CN, SN, MN, PMN and PSN for client node, storage node, master node, primary master node and primary storage node, respectively.
+
+      Each message type is shown as a hexadecimal value.
+
+      Request Node Identification
+
+        Type -- 0001
+
+        Sender -- CN, SN, MN
+
+        Receiver -- PMN
+
+        Class -- Synchronous
+
+        Format:
+
+          +---------------+---------------+-----------+------+------------+-------------+
+          | Major Version | Minor Version | Node Type | UUID | IP Address | Port Number |
+          +---------------+---------------+-----------+------+------------+-------------+
+          10              14              18          20     36           40            42
+
+        Every node in NEO must issue this request before any other request, to identify itself.
+
+        Major Version and Minor Version must specify the protocol versions, and each parameter is a 4-byte unsigned integer. In this version Major Version must be '3', and Minor Version must be '0'.
+
+        Node Type is a 2-byte unsigned integer, and it must be one of these:
+
+          1 -- Master Node
+
+          2 -- Storage Node
+
+          4 -- Client Node
+
+        UUID is unique to each node, and this may be zero for CN, because it is not be used by them for any purpose. For SN the UUID is a cluster UUID, if it is equal to zero then the PMN assigns a SN to a cluster. Otherwise the node is started as a member of a cluster. The cluster UUID is shared by all nodes joining the same cluster.
+
+        IP Address and Port Number are a listening address and a port to accept connections.
+
+      Reply Node Identification
+
+        Type -- 8001
+
+        Sender -- PMN
+
+        Receiver -- CN, SN, MN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+------+------+
+          | Error Code | UUID |  NID |
+          +------------+------+------+
+          10           12     28     30
+
+        Accept a connection. This returns a cluster UUID which idenfies the cluster and a node ID assigned by the PMN that identifies the node in the system.
+
+      Request System Information
+
+        Type -- 0002
+
+        Sender -- SN, CN, MN
+
+        Receiver -- PMN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------+
+          | NID  |
+          +------+
+          10     14
+
+        Request information on the system. NID is the requesting node's ID, which allows the PMN to determine which information should be returned. Apart from the basic information, CNs receive information on all storage and client nodes, SNs on all clients and storages in the cluster, MNs all information.
+
+      Reply System Information
+
+        Type -- 8002
+
+        Sender -- PMN
+
+        Receiver -- SN, CN, MN
+
+        Class -- Synchronous
+
+        Format:
+
+         +------------+-----------------+--------------+--------------------------+
+          | Error Code | Version Support | Undo Support | Transaction Undo Support |
+          +------------+-----------------+--------------+--------------------------+
+          10           12                13             14                         15
+
+          +-----------+-------------+------+------------------+-----------+----------+
+          | Read Only | Name Length | Name | Extension Length | Extension | Clusters |
+          +-----------+-------------+------+------------------+-----------+----------+
+          15          16            18     18+n               20+n        20+n+m   24+n+m=k
+
+          +---+-------+-------------+--------+--------------+---------------+-----+
+          | n | NID 1 | Node Type 1 | UUID 1 | IP Address 1 | Port Number 1 | ... |
+          +---+-------+-------------+--------+--------------+---------------+-----+
+          k  k+4     k+6           k+8      k+24           k+28            k+30  k+4+26*N
+
+        Version Support, Undo Support, Transaction Undo Support and Read Only are 1-byte boolean parameters. They must be either 1 or 0.
+
+        Name Length and Extension Length are 2-byte unsigned integers, and they specify the lengths of Name and Extension, respectively, including trailing NUL characters.
+
+        Name and Extension are human-readable, NUL-terminated strings.
+
+        In this version, Version Support, Undo Support and Transaction Undo Support must be always 0, 1 and 1, respectively. Name must be "NEO" and Extension must be empty.
+
+	'Clusters' is the number of storage nodes clusters in the system.
+
+	The information following the basic system information is the system nodes list. N is the number of nodes on the list. Information on a node contains the node ID, type of the node, UUID of the node cluster, address and port.
+        Node Type is a 2-byte unsigned integer, and it must be one of these:
+
+          1 -- Master Node
+
+          2 -- Storage Node
+
+	  3 -- Primary Storage Node
+
+          4 -- Client Node
+
+      Request Transaction Information
+
+        Type -- 0003
+
+        Sender -- SN
+
+        Receiver -- PSN
+
+        Class -- Synchronous
+
+        Format:
+
+          +---+-----+------+-------+-------+-----+-------+-------+
+          | n | NID | UUID | OID 1 | TID 1 | ... | OID n | TID n |
+          +---+-----+------+-------+-------+-----+-------+-------+
+          10  14    18     34      42      50                 34+16*n
+
+        Request for the transactions information. SN sends this request to the PSN for the data consistency check. Included in the request is a list of objects and their latest transactions that were stored on the given node. 'n' is a 4-byte unsigned integer which represents the nubmer of objects on the list. The transactions are     defined in the descending order of transaction IDs, namely, a larger transactions ID is earlier, excluding unfinished transactions.
+
+      Reply Transaction Information
+
+        Type -- 8003
+
+        Sender -- PSN
+
+        Receiver -- SN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+---+---+-------+-------+---------------+------------+----------+--------+----
+          | Error Code | N | n | OID 1 | TID 1 | Compression 1 | Checksum 1 | Length 1 | Data 1 | ...
+          +------------+---+-------+-------+---------------+------------+----------+--------+----
+          10           12  16  20     28       36              37           41         49     49+l1
+
+        Return the latest transactions data. 'N' and 'n' are a 4-byte unsigned integers, meaning the number of all objects and the number of objects in the message respectively. Each object of the list is an object and its data stored in the transaction identified by TID. The data must be sent in ascending TID order. N allows the SN to decide whether some more data will be sent.
+
+      New Node Added
+
+        Type -- 0004
+
+        Sender -- PMN, PSN
+
+        Receiver -- CN, MN, SN, PMN
+
+        Class -- Asynchronous
+
+        Format:
+
+          +-----+-----------+------+------------+-------------+
+          | NID | Node Type | UUID | IP Address | Port Number |
+          +-----+-----------+------+------------+-------------+
+          10    14          16     32           36            38
+
+        This asynchronous message is issued on a succesful node addition to the system. It is sent either by
+
+	  - PMN to CNs, MNs, STs on a new CN addition
+
+	  - PMN to CNs, MNs, STs on a new CN addition
+
+	  - PMN to CNs, MNs, SNs on a new primary master node election
+
+	  - PMN to MNs on a new MN addition
+
+	  - PSN to SN in its cluster on a new SN addition in a cluster
+
+        Node Type is a 2-byte unsigned integer, and it must be one of these:
+
+	  0 -- Primary Master Node
+
+          1 -- Master Node
+
+          2 -- Storage Node
+
+	  3 -- Primary Storage Node
+
+          4 -- Client Node
+
+        UUID may be zero for CN, for SN the UUID is a cluster UUID.
+
+        IP Address and Port Number are a listening address and a port to accept connections.
+
+      Node Down
+
+        Type -- 0005
+
+        Sender -- PMN, PSN, CN
+
+        Receiver -- CN, MN, SN, PSN, PMN
+
+        Class -- Asynchronous
+
+        Format:
+
+          +-----+-----------+------+
+          | NID | Node Type | UUID |
+          +-----+-----------+------+
+          10    14          16     32
+
+        This asynchronous message is issued on a node failure detection. It is sent either by:
+
+	  - CN to PMN on a CN, PSN or SN failure detection
+
+	  - PSN to PMN on a SN failure detection
+
+	  - SN to PMN on a PSN failure detection
+
+	  - PMN to CNs, MNs, STs on SN or CN failure information
+
+        Node Type is a 2-byte unsigned integer, and it must be one of these:
+
+          2 -- Storage Node
+
+	  3 -- Primary Storage Node
+
+          4 -- Client Node
+
+        UUID may be zero for CN, for SN the UUID is a cluster UUID.
+	Node Type and UUID are additional, identification information.
+
+      Request Last Transaction ID
+
+        Type -- 0006
+
+        Sender -- PMN
+
+        Receiver -- PSN, CN
+
+        Class -- Synchronous
+
+        Format:
+
+          +
+          |
+          +
+          10
+
+        A new PMN after being elected queries all CNs and PSNs on the last transaction ID in order to ensure following transactions ID uniqueness.
+
+      Reply Last Transaction ID
+
+        Type -- 8006
+
+        Sender -- CN, PSN
+
+        Receiver -- PMN
+
+        Class -- Synchronous
+
+        Format:
+
+          +-----+
+          | TID |
+          +-----+
+          10           18
+
+        Return last stored or performed transaction ID.
+
+      Request Handshake
+
+        Type -- 0007
+
+        Sender -- SN, MN
+
+        Receiver -- PSN, PMN, CN
+
+        Class -- Synchronous
+
+        Format:
+
+          +-----+
+          | NID |
+          +-----+
+          10    14
+
+        Send a hanshake with the requesting node ID. Note: secondary SNs and MNs query the primaries in their cluster. Primaries count the last time a handshake of a secondary node has been received and consider a node to be down if the limit time is over.
+
+      Reply Handshake
+
+        Type -- 8007
+
+        Sender -- CN, PSN, PMN
+
+        Receiver -- SN, MN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+
+          | Error Code |
+          +------------+
+          10           12
+
+        Return 0 on success, error code otherwise.
+
+      Request New OIDs
+
+        Type -- 0008
+
+        Sender -- CN
+
+        Receiver -- PMN
+
+        Class -- Synchronous
+
+        Format:
+
+          +-----+---+
+          | NID | n |
+          +-----+---+
+          10  14    18
+
+        Request new OIDs to assign to objects. 'n' is a 4-byte unsigned integer which specifies the number of requested OIDs. NID is the ID of the requesting node. It should be a valid ID of a CN.
+
+      Reply New OIDs
+
+        Type -- 8008
+
+        Sender -- PMN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+---+-------+-----+-------+
+          | Error Code | n | OID 1 | ... | OID n |
+          +------------+---+-------+-----+-------+
+          10           12  16      24           16+n*4
+
+        Return new OIDs. 'n' is a 2-byte unsigned integer, specifying the number
+        of returned OIDs.
+
+      Request New TID
+
+        Type -- 0009
+
+        Sender -- CN
+
+        Receiver -- PMN
+
+        Class -- Synchronous
+
+        Format:
+
+          +-----+
+          | NID |
+          +-----+
+          10    14
+
+        Request a new transaction. This implies the begining of a transaction. NID is the ID of the requesting node. It should be a valid ID of a CN.
+
+      Reply New TID
+
+        Type -- 8009
+
+        Sender -- PMN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+-----+
+          | Error Code | TID |
+          +------------+-----+
+          10           12    20
+
+        Return a new transaction ID.
+
+      Request Object Lock For Transaction
+
+        Type -- 000A
+
+        Sender -- CN
+
+        Receiver -- PSN
+
+        Class -- Synchronous
+
+        Format:
+
+          +-----+-----+---+-------+----------+-----+-------+----------+
+          | NID | TID | n | OID 1 | Serial 1 | ... | OID n | Serial n |
+          +-----+-----+---+-------+----------+-----+-------+----------+
+          10    14    22  26      34         42                    26+n*16
+
+        Ask for locking objects for writing. 'n' is a 4-byte unsigned integer which specifies the number of objects to be locked on this cluster. Each pair of an OID and a Serial Number are the objects which were modified. Serial Number must be the previous Serial Number for a modified object, not the new one.
+
+      Reply Lock for Transaction Objects
+
+        Type -- 800A
+
+        Sender -- PSN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+
+          | Error Code |
+          +------------+
+          10           12
+
+        Return 0 on success, error code otherwise.
+
+      Request Write Transaction Data
+
+        Type -- 000B
+
+        Sender -- CN, PSN
+
+        Receiver -- PSN, SN
+
+        Class -- Synchronous
+
+        Format:
+
+          +-----+--------------------+-------------+------------------+-----------+
+          | TID | Description Length | Description | Extension Length | Extension |
+          +-----+--------------------+-------------+------------------+-----------+
+          10    18                   20          20+dl              22+dl     22+dl+el=x
+
+          +---+-------+---------------+------------+----------+--------+----
+          | n | OID 1 | Compression 1 | Checksum 1 | Length 1 | Data 1 | ...
+          +---+-------+---------------+------------+----------+--------+----
+          x   x+4     x+12            x+13         x+17       x+25  x+25+l1
+
+        Send all transaction data of objects of a given cluster. Description Length and Extension Length are 2-byte unsigned integers, and the lengths of Description and Extension, respectively, including trailing NUL characters. Descrption and Extension are NUL-terminated strings.
+
+        Following the Extension, is the the 4-byte unsigned integer 'n' that specifies the number of objects in this transaction. Each object is described with an OID, a compression algorithm, a Adler-32 checksum, the length of data, and data. The compression algorithm is a 1-byte unsigned integer. Its values are defined as:
+
+          0 -- No Compression
+
+          1 -- zlib's Compression
+
+        All other values are undefined.
+
+        The checksum is based on Adler-32, which is implemented in zlib. The checksum must be computed after a compression is applied, if any. The 8-byte unsigned integer, Length, defines the length of data. Data is raw object data, and it must be treated as opaque data for storage nodes.
+
+      Reply Write Transaction Data
+
+        Type -- 800B
+
+        Sender -- SN
+
+        Receiver -- CN, PMN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+
+          | Error Code |
+          +------------+
+          10           12
+
+        Return 0 on success, error code otherwise.
+
+      Request Finish Transaction
+
+        Type -- 000C
+
+        Sender -- CN
+
+        Receiver -- PSN
+
+        Class -- Synchronous
+
+        Format:
+
+          +-----+-----+
+          | NID | TID |
+          +-----+-----+
+          10    14    18
+
+        Commit transaction TID. On this message, the PSN sends the updated of the transaction to all nodes in the cluster.
+
+      Reply Finish Transaction
+
+        Type -- 800C
+
+        Sender -- PSN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+
+          | Error Code |
+          +------------+
+          10           12
+
+        Return 0 on success, error code otherwise.
+
+      Request Abort Transaction
+
+        Type -- 000D
+
+        Sender -- CN
+
+        Receiver -- PSN
+
+        Class -- Synchronous
+
+        Format:
+
+          +-----+-----+
+          | NID | TID |
+          +-----+-----+
+          10    14    18
+
+        Abort transaction TID. On this message, the PSN removes the transaction data stored locally and sends cachable notices to all cluster nodes.
+
+      Reply Abort Transaction
+
+        Type -- 800D
+
+        Sender -- PSN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+
+          | Error Code |
+          +------------+
+          10           12
+
+        Return 0 on success, error code otherwise.
+
+      Request Read Data
+
+        Type -- 000E
+
+        Sender -- CN
+
+        Receiver -- SN
+
+        Class -- Synchronous
+
+        Format:
+
+          +-----+---+-------+-----+-------+
+          | NID | n | OID 1 | ... | OID n |
+          +-----+---+-------+-----+-------+
+          10   14  18       26          18+n*8
+
+        Request the latest versions of the objects OIDs. 'n' is a 4-byte unsigned integer informing on the number of requested objects. Following are the requested objects IDs.
+
+      Reply Read Data
+
+        Type -- 800E
+
+        Sender -- SN
+
+        Receiver -- CN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+---+
+          | Error Code | n |
+          +------------+---+
+          10           12  16
+
+          +-------+-------+----------+---------------+------------+----------+--------+----
+          | OID 1 | TID 1 | Cachable | Compression 1 | Checksum 1 | Length 1 | Data 1 | ...
+          +-------+-------+----------+---------------+------------+----------+--------+----
+          16      24      32         34              35           39         47       47+l1
+
+        Send latest versions of requested objects. 4-byte unsigned integer 'n' specifies the number of objects and should be equal to the number of requested objects, each object is compressed as desrcibed in the transaction data sending message. To each object a byte is added whether it can be stored in the client's cache, 0 for cachable, 1 for uncachable.
+
+      Request Undo
+      *TODO* Simplify Undo
+
+        Type -- 000F
+
+        Sender -- CN
+
+        Receiver -- PSN
+
+        Class -- Synchronous
+
+        Format:
+
+          +-----+
+          | TID |
+          +-----+
+          10    18
+
+        Request undoing a transaction. This must be done within a new transaction locking the same objects as the transaction that is being cancelled. A client sends the undo message to all PSNs on which the transaction was performed.
+
+      Reply Undo
+
+        Type -- 800F
+
+        Sender -- PSN
+
+        Receiever -- CN
+
+        Class -- Synchronous
+
+        Format:
+
+          +------------+
+          | Error Code |
+          +------------+
+          10           12
+
+        Return 0 if undo was successful, error code otherwise.
+
+      Set Cachable Objects
+
+        Type -- 0010
+
+        Sender -- PSN
+
+        Receiver -- SN
+
+        Class -- Asynchronous
+
+        Format:
+
+          +----------+---+-------+-----+-------+
+          | Cachable | n | OID 1 | ... | OID n |
+          +----------+---+-------+-----+-------+
+          10         11  15      23          15+n*8
+
+        Set given transaction objects as cachable. 'Cachable' is a one byte value, 0 on cachable, 1 on not.
+
+      Invalidate Cache Objects
+
+        Type -- 0011
+
+        Sender -- CN
+
+        Receiver -- CN
+
+        Class -- Asynchronous
+
+        Format:
+
+          +---+-------+-----+-------+
+          | n | OID 1 | ... | OID n |
+          +---+-------+-----+-------+
+          10  14      22            14+n*8
+
+        An asynchronous message informing clients to remove modified objects from the cache.
