@@ -1,4 +1,0 @@
-2005-07-01  Aurelien Calonne  <aurel@nexedi.com>
-
-	* src/master_node.c (h_beginTrans): 
-
