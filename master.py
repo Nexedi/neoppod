@@ -7,6 +7,8 @@ from connection import Connection as BaseConnection
 from database import DatabaseManager
 from config import ConfigurationManager
 from protocol import Packet, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
+from node import NodeManager, MasterNode, StorageNode, ClientNode, \
+    RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE
 
 class Connection(BaseConnection):
     """This class provides a master-specific connection."""
@@ -69,6 +71,7 @@ class Application:
         # Internal attributes.
         self.dm = DatabaseManager(self.database, self.user, self.password)
         self.cm = ConnectionManager(app = self, connection_klass = Connection)
+        self.nm = NodeManager()
 
     def initializeDatabase(self):
         """Initialize a database by recreating all the tables.
@@ -153,6 +156,9 @@ class Application:
 
         # Now ready to load persistent data from the database.
         self.loadData()
+
+        for ip_address, port in self.master_node_list:
+            self.nm.add(MasterNode(ip_address = ip_address, port = port))
 
         # Make a listening port.
         self.cm.listen(self.ip_address, self.port)
