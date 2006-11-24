@@ -130,7 +130,6 @@ class Connection:
             for event in self.event_dict.itervalues():
                 self.cm.removeIdleEvent(event)
             self.event_dict.clear()
-            self.connectionClosed()
 
     def abort(self):
         """Abort dealing with this connection."""
@@ -194,7 +193,7 @@ class Connection:
                         pass
 
                 self.packetReceived(packet)
-                msg = msg[len(packet)]
+                msg = msg[len(packet):]
 
             if msg:
                 self.read_buf = [msg]
@@ -211,13 +210,19 @@ class Connection:
             r = s.recv(4096)
             if not r:
                 logging.error('cannot read')
+                self.connectionClosed()
                 self.close()
             else:
                 self.read_buf.append(r)
         except socket.error, m:
             if m[0] == errno.EAGAIN:
-                return []
-            raise
+                pass
+            elif m[0] == errno.ECONNRESET:
+                logging.error('cannot read')
+                self.connectionClosed()
+                self.close()
+            else:
+                raise
 
     def send(self):
         """Send data to a socket."""
@@ -231,6 +236,7 @@ class Connection:
                 r = s.send(msg)
                 if not r:
                     logging.error('cannot write')
+                    self.connectionClosed()
                     self.close()
                 elif r == len(msg):
                     del self.write_buf[:]
@@ -309,9 +315,10 @@ class Connection:
 
     def packetMalformed(self, packet, error_message):
         """Called when a packet is malformed."""
-        self.peerBroken()
+        logging.info('malformed packet: %s', error_message)
         self.addPacket(Packet().protocolError(packet.getId(), error_message))
         self.abort()
+        self.peerBroken()
 
 class ConnectionManager:
     """This class manages connections and sockets."""
@@ -337,6 +344,9 @@ class ConnectionManager:
         self.listening_socket = s
         self.reader_set.add(s)
 
+    def getConnectionList(self):
+        return self.connection_dict.values()
+
     def register(self, conn):
         self.connection_dict[conn.getSocket()] = conn
 
@@ -355,9 +365,11 @@ class ConnectionManager:
         for s in rlist:
             if s == self.listening_socket:
                 try:
-                    conn, addr = s.accept()
+                    new_s, addr = s.accept()
                     logging.info('accepted a connection from %s:%d', addr[0], addr[1])
-                    self.register(self.klass(self, conn, addr))
+                    conn = self.klass(self, new_s, addr)
+                    self.register(conn)
+                    conn.connectionAccepted()
                 except socket.error, m:
                     if m[0] == errno.EAGAIN:
                         continue
@@ -377,7 +389,7 @@ class ConnectionManager:
             t = time()
             if t - self.prev_time >= 1:
                 self.prev_time = t
-                event_list.sort(key = lambda event: event.getTimeout())
+                event_list.sort(key = lambda event: event.getTime())
                 for event in tuple(event_list):
                     if event(t):
                         event_list.pop(0)
@@ -397,7 +409,7 @@ class ConnectionManager:
         self.reader_set.add(s)
 
     def removeReader(self, s):
-        self.read_set.discard(s)
+        self.reader_set.discard(s)
 
     def addWriter(self, s):
         self.writer_set.add(s)

@@ -1,3 +1,5 @@
+from time import time
+
 RUNNING_STATE = 0
 TEMPORARILY_DOWN_STATE = 2
 DOWN_STATE = 3
@@ -12,14 +14,26 @@ class Node(object):
         self.port = port
         self.uuid = uuid
         self.manager = None
+        self.last_state_change = time()
+
+    def setManager(self, manager):
+        self.manager = manager
+
+    def getLastStateChange(self):
+        return self.last_state_change
 
     def getState(self):
         return self.state
 
     def setState(self, new_state):
-        self.state = new_state
+        if self.state != new_state:
+            self.state = new_state
+            self.last_state_change = time()
 
     def setServer(self, ip_address, port):
+        if self.ip_address is not None:
+            self.manager.unregisterServer(self)
+
         self.ip_address = ip_address
         self.port = port
         self.manager.registerServer(self)
@@ -28,6 +42,9 @@ class Node(object):
         return self.ip_address, self.port
 
     def setUUID(self, uuid):
+        if self.uuid is not None:
+            self.manager.unregisterUUID(self)
+
         self.uuid = uuid
         self.manager.registerUUID(self)
 
@@ -55,6 +72,7 @@ class NodeManager(object):
         self.uuid_dict = {}
 
     def add(self, node):
+        node.setManager(self)
         self.node_list.append(node)   
         if node.getServer()[0] is not None:
             self.registerServer(node)
