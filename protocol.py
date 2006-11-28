@@ -12,7 +12,7 @@ MIN_PACKET_SIZE = 10
 MAX_PACKET_SIZE = 0x100000
 
 # Message types.
-ERROR = 0x0000
+ERROR = 0x8000
 REQUEST_NODE_IDENTIFICATION = 0x0001
 ACCEPT_NODE_IDENTIFICATION = 0x8001
 PING = 0x0002
@@ -21,6 +21,14 @@ ASK_PRIMARY_MASTER = 0x0003
 ANSWER_PRIMARY_MASTER = 0x8003
 ANNOUNCE_PRIMARY_MASTER = 0x0004
 REELECT_PRIMARY_MASTER = 0x0005
+NOTIFY_NODE_STATE_CHANGE = 0x0006
+SEND_NODE_INFORMATION = 0x0007
+START_OPERATION = 0x0008
+STOP_OPERATION = 0x0009
+ASK_FINISHING_TRANSACTIONS = 0x000a
+ANSWER_FINISHING_TRANSACTIONS = 0x800a
+FINISH_TRANSACTIONS = 0x000b
+
 
 # Error codes.
 NOT_READY_CODE = 1
@@ -38,6 +46,14 @@ STORAGE_NODE_TYPE = 2
 CLIENT_NODE_TYPE = 3
 
 VALID_NODE_TYPE_LIST = (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE)
+
+# Node states.
+RUNNING_STATE = 0
+TEMPORARILY_DOWN_STATE = 2
+DOWN_STATE = 3
+BROKEN_STATE = 4
+
+VALID_NODE_STATE_LIST = (RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE)
 
 # Other constants.
 INVALID_UUID = '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0'
@@ -163,6 +179,28 @@ class Packet:
         self._body = ''
         return self
 
+    def notifyNodeStateChange(self, msg_id, node_type, ip_address, port, uuid, state):
+        self._id = msg_id
+        self._type = NOTIFY_NODE_STATE_CHANGE
+        self._body = pack('!H4sH16sH', node_type, inet_aton(ip_address), port, uuid, state)
+        return self
+
+    def askNodeInformation(self, msg_id):
+        self._id = msg_id
+        self._type = ASK_NODE_INFORMATION
+        self._body = ''
+        return self
+
+    def answerNodeInformation(self, msg_id, node_list):
+        self._id = msg_id
+        self._type = ANSWER_NODE_INFORMATION
+        body = [pack('!L', len(node_list))]
+        for node_type, ip_address, port, uuid, state in node_list:
+            body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
+                             uuid, state)
+        self._body = ''.join(body)
+        return self
+
     # Decoders.
     def decode(self):
         try:
@@ -250,3 +288,40 @@ class Packet:
     def _decodeReelectPrimaryMaster(self):
         pass
     decode_table[REELECT_PRIMARY_MASTER] = _decodeReelectPrimaryMaster
+
+    def _decodeNotifyNodeStateChange(self):
+        try:
+            node_type, ip_address, port, uuid, state = unpack('!H4sH16sH', self._body[:26])
+            ip_address = inet_ntoa(ip_address)
+        except:
+            raise ProtocolError(self, 'invalid notify node state change')
+        if node_type not in VALID_NODE_TYPE_LIST:
+            raise ProtocolError(self, 'invalid node type %d' % node_type)
+        if state not in VALID_NODE_STATE_LIST:
+            raise ProtocolError(self, 'invalid node state %d' % state)
+        return node_type, ip_address, port, uuid, state
+    decode_table[NOTIFY_NODE_STATE_CHANGE] = _decodeNotifyNodeStateChange
+
+    def _decodeAskNodeInformation(self):
+        pass
+    decode_table[ASK_NODE_INFORMATION] = _decodeAskNodeInformation
+
+    def _decodeAnswerNodeInformation(self):
+        try:
+            n = unpack('!L', self._body[:4])
+            node_list = []
+            for i in xrange(n):
+                r = unpack('!H4sH16sH', self._body[4+i*26:30+i*26])
+                node_type, ip_address, port, uuid, state = r
+                ip_address = inet_ntoa(ip_address)
+                if node_type not in VALID_NODE_TYPE_LIST:
+                    raise ProtocolError(self, 'invalid node type %d' % node_type)
+                if state not in VALID_NODE_STATE_LIST:
+                    raise ProtocolError(self, 'invalid node state %d' % state)
+                node_list.append((node_type, ip_address, port, uuid, state))
+        except ProtocolError:
+            raise
+        except:
+            raise ProtocolError(self, 'invalid answer node information')
+        return node_list
+    decode_table[ANSWER_NODE_INFORMATION] = _decodeAnswerNodeInformation

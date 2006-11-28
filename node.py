@@ -1,9 +1,6 @@
 from time import time
 
-RUNNING_STATE = 0
-TEMPORARILY_DOWN_STATE = 2
-DOWN_STATE = 3
-BROKEN_STATE = 4
+from protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE
 
 class Node(object):
     """This class represents a node."""
