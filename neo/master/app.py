@@ -4,15 +4,15 @@ import os
 from socket import inet_aton
 from time import time
 
-from connection import ConnectionManager
-from config import ConfigurationManager
-from protocol import Packet, ProtocolError, \
-        RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE
-from node import NodeManager, MasterNode, StorageNode, ClientNode
-from handler import EventHandler
-from event import EventManager
-
-from util import dump
+from neo.config import ConfigurationManager
+from neo.protocol import Packet, ProtocolError, \
+        RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
+        INVALID_UUID, INVALID_OID, INVALID_TID
+from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
+from neo.handler import EventHandler
+from neo.event import EventManager
+from neo.util import dump
+from neo.connection import ListeningConnection
 
 class NeoException(Exception): pass
 class ElectionFailure(NeoException): pass
@@ -408,7 +408,7 @@ class Application(object):
         self.unconnected_master_node_set = set()
         self.negotiating_master_node_set = set()
 
-        cm = self.cm
+        em = self.em
         nm = self.nm
         while 1:
             t = 0
@@ -422,7 +422,7 @@ class Application(object):
 
             try:
                 while 1:
-                    cm.poll(1)
+                    em.poll(1)
                     current_time = time()
                     if current_time >= t + 1:
                         t = current_time

@@ -1,7 +1,7 @@
 import logging
 
-from protocol import Packet, ProtocolError
-from connection import ServerConnection
+from neo.protocol import Packet, ProtocolError
+from neo.connection import ServerConnection
 
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
         PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \

@@ -2,7 +2,7 @@ from struct import pack, unpack
 from socket import inet_ntoa, inet_aton
 import logging
 
-from util import dump
+from neo.util import dump
 
 # The protocol version (major, minor).
 PROTOCOL_VERSION = (4, 0)
@@ -183,7 +183,7 @@ class Packet(object):
         body = [pack('!L', len(node_list))]
         for node_type, ip_address, port, uuid, state in node_list:
             body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
-                             uuid, state)
+                             uuid, state))
         self._body = ''.join(body)
         return self
 

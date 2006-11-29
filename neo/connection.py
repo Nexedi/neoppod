@@ -3,8 +3,8 @@ import errno
 import logging
 from select import select
 
-from protocol import Packet, ProtocolError
-from event import IdleEvent
+from neo.protocol import Packet, ProtocolError
+from neo.event import IdleEvent
 
 class BaseConnection(object):
     """A base connection."""

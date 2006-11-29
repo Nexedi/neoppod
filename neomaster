@@ -19,7 +19,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from optparse import OptionParser
-from master.app import Application
+from neo.master.app import Application
 import logging
 
 
@@ -37,7 +37,7 @@ section = options.section or 'master'
 if options.verbose:
     logging.basicConfig(level = logging.DEBUG)
 else:
-    logging.basicConfig(level = logging.ERROR)
+    logging.basicConfig(level = logging.WARNING)
 
 app = Application(config, section)
 app.run()
