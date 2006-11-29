@@ -1,14 +1,14 @@
 from time import time
 
-from protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE
+from protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
+        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
 
 class Node(object):
     """This class represents a node."""
 
-    def __init__(self, ip_address = None, port = None, uuid = None):
+    def __init__(self, server = None, uuid = None):
         self.state = RUNNING_STATE
-        self.ip_address = ip_address
-        self.port = port
+        self.server = server
         self.uuid = uuid
         self.manager = None
         self.last_state_change = time()
@@ -27,16 +27,15 @@ class Node(object):
             self.state = new_state
             self.last_state_change = time()
 
-    def setServer(self, ip_address, port):
-        if self.ip_address is not None:
+    def setServer(self, server):
+        if self.server is not None:
             self.manager.unregisterServer(self)
 
-        self.ip_address = ip_address
-        self.port = port
+        self.server = server
         self.manager.registerServer(self)
 
     def getServer(self):
-        return self.ip_address, self.port
+        return self.server
 
     def setUUID(self, uuid):
         if self.uuid is not None:
@@ -48,17 +47,23 @@ class Node(object):
     def getUUID(self):
         return self.uuid
 
+    def getNodeType(self):
+        raise NotImplementedError
+
 class MasterNode(Node):
     """This class represents a master node."""
-    pass
+    def getNodeType(self):
+        return MASTER_NODE_TYPE
 
 class StorageNode(Node):
     """This class represents a storage node."""
-    pass
+    def getNodeType(self):
+        return STORAGE_NODE_TYPE
 
 class ClientNode(Node):
     """This class represents a client node."""
-    pass
+    def getNodeType(self):
+        return CLIENT_NODE_TYPE
 
 class NodeManager(object):
     """This class manages node status."""
@@ -71,7 +76,7 @@ class NodeManager(object):
     def add(self, node):
         node.setManager(self)
         self.node_list.append(node)   
-        if node.getServer()[0] is not None:
+        if node.getServer() is not None:
             self.registerServer(node)
         if node.getUUID() is not None:
             self.registerUUID(node)
@@ -113,8 +118,8 @@ class NodeManager(object):
     def getClientNodeList(self):
         return self.getNodeList(filter = lambda node: isinstance(node, ClientNode))
 
-    def getNodeByServer(self, ip_address, port):
-        return self.server_dict.get((ip_address, port))
+    def getNodeByServer(self, server):
+        return self.server_dict.get(server)
 
     def getNodeByUUID(self, uuid):
         return self.uuid_dict.get(uuid)

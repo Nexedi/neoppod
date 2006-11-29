@@ -21,14 +21,12 @@ ASK_PRIMARY_MASTER = 0x0003
 ANSWER_PRIMARY_MASTER = 0x8003
 ANNOUNCE_PRIMARY_MASTER = 0x0004
 REELECT_PRIMARY_MASTER = 0x0005
-NOTIFY_NODE_STATE_CHANGE = 0x0006
-SEND_NODE_INFORMATION = 0x0007
-START_OPERATION = 0x0008
-STOP_OPERATION = 0x0009
-ASK_FINISHING_TRANSACTIONS = 0x000a
-ANSWER_FINISHING_TRANSACTIONS = 0x800a
-FINISH_TRANSACTIONS = 0x000b
-
+NOTIFY_NODE_INFORMATION = 0x0006
+START_OPERATION = 0x0007
+STOP_OPERATION = 0x0008
+ASK_FINISHING_TRANSACTIONS = 0x0009
+ANSWER_FINISHING_TRANSACTIONS = 0x8009
+FINISH_TRANSACTIONS = 0x000a
 
 # Error codes.
 NOT_READY_CODE = 1
@@ -63,7 +61,7 @@ INVALID_OID = '\0\0\0\0\0\0\0\0'
 
 class ProtocolError(Exception): pass
 
-class Packet:
+class Packet(object):
     """A packet."""
 
     _id = None
@@ -152,16 +150,16 @@ class Packet:
         self._body = pack('!H16s4sH', node_type, uuid, inet_aton(ip_address), port)
         return self
 
-    def askPrimaryMaster(self, msg_id, ltid, loid):
+    def askPrimaryMaster(self, msg_id):
         self._id = msg_id
         self._type = ASK_PRIMARY_MASTER
-        self._body = ltid + loid
+        self._body = ''
         return self
 
-    def answerPrimaryMaster(self, msg_id, ltid, loid, primary_uuid, known_master_list):
+    def answerPrimaryMaster(self, msg_id, primary_uuid, known_master_list):
         self._id = msg_id
         self._type = ANSWER_PRIMARY_MASTER
-        body = [ltid, loid, primary_uuid, pack('!L', len(known_master_list))]
+        body = [primary_uuid, pack('!L', len(known_master_list))]
         for master in known_master_list:
             body.append(pack('!4sH16s', inet_aton(master[0]), master[1], master[2]))
         self._body = ''.join(body)
@@ -179,21 +177,9 @@ class Packet:
         self._body = ''
         return self
 
-    def notifyNodeStateChange(self, msg_id, node_type, ip_address, port, uuid, state):
+    def notifyNodeInformation(self, msg_id, node_list):
         self._id = msg_id
-        self._type = NOTIFY_NODE_STATE_CHANGE
-        self._body = pack('!H4sH16sH', node_type, inet_aton(ip_address), port, uuid, state)
-        return self
-
-    def askNodeInformation(self, msg_id):
-        self._id = msg_id
-        self._type = ASK_NODE_INFORMATION
-        self._body = ''
-        return self
-
-    def answerNodeInformation(self, msg_id, node_list):
-        self._id = msg_id
-        self._type = ANSWER_NODE_INFORMATION
+        self._type = NOTIFY_NODE_INFORMATION
         body = [pack('!L', len(node_list))]
         for node_type, ip_address, port, uuid, state in node_list:
             body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
@@ -261,16 +247,12 @@ class Packet:
     decode_table[ACCEPT_NODE_IDENTIFICATION] = _decodeAcceptNodeIdentification
 
     def _decodeAskPrimaryMaster(self):
-        try:
-            ltid, loid = unpack('!8s8s', self._body)
-        except:
-            raise ProtocolError(self, 'invalid ask primary master')
-        return ltid, loid
+        pass
     decode_table[ASK_PRIMARY_MASTER] = _decodeAskPrimaryMaster
 
     def _decodeAnswerPrimaryMaster(self):
         try:
-            ltid, loid, primary_uuid, n = unpack('!8s8s16sL', self._body[:36])
+            primary_uuid, n = unpack('!16sL', self._body[:36])
             known_master_list = []
             for i in xrange(n):
                 ip_address, port, uuid = unpack('!4sH16s', self._body[36+i*22:58+i*22])
@@ -278,7 +260,7 @@ class Packet:
                 known_master_list.append((ip_address, port, uuid))
         except:
             raise ProtocolError(self, 'invalid answer primary master')
-        return ltid, loid, primary_uuid, known_master_list
+        return primary_uuid, known_master_list
     decode_table[ANSWER_PRIMARY_MASTER] = _decodeAnswerPrimaryMaster
 
     def _decodeAnnouncePrimaryMaster(self):
@@ -289,24 +271,7 @@ class Packet:
         pass
     decode_table[REELECT_PRIMARY_MASTER] = _decodeReelectPrimaryMaster
 
-    def _decodeNotifyNodeStateChange(self):
-        try:
-            node_type, ip_address, port, uuid, state = unpack('!H4sH16sH', self._body[:26])
-            ip_address = inet_ntoa(ip_address)
-        except:
-            raise ProtocolError(self, 'invalid notify node state change')
-        if node_type not in VALID_NODE_TYPE_LIST:
-            raise ProtocolError(self, 'invalid node type %d' % node_type)
-        if state not in VALID_NODE_STATE_LIST:
-            raise ProtocolError(self, 'invalid node state %d' % state)
-        return node_type, ip_address, port, uuid, state
-    decode_table[NOTIFY_NODE_STATE_CHANGE] = _decodeNotifyNodeStateChange
-
-    def _decodeAskNodeInformation(self):
-        pass
-    decode_table[ASK_NODE_INFORMATION] = _decodeAskNodeInformation
-
-    def _decodeAnswerNodeInformation(self):
+    def _decodeNotifyNodeInformation(self):
         try:
             n = unpack('!L', self._body[:4])
             node_list = []
@@ -324,4 +289,4 @@ class Packet:
         except:
             raise ProtocolError(self, 'invalid answer node information')
         return node_list
-    decode_table[ANSWER_NODE_INFORMATION] = _decodeAnswerNodeInformation
+    decode_table[NOTIFY_NODE_INFORMATION] = _decodeNotifyNodeInformation

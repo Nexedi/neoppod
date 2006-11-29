@@ -2,76 +2,92 @@ import socket
 import errno
 import logging
 from select import select
-from time import time
 
 from protocol import Packet, ProtocolError
+from event import IdleEvent
 
-class IdleEvent:
-    """This class represents an event called when a connection is waiting for
-    a message too long."""
-
-    def __init__(self, conn, msg_id, timeout, additional_timeout):
-        self._conn = conn
-        self._id = msg_id
-        t = time()
-        self._time = t + timeout
-        self._critical_time = t + timeout + additional_timeout
-        self._additional_timeout = additional_timeout
-
-    def getId(self):
-        return self._id
-
-    def getTime(self):
-        return self._time
-
-    def getCriticalTime(self):
-        return self._critical_time
-
-    def __call__(self, t):
-        conn = self._conn
-        if t > self._critical_time:
-            logging.info('timeout with %s:%d', conn.ip_address, conn.port)
-            self._conn.timeoutExpired(self)
-            return True
-        elif t > self._time:
-            if self._additional_timeout > 10:
-                self._additional_timeout -= 10
-                conn.expectMessage(self._id, 10, self._additional_timeout)
-                # Start a keep-alive packet.
-                logging.info('sending a ping to %s:%d', conn.ip_address, conn.port)
-                msg_id = conn.getNextId()
-                conn.addPacket(Packet().ping(msg_id))
-                conn.expectMessage(msg_id, 10, 0)
-            else:
-                conn.expectMessage(self._id, self._additional_timeout, 0)
-            return True
-        return False
-
-
-class Connection:
-    """A connection."""
-
-    connecting = False
-    from_self = False
-    aborted = False
-
-    def __init__(self, connection_manager, s = None, addr = None):
+class BaseConnection(object):
+    """A base connection."""
+    def __init__(self, event_manager, handler, s = None, addr = None):
+        self.em = event_manager
         self.s = s
+        self.addr = addr
+        self.handler = handler
         if s is not None:
-            connection_manager.addReader(s)
-        self.cm = connection_manager
+            event_manager.register(self)
+
+    def getSocket(self):
+        return self.s
+
+    def setSocket(self, s):
+        if self.s is not None:
+            raise RuntimeError, 'cannot overwrite a socket in a connection'
+        if s is not None:
+            self.s = s
+            self.em.register(self)
+
+    def getAddress(self):
+        return self.addr
+
+    def readable(self):
+        raise NotImplementedError
+
+    def writable(self):
+        raise NotImplementedError
+
+    def getHandler(self):
+        return self.handler
+
+    def setHandler(self):
+        self.handler = handler
+
+    def getEventManager(self):
+        return self.em
+
+class ListeningConnection(BaseConnection):
+    """A listen connection."""
+    def __init__(self, event_manager, handler, addr = None, **kw):
+        logging.info('listening to %s:%d', *addr)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.setblocking(0)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind(addr)
+            s.listen(5)
+        except:
+            s.close()
+            raise
+        BaseConnection.__init__(self, event_manager, handler, s = s, addr = addr)
+        self.em.addReader(self)
+
+    def readable(self):
+        try:
+            new_s, addr = self.s.accept()
+            logging.info('accepted a connection from %s:%d', *addr)
+            self.handler.connectionAccepted(self, new_s, addr)
+        except socket.error, m:
+            if m[0] == errno.EAGAIN:
+                return
+            raise
+
+class Connection(BaseConnection):
+    """A connection."""
+    def __init__(self, event_manager, handler, s = None, addr = None):
+        BaseConnection.__init__(self, handler, event_manager, s = s, addr = addr)
+        if s is not None:
+            event_manager.addReader(self)
         self.read_buf = []
         self.write_buf = []
         self.cur_id = 0
         self.event_dict = {}
-        if addr is None:
-            self.ip_address = None
-            self.port = None
-        else:
-            self.ip_address, self.port = addr
+        self.aborted = False
+        self.uuid = None
 
-    def getSocket(self):
-        return self.s
+    def getUUID(self):
+        return self.uuid
+
+    def setUUID(self, uuid):
+        self.uuid = uuid
 
     def getNextId(self):
         next_id = self.cur_id
@@ -80,46 +96,15 @@ class Connection:
             self.cur_id = 0
         return next_id
 
-    def connect(self, ip_address, port):
-        """Connect to another node."""
-        if self.s is not None:
-            raise RuntimeError, 'already connected'
-
-        self.ip_address = ip_address
-        self.port = port
-        self.from_self = True
-
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-            try:
-                s.setblocking(0)
-                s.connect((ip_address, port))
-            except socket.error, m:
-                if m[0] == errno.EINPROGRESS:
-                    self.connecting = True
-                    self.cm.addWriter(s)
-                else:
-                    s.close()
-                    raise
-            else:
-                self.connectionCompleted()
-                self.cm.addReader(s)
-        except socket.error:
-            self.connectionFailed()
-            return
-
-        self.s = s
-        return s
-
     def close(self):
         """Close the connection."""
         s = self.s
+        em = self.em
         if s is not None:
-            logging.debug('closing a socket for %s:%d', self.ip_address, self.port)
-            self.cm.removeReader(s)
-            self.cm.removeWriter(s)
-            self.cm.unregister(self)
+            logging.debug('closing a socket for %s:%d', *(self.addr))
+            em.removeReader(self)
+            em.removeWriter(self)
+            em.unregister(self)
             try:
                 # This may fail if the socket is not connected.
                 s.shutdown(socket.SHUT_RDWR)
@@ -128,34 +113,22 @@ class Connection:
             s.close()
             self.s = None
             for event in self.event_dict.itervalues():
-                self.cm.removeIdleEvent(event)
+                em.removeIdleEvent(event)
             self.event_dict.clear()
 
     def abort(self):
         """Abort dealing with this connection."""
-        logging.debug('aborting a socket for %s:%d', self.ip_address, self.port)
+        logging.debug('aborting a socket for %s:%d', *(self.addr))
         self.aborted = True
 
     def writable(self):
         """Called when self is writable."""
-        if self.connecting:
-            err = self.s.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-            if err:
-                self.connectionFailed()
-                self.close()
-                return
-            else:
-                self.connecting = False
-                self.connectionCompleted()
-                self.cm.addReader(self.s)
-        else:
-            self.send()
-
+        self.send()
         if not self.pending():
             if self.aborted:
                 self.close()
             else:
-                self.cm.removeWriter(self.s)
+                self.em.removeWriter(self)
 
     def readable(self):
         """Called when self is readable."""
@@ -163,7 +136,7 @@ class Connection:
         self.analyse()
 
         if self.aborted:
-            self.cm.removeReader(self.s)
+            self.em.removeReader(self)
 
     def analyse(self):
         """Analyse received data."""
@@ -177,7 +150,7 @@ class Connection:
                 try:
                     packet = Packet.parse(msg)
                 except ProtocolError, m:
-                    self.packetMalformed(*m)
+                    self.handler.packetMalformed(self, *m)
                     return
 
                 if packet is None:
@@ -188,11 +161,11 @@ class Connection:
                     try:
                         event = self.event_dict[msg_id]
                         del self.event_dict[msg_id]
-                        self.cm.removeIdleEvent(event)
+                        self.em.removeIdleEvent(event)
                     except KeyError:
                         pass
 
-                self.packetReceived(packet)
+                self.handler.packetReceived(self, packet)
                 msg = msg[len(packet):]
 
             if msg:
@@ -210,19 +183,17 @@ class Connection:
             r = s.recv(4096)
             if not r:
                 logging.error('cannot read')
-                self.connectionClosed()
+                self.handler.connectionClosed(self)
                 self.close()
             else:
                 self.read_buf.append(r)
         except socket.error, m:
             if m[0] == errno.EAGAIN:
                 pass
-            elif m[0] == errno.ECONNRESET:
-                logging.error('cannot read')
-                self.connectionClosed()
-                self.close()
             else:
-                raise
+                logging.error('%s', m[1])
+                self.handler.connectionClosed(self)
+                self.close()
 
     def send(self):
         """Send data to a socket."""
@@ -236,7 +207,7 @@ class Connection:
                 r = s.send(msg)
                 if not r:
                     logging.error('cannot write')
-                    self.connectionClosed()
+                    self.handler.connectionClosed(self)
                     self.close()
                 elif r == len(msg):
                     del self.write_buf[:]
@@ -245,21 +216,24 @@ class Connection:
             except socket.error, m:
                 if m[0] == errno.EAGAIN:
                     return
-                raise
+                else:
+                    logging.error('%s', m[1])
+                    self.handler.connectionClosed(self)
+                    self.close()
 
     def addPacket(self, packet):
         """Add a packet into the write buffer."""
         try:
-            self.write_buf.append(str(packet))
+            self.write_buf.append(packet.encode())
         except ProtocolError, m:
             logging.critical('trying to send a too big message')
-            return self.addPacket(Packet().internalError(packet.getId(), m[1]))
+            return self.addPacket(packet.internalError(packet.getId(), m[1]))
 
         # If this is the first time, enable polling for writing.
         if len(self.write_buf) == 1:
-            self.cm.addWriter(self.s)
+            self.em.addWriter(self.s)
 
-    def expectMessage(self, msg_id = None, timeout = 10, additional_timeout = 100):
+    def expectMessage(self, msg_id = None, timeout = 5, additional_timeout = 30):
         """Expect a message for a reply to a given message ID or any message.
         
         The purpose of this method is to define how much amount of time is
@@ -281,139 +255,49 @@ class Connection:
         the callback is executed immediately."""
         event = IdleEvent(self, msg_id, timeout, additional_timeout)
         self.event_dict[msg_id] = event
-        self.cm.addIdleEvent(event)
+        self.em.addIdleEvent(event)
 
-    # Hooks.
-    def connectionFailed(self):
-        """Called when a connection fails."""
-        pass
+class ClientConnection(Connection):
+    """A connection from this node to a remote node."""
+    def __init__(self, event_manager, handler, addr = None, **kw):
+        Connection.__init__(self, event_manager, handler, addr = addr)
+        self.connecting = False
+        handler.connectionStarted(self)
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.setSocket(s)
 
-    def connectionCompleted(self):
-        """Called when a connection is completed."""
-        pass
-
-    def connectionAccepted(self):
-        """Called when a connection is accepted."""
-        # A request for a node identification should arrive.
-        self.expectMessage(timeout = 10, additional_timeout = 0)
-
-    def connectionClosed(self):
-        """Called when a connection is closed."""
-        pass
-
-    def timeoutExpired(self):
-        """Called when a timeout event occurs."""
-        self.close()
-
-    def peerBroken(self):
-        """Called when a peer is broken."""
-        pass
-
-    def packetReceived(self, packet):
-        """Called when a packet is received."""
-        pass
-
-    def packetMalformed(self, packet, error_message):
-        """Called when a packet is malformed."""
-        logging.info('malformed packet: %s', error_message)
-        self.addPacket(Packet().protocolError(packet.getId(), error_message))
-        self.abort()
-        self.peerBroken()
-
-class ConnectionManager:
-    """This class manages connections and sockets."""
-
-    def __init__(self, app = None, connection_klass = Connection):
-        self.listening_socket = None
-        self.connection_dict = {}
-        self.reader_set = set([])
-        self.writer_set = set([])
-        self.exc_list = []
-        self.app = app
-        self.klass = connection_klass
-        self.event_list = []
-        self.prev_time = time()
-
-    def listen(self, ip_address, port):
-        logging.info('listening to %s:%d', ip_address, port)
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setblocking(0)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((ip_address, port))
-        s.listen(5)
-        self.listening_socket = s
-        self.reader_set.add(s)
-
-    def getConnectionList(self):
-        return self.connection_dict.values()
-
-    def register(self, conn):
-        self.connection_dict[conn.getSocket()] = conn
-
-    def unregister(self, conn):
-        del self.connection_dict[conn.getSocket()]
-
-    def connect(self, ip_address, port):
-        logging.info('connecting to %s:%d', ip_address, port)
-        conn = self.klass(self)
-        if conn.connect(ip_address, port) is not None:
-            self.register(conn)
-
-    def poll(self, timeout = 1):
-        rlist, wlist, xlist = select(self.reader_set, self.writer_set, self.exc_list,
-                                     timeout)
-        for s in rlist:
-            if s == self.listening_socket:
-                try:
-                    new_s, addr = s.accept()
-                    logging.info('accepted a connection from %s:%d', addr[0], addr[1])
-                    conn = self.klass(self, new_s, addr)
-                    self.register(conn)
-                    conn.connectionAccepted()
-                except socket.error, m:
-                    if m[0] == errno.EAGAIN:
-                        continue
+            try:
+                s.setblocking(0)
+                s.connect(addr)
+            except socket.error, m:
+                if m[0] == errno.EINPROGRESS:
+                    self.connecting = True
+                    event_manager.addWriter(self)
+                else:
                     raise
             else:
-                conn = self.connection_dict[s]
-                conn.readable()
+                self.handler.connectionCompleted()
+                event_manager.addReader(self)
+        except:
+            handler.connectionFailed(self)
+            self.close()
 
-        for s in wlist:
-            conn = self.connection_dict[s]
-            conn.writable()
+    def writable(self):
+        """Called when self is writable."""
+        if self.connecting:
+            err = self.s.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            if err:
+                self.connectionFailed()
+                self.close()
+                return
+            else:
+                self.connecting = False
+                self.handler.connectionCompleted(self)
+                self.cm.addReader(self.s)
+        else:
+            Connection.writable(self)
 
-        # Check idle events. Do not check them out too often, because this
-        # is somehow heavy.
-        event_list = self.event_list
-        if event_list:
-            t = time()
-            if t - self.prev_time >= 1:
-                self.prev_time = t
-                event_list.sort(key = lambda event: event.getTime())
-                for event in tuple(event_list):
-                    if event(t):
-                        event_list.pop(0)
-                    else:
-                        break
-
-    def addIdleEvent(self, event):
-        self.event_list.append(event)
-
-    def removeIdleEvent(self, event):
-        try:
-            self.event_list.remove(event)
-        except ValueError:
-            pass
-
-    def addReader(self, s):
-        self.reader_set.add(s)
-
-    def removeReader(self, s):
-        self.reader_set.discard(s)
-
-    def addWriter(self, s):
-        self.writer_set.add(s)
-
-    def removeWriter(self, s):
-        self.writer_set.discard(s)
-
+class ServerConnection(Connection):
+    """A connection from a remote node to this node."""
+    pass

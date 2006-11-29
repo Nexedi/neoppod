@@ -19,15 +19,13 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from optparse import OptionParser
-from master import Application
+from master.app import Application
 import logging
 
-# FIXME should be configurable
-logging.basicConfig(level = logging.DEBUG)
 
 parser = OptionParser()
-parser.add_option('-i', '--initialize', action = 'store_true', 
-                  help = 'initialize the database')
+parser.add_option('-v', '--verbose', action = 'store_true', 
+                  help = 'print verbose messages')
 parser.add_option('-c', '--config', help = 'specify a configuration file')
 parser.add_option('-s', '--section', help = 'specify a configuration section')
 
@@ -36,9 +34,10 @@ parser.add_option('-s', '--section', help = 'specify a configuration section')
 config = options.config or 'neo.conf'
 section = options.section or 'master'
 
+if options.verbose:
+    logging.basicConfig(level = logging.DEBUG)
+else:
+    logging.basicConfig(level = logging.ERROR)
+
 app = Application(config, section)
-
-if options.initialize:
-    app.initializeDatabase()
-
 app.run()

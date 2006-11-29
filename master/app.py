@@ -5,78 +5,24 @@ from socket import inet_aton
 from time import time
 
 from connection import ConnectionManager
-from connection import Connection as BaseConnection
-from database import DatabaseManager
 from config import ConfigurationManager
 from protocol import Packet, ProtocolError, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        INVALID_UUID, INVALID_TID, INVALID_OID, \
-        PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
-        INTERNAL_ERROR_CODE, \
-        ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
-        PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, \
-        ANNOUNCE_PRIMARY_MASTER, REELECT_PRIMARY_MASTER
-from node import NodeManager, MasterNode, StorageNode, ClientNode, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE
+from node import NodeManager, MasterNode, StorageNode, ClientNode
+from handler import EventHandler
+from event import EventManager
 
 from util import dump
 
 class NeoException(Exception): pass
 class ElectionFailure(NeoException): pass
 class PrimaryFailure(NeoException): pass
-class RecoveryFailure(NeoException): pass
 
-class Connection(BaseConnection):
-    """This class provides a master-specific connection."""
-
-    _uuid = None
-
-    def setUUID(self, uuid):
-        self._uuid = uuid
-
-    def getUUID(self):
-        return self._uuid
-
-    # Feed callbacks to the master node.
-    def connectionFailed(self):
-        self.cm.app.connectionFailed(self)
-        BaseConnection.connectionFailed(self)
-
-    def connectionCompleted(self):
-        self.cm.app.connectionCompleted(self)
-        BaseConnection.connectionCompleted(self)
-
-    def connectionAccepted(self):
-        self.cm.app.connectionAccepted(self)
-        BaseConnection.connectionAccepted(self)
-
-    def connectionClosed(self):
-        self.cm.app.connectionClosed(self)
-        BaseConnection.connectionClosed(self)
-
-    def packetReceived(self, packet):
-        self.cm.app.packetReceived(self, packet)
-        BaseConnection.packetReceived(self, packet)
-
-    def timeoutExpired(self):
-        self.cm.app.timeoutExpired(self)
-        BaseConnection.timeoutExpired(self)
-
-    def peerBroken(self):
-        self.cm.app.peerBroken(self)
-        BaseConnection.peerBroken(self)
-    
 class Application(object):
     """The master node application."""
 
     def __init__(self, file, section):
         config = ConfigurationManager(file, section)
-
-        self.database = config.getDatabase()
-        self.user = config.getUser()
-        self.password = config.getPassword()
-        logging.debug('database is %s, user is %s, password is %s', 
-                      self.database, self.user, self.password)
 
         self.num_replicas = config.getReplicas()
         self.num_partitions = config.getPartitions()
@@ -84,53 +30,19 @@ class Application(object):
         logging.debug('the number of replicas is %d, the number of partitions is %d, the name is %s',
                       self.num_replicas, self.num_partitions, self.name)
 
-        self.ip_address, self.port = config.getServer()
-        logging.debug('IP address is %s, port is %d', self.ip_address, self.port)
+        self.server = config.getServer()
+        logging.debug('IP address is %s, port is %d', *(self.server))
 
         # Exclude itself from the list.
-        self.master_node_list = [n for n in config.getMasterNodeList()
-                                    if n != (self.ip_address, self.port)]
+        self.master_node_list = [n for n in config.getMasterNodeList() if n != self.server]
         logging.debug('master nodes are %s', self.master_node_list)
 
         # Internal attributes.
-        self.dm = DatabaseManager(self.database, self.user, self.password)
-        self.cm = ConnectionManager(app = self, connection_klass = Connection)
+        self.em = EventManager()
         self.nm = NodeManager()
 
         self.primary = None
         self.primary_master_node = None
-
-        self.ready = False
-
-        # Co-operative threads. Simulated by generators.
-        self.thread_dict = {}
-        self.server_thread_method = None
-        self.event = None
-
-    def initializeDatabase(self):
-        """Initialize a database by recreating all the tables.
-        
-        In master nodes, the database is used only to make
-        some data persistent. All operations are executed on memory.
-        Thus it is not necessary to make indices on the tables."""
-        q = self.dm.query
-        e = MySQLdb.escape_string
-
-        q("""DROP TABLE IF EXISTS loid, ltid, self, stn, part""")
-
-        q("""CREATE TABLE loid (
-                 oid BINARY(8) NOT NULL
-             ) ENGINE = InnoDB COMMENT = 'Last Object ID'""")
-        q("""INSERT loid VALUES ('%s')""" % e(INVALID_OID))
-
-        q("""CREATE TABLE ltid (
-                 tid BINARY(8) NOT NULL
-             ) ENGINE = InnoDB COMMENT = 'Last Transaction ID'""")
-        q("""INSERT ltid VALUES ('%s')""" % e(INVALID_TID))
-
-        q("""CREATE TABLE self (
-                 uuid BINARY(16) NOT NULL
-             ) ENGINE = InnoDB COMMENT = 'UUID'""")
 
         # XXX Generate an UUID for self. For now, just use a random string.
         # Avoid an invalid UUID.
@@ -138,71 +50,25 @@ class Application(object):
             uuid = os.urandom(16)
             if uuid != INVALID_UUID:
                 break
+        self.uuid = uuid
 
-        q("""INSERT self VALUES ('%s')""" % e(uuid))
-
-        q("""CREATE TABLE stn (
-                 nid INT UNSIGNED NOT NULL UNIQUE,
-                 uuid BINARY(16) NOT NULL UNIQUE,
-                 state CHAR(1) NOT NULL
-             ) ENGINE = InnoDB COMMENT = 'Storage Nodes'""")
-
-        q("""CREATE TABLE part (
-                 pid INT UNSIGNED NOT NULL,
-                 nid INT UNSIGNED NOT NULL,
-                 state CHAR(1) NOT NULL
-             ) ENGINE = InnoDB COMMENT = 'Partition Table'""")
-
-    def loadData(self):
-        """Load persistent data from a database."""
-        logging.info('loading data from MySQL')
-        q = self.dm.query
-        result = q("""SELECT oid FROM loid""")
-        if len(result) != 1:
-            raise RuntimeError, 'the table loid has %d rows' % len(result)
-        self.loid = result[0][0]
-        logging.info('the last OID is %r' % dump(self.loid))
-
-        result = q("""SELECT tid FROM ltid""")
-        if len(result) != 1:
-            raise RuntimeError, 'the table ltid has %d rows' % len(result)
-        self.ltid = result[0][0]
-        logging.info('the last TID is %r' % dump(self.ltid))
-
-        result = q("""SELECT uuid FROM self""")
-        if len(result) != 1:
-            raise RuntimeError, 'the table self has %d rows' % len(result)
-        self.uuid = result[0][0]
-        logging.info('the UUID is %r' % dump(self.uuid))
-
-        # FIXME load storage and partition information here.
-
+        self.loid = INVALID_OID
+        self.ltid = INVALID_TID
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
-        # Sanity checks.
-        logging.info('checking the database')
-        result = self.dm.query("""SHOW TABLES""")
-        table_set = set([r[0] for r in result])
-        existing_table_list = [t for t in ('loid', 'ltid', 'self', 'stn', 'part')
-                                   if t in table_set]
-        if len(existing_table_list) == 0:
-            # Possibly this is the first time to launch...
-            self.initializeDatabase()
-        elif len(existing_table_list) != 5:
-            raise RuntimeError, 'database inconsistent'
+        if self.num_replicas <= 0:
+            raise RuntimeError, 'replicas must be more than zero'
+        if self.num_partitions <= 0:
+            raise RuntimeError, 'partitions must be more than zero'
+        if len(self.name) == 0:
+            raise RuntimeError, 'cluster name must be non-empty'
 
-        # XXX More tests are necessary (e.g. check the table structures,
-        # check the number of partitions, etc.).
-
-        # Now ready to load persistent data from the database.
-        self.loadData()
-
-        for ip_address, port in self.master_node_list:
-            self.nm.add(MasterNode(ip_address = ip_address, port = port))
+        for server in self.master_node_list:
+            self.nm.add(MasterNode(server = server))
 
         # Make a listening port.
-        self.cm.listen(self.ip_address, self.port)
+        ListeningConnection(self.em, None, addr = self.server)
 
         # Start the election of a primary master node.
         self.electPrimary()
@@ -212,95 +78,18 @@ class Application(object):
             try:
                 if self.primary:
                     while 1:
-                        try:
-                            self.startRecovery()
-                        except RecoveryFailure:
-                            logging.critical('unable to recover the system; use full recovery')
-                            raise
+                        self.startRecovery()
                         self.playPrimaryRole()
                 else:
                     self.playSecondaryRole()
                 raise RuntimeError, 'should not reach here'
             except (ElectionFailure, PrimaryFailure):
                 # Forget all connections.
-                for conn in cm.getConnectionList():
+                for conn in self.em.getConnectionList():
                     conn.close()
-                self.thread_dict.clear()
                 # Reelect a new primary master.
                 self.electPrimary(bootstrap = False)
 
-    CONNECTION_FAILED = 'connection failed'
-    def connectionFailed(self, conn):
-        addr = (conn.ip_address, conn.port)
-        t = self.thread_dict[addr]
-        self.event = (self.CONNECTION_FAILED, conn)
-        try:
-            t.next()
-        except StopIteration:
-            del self.thread_dict[addr]
-
-    CONNECTION_COMPLETED = 'connection completed'
-    def connectionCompleted(self, conn):
-        addr = (conn.ip_address, conn.port)
-        t = self.thread_dict[addr]
-        self.event = (self.CONNECTION_COMPLETED, conn)
-        try:
-            t.next()
-        except StopIteration:
-            del self.thread_dict[addr]
-
-    CONNECTION_CLOSED = 'connection closed'
-    def connectionClosed(self, conn):
-        addr = (conn.ip_address, conn.port)
-        t = self.thread_dict[addr]
-        self.event = (self.CONNECTION_CLOSED, conn)
-        try:
-            t.next()
-        except StopIteration:
-            del self.thread_dict[addr]
-
-    CONNECTION_ACCEPTED = 'connection accepted'
-    def connectionAccepted(self, conn):
-        addr = (conn.ip_address, conn.port)
-        logging.debug('making a server thread for %s:%d', conn.ip_address, conn.port)
-        t = self.server_thread_method()
-        self.thread_dict[addr] = t
-        self.event = (self.CONNECTION_ACCEPTED, conn)
-        try:
-            t.next()
-        except StopIteration:
-            del self.thread_dict[addr]
-
-    TIMEOUT_EXPIRED = 'timeout expired'
-    def timeoutExpired(self, conn):
-        addr = (conn.ip_address, conn.port)
-        t = self.thread_dict[addr]
-        self.event = (self.TIMEOUT_EXPIRED, conn)
-        try:
-            t.next()
-        except StopIteration:
-            del self.thread_dict[addr]
-
-    PEER_BROKEN = 'peer broken'
-    def peerBroken(self, conn):
-        addr = (conn.ip_address, conn.port)
-        t = self.thread_dict[addr]
-        self.event = (self.PEER_BROKEN, conn)
-        try:
-            t.next()
-        except StopIteration:
-            del self.thread_dict[addr]
-
-    PACKET_RECEIVED = 'packet received'
-    def packetReceived(self, conn, packet):
-        addr = (conn.ip_address, conn.port)
-        t = self.thread_dict[addr]
-        self.event = (self.PACKET_RECEIVED, conn, packet)
-        try:
-            t.next()
-        except StopIteration:
-            del self.thread_dict[addr]
-        
     def electPrimaryClientIterator(self):
         """Handle events for a client connection."""
         # The first event. This must be a connection failure or connection completion.
