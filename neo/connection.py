@@ -38,7 +38,7 @@ class BaseConnection(object):
     def getHandler(self):
         return self.handler
 
-    def setHandler(self):
+    def setHandler(self, handler):
         self.handler = handler
 
     def getEventManager(self):
@@ -73,7 +73,7 @@ class ListeningConnection(BaseConnection):
 class Connection(BaseConnection):
     """A connection."""
     def __init__(self, event_manager, handler, s = None, addr = None):
-        BaseConnection.__init__(self, handler, event_manager, s = s, addr = addr)
+        BaseConnection.__init__(self, event_manager, handler, s = s, addr = addr)
         if s is not None:
             event_manager.addReader(self)
         self.read_buf = []
@@ -231,7 +231,7 @@ class Connection(BaseConnection):
 
         # If this is the first time, enable polling for writing.
         if len(self.write_buf) == 1:
-            self.em.addWriter(self.s)
+            self.em.addWriter(self)
 
     def expectMessage(self, msg_id = None, timeout = 5, additional_timeout = 30):
         """Expect a message for a reply to a given message ID or any message.
@@ -288,13 +288,13 @@ class ClientConnection(Connection):
         if self.connecting:
             err = self.s.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
             if err:
-                self.connectionFailed()
+                self.handler.connectionFailed(self)
                 self.close()
                 return
             else:
                 self.connecting = False
                 self.handler.connectionCompleted(self)
-                self.cm.addReader(self.s)
+                self.em.addReader(self)
         else:
             Connection.writable(self)
 

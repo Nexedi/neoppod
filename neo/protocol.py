@@ -125,6 +125,10 @@ class Packet(object):
     def notReady(self, msg_id, error_message):
         return self.error(msg_id, NOT_READY, 'not ready: ' + error_message)
 
+    def brokenNodeDisallowedError(self, msg_id, error_message):
+        return self.error(msg_id, BROKEN_NODE_DISALLOWED_ERROR, 
+                          'broken node disallowed error: ' + error_message)
+
     def ping(self, msg_id):
         self._id = msg_id
         self._type = PING
@@ -252,10 +256,10 @@ class Packet(object):
 
     def _decodeAnswerPrimaryMaster(self):
         try:
-            primary_uuid, n = unpack('!16sL', self._body[:36])
+            primary_uuid, n = unpack('!16sL', self._body[:20])
             known_master_list = []
             for i in xrange(n):
-                ip_address, port, uuid = unpack('!4sH16s', self._body[36+i*22:58+i*22])
+                ip_address, port, uuid = unpack('!4sH16s', self._body[20+i*22:42+i*22])
                 ip_address = inet_ntoa(ip_address)
                 known_master_list.append((ip_address, port, uuid))
         except:

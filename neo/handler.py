@@ -20,18 +20,19 @@ class EventHandler(object):
 
     def connectionStarted(self, conn):
         """Called when a connection is started."""
-        pass
+        logging.debug('connection started for %s:%d', *(conn.getAddress()))
 
     def connectionCompleted(self, conn):
         """Called when a connection is completed."""
-        pass
+        logging.debug('connection completed for %s:%d', *(conn.getAddress()))
 
     def connectionFailed(self, conn):
         """Called when a connection failed."""
-        pass
+        logging.debug('connection failed for %s:%d', *(conn.getAddress()))
 
     def connectionAccepted(self, conn, s, addr):
         """Called when a connection is accepted."""
+        logging.debug('connection accepted from %s:%d', *addr)
         new_conn = ServerConnection(conn.getEventManager(), conn.getHandler(),
                                     s = s, addr = addr)
         # A request for a node identification should arrive.
@@ -39,19 +40,21 @@ class EventHandler(object):
 
     def timeoutExpired(self, conn):
         """Called when a timeout event occurs."""
-        pass
+        logging.debug('timeout expired for %s:%d', *(conn.getAddress()))
 
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
-        pass
+        logging.debug('connection closed for %s:%d', *(conn.getAddress()))
 
     def packetReceived(self, conn, packet):
         """Called when a packet is received."""
+        logging.debug('packet received from %s:%d', *(conn.getAddress()))
         self.dispatch(conn, packet)
 
     def packetMalformed(self, conn, packet, error_message):
         """Called when a packet is malformed."""
-        logging.info('malformed packet: %s', error_message)
+        logging.info('malformed packet from %s:%d: %s', 
+                     conn.getAddress()[0], conn.getAddress()[1], error_message)
         conn.addPacket(Packet().protocolError(packet.getId(), error_message))
         conn.abort()
         self.peerBroken(conn)
@@ -65,7 +68,7 @@ class EventHandler(object):
         t = packet.getType()
         try:
             method = self.packet_dispatch_table[t]
-            args = packet.decode()
+            args = packet.decode() or ()
             method(conn, packet, *args)
         except ValueError:
             self.handleUnexpectedPacket(conn, packet)
@@ -107,10 +110,10 @@ class EventHandler(object):
     def handlePong(self, conn, packet):
         pass
 
-    def handleAskPrimaryNode(self, conn, packet):
+    def handleAskPrimaryMaster(self, conn, packet):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerPrimaryNode(self, conn, packet, primary_uuid, known_master_list):
+    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):

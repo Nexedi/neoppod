@@ -1,7 +1,9 @@
 from time import time
+import logging
 
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
+from neo.util import dump
 
 class Node(object):
     """This class represents a node."""
@@ -28,21 +30,23 @@ class Node(object):
             self.last_state_change = time()
 
     def setServer(self, server):
-        if self.server is not None:
-            self.manager.unregisterServer(self)
+        if self.server != server:
+            if self.server is not None:
+                self.manager.unregisterServer(self)
 
-        self.server = server
-        self.manager.registerServer(self)
+            self.server = server
+            self.manager.registerServer(self)
 
     def getServer(self):
         return self.server
 
     def setUUID(self, uuid):
-        if self.uuid is not None:
-            self.manager.unregisterUUID(self)
+        if self.uuid != uuid:
+            if self.uuid is not None:
+                self.manager.unregisterUUID(self)
 
-        self.uuid = uuid
-        self.manager.registerUUID(self)
+            self.uuid = uuid
+            self.manager.registerUUID(self)
 
     def getUUID(self):
         return self.uuid
@@ -96,11 +100,11 @@ class NodeManager(object):
             pass
 
     def registerUUID(self, node):
-        self.server_dict[node.getUUID()] = node
+        self.uuid_dict[node.getUUID()] = node
 
     def unregisterUUID(self, node):
         try:
-            del self.server_dict[node.getUUID()]
+            del self.uuid_dict[node.getUUID()]
         except KeyError:
             pass
 
