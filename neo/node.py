@@ -35,7 +35,8 @@ class Node(object):
                 self.manager.unregisterServer(self)
 
             self.server = server
-            self.manager.registerServer(self)
+            if server is not None:
+                self.manager.registerServer(self)
 
     def getServer(self):
         return self.server
@@ -46,7 +47,8 @@ class Node(object):
                 self.manager.unregisterUUID(self)
 
             self.uuid = uuid
-            self.manager.registerUUID(self)
+            if uuid is not None:
+                self.manager.registerUUID(self)
 
     def getUUID(self):
         return self.uuid

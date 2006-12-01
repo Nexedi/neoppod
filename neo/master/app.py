@@ -7,7 +7,7 @@ from time import time
 from neo.config import ConfigurationManager
 from neo.protocol import Packet, ProtocolError, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        INVALID_UUID, INVALID_OID, INVALID_TID
+        INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.util import dump
@@ -49,8 +49,12 @@ class Application(object):
                 break
         self.uuid = uuid
 
+        # The last OID.
         self.loid = INVALID_OID
+        # The last TID.
         self.ltid = INVALID_TID
+        # The last Partition Table ID.
+        self.lptid = INVALID_PTID
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
@@ -113,8 +117,10 @@ class Application(object):
             self.primary_master_node = None
 
             for node in nm.getMasterNodeList():
-                if node.getState() in (RUNNING_STATE, TEMPORARILY_DOWN_STATE):
-                    self.unconnected_master_node_set.add(node.getServer())
+                self.unconnected_master_node_set.add(node.getServer())
+                # For now, believe that every node should be available,
+                # since down or broken nodes may be already repaired.
+                node.setState(RUNNING_STATE)
             self.negotiating_master_node_set.clear()
 
             try:

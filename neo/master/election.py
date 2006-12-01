@@ -35,7 +35,7 @@ class ElectionEventHandler(MasterEventHandler):
         addr = conn.getAddress()
         app.negotiating_master_node_set.discard(addr)
         node = app.nm.getNodeByServer(addr)
-        if node.getState() not in (DOWN_STATE, BROKEN_STATE):
+        if node.getState() == RUNNING_STATE:
             app.unconnected_master_node_set.add(addr)
             node.setState(TEMPORARILY_DOWN_STATE)
         MasterEventHandler.connectionFailed(self, conn)
