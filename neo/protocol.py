@@ -496,4 +496,4 @@ class Packet(object):
 
     def _decodeStopOperation(self):
         pass
-    decode_table[START_OPERATION] = _decodeStopOperation
+    decode_table[STOP_OPERATION] = _decodeStopOperation

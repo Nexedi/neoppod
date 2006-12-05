@@ -14,6 +14,8 @@ from neo.util import dump
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
 from neo.exception import ElectionFailure, PrimaryFailure
 from neo.master.election import ElectionEventHandler
+from neo.master.recovery import RecoveryEventHandler
+from neo.pt import PartitionTable
 
 class Application(object):
     """The master node application."""
@@ -37,6 +39,7 @@ class Application(object):
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
+        self.pt = PartitionTable(self.num_partitions, self.num_replicas)
 
         self.primary = None
         self.primary_master_node = None
@@ -55,6 +58,8 @@ class Application(object):
         self.ltid = INVALID_TID
         # The last Partition Table ID.
         self.lptid = INVALID_PTID
+        # The target node's uuid to request next.
+        self.target_uuid = None
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
@@ -78,9 +83,7 @@ class Application(object):
         while 1:
             try:
                 if self.primary:
-                    while 1:
-                        self.startRecovery()
-                        self.playPrimaryRole()
+                    self.playPrimaryRole()
                 else:
                     self.playSecondaryRole()
                 raise RuntimeError, 'should not reach here'
@@ -246,7 +249,9 @@ class Application(object):
                         conn.close()
                 bootstrap = False
 
-    def broadcastNodeStateChange(self, node):
+    def broadcastNodeInformation(self, node):
+        """Broadcast a Notify Node Information packet."""
+        node_type = node.getNodeType()
         state = node.getState()
         uuid = node.getUUID()
         ip_address, port = node.getServer()
@@ -255,194 +260,136 @@ class Application(object):
         if port is None:
             port = 0
 
-        if isinstance(node, ClientNode):
-            # Notify secondary master nodes and storage nodes of
-            # the removal of the client node.
-
+        if node_type == CLIENT_NODE_TYPE:
+            # Only to master nodes and storage nodes.
             for c in em.getConnectionList():
                 if c.getUUID() is not None:
-                    n = nm.getNodeByUUID(uuid)
+                    n = nm.getNodeByUUID(c.getUUID())
                     if isinstance(n, (MasterNode, StorageNode)):
                         p = Packet()
-                        p.notifyNodeStateChange(c.getNextId(), 
-                                                CLIENT_NODE_TYPE,
-                                                ip_address, port,
-                                                uuid, state)
+                        node_list = (node_type, ip_address, port, uuid, state)
+                        p.notifyNodeStateChange(c.getNextId(), node_list)
                         c.addPacket(p)
-        elif isinstance(node, MasterNode):
+        elif isinstance(node, (MasterNode, StorageNode)):
             for c in em.getConnectionList():
                 if c.getUUID() is not None:
                     p = Packet()
-                    p.notifyNodeStateChange(c.getNextId(),
-                                            MASTER_NODE_TYPE,
-                                            ip_address, port,
-                                            uuid, state)
-                    c.addPacket(p)
-        elif isinstance(node, StorageNode):
-            for c in em.getConnectionList():
-                if c.getUUID() is not None:
-                    p = Packet()
-                    p.notifyNodeStateChange(c.getNextId(),
-                                            STORAGE_NODE_TYPE,
-                                            ip_address, port,
-                                            uuid, state)
+                    node_list = (node_type, ip_address, port, uuid, state)
+                    p.notifyNodeStateChange(c.getNextId(), node_list)
                     c.addPacket(p)
         else:
             raise Runtime, 'unknown node type'
 
-    def playPrimaryRoleServerIterator(self):
-        """Handle events for a server connection."""
+    def recoverStatus(self):
+        logging.info('begin the recovery of the status')
+
+        handler = RecoveryEventHandler(self)
         em = self.em
         nm = self.nm
+
+        # Make sure that every connection has the status recovery event handler.
+        for conn in em.getConnectionList():
+            conn.setHandler(handler)
+
+        prev_lptid = None
+        self.loid = INVALID_OID
+        self.ltid = INVALID_TID
+        self.lptid = None
         while 1:
-            method, conn = self.event[0], self.event[1]
-            logging.debug('method is %r, conn is %s:%d', 
-                          method, conn.ip_address, conn.port)
-            if method is self.CONNECTION_ACCEPTED:
-                pass
-            elif method in (self.CONNECTION_CLOSED, self.TIMEOUT_EXPIRED):
-                uuid = conn.getUUID()
-                if uuid is not None:
-                    # If the peer is identified, mark it as temporarily down or down.
-                    node = nm.getNodeByUUID(uuid)
-                    if isinstance(node, ClientNode):
-                        node.setState(DOWN_STATE)
-                        self.broadcastNodeStateChange(node)
-                        # For now, down client nodes simply get forgotten.
-                        nm.remove(node)
-                    elif isinstance(node, MasterNode):
-                        if node.getState() not in (BROKEN_STATE, DOWN_STATE):
-                            node.setState(TEMPORARILY_DOWN_STATE)
-                            self.broadcastNodeStateChange(node)
-                    elif isinstance(node, StorageNode):
-                        if node.getState() not in (BROKEN_STATE, DOWN_STATE):
-                            node.setState(TEMPORARILY_DOWN_STATE)
-                            self.broadcastNodeStateChange(node)
-                            # FIXME check the partition table.
-                            self.pt.setTemporarilyDown(node.getUUID())
-                            if self.ready and self.pt.fatal():
-                                logging.critical('the storage nodes are not enough')
-                                self.ready = False
-                                self.broadcast
+            self.target_uuid = None
+            self.pt.clear()
 
-                            # FIXME update the database.
-                    else:
-                        raise RuntimeError, 'unknown node type'
-                return
-            elif method is self.PEER_BROKEN:
-                uuid = conn.getUUID()
-                if uuid is not None:
-                    # If the peer is identified, mark it as broken.
-                    node = nm.getNodeByUUID(uuid)
-                    node.setState(BROKEN_STATE)
-                return
-            elif method is self.PACKET_RECEIVED:
-                if node is not None and node.getState() != BROKEN_STATE:
-                    node.setState(RUNNING_STATE)
+            if self.lptid is not None:
+                # I need to retrieve last ids again.
+                logging.debug('resending Ask Last IDs')
+                for conn in em.getConnectionList():
+                    uuid = conn.getUUID()
+                    if uuid is not None:
+                        node = nm.getNodeByUUID(uuid)
+                        if isinstance(node, StorageNode) \
+                                and node.getState() == RUNNING_STATE:
+                            p = Packet()
+                            msg_id = conn.getNextId()
+                            p.askLastIDs(msg_id)
+                            conn.addPacket(p)
+                            conn.expectMessage(msg_id)
 
-                packet = self.event[2]
-                t = packet.getType()
-                try:
-                    if t == ERROR:
-                        code, msg = packet.decode()
-                        if code in (PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, 
-                                    BROKEN_NODE_DISALLOWED_CODE):
-                            # In those cases, it is better to assume that I am unusable.
-                            logging.critical(msg)
-                            raise RuntimeError, msg
-                        else:
-                            # Otherwise, the peer has an error.
-                            logging.error('an error happened at the peer %s:%d', 
-                                          conn.ip_address, conn.port)
-                            if node is not None:
-                                node.setState(BROKEN_STATE)
-                            conn.close()
-                            return
-                    elif t == PING:
-                        logging.info('got a keep-alive message from %s:%d; overloaded?',
-                                     conn.ip_address, conn.port)
-                        conn.addPacket(Packet().pong(packet.getId()))
-                    elif t == PONG:
-                        pass
-                    elif t == REQUEST_NODE_IDENTIFICATION:
-                        node_type, uuid, ip_address, port, name = packet.decode()
-                        if node_type != MASTER_NODE_TYPE:
-                            logging.info('reject a connection from a non-master')
-                            conn.addPacket(Packet().notReady(packet.getId(), 
-                                                             'retry later'))
-                            conn.abort()
-                            continue
-                        if name != self.name:
-                            logging.info('reject an alien cluster')
-                            conn.addPacket(Packet().protocolError(packet.getId(), 
-                                                                  'invalid cluster name'))
-                            conn.abort()
-                            continue
-                        node = self.nm.getNodeByServer(ip_address, port)
-                        if node is None:
-                            node = MasterNode(ip_address, port, uuid)
-                            self.nm.add(node)
-                            self.unconnected_master_node_set.add((ip_address, port))
-                        else:
-                            # Trust the UUID sent by the peer.
-                            if node.getUUID() != uuid:
-                                node.setUUID(uuid)
-                        conn.setUUID(uuid)
-                        p = Packet()
-                        p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
-                                                   self.uuid, self.ip_address, self.port)
-                        conn.addPacket(p)
-                        conn.expectMessage()
-                    elif t == ASK_PRIMARY_MASTER:
-                        if node is None:
-                            raise ProtocolError(packet, 'not identified')
+            # Wait for at least one storage node to appear.
+            while self.target_uuid is None:
+                em.poll(1)
 
-                        ltid, loid = packet.decode()
+            # Wait a bit.
+            t = time()
+            while time() < t + 5:
+                em.poll(1)
 
-                        p = Packet()
-                        if self.primary:
-                            uuid = self.uuid
-                        elif self.primary_master_node is not None:
-                            uuid = self.primary_master_node.getUUID()
-                        else:
-                            uuid = INVALID_UUID
+            # Now I have at least one to ask.
+            prev_lptid = self.lptid
+            node = nm.getNodeByUUID(uuid)
+            if node.getState() != RUNNING_STATE:
+                # Weird. It's dead.
+                logging.info('the target storage node is dead')
+                continue
 
-                        known_master_list = []
-                        for n in self.nm.getMasterNodeList():
-                            info = n.getServer() + (n.getUUID() or INVALID_UUID,)
-                            known_master_list.append(info)
-                        p.answerPrimaryMaster(packet.getId(), self.ltid, self.loid,
-                                              uuid, known_master_list)
-                        conn.addPacket(p)
-
-                        if self.primary and (self.ltid < ltid or self.loid < loid):
-                            # I am not really primary... So restart the election.
-                            raise ElectionFailure, 'not a primary master any longer'
-                    elif t == ANNOUNCE_PRIMARY_MASTER:
-                        if node is None:
-                            raise ProtocolError(packet, 'not identified')
-
-                        if self.primary:
-                            # I am also the primary... So restart the election.
-                            raise ElectionFailure, 'another primary arises'
-
-                        self.primary = False
-                        self.primary_master_node = node
-                        logging.info('%s:%d is the primary' % node.getServer())
-                    elif t == REELECT_PRIMARY_MASTER:
-                        raise ElectionFailure, 'reelection requested'
-                    else:
-                        raise ProtocolError(packet, 'unexpected packet 0x%x' % t)
-                except ProtocolError, m:
-                    logging.debug('protocol problem %s', m[1])
-                    conn.addPacket(Packet().protocolError(m[0].getId(), m[1]))
-                    conn.abort()
+            for conn in em.getConnectionList():
+                if conn.getUUID() == self.lptid:
+                    break
             else:
-                raise RuntimeError, 'unexpected event %r' % (method,)
-        
+                # Why?
+                logging.info('no connection to the target storage node')
+                continue
+
+            if self.lptid == INVALID_PTID:
+                # This looks like the first time. So make a fresh table.
+                logging.debug('creating a new partition table')
+                self.pt.make(nm.getStorageNodeList())
+            else:
+                # Obtain a partition table. It is necessary to split this message
+                # because the packet size can be huge.
+                logging.debug('asking a partition table to %s:%d', *(node.getServer()))
+                start = 0
+                size = self.num_partitions
+                while size:
+                    len = min(1000, size)
+                    msg_id = conn.getNextId()
+                    p = Packet()
+                    p.askPartitionTable(msg_id, range(start, start + len))
+                    conn.addPacket(p)
+                    conn.expectMessage(msg_id)
+                    size -= len
+                    start += len
+
+                t = time()
+                while 1:
+                    em.poll(1)
+                    if node.getState() != RUNNING_STATE:
+                        # Dead.
+                        break
+                    if self.pt.filled() or t + 30 < time():
+                        break
+
+                if self.lptid != prev_lptid or not self.pt.filled():
+                    # I got something newer or the target is dead.
+                    continue
+
+                # Wait until the cluster gets operational or the Partition Table ID
+                # turns out to be not the latest.
+                logging.debug('waiting for the cluster to be operational')
+                while 1:
+                    em.poll(1)
+                    if self.pt.operational():
+                        break
+                    if self.lptid != prev_lptid:
+                        break
+
+                if self.lptid != prev_lptid:
+                    # I got something newer.
+                    continue
+            break
+
     def playPrimaryRole(self):
         logging.info('play the primary role')
-        self.ready = False
+        self.recoverStatus()
         raise NotImplementedError
 
     def playSecondaryRole(self):

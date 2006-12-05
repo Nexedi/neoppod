@@ -44,6 +44,9 @@ class BaseConnection(object):
     def getEventManager(self):
         return self.em
 
+    def getUUID(self):
+        return None
+
 class ListeningConnection(BaseConnection):
     """A listen connection."""
     def __init__(self, event_manager, handler, addr = None, **kw):

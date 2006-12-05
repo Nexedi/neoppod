@@ -38,6 +38,8 @@ class ElectionEventHandler(MasterEventHandler):
         if node.getState() == RUNNING_STATE:
             app.unconnected_master_node_set.add(addr)
             node.setState(TEMPORARILY_DOWN_STATE)
+        elif node.getState() == TEMPORARILY_DOWN_STATE:
+            app.unconnected_master_node_set.add(addr)
         MasterEventHandler.connectionFailed(self, conn)
 
     def connectionClosed(self, conn):
@@ -243,3 +245,36 @@ class ElectionEventHandler(MasterEventHandler):
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
+
+    def handleNotifyNodeInformation(self, conn, packet, node_list):
+        if isinstance(conn, ClientConnection):
+            self.handleUnexpectedPacket(conn, packet)
+        else:
+            uuid = conn.getUUID()
+            if uuid is None:
+                self.handleUnexpectedPacket(conn, packet)
+                return
+
+            app = self.app
+            for node_type, ip_address, port, uuid, state in node_list:
+                if node_type != MASTER_NODE:
+                    # No interest.
+                    continue
+
+                # Register new master nodes.
+                addr = (ip_address, port)
+                if app.server == addr:
+                    # This is self.
+                    continue
+                else:
+                    n = app.nm.getNodeByServer(addr)
+                    if n is None:
+                        n = MasterNode(server = addr)
+                        app.nm.add(n)
+                        app.unconnected_master_node_set.add(addr)
+
+                    if uuid != INVALID_UUID:
+                        # If I don't know the UUID yet, believe what the peer
+                        # told me at the moment.
+                        if n.getUUID() is None:
+                            n.setUUID(uuid)

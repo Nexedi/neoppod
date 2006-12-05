@@ -6,8 +6,8 @@ from neo.connection import ServerConnection
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
         PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
         REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION, START_OPERATION, \
-        STOP_OPERATION, ASK_FINISHING_TRANSACTIONS, ANSWER_FINISHING_TRANSACTIONS, \
-        FINISH_TRANSACTIONS, \
+        STOP_OPERATION, ASK_LAST_IDS, ANSWER_LAST_IDS, ASK_PARTITION_TABLE, \
+        ANSWER_PARTITION_TABLE, SEND_PARTITION_TABLE, NOTIFY_PARTITION_CHANGES, \
         NOT_READY_CODE, OID_NOT_FOUND_CODE, SERIAL_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
         INTERNAL_ERROR_CODE
@@ -125,6 +125,30 @@ class EventHandler(object):
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         self.handleUnexpectedPacket(conn, packet)
 
+    def handleAskLastIDs(self, conn, packet):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAskPartitionTable(self, conn, packet, offset_list):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerPartitionTable(self, conn, packet, row_list):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleSendPartitionTable(self, conn, packet, row_list):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleNotifyPartitionChanges(self, conn, packet, cell_list):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleStartOperation(self, conn, packet):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleStopOperation(self, conn, packet):
+        self.handleUnexpectedPacket(conn, packet)
+
     # Error packet handlers.
 
     handleNotReady = handleUnexpectedPacket
@@ -158,6 +182,14 @@ class EventHandler(object):
         d[ANNOUNCE_PRIMARY_MASTER] = self.handleAnnouncePrimaryMaster
         d[REELECT_PRIMARY_MASTER] = self.handleReelectPrimaryMaster
         d[NOTIFY_NODE_INFORMATION] = self.handleNotifyNodeInformation
+        d[ASK_LAST_IDS] = self.handleAskLastIDs
+        d[ANSWER_LAST_IDS] = self.handleAnswerLastIDs
+        d[ASK_PARTITION_TABLE] = self.handleAskPartitionTable
+        d[ANSWER_PARTITION_TABLE] = self.handleAnswerPartitionTable
+        d[SEND_PARTITION_TABLE] = self.handleSendPartitionTable
+        d[NOTIFY_PARTITION_CHANGES] = self.handleNotifyPartitionChanges
+        d[START_OPERATION] = self.handleStartOperation
+        d[STOP_OPERATION] = self.handleStopOperation
 
         self.packet_dispatch_table = d
 
