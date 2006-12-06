@@ -12,7 +12,7 @@ from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.util import dump
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
-from neo.exception import ElectionFailure, PrimaryFailure
+from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure
 from neo.master.election import ElectionEventHandler
 from neo.master.recovery import RecoveryEventHandler
 from neo.pt import PartitionTable
@@ -262,23 +262,40 @@ class Application(object):
 
         if node_type == CLIENT_NODE_TYPE:
             # Only to master nodes and storage nodes.
-            for c in em.getConnectionList():
+            for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
-                    n = nm.getNodeByUUID(c.getUUID())
+                    n = self.nm.getNodeByUUID(c.getUUID())
                     if isinstance(n, (MasterNode, StorageNode)):
                         p = Packet()
-                        node_list = (node_type, ip_address, port, uuid, state)
-                        p.notifyNodeStateChange(c.getNextId(), node_list)
+                        node_list = [(node_type, ip_address, port, uuid, state)]
+                        p.notifyNodeInformation(c.getNextId(), node_list)
                         c.addPacket(p)
         elif isinstance(node, (MasterNode, StorageNode)):
-            for c in em.getConnectionList():
+            for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
                     p = Packet()
-                    node_list = (node_type, ip_address, port, uuid, state)
-                    p.notifyNodeStateChange(c.getNextId(), node_list)
+                    node_list = [(node_type, ip_address, port, uuid, state)]
+                    p.notifyNodeInformation(c.getNextId(), node_list)
                     c.addPacket(p)
         else:
             raise Runtime, 'unknown node type'
+
+    def broadcastPartitionChanges(self, ptid, cell_list):
+        """Broadcast a Notify Partition Changes packet."""
+        for c in em.getConnectionList():
+            if c.getUUID() is not None:
+                n = self.nm.getNodeByUUID(c.getUUID())
+                if isinstance(n, (ClientNode, StorageNode)):
+                    # Split the packet if too big.
+                    size = len(cell_list)
+                    start = 0
+                    while size:
+                        amt = min(10000, size)
+                        p = Packet()
+                        p.notifyPartitionChanges(ptid, cell_list[start:start+amt])
+                        c.addPacket(p)
+                        size -= amt
+                        start += amt
 
     def recoverStatus(self):
         logging.info('begin the recovery of the status')
@@ -350,14 +367,14 @@ class Application(object):
                 start = 0
                 size = self.num_partitions
                 while size:
-                    len = min(1000, size)
+                    amt = min(1000, size)
                     msg_id = conn.getNextId()
                     p = Packet()
-                    p.askPartitionTable(msg_id, range(start, start + len))
+                    p.askPartitionTable(msg_id, range(start, start + amt))
                     conn.addPacket(p)
                     conn.expectMessage(msg_id)
-                    size -= len
-                    start += len
+                    size -= amt
+                    start += amt
 
                 t = time()
                 while 1:
@@ -389,9 +406,37 @@ class Application(object):
 
     def playPrimaryRole(self):
         logging.info('play the primary role')
-        self.recoverStatus()
+        recovering = True
+        while recovering:
+            self.recoverStatus()
+            recovering = False
+            try:
+                self.verifyData()
+            except VerificationFailure:
+                recovering = True
         raise NotImplementedError
 
     def playSecondaryRole(self):
         logging.info('play the secondary role')
         raise NotImplementedError
+
+    def getNextPartitionTableID(self):
+        if self.lptid is None:
+            raise RuntimeError, 'I do not know the last Partition Table ID'
+
+        l = []
+        append = l.append
+        for c in self.lptid:
+            append(c)
+        for i in xrange(7, -1, -1):
+            d = ord(l[i])
+            if d == 255:
+                l[i] = chr(0)
+            else:
+                l[i] = chr(d + 1)
+                break
+        else:
+            raise RuntimeError, 'Partition Table ID overflowed'
+
+        self.lptid = ''.join(l)
+        return self.lptid

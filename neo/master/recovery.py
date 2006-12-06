@@ -50,10 +50,6 @@ class RecoveryEventHandler(MasterEventHandler):
         MasterEventHandler.peerBroken(self, conn)
 
     def packetReceived(self, conn, packet):
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        if node.getState() in (TEMPORARILY_DOWN_STATE, DOWN_STATE):
-            node.setState(RUNNING_STATE)
-            app.broadcastNodeInformation(node)
         MasterEventHandler.packetReceived(self, conn, packet)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
@@ -71,18 +67,83 @@ class RecoveryEventHandler(MasterEventHandler):
             conn.abort()
             return
 
+        # Here are many situations. In principle, a node should be identified by
+        # an UUID, since an UUID never change when moving a storage node to a different
+        # server, and an UUID always changes for a master node and a client node whenever
+        # it restarts, so more reliable than a server address.
+        # 
+        # However, master nodes can be known only as the server addresses. And, a node
+        # may claim a server address used by another node.
         addr = (ip_address, port)
-        node = app.nm.getNodeByServer(addr)
+        # First, get the node by the UUID.
+        node = app.nm.getNodeByUUID(uuid)
         if node is None:
-            if node_type == MASTER_NODE_TYPE:
-                node = MasterNode(server = addr, uuid = uuid)
+            # If nothing is present, try with the server address.
+            node = app.nm.getNodeByServer(addr)
+            if node is None:
+                # Nothing is found. So this must be the first time that this node
+                # connected to me.
+                if node_type == MASTER_NODE_TYPE:
+                    node = MasterNode(server = addr, uuid = uuid)
+                else:
+                    node = StorageNode(server = address, uuid = uuid)
+                app.nm.add(node)
+                app.broadcastNodeInformation(node)
             else:
-                node = StorageNode(server = address, uuid = uuid)
-            app.nm.add(node)
+                # Otherwise, I know it only by the server address or the same server
+                # address but with a different UUID.
+                if node.getUUID() is None:
+                    # This must be a master node.
+                    if not isinstance(node, MasterNode) or node_type != MASTER_NODE_TYPE:
+                        # Error. This node uses the same server address as a master
+                        # node.
+                        conn.addPacket(Packet().protocolError(packet.getId(),
+                                                              'invalid server address'))
+                        conn.abort()
+                        return
+
+                    node.setUUID(uuid)
+                    if node.getState() != RUNNING_STATE:
+                        node.setState(RUNNING_STATE)
+                    app.broadcastNodeInformation(node)
+                else:
+                    # This node has a different UUID.
+                    if node.getState() == RUNNING_STATE:
+                        # If it is still running, reject this node.
+                        conn.addPacket(Packet().protocolError(packet.getId(),
+                                                              'invalid server address'))
+                        conn.abort()
+                        return
+                    else:
+                        # Otherwise, forget the old one.
+                        node.setState(BROKEN_STATE)
+                        app.broadcastNodeInformation(node)
+                        # And insert a new one.
+                        node.setUUID(uuid)
+                        node.setState(RUNNING_STATE)
+                        app.broadcastNodeInformation(node)
         else:
-            # If this node is broken, reject it.
-            if node.getState() == BROKEN_STATE:
-                if node.getUUID() == uuid:
+            # I know this node by the UUID.
+            if node.getServer() != addr:
+                # This node has a different server address.
+                if node.getState() == RUNNING_STATE:
+                    # If it is still running, reject this node.
+                    conn.addPacket(Packet().protocolError(packet.getId(),
+                                                          'invalid server address'))
+                    conn.abort()
+                    return
+                else:
+                    # Otherwise, forget the old one.
+                    node.setState(BROKEN_STATE)
+                    app.broadcastNodeInformation(node)
+                    # And insert a new one.
+                    node.setServer(addr)
+                    node.setState(RUNNING_STATE)
+                    app.broadcastNodeInformation(node)
+            else:
+                # If this node is broken, reject it. Otherwise, assume that it is
+                # working again.
+                if node.getState() == BROKEN_STATE:
                     p = Packet()
                     p.brokenNodeDisallowedError(packet.getId(), 'go away')
                     conn.addPacket(p)

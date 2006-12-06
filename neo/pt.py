@@ -63,6 +63,9 @@ class PartitionTable(object):
         self.num_filled_rows = self.np
 
     def setCell(self, offset, node, state):
+        if node.getState() in (BROKEN_STATE, DOWN_STATE):
+            return
+
         row = self.partition_list[offset]
         if row is None:
             # Create a new row.
@@ -101,3 +104,16 @@ class PartitionTable(object):
                 return False
 
         return True
+
+    def dropNode(self, node):
+        cell_list = []
+        uuid = node.getUUID()
+        for offset, row in enumerate(self.partition_list):
+            if row is not None:
+                for cell in row:
+                    if cell.getNode() == node:
+                        row.remove(cell)
+                        cell_list.append((offset, uuid, DISCARDED_STATE))
+                        break
+
+        return cell_list
