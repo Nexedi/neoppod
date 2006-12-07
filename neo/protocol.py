@@ -279,7 +279,7 @@ class Packet(object):
         self._body = ''.join(body)
         return self
 
-    def sendPartitionTable(self, msg_id, ptid, offset_list, row_list):
+    def sendPartitionTable(self, msg_id, ptid, row_list):
         self._id = msg_id
         self._type = SEND_PARTITION_TABLE
         body = [pack('!8sL', ptid, len(row_list))]

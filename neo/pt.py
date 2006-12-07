@@ -23,6 +23,9 @@ class Cell(object):
         """This is a short hand."""
         return self.node.getState()
 
+    def getUUID(self):
+        return self.node.getUUID()
+
 class PartitionTable(object):
     """This class manages a partition table."""
 
@@ -31,11 +34,13 @@ class PartitionTable(object):
         self.nr = num_replicas
         self.num_filled_rows = 0
         self.partition_list = [None] * num_partitions
+        self.count_dict = {}
 
     def clear(self):
         """Forget an existing partition table."""
         self.num_filled_rows = 0
         self.partition_list = [None] * self.np
+        self.count_dict.clear()
 
     def make(self, node_list):
         """Make a new partition table from scratch."""
@@ -54,9 +59,11 @@ class PartitionTable(object):
         for offset in xrange(self.np):
             row = []
             for i in xrange(repeats):
-                row.append(Cell(node_list[index]))
+                node = node_list[index]
+                row.append(Cell(node))
+                self.count_dict.setdefault(node, 0) += 1
                 index += 1
-                if index == len(uuid_list):
+                if index == len(node_list):
                     index = 0
             self.partition_list[offset] = row
 
@@ -70,7 +77,9 @@ class PartitionTable(object):
         if row is None:
             # Create a new row.
             row = [Cell(node, state)]
-            self.partition_list[offset]
+            if state != FEEDING_STATE:
+                self.count_dict.setdefault(node, 0) += 1
+            self.partition_list[offset] = row
 
             self.num_filled_rows += 1
         else:
@@ -79,8 +88,12 @@ class PartitionTable(object):
             for cell in row:
                 if cell.getNode() == node:
                     row.remove(cell)
+                    if state != FEEDING_STATE:
+                        self.count_dict.setdefault(node, 0) -= 1
                     break
             row.append(Cell(node, state))
+            if state != FEEDING_STATE:
+                self.count_dict.setdefault(node, 0) += 1
 
     def filled(self):
         return self.num_filled_rows == self.np
@@ -97,13 +110,24 @@ class PartitionTable(object):
         # a node state, and record which rows are ready.
         for row in self.partition_list:
             for cell in row:
-                if cell.getState() == UP_TO_DATE_STATE \
+                if cell.getState() in (UP_TO_DATE_STATE, FEEDING_STATE) \
                         and cell.getNodeState() == RUNNING_STATE:
                     break
             else:
                 return False
 
         return True
+
+    def findLeastUsedNode(self, excluded_node_list = ()):
+        min_count = self.np + 1
+        min_node = None
+        for node, count in self.count_dict.iteritems():
+            if min_count > count \
+                    and node not in excluded_node_list \
+                    and node.getState() == RUNNING_STATE:
+                min_node = node
+                min_count = count
+        return min_node
 
     def dropNode(self, node):
         cell_list = []
@@ -114,6 +138,96 @@ class PartitionTable(object):
                     if cell.getNode() == node:
                         row.remove(cell)
                         cell_list.append((offset, uuid, DISCARDED_STATE))
+                        node = self.findLeastUsedNode()
+                        if node is not None:
+                            row.append(Cell(node, OUT_OF_DATE_STATE))
+                            cell_list.append((offset, node.getUUID(), OUT_OF_DATE_STATE))
                         break
 
+        del self.count_dict[node]
         return cell_list
+
+    def getRow(self, offset):
+        row = self.partition_list[offset]
+        if row is None:
+            return ()
+        return [(cell.getUUID(), cell.getState()) for cell in row]
+
+    def tweak(self):
+        """Test if nodes are distributed uniformly. Otherwise, correct the partition
+        table."""
+        changed_cell_list = []
+
+        for offset, row in enumerate(self.partition_list):
+            removed_cell_list = []
+            feeding_cell = None
+            out_of_date_cell_present = False
+            out_of_date_cell_list = []
+            up_to_date_cell_list = []
+            for cell in row:
+                if cell.getNodeState() == BROKEN_STATE:
+                    # Remove a broken cell.
+                    removed_cell_list.append(cell)
+                elif cell.getState() == FEEDING_STATE:
+                    if feeding_cell is None:
+                        feeding_cell = cell
+                    else:
+                        # Remove an excessive feeding cell.
+                        removed_cell_list.append(cell)
+                elif cell.getState() == OUT_OF_DATE_STATE:
+                    out_of_date_cell_list.append(cell)
+                else:
+                    up_to_date_cell_list.append(cell)
+
+            # If all cells are up-to-date, a feeding cell is not required.
+            if len(out_of_date_cell_list) == 0 and feeding_cell is not None:
+                removed_cell_list.append(feeding_cell)
+
+            ideal_num = self.nr
+            while len(out_of_date_cell_list) + len(up_to_date_cell_list) > ideal_num:
+                # This row contains too many cells.
+                if len(up_to_date_cell_list) > 1:
+                    # There are multiple up-to-date cells, so choose whatever
+                    # used too much.
+                    cell_list = out_of_date_cell_list + up_to_date_cell_list
+                else:
+                    # Drop an out-of-date cell.
+                    cell_list = out_of_date_cell_list
+
+                max_count = 0
+                chosen_cell = None
+                for cell in out_of_date_cell_list + up_to_date_cell_list:
+                    count = self.count_dict[cell.getNode()]
+                    if max_count < count:
+                        max_count = count
+                        chosen_cell = cell
+                removed_cell_list.append(chosen_cell)
+                ideal_num -= 1
+
+            # Now remove cells really.
+            for cell in removed_cell_list:
+                row.remove(cell)
+                if cell.getState() != FEEDING_STATE:
+                    self.count_dict[cell.getNode()] -= 1
+                changed_cell_list.append((offset, cell.getUUID(), DISCARDED_STATE))
+
+        # Add cells, if a row contains less than the number of replicas.
+        for offset, row in enumerate(self.partition_list):
+            num_cells = 0
+            for cell in row:
+                if cell.getState() != FEEDING_STATE:
+                    num_cells += 1
+            while num_cells < self.nr:
+                node = self.findLeastUsedNode([cell.getNode() for cell in row])
+                if node is None:
+                    break
+                row.append(Cell(node, OUT_OF_DATE_STATE))
+                changed_cell_list.append((offset, node.getUUID(), OUT_OF_DATE_STATE))
+                self.count_dict[node] += 1
+                num_cells += 1
+
+        # FIXME still not enough. It is necessary to check if it is possible
+        # to reduce differences between frequently used nodes and rarely used
+        # nodes by replacing cells.
+
+        return changed_cell_list

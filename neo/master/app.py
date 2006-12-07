@@ -411,13 +411,33 @@ class Application(object):
         """Verify the data in storage nodes and clean them up, if necessary."""
         logging.info('start to verify data')
 
+        em = self.em
+        nm = self.nm
+
         # First, send the current partition table to storage nodes, so that
         # all nodes share the same view.
-
-        # FIXME
+        for conn in em.getConnectionList():
+            uuid = conn.getUUID()
+            if uuid is not None:
+                node = nm.getNodeByUUID(uuid)
+                if isinstance(node, StorageNode) and node.getState() == RUNNING_STATE:
+                    # Split the packet if too huge.
+                    p = Packet()
+                    row_list = []
+                    for offset in xrange(self.num_partitions):
+                        row_list.append((offset, self.pt.getRow(offset)))
+                        if len(row_list) == 1000:
+                            p.sendPartitionTable(self.lptid, row_list)
+                            conn.addPacket(p)
+                            del row_list[:]
+                    if len(row_list) != 0:
+                        p.sendPartitionTable(self.lptid, row_list)
+                        conn.addPacket(p)
+            
+        # Secondly, tweak the partition table, if the distribution of storage nodes
+        # is not uniform.
 
         # Secondly, gather all unfinished transactions.
-
         # FIXME
 
         # Thirdly, finish or abort unfinished transactions.
