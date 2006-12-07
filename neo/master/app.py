@@ -298,6 +298,9 @@ class Application(object):
                         start += amt
 
     def recoverStatus(self):
+        """Recover the status about the cluster. Obtain the last OID, the last TID,
+        and the last Partition Table ID from storage nodes, then get back the latest
+        partition table or make a new table from scratch, if this is the first time."""
         logging.info('begin the recovery of the status')
 
         handler = RecoveryEventHandler(self)
@@ -404,8 +407,36 @@ class Application(object):
                     continue
             break
 
+    def verifyData(self):
+        """Verify the data in storage nodes and clean them up, if necessary."""
+        logging.info('start to verify data')
+
+        # First, send the current partition table to storage nodes, so that
+        # all nodes share the same view.
+
+        # FIXME
+
+        # Secondly, gather all unfinished transactions.
+
+        # FIXME
+
+        # Thirdly, finish or abort unfinished transactions.
+
+        # FIXME
+
+        # Forthly, verify some transactions to check for the health.
+
+        # FIXME
+
     def playPrimaryRole(self):
         logging.info('play the primary role')
+
+        # If I know any storage node, make sure that they are not in the running state,
+        # because they are not connected at this stage.
+        for self.nm.getStorageNodeList():
+            if node.getState() == RUNNING_STATE:
+                node.setState(TEMPORARILY_DOWN_STATE)
+
         recovering = True
         while recovering:
             self.recoverStatus()
