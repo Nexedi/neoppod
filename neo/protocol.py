@@ -76,6 +76,31 @@ START_OPERATION = 0x000b
 # it must not serve client nodes. PM -> S.
 STOP_OPERATION = 0x000c
 
+# Ask unfinished transactions' IDs. PM -> S.
+ASK_UNFINISHED_TRANSACTIONS = 0x000d
+
+# Answer unfinished transactions' IDs. S -> PM.
+ANSWER_UNFINISHED_TRANSACTIONS = 0x800d
+
+# Ask OIDs by a TID. PM -> S.
+ASK_OIDS_BY_TID = 0x000e
+
+# Answer OIDs by a TID. S -> PM.
+ANSWER_OIDS_BY_TID = 0x800e
+
+# Ask if an object is present. If not present, OID_NOT_FOUND should be returned. PM -> S.
+ASK_OBJECT_PRESENT = 0x000f
+
+# Answer that an object is present. PM -> S.
+ANSWER_OBJECT_PRESENT = 0x800f
+
+# Delete a transaction. PM -> S.
+DELETE_TRANSACTION = 0x0010
+
+# Commit a transaction. PM -> S.
+COMMIT_TRANSACTION = 0x0011
+
+
 # Error codes.
 NOT_READY_CODE = 1
 OID_NOT_FOUND_CODE = 2
@@ -307,8 +332,60 @@ class Packet(object):
 
     def stopOperation(self, msg_id):
         self._id = msg_id
-        self._type = START_OPERATION
+        self._type = STOP_OPERATION
         self._body = ''
+        return self
+
+    def askUnfinishedTransactions(self, msg_id):
+        self._id = msg_id
+        self._type = ASK_UNFINISHED_TRANSACTIONS
+        self._body = ''
+        return self
+
+    def answerUnfinishedTransactions(self, msg_id, tid_list):
+        self._id = msg_id
+        self._type = ANSWER_UNFINISHED_TRANSACTIONS
+        body = [pack('!L', len(tid_list))]
+        body.extend(tid_list)
+        self._body = ''.join(body)
+        return self
+
+    def askOIDsByTID(self, msg_id, tid):
+        self._id = msg_id
+        self._type = ASK_OIDS_BY_TID
+        self._body = tid
+        return self
+
+    def answerOIDsByTID(self, msg_id, oid_list, tid):
+        self._id = msg_id
+        self._type = ANSWER_OIDS_BY_TID
+        body = [pack('!8sL', tid, len(oid_list))]
+        body.extend(oid_list)
+        self._body = ''.join(body)
+        return self
+
+    def askObjectPresent(self, msg_id, oid, tid):
+        self._id = msg_id
+        self._type = ASK_OBJECT_PRESENT
+        self._body = oid + tid
+        return self
+
+    def answerObjectPresent(self, msg_id, oid, tid):
+        self._id = msg_id
+        self._type = ANSWER_OBJECT_PRESENT
+        self._body = oid + tid
+        return self
+
+    def deleteTransaction(self, msg_id, tid):
+        self._id = msg_id
+        self._type = DELETE_TRANSACTION
+        self._body = tid
+        return self
+
+    def commitTransaction(self, msg_id, tid):
+        self._id = msg_id
+        self._type = COMMIT_TRANSACTION
+        self._body = tid
         return self
 
     # Decoders.
@@ -497,3 +574,71 @@ class Packet(object):
     def _decodeStopOperation(self):
         pass
     decode_table[STOP_OPERATION] = _decodeStopOperation
+
+    def _decodeAskUnfinishedTransactions(self):
+        pass
+    decode_table[ASK_UNFINISHED_TRANSACTIONS] = _decodeAskUnfinishedTransactions
+
+    def _decodeAnswerUnfinishedTransactions(self):
+        try:
+            n = unpack('!L', self._body[:4])
+            tid_list = []
+            for i in xrange(n):
+                tid = unpack('8s', self._body[4+i*8:12+i*8])
+                tid_list.append(tid)
+        except:
+            raise ProtocolError(self, 'invalid answer unfinished transactions')
+        return tid_list
+    decode_table[ANSWER_UNFINISHED_TRANSACTIONS] = _decodeAnswerUnfinishedTransactions
+
+    def _decodeAskOIDsByTID(self):
+        try:
+            tid = unpack('8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid ask oids by tid')
+        return tid
+    decode_table[ASK_OIDS_BY_TID] = _decodeAskOIDsByTID
+
+    def _decodeAnswerOIDsByTID(self):
+        try:
+            tid, n = unpack('!8sL', self._body[:12])
+            oid_list = []
+            for i in xrange(n):
+                oid = unpack('8s', self._body[12+i*8:20+i*8])
+                oid_list.append(oid)
+        except:
+            raise ProtocolError(self, 'invalid answer oids by tid')
+        return oid_list, tid
+    decode_table[ANSWER_OIDS_BY_TID] = _decodeAnswerOIDsByTID
+
+    def _decodeAskObjectPresent(self):
+        try:
+            oid, tid = unpack('8s8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid ask object present')
+        return oid, tid
+    decode_table[ASK_OBJECT_PRESENT] = _decodeAskObjectPresent
+
+    def _decodeAnswerObjectPresent(self):
+        try:
+            oid, tid = unpack('8s8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid answer object present')
+        return oid, tid
+    decode_table[ANSWER_OBJECT_PRESENT] = _decodeAnswerObjectPresent
+
+    def _decodeDeleteTransaction(self):
+        try:
+            tid = unpack('8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid delete transaction')
+        return tid
+    decode_table[DELETE_TRANSACTION] = _decodeDeleteTransaction
+
+    def _decodeCommitTransaction(self):
+        try:
+            tid = unpack('8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid commit transaction')
+        return tid
+    decode_table[COMMIT_TRANSACTION] = _decodeCommitTransaction

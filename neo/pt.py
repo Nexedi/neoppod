@@ -76,7 +76,7 @@ class PartitionTable(object):
             for i in xrange(repeats):
                 node = node_list[index]
                 row.append(Cell(node))
-                self.count_dict.setdefault(node, 0) += 1
+                self.count_dict[node] = self.count_dict.get(node, 0) + 1
                 index += 1
                 if index == len(node_list):
                     index = 0
@@ -93,7 +93,7 @@ class PartitionTable(object):
             # Create a new row.
             row = [Cell(node, state)]
             if state != FEEDING_STATE:
-                self.count_dict.setdefault(node, 0) += 1
+                self.count_dict[node] = self.count_dict.get(node, 0) + 1
             self.partition_list[offset] = row
 
             self.num_filled_rows += 1
@@ -104,11 +104,11 @@ class PartitionTable(object):
                 if cell.getNode() == node:
                     row.remove(cell)
                     if state != FEEDING_STATE:
-                        self.count_dict.setdefault(node, 0) -= 1
+                        self.count_dict[node] = self.count_dict.get(node, 0) - 1
                     break
             row.append(Cell(node, state))
             if state != FEEDING_STATE:
-                self.count_dict.setdefault(node, 0) += 1
+                self.count_dict[node] = self.count_dict.get(node, 0) + 1
 
     def filled(self):
         return self.num_filled_rows == self.np
@@ -304,3 +304,14 @@ class PartitionTable(object):
         # nodes by replacing cells.
 
         return changed_cell_list
+
+    def outdate(self):
+        """Outdate all non-working nodes."""
+        cell_list = []
+        for offset, row in enumerate(self.partition_list):
+            for cell in row:
+                if cell.getNodeState() != RUNNING_STATE \
+                        and cell.getState() != OUT_OF_DATE_STATE:
+                    cell.setState(OUT_OF_DATE_STATE)
+                    cell_list.append((offset, cell.getUUID(), OUT_OF_DATE_STATE))
+        return cell_list

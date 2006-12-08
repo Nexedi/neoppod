@@ -559,9 +559,12 @@ class Application(object):
             # If possible, send the packets now.
             em.poll(0)
 
+        # At this stage, all non-working nodes are out-of-date.
+        cell_list = self.pt.outdate()
+
         # Tweak the partition table, if the distribution of storage nodes
         # is not uniform.
-        cell_list = self.pt.tweak()
+        cell_list.extend(self.pt.tweak())
 
         # And, add unused nodes.
         node_list = self.pt.getNodeList()
