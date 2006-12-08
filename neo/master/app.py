@@ -407,6 +407,79 @@ class Application(object):
                     continue
             break
 
+    def verifyTransaction(self, tid):
+        em = self.em
+        uuid_set = set()
+
+        # Determine to which nodes I should ask.
+        partition = tid % self.num_partitions
+        transaction_uuid_list = [cell.getUUID() for cell \
+                in self.pt.getCellList(partition, True)]
+        if len(transaction_uuid_list) == 0:
+            raise VerificationFailure
+        uuid_list.update(transaction_uuid_list)
+        
+        # Gather OIDs.
+        self.asking_uuid_dict = {}
+        self.unfinished_oid_set = set()
+        for conn in em.getConnectionList():
+            uuid = conn.getUUID()
+            if uuid in transaction_uuid_list:
+                self.asking_uuid_dict[uuid] = False
+                p = Packet()
+                msg_id = conn.getNextId()
+                p.askOIDsByTID(msg_id, tid)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                break
+        else:
+            raise VerificationFailure
+
+        while 1:
+            em.poll(1)
+            if not self.pt.operational():
+                raise VerificationFailure
+            if False not in self.asking_uuid_dict.values():
+                break
+
+        if len(self.unfinished_oid_set) == 0:
+            # Not commitable.
+            return None
+        else:
+            # Verify that all objects are present.
+            for oid in self.unfinished_oid_set:
+                self.asking_uuid_dict.clear()
+                partition = oid % self.num_partitions
+                object_uuid_list = [cell.getUUID() for cell \
+                            in self.pt.getCellList(partition, True)]
+                if len(object_uuid_list) == 0:
+                    raise VerificationFailure
+                uuid_set.update(object_uuid_list)
+
+                self.object_present = True
+                for conn in em.getConnectionList():
+                    uuid = conn.getUUID()
+                    if uuid in object_uuid_list:
+                        self.asking_uuid_dict[uuid] = False
+                        p = Packet()
+                        msg_id = conn.getNextId()
+                        p.askObjectPresent(msg_id, oid, tid)
+                        conn.addPacket(p)
+                        conn.expectMessage(msg_id)
+
+                while 1:
+                    em.poll(1)
+                    if not self.pt.operational():
+                        raise VerificationFailure
+                    if False not in self.asking_uuid_dict.values():
+                        break
+
+                if not self.object_present:
+                    # Not commitable.
+                    return None
+
+        return uuid_set
+
     def verifyData(self):
         """Verify the data in storage nodes and clean them up, if necessary."""
         logging.info('start to verify data')
@@ -414,13 +487,17 @@ class Application(object):
         em = self.em
         nm = self.nm
 
-        # First, send the current partition table to storage nodes, so that
+        # FIXME this part has a potential problem that the write buffers can
+        # be very huge. Thus it would be better to flush the buffers from time
+        # to time _without_ reading packets.
+
+        # Send the current partition table to storage nodes, so that
         # all nodes share the same view.
         for conn in em.getConnectionList():
             uuid = conn.getUUID()
             if uuid is not None:
                 node = nm.getNodeByUUID(uuid)
-                if isinstance(node, StorageNode) and node.getState() == RUNNING_STATE:
+                if isinstance(node, StorageNode):
                     # Split the packet if too huge.
                     p = Packet()
                     row_list = []
@@ -431,29 +508,78 @@ class Application(object):
                             conn.addPacket(p)
                             del row_list[:]
                     if len(row_list) != 0:
-                        p.sendPartitionTable(self.lptid, row_list)
+                        p.sendPartitionTable(conn.getNextId(), self.lptid, row_list)
                         conn.addPacket(p)
             
-        # Secondly, tweak the partition table, if the distribution of storage nodes
+        # Gather all unfinished transactions.
+        self.asking_uuid_dict = {}
+        self.unfinished_tid_set = set()
+        for conn in em.getConnectionList():
+            uuid = conn.getUUID()
+            if uuid is not None:
+                node = nm.getNodeByUUID(uuid)
+                if isinstance(node, StorageNode):
+                    self.asking_uuid_dict[uuid] = False
+                    p = Packet()
+                    msg_id = conn.getNextId()
+                    p.askUnfinishedTransactions(msg_id)
+                    conn.addPacket(p)
+                    conn.expectMessage(msg_id)
+
+        while 1:
+            em.poll(1)
+            if not self.pt.operational():
+                raise VerificationFailure
+            if False not in self.asking_uuid_dict.values():
+                break
+
+        # Gather OIDs for each unfinished TID, and verify whether the transaction
+        # can be finished or must be aborted. This could be in parallel in theory,
+        # but not so easy. Thus do it one-by-one at the moment.
+        for tid in self.unfinished_tid_set:
+            uuid_set = self.verifyTransaction(tid)
+            if uuid_set is None:
+                # Make sure that no node has this transaction.
+                for conn in em.getConnectionList():
+                    uuid = conn.getUUID()
+                    if uuid is not None:
+                        node = nm.getNodeByUUID(uuid)
+                        if isinstance(node, StorageNode):
+                            p = Packet()
+                            p.deleteTransaction(conn.getNextId(), tid)
+                            conn.addPacket(p)
+            else:
+                for conn in em.getConnectionList():
+                    uuid = conn.getUUID()
+                    if uuid in uuid_set:
+                        p = Packet()
+                        p.commitTransaction(conn.getNextId(), tid)
+                        conn.addPacket(p)
+
+            # If possible, send the packets now.
+            em.poll(0)
+
+        # Tweak the partition table, if the distribution of storage nodes
         # is not uniform.
+        cell_list = self.pt.tweak()
 
-        # Secondly, gather all unfinished transactions.
-        # FIXME
+        # And, add unused nodes.
+        node_list = self.pt.getNodeList()
+        for node in nm.getStorageNodeList():
+            if node.getState() == RUNNING_STATE and node not in node_list:
+                cell_list.extend(self.pt.addNode(node))
 
-        # Thirdly, finish or abort unfinished transactions.
+        # If anything changed, send the changes.
+        if cell_list:
+            app.broadcastPartitionChanges(self.getNextPartitionTableID(), cell_list)
 
-        # FIXME
-
-        # Forthly, verify some transactions to check for the health.
-
-        # FIXME
 
     def playPrimaryRole(self):
         logging.info('play the primary role')
 
         # If I know any storage node, make sure that they are not in the running state,
         # because they are not connected at this stage.
-        for self.nm.getStorageNodeList():
+        for node in self.nm.getStorageNodeList():
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
 
@@ -465,6 +591,8 @@ class Application(object):
                 self.verifyData()
             except VerificationFailure:
                 recovering = True
+
+        # FIXME start a real operation
         raise NotImplementedError
 
     def playSecondaryRole(self):

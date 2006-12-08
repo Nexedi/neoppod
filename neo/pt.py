@@ -42,6 +42,21 @@ class PartitionTable(object):
         self.partition_list = [None] * self.np
         self.count_dict.clear()
 
+    def getNodeList(self):
+        """Return all used nodes."""
+        node_list = []
+        for node, count in self.count_dict.iteritems():
+            if count > 0:
+                node_list.append(node)
+        return node_list
+
+    def getCellList(self, offset, usable_only = False):
+        if usable_only:
+            return [cell for cell in self.partition_list[offset] \
+                    if cell.getState() in (UP_TO_DATE_STATE, FEEDING_STATE)]
+
+        return self.partition_list[offset]
+
     def make(self, node_list):
         """Make a new partition table from scratch."""
         # First, filter the list of nodes.
@@ -136,15 +151,73 @@ class PartitionTable(object):
             if row is not None:
                 for cell in row:
                     if cell.getNode() == node:
+                        if cell.getState() != FEEDING_STATE:
+                            # If this cell is not feeding, find another node to be added.
+                            node = self.findLeastUsedNode([cell.getNode() for cell in row])
+                            if node is not None:
+                                row.append(Cell(node, OUT_OF_DATE_STATE))
+                                cell_list.append((offset, node.getUUID(), 
+                                                  OUT_OF_DATE_STATE))
                         row.remove(cell)
                         cell_list.append((offset, uuid, DISCARDED_STATE))
-                        node = self.findLeastUsedNode()
-                        if node is not None:
-                            row.append(Cell(node, OUT_OF_DATE_STATE))
-                            cell_list.append((offset, node.getUUID(), OUT_OF_DATE_STATE))
                         break
 
         del self.count_dict[node]
+        return cell_list
+
+    def addNode(self, node):
+        """Add a node. Take it into account that it might not be really a new node.
+        The strategy is, if a row does not contain a good number of cells, add this
+        node to the row, unless the node is already present in the same row. Otherwise,
+        check if this node should replace another cell."""
+        cell_list = []
+        node_count = self.count_dict.get(node, 0)
+        for offset, row in enumerate(self.partition_list):
+            feeding_cell = None
+            max_count = 0
+            max_cell = None
+            num_cells = 0
+            skip = False
+            for cell in row:
+                if cell.getNode() == node:
+                    skip = True
+                    break
+                if cell.getState() == FEEDING_STATE:
+                    feeding_cell = cell
+                else:
+                    num_cells += 1
+                    count = self.count_dict[cell.getNode()]
+                    if count > max_count:
+                        max_count = count
+                        max_cell = cell
+
+            if skip:
+                continue
+
+            if num_cells < self.nr:
+                row.append(Cell(node, OUT_OF_DATE_STATE))
+                cell_list.append((offset, node.getUUID(), OUT_OF_DATE_STATE))
+                node_count += 1
+            else:
+                if max_count - node_count > 1:
+                    if feeding_cell is not None \
+                            or max_cell.getState() == OUT_OF_DATE_STATE:
+                        # If there is a feeding cell already or it is out-of-date, 
+                        # just drop the node.
+                        row.remove(max_cell)
+                        cell_list.append((offset, max_cell.getUUID(), DISCARDED_STATE))
+                        self.count_dict[max_cell.getNode()] -= 1
+                    else:
+                        # Otherwise, use it as a feeding cell for safety.
+                        max_cell.setState(FEEDING_STATE)
+                        cell_list.append((offset, max_cell.getUUID(), FEEDING_STATE))
+                        # Don't count a feeding cell.
+                        self.count_dict[max_cell.getNode()] -= 1
+                    row.append(Cell(node, OUT_OF_DATE_STATE))
+                    cell_list.append((offset, node.getUUID(), OUT_OF_DATE_STATE))
+                    node_count += 1
+
+        self.count_dict[node] = node_count
         return cell_list
 
     def getRow(self, offset):
