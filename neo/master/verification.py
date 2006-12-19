@@ -3,12 +3,12 @@ import logging
 from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
 from neo.master.handler import MasterEventHandler
-from neo.exception import ElectionFailure
+from neo.exception import VerificationFailure
 from neo.protocol import Packet, INVALID_UUID
 from neo.util import dump
 
-class RecoveryEventHandler(MasterEventHandler):
-    """This class deals with events for a recovery phase."""
+class VerificationEventHandler(MasterEventHandler):
+    """This class deals with events for a verification phase."""
 
     def connectionClosed(self, conn):
         uuid = conn.getUUID()
@@ -21,6 +21,10 @@ class RecoveryEventHandler(MasterEventHandler):
                 if isinstance(node, ClientNode):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
+                elif isinstance(node, StorageNode):
+                    if not app.pt.operational():
+                        # Catastrophic.
+                        raise VerificationFailure, 'cannot continue verification'
         MasterEventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
@@ -34,6 +38,10 @@ class RecoveryEventHandler(MasterEventHandler):
                 if isinstance(node, ClientNode):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
+                elif isinstance(node, StorageNode):
+                    if not app.pt.operational():
+                        # Catastrophic.
+                        raise VerificationFailure, 'cannot continue verification'
         MasterEventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
@@ -47,6 +55,13 @@ class RecoveryEventHandler(MasterEventHandler):
                 if isinstance(node, ClientNode):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
+                elif isinstance(node, StorageNode):
+                    cell_list = app.pt.dropNode(node)
+                    ptid = app.getNextPartitionTableID()
+                    app.broadcastPartitionChanges(ptid, cell_list)
+                    if not app.pt.operational():
+                        # Catastrophic.
+                        raise VerificationFailure, 'cannot continue verification'
         MasterEventHandler.peerBroken(self, conn)
 
     def packetReceived(self, conn, packet):
@@ -194,14 +209,21 @@ class RecoveryEventHandler(MasterEventHandler):
         p.notifyNodeInformation(conn.getNextId(), node_list)
         conn.addPacket(p)
 
-        # If this is a storage node, ask the last IDs.
+        # If this is a storage node, send the partition table.
         node = app.nm.getNodeByUUID(uuid)
         if isinstance(node, StorageNode):
+            # Split the packet if too huge.
             p = Packet()
-            msg_id = conn.getNextId()
-            p.askLastIDs(msg_id)
-            conn.addPacket(p)
-            conn.expectMessage(msg_id)
+            row_list = []
+            for offset in xrange(app.num_partitions):
+                row_list.append((offset, app.pt.getRow(offset)))
+                if len(row_list) == 1000:
+                    p.sendPartitionTable(app.lptid, row_list)
+                    conn.addPacket(p)
+                    del row_list[:]
+            if len(row_list) != 0:
+                p.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
+                conn.addPacket(p)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
@@ -282,67 +304,95 @@ class RecoveryEventHandler(MasterEventHandler):
             self.handleUnexpectedPacket(conn, packet)
             return
 
-        # If the target is still unknown, set it to this node for now.
-        if app.target_uuid is None:
-            app.target_uuid = uuid
-
-        # Get max values.
-        if app.loid < loid:
-            app.loid = loid
-        if app.ltid < ltid:
-            app.ltid = ltid
-        if app.lptid is None or app.lptid < lptid:
-            app.lptid = lptid
-            # I need to use the node which has the max Partition Table ID.
-            app.target_uuid = uuid
-        elif app.lptid == lptid and app.target_uuid is None:
-            app.target_uuid = uuid
+        # If I get a bigger value here, it is dangerous.
+        if app.loid < loid or app.ltid < ltid or app.lptid < lptid:
+            logging.critical('got later information in verification')
+            raise VerificationFailure
 
     def handleAnswerPartitionTable(self, conn, packet, cell_list):
+        # Ignore this packet.
+        pass
+
+    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
         uuid = conn.getUUID()
         if uuid is None:
             self.handleUnexpectedPacket(conn, packet)
             return
 
+        logging.info('got unfinished transactions %s from %s:%d', 
+                tid_list, *(conn.getAddress()))
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
-            self.handleUnexpectedPacket(conn, packet)
-            return
-        if uuid != app.target_uuid:
-            # If this is not from a target node, ignore it.
+        if app.asking_uuid_dict.get(uuid, True):
+            # No interest.
             return
 
-        for offset, cell_list in row_list:
-            if offset >= app.num_partitions or app.pt.hasOffset(offset):
-                # There must be something wrong.
-                self.handleUnexpectedPacket(conn, packet)
-                return
-
-            for uuid, state in cell_list:
-                n = app.nm.getNodeByUUID(uuid)
-                if n is None:
-                    n = StorageNode(uuid = uuid)
-                    n.setState(TEMPORARILY_DOWN_STATE)
-                    app.nm.add(n)
-                app.pt.setCell(offset, n, state)
-
-    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
-        # This can be from previous verification stage.
-        pass
+        app.unfinished_tid_set.update(tid_list)
+        app.asking_uuid_dict[uuid] = True
 
     def handleAnswerOIDsByTID(self, conn, packet, oid_list, tid):
-        # This can be from previous verification stage.
-        pass
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        logging.info('got OIDs %s for %s from %s:%d', 
+                oid_list, tid, *(conn.getAddress()))
+        app = self.app
+        if app.asking_uuid_dict.get(uuid, True):
+            # No interest.
+            return
+
+        oid_set = set(oid_list)
+        if app.unfinished_oid_set is None:
+            # Someone does not agree.
+            pass
+        elif len(app.unfinished_oid_set) == 0:
+            # This is the first answer.
+            app.unfinished_oid_set.update(oid_set)
+        elif app.unfinished_oid_set != oid_set:
+            app.unfinished_oid_set = None
+        app.asking_uuid_dict[uuid] = True
 
     def handleTidNotFound(self, conn, packet, message):
-        # This can be from previous verification stage.
-        pass
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        logging.info('TID not found: %s', message)
+        app = self.app
+        if app.asking_uuid_dict.get(uuid, True):
+            # No interest.
+            return
+
+        app.unfinished_oid_set = None
+        app.asking_uuid_dict[uuid] = True
 
     def handleAnswerObjectPresent(self, conn, packet, oid, tid):
-        # This can be from previous verification stage.
-        pass
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        logging.info('object %s:%s found', dump(oid), dump(tid))
+        app = self.app
+        if app.asking_uuid_dict.get(uuid, True):
+            # No interest.
+            return
+
+        app.asking_uuid_dict[uuid] = True
 
     def handleOidNotFound(self, conn, packet, message):
-        # This can be from previous verification stage.
-        pass
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        logging.info('OID not found: %s', message)
+        app = self.app
+        if app.asking_uuid_dict.get(uuid, True):
+            # No interest.
+            return
+
+        app.object_present = False
+        app.asking_uuid_dict[uuid] = True

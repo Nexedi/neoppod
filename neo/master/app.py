@@ -15,6 +15,7 @@ from neo.connection import ListeningConnection, ClientConnection, ServerConnecti
 from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure
 from neo.master.election import ElectionEventHandler
 from neo.master.recovery import RecoveryEventHandler
+from neo.master.verification import VerificationEventHandler
 from neo.pt import PartitionTable
 
 class Application(object):
@@ -417,7 +418,7 @@ class Application(object):
                 in self.pt.getCellList(partition, True)]
         if len(transaction_uuid_list) == 0:
             raise VerificationFailure
-        uuid_list.update(transaction_uuid_list)
+        uuid_set.update(transaction_uuid_list)
         
         # Gather OIDs.
         self.asking_uuid_dict = {}
@@ -431,8 +432,7 @@ class Application(object):
                 p.askOIDsByTID(msg_id, tid)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
-                break
-        else:
+        if len(self.asking_uuid_dict) == 0:
             raise VerificationFailure
 
         while 1:
@@ -442,7 +442,7 @@ class Application(object):
             if False not in self.asking_uuid_dict.values():
                 break
 
-        if len(self.unfinished_oid_set) == 0:
+        if self.unfinished_oid_set is None or len(self.unfinished_oid_set) == 0:
             # Not commitable.
             return None
         else:
@@ -484,8 +484,13 @@ class Application(object):
         """Verify the data in storage nodes and clean them up, if necessary."""
         logging.info('start to verify data')
 
+        handler = VerificationEventHandler()
         em = self.em
         nm = self.nm
+
+        # Make sure that every connection has the data verification event handler.
+        for conn in em.getConnectionList():
+            conn.setHandler(handler)
 
         # FIXME this part has a potential problem that the write buffers can
         # be very huge. Thus it would be better to flush the buffers from time
