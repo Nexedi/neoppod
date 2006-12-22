@@ -12,7 +12,8 @@ from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.util import dump
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
-from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure
+from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure, \
+        OperationFailure
 from neo.master.election import ElectionEventHandler
 from neo.master.recovery import RecoveryEventHandler
 from neo.master.verification import VerificationEventHandler
@@ -596,6 +597,47 @@ class Application(object):
         if cell_list:
             app.broadcastPartitionChanges(self.getNextPartitionTableID(), cell_list)
 
+    def provideService(self):
+        """This is the normal mode for a primary master node. Handle transactions
+        and stop the service only if a catastrophy happens or the user commits
+        a shutdown."""
+        logging.info('provide service')
+
+        handler = ServiceEventHandler()
+        em = self.em
+        nm = self.nm
+
+        # Make sure that every connection has the service event handler.
+        for conn in em.getConnectionList():
+            conn.setHandler(handler)
+
+        # Now storage nodes should know that the cluster is operational.
+        for conn in em.getConnectionList():
+            uuid = conn.getUUID()
+            if uuid is not None:
+                node = nm.getNodeByUUID(uuid)
+                if isinstance(node, StorageNode):
+                    conn.addPacket(Packet().startOperation(conn.getNextId()))
+
+        # Now everything is passive.
+        while 1:
+            try:
+                em.poll(1)
+            except OperationFailure:
+                # If not operational, send Stop Operation packets to storage nodes
+                # and client nodes. Abort connections to client nodes.
+                logging.critical('No longer operational, so stopping the service')
+                for conn in em.getConnectionList():
+                    uuid = conn.getUUID()
+                    if uuid is not None:
+                        node = nm.getNodeByUUID(uuid)
+                        if isinstance(node, (StorageNode, ClientNode)):
+                            conn.addPacket(Packet().stopOperation(conn.getNextId()))
+                            if isinstance(node, ClientNode):
+                                conn.abort()
+
+                # Then, go back, and restart.
+                return 
 
     def playPrimaryRole(self):
         logging.info('play the primary role')
@@ -606,17 +648,17 @@ class Application(object):
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
 
-        recovering = True
-        while recovering:
-            self.recoverStatus()
-            recovering = False
-            try:
-                self.verifyData()
-            except VerificationFailure:
-                recovering = True
+        while 1:
+            recovering = True
+            while recovering:
+                self.recoverStatus()
+                recovering = False
+                try:
+                    self.verifyData()
+                except VerificationFailure:
+                    recovering = True
 
-        # FIXME start a real operation
-        raise NotImplementedError
+            self.provideService()
 
     def playSecondaryRole(self):
         logging.info('play the secondary role')

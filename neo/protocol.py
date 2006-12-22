@@ -100,6 +100,30 @@ DELETE_TRANSACTION = 0x0010
 # Commit a transaction. PM -> S.
 COMMIT_TRANSACTION = 0x0011
 
+# Ask a new transaction ID. C -> PM.
+ASK_NEW_TID = 0x0012
+
+# Answer a new transaction ID. PM -> C.
+ANSWER_NEW_TID = 0x8012
+
+# Finish a transaction. C -> PM.
+FINISH_TRANSACTION = 0x0013
+
+# Notify a transaction finished. PM -> C.
+NOTIFY_TRANSACTION_FINISHED = 0x8013
+
+# Lock information on a transaction. PM -> S.
+LOCK_INFORMATION = 0x0014
+
+# Notify information on a transaction locked. S -> PM.
+NOTIFY_INFORMATION_LOCKED = 0x8014
+
+# Invalidate objects. PM -> C.
+INVALIDATE_OBJECTS = 0x0015
+
+# Unlock information on a transaction. PM -> S.
+UNLOCK_INFORMATION = 0x0016
+
 
 # Error codes.
 NOT_READY_CODE = 1
@@ -388,6 +412,59 @@ class Packet(object):
         self._body = tid
         return self
 
+    def askNewTID(self, msg_id):
+        self._id = msg_id
+        self._type = ASK_NEW_TID
+        self._body = ''
+        return self
+
+    def answerNewTID(self, msg_id, tid):
+        self._id = msg_id
+        self._type = ANSWER_NEW_TID
+        self._body = tid
+        return self
+
+    def finishTransaction(self, msg_id, oid_list, tid):
+        self._id = msg_id
+        self._type = FINISH_TRANSACTION
+        body = [pack('!8sL', tid, len(oid_list))]
+        body.extend(oid_list)
+        self._body = ''.join(body)
+        return self
+
+    def notifyTransactionFinished(self, msg_id, tid):
+        self._id = msg_id
+        self._type = NOTIFY_TRANSACTION_FINISHED
+        self._body = tid
+        return self
+
+    def lockInformation(self, msg_id, tid):
+        self._id = msg_id
+        self._type = LOCK_INFORMATION
+        self._body = tid
+        return self
+
+    def notifyInformationLocked(self, msg_id, tid):
+        self._id = msg_id
+        self._type = NOTIFY_INFORMATION_LOCKED
+        self._body = tid
+        return self
+
+    def invalidateObjects(self, msg_id, oid_list):
+        self._id = msg_id
+        self._type = INVALIDATE_OBJECTS
+        body = [pack('!L', len(oid_list))]
+        body.extend(oid_list)
+        self._body = ''.join(body)
+        return self
+
+    def unlockInformation(self, msg_id, tid):
+        self._id = msg_id
+        self._type = UNLOCK_INFORMATION
+        self._body = tid
+        return self
+
+
     # Decoders.
     def decode(self):
         try:
@@ -642,3 +719,72 @@ class Packet(object):
             raise ProtocolError(self, 'invalid commit transaction')
         return tid
     decode_table[COMMIT_TRANSACTION] = _decodeCommitTransaction
+
+    def _decodeAskNewTID(self):
+        pass
+    decode_table[ASK_NEW_TID] = _decodeAskNewTID
+
+    def _decodeAnswerNewTID(self):
+        try:
+            tid = unpack('8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid answer new tid')
+        return tid
+    decode_table[ANSWER_NEW_TID] = _decodeAnswerNewTID
+
+    def _decodeFinishTransaction(self):
+        try:
+            tid, n = unpack('!8sL', self._body[:12])
+            oid_list = []
+            for i in xrange(n):
+                oid = unpack('8s', self._body[12+i*8:20+i*8])
+                oid_list.append(oid)
+        except:
+            raise ProtocolError(self, 'invalid finish transaction')
+        return oid_list, tid
+    decode_table[FINISH_TRANSACTION] = _decodeFinishTransaction
+
+    def _decodeNotifyTransactionFinished(self):
+        try:
+            tid = unpack('8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid notify transactin finished')
+        return tid
+    decode_table[NOTIFY_TRANSACTION_FINISHED] = _decodeNotifyTransactionFinished
+
+    def _decodeLockInformation(self):
+        try:
+            tid = unpack('8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid lock information')
+        return tid
+    decode_table[LOCK_INFORMATION] = _decodeLockInformation
+
+    def _decodeNotifyInformationLocked(self):
+        try:
+            tid = unpack('8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid notify information locked')
+        return tid
+    decode_table[NOTIFY_INFORMATION_LOCKED] = _decodeNotifyInformationLocked
+
+    def _decodeInvalidateObjects(self):
+        try:
+            n = unpack('!L', self._body[:4])
+            oid_list = []
+            for i in xrange(n):
+                oid = unpack('8s', self._body[4+i*8:12+i*8])
+                oid_list.append(oid)
+        except:
+            raise ProtocolError(self, 'invalid finish transaction')
+        return oid_list
+    decode_table[INVALIDATE_OBJECTS] = _decodeInvalidateObjects
+
+    def _decodeUnlockInformation(self):
+        try:
+            tid = unpack('8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid unlock information')
+        return tid
+    decode_table[UNLOCK_INFORMATION] = _decodeUnlockInformation
+

@@ -10,7 +10,9 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         ANSWER_PARTITION_TABLE, SEND_PARTITION_TABLE, NOTIFY_PARTITION_CHANGES, \
         ASK_UNFINISHED_TRANSACTIONS, ANSWER_UNFINISHED_TRANSACTIONS, \
         ASK_OIDS_BY_TID, ANSWER_OIDS_BY_TID, ASK_OBJECT_PRESENT, ANSWER_OBJECT_PRESENT, \
-        DELETE_TRANSACTION, COMMIT_TRANSACTION, \
+        DELETE_TRANSACTION, COMMIT_TRANSACTION, ASK_NEW_TID, ANSWER_NEW_TID, \
+        FINISH_TRANSACTION, NOTIFY_TRANSACTION_FINISHED, LOCK_INFORMATION, \
+        NOTIFY_INFORMATION_LOCKED, INVALIDATE_OBJECTS, UNLOCK_INFORMATION, \
         NOT_READY_CODE, OID_NOT_FOUND_CODE, SERIAL_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
         INTERNAL_ERROR_CODE
@@ -176,6 +178,30 @@ class EventHandler(object):
     def handleCommitTransaction(self, conn, packet, tid):
         self.handleUnexpectedPacket(conn, packet)
 
+    def handleAskNewTID(self, conn, packet):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerNewTID(self, conn, packet, tid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleFinishTransaction(self, conn, packet, oid_list, tid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleNotifyTransactionFinished(self, conn, packet, tid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleLockInformation(self, conn, packet, tid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleNotifyInformationLocked(self, conn, packet, tid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleInvalidateObjects(self, conn, packet, oid_list):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleUnlockInformation(self, conn, packet, tid):
+        self.handleUnexpectedPacket(conn, packet)
+
 
     # Error packet handlers.
 
@@ -226,6 +252,14 @@ class EventHandler(object):
         d[ANSWER_OBJECT_PRESENT] = self.handleAnswerObjectPresent
         d[DELETE_TRANSACTION] = self.handleDeleteTransaction
         d[COMMIT_TRANSACTION] = self.handleCommitTransaction
+        d[ASK_NEW_TID] = self.handleAskNewTID
+        d[ANSWER_NEW_TID] = self.handleAnswerNewTID
+        d[FINISH_TRANSACTION] = self.handleFinishTransaction
+        d[NOTIFY_TRANSACTION_FINISHED] = self.handleNotifyTransactionFinished
+        d[LOCK_INFORMATION] = self.handleLockInformation
+        d[NOTIFY_INFORMATION_LOCKED] = self.handleNotifyInformationLocked
+        d[INVALIDATE_OBJECTS] = self.handleInvalidateObjects
+        d[UNLOCK_INFORMATION] = self.handleUnlockInformation
 
         self.packet_dispatch_table = d
 

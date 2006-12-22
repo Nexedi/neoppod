@@ -7,3 +7,7 @@ TODO
     - Handling connection timeouts.
 
     - Handling write timeouts.
+
+    - IdleEvent for a certain message type as well as a message ID
+
+    - Flushing write buffers only without reading packets
