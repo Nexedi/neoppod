@@ -3,12 +3,41 @@ import logging
 from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
 from neo.master.handler import MasterEventHandler
-from neo.exception import ElectionFailure
 from neo.protocol import Packet, INVALID_UUID
+from neo.exception import OperationFailure
 from neo.util import dump
 
-class RecoveryEventHandler(MasterEventHandler):
-    """This class deals with events for a recovery phase."""
+class FinishingTransaction(object):
+    """This class describes a finishing transaction."""
+    
+    def __init__(self, conn, packet, oid_list, uuid_set):
+        self._conn = conn
+        self._msg_id = packet.getId()
+        self._oid_list = oid_list
+        self._uuid_set = uuid_set
+        self._locked_uuid_set = set()
+
+    def getConnection(self):
+        return self._conn
+
+    def getMessageId(self):
+        return self._msg_id
+
+    def getOIDList(self):
+        return self._oid_list
+
+    def getUUIDSet(self):
+        return self._uuid_set
+
+    def addLockedUUID(self, uuid):
+        if uuid in self._uuid_set:
+            self._locked_uuid_set.add(uuid)
+
+    def allLocked(self):
+        return self._uuid_set == self._locked_uuid_set
+
+class ServiceEventHandler(MasterEventHandler):
+    """This class deals with events for a service phase."""
 
     def connectionClosed(self, conn):
         uuid = conn.getUUID()
@@ -21,6 +50,10 @@ class RecoveryEventHandler(MasterEventHandler):
                 if isinstance(node, ClientNode):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
+                elif isinstance(node, StorageNode):
+                    if not app.pt.operational():
+                        # Catastrophic.
+                        raise OperationFailure, 'cannot continue operation'
         MasterEventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
@@ -34,6 +67,10 @@ class RecoveryEventHandler(MasterEventHandler):
                 if isinstance(node, ClientNode):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
+                elif isinstance(node, StorageNode):
+                    if not app.pt.operational():
+                        # Catastrophic.
+                        raise OperationFailure, 'cannot continue operation'
         MasterEventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
@@ -47,6 +84,13 @@ class RecoveryEventHandler(MasterEventHandler):
                 if isinstance(node, ClientNode):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
+                elif isinstance(node, StorageNode):
+                    cell_list = app.pt.dropNode(node)
+                    ptid = app.getNextPartitionTableID()
+                    app.broadcastPartitionChanges(ptid, cell_list)
+                    if not app.pt.operational():
+                        # Catastrophic.
+                        raise OperationFailure, 'cannot continue operation'
         MasterEventHandler.peerBroken(self, conn)
 
     def packetReceived(self, conn, packet):
@@ -55,11 +99,6 @@ class RecoveryEventHandler(MasterEventHandler):
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
         app = self.app
-        if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
-            logging.info('reject a connection from a client')
-            conn.addPacket(Packet().notReady(packet.getId(), 'retry later'))
-            conn.abort()
-            return
         if name != app.name:
             logging.error('reject an alien cluster')
             conn.addPacket(Packet().protocolError(packet.getId(),
@@ -85,6 +124,8 @@ class RecoveryEventHandler(MasterEventHandler):
                 # connected to me.
                 if node_type == MASTER_NODE_TYPE:
                     node = MasterNode(server = addr, uuid = uuid)
+                elif node_type == CLIENT_NODE_TYPE:
+                    node = ClientNode(uuid = uuid)
                 else:
                     node = StorageNode(server = address, uuid = uuid)
                 app.nm.add(node)
@@ -156,6 +197,14 @@ class RecoveryEventHandler(MasterEventHandler):
 
         conn.setUUID(uuid)
 
+        if isinstance(node, StorageNode):
+            # If this is a storage node, add it into the partition table.
+            # Note that this does no harm, even if the node is not new.
+            cell_list = app.pt.addNode(node)
+            if len(cell_list) != 0:
+                ptid = app.getNextPartitionTableID()
+                app.broadcastPartitionChanges(ptid, cell_list)
+
         p = Packet()
         p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
                                    app.uuid, app.server[0], app.server[1])
@@ -194,14 +243,25 @@ class RecoveryEventHandler(MasterEventHandler):
         p.notifyNodeInformation(conn.getNextId(), node_list)
         conn.addPacket(p)
 
-        # If this is a storage node, ask the last IDs.
+        # If this is a storage node or a client node, send the partition table.
         node = app.nm.getNodeByUUID(uuid)
-        if isinstance(node, StorageNode):
+        if isinstance(node, (StorageNode, ClientNode)):
+            # Split the packet if too huge.
             p = Packet()
-            msg_id = conn.getNextId()
-            p.askLastIDs(msg_id)
-            conn.addPacket(p)
-            conn.expectMessage(msg_id)
+            row_list = []
+            for offset in xrange(app.num_partitions):
+                row_list.append((offset, app.pt.getRow(offset)))
+                if len(row_list) == 1000:
+                    p.sendPartitionTable(app.lptid, row_list)
+                    conn.addPacket(p)
+                    del row_list[:]
+            if len(row_list) != 0:
+                p.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
+                conn.addPacket(p)
+
+        # If this is a storage node, ask it to start.
+        if isinstance(node, StorageNode):
+            conn.addPacket(Packet().startOperation(conn.getNextId()))
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
@@ -269,6 +329,12 @@ class RecoveryEventHandler(MasterEventHandler):
             node.setState(state)
             app.broadcastNodeInformation(node)
 
+            if isinstance(node, StorageNode) and state in (DOWN_STATE, BROKEN_STATE):
+                cell_list = app.pt.dropNode(node)
+                if len(cell_list) != 0:
+                    ptid = app.getNextPartitionTableID()
+                    app.broadcastPartitionChanges(ptid, cell_list)
+
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         uuid = conn.getUUID()
         if uuid is None:
@@ -282,48 +348,109 @@ class RecoveryEventHandler(MasterEventHandler):
             self.handleUnexpectedPacket(conn, packet)
             return
 
-        # If the target is still unknown, set it to this node for now.
-        if app.target_uuid is None:
-            app.target_uuid = uuid
+        # If I get a bigger value here, it is dangerous.
+        if app.loid < loid or app.ltid < ltid or app.lptid < lptid:
+            logging.critical('got later information in service')
+            raise OperationFailure
 
-        # Get max values.
-        if app.loid < loid:
-            app.loid = loid
-        if app.ltid < ltid:
-            app.ltid = ltid
-        if app.lptid is None or app.lptid < lptid:
-            app.lptid = lptid
-            # I need to use the node which has the max Partition Table ID.
-            app.target_uuid = uuid
-        elif app.lptid == lptid and app.target_uuid is None:
-            app.target_uuid = uuid
-
-    def handleAnswerPartitionTable(self, conn, packet, cell_list):
+    def handleAskNewTID(self, conn, packet):
         uuid = conn.getUUID()
         if uuid is None:
             self.handleUnexpectedPacket(conn, packet)
             return
 
         app = self.app
+
+        node = app.nm.getNodeByUUID(uuid)
+        if not isinstance(node, ClientNode):
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        tid = app.getNextTID()
+        conn.addPacket(Packet().answerNewTID(packet.getId(), tid))
+
+    def handleFinishTransaction(self, conn, packet, oid_list, tid):
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        app = self.app
+
+        node = app.nm.getNodeByUUID(uuid)
+        if not isinstance(node, ClientNode):
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        # If the given transaction ID is later than the last TID, the peer is crazy.
+        if app.ltid < tid:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        # Collect partitions related to this transaction.
+        getPartition = app.getPartition
+        partition_set = set()
+        partition_set.add(getPartition(tid))
+        partition_set.update([getPartition(oid) for oid in oid_list])
+
+        # Collect the UUIDs of nodes related to this transaction.
+        uuid_set = set()
+        for part in partition_set:
+            uuid_set.update([cell.getUUID() for cell in app.pt.getCellList(part)])
+
+        # Request locking data.
+        for c in app.em.getConnectionList():
+            if c.getUUID() in uuid_set:
+                msg_id = c.getNextId()
+                c.addPacket(Packet().lockInformation(msg_id, tid))
+                c.expectMessage(msg_id)
+
+        t = FinishingTransaction(conn, packet, oid_list, uuid_set)
+        app.finishing_transaction_dict[tid] = t
+
+    def handleNotifyTransactionLocked(self, conn, packet, tid):
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        app = self.app
+
         node = app.nm.getNodeByUUID(uuid)
         if not isinstance(node, StorageNode):
             self.handleUnexpectedPacket(conn, packet)
             return
-        if uuid != app.target_uuid:
-            # If this is not from a target node, ignore it.
+
+        # If the given transaction ID is later than the last TID, the peer is crazy.
+        if app.ltid < tid:
+            self.handleUnexpectedPacket(conn, packet)
             return
 
-        for offset, cell_list in row_list:
-            if offset >= app.num_partitions or app.pt.hasOffset(offset):
-                # There must be something wrong.
-                self.handleUnexpectedPacket(conn, packet)
-                return
-
-            for uuid, state in cell_list:
-                n = app.nm.getNodeByUUID(uuid)
-                if n is None:
-                    n = StorageNode(uuid = uuid)
-                    n.setState(TEMPORARILY_DOWN_STATE)
-                    app.nm.add(n)
-                app.pt.setCell(offset, n, state)
-
+        try:
+            t = app.finishing_transaction_dict[tid]
+            t.addLockedUUID(uuid)
+            if t.allLocked():
+                # I have received all the answers now. So send a Notify Transaction
+                # Finished to the initiated client node, Invalidate Objects to
+                # the other client nodes, and Unlock Information to relevant storage
+                # nodes.
+                p = Packet()
+                for c in app.em.getConnectionList():
+                    uuid = c.getUUID()
+                    if uuid is not None:
+                        node = app.nm.getNodeByUUID()
+                        if isinstance(node, ClientNode):
+                            if c is t.getConnection():
+                                p.notifyTransactionFinished(t.getMessageId(), tid)
+                                c.addPacket(p)
+                            else:
+                                p.invalidateObjects(c.getNextId(), t.getOidList())
+                                c.addPacket(p)
+                        elif isinstance(node, StorageNode):
+                            if uuid in t.getUUIDSet():
+                                p.unlockInformation(c.getNextId(), tid)
+                                c.addPacket(p)
+                del app.finishing_transaction_dict[tid]
+        except KeyError:
+            # What is this?
+            pass

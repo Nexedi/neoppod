@@ -2,7 +2,8 @@ import logging
 import MySQLdb
 import os
 from socket import inet_aton
-from time import time
+from time import time, gmtime
+from struct import pack, unpack
 
 from neo.config import ConfigurationManager
 from neo.protocol import Packet, ProtocolError, \
@@ -17,6 +18,7 @@ from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure, 
 from neo.master.election import ElectionEventHandler
 from neo.master.recovery import RecoveryEventHandler
 from neo.master.verification import VerificationEventHandler
+from neo.master.service import ServiceEventHandler
 from neo.pt import PartitionTable
 
 class Application(object):
@@ -414,7 +416,7 @@ class Application(object):
         uuid_set = set()
 
         # Determine to which nodes I should ask.
-        partition = tid % self.num_partitions
+        partition = self.getPartition(tid)
         transaction_uuid_list = [cell.getUUID() for cell \
                 in self.pt.getCellList(partition, True)]
         if len(transaction_uuid_list) == 0:
@@ -450,7 +452,7 @@ class Application(object):
             # Verify that all objects are present.
             for oid in self.unfinished_oid_set:
                 self.asking_uuid_dict.clear()
-                partition = oid % self.num_partitions
+                partition = self.getPartition(oid)
                 object_uuid_list = [cell.getUUID() for cell \
                             in self.pt.getCellList(partition, True)]
                 if len(object_uuid_list) == 0:
@@ -607,6 +609,9 @@ class Application(object):
         em = self.em
         nm = self.nm
 
+        # This dictionary is used to hold information on transactions being finished.
+        self.finishing_transaction_dict = {}
+
         # Make sure that every connection has the service event handler.
         for conn in em.getConnectionList():
             conn.setHandler(handler)
@@ -684,3 +689,32 @@ class Application(object):
 
         self.lptid = ''.join(l)
         return self.lptid
+
+    def getNextTID(self):
+        tm = time()
+        gmt = gmtime(tm)
+        upper = (((gmt.tm_year * 12 + gmt.tm_mon) * 31 + gmt.tm_mday - 1) \
+                * 24 + gmt.tm_hour) * 60 + gmt.tm_min
+        lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / (60.0 / 65536.0 / 65536.0))
+        tid = pack('!LL', upper, lower)
+        if tid <= self.ltid:
+            upper, lower = unpack('!LL', self.ltid)
+            if lower == 0xffffffff:
+                # This should not happen usually.
+                from datetime import timedelta, datetime
+                hour, min = divmod(upper, 60)
+                day, hour = divmod(hour, 24)
+                month, day = divmod(day, 31)
+                year, month = divmod(month, 12)
+                d = datetime(year, month, day + 1, hour, min) + timedelta(0, 60)
+                upper = (((d.year * 12 + d.month) * 31 + d.day - 1) \
+                        * 24 + d.hour) * 60 + d.minute
+                lower = 0
+            else:
+                lower += 1
+            tid = pack('!LL', upper, lower)
+        self.ltid = tid
+        return tid
+
+    def getPartition(self, oid_or_tid):
+        return unpack('!Q', oid_or_tid)[0] % self.num_partitions
