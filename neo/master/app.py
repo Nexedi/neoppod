@@ -1,5 +1,4 @@
 import logging
-import MySQLdb
 import os
 from socket import inet_aton
 from time import time, gmtime
@@ -19,6 +18,7 @@ from neo.master.election import ElectionEventHandler
 from neo.master.recovery import RecoveryEventHandler
 from neo.master.verification import VerificationEventHandler
 from neo.master.service import ServiceEventHandler
+from neo.master.secondary import SecondaryEventHandler
 from neo.pt import PartitionTable
 
 class Application(object):
@@ -628,6 +628,10 @@ class Application(object):
         while 1:
             try:
                 em.poll(1)
+                # FIXME implement an expiration of temporary down nodes.
+                # If a temporary down storage node is expired, it moves to
+                # down state, and the partition table must drop the node,
+                # thus repartitioning must be performed.
             except OperationFailure:
                 # If not operational, send Stop Operation packets to storage nodes
                 # and client nodes. Abort connections to client nodes.
@@ -666,29 +670,35 @@ class Application(object):
             self.provideService()
 
     def playSecondaryRole(self):
+        """I play a secondary role, thus only wait for a primary master to fail."""
         logging.info('play the secondary role')
-        raise NotImplementedError
+
+        handler = SecondaryEventHandler()
+        em = self.em
+        nm = self.nm
+
+        # Make sure that every connection has the secondary event handler.
+        for conn in em.getConnectionList():
+            conn.setHandler(handler)
+
+        while 1:
+            em.poll(1)
 
     def getNextPartitionTableID(self):
         if self.lptid is None:
             raise RuntimeError, 'I do not know the last Partition Table ID'
 
-        l = []
-        append = l.append
-        for c in self.lptid:
-            append(c)
-        for i in xrange(7, -1, -1):
-            d = ord(l[i])
-            if d == 255:
-                l[i] = chr(0)
-            else:
-                l[i] = chr(d + 1)
-                break
-        else:
-            raise RuntimeError, 'Partition Table ID overflowed'
-
-        self.lptid = ''.join(l)
+        ptid = unpack('!Q', self.lptid)[0]
+        self.lptid = pack('!Q', ptid + 1)
         return self.lptid
+
+    def getNextOID(self):
+        if self.loid is None:
+            raise RuntimeError, 'I do not know the last OID'
+
+        oid = unpack('!Q', self.loid)[0]
+        self.loid = pack('!Q', oid + 1)
+        return self.loid
 
     def getNextTID(self):
         tm = time()

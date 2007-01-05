@@ -3,7 +3,7 @@ from MySQLdb import OperationalError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 import logging
 
-class DatabaseManager:
+class DatabaseManager(object):
     """This class manages a database.
 
     For now, this implementation is limited to MySQL."""
