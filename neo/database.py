@@ -40,3 +40,6 @@ class DatabaseManager(object):
             raise
         return r
  
+    def escape(self, s):
+        """Escape special characters in a string."""
+        return self.conn.escape_string(s)
