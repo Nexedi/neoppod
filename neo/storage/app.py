@@ -89,7 +89,7 @@ class Application(object):
         q("""CREATE TABLE IF NOT EXISTS obj (
                  oid BINARY(8) NOT NULL,
                  serial BINARY(8) NOT NULL,
-                 checksum INT UNSIGNED NOT NULL,
+                 checksum BINARY(4) NOT NULL,
                  compression TINYINT UNSIGNED NOT NULL,
                  value MEDIUMBLOB NOT NULL,
                  PRIMARY KEY (oid, serial)
@@ -108,7 +108,7 @@ class Application(object):
         q("""CREATE TABLE IF NOT EXISTS tobj (
                  oid BINARY(8) NOT NULL,
                  serial BINARY(8) NOT NULL,
-                 checksum INT UNSIGNED NOT NULL,
+                 checksum BINARY(4) NOT NULL,
                  compression TINYINT UNSIGNED NOT NULL,
                  value MEDIUMBLOB NOT NULL
              ) ENGINE = InnoDB""")

@@ -75,7 +75,7 @@ class EventHandler(object):
             method = self.packet_dispatch_table[t]
             args = packet.decode() or ()
             method(conn, packet, *args)
-        except ValueError:
+        except (KeyError, ValueError):
             self.handleUnexpectedPacket(conn, packet)
         except ProtocolError, m:
             self.packetMalformed(conn, packet, m[1])
