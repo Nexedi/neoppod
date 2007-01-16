@@ -240,9 +240,7 @@ class Application(object):
                                 # Yes, I have.
                                 return
 
-                self.trying_master_node = self.primary_master_node
-
-            if t + 1 < time():
+            if self.trying_master_node is None and t + 1 < time():
                 # Choose a master node to connect to.
                 if self.primary_master_node is not None:
                     # If I know a primary master node, pinpoint it.
@@ -283,10 +281,15 @@ class Application(object):
 
         handler = OperationEventHandler(self)
         em = self.em
+        nm = self.nm
 
         # Make sure that every connection has the verfication event handler.
         for conn in em.getConnectionList():
             conn.setHandler(handler)
+
+        # Forget all client nodes.
+        for node in nm.getClientNodeList():
+            nm.remove(node)
 
         while 1:
             em.poll(1)

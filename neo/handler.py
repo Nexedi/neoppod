@@ -118,7 +118,8 @@ class EventHandler(object):
     def handleAskPrimaryMaster(self, conn, packet):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
+    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
+                                  known_master_list):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):

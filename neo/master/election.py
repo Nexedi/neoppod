@@ -20,7 +20,6 @@ class ElectionEventHandler(MasterEventHandler):
 
     def connectionCompleted(self, conn):
         app = self.app
-        addr = conn.getAddress()
         # Request a node idenfitication.
         p = Packet()
         msg_id = conn.getNextId()

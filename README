@@ -11,3 +11,8 @@ TODO
     - IdleEvent for a certain message type as well as a message ID
 
     - Flushing write buffers only without reading packets
+
+    - Garbage collection of unused nodes
+
+    - Stopping packet processing by returning a boolean value from
+      a handler, otherwise too tricky to exchange a handler with another
