@@ -207,7 +207,8 @@ class ServiceEventHandler(MasterEventHandler):
 
         p = Packet()
         p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
-                                   app.uuid, app.server[0], app.server[1])
+                                   app.uuid, app.server[0], app.server[1],
+                                   app.num_partitions, app.num_replicas)
         conn.addPacket(p)
         # Next, the peer should ask a primary master node.
         conn.expectMessage()
@@ -368,6 +369,22 @@ class ServiceEventHandler(MasterEventHandler):
 
         tid = app.getNextTID()
         conn.addPacket(Packet().answerNewTID(packet.getId(), tid))
+
+    def handleAskNewOIDList(self, conn, packet, num_oid):
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        app = self.app
+
+        node = app.nm.getNodeByUUID(uuid)
+        if not isinstance(node, ClientNode):
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        oid = app.getNextOIDList(num_oid)
+        conn.addPacket(Packet().answerNewOIDList(packet.getId(), num_oid, oid_list))
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
         uuid = conn.getUUID()

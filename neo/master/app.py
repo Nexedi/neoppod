@@ -7,7 +7,7 @@ from struct import pack, unpack
 from neo.config import ConfigurationManager
 from neo.protocol import Packet, ProtocolError, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID
+        INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, CLIENT_NODE_TYPE
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.util import dump
@@ -240,7 +240,7 @@ class Application(object):
                     for conn in em.getConnectionList():
                         if isinstance(conn, ClientConnection):
                             # Still not closed.
-                            closed = Falsed
+                            closed = False
                             break
                     
                     if time() > t + 10:
@@ -673,7 +673,7 @@ class Application(object):
         """I play a secondary role, thus only wait for a primary master to fail."""
         logging.info('play the secondary role')
 
-        handler = SecondaryEventHandler()
+        handler = SecondaryEventHandler(self)
         em = self.em
         nm = self.nm
 
@@ -728,3 +728,9 @@ class Application(object):
 
     def getPartition(self, oid_or_tid):
         return unpack('!Q', oid_or_tid)[0] % self.num_partitions
+
+    def getNewOidList(self, num_oid):
+        return [self.getNextOid() for i in xrange(n)]
+
+        
+    

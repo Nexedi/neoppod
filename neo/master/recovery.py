@@ -1,10 +1,12 @@
 import logging
 
 from neo.protocol import MASTER_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
+        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
+        STORAGE_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.exception import ElectionFailure
 from neo.protocol import Packet, INVALID_UUID
+from neo.node import ClientNode, StorageNode
 from neo.util import dump
 
 class RecoveryEventHandler(MasterEventHandler):
@@ -158,7 +160,8 @@ class RecoveryEventHandler(MasterEventHandler):
 
         p = Packet()
         p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
-                                   app.uuid, app.server[0], app.server[1])
+                                   app.uuid, app.server[0], app.server[1],
+                                   app.num_partitions, app.num_replicas)
         conn.addPacket(p)
         # Next, the peer should ask a primary master node.
         conn.expectMessage()

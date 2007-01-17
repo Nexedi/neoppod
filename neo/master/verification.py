@@ -173,7 +173,8 @@ class VerificationEventHandler(MasterEventHandler):
 
         p = Packet()
         p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
-                                   app.uuid, app.server[0], app.server[1])
+                                   app.uuid, app.server[0], app.server[1],
+                                   app.num_partitions, app.num_replicas)
         conn.addPacket(p)
         # Next, the peer should ask a primary master node.
         conn.expectMessage()

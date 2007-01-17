@@ -71,7 +71,8 @@ class ElectionEventHandler(MasterEventHandler):
         MasterEventHandler.packetReceived(self, conn, packet)
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port):
+                                       uuid, ip_address, port, num_partitions,
+                                       num_replicas):
         if isinstance(conn, ClientConnection):
             app = self.app
             node = app.nm.getNodeByServer(conn.getAddress())
@@ -137,10 +138,10 @@ class ElectionEventHandler(MasterEventHandler):
                     # is old. So ignore it.
                     pass
                 else:
-                    if node.getUUID() == primary_uuid:
+                    if primary_node.getUUID() == primary_uuid:
                         # Whatever the situation is, I trust this master.
                         app.primary = False
-                        app.primary_master_node = node
+                        app.primary_master_node = primary_node
             else:
                 if app.uuid < uuid:
                     # I lost.
@@ -190,7 +191,8 @@ class ElectionEventHandler(MasterEventHandler):
 
             p = Packet()
             p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
-                                       app.uuid, app.server[0], app.server[1])
+                                       app.uuid, app.server[0], app.server[1],
+                                       app.num_partitions, app.num_replicas)
             conn.addPacket(p)
             # Next, the peer should ask a primary master node.
             conn.expectMessage()
