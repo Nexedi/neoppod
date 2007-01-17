@@ -105,7 +105,8 @@ class EventHandler(object):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port):
+                                       uuid, ip_address, port,
+                                       num_partitions, num_replicas):
         self.handleUnexpectedPacket(conn, packet)
 
     def handlePing(self, conn, packet):
@@ -185,6 +186,12 @@ class EventHandler(object):
     def handleAnswerNewTID(self, conn, packet, tid):
         self.handleUnexpectedPacket(conn, packet)
 
+    def handleAskNewOIDList(self, conn, packet):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerNewOIDList(self, conn, packet, oid_list):
+        self.handleUnexpectedPacket(conn, packet)
+
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
         self.handleUnexpectedPacket(conn, packet)
 
@@ -203,6 +210,29 @@ class EventHandler(object):
     def handleUnlockInformation(self, conn, packet, tid):
         self.handleUnexpectedPacket(conn, packet)
 
+    def handleAskStoreObject(self, conn, packet, msg_id, oid, serial,
+                             compressed, data, crc, tid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerStoreObject(self, conn, packet, status, oid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAbortTransaction(self, conn, packet, tid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
+                                  ext, oid_list):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerStoreTransaction(self, conn, packet, tid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAskObjectByOID(self, conn, packet, oid, serial):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerObjectByOID(self, conn, packet, oid, serial,
+                                compressed, crc, data):
+        self.handleUnexpectedPacket(conn, packet)
 
     # Error packet handlers.
 
