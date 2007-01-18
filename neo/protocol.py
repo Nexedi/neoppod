@@ -707,7 +707,7 @@ class Packet(object):
                 del cell_list[:]
         except:
             raise ProtocolError(self, 'invalid answer partition table')
-        return row_list
+        return ptid, row_list
     decode_table[ANSWER_PARTITION_TABLE] = _decodeAnswerPartitionTable
 
     def _decodeSendPartitionTable(self):
@@ -727,7 +727,7 @@ class Packet(object):
                 del cell_list[:]
         except:
             raise ProtocolError(self, 'invalid send partition table')
-        return row_list
+        return ptid, row_list
     decode_table[SEND_PARTITION_TABLE] = _decodeSendPartitionTable
 
     def _decodeNotifyPartitionChanges(self):
@@ -738,7 +738,7 @@ class Packet(object):
                 cell_list.append(cell)
         except:
             raise ProtocolError(self, 'invalid notify partition changes')
-        return cell_list
+        return ptid, cell_list
     decode_table[NOTIFY_PARTITION_CHANGES] = _decodeNotifyPartitionChanges
 
     def _decodeStartOperation(self):

@@ -39,90 +39,24 @@ class Application(object):
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
-        self.dm = MySQLDatabaseManager(config.getDatabase(), config.getUser(), 
-                                       config.getPassword())
+        self.dm = MySQLDatabaseManager(database = config.getDatabase(), 
+                                       user = config.getUser(), 
+                                       password = config.getPassword())
         self.pt = PartitionTable(self.num_partitions, 0)
 
         self.primary_master_node = None
 
-        if reset:
-            self.dropTables()
-
-        self.createTables()
+        self.dm.setup(reset)
         self.loadConfiguration()
         self.loadPartitionTable()
-
-    def dropTables(self):
-        """Drop all the tables, if any."""
-        q = self.dm.query
-        q("""DROP TABLE IF EXISTS config, pt, trans, obj, ttrans, tobj""")
-
-    def createTables(self):
-        """Create all the tables, if not present."""
-        q = self.dm.query
-
-        # The table "config" stores configuration parameters which affect the
-        # persistent data.
-        q("""CREATE TABLE IF NOT EXISTS config (
-                 name VARBINARY(16) NOT NULL PRIMARY KEY,
-                 value VARBINARY(255) NOT NULL
-             ) ENGINE = InnoDB""")
-
-        # The table "pt" stores a partition table.
-        q("""CREATE TABLE IF NOT EXISTS pt (
-                 rid INT UNSIGNED NOT NULL,
-                 uuid BINARY(16) NOT NULL,
-                 state TINYINT UNSIGNED NOT NULL,
-                 PRIMARY KEY (rid, uuid)
-             ) ENGINE = InnoDB""")
-
-        # The table "trans" stores information on committed transactions.
-        q("""CREATE TABLE IF NOT EXISTS trans (
-                 tid BINARY(8) NOT NULL PRIMARY KEY,
-                 oids MEDIUMBLOB NOT NULL,
-                 user BLOB NOT NULL,
-                 desc BLOB NOT NULL,
-                 ext BLOB NOT NULL
-             ) ENGINE = InnoDB""")
-
-        # The table "obj" stores committed object data.
-        q("""CREATE TABLE IF NOT EXISTS obj (
-                 oid BINARY(8) NOT NULL,
-                 serial BINARY(8) NOT NULL,
-                 checksum BINARY(4) NOT NULL,
-                 compression TINYINT UNSIGNED NOT NULL,
-                 value MEDIUMBLOB NOT NULL,
-                 PRIMARY KEY (oid, serial)
-             ) ENGINE = InnoDB""")
-
-        # The table "ttrans" stores information on uncommitted transactions.
-        q("""CREATE TABLE IF NOT EXISTS ttrans (
-                 tid BINARY(8) NOT NULL,
-                 oids MEDIUMBLOB NOT NULL,
-                 user BLOB NOT NULL,
-                 desc BLOB NOT NULL,
-                 ext BLOB NOT NULL
-             ) ENGINE = InnoDB""")
-
-        # The table "tobj" stores uncommitted object data.
-        q("""CREATE TABLE IF NOT EXISTS tobj (
-                 oid BINARY(8) NOT NULL,
-                 serial BINARY(8) NOT NULL,
-                 checksum BINARY(4) NOT NULL,
-                 compression TINYINT UNSIGNED NOT NULL,
-                 value MEDIUMBLOB NOT NULL
-             ) ENGINE = InnoDB""")
 
     def loadConfiguration(self):
         """Load persistent configuration data from the database.
         If data is not present, generate it."""
-        q = self.dm.query
-        e = self.dm.escape
+        dm = self.dm
 
-        r = q("""SELECT value FROM config WHERE name = 'uuid'""")
-        try:
-            self.uuid = r[0][0]
-        except IndexError:
+        self.uuid = dm.getUUID()
+        if self.uuid is None:
             # XXX Generate an UUID for self. For now, just use a random string.
             # Avoid an invalid UUID.
             while 1:
@@ -130,36 +64,32 @@ class Application(object):
                 if uuid != INVALID_UUID:
                     break
             self.uuid = uuid
-            q("""INSERT config VALUES ('uuid', '%s')""" % e(uuid))
+            dm.setUUID(uuid)
 
-        r = q("""SELECT value FROM config WHERE name = 'partitions'""")
-        try:
-            if self.num_partitions != int(r[0][0]):
-                raise RuntimeError('partitions do not match with the database')
-        except IndexError:
-            q("""INSERT config VALUES ('partitions', '%s')""" \
-                    % e(str(self.num_replicas)))
+        num_partitions = dm.getNumPartitions()
+        if num_partitions is None:
+            dm.setNumPartitions(self.num_partitions)
+        elif num_partitions != self.num_partitions:
+            raise RuntimeError('partitions do not match with the database')
 
-        r = q("""SELECT value FROM config WHERE name = 'name'""")
-        try:
-            if self.name != r[0][0]:
-                raise RuntimeError('name does not match with the database')
-        except IndexError:
-            q("""INSERT config VALUES ('name', '%s')""" % e(self.name))
+        name = dm.getName()
+        if name is None:
+            dm.setName(self.name)
+        elif name != self.name:
+            raise RuntimeError('name does not match with the database')
 
-        r = q("""SELECT value FROM config WHERE name = 'ptid'""")
-        try:
-            self.ptid = r[0][0]
-        except IndexError:
+        ptid = dm.getPTID()
+        if ptid is None:
             self.ptid = INVALID_PTID
-            q("""INSERT config VALUES ('ptid', '%s')""" % e(INVALID_PTID))
+            dm.setPTID(self.ptid)
+        else:
+            self.ptid = ptid
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
         nm = self.nm
         pt = self.pt
-        r = q("""SELECT rid, uuid, state FROM pt""")
-        for offset, uuid, state in r:
+        for offset, uuid, state in self.dm.getPartitionTable():
             node = nm.getNodeByUUID(uuid)
             if node is None:
                 node = StorageNode(uuid = uuid)

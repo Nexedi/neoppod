@@ -370,7 +370,7 @@ class ServiceEventHandler(MasterEventHandler):
         tid = app.getNextTID()
         conn.addPacket(Packet().answerNewTID(packet.getId(), tid))
 
-    def handleAskNewOIDList(self, conn, packet, num_oids):
+    def handleAskNewOIDs(self, conn, packet, num_oids):
         uuid = conn.getUUID()
         if uuid is None:
             self.handleUnexpectedPacket(conn, packet)
@@ -383,8 +383,8 @@ class ServiceEventHandler(MasterEventHandler):
             self.handleUnexpectedPacket(conn, packet)
             return
 
-        oid_list = app.getNextOIDList(num_oids)
-        conn.addPacket(Packet().answerNewOIDList(packet.getId(), oid_list))
+        oid_list = app.getNewOIDList(num_oids)
+        conn.addPacket(Packet().answerNewOIDs(packet.getId(), oid_list))
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
         uuid = conn.getUUID()
