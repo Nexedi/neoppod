@@ -92,7 +92,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q("""CREATE TABLE IF NOT EXISTS obj (
                  oid BINARY(8) NOT NULL,
                  serial BINARY(8) NOT NULL,
-                 checksum BINARY(4) NOT NULL,
+                 checksum INT UNSIGNED NOT NULL,
                  compression TINYINT UNSIGNED NOT NULL,
                  value MEDIUMBLOB NOT NULL,
                  PRIMARY KEY (oid, serial)
@@ -111,7 +111,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q("""CREATE TABLE IF NOT EXISTS tobj (
                  oid BINARY(8) NOT NULL,
                  serial BINARY(8) NOT NULL,
-                 checksum BINARY(4) NOT NULL,
+                 checksum INT UNSIGNED NOT NULL,
                  compression TINYINT UNSIGNED NOT NULL,
                  value MEDIUMBLOB NOT NULL
              ) ENGINE = InnoDB""")
@@ -267,6 +267,28 @@ class MySQLDatabaseManager(DatabaseManager):
             return True
         return False
 
+    def getObject(self, oid, tid = None, before_tid = None):
+        q = self.query
+        e = self.escape
+        oid = e(oid)
+        if tid is not None:
+            tid = e(tid)
+            r = q("""SELECT * FROM obj WHERE oid = '%s' AND serial = '%s'""" \
+                    % (oid, tid))
+        elif before_tid is not None:
+            before_tid = e(before_tid)
+            r = q("""SELECT * FROM obj WHERE oid = '%s' AND serial < '%s' ORDER BY serial DESC LIMIT 1""" \
+                    % (oid, before_tid))
+        else:
+            # XXX I want to express "HAVING serial = MAX(serial)", but
+            # MySQL does not use an index for a HAVING clause!
+            r = q("""SELECT * FROM obj WHERE oid = '%s' ORDER BY serial DESC LIMIT 1""" \
+                    % oid)
+        try:
+            return r[0]
+        except IndexError:
+            return None
+
     def doSetPartitionTable(self, ptid, cell_list, reset):
         q = self.query
         e = self.escape
@@ -295,3 +317,51 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def setPartitionTable(self, ptid, cell_list):
         self.doSetPartitionTable(ptid, cell_list, False)
+
+    def storeTransaction(self, tid, object_list, transaction):
+        q = self.query
+        e = self.escape
+        tid = e(tid)
+        self.begin()
+        try:
+            # XXX it might be more efficient to insert multiple objects
+            # at a time, but it is potentially dangerous, because
+            # a packet to MySQL can exceed the maximum packet size.
+            # However, I do not think this would be a big problem, because 
+            # tobj has no index, so inserting one by one should not be
+            # significantly different from inserting many at a time.
+            for oid, compression, checksum, data in object_list:
+                oid = e(oid)
+                data = e(data)
+                q("""INSERT INTO tobj VALUES ('%s', '%s', %d, %d, '%s')""" \
+                        % (oid, tid, compression, checksum, data))
+            if transaction is not None:
+                oid_list, user, desc, ext = transaction
+                oids = e(''.join(oid_list))
+                user = e(user)
+                desc = e(desc)
+                ext = e(ext)
+                q("""INSERT INTO ttrans VALUES ('%s', '%s', '%s', '%s', '%s')""" \
+                        % (tid, oids, user, desc, ext))
+        except:
+            self.rollback()
+            raise
+        self.commit()
+
+    def finishTransaction(self, tid):
+        q = self.query
+        e = self.escape
+        tid = e(tid)
+        self.begin()
+        try:
+            q("""INSERT INTO obj SELECT * FROM tobj WHERE tobj.serial = '%s'""" \
+                    % tid)
+            q("""DELETE FROM tobj WHERE serial = '%s'""" % tid)
+            q("""INSERT INTO trans SELECT * FROM ttrans WHERE ttrans.tid = '%s'""" \
+                    % tid)
+            q("""DELETE FROM ttrans WHERE tid = '%s'""" % tid)
+        except:
+            self.rollback()
+            raise
+        self.commit()
+

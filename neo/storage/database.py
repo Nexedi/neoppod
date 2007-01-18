@@ -80,6 +80,16 @@ class DatabaseManager(object):
         search from unfinished transactions as well."""
         raise NotImplementedError('this method must be overridden')
 
+    def getObject(self, oid, tid = None, before_tid = None):
+        """Return a tuple of an object ID, a serial, a compression
+        specification, a checksum, and object data, if a given object
+        ID is present. Otherwise, return None. If tid is None and
+        before_tid is None, the latest revision is taken. If tid is
+        specified, the given revision is taken. If tid is not specified,
+        but before_tid is specified, the latest revision before the
+        given revision is taken."""
+        raise NotImplementedError('this method must be overridden')
+
     def changePartitionTable(self, ptid, cell_list):
         """Change a part of a partition table. The list of cells is
         a tuple of tuples, each of which consists of an offset (row ID),
@@ -93,3 +103,16 @@ class DatabaseManager(object):
         thrown away."""
         raise NotImplementedError('this method must be overridden')
 
+    def storeTransaction(self, tid, object_list, transaction):
+        """Store a transaction temporarily. Note that this transaction
+        is not finished yet. The list of objects contains tuples,
+        each of which consists of an object ID, a compression specification,
+        a checksum and object data. The transaction is either None or
+        a tuple of the list of oids, user information, a description and
+        extension information."""
+        raise NotImplementedError('this method must be overridden')
+
+    def finishTransaction(self, tid):
+        """Finish a transaction specified by a given ID, by moving
+        temporarily data to a finished area."""
+        raise NotImplementedError('this method must be overridden')
