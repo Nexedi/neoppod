@@ -461,7 +461,7 @@ class Application(object):
             self._clear_txn()
 
     def loadBefore(self, oid, tid):
-        pass
+        raise NotImplementedError
 
     def undo(self, transaction_id, txn):
         if transaction is not self.txn:
