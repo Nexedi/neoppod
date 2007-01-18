@@ -10,7 +10,7 @@ from neo.protocol import Packet, ProtocolError, \
         INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
-from neo.database import DatabaseManager
+from neo.storage.mysqldb import MySQLDatabaseManager
 from neo.util import dump
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
 from neo.exception import OperationFailure, PrimaryFailure
@@ -39,8 +39,8 @@ class Application(object):
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
-        self.dm = DatabaseManager(config.getDatabase(), config.getUser(), 
-                                  config.getPassword())
+        self.dm = MySQLDatabaseManager(config.getDatabase(), config.getUser(), 
+                                       config.getPassword())
         self.pt = PartitionTable(self.num_partitions, 0)
 
         self.primary_master_node = None
