@@ -460,7 +460,7 @@ class Packet(object):
         self._body = pack('!H', num_oids)
         return self
 
-    def answerNewOIDList(self, msg_id, oid_list):
+    def answerNewOIDs(self, msg_id, oid_list):
         self._id = msg_id
         self._type = ANSWER_NEW_OIDS
         body = [pack('!H', len(oid_list))]
