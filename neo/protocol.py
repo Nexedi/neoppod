@@ -124,11 +124,11 @@ INVALIDATE_OBJECTS = 0x0015
 # Unlock information on a transaction. PM -> S.
 UNLOCK_INFORMATION = 0x0016
 
-# Ask a new object ID list. C -> PM.
-ASK_NEW_OID_LIST = 0x0017
+# Ask new object IDs. C -> PM.
+ASK_NEW_OIDS = 0x0017
 
-# Answer a new object ID list. PM -> C.
-ANSWER_NEW_OID_LIST = 0x8017
+# Answer new object IDs. PM -> C.
+ANSWER_NEW_OIDS = 0x8017
 
 # Ask to store an object. C -> S.
 ASK_STORE_OBJECT = 0x0018
@@ -284,8 +284,9 @@ class Packet(object):
                                  port, num_partitions, num_replicas):
         self._id = msg_id
         self._type = ACCEPT_NODE_IDENTIFICATION
-        self._body = pack('!H16s4sHHH', node_type, uuid, inet_aton(ip_address),  \
-                          port, num_partitions, num_replicas)
+        self._body = pack('!H16s4sHLL', node_type, uuid, 
+                          inet_aton(ip_address), port, 
+                          num_partitions, num_replicas)
         return self
 
     def askPrimaryMaster(self, msg_id):
@@ -453,16 +454,16 @@ class Packet(object):
         self._body = tid
         return self
 
-    def askNewOIDList(self, msg_id, num_oid):
+    def askNewOIDs(self, msg_id, num_oids):
         self._id = msg_id
-        self._type = ASK_NEW_OID_LIST
-        self._body = num_oid
+        self._type = ASK_NEW_OIDS
+        self._body = pack('!H', num_oids)
         return self
 
-    def answerNewOIDList(self, msg_id, num_oid, oid_list):
+    def answerNewOIDList(self, msg_id, oid_list):
         self._id = msg_id
-        self._type = ANSWER_NEW_OID_LIST
-        body = [pack('!H', num_oid)]
+        self._type = ANSWER_NEW_OIDS
+        body = [pack('!H', len(oid_list))]
         body.extend(oid_list)
         self._body = ''.join(body)
         return self
@@ -519,8 +520,10 @@ class Packet(object):
         user_len = len(user)
         desc_len = len(desc)
         ext_len = len(ext)
-        body = [pack('!8sLLLL%ds%ds%ds' %(user_len, desc_len, ext_len), tid, \
-                     len(oid_list), user_len, desc_len, ext_len, user, desc, ext)]
+        body = [pack('!8sLHHH' tid, len(oid_list), user_len, desc_len, ext_len)]
+        body.append(user)
+        body.append(desc)
+        body.append(ext)
         body.expend(oid_list)
         self._body = ''.join(body)
         return self
@@ -531,31 +534,31 @@ class Packet(object):
         self._body = tid
         return self
 
-    def askStoreObject(self, msg_id, oid, serial, compressed, data, crc, tid):
+    def askStoreObject(self, msg_id, oid, serial, compression, checksum, data):
         self._id = msg_id
         self._type = ASK_STORE_OBJECT
-        body = [pack('!8s8s8sHLQ', oid, serial, tid, compressed, crc, len(data))]
-        body.append(pack('%ds' %(len(data),), data))
-        self._body = ''.join(body)
+        self._body = pack('!8s8sBLL', oid, serial, compression, 
+                          checksum, len(data)) + data
         return self
     
-    def answerStoreObject(self, msg_id, status, oid):
+    def answerStoreObject(self, msg_id, conflicting, oid, serial):
         self._id = msg_id
         self._type = ANSWER_STORE_OBJECT
-        self._body = pack('!H8s', status, oid)
+        self._body = pack('!B8s8s', conflicting, oid, serial)
         return self
 
     def askObjectByOID(self, msg_id, oid, serial):
         self._id = msg_id
         self._type = ASK_OBJET_BY_OID
-        self._body = oid, serial
+        self._body = pack('!8s8s', oid, serial)
         return self
         
-    def answerObjectByOID(self, msg_id, oid, serial, compressed, crc, data):
+    def answerObjectByOID(self, msg_id, oid, serial, compression, checksum, 
+                          data):
         self._id = msg_id
         self._type = ANSWER_OBJECT_BY_OID
-        body = pack('!8s8sQHL%ds' %(len(data),), oid, serial, len(data), \
-                     compressed, crc, data)
+        self._body = pack('!8s8sBLL', oid, serial, compression, 
+                     checksum, len(data)) + data
         return self
         
     # Decoders.
@@ -591,8 +594,8 @@ class Packet(object):
     def _decodeRequestNodeIdentification(self):
         try:
             body = self._body
-            major, minor, node_type, uuid, ip_address, port, size = unpack('!LLH16s4sHL',
-                                                                           body[:36])
+            major, minor, node_type, uuid, ip_address, port, size \
+                    = unpack('!LLH16s4sHL', body[:36])
             ip_address = inet_ntoa(ip_address)
             name = body[36:]
         except:
@@ -608,7 +611,8 @@ class Packet(object):
 
     def _decodeAcceptNodeIdentification(self):
         try:
-            node_type, uuid, ip_address, port, num_partitions, num_replicas = unpack('!H16s4sHHH', self._body)
+            node_type, uuid, ip_address, port, num_partitions, num_replicas \
+                    = unpack('!H16s4sHLL', self._body)
             ip_address = inet_ntoa(ip_address)
         except:
             raise ProtocolError(self, 'invalid accept node identification')
@@ -825,25 +829,25 @@ class Packet(object):
         return tid
     decode_table[ANSWER_NEW_TID] = _decodeAnswerNewTID
 
-    def _decodeAskNewOIDList(self):
+    def _decodeAskNewOIDs(self):
         try:
-            num_oid = unpack('!H', self._body)
+            num_oids = unpack('!H', self._body)
         except:
-            raise ProtocolError(self, 'invalid ask new oid list')
-        return num_oid
-    decode_table[ASK_NEW_OID_LIST] = _decodeAskNewOIDList
+            raise ProtocolError(self, 'invalid ask new oids')
+        return num_oids
+    decode_table[ASK_NEW_OIDS] = _decodeAskNewOIDs
 
-    def _decodeAnswerNewOIDList(self):
+    def _decodeAnswerNewOIDs(self):
         try:
             n = unpack('!H', self._body[:2])
             oid_list = []
             for i in xrange(n):
-                oid = unpack('8s', self._body[2+i*8:12+i*8])
+                oid = unpack('8s', self._body[2+i*8:10+i*8])
                 oid_list.append(oid)
         except:
-            raise ProtocolError(self, 'invalid new oid list')
+            raise ProtocolError(self, 'invalid answer new oids')
         return oid_list
-    decode_table[ANSWER_NEW_OID_LIST] = _decodeAnswerNewOIDList
+    decode_table[ANSWER_NEW_OIDS] = _decodeAnswerNewOIDs
 
     def _decodeFinishTransaction(self):
         try:
@@ -911,32 +915,39 @@ class Packet(object):
 
     def _decodeAskStoreObject(self):
         try:
-            oid, serial, tid, compressed, crc, data_len = \
-                 unpack('!8s8s8sHLQ', self._body[:38])
-            data = unpack('%ds' %(data_len,), self._body[38:])
+            oid, serial, compression, checksum, data_len \
+                 = unpack('!8s8sBLL', self._body[:25])
+            data = self._body[25:]
         except:
             raise ProtocolError(self, 'invalid ask store object')
-        return oid, serial, tid, compressed, crc, data
+        if data_len != len(data):
+            raise ProtocolError(self, 'invalid data size')
+        return oid, serial, compression, checksum, data
     decode_table[ASK_STORE_OBJECT] = _decodeAskStoreObject
     
     def _decodeAnswerStoreObject(self): # XXX maybe to be redefine
         try:
-            status, oid = unpack('!H8s', self._body)
+            conflicting, oid, serial = unpack('!B8s8s', self._body)
         except:
             raise ProtocolError(self, 'invalid answer store object')
-        return status, oid
+        return conflicting, oid, serial
     decode_table[ANSWER_STORE_OBJECT] = _decodeAnswerStoreObject
 
     def _decodeAskStoreTransaction(self):
         try:
-            tid, oid_len, user_len, desc_len, ext_len = unpack('!8sLLLL', self._body[:24])
-            user = unpack('%ds' %(user_len), self._body[24:24+user_len])
-            desc = unpack('%ds' %(desc_len), self._body[24+user_len:24+user_len+desc_len])
-            ext = unpack('%ds' %(ext_len), self._body[24+user_len+desc_len:24+user_len+desc_len+ext_len])
+            tid, oid_len, user_len, desc_len, ext_len \
+                    = unpack('!8sLHHH', self._body[:18])
+            offset = 18
+            user = unpack('8s', self._body[offset:offset+user_len])
+            offset += user_len
+            desc = unpack('8s', self._body[offset:offset+desc_len])
+            offset += desc_len
+            ext = unpack('8s', self._body[offset:offset+ext_len])
+            offset += ext_len
             oid_list = []
-            txn_len = user_len+desc_len+ext_len
             for i in xrange(oid_len):
-                oid = unpack('8s', self._body[24+txn_len+i*8:24+txn_len+8+i*8])
+                oid = unpack('8s', self._body[offset:offset+8])
+                offset += 8
                 oid_list.append(oid)            
         except:
             raise ProtocolError(self, 'invalid ask store transaction')
@@ -956,14 +967,17 @@ class Packet(object):
             oid, serial = unpack('8s8s', self._body)
         except:
             raise ProtocolError(self, 'invalid ask object by oid')
-        return  oid
+        return oid, serial
     decode_table[ASK_OBJECT_BY_OID] = _decodeAskObjectByOID
     
     def _decodeAnswerObjectByOID(self): 
         try:
-            oid, serial, data_len, compressed, crc = unpack('!8s8sQHL', self._body[:20])
-            data = unpack('%ds' %(data_len,), self._body[30:])
+            oid, serial, compression, checksum, data_len \
+                    = unpack('!8s8sBLL', self._body[:25])
+            data = self._body[25:]
         except:
             raise ProtocolError(self, 'invalid answer object by oid')
-        return oid, serial, compressed, crc, data
+        if len(data) != data_len:
+            raise ProtocolError(self, 'invalid data size')
+        return oid, serial, compression, checksum, data
     decode_table[ANSWER_OBJECT_BY_OID] = _decodeAnswerObjectByOID

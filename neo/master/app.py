@@ -729,8 +729,5 @@ class Application(object):
     def getPartition(self, oid_or_tid):
         return unpack('!Q', oid_or_tid)[0] % self.num_partitions
 
-    def getNewOidList(self, num_oid):
-        return [self.getNextOid() for i in xrange(n)]
-
-        
-    
+    def getNewOidList(self, num_oids):
+        return [self.getNextOid() for i in xrange(num_oids)]

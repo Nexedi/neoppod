@@ -57,8 +57,8 @@ class MasterEventHandler(EventHandler):
         logging.info('ignoring Ask New TID')
         pass
 
-    def handleAskNewOIDList(self, conn, packet):
-        logging.info('ignoring Ask New OID List')
+    def handleAskNewOIDs(self, conn, packet):
+        logging.info('ignoring Ask New OIDs')
         pass
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
