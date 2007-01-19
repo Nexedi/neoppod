@@ -27,15 +27,25 @@ class MySQLDatabaseManager(DatabaseManager):
                      self.db, self.user)
         self.conn = MySQLdb.connect(**kwd)
         self.conn.autocommit(False)
+        self.under_transaction = False
 
     def begin(self):
+        if self.under_transaction:
+            try:
+                self.commit()
+            except:
+                # Ignore any error for this implicit commit.
+                pass
         self.query("""BEGIN""")
+        self.under_transaction = True
 
     def commit(self):
         self.conn.commit()
+        self.under_transaction = False
 
     def rollback(self):
         self.conn.rollback()
+        self.under_transaction = False
 
     def query(self, query):
         """Query data from a database."""
@@ -232,25 +242,6 @@ class MySQLDatabaseManager(DatabaseManager):
         tid_set.add((t[0] for t in r))
         return list(tid_set)
 
-    def getOIDListByTID(self, tid, all = False):
-        q = self.query
-        e = self.escape
-        tid = e(tid)
-        self.begin()
-        r = q("""SELECT oids FROM trans WHERE tid = '%s'""" % tid)
-        if not r and all:
-            r = q("""SELECT oids FROM ttrans WHERE tid = '%s'""" % tid)
-        self.commit()
-        if r:
-            oids = r[0][0]
-            if (len(oids) % 8) != 0 or len(oids) == 0:
-                raise DatabaseFailure('invalid oids for tid %s' % dump(tid))
-            oid_list = []
-            for i in xrange(0, len(oids), 8):
-                oid_list.append(oids[i:i+8])
-            return oid_list
-        return None
-
     def objectPresent(self, oid, tid, all = True):
         q = self.query
         e = self.escape
@@ -273,16 +264,20 @@ class MySQLDatabaseManager(DatabaseManager):
         oid = e(oid)
         if tid is not None:
             tid = e(tid)
-            r = q("""SELECT * FROM obj WHERE oid = '%s' AND serial = '%s'""" \
+            r = q("""SELECT serial, compression, checksum, data FROM obj
+                        WHERE oid = '%s' AND serial = '%s'""" \
                     % (oid, tid))
         elif before_tid is not None:
             before_tid = e(before_tid)
-            r = q("""SELECT * FROM obj WHERE oid = '%s' AND serial < '%s' ORDER BY serial DESC LIMIT 1""" \
+            r = q("""SELECT serial, compression, checksum, data FROM obj
+                        WHERE oid = '%s' AND serial < '%s'
+                        ORDER BY serial DESC LIMIT 1""" \
                     % (oid, before_tid))
         else:
             # XXX I want to express "HAVING serial = MAX(serial)", but
             # MySQL does not use an index for a HAVING clause!
-            r = q("""SELECT * FROM obj WHERE oid = '%s' ORDER BY serial DESC LIMIT 1""" \
+            r = q("""SELECT serial, compression, checksum, data FROM obj
+                        WHERE oid = '%s' ORDER BY serial DESC LIMIT 1""" \
                     % oid)
         try:
             return r[0]
@@ -365,3 +360,52 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
+    def deleteTransaction(self, tid, all = False):
+        q = self.query
+        e = self.escape
+        tid = e(tid)
+        self.begin()
+        try:
+            q("""DELETE FROM tobj WHERE serial = '%s'""" % tid)
+            q("""DELETE FROM ttrans WHERE tid = '%s'""" % tid)
+            if all:
+                # Note that this can be very slow.
+                q("""DELETE FROM obj WHERE serial = '%s'""" % tid)
+                q("""DELETE FROM trans WHERE tid = '%s'""" % tid)
+        except:
+            self.rollback()
+            raise
+        self.commit()
+
+    def getTransaction(self, tid, all = False):
+        q = self.query
+        e = self.escape
+        tid = e(tid)
+        self.begin()
+        r = q("""SELECT oids, user, desc, ext FROM trans WHERE tid = '%s'""" \
+                % tid)
+        if not r and all:
+            r = q("""SELECT oids, user, desc, ext FROM ttrans
+                        WHERE tid = '%s'""" \
+                    % tid)
+        self.commit()
+        if r:
+            oids, user, desc, ext = r[0]
+            if (len(oids) % 8) != 0 or len(oids) == 0:
+                raise DatabaseFailure('invalid oids for tid %s' % dump(tid))
+            oid_list = []
+            for i in xrange(0, len(oids), 8):
+                oid_list.append(oids[i:i+8])
+            return oid_list, user, desc, ext
+        return None
+
+    def getObjectHistory(self, oid, length = 1):
+        q = self.query
+        e = self.escape
+        oid = e(oid)
+        r = q("""SELECT serial FROM obj WHERE oid = '%s'
+                    ORDER BY serial DESC LIMIT %d""" \
+                % (oid, length))
+        if r:
+            return [t[0] for t in r]
+        return None

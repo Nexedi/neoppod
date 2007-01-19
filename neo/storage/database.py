@@ -66,22 +66,15 @@ class DatabaseManager(object):
         """Return a list of unfinished transaction's IDs."""
         raise NotImplementedError('this method must be overridden')
 
-    def getOIDListByTID(self, tid, all = False):
-        """Return a list of the IDs of objects belonging to a given
-        transaction. If such a transaction does not exist, return
-        None rather than an empty list. If all is true, the data must
-        be searched from unfinished transactions as well."""
-        raise NotImplementedError('this method must be overridden')
-
     def objectPresent(self, oid, tid, all = True):
         """Return true iff an object specified by a given pair of an
         object ID and a transaction ID is present in a database.
         Otherwise, return false. If all is true, the object must be
-        search from unfinished transactions as well."""
+        searched from unfinished transactions as well."""
         raise NotImplementedError('this method must be overridden')
 
     def getObject(self, oid, tid = None, before_tid = None):
-        """Return a tuple of an object ID, a serial, a compression
+        """Return a tuple of a serial, a compression
         specification, a checksum, and object data, if a given object
         ID is present. Otherwise, return None. If tid is None and
         before_tid is None, the latest revision is taken. If tid is
@@ -108,11 +101,32 @@ class DatabaseManager(object):
         is not finished yet. The list of objects contains tuples,
         each of which consists of an object ID, a compression specification,
         a checksum and object data. The transaction is either None or
-        a tuple of the list of oids, user information, a description and
+        a tuple of the list of OIDs, user information, a description and
         extension information."""
         raise NotImplementedError('this method must be overridden')
 
     def finishTransaction(self, tid):
         """Finish a transaction specified by a given ID, by moving
         temporarily data to a finished area."""
+        raise NotImplementedError('this method must be overridden')
+
+    def deleteTransaction(self, tid, all = False):
+        """Delete a transaction specified by a given ID from a temporarily
+        area. If all is true, it must be deleted even from a finished
+        area."""
+        raise NotImplementedError('this method must be overridden')
+
+    def getTransaction(self, tid, all = False):
+        """Return a tuple of the list of OIDs, user information,
+        a description, and extension information, for a given transaction
+        ID. If there is no such transaction ID in a database, return None.
+        If all is true, the transaction must be searched from a temporary
+        area as well."""
+        raise NotImplementedError('this method must be overridden')
+
+    def getObjectHistory(self, oid, length = 1):
+        """Return a list of serials for a given object ID. The length
+        specifies the maximum size of such a list. The first serial
+        must be the last serial, and the list must be sorted in descending
+        order. If there is no such object ID in a database, return None."""
         raise NotImplementedError('this method must be overridden')
