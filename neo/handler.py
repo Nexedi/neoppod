@@ -13,6 +13,10 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         DELETE_TRANSACTION, COMMIT_TRANSACTION, ASK_NEW_TID, ANSWER_NEW_TID, \
         FINISH_TRANSACTION, NOTIFY_TRANSACTION_FINISHED, LOCK_INFORMATION, \
         NOTIFY_INFORMATION_LOCKED, INVALIDATE_OBJECTS, UNLOCK_INFORMATION, \
+        ASK_NEW_OIDS, ANSWER_NEW_OIDS, ASK_STORE_OBJECT, ANSWER_STORE_OBJECT, \
+        ABORT_TRANSACTION, ASK_STORE_TRANSACTION, ANSWER_STORE_TRANSACTION, \
+        ASK_OBJECT_BY_OID, ANSWER_OBJECT_BY_OID, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
+        ANSWER_TRANSACTION_INFORMATION, ASK_OBJETC_HISTORY, ANSWER_OBJETC_HISTORY, \
         NOT_READY_CODE, OID_NOT_FOUND_CODE, SERIAL_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
         INTERNAL_ERROR_CODE
@@ -186,10 +190,10 @@ class EventHandler(object):
     def handleAnswerNewTID(self, conn, packet, tid):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAskNewOIDList(self, conn, packet):
+    def handleAskNewOIDs(self, conn, packet):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerNewOIDList(self, conn, packet, oid_list):
+    def handleAnswerNewOIDs(self, conn, packet, oid_list):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
@@ -211,7 +215,7 @@ class EventHandler(object):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAskStoreObject(self, conn, packet, msg_id, oid, serial,
-                             compressed, data, crc, tid):
+                             compression, data, checksum, tid):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerStoreObject(self, conn, packet, status, oid):
@@ -230,10 +234,28 @@ class EventHandler(object):
     def handleAskObjectByOID(self, conn, packet, oid, serial):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerObjectByOID(self, conn, packet, oid, serial,
-                                compressed, crc, data):
+    def handleAnswerObjectByOID(self, conn, packet, oid, serial_start,
+                                serial_end, compression, checksum, data):
         self.handleUnexpectedPacket(conn, packet)
 
+    def handleAskTIDs(self, first, last, spec):
+        self.handleUnexpectedPacket(conn, packet)
+        
+    def handleAnswerTIDs(self, tid_list):
+        self.handleUnexpectedPacket(conn, packet)
+        
+    def handleAskTransactionInformation(self, tid):
+        self.handleUnexpectedPacket(conn, packet)
+        
+    def handleAnswerTransactionInformation(self, tid, user, desc, oid_list):
+        self.handleUnexpectedPacket(conn, packet)
+        
+    def handleAskObjectHistory(self, oid, length):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerObjectHistory(self, oid, history_list):
+        self.handleUnexpectedPacket(conn, packet)
+        
     # Error packet handlers.
 
     handleNotReady = handleUnexpectedPacket
@@ -291,7 +313,22 @@ class EventHandler(object):
         d[NOTIFY_INFORMATION_LOCKED] = self.handleNotifyInformationLocked
         d[INVALIDATE_OBJECTS] = self.handleInvalidateObjects
         d[UNLOCK_INFORMATION] = self.handleUnlockInformation
-
+        d[ASK_NEW_OIDS] = self.handleAskNewOids
+        d[ANSWER_NEW_OIDS] = self.handleAnswerNewOids
+        d[ASK_STORE_OBJECT] = self.handleAskStoreObject
+        d[ANSWER_STORE_OBJECT] = self.handleAnswerStoreObject
+        d[ABORT_TRANSACTION] = self.handleAbortTransaction        
+        d[ASK_STORE_TRANSACTION] = self.handleAskStoreTransaction
+        d[ANSWER_STORE_TRANSACTION] = self.handleAnswerStoreTransaction
+        d[ASK_OBJECT_BY_OID] = self.handleAskObjectByOID
+        d[ANSWER_OBJECT_BY_OID] = self.handleAnswerObjectByOID
+        d[ASK_TIDS] = self.handleAskTIDs
+        d[ANSWER_TIDS] = self.handleAnswerTIDs
+        d[ASK_TRANSACTION_INFORMATION] = self.handleAskTransactionInformation
+        d[ANSWER_TRANSACTION_INFORMATION] = self.handleAnswerTransactionInformation
+        d[ASK_OBJECT_HISTORY] = self.handleAskObjectHistory
+        d[ANSWER_OBJECT_HISTORY] = self.handleAnswerObjectHistory
+        
         self.packet_dispatch_table = d
 
     def initErrorDispatchTable(self):
