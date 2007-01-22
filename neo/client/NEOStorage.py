@@ -30,13 +30,15 @@ class NEOStorage(BaseStorage.BaseStorage,
         self.app.close()
 
     def cleanup(self):
-        self.app.cleanup()
+        raise NotImplementedError
   
     def lastSerial(self):
-        self.app.lastSerial()
+        # does not seem to be used
+        raise NotImplementedError
   
     def lastTransaction(self):
-        self.app.lastTransaction()
+        # does not seem to be used
+        raise NotImplementedError
 
     def new_oid(self):
         if self._is_read_only:
@@ -67,7 +69,7 @@ class NEOStorage(BaseStorage.BaseStorage,
         try:
             self.app.store(oid, serial, data, version, transaction)
         except NEOStorageConflictError:
-            new_data = self.app.tryToResolveConflict(oid, self.app.tid,
+            new_data = self.tryToResolveConflict(oid, self.app.tid,
                                                      serial, data)
             if new_data is not None:
                 # try again after conflict resolution
@@ -78,7 +80,7 @@ class NEOStorage(BaseStorage.BaseStorage,
                                                           serial),data=data)
           
     def _clear_temp(self):
-        self.app._clear_temp()
+        raise NotImplementedError
 
     def getSerial(self, oid):
         try:
