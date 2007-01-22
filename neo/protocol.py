@@ -151,6 +151,29 @@ ASK_OBJECT_BY_OID = 0x001b
 # Answer the object reclamed. S -> C.
 ANSWER_OBJECT_BY_OID = 0x801b
 
+# Ask a stored object by its OID before a given TID. C -> S.
+ASK_OBJECT_BY_TID = 0x001c
+
+# Answer the object reclamed. S -> C.
+ANSWER_OBJECT_BY_TID = 0x801c
+
+# Ask for a list of TID between a given offset. C -> M.
+ASK_TIDS = 0x001d
+
+# Answer the reclamed list of TID. M -> C.
+ANSWER_TIDS = 0x801d
+
+# Ask information about transaction. C -> S.
+ASK_TRANSACTION_IFNORMATION = 0xOO1e
+
+# Answer information (user, description) about transacrion. S -> C.
+ANSWER_TRANSACTION_INFORMATION = 0x801e
+
+# Ask history information for a given object. C -> S.
+ASK_OBJETC_HISTORY = 0x001f
+
+# Answer history information (serial, size) for an object. S -> C.
+ANSWER_OBJECT_HISTORY = 0x801f
 
 # Error codes.
 NOT_READY_CODE = 1
@@ -534,10 +557,10 @@ class Packet(object):
         self._body = tid
         return self
 
-    def askStoreObject(self, msg_id, oid, serial, compression, checksum, data):
+    def askStoreObject(self, msg_id, oid, serial, compression, checksum, data, tid):
         self._id = msg_id
         self._type = ASK_STORE_OBJECT
-        self._body = pack('!8s8sBLL', oid, serial, compression, 
+        self._body = pack('!8s8s8sBLL', oid, serial, tid, compression, 
                           checksum, len(data)) + data
         return self
     
@@ -560,7 +583,70 @@ class Packet(object):
         self._body = pack('!8s8sBLL', oid, serial, compression, 
                      checksum, len(data)) + data
         return self
+
+    def askObjectByTID(self, msg_id, oid, tid):
+        self._id = msg_id
+        self._type = ASK_OBJET_BY_TID
+        self._body = pack('!8s8s', oid, tid)
+        return self
         
+    def answerObjectByTID(self, msg_id, oid, start, end, compression, checksum, 
+                          data):
+        self._id = msg_id
+        self._type = ANSWER_OBJECT_BY_OID
+        self._body = pack('!8s8s8sBLL', oid, start, end, compression, 
+                     checksum, len(data)) + data
+        return self
+
+    def askTIDs(self, msg_id, first, last, spec):
+        self._id = msg_id
+        self._type = ASK_TIDS
+        body = [pack('!LLL', first, last, len(spec))]
+        # spec is a dict if given
+        for key, value in spec.items():
+            body.append(pack('!LL', len(key), len(value))+key+value)
+        self._body = ''.join(body)
+        return self
+
+    def answerTIDs(self, msg_id, tid_list):
+        self._id = msg_id
+        self._type = ANSWER_TIDS
+        body = [pack('!H', len(tid_list))]
+        body.extend(tid_list)
+        self._body = ''.join(body)
+        return self
+
+    def askTransactionInformation(self, msg_id, tid):
+        self._id = msg_id
+        self._type = ASK_TRANSACTION_INFORMATION
+        self._body = pack('!8s', tid)
+        return self
+        
+    def answerTransactionInformation(self, msg_id, tid, user, desc):
+        self._id = msg_id
+        self._type = ANSWER_TRANSACTION_INFORMATION
+        body = [pack('!8sHH', tid, len(user), len(desc))]
+        body.append(user)
+        body.append(desc)
+        self._body = ''.join(body)
+        return self
+
+    def askObjectHistory(self, msg_id, oid, length):
+        self._id = msg_id
+        self._type = ASK_OBJECT_HISTORY
+        self._body = pack('!8sH', oid, length)
+        return self
+
+    def answerObjectHistory(self, msg_id, oid, history_list):
+        self._id = msg_id
+        self._type = ANSWER_OBJECT_HISTORY
+        body = [pack('!8sH', oid, len(history_list))]
+        # history_list is a list of tuple (serial, size)
+        for history_tuple in history_list:
+            body.append(pack('8sL', history_tuple[0], history_tuple[1]))
+        self._body = ''.join(body)
+        return self
+                    
     # Decoders.
     def decode(self):
         try:
@@ -915,17 +1001,17 @@ class Packet(object):
 
     def _decodeAskStoreObject(self):
         try:
-            oid, serial, compression, checksum, data_len \
-                 = unpack('!8s8sBLL', self._body[:25])
+            oid, serial, tid, compression, checksum, data_len \
+                 = unpack('!8s8s8sBLL', self._body[:25])
             data = self._body[25:]
         except:
             raise ProtocolError(self, 'invalid ask store object')
         if data_len != len(data):
             raise ProtocolError(self, 'invalid data size')
-        return oid, serial, compression, checksum, data
+        return oid, serial, tid, compression, checksum, data
     decode_table[ASK_STORE_OBJECT] = _decodeAskStoreObject
     
-    def _decodeAnswerStoreObject(self): # XXX maybe to be redefine
+    def _decodeAnswerStoreObject(self): 
         try:
             conflicting, oid, serial = unpack('!B8s8s', self._body)
         except:
@@ -981,3 +1067,95 @@ class Packet(object):
             raise ProtocolError(self, 'invalid data size')
         return oid, serial, compression, checksum, data
     decode_table[ANSWER_OBJECT_BY_OID] = _decodeAnswerObjectByOID
+
+    def _decodeAskObjectByTID(self):
+        try:
+            oid, tid = unpack('8s8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid ask object by tid')
+        return oid, tid
+    decode_table[ASK_OBJECT_BY_TID] = _decodeAskObjectByTID
+    
+    def _decodeAnswerObjectByTID(self): 
+        try:
+            oid, start, end, compression, checksum, data_len \
+                 = unpack('!8s8s8sBLL', self._body[:25])
+            data = self._body[25:]
+        except:
+            raise ProtocolError(self, 'invalid answer object by tid')
+        if len(data) != data_len:
+            raise ProtocolError(self, 'invalid data size')
+        return oid, start, end, compression, checksum, data
+    decode_table[ANSWER_OBJECT_BY_TID] = _decodeAnswerObjectByTID
+
+    def _decodeAskTIDs(self):
+        try:
+            first, last, spec_len = unpack('!LLL', self._body[:12])
+            spec = {}
+            dict_item_len = 0
+            # recreate spec dict
+            for i in xrange(spec_len):
+                key_len, value_len = unpack('!LL', self._body[12+dict_item_len:20+
+                                                               dict_item_len])
+                key = self.body[20+dict_item_len:20+dict_item_len+key_len]
+                value = self.body[20+dict_item_len+key_len:20+dict_item_len+key_len+
+                                  value_len]
+                dict_item_list = dict_item_list + 8 + key_len + value_len
+                spec[key] = value
+        except:
+            raise ProtocolError(self, 'invalid ask tids')
+        return first, last, spec
+    decode_table[ASK_TIDS] = _decodeAskTIDs
+
+    def _decodeAnswerTIDs(self):
+        try:
+            n = unpack('!H', self._body[:2])
+            tid_list = []
+            for i in xrange(n):
+                tid = unpack('8s', self._body[2+i*8:10+i*8])
+                tid_list.append(tid)
+        except:
+            raise ProtocolError(self, 'invalid answer tids')
+        return tid_list
+    decode_table[ANSWER_TIDS] = _decodeAnswerTIDs
+    
+    def _decodeAskTransactionInformation(self):
+        try:
+            tid = unpack('8s', self._body)
+        except:
+            raise ProtocolError(self, 'invalid ask transaction information')
+        return tid
+    decode_table[ASK_TRANSACTION_INFORMATION] = _decodeAskTransactionInformation
+
+    def _decodeAnswerTransactionInformation(self):
+        try:
+            tid, user_len, desc_len = unpack('!8sHH', self._body[:12])
+            offset = 12
+            user = self._body[offset:offset+user_len]
+            offset += user_len
+            desc = self._body[offset:offset+desc_len]
+        except:
+            raise ProtocolError(self, 'invalid answer transaction information')
+        return tid, user, desc
+    decode_table[ANSWER_TRANSACTION_INFORMATION] = _decodeAnswerTransationInformation
+
+    def _decodeAskObjectHistory(self):
+        try:
+            oid, length = unpack('!8sH', self._body)
+        except:
+            raise ProtocolError(self, 'invalid ask object history')
+        return oid, length
+    decode_table[ASK_OBJECT_HISTORY] = _decodeAskObjectHistory
+
+    def _decodeAnswerObjectHistory(self):
+        try:
+            oid, length = unpack('!8sH', self._body[:10])
+            history_list = ()
+            for x in xrange(length):
+                serial, size = unpack('!8sL', self._body[10+i*12:22+i*12])
+                history_list.append(tuple(serial, size))                                
+        except:
+            raise ProtocolError(self, 'invalid answer object history')
+        return oid, history_list
+    decode_table[ANSWER_OBJECT_HISTORY] = _decodeAnswerObjectHistory
+    
