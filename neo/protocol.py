@@ -82,12 +82,6 @@ ASK_UNFINISHED_TRANSACTIONS = 0x000d
 # Answer unfinished transactions' IDs. S -> PM.
 ANSWER_UNFINISHED_TRANSACTIONS = 0x800d
 
-# Ask OIDs by a TID. PM -> S.
-ASK_OIDS_BY_TID = 0x000e
-
-# Answer OIDs by a TID. S -> PM.
-ANSWER_OIDS_BY_TID = 0x800e
-
 # Ask if an object is present. If not present, OID_NOT_FOUND should be returned. PM -> S.
 ASK_OBJECT_PRESENT = 0x000f
 
@@ -157,10 +151,10 @@ ASK_TIDS = 0x001d
 # Answer the requested TIDs. S -> C.
 ANSWER_TIDS = 0x801d
 
-# Ask information about a transaction. C -> S.
+# Ask information about a transaction. PM, C -> S.
 ASK_TRANSACTION_INFORMATION = 0xOO1e
 
-# Answer information (user, description) about transaction. S -> C.
+# Answer information (user, description) about a transaction. S -> C, PM.
 ANSWER_TRANSACTION_INFORMATION = 0x801e
 
 # Ask history information for a given object. C -> S.
@@ -418,20 +412,6 @@ class Packet(object):
         self._type = ANSWER_UNFINISHED_TRANSACTIONS
         body = [pack('!L', len(tid_list))]
         body.extend(tid_list)
-        self._body = ''.join(body)
-        return self
-
-    def askOIDsByTID(self, msg_id, tid):
-        self._id = msg_id
-        self._type = ASK_OIDS_BY_TID
-        self._body = tid
-        return self
-
-    def answerOIDsByTID(self, msg_id, oid_list, tid):
-        self._id = msg_id
-        self._type = ANSWER_OIDS_BY_TID
-        body = [pack('!8sL', tid, len(oid_list))]
-        body.extend(oid_list)
         self._body = ''.join(body)
         return self
 
@@ -831,26 +811,6 @@ class Packet(object):
             raise ProtocolError(self, 'invalid answer unfinished transactions')
         return tid_list
     decode_table[ANSWER_UNFINISHED_TRANSACTIONS] = _decodeAnswerUnfinishedTransactions
-
-    def _decodeAskOIDsByTID(self):
-        try:
-            tid = unpack('8s', self._body)
-        except:
-            raise ProtocolError(self, 'invalid ask oids by tid')
-        return tid
-    decode_table[ASK_OIDS_BY_TID] = _decodeAskOIDsByTID
-
-    def _decodeAnswerOIDsByTID(self):
-        try:
-            tid, n = unpack('!8sL', self._body[:12])
-            oid_list = []
-            for i in xrange(n):
-                oid = unpack('8s', self._body[12+i*8:20+i*8])
-                oid_list.append(oid)
-        except:
-            raise ProtocolError(self, 'invalid answer oids by tid')
-        return oid_list, tid
-    decode_table[ANSWER_OIDS_BY_TID] = _decodeAnswerOIDsByTID
 
     def _decodeAskObjectPresent(self):
         try:

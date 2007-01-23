@@ -9,7 +9,7 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         STOP_OPERATION, ASK_LAST_IDS, ANSWER_LAST_IDS, ASK_PARTITION_TABLE, \
         ANSWER_PARTITION_TABLE, SEND_PARTITION_TABLE, NOTIFY_PARTITION_CHANGES, \
         ASK_UNFINISHED_TRANSACTIONS, ANSWER_UNFINISHED_TRANSACTIONS, \
-        ASK_OIDS_BY_TID, ANSWER_OIDS_BY_TID, ASK_OBJECT_PRESENT, ANSWER_OBJECT_PRESENT, \
+        ASK_OBJECT_PRESENT, ANSWER_OBJECT_PRESENT, \
         DELETE_TRANSACTION, COMMIT_TRANSACTION, ASK_NEW_TID, ANSWER_NEW_TID, \
         FINISH_TRANSACTION, NOTIFY_TRANSACTION_FINISHED, LOCK_INFORMATION, \
         NOTIFY_INFORMATION_LOCKED, INVALIDATE_OBJECTS, UNLOCK_INFORMATION, \
@@ -166,12 +166,6 @@ class EventHandler(object):
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAskOIDsByTID(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
-
-    def handleAnswerOIDsByTID(self, conn, packet, oid_list, tid):
-        self.handleUnexpectedPacket(conn, packet)
-
     def handleAskObjectPresent(self, conn, packet, oid, tid):
         self.handleUnexpectedPacket(conn, packet)
 
@@ -299,8 +293,6 @@ class EventHandler(object):
         d[STOP_OPERATION] = self.handleStopOperation
         d[ASK_UNFINISHED_TRANSACTIONS] = self.handleAskUnfinishedTransactions
         d[ANSWER_UNFINISHED_TRANSACTIONS] = self.handleAnswerUnfinishedTransactions
-        d[ASK_OIDS_BY_TID] = self.handleAskOIDsByTID
-        d[ANSWER_OIDS_BY_TID] = self.handleAnswerOIDsByTID
         d[ASK_OBJECT_PRESENT] = self.handleAskObjectPresent
         d[ANSWER_OBJECT_PRESENT] = self.handleAnswerObjectPresent
         d[DELETE_TRANSACTION] = self.handleDeleteTransaction
