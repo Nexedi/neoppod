@@ -221,7 +221,7 @@ class BootstrapEventHandler(StorageEventHandler):
     def handleAskUnfinishedTransactions(self, conn, packet):
         pass
 
-    def handleAskOIDsByTID(self, conn, packet, tid):
+    def handleAskTransactionInformation(self, conn, packet, tid):
         pass
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):

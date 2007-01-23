@@ -163,7 +163,7 @@ class StorageEventHandler(EventHandler):
     def handleAskUnfinishedTransactions(self, conn, packet):
         raise NotImplementedError('this method must be overridden')
 
-    def handleAskOIDsByTID(self, conn, packet, tid):
+    def handleAskTransactionInformation(self, conn, packet, tid):
         raise NotImplementedError('this method must be overridden')
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):
