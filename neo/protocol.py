@@ -152,7 +152,7 @@ ASK_TIDS = 0x001d
 ANSWER_TIDS = 0x801d
 
 # Ask information about a transaction. PM, C -> S.
-ASK_TRANSACTION_INFORMATION = 0xOO1e
+ASK_TRANSACTION_INFORMATION = 0x001e
 
 # Answer information (user, description) about a transaction. S -> C, PM.
 ANSWER_TRANSACTION_INFORMATION = 0x801e
@@ -194,7 +194,7 @@ OUT_OF_DATE_STATE = 1
 FEEDING_STATE = 2
 DISCARDED_STATE = 3
 
-VALID_CELL_STATE_LIST = (UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, 
+VALID_CELL_STATE_LIST = (UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE,
                          DISCARDED_STATE)
 
 # Other constants.
@@ -220,10 +220,10 @@ class Packet(object):
             return None
         msg_id, msg_type, msg_len = unpack('!LHL', msg[:10])
         if msg_len > MAX_PACKET_SIZE:
-            raise ProtocolError(cls(msg_id, msg_type), 
+            raise ProtocolError(cls(msg_id, msg_type),
                                 'message too big (%d)' % msg_len)
         if msg_len < MIN_PACKET_SIZE:
-            raise ProtocolError(cls(msg_id, msg_type), 
+            raise ProtocolError(cls(msg_id, msg_type),
                                 'message too small (%d)' % msg_len)
         if len(msg) < msg_len:
             # Not enough.
@@ -269,7 +269,7 @@ class Packet(object):
         return self.error(msg_id, NOT_READY_CODE, 'not ready: ' + error_message)
 
     def brokenNodeDisallowedError(self, msg_id, error_message):
-        return self.error(msg_id, BROKEN_NODE_DISALLOWED_ERROR, 
+        return self.error(msg_id, BROKEN_NODE_DISALLOWED_ERROR,
                           'broken node disallowed error: ' + error_message)
 
     def ping(self, msg_id):
@@ -295,8 +295,8 @@ class Packet(object):
                                  port, num_partitions, num_replicas):
         self._id = msg_id
         self._type = ACCEPT_NODE_IDENTIFICATION
-        self._body = pack('!H16s4sHLL', node_type, uuid, 
-                          inet_aton(ip_address), port, 
+        self._body = pack('!H16s4sHLL', node_type, uuid,
+                          inet_aton(ip_address), port,
                           num_partitions, num_replicas)
         return self
 
@@ -517,7 +517,7 @@ class Packet(object):
         user_len = len(user)
         desc_len = len(desc)
         ext_len = len(ext)
-        body = [pack('!8sLHHH' tid, len(oid_list), user_len, desc_len, ext_len)]
+        body = [pack('!8sLHHH', tid, len(oid_list), user_len, desc_len, ext_len)]
         body.append(user)
         body.append(desc)
         body.append(ext)
@@ -534,10 +534,10 @@ class Packet(object):
     def askStoreObject(self, msg_id, oid, serial, compression, checksum, data, tid):
         self._id = msg_id
         self._type = ASK_STORE_OBJECT
-        self._body = pack('!8s8s8sBLL', oid, serial, tid, compression, 
+        self._body = pack('!8s8s8sBLL', oid, serial, tid, compression,
                           checksum, len(data)) + data
         return self
-    
+
     def answerStoreObject(self, msg_id, conflicting, oid, serial):
         self._id = msg_id
         self._type = ANSWER_STORE_OBJECT
@@ -549,12 +549,12 @@ class Packet(object):
         self._type = ASK_OBJET_BY_OID
         self._body = pack('!8s8s', oid, serial)
         return self
-        
+
     def answerObjectByOID(self, msg_id, oid, serial_start, serial_end, compression,
                           checksum, data):
         self._id = msg_id
         self._type = ANSWER_OBJECT_BY_OID
-        self._body = pack('!8s8s8sBLL', oid, serial_start, serial_end, compression, 
+        self._body = pack('!8s8s8sBLL', oid, serial_start, serial_end, compression,
                      checksum, len(data)) + data
         return self
 
@@ -581,7 +581,7 @@ class Packet(object):
         self._type = ASK_TRANSACTION_INFORMATION
         self._body = pack('!8s', tid)
         return self
-        
+
     def answerTransactionInformation(self, msg_id, tid, user, desc, oid_list):
         self._id = msg_id
         self._type = ANSWER_TRANSACTION_INFORMATION
@@ -607,7 +607,7 @@ class Packet(object):
             body.append(pack('8sL', history_tuple[0], history_tuple[1]))
         self._body = ''.join(body)
         return self
-                    
+
     # Decoders.
     def decode(self):
         try:
@@ -951,8 +951,8 @@ class Packet(object):
             raise ProtocolError(self, 'invalid data size')
         return oid, serial, tid, compression, checksum, data
     decode_table[ASK_STORE_OBJECT] = _decodeAskStoreObject
-    
-    def _decodeAnswerStoreObject(self): 
+
+    def _decodeAnswerStoreObject(self):
         try:
             conflicting, oid, serial = unpack('!B8s8s', self._body)
         except:
@@ -975,12 +975,12 @@ class Packet(object):
             for i in xrange(oid_len):
                 oid = unpack('8s', self._body[offset:offset+8])
                 offset += 8
-                oid_list.append(oid)            
+                oid_list.append(oid)
         except:
             raise ProtocolError(self, 'invalid ask store transaction')
-        return tid, user, desc, ext, oid_list 
+        return tid, user, desc, ext, oid_list
     decode_table[ASK_STORE_TRANSACTION] = _decodeAskStoreTransaction
-    
+
     def _decodeAnswerStoreTransaction(self):
         try:
             tid = unpack('8s', self._body)
@@ -996,8 +996,8 @@ class Packet(object):
             raise ProtocolError(self, 'invalid ask object by oid')
         return oid, serial
     decode_table[ASK_OBJECT_BY_OID] = _decodeAskObjectByOID
-    
-    def _decodeAnswerObjectByOID(self): 
+
+    def _decodeAnswerObjectByOID(self):
         try:
             oid, serial_start, serial_end, compression, checksum, data_len \
                  = unpack('!8s8s8sBLL', self._body[:33])
@@ -1039,7 +1039,7 @@ class Packet(object):
             raise ProtocolError(self, 'invalid answer tids')
         return tid_list
     decode_table[ANSWER_TIDS] = _decodeAnswerTIDs
-    
+
     def _decodeAskTransactionInformation(self):
         try:
             tid = unpack('8s', self._body)
@@ -1058,11 +1058,11 @@ class Packet(object):
             offset += desc_len
             oid_list = []
             for i in xrange(oid_len):
-                oid_list.append(unpack('8s', self._body[offset+i*8:offset+8+i*8]))                                               
+                oid_list.append(unpack('8s', self._body[offset+i*8:offset+8+i*8]))
         except:
             raise ProtocolError(self, 'invalid answer transaction information')
         return tid, user, desc
-    decode_table[ANSWER_TRANSACTION_INFORMATION] = _decodeAnswerTransationInformation
+    decode_table[ANSWER_TRANSACTION_INFORMATION] = _decodeAnswerTransactionInformation
 
     def _decodeAskObjectHistory(self):
         try:
@@ -1078,9 +1078,9 @@ class Packet(object):
             history_list = ()
             for x in xrange(length):
                 serial, size = unpack('!8sL', self._body[10+i*12:22+i*12])
-                history_list.append(tuple(serial, size))                                
+                history_list.append(tuple(serial, size))
         except:
             raise ProtocolError(self, 'invalid answer object history')
         return oid, history_list
     decode_table[ANSWER_OBJECT_HISTORY] = _decodeAnswerObjectHistory
-    
+
