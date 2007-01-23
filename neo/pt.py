@@ -85,6 +85,9 @@ class PartitionTable(object):
         self.num_filled_rows = self.np
 
     def setCell(self, offset, node, state):
+        if state == DISCARDED_STATE:
+            return self.removeCell(offset, node)
+
         if node.getState() in (BROKEN_STATE, DOWN_STATE):
             return
 
@@ -109,6 +112,16 @@ class PartitionTable(object):
             row.append(Cell(node, state))
             if state != FEEDING_STATE:
                 self.count_dict[node] = self.count_dict.get(node, 0) + 1
+
+    def removeCell(self, offset, node):
+        row = self.partition_list[offset]
+        if row is not None:
+            for cell in row:
+                if cell.getNode() == node:
+                    row.remove(cell)
+                    if state != FEEDING_STATE:
+                        self.count_dict[node] = self.count_dict.get(node, 0) - 1
+                    break
 
     def filled(self):
         return self.num_filled_rows == self.np

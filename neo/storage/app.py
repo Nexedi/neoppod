@@ -48,7 +48,6 @@ class Application(object):
 
         self.dm.setup(reset)
         self.loadConfiguration()
-        self.loadPartitionTable()
 
     def loadConfiguration(self):
         """Load persistent configuration data from the database.
@@ -89,11 +88,12 @@ class Application(object):
         """Load a partition table from the database."""
         nm = self.nm
         pt = self.pt
+        pt.clear()
         for offset, uuid, state in self.dm.getPartitionTable():
             node = nm.getNodeByUUID(uuid)
             if node is None:
                 node = StorageNode(uuid = uuid)
-                if uuid != self.uiid:
+                if uuid != self.uuid:
                     # If this node is not self, assume that it is temporarily
                     # down at the moment. This state will change once every
                     # node starts to connect to a primary master node.
@@ -139,6 +139,12 @@ class Application(object):
         Note that I do not accept any connection from non-master nodes
         at this stage."""
         logging.info('connecting to a primary master node')
+
+        # Reload a partition table from the database. This is necessary
+        # when a previous primary master died while sending a partition
+        # table, because the table might be incomplete.
+        self.loadPartitionTable()
+        self.ptid = self.dm.getPTID()
 
         handler = BootstrapEventHandler(self)
         em = self.em
