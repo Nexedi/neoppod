@@ -310,7 +310,7 @@ class VerificationEventHandler(MasterEventHandler):
             logging.critical('got later information in verification')
             raise VerificationFailure
 
-    def handleAnswerPartitionTable(self, conn, packet, cell_list):
+    def handleAnswerPartitionTable(self, conn, packet, ptid, cell_list):
         # Ignore this packet.
         pass
 

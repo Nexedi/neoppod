@@ -148,10 +148,10 @@ class StorageEventHandler(EventHandler):
     def handleAskPartitionTable(self, conn, packet, offset_list):
         raise NotImplementedError('this method must be overridden')
 
-    def handleSendPartitionTable(self, conn, packet, row_list):
+    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         raise NotImplementedError('this method must be overridden')
 
-    def handleNotifyPartitionChanges(self, conn, packet, cell_list):
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         raise NotImplementedError('this method must be overridden')
 
     def handleStartOperation(self, conn, packet):

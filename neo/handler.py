@@ -145,13 +145,13 @@ class EventHandler(object):
     def handleAskPartitionTable(self, conn, packet, offset_list):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerPartitionTable(self, conn, packet, row_list):
+    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleSendPartitionTable(self, conn, packet, row_list):
+    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleNotifyPartitionChanges(self, conn, packet, cell_list):
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleStartOperation(self, conn, packet):

@@ -29,7 +29,7 @@ class MasterEventHandler(EventHandler):
         logging.info('ignoring Answer Last IDs')
         pass
 
-    def handleAnswerPartitionTable(self, conn, packet, cell_list):
+    def handleAnswerPartitionTable(self, conn, packet, ptid, cell_list):
         logging.info('ignoring Answer Partition Table')
         pass
 

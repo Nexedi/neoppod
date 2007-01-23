@@ -206,10 +206,10 @@ class BootstrapEventHandler(StorageEventHandler):
     def handleAskPartitionTable(self, conn, packet, offset_list):
         pass
 
-    def handleSendPartitionTable(self, conn, packet, row_list):
+    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         pass
 
-    def handleNotifyPartitionChanges(self, conn, packet, cell_list):
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         pass
 
     def handleStartOperation(self, conn, packet):

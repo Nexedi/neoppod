@@ -301,7 +301,7 @@ class RecoveryEventHandler(MasterEventHandler):
         elif app.lptid == lptid and app.target_uuid is None:
             app.target_uuid = uuid
 
-    def handleAnswerPartitionTable(self, conn, packet, cell_list):
+    def handleAnswerPartitionTable(self, conn, packet, ptid, cell_list):
         uuid = conn.getUUID()
         if uuid is None:
             self.handleUnexpectedPacket(conn, packet)
