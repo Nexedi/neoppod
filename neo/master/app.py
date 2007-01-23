@@ -432,7 +432,7 @@ class Application(object):
                 self.asking_uuid_dict[uuid] = False
                 p = Packet()
                 msg_id = conn.getNextId()
-                p.askOIDsByTID(msg_id, tid)
+                p.askTransactionInformation(msg_id, tid)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
         if len(self.asking_uuid_dict) == 0:

@@ -330,7 +330,8 @@ class VerificationEventHandler(MasterEventHandler):
         app.unfinished_tid_set.update(tid_list)
         app.asking_uuid_dict[uuid] = True
 
-    def handleAnswerOIDsByTID(self, conn, packet, oid_list, tid):
+    def handleAnswerTransactionInformation(self, conn, packet, tid,
+                                           user, desc, oid_list):
         uuid = conn.getUUID()
         if uuid is None:
             self.handleUnexpectedPacket(conn, packet)

@@ -37,8 +37,9 @@ class MasterEventHandler(EventHandler):
         logging.info('ignoring Answer Unfinished Transactions')
         pass
 
-    def handleAnswerOIDsByTID(self, conn, packet, oid_list, tid):
-        logging.info('ignoring Answer OIDs By TID')
+    def handleAnswerTransactionInformation(self, conn, packet, tid,
+                                           user, desc, oid_list):
+        logging.info('ignoring Answer Transactin Information')
         pass
 
     def handleTidNotFound(self, conn, packet, message):
