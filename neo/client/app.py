@@ -3,15 +3,15 @@ import os
 from time import time
 from threading import Lock, Condition
 from cPickle import dumps, loads
-from zlib import compress, alder32, decompress
+from zlib import compress, adler32, decompress
 
 from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection
 from neo.protocol import Packet, INVALID_UUID, CLIENT_NODE_TYPE, UP_TO_DATE_STATE
-from neo.client.master import MasterEventHandler
-from neo.client.NEOStorage import NEOStorageConflictError, NEOStorageKeyError
+from neo.client.handler import ClientEventHandler
+from neo.client.NEOStorage import NEOStorageConflictError, NEOStorageNotFoundError
 
 class ConnectionManager(object):
     """This class manage a pool of connection to storage node."""
@@ -27,15 +27,15 @@ class ConnectionManager(object):
         l = Lock()
         self.connection_lock_acquire = l.acquire
         self.connection_lock_release = l.release
-                
+
     def _initNodeConnection(self, addr):
-        """Init a connection to a given storage node."""        
-        handler = StorageEventHandler(self.storage)
+        """Init a connection to a given storage node."""
+        handler = ClientEventHandler(self.storage)
         conn = ClientConnection(self.storage.em, handler, addr)
         msg_id = conn.getNextId()
         p = Packet()
         p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid, addr[0],
-                                    addr[1], 'main')
+                                    addr[1], self.storage.name)
         conn.expectMessage(msg_id)
         while 1:
             self.em.poll(1)
@@ -43,7 +43,7 @@ class ConnectionManager(object):
                 break
         logging.debug('connected to a storage node %s' %(addr,))
         return conn
-    
+
     def _dropConnection(self,):
         """Drop a connection."""
         pass
@@ -78,19 +78,20 @@ class ConnectionManager(object):
         else:
             # Create new connection to node
             return self._createNodeConnection(node)
-            
+
 
 class Application(object):
     """The client node application."""
 
-    def __init__(self, master_addr, master_port, **kw):
+    def __init__(self, master_addr, master_port, name, **kw):
         logging.basicConfig(level = logging.DEBUG)
         logging.debug('master node address is %s, port is %d' %(master_addr, master_port))
 
         # Internal Attributes
+        self.name = name
         self.em = EventManager()
         self.nm = NodeManager()
-        self.cm = ConnectionManager(self)        
+        self.cm = ConnectionManager(self)
         self.pt = None
         self.primary_master_node = None
         self.master_conn = None
@@ -107,8 +108,8 @@ class Application(object):
         # object_stored is used to know if storage node
         # accepted the object or raised a conflict
         # 0 : no answer yet
-        # 1 : ok
-        # 2 : conflict
+        # -1 : conflict
+        # oid, serial : ok
         self.object_stored = 0
         # Lock definition :
         # _oid_lock is used in order to not call multiple oid
@@ -121,7 +122,7 @@ class Application(object):
         # _info_lock is used when retrieving information for object or transaction
         lock = Lock()
         self._oid_lock_acquire = lock.acquire
-        self._oid_lock_release = lock.release                
+        self._oid_lock_release = lock.release
         lock = Lock()
         self._txn_lock_acquire = lock.acquire
         self._txn_lock_release = lock.release
@@ -147,7 +148,7 @@ class Application(object):
         defined_master_addr = (master_addr, master_port)
         while 1:
             self.node_not_ready = 0
-            logging.debug("trying to connect to primary master...")                            
+            logging.debug("trying to connect to primary master...")
             self.connectToPrimaryMasterNode(defined_master_addr)
             if not self.node_not_ready and self.pt.filled():
                 # got a connection and partition table
@@ -161,7 +162,7 @@ class Application(object):
 
     def connectToPrimaryMasterNode(self, defined_master_addr):
         """Connect to the primary master node."""
-        handler = MasterEventHandler(self)
+        handler = ClientEventHandler(self)
         n = MasterNode(server = defined_master_addr)
         self.nm.add(n)
 
@@ -172,7 +173,7 @@ class Application(object):
             p = Packet()
             p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid,
                                         defined_master_addr[0],
-                                        defined_master_addr[1], 'main')
+                                        defined_master_addr[1], self.name)
             conn.addPacket(p)
             conn.expectMessage(msg_id)
             while 1:
@@ -195,7 +196,7 @@ class Application(object):
             p = Packet()
             p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid,
                                         self.primary_master_node.server[0],
-                                        self.primary_master_node.server[1] , 'main')
+                                        self.primary_master_node.server[1] , self.name)
             conn.addPacket(p)
             conn.expectMessage(msg_id)
         self.master_conn = conn
@@ -242,9 +243,9 @@ class Application(object):
         if len(hist) == 0:
             raise NEOStorageNotFoundError()
         return hist[0][0]
-    
+
     def _load(self, oid, serial="", cache=0):
-        """Internal method which manage load and loadSerial."""
+        """Internal method which manage load ,loadSerial and loadBefore."""
         partition_id = oid % self.num_paritions
         # Only used up to date node for retrieving object
         storage_node_list = [x for x in self.pt.getCellList(partition_id, True) \
@@ -259,7 +260,7 @@ class Application(object):
             p.askObjectByOID(msg_id, oid, serial)
             conn.addPacket(p)
             conn.expectMessage(msg_id)
-            # Wait for answer            
+            # Wait for answer
             self.loaded_object = None
             try:
                 while 1:
@@ -270,7 +271,7 @@ class Application(object):
                     # OID not found
                     continue
                 # Copy object data here to release lock as soon as possible
-                noid, serial, compression, checksum, data = self.loaded_object
+                noid, start_serial, end_serial, compression, checksum, data = self.loaded_object
             finally:
                 self._load_lock_release()
             # Check data here
@@ -281,7 +282,7 @@ class Application(object):
                 # Reacquire lock and try again
                 self._load_lock_acquire()
                 continue
-            elif compression and checksum != alder32(data):
+            elif compression and checksum != adler32(data):
                 # Check checksum if we use compression
                 logging.error('wrong checksum from node %s for oid %s' \
                               %(storage_node.getServer(), oid))
@@ -300,10 +301,10 @@ class Application(object):
         if cache:
             self.cache_lock_acquire()
             try:
-                self.cache[oid] = serial, data
+                self.cache[oid] = start_serial, data
             finally:
                 self.cache_lock_release()
-        return loads(data), serial
+        return loads(data), start_serial, end_serial
 
     def load(self, oid, version=None):
         """Load an object for a given oid."""
@@ -315,13 +316,18 @@ class Application(object):
         finally:
             self._cache_lock_release()
         # Otherwise get it from storage node
-        return self._load(oid, cache=1)
-        
+        return self._load(oid, cache=1)[:2]
+
     def loadSerial(self, oid, serial):
         """Load an object for a given oid and serial."""
         # Do not try in cache as it managed only up-to-date object
-        return self._load(oid, serial), None
-            
+        return self._load(oid, serial)[:2], None
+
+    def loadBefore(oid, tid):
+        """Load an object for a given oid before tid committed."""
+        # Do not try in cache as it managed only up-to-date object
+        return self._load(oid, tid)
+
     def tpc_begin(self, transaction, tid=None, status=' '):
         """Begin a new transaction."""
         # First get a transaction, only one is allowed at a time
@@ -341,7 +347,7 @@ class Application(object):
             p.askNewTID(msg_id)
             conn.addPacket(p)
             conn.expectMessage(msg_id)
-            # Wait for answer    
+            # Wait for answer
             while 1:
                 self.em.poll(1)
                 if self.tid is not None:
@@ -359,7 +365,7 @@ class Application(object):
         # Store data on each node
         ddata = dumps(data)
         compressed_data = compress(ddata)
-        crc = alder32(compressed_data)            
+        crc = adler32(compressed_data)
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node.getUUID())
             msg_id = conn.getNextId()
@@ -390,7 +396,7 @@ class Application(object):
                 # Store object in tmp cache
                 self.txn_data_dict[oid] = ddata
                 break
-            
+
     def tpc_vote(self, transaction):
         """Store current transaction."""
         if transaction is not self.txn:
@@ -418,7 +424,7 @@ class Application(object):
         """Clear some transaction parameter and release lock."""
         self.txn = None
         self._txn_lock_release()
-        
+
     def tpc_abort(self, transaction):
         """Abort current transaction."""
         if transaction is not self.txn:
@@ -426,7 +432,7 @@ class Application(object):
         try:
             # Abort transaction on each node used for it
             # In node where objects were stored
-            aborted_node = {} 
+            aborted_node = {}
             for oid in self.txn_oid_list:
                 partition_id = oid % self.num_paritions
                 storage_node_list = self.pt.getCellList(partition_id, True)
@@ -450,7 +456,7 @@ class Application(object):
                     conn.addPacket(p)
         finally:
             self._clear_txn()
-            
+
     def tpc_finish(self, transaction, f=None):
         """Finish current transaction."""
         if self.txn is not transaction:
@@ -478,7 +484,7 @@ class Application(object):
                 for oid in self.txn_data_dict.keys:
                     ddata = self.txn_data_dict[oid]
                     # Now serial is same as tid
-                    self.cache[oid] = self.tid, ddata 
+                    self.cache[oid] = self.tid, ddata
             finally:
                 self.cache_lock_release()
             # Release transaction
@@ -486,66 +492,43 @@ class Application(object):
         finally:
             self._clear_txn()
 
-    def loadBefore(self, oid, tid):
-        partition_id = oid % self.num_paritions
-        # Only used up to date node for retrieving object
-        storage_node_list = [x for x in self.pt.getCellList(partition_id, True) \
-                             if x.getState() == UP_TO_DATE_STATE]
-        self._load_before_lock_acquire()
-        data = None
-        # Store data on each node
-        for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node.getUUID())
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.askObjectByTID(msg_id, oid, tid)
-            conn.addPacket(p)
-            conn.expectMessage(msg_id)
-            # Wait for answer            
-            self.loaded_object_by_tid = None
-            try:
-                while 1:
-                    self.em.poll(1)
-                    if self.loaded_object_by_tid is not None:
-                        break
-                if self.loaded_object_by_tid == -1:
-                    # OID not found
-                    continue
-                # Copy object data here to release lock as soon as possible
-                noid, start, end, compression, checksum, data = self.loaded_object
-            finally:
-                self._load_before_lock_release()
-            # Check data here
-            if noid != oid:
-                # Oops, try with next node
-                logging.error('got wrong oid %s instead of %s from node %s' \
-                              %(noid, oid, storage_node.getServer()))
-                # Reacquire lock and try again
-                self._load_before_lock_acquire()
-                continue
-            elif compression and checksum != alder32(data):
-                # Check checksum if we use compression
-                logging.error('wrong checksum from node %s for oid %s' \
-                              %(storage_node.getServer(), oid))
-                # Reacquire lock and try again
-                self._load_before_lock_acquire()
-                continue
-            else:
-                break
-        if data is None:
-            # We didn't got any object from storage node
-            raise NEOStorageNotFoundError()
-        # Uncompress data
-        if compression:
-            data = decompressed(data)
-        return loads(data), start, end
-
-
     def undo(self, transaction_id, txn):
         if transaction is not self.txn:
             raise POSException.StorageTransactionError(self, transaction)
-        raise NotImplementedError
-    
+        # First get transaction information from master node
+        self._info_lock_acquire()
+        try:
+            partition_id = transaction_id % self.num_paritions
+            storage_node_list = self.pt.getCellList(partition_id, True)
+            for storage_node in storage_node_list:
+                conn = self.cm.getConnForNode(storage_node.getUUID())
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askTransactionInformation(msg_id, tid)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                # Wait for answer
+                self.txn_info = None
+                while 1:
+                    self.em.poll(1)
+                    if self.txn_info is not None:
+                        break
+            oid_list = self.txn_info['oids']
+        finally:
+            self._info_lock_releas()
+        # Second get object data from storage node using loadBefore
+        data_dict = {}
+        for oid in oid_list:
+            data, start, end = self.loadBefore(oid, transaction_id)
+            data_dict[oid] = data
+        # Third do transaction with old data
+        self.tpc_begin(txn)
+        for oid in data_dict.keys():
+            data = data_dict[oid]
+            self.store(oid, self.tid, data, None, txn)
+        self.tpc_vote(txn)
+        self.tpc_finish(txn)
+
     def undoInfo(self, first, last, specification=None):
         # First get list of transaction from master node
         self._info_lock_acquire()
@@ -553,7 +536,7 @@ class Application(object):
             conn = self.master_conn
             msg_id = conn.getNextId()
             p = Packet()
-            p.getTIDList(msg_id, first, last, specification)
+            p.askTIDs(msg_id, first, last, specification)
             conn.addPacket(p)
             conn.expectMessage(msg_id)
             # Wait for answer
@@ -576,16 +559,17 @@ class Application(object):
                     conn.addPacket(p)
                     conn.expectMessage(msg_id)
                     # Wait for answer
-                    self.undo_txn_info = None
+                    self.txn_info = None
                     while 1:
                         self.em.poll(1)
-                        if self.undo_txn_info is not None:
+                        if self.txn_info is not None:
                             break
-                undo_txn_list.append(self.undo_txn_info)
+                self.txn_info.pop("oids")
+                undo_txn_list.append(self.txn_info)
             return undo_txn_dict
         finally:
-            self._info_lock_release()        
-        
+            self._info_lock_release()
+
     def history(self, oid, version, length=1, filter=None, object_only=0):
         self._info_lock_acquire()
         history_list = []
@@ -634,6 +618,7 @@ class Application(object):
                             break
                 # create history dict
                 self.txn_info.remove('id')
+                self.txn_info.remove('oids')
                 self.txn_info['serial'] = serial
                 self.txn_info['version'] = None
                 self.txn_info['size'] = size
