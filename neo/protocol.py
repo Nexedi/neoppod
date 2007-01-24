@@ -272,6 +272,14 @@ class Packet(object):
         return self.error(msg_id, BROKEN_NODE_DISALLOWED_ERROR,
                           'broken node disallowed error: ' + error_message)
 
+    def oidNotFound(self, msg_id, error_message):
+        return self.error(msg_id, OID_NOT_FOUND_CODE, 
+                          'oid not found: ' + error_message)
+
+    def tidNotFound(self, msg_id, error_message):
+        return self.error(msg_id, TID_NOT_FOUND_CODE, 
+                          'tid not found: ' + error_message)
+
     def ping(self, msg_id):
         self._id = msg_id
         self._type = PING
