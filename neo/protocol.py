@@ -151,7 +151,8 @@ ASK_OBJECT = 0x001b
 # Answer the requested object. S -> C.
 ANSWER_OBJECT = 0x801b
 
-# Ask for TIDs between a range of offset. C -> S.
+# Ask for TIDs between a range of offsets. The order of TIDs is descending,
+# and the range is [first, last). C -> S.
 ASK_TIDS = 0x001d
 
 # Answer the requested TIDs. S -> C.
@@ -572,20 +573,16 @@ class Packet(object):
                           compression, checksum, len(data)) + data
         return self
 
-    def askTIDs(self, msg_id, first, last, spec):
+    def askTIDs(self, msg_id, first, last):
         self._id = msg_id
         self._type = ASK_TIDS
-        body = [pack('!LLL', first, last, len(spec))]
-        # spec is a dict if given
-        for key, value in spec.items():
-            body.append(pack('!LL', len(key), len(value))+key+value)
-        self._body = ''.join(body)
+        self._body = pack('!LL', first, last)
         return self
 
     def answerTIDs(self, msg_id, tid_list):
         self._id = msg_id
         self._type = ANSWER_TIDS
-        body = [pack('!H', len(tid_list))]
+        body = [pack('!L', len(tid_list))]
         body.extend(tid_list)
         self._body = ''.join(body)
         return self
@@ -599,7 +596,7 @@ class Packet(object):
     def answerTransactionInformation(self, msg_id, tid, user, desc, oid_list):
         self._id = msg_id
         self._type = ANSWER_TRANSACTION_INFORMATION
-        body = [pack('!8sHHH', tid, len(user), len(desc), len(oid_list))]
+        body = [pack('!8sHHL', tid, len(user), len(desc), len(oid_list))]
         body.append(user)
         body.append(desc)
         body.extend(oid_list)
@@ -1025,29 +1022,18 @@ class Packet(object):
 
     def _decodeAskTIDs(self):
         try:
-            first, last, spec_len = unpack('!LLL', self._body[:12])
-            spec = {}
-            dict_item_len = 0
-            # recreate spec dict
-            for i in xrange(spec_len):
-                key_len, value_len = unpack('!LL', self._body[12+dict_item_len:20+
-                                                               dict_item_len])
-                key = self.body[20+dict_item_len:20+dict_item_len+key_len]
-                value = self.body[20+dict_item_len+key_len:20+dict_item_len+key_len+
-                                  value_len]
-                dict_item_list = dict_item_list + 8 + key_len + value_len
-                spec[key] = value
+            first, last = unpack('!LL', self._body[:8])
         except:
             raise ProtocolError(self, 'invalid ask tids')
-        return first, last, spec
+        return first, last
     decode_table[ASK_TIDS] = _decodeAskTIDs
 
     def _decodeAnswerTIDs(self):
         try:
-            n = unpack('!H', self._body[:2])
+            n = unpack('!L', self._body[:4])
             tid_list = []
             for i in xrange(n):
-                tid = unpack('8s', self._body[2+i*8:10+i*8])
+                tid = unpack('8s', self._body[4+i*8:12+i*8])
                 tid_list.append(tid)
         except:
             raise ProtocolError(self, 'invalid answer tids')
@@ -1064,8 +1050,8 @@ class Packet(object):
 
     def _decodeAnswerTransactionInformation(self):
         try:
-            tid, user_len, desc_len, oid_len = unpack('!8sHHH', self._body[:12])
-            offset = 14
+            tid, user_len, desc_len, oid_len = unpack('!8sHHL', self._body[:16])
+            offset = 16
             user = self._body[offset:offset+user_len]
             offset += user_len
             desc = self._body[offset:offset+desc_len]

@@ -183,4 +183,7 @@ class StorageEventHandler(EventHandler):
 
     def handleAskStoreObject(self, conn, packet, msg_id, oid, serial,
                              compression, data, checksum, tid):
-        pass
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAskObject(self, conn, packet, oid, serial, tid):
+        self.handleUnexpectedPacket(conn, packet)

@@ -232,7 +232,7 @@ class EventHandler(object):
                            serial_end, compression, checksum, data):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAskTIDs(self, conn, packet, first, last, spec):
+    def handleAskTIDs(self, conn, packet, first, last):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerTIDs(self, conn, packet, tid_list):
