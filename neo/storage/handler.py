@@ -180,3 +180,7 @@ class StorageEventHandler(EventHandler):
 
     def handleUnlockInformation(self, conn, packet, tid):
         raise NotImplementedError('this method must be overridden')
+
+    def handleAskStoreObject(self, conn, packet, msg_id, oid, serial,
+                             compression, data, checksum, tid):
+        pass

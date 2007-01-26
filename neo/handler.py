@@ -15,7 +15,7 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         NOTIFY_INFORMATION_LOCKED, INVALIDATE_OBJECTS, UNLOCK_INFORMATION, \
         ASK_NEW_OIDS, ANSWER_NEW_OIDS, ASK_STORE_OBJECT, ANSWER_STORE_OBJECT, \
         ABORT_TRANSACTION, ASK_STORE_TRANSACTION, ANSWER_STORE_TRANSACTION, \
-        ASK_OBJECT_BY_OID, ANSWER_OBJECT_BY_OID, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
+        ASK_OBJECT, ANSWER_OBJECT, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
         ANSWER_TRANSACTION_INFORMATION, ASK_OBJECT_HISTORY, ANSWER_OBJECT_HISTORY, \
         NOT_READY_CODE, OID_NOT_FOUND_CODE, SERIAL_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
@@ -225,11 +225,11 @@ class EventHandler(object):
     def handleAnswerStoreTransaction(self, conn, packet, tid):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAskObjectByOID(self, conn, packet, oid, serial):
+    def handleAskObject(self, conn, packet, oid, serial, tid):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerObjectByOID(self, conn, packet, oid, serial_start,
-                                serial_end, compression, checksum, data):
+    def handleAnswerObject(self, conn, packet, oid, serial_start,
+                           serial_end, compression, checksum, data):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAskTIDs(self, conn, packet, first, last, spec):
@@ -312,8 +312,8 @@ class EventHandler(object):
         d[ABORT_TRANSACTION] = self.handleAbortTransaction
         d[ASK_STORE_TRANSACTION] = self.handleAskStoreTransaction
         d[ANSWER_STORE_TRANSACTION] = self.handleAnswerStoreTransaction
-        d[ASK_OBJECT_BY_OID] = self.handleAskObjectByOID
-        d[ANSWER_OBJECT_BY_OID] = self.handleAnswerObjectByOID
+        d[ASK_OBJECT] = self.handleAskObject
+        d[ANSWER_OBJECT] = self.handleAnswerObject
         d[ASK_TIDS] = self.handleAskTIDs
         d[ANSWER_TIDS] = self.handleAnswerTIDs
         d[ASK_TRANSACTION_INFORMATION] = self.handleAskTransactionInformation

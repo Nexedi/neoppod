@@ -143,11 +143,13 @@ ASK_STORE_TRANSACTION = 0x001a
 # Answer if transaction has been stored. S -> C.
 ANSWER_STORE_TRANSACTION = 0x801a
 
-# Ask a stored object by its OID and serial if given. C -> S.
-ASK_OBJECT_BY_OID = 0x001b
+# Ask a stored object by its OID and a serial or a TID if given. If a serial
+# is specified, the specified revision of an object will be returned. If
+# a TID is specified, an object right before the TID will be returned. C -> S.
+ASK_OBJECT = 0x001b
 
 # Answer the requested object. S -> C.
-ANSWER_OBJECT_BY_OID = 0x801b
+ANSWER_OBJECT = 0x801b
 
 # Ask for TIDs between a range of offset. C -> S.
 ASK_TIDS = 0x001d
@@ -556,18 +558,18 @@ class Packet(object):
         self._body = pack('!B8s8s', conflicting, oid, serial)
         return self
 
-    def askObjectByOID(self, msg_id, oid, serial):
+    def askObject(self, msg_id, oid, serial, tid):
         self._id = msg_id
-        self._type = ASK_OBJET_BY_OID
-        self._body = pack('!8s8s', oid, serial)
+        self._type = ASK_OBJECT
+        self._body = pack('!8s8s8s', oid, serial, tid)
         return self
 
-    def answerObjectByOID(self, msg_id, oid, serial_start, serial_end, compression,
-                          checksum, data):
+    def answerObject(self, msg_id, oid, serial_start, serial_end, compression,
+                     checksum, data):
         self._id = msg_id
-        self._type = ANSWER_OBJECT_BY_OID
-        self._body = pack('!8s8s8sBLL', oid, serial_start, serial_end, compression,
-                     checksum, len(data)) + data
+        self._type = ANSWER_OBJECT
+        self._body = pack('!8s8s8sBLL', oid, serial_start, serial_end,
+                          compression, checksum, len(data)) + data
         return self
 
     def askTIDs(self, msg_id, first, last, spec):
@@ -1001,25 +1003,25 @@ class Packet(object):
         return tid
     decode_table[ANSWER_STORE_TRANSACTION] = _decodeAnswerStoreTransaction
 
-    def _decodeAskObjectByOID(self):
+    def _decodeAskObject(self):
         try:
-            oid, serial = unpack('8s8s', self._body)
+            oid, serial, tid = unpack('8s8s8s', self._body)
         except:
-            raise ProtocolError(self, 'invalid ask object by oid')
-        return oid, serial
-    decode_table[ASK_OBJECT_BY_OID] = _decodeAskObjectByOID
+            raise ProtocolError(self, 'invalid ask object')
+        return oid, serial, tid
+    decode_table[ASK_OBJECT] = _decodeAskObject
 
-    def _decodeAnswerObjectByOID(self):
+    def _decodeAnswerObject(self):
         try:
             oid, serial_start, serial_end, compression, checksum, data_len \
                  = unpack('!8s8s8sBLL', self._body[:33])
             data = self._body[33:]
         except:
-            raise ProtocolError(self, 'invalid answer object by oid')
+            raise ProtocolError(self, 'invalid answer object')
         if len(data) != data_len:
             raise ProtocolError(self, 'invalid data size')
-        return oid, serial, compression, checksum, data
-    decode_table[ANSWER_OBJECT_BY_OID] = _decodeAnswerObjectByOID
+        return oid, serial_start, serial_end, compression, checksum, data
+    decode_table[ANSWER_OBJECT] = _decodeAnswerObject
 
     def _decodeAskTIDs(self):
         try:
