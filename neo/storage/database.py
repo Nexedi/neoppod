@@ -74,13 +74,14 @@ class DatabaseManager(object):
         raise NotImplementedError('this method must be overridden')
 
     def getObject(self, oid, tid = None, before_tid = None):
-        """Return a tuple of a serial, a compression
+        """Return a tuple of a serial, next serial, a compression
         specification, a checksum, and object data, if a given object
         ID is present. Otherwise, return None. If tid is None and
         before_tid is None, the latest revision is taken. If tid is
         specified, the given revision is taken. If tid is not specified,
         but before_tid is specified, the latest revision before the
-        given revision is taken."""
+        given revision is taken. The next serial is a serial right after
+        before_tid, if specified. Otherwise, it is None."""
         raise NotImplementedError('this method must be overridden')
 
     def changePartitionTable(self, ptid, cell_list):
@@ -125,8 +126,14 @@ class DatabaseManager(object):
         raise NotImplementedError('this method must be overridden')
 
     def getObjectHistory(self, oid, length = 1):
-        """Return a list of serials for a given object ID. The length
-        specifies the maximum size of such a list. The first serial
+        """Return a list of serials and sizes for a given object ID.
+        The length specifies the maximum size of such a list. The first serial
         must be the last serial, and the list must be sorted in descending
         order. If there is no such object ID in a database, return None."""
+        raise NotImplementedError('this method must be overridden')
+
+    def getTIDList(self, offset, length, num_partitions, partition_list):
+        """Return a list of TIDs in descending order from an offset,
+        at most the specified length. The list of partitions are passed
+        to filter out non-applicable TIDs."""
         raise NotImplementedError('this method must be overridden')

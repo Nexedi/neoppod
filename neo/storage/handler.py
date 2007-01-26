@@ -181,9 +181,20 @@ class StorageEventHandler(EventHandler):
     def handleUnlockInformation(self, conn, packet, tid):
         raise NotImplementedError('this method must be overridden')
 
+    def handleAskObject(self, conn, packet, oid, serial, tid):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAskTIDs(self, conn, packet, first, last):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAskObjectHistory(self, conn, packet, oid, length):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
+                                  ext, oid_list):
+        self.handleUnexpectedPacket(conn, packet)
+
     def handleAskStoreObject(self, conn, packet, msg_id, oid, serial,
                              compression, data, checksum, tid):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAskObject(self, conn, packet, oid, serial, tid):
-        self.handleUnexpectedPacket(conn, packet)

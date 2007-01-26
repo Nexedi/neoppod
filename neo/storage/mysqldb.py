@@ -267,22 +267,42 @@ class MySQLDatabaseManager(DatabaseManager):
             r = q("""SELECT serial, compression, checksum, data FROM obj
                         WHERE oid = '%s' AND serial = '%s'""" \
                     % (oid, tid))
+            try:
+                serial, compression, checksum, data = r[0]
+                next_serial = None
+            except IndexError:
+                return None
         elif before_tid is not None:
             before_tid = e(before_tid)
             r = q("""SELECT serial, compression, checksum, data FROM obj
                         WHERE oid = '%s' AND serial < '%s'
                         ORDER BY serial DESC LIMIT 1""" \
                     % (oid, before_tid))
+            try:
+                serial, compression, checksum, data = r[0]
+                r = q("""SELECT serial FROM obj
+                            WHERE oid = '%s' AND serial > '%s'
+                            ORDER BY serial LIMIT 1""" \
+                        % (oid, before_tid))
+                try:
+                    next_serial = r[0][0]
+                except IndexError:
+                    next_serial = None
+            except IndexError:
+                return None
         else:
             # XXX I want to express "HAVING serial = MAX(serial)", but
             # MySQL does not use an index for a HAVING clause!
             r = q("""SELECT serial, compression, checksum, data FROM obj
                         WHERE oid = '%s' ORDER BY serial DESC LIMIT 1""" \
                     % oid)
-        try:
-            return r[0]
-        except IndexError:
-            return None
+            try:
+                serial, compression, checksum, data = r[0]
+                next_serial = None
+            except IndexError:
+                return None
+
+        return serial, next_serial, compression, checksum, data
 
     def doSetPartitionTable(self, ptid, cell_list, reset):
         q = self.query
@@ -403,9 +423,17 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         e = self.escape
         oid = e(oid)
-        r = q("""SELECT serial FROM obj WHERE oid = '%s'
+        r = q("""SELECT serial, LENGTH(data) FROM obj WHERE oid = '%s'
                     ORDER BY serial DESC LIMIT %d""" \
                 % (oid, length))
         if r:
-            return [t[0] for t in r]
+            return r
         return None
+
+    def getTIDList(self, offset, length, num_partitions, partition_list):
+        q = self.query
+        e = self.escape
+        r = q("""SELECT tid FROM trans WHERE MOD(tid,%d) in (%s)
+                    ORDER BY tid DESC LIMIT %d""" \
+                % (offset, num_partitions, ','.join(partition_list), length))
+        return [t[0] for t in r]

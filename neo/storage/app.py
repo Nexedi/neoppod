@@ -3,6 +3,7 @@ import MySQLdb
 import os
 from time import time
 from struct import pack, unpack
+from collections import deque
 
 from neo.config import ConfigurationManager
 from neo.protocol import Packet, ProtocolError, \
@@ -240,8 +241,21 @@ class Application(object):
         # for locking objects against load operations.
         self.load_lock_dict = {}
 
+        # This is a queue of events used to delay operations due to locks.
+        self.event_queue = deque()
+
         while 1:
             em.poll(1)
+
+    def queueEvent(self, callable, *args, **kwargs):
+        self.event_queue.append((callable, args, kwargs))
+
+    def executeQueuedEvents(self):
+        l = len(self.event_queue)
+        p = self.event_queue.popleft
+        for i in xrange(l):
+            callable, args, kwargs = p()
+            callable(*args, **kwargs)
 
     def getPartition(self, oid_or_tid):
         return unpack('!Q', oid_or_tid)[0] % self.num_partitions
