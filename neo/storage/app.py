@@ -227,6 +227,19 @@ class Application(object):
         for node in nm.getClientNodeList():
             nm.remove(node)
 
+        # This is a mapping between transaction IDs and information on
+        # UUIDs of client nodes which issued transactions and objects
+        # which were stored.
+        self.transaction_dict = {}
+
+        # This is a mapping between object IDs and transaction IDs. Used
+        # for locking objects against store operations.
+        self.store_lock_dict = {}
+        
+        # This is a mapping between object IDs and transactions IDs. Used
+        # for locking objects against load operations.
+        self.load_lock_dict = {}
+
         while 1:
             em.poll(1)
 
