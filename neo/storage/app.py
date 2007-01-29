@@ -16,7 +16,7 @@ from neo.util import dump
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
 from neo.exception import OperationFailure, PrimaryFailure
 from neo.pt import PartitionTable
-from neo.storage.bootstrap import BoostrapEventHandler
+from neo.storage.bootstrap import BootstrapEventHandler
 from neo.storage.verification import VerificationEventHandler
 from neo.storage.operation import OperationEventHandler
 
@@ -26,10 +26,10 @@ class Application(object):
     def __init__(self, file, section, reset = False):
         config = ConfigurationManager(file, section)
 
-        self.num_partitions = config.getPartitions()
+        self.num_partitions = None
+        self.num_replicas = None
         self.name = config.getName()
-        logging.debug('the number of replicas is %d, the number of partitions is %d, the name is %s',
-                      self.num_replicas, self.num_partitions, self.name)
+        logging.debug('the name is %s', self.name)
 
         self.server = config.getServer()
         logging.debug('IP address is %s, port is %d', *(self.server))
@@ -43,7 +43,9 @@ class Application(object):
         self.dm = MySQLDatabaseManager(database = config.getDatabase(), 
                                        user = config.getUser(), 
                                        password = config.getPassword())
-        self.pt = PartitionTable(self.num_partitions, 0)
+        # The partition table is initialized after getting the number of
+        # partitions.
+        self.pt = None
 
         self.primary_master_node = None
 
@@ -66,11 +68,7 @@ class Application(object):
             self.uuid = uuid
             dm.setUUID(uuid)
 
-        num_partitions = dm.getNumPartitions()
-        if num_partitions is None:
-            dm.setNumPartitions(self.num_partitions)
-        elif num_partitions != self.num_partitions:
-            raise RuntimeError('partitions do not match with the database')
+        self.num_partitions = dm.getNumPartitions()
 
         name = dm.getName()
         if name is None:
@@ -105,7 +103,7 @@ class Application(object):
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
-        if self.num_partitions <= 0:
+        if self.num_partitions is not None and self.num_partitions <= 0:
             raise RuntimeError, 'partitions must be more than zero'
         if len(self.name) == 0:
             raise RuntimeError, 'cluster name must be non-empty'
@@ -144,8 +142,9 @@ class Application(object):
         # Reload a partition table from the database. This is necessary
         # when a previous primary master died while sending a partition
         # table, because the table might be incomplete.
-        self.loadPartitionTable()
-        self.ptid = self.dm.getPTID()
+        if self.pt is not None:
+            self.loadPartitionTable()
+            self.ptid = self.dm.getPTID()
 
         handler = BootstrapEventHandler(self)
         em = self.em

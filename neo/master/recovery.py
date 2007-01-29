@@ -6,7 +6,7 @@ from neo.protocol import MASTER_NODE_TYPE, \
 from neo.master.handler import MasterEventHandler
 from neo.exception import ElectionFailure
 from neo.protocol import Packet, INVALID_UUID
-from neo.node import ClientNode, StorageNode
+from neo.node import ClientNode, StorageNode, MasterNode
 from neo.util import dump
 
 class RecoveryEventHandler(MasterEventHandler):
@@ -88,7 +88,7 @@ class RecoveryEventHandler(MasterEventHandler):
                 if node_type == MASTER_NODE_TYPE:
                     node = MasterNode(server = addr, uuid = uuid)
                 else:
-                    node = StorageNode(server = address, uuid = uuid)
+                    node = StorageNode(server = addr, uuid = uuid)
                 app.nm.add(node)
                 app.broadcastNodeInformation(node)
             else:

@@ -706,7 +706,7 @@ class Packet(object):
 
     def _decodeNotifyNodeInformation(self):
         try:
-            n = unpack('!L', self._body[:4])
+            n = unpack('!L', self._body[:4])[0]
             node_list = []
             for i in xrange(n):
                 r = unpack('!H4sH16sH', self._body[4+i*26:30+i*26])
@@ -721,7 +721,7 @@ class Packet(object):
             raise
         except:
             raise ProtocolError(self, 'invalid answer node information')
-        return node_list
+        return (node_list,)
     decode_table[NOTIFY_NODE_INFORMATION] = _decodeNotifyNodeInformation
 
     def _decodeAskLastIDs(self):
@@ -745,7 +745,7 @@ class Packet(object):
                 offset_list.append(offset)
         except:
             raise ProtocolError(self, 'invalid ask partition table')
-        return offset_list
+        return (offset_list,)
     decode_table[ASK_PARTITION_TABLE] = _decodeAskPartitionTable
 
     def _decodeAnswerPartitionTable(self):
@@ -820,7 +820,7 @@ class Packet(object):
                 tid_list.append(tid)
         except:
             raise ProtocolError(self, 'invalid answer unfinished transactions')
-        return tid_list
+        return (tid_list,)
     decode_table[ANSWER_UNFINISHED_TRANSACTIONS] = _decodeAnswerUnfinishedTransactions
 
     def _decodeAskObjectPresent(self):
@@ -844,7 +844,7 @@ class Packet(object):
             tid = unpack('8s', self._body)
         except:
             raise ProtocolError(self, 'invalid delete transaction')
-        return tid
+        return (tid,)
     decode_table[DELETE_TRANSACTION] = _decodeDeleteTransaction
 
     def _decodeCommitTransaction(self):
@@ -852,7 +852,7 @@ class Packet(object):
             tid = unpack('8s', self._body)
         except:
             raise ProtocolError(self, 'invalid commit transaction')
-        return tid
+        return (tid,)
     decode_table[COMMIT_TRANSACTION] = _decodeCommitTransaction
 
     def _decodeAskNewTID(self):
@@ -864,7 +864,7 @@ class Packet(object):
             tid = unpack('8s', self._body)
         except:
             raise ProtocolError(self, 'invalid answer new tid')
-        return tid
+        return (tid,)
     decode_table[ANSWER_NEW_TID] = _decodeAnswerNewTID
 
     def _decodeAskNewOIDs(self):
@@ -872,7 +872,7 @@ class Packet(object):
             num_oids = unpack('!H', self._body)
         except:
             raise ProtocolError(self, 'invalid ask new oids')
-        return num_oids
+        return (num_oids,)
     decode_table[ASK_NEW_OIDS] = _decodeAskNewOIDs
 
     def _decodeAnswerNewOIDs(self):
@@ -884,7 +884,7 @@ class Packet(object):
                 oid_list.append(oid)
         except:
             raise ProtocolError(self, 'invalid answer new oids')
-        return oid_list
+        return (oid_list,)
     decode_table[ANSWER_NEW_OIDS] = _decodeAnswerNewOIDs
 
     def _decodeFinishTransaction(self):
@@ -904,7 +904,7 @@ class Packet(object):
             tid = unpack('8s', self._body)
         except:
             raise ProtocolError(self, 'invalid notify transactin finished')
-        return tid
+        return (tid,)
     decode_table[NOTIFY_TRANSACTION_FINISHED] = _decodeNotifyTransactionFinished
 
     def _decodeLockInformation(self):
@@ -912,7 +912,7 @@ class Packet(object):
             tid = unpack('8s', self._body)
         except:
             raise ProtocolError(self, 'invalid lock information')
-        return tid
+        return (tid,)
     decode_table[LOCK_INFORMATION] = _decodeLockInformation
 
     def _decodeNotifyInformationLocked(self):
@@ -920,7 +920,7 @@ class Packet(object):
             tid = unpack('8s', self._body)
         except:
             raise ProtocolError(self, 'invalid notify information locked')
-        return tid
+        return (tid,)
     decode_table[NOTIFY_INFORMATION_LOCKED] = _decodeNotifyInformationLocked
 
     def _decodeInvalidateObjects(self):
@@ -932,7 +932,7 @@ class Packet(object):
                 oid_list.append(oid)
         except:
             raise ProtocolError(self, 'invalid finish transaction')
-        return oid_list
+        return (oid_list,)
     decode_table[INVALIDATE_OBJECTS] = _decodeInvalidateObjects
 
     def _decodeUnlockInformation(self):
@@ -948,7 +948,7 @@ class Packet(object):
             tid = unpack('8s', self._body)
         except:
             raise ProtocolError(self, 'invalid abort transaction')
-        return tid
+        return (tid,)
     decode_table[ABORT_TRANSACTION] = _decodeAbortTransaction
 
     def _decodeAskStoreObject(self):
@@ -997,7 +997,7 @@ class Packet(object):
             tid = unpack('8s', self._body)
         except:
             raise ProtocolError(self, 'invalid answer store transaction')
-        return tid
+        return (tid,)
     decode_table[ANSWER_STORE_TRANSACTION] = _decodeAnswerStoreTransaction
 
     def _decodeAskObject(self):
@@ -1037,7 +1037,7 @@ class Packet(object):
                 tid_list.append(tid)
         except:
             raise ProtocolError(self, 'invalid answer tids')
-        return tid_list
+        return (tid_list,)
     decode_table[ANSWER_TIDS] = _decodeAnswerTIDs
 
     def _decodeAskTransactionInformation(self):
@@ -1045,7 +1045,7 @@ class Packet(object):
             tid = unpack('8s', self._body)
         except:
             raise ProtocolError(self, 'invalid ask transaction information')
-        return tid
+        return (tid,)
     decode_table[ASK_TRANSACTION_INFORMATION] = _decodeAskTransactionInformation
 
     def _decodeAnswerTransactionInformation(self):

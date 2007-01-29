@@ -3,10 +3,11 @@ import logging
 from neo.storage.handler import StorageEventHandler
 from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
-from neo.utils import dump
+from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
-from neo.connetion import ClientConnection
+from neo.connection import ClientConnection
 from neo.protocol import Packet
+from neo.pt import PartitionTable
 
 class BootstrapEventHandler(StorageEventHandler):
     """This class deals with events for a bootstrap phase."""
@@ -19,7 +20,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
         p = Packet()
         msg_id = conn.getNextId()
-        p.requestNodeIdentification(msg_id, MASTER_NODE_TYPE, app.uuid,
+        p.requestNodeIdentification(msg_id, STORAGE_NODE_TYPE, app.uuid,
                                     app.server[0], app.server[1], app.name)
         conn.addPacket(p)
         conn.expectMessage(msg_id)
@@ -36,6 +37,8 @@ class BootstrapEventHandler(StorageEventHandler):
             # So this would effectively mean that it is dead.
             app.primary_master_node = None
 
+        app.trying_master_node = None
+
         StorageEventHandler.connectionFailed(self, conn)
 
     def connectionAccepted(self, conn, s, addr):
@@ -46,6 +49,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
     def timeoutExpired(self, conn):
         if isinstance(conn, ClientConnection):
+            app = self.app
             if app.trying_master_node is app.primary_master_node:
                 # If a primary master node timeouts, I should not rely on it.
                 app.primary_master_node = None
@@ -56,6 +60,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
     def connectionClosed(self, conn):
         if isinstance(conn, ClientConnection):
+            app = self.app
             if app.trying_master_node is app.primary_master_node:
                 # If a primary master node closes, I should not rely on it.
                 app.primary_master_node = None
@@ -66,6 +71,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
     def peerBroken(self, conn):
         if isinstance(conn, ClientConnection):
+            app = self.app
             if app.trying_master_node is app.primary_master_node:
                 # If a primary master node gets broken, I should not rely
                 # on it.
@@ -77,6 +83,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
     def handleNotReady(self, conn, packet, message):
         if isinstance(conn, ClientConnection):
+            app = self.app
             if app.trying_master_node is not None:
                 app.trying_master_node = None
 
@@ -87,6 +94,7 @@ class BootstrapEventHandler(StorageEventHandler):
         if isinstance(conn, ClientConnection):
             self.handleUnexpectedPacket(conn, packet)
         else:
+            app = self.app
             if node_type != MASTER_NODE_TYPE:
                 logging.info('reject a connection from a non-master')
                 conn.addPacket(Packet().notReady(packet.getId(), 'retry later'))
@@ -120,14 +128,16 @@ class BootstrapEventHandler(StorageEventHandler):
 
             p = Packet()
             p.acceptNodeIdentification(packet.getId(), STORAGE_NODE_TYPE,
-                                       app.uuid, app.server[0], app.server[1])
+                                       app.uuid, app.server[0], app.server[1],
+                                       0, 0)
             conn.addPacket(p)
 
             # Now the master node should know that I am not the right one.
             conn.abort()
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port):
+                                       uuid, ip_address, port,
+                                       num_partitions, num_replicas):
         if not isinstance(conn, ClientConnection):
             self.handleUnexpectedPacket(conn, packet)
         else:
@@ -143,10 +153,22 @@ class BootstrapEventHandler(StorageEventHandler):
                 # The server address is different! Then why was
                 # the connection successful?
                 logging.error('%s:%d is waiting for %s:%d',
-                              conn.getAddress()[0], conn.getAddress()[1], ip_address, port)
+                              conn.getAddress()[0], conn.getAddress()[1], 
+                              ip_address, port)
                 app.nm.remove(node)
                 conn.close()
                 return
+
+            if app.num_partitions is None:
+                app.num_partitions = num_partitions
+                app.num_replicas = num_replicas
+                app.pt = PartitionTable(num_partitions, num_replicas)
+                app.loadPartitionTable()
+                app.ptid = app.dm.getPTID()
+            elif app.num_partitions != num_partitions:
+                raise RuntimeError('the number of partitions is inconsistent')
+            elif app.num_replicas != num_replicas:
+                raise RuntimeError('the number of replicas is inconsistent')
 
             conn.setUUID(uuid)
             node.setUUID(uuid)
@@ -169,7 +191,6 @@ class BootstrapEventHandler(StorageEventHandler):
                 if n is None:
                     n = MasterNode(server = addr)
                     app.nm.add(n)
-                    app.unconnected_master_node_set.add(addr)
 
                 if uuid != INVALID_UUID:
                     # If I don't know the UUID yet, believe what the peer

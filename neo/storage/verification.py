@@ -3,10 +3,11 @@ import logging
 from neo.storage.handler import StorageEventHandler
 from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
-from neo.utils import dump
+from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
-from neo.connetion import ClientConnection
+from neo.connection import ClientConnection
 from neo.protocol import Packet
+from neo.exception import PrimaryFailure
 
 class VerificationEventHandler(StorageEventHandler):
     """This class deals with events for a verification phase."""
@@ -86,7 +87,8 @@ class VerificationEventHandler(StorageEventHandler):
             conn.abort()
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port):
+                                       uuid, ip_address, port,
+                                       num_partitions, num_replicas):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,

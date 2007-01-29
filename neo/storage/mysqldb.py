@@ -94,7 +94,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  tid BINARY(8) NOT NULL PRIMARY KEY,
                  oids MEDIUMBLOB NOT NULL,
                  user BLOB NOT NULL,
-                 desc BLOB NOT NULL,
+                 description BLOB NOT NULL,
                  ext BLOB NOT NULL
              ) ENGINE = InnoDB""")
 
@@ -113,7 +113,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  tid BINARY(8) NOT NULL,
                  oids MEDIUMBLOB NOT NULL,
                  user BLOB NOT NULL,
-                 desc BLOB NOT NULL,
+                 description BLOB NOT NULL,
                  ext BLOB NOT NULL
              ) ENGINE = InnoDB""")
 
@@ -402,10 +402,11 @@ class MySQLDatabaseManager(DatabaseManager):
         e = self.escape
         tid = e(tid)
         self.begin()
-        r = q("""SELECT oids, user, desc, ext FROM trans WHERE tid = '%s'""" \
+        r = q("""SELECT oids, user, description, ext FROM trans
+                    WHERE tid = '%s'""" \
                 % tid)
         if not r and all:
-            r = q("""SELECT oids, user, desc, ext FROM ttrans
+            r = q("""SELECT oids, user, description, ext FROM ttrans
                         WHERE tid = '%s'""" \
                     % tid)
         self.commit()

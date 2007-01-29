@@ -7,6 +7,7 @@ from neo.connection import ClientConnection
 from neo.exception import ElectionFailure
 from neo.protocol import Packet, INVALID_UUID
 from neo.util import dump
+from neo.node import MasterNode, StorageNode, ClientNode
 
 class ElectionEventHandler(MasterEventHandler):
     """This class deals with events for a primary master election."""
@@ -174,7 +175,7 @@ class ElectionEventHandler(MasterEventHandler):
             if node is None:
                 node = MasterNode(server = addr, uuid = uuid)
                 app.nm.add(node)
-                ap.unconnected_master_node_set.add(addr)
+                app.unconnected_master_node_set.add(addr)
             else:
                 # If this node is broken, reject it.
                 if node.getUUID() == uuid:

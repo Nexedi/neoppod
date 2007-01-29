@@ -2,6 +2,8 @@ import logging
 from select import select
 from time import time
 
+from neo.protocol import Packet
+
 class IdleEvent(object):
     """This class represents an event called when a connection is waiting for
     a message too long."""
@@ -72,8 +74,12 @@ class EventManager(object):
             conn.readable()
 
         for s in wlist:
-            conn = self.connection_dict[s]
-            conn.writable()
+            # This can fail, if a connection is closed in readable().
+            try:
+                conn = self.connection_dict[s]
+                conn.writable()
+            except KeyError:
+                pass
 
         # Check idle events. Do not check them out too often, because this
         # is somehow heavy.
@@ -83,9 +89,13 @@ class EventManager(object):
             if t - self.prev_time >= 1:
                 self.prev_time = t
                 event_list.sort(key = lambda event: event.getTime())
-                for event in tuple(event_list):
+                while event_list:
+                    event = event_list[0]
                     if event(t):
-                        event_list.pop(0)
+                        try:
+                            event_list.remove(event)
+                        except ValueError:
+                            pass
                     else:
                         break
 

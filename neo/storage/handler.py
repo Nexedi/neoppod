@@ -3,9 +3,9 @@ import logging
 from neo.handler import EventHandler
 from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
-from neo.utils import dump
+from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
-from neo.connetion import ClientConnection
+from neo.connection import ClientConnection
 
 class StorageEventHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -18,7 +18,8 @@ class StorageEventHandler(EventHandler):
         raise NotImplementedError('this method must be overridden')
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port):
+                                       uuid, ip_address, port,
+                                       num_partitions, num_replicas):
         raise NotImplementedError('this method must be overridden')
 
     def handleAskPrimaryMaster(self, conn, packet):
