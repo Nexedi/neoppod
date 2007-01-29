@@ -9,13 +9,19 @@ from neo.pt import PartitionTable
 
 from ZODB.TimeStamp import TimeStamp
 from ZODB.utils import p64
+from thread import get_ident
 
 class ClientEventHandler(EventHandler):
     """This class deals with events for a master."""
 
-    def __init__(self, app):
+    def __init__(self, app, dispatcher):
         self.app = app
+        self.dispatcher = dispatcher
         EventHandler.__init__(self)
+
+    def packetReceived(self, conn, packet):
+        logging.debug("received packet id %s" %(packet.getId(),))
+        self.dispatcher.message = conn, packet
 
     def handleNotReady(self, conn, packet, message):
         if isinstance(conn, ClientConnection):
@@ -54,8 +60,12 @@ class ClientEventHandler(EventHandler):
 
                 # Ask a primary master.
                 msg_id = conn.getNextId()
-                conn.addPacket(Packet().askPrimaryMaster(msg_id))
-                conn.expectMessage(msg_id)
+                p = Packet()
+                p.askPrimaryMaster(msg_id)
+                # send message to dispatcher
+                app.queue.put((app.local_var.tmp_q, msg_id, conn, p), True)
+            elif node_type == STORAGE_NODE_TYPE:
+                app.storage_node = node
         else:
             self.handleUnexpectedPacket(conn, packet)
 
@@ -206,8 +216,7 @@ class ClientEventHandler(EventHandler):
         if isinstance(conn, ClientConnection):
             app = self.app
             if tid != app.tid:
-                # What's this ?
-                raise NEOStorageError
+                app.txn_finished = -1
             else:
                 app.txn_finished = 1
         else:
@@ -225,16 +234,16 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     # Storage node handler
-    def handleAnwserObjectByOID(self, oid, start_serial, end_serial, compression,
-                                checksum, data):
+    def handleAnwserObject(self, conn, packet, oid, start_serial, end_serial, compression,
+                           checksum, data):
         if isinstance(conn, ClientConnection):
             app = self.app
-            app.loaded_object = (oid, start_serial, end_serial, compression,
-                                 checksum, data)
+            app.local_var.loaded_object = (oid, start_serial, end_serial, compression,
+                                           checksum, data)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerStoreObject(self, conflicting, oid, serial):
+    def handleAnswerStoreObject(self, conn, packet, conflicting, oid, serial):
         if isinstance(conn, ClientConnection):
             app = self.app
             if conflicting == '1':
@@ -244,14 +253,14 @@ class ClientEventHandler(EventHandler):
         else:
             self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerStoreTransaction(self, tid):
+    def handleAnswerStoreTransaction(self, conn, packet, tid):
         if isinstance(conn, ClientConnection):
             app = self.app
             app.txn_stored = 1
         else:
             self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerTransactionInformation(self, tid, user, desc, oid_list):
+    def handleAnswerTransactionInformation(self, conn, packet, tid, user, desc, oid_list):
         if isinstance(conn, ClientConnection):
             app = self.app
             # transaction information are returned as a dict
@@ -261,15 +270,34 @@ class ClientEventHandler(EventHandler):
             info['description'] = desc
             info['id'] = p64(long(tid))
             info['oids'] = oid_list
-            app.txn_info = info
+            app.local_var.txn_info = info
         else:
             self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerObjectHistory(self, oid, history_list):
+    def handleAnswerObjectHistory(self, conn, packet, oid, history_list):
         if isinstance(conn, ClientConnection):
             app = self.app
             # history_list is a list of tuple (serial, size)
             self.history = oid, history_list
+        else:
+            self.handleUnexpectedPacket(conn, packet)
+
+    def handleOidNotFound(self, conn, packet, message):
+        if isinstance(conn, ClientConnection):
+            app = self.app
+            # This can happen either when :
+            # - loading an object
+            # - asking for history
+            self.local_var.asked_object = -1
+            self.local_var.history = -1
+        else:
+            self.handleUnexpectedPacket(conn, packet)
+
+    def handleTidNotFound(self, conn, packet, message):
+        if isinstance(conn, ClientConnection):
+            app = self.app
+            # This can happen when requiring txn informations
+            self.local_var.txn_info = -1
         else:
             self.handleUnexpectedPacket(conn, packet)
 
