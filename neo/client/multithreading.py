@@ -5,6 +5,7 @@ class ThreadingMixIn:
 
     def process_method_thread(self, method, kw):
         m = getattr(self, method)
+        r = None
         try:
             r = m(**kw)
         finally:
