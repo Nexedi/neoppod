@@ -30,8 +30,9 @@ class ConnectionManager(object):
         self.connection_lock_acquire = l.acquire
         self.connection_lock_release = l.release
 
-    def _initNodeConnection(self, addr):
+    def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
+        addr = node.getServer()
         handler = ClientEventHandler(self.storage)
         conn = ClientConnection(self.storage.em, handler, addr)
         msg_id = conn.getNextId()
@@ -42,8 +43,17 @@ class ConnectionManager(object):
         self.storage.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
         self.storage.local_var.storage_node = None
         self.storage._waitMessage()
-        if self.storage.storage_node is None:
-            raise NEOStorageError('Connection to storage node failed')
+        if self.storage.storage_node == -1:
+            # Connection failed, notify primary master node
+            logging.error('Connection to storage node %s failed' %(addr,))
+            conn = self.storage.master_conn
+            msg_id = conn.getNextId()
+            p = Packet()
+            node_list = [(STORAGE_NODE_TYPE, addr[0], addr[1], node.getUUID(),
+                         TEMPORARILY_DOWN_STATE),]
+            p.notifyNodeInformation(msg_id, node_list)
+            self.storage.queue.put((None, msg_id, conn, p), True)
+            return None
         logging.debug('connected to storage node %s' %(addr,))
         return conn
 
@@ -62,7 +72,9 @@ class ConnectionManager(object):
             if self.pool_size > self.max_pool_size:
                 # must drop some unused connections
                 self.dropConnection()
-            conn = self._initNodeConnection(node.getServer())
+            conn = self._initNodeConnection(node)
+            if conn is None:
+                return None
             # add node to node manager
             if not self.storage.nm.hasNode(node):
                 n = StorageNode(node.getServer())
@@ -81,6 +93,11 @@ class ConnectionManager(object):
         else:
             # Create new connection to node
             return self._createNodeConnection(node)
+
+    def removeConnection(self, node):
+        """Explicitly remove connection when a node is broken."""
+        if self.connection_dict.has_key(node.getUUID()):
+            self.connection_dict.pop(node.getUUID())
 
 
 class Application(ThreadingMixIn, object):
@@ -177,6 +194,7 @@ class Application(ThreadingMixIn, object):
         self.nm.add(n)
 
         # Connect to defined master node and get primary master node
+        self.local_var.tmp_q = Queue(1)
         if self.primary_master_node is None:
             conn = ClientConnection(self.em, handler, defined_master_addr)
             msg_id = conn.getNextId()
@@ -185,13 +203,14 @@ class Application(ThreadingMixIn, object):
                                         defined_master_addr[0],
                                         defined_master_addr[1], self.name)
             # send message to dispatcher
-            self.local_var.tmp_q = Queue(1)
             self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
             self.primary_master_node = None
             self.node_not_ready = 0
 
             while 1:
                 self._waitMessage()
+                if self.primary_master_node == -1:
+                    raise NEOStorageError("Unable to initialize connection to master node %s" %(defined_master_addr,))
                 if self.primary_master_node is not None:
                     break
                 if self.node_not_ready:
@@ -199,7 +218,7 @@ class Application(ThreadingMixIn, object):
                     return
         logging.debug('primary master node is %s' %(self.primary_master_node.server,))
         # Close connection if not already connected to primary master node
-        if self.primary_master_node.server !=  defined_master_addr:
+        if self.primary_master_node.getServer() !=  defined_master_addr:
             for conn in self.em.getConnectionList():
                 if not isinstance(conn, ListeningConnection):
                     conn.close()
@@ -273,6 +292,8 @@ class Application(ThreadingMixIn, object):
         # Store data on each node
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node.getUUID())
+            if conn is None:
+                continue
             msg_id = conn.getNextId()
             p = Packet()
             p.askObject(msg_id, oid, serial, tid)
@@ -388,6 +409,8 @@ class Application(ThreadingMixIn, object):
         checksum = adler32(compressed_data)
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node.getUUID())
+            if conn is None:
+                continue
             msg_id = conn.getNextId()
             p = Packet()
             p.askStoreObject(msg_id, oid, serial, 1, checksum, compressed_data)
@@ -423,6 +446,8 @@ class Application(ThreadingMixIn, object):
         storage_node_list = self.pt.getCellList(partition_id, True)
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node.getUUID())
+            if conn is None:
+                continue
             msg_id = conn.getNextId()
             p = Packet()
             p.askStoreTransaction(msg_id, self.tid, user, desc, ext, oid_list)
@@ -456,6 +481,8 @@ class Application(ThreadingMixIn, object):
                 for storage_node in storage_node_list:
                     if not aborted_node.has_key(storage_node):
                         conn = self.cm.getConnForNode(storage_node.getUUID())
+                        if conn is None:
+                            continue
                         msg_id = conn.getNextId()
                         p = Packet()
                         p.abortTransaction(msg_id, self.tid)
@@ -468,6 +495,8 @@ class Application(ThreadingMixIn, object):
             for storage_node in storage_node_list:
                 if not aborted_node.has_key(storage_node):
                     conn = self.cm.getConnForNode(storage_node.getUUID())
+                    if conn is None:
+                        continue
                     msg_id = conn.getNextId()
                     p = Packet()
                     p.abortTransaction(msg_id, self.tid)
@@ -520,6 +549,8 @@ class Application(ThreadingMixIn, object):
         storage_node_list = self.pt.getCellList(partition_id, True)
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node.getUUID())
+            if conn is None:
+                continue
             msg_id = conn.getNextId()
             p = Packet()
             p.askTransactionInformation(msg_id, tid)
@@ -566,6 +597,8 @@ class Application(ThreadingMixIn, object):
         self.local_var.tmp_q = Queue(len(storage_node_list))
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node.getUUID())
+            if conn is None:
+                continue
             msg_id = conn.getNextId()
             p = Packet()
             p.askTIDs(msg_id, first, last)
@@ -591,6 +624,8 @@ class Application(ThreadingMixIn, object):
             storage_node_list = self.pt.getCellList(partition_id, True)
             for storage_node in storage_node_list:
                 conn = self.cm.getConnForNode(storage_node.getUUID())
+                if conn is None:
+                    continue
                 msg_id = conn.getNextId()
                 p = Packet()
                 p.askTransactionInformation(msg_id, tid)
@@ -627,6 +662,8 @@ class Application(ThreadingMixIn, object):
                              if x.getState() == UP_TO_DATE_STATE]
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node.getUUID())
+            if conn is None:
+                continue
             msg_id = conn.getNextId()
             p = Packet()
             p.askObjectHistory(msg_id, oid, length)
@@ -653,6 +690,8 @@ class Application(ThreadingMixIn, object):
             storage_node_list = self.pt.getCellList(partition_id, True)
             for storage_node in storage_node_list:
                 conn = self.cm.getConnForNode(storage_node.getUUID())
+                if conn is None:
+                    continue
                 msg_id = conn.getNextId()
                 p = Packet()
                 p.askTransactionInformation(msg_id, serial)

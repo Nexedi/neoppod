@@ -9,7 +9,7 @@ from neo.pt import PartitionTable
 
 from ZODB.TimeStamp import TimeStamp
 from ZODB.utils import p64
-from thread import get_ident
+
 
 class ClientEventHandler(EventHandler):
     """This class deals with events for a master."""
@@ -20,8 +20,91 @@ class ClientEventHandler(EventHandler):
         EventHandler.__init__(self)
 
     def packetReceived(self, conn, packet):
-        logging.debug("received packet id %s" %(packet.getId(),))
+        """Redirect all received packet to dispatcher thread."""
         self.dispatcher.message = conn, packet
+
+    def connectionFailed(self, conn):
+        app = self.app
+        uuid = conn.getUUID()
+        if app.primary_master_node is None:
+            # Failed to connect to a master node
+            app.primary_master_node = -1
+        elif uuid == self.app.primary_master_node.getUUID():
+            logging.critical("connection to primary master node failed")
+            raise NEOStorageError("connection to primary master node failed")
+        else:
+            # Connection to a storage node failed
+            app.storage_node = -1
+        EventHandler.connectionFailed(self, conn)
+
+    def connectionClosed(self, conn):
+        uuid = conn.getUUID()
+        if self.app.primary_master_node is None:
+            EventHandler.connectionClosed(self, conn)
+        if uuid == self.app.primary_master_node.getUUID():
+            logging.critical("connection to primary master node closed")
+            raise NEOStorageError("connection to primary master node closed")
+        else:
+            app = self.app
+            node = app.nm.getNodeByUUID(uuid)
+            if isinstance(node, StorageNode):
+                # Notify primary master node that a storage node is temporarily down
+                conn = app.master_conn
+                msg_id = conn.getNextId()
+                p = Packet()
+                ip_address, port =  node.getServer()
+                node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
+                             TEMPORARILY_DOWN_STATE),]
+                p.notifyNodeInformation(msg_id, node_list)
+                app.queue.put((None, msg_id, conn, p), True)
+                # Remove from pool connection
+                app.cm.removeConnection(node)
+        EventHandler.connectionClosed(self, conn)
+
+    def timeoutExpired(self, conn):
+        uuid = conn.getUUID()
+        if uuid == self.app.primary_master_node.getUUID():
+            logging.critical("connection timeout to primary master node expired")
+            raise NEOStorageError("connection timeout to primary master node expired")
+        else:
+            app = self.app
+            node = app.nm.getNodeByUUID(uuid)
+            if isinstance(node, StorageNode):
+                # Notify primary master node that a storage node is temporarily down
+                conn = app.master_conn
+                msg_id = conn.getNextId()
+                p = Packet()
+                ip_address, port =  node.getServer()
+                node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
+                             TEMPORARILY_DOWN_STATE),]
+                p.notifyNodeInformation(msg_id, node_list)
+                app.queue.put((None, msg_id, conn, p), True)
+                # Remove from pool connection
+                app.cm.removeConnection(node)
+        EventHandler.timeoutExpired(self, conn)
+
+    def peerBroken(self, conn):
+        uuid = conn.getUUID()
+        if uuid == self.app.primary_master_node.getUUID():
+            logging.critical("primary master node is broken")
+            raise NEOStorageError("primary master node is broken")
+        else:
+            app = self.app
+            node = app.nm.getNodeByUUID(uuid)
+            if isinstance(node, StorageNode):
+                # Notify primary master node that a storage node is broken
+                conn = app.master_conn
+                msg_id = conn.getNextId()
+                p = Packet()
+                ip_address, port =  node.getServer()
+                node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
+                             BROKEN_STATE),]
+                p.notifyNodeInformation(msg_id, node_list)
+                app.queue.put((None, msg_id, conn, p), True)
+                # Remove from pool connection
+                app.cm.removeConnection(node)
+        EventHandler.peerBroken(self, conn)
+
 
     def handleNotReady(self, conn, packet, message):
         if isinstance(conn, ClientConnection):
@@ -179,8 +262,8 @@ class ClientEventHandler(EventHandler):
                         else:
                             continue
                         app.app.nm.add(n)
-                    n.setState(state)
 
+                    n.setState(state)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
@@ -232,6 +315,13 @@ class ClientEventHandler(EventHandler):
             app.new_oid_list.reverse()
         else:
             self.handleUnexpectedPacket(conn, packet)
+
+    def handleStopOperation(self, conn, packet):
+        if isinstance(conn, ClientConnection):
+            raise NEOStorageError('operation stopped')
+        else:
+            self.handleUnexpectedPacket(conn, packet)
+
 
     # Storage node handler
     def handleAnwserObject(self, conn, packet, oid, start_serial, end_serial, compression,
