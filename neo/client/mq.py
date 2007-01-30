@@ -32,13 +32,13 @@ Multi-Queue Cache Algorithm.
 
 from math import log
 
-class Element:
+class Element(object):
   """
     This class defines an element of a FIFO buffer.
   """
   pass
       
-class FIFO:
+class FIFO(object):
   """
     This class implements a FIFO buffer.
   """
@@ -89,13 +89,13 @@ class FIFO:
       
     self._len -= 1      
     
-class Data:
+class Data(object):
   """
     Data for each element in a FIFO buffer.
   """
   pass
       
-class MQ:
+class MQ(object):
   """
     This class manages cached data by a variant of Multi-Queue.
     
@@ -139,15 +139,13 @@ class MQ:
     """
       Fetch a value associated with the id.
     """
-    if id in self._data:
-      data = self._data[id]
-      if data.level >= 0:
-        del self._cache_buffers[data.level][data.element]
-        value = data.value
-        self._size -= len(value) # XXX inaccurate
-        self.store(id, value)
-        return value
-    raise KeyError, "%s was not found in the cache" % id
+    data = self._data[id]
+    if data.level >= 0:
+      value = data.value
+      self._size -= len(value) # XXX inaccurate
+      self.store(id, value)
+      return value
+    raise KeyError(id)
   
   __getitem__ = fetch
   
@@ -175,21 +173,21 @@ class MQ:
       del self._data[element.data.id]
       
   def store(self, id, value):
-    if id in self._data:
+    cache_buffers = self._cache_buffers
+
+    try:
       data = self._data[id]
       level, element, counter = data.level, data.element, data.counter + 1
       if level >= 0:
-        del self._cache_buffers[level][element]
+        del cache_buffers[level][element]
       else:
         del self._history_buffer[element]
-    else:
+    except KeyError:
       counter = 1
       
     # XXX It might be better to adjust the level according to the object size.
-    level = int(log(counter, 2))
-    if level >= self._buffer_levels:
-      level = self._buffer_levels - 1
-    element = self._cache_buffers[level].append()
+    level = min(int(log(counter, 2)), self._buffer_levels - 1)
+    element = cache_buffers[level].append()
     data = Data()
     data.id = id
     data.expire_time = self._time + self._life_time
@@ -204,17 +202,18 @@ class MQ:
     self._time += 1
 
     # Expire old elements.
-    for level in range(self._buffer_levels):
-      cache_buffer = self._cache_buffers[level]
+    time = self._time
+    for level in xrange(self._buffer_levels):
+      cache_buffer = cache_buffers[level]
       head = cache_buffer.head()
-      if head is not None and head.data.expire_time < self._time:
+      if head is not None and head.data.expire_time < time:
         del cache_buffer[head]
         data = head.data
         if level > 0:
           new_level = level - 1
-          element = cache_buffer[new_level].append()
+          element = cache_buffers[new_level].append()
           element.data = data
-          data.expire_time = self._time + self._life_time
+          data.expire_time = time + self._life_time
           data.level = new_level
           data.element = element
         else:
@@ -224,7 +223,7 @@ class MQ:
     size = self._size
     max_size = self._max_size
     if size > max_size:
-      for cache_buffer in self._cache_buffers:
+      for cache_buffer in cache_buffers:
         while size > max_size:
           element = cache_buffer.shift()
           if element is None:
@@ -234,7 +233,7 @@ class MQ:
           size -= len(data.value) # XXX inaccurate
         if size <= max_size:
           break
-    self._size = size
+      self._size = size
     
   __setitem__ = store
   
@@ -252,11 +251,39 @@ class MQ:
   
 # Here is a test.
 if __name__ == '__main__':
-  cache = MQ()
-  cache[1] = "1"
-  cache[2] = "2"
-  assert cache.get(1) == "1", 'cannot get 1'
-  assert cache.get(2) == "2", 'cannot get 2'
-  assert cache.get(3) == None, 'can get 3!'
-  del cache[1]
-  assert cache.get(1) == None, 'can get 1!'
+    import hotshot, hotshot.stats
+
+    def test():
+        cache = MQ(life_time=100, buffer_levels=9, max_history_size=10000, 
+                   max_size=2*1024*1024)
+
+        for i in xrange(10000):
+            assert cache.get(i) is None, '%d should not be present' % i
+
+        for i in xrange(10000):
+            cache[i] = str(i)
+            assert cache.get(i) == str(i), '%d does not exist' % i
+
+        for i in xrange(10000 - 100 - 1):
+            assert cache.get(i) is None, '%d should not be present' % i
+
+        for i in xrange(10):
+            cache[i] = str(i)
+
+        for j in xrange(1000):
+            for i in xrange(10):
+                assert cache.get(i) == str(i), '%d does not exist' % i
+
+        for i in xrange(10,500):
+            cache[i] = str(i)
+
+        for i in xrange(10):
+            assert cache.get(i) == str(i), '%d does not exist' % i
+
+    prof = hotshot.Profile("mq.prof")
+    prof.runcall(test)
+    prof.close()
+    stats = hotshot.stats.load("mq.prof")
+    stats.strip_dirs()
+    stats.sort_stats('time', 'calls')
+    stats.print_stats(20)
