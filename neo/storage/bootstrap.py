@@ -8,6 +8,7 @@ from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo.protocol import Packet
 from neo.pt import PartitionTable
+from neo.storage.verification import VerificationEventHandler
 
 class BootstrapEventHandler(StorageEventHandler):
     """This class deals with events for a bootstrap phase."""
@@ -208,7 +209,11 @@ class BootstrapEventHandler(StorageEventHandler):
                     app.primary_master_node = primary_node
                     if app.trying_master_node is primary_node:
                         # I am connected to the right one.
-                        pass
+                        logging.info('connected to a primary master node')
+                        # This is a workaround to prevent handling of
+                        # packets for the verification phase.
+                        handler = VerificationEventHandler(app)
+                        conn.setHandler(handler)
                     else:
                         app.trying_master_node = None
                         conn.close()
@@ -222,6 +227,7 @@ class BootstrapEventHandler(StorageEventHandler):
                 conn.close()
 
     def handleAskLastIDs(self, conn, packet):
+        logging.info('got ask last ids')
         pass
 
     def handleAskPartitionTable(self, conn, packet, offset_list):

@@ -236,10 +236,10 @@ class MySQLDatabaseManager(DatabaseManager):
         tid_set = set()
         self.begin()
         r = q("""SELECT tid FROM ttrans""")
-        tid_set.add((t[0] for t in r))
+        tid_set.update((t[0] for t in r))
         r = q("""SELECT serial FROM tobj""")
         self.commit()
-        tid_set.add((t[0] for t in r))
+        tid_set.update((t[0] for t in r))
         return list(tid_set)
 
     def objectPresent(self, oid, tid, all = True):

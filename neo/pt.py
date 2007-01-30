@@ -1,7 +1,8 @@
 import logging
 
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
-        DISCARDED_STATE
+        DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
+        BROKEN_STATE
 
 class Cell(object):
     """This class represents a cell in a partition table."""
@@ -175,7 +176,11 @@ class PartitionTable(object):
                         cell_list.append((offset, uuid, DISCARDED_STATE))
                         break
 
-        del self.count_dict[node]
+        try:
+            del self.count_dict[node]
+        except KeyError:
+            pass
+
         return cell_list
 
     def addNode(self, node):

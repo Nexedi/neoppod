@@ -7,6 +7,7 @@ from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo.protocol import Packet
+from neo.exception import PrimaryFailure, OperationFailure
 
 class TransactionInformation(object):
     """This class represents information on a transaction."""

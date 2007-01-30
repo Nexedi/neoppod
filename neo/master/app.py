@@ -286,7 +286,7 @@ class Application(object):
 
     def broadcastPartitionChanges(self, ptid, cell_list):
         """Broadcast a Notify Partition Changes packet."""
-        for c in em.getConnectionList():
+        for c in self.em.getConnectionList():
             if c.getUUID() is not None:
                 n = self.nm.getNodeByUUID(c.getUUID())
                 if isinstance(n, (ClientNode, StorageNode)):
@@ -296,7 +296,8 @@ class Application(object):
                     while size:
                         amt = min(10000, size)
                         p = Packet()
-                        p.notifyPartitionChanges(ptid, cell_list[start:start+amt])
+                        p.notifyPartitionChanges(c.getNextId(), ptid, 
+                                                 cell_list[start:start+amt])
                         c.addPacket(p)
                         size -= amt
                         start += amt
@@ -349,14 +350,14 @@ class Application(object):
 
             # Now I have at least one to ask.
             prev_lptid = self.lptid
-            node = nm.getNodeByUUID(uuid)
+            node = nm.getNodeByUUID(self.target_uuid)
             if node.getState() != RUNNING_STATE:
                 # Weird. It's dead.
                 logging.info('the target storage node is dead')
                 continue
 
             for conn in em.getConnectionList():
-                if conn.getUUID() == self.lptid:
+                if conn.getUUID() == self.target_uuid:
                     break
             else:
                 # Why?
@@ -487,7 +488,7 @@ class Application(object):
         """Verify the data in storage nodes and clean them up, if necessary."""
         logging.info('start to verify data')
 
-        handler = VerificationEventHandler()
+        handler = VerificationEventHandler(self)
         em = self.em
         nm = self.nm
 
@@ -512,11 +513,13 @@ class Application(object):
                     for offset in xrange(self.num_partitions):
                         row_list.append((offset, self.pt.getRow(offset)))
                         if len(row_list) == 1000:
-                            p.sendPartitionTable(self.lptid, row_list)
+                            p.sendPartitionTable(conn.getNextId(), 
+                                                 self.lptid, row_list)
                             conn.addPacket(p)
                             del row_list[:]
                     if len(row_list) != 0:
-                        p.sendPartitionTable(conn.getNextId(), self.lptid, row_list)
+                        p.sendPartitionTable(conn.getNextId(), 
+                                             self.lptid, row_list)
                         conn.addPacket(p)
             
         # Gather all unfinished transactions.
@@ -605,7 +608,7 @@ class Application(object):
         a shutdown."""
         logging.info('provide service')
 
-        handler = ServiceEventHandler()
+        handler = ServiceEventHandler(self)
         em = self.em
         nm = self.nm
 

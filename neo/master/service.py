@@ -6,6 +6,7 @@ from neo.master.handler import MasterEventHandler
 from neo.protocol import Packet, INVALID_UUID
 from neo.exception import OperationFailure
 from neo.util import dump
+from neo.node import ClientNode, StorageNode, MasterNode
 
 class FinishingTransaction(object):
     """This class describes a finishing transaction."""

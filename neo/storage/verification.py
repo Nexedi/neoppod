@@ -1,12 +1,13 @@
 import logging
 
 from neo.storage.handler import StorageEventHandler
-from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
+from neo.protocol import INVALID_OID, INVALID_TID, INVALID_UUID, \
+        RUNNING_STATE, BROKEN_STATE, \
+        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
+        Packet
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
-from neo.protocol import Packet
 from neo.exception import PrimaryFailure
 
 class VerificationEventHandler(StorageEventHandler):
@@ -99,8 +100,9 @@ class VerificationEventHandler(StorageEventHandler):
         if isinstance(conn, ClientConnection):
             app = self.app
             p = Packet()
-            p.answerLastIDs(packet.getId(), app.dm.getLastOID(), 
-                            app.dm.getLastTID(), app.ptid)
+            oid = app.dm.getLastOID() or INVALID_OID
+            tid = app.dm.getLastTID() or INVALID_TID
+            p.answerLastIDs(packet.getId(), oid, tid, app.ptid)
             conn.addPacket(p)
         else:
             self.handleUnexpectedPacket(conn, packet)
