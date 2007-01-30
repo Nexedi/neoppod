@@ -49,8 +49,7 @@ class OperationEventHandler(StorageEventHandler):
         # I am a master node.
         StorageEventHandler.connectionAccepted(self, conn, s, addr)
 
-    def dealWithClientFailure(self, conn):
-        uuid = conn.getUUID()
+    def dealWithClientFailure(self, uuid):
         if uuid is not None:
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
@@ -79,7 +78,7 @@ class OperationEventHandler(StorageEventHandler):
                 # Otherwise, this connection is to another storage node.
                 raise NotImplemented
         else:
-            self.dealWithClientFailure(conn)
+            self.dealWithClientFailure(conn.getUUID())
 
         StorageEventHandler.timeoutExpired(self, conn)
 
@@ -93,7 +92,7 @@ class OperationEventHandler(StorageEventHandler):
                 # Otherwise, this connection is to another storage node.
                 raise NotImplemented
         else:
-            self.dealWithClientFailure(conn)
+            self.dealWithClientFailure(conn.getUUID())
 
         StorageEventHandler.connectionClosed(self, conn)
 
@@ -107,7 +106,7 @@ class OperationEventHandler(StorageEventHandler):
                 # Otherwise, this connection is to another storage node.
                 raise NotImplemented
         else:
-            self.dealWithClientFailure(conn)
+            self.dealWithClientFailure(conn.getUUID())
 
         StorageEventHandler.peerBroken(self, conn)
 

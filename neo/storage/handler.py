@@ -13,6 +13,9 @@ class StorageEventHandler(EventHandler):
         self.app = app
         EventHandler.__init__(self)
 
+    def dealWithClientFailure(self, uuid):
+        pass
+
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
         raise NotImplementedError('this method must be overridden')
@@ -139,6 +142,7 @@ class StorageEventHandler(EventHandler):
                         n = ClientNode(uuid = uuid)
                         app.nm.add(n)
                 else:
+                    self.dealWithClientFailure(uuid)
                     n = app.nm.getNodeByUUID(uuid)
                     if n is not None:
                         app.nm.remove(n)
