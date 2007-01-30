@@ -10,10 +10,13 @@ from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode
 from neo.connection import ListeningConnection, ClientConnection
 from neo.protocol import Packet, INVALID_UUID, INVALID_TID, CLIENT_NODE_TYPE, \
-     UP_TO_DATE_STATE, FEEDING_STATE
+     UP_TO_DATE_STATE, FEEDING_STATE, INVALID_SERIAL
 from neo.client.handler import ClientEventHandler
 from neo.client.NEOStorage import NEOStorageConflictError, NEOStorageNotFoundError
 from neo.client.multithreading import ThreadingMixIn
+
+from ZODB.POSException import UndoError
+
 
 class ConnectionManager(object):
     """This class manage a pool of connection to storage node."""
@@ -343,6 +346,8 @@ class Application(ThreadingMixIn, object):
                 self.cache[oid] = start_serial, data
             finally:
                 self.cache_lock_release()
+        if end_serial == INVALID_SERIAL:
+            end_serial = None
         return loads(data), start_serial, end_serial
 
 
@@ -420,14 +425,14 @@ class Application(ThreadingMixIn, object):
             # Check we don't get any conflict
             self.txn_object_stored = 0
             self._waitMessage()
-            if self.object_stored == -1:
+            if self.object_stored[0] == -1:
                 if self.txn_data_dict.has_key(oid):
                     # One storage already accept the object, is it normal ??
                     # remove from dict and raise ConflictError, don't care of
                     # previous node which already store data as it would be resent
                     # again if conflict is resolved or txn will be aborted
                     self.txn_data_dict.pop(oid)
-                raise NEOStorageConflictError()
+                raise NEOStorageConflictError(self.object_stored[1])
 
         # Store object in tmp cache
         noid, nserial = self.object_stored
@@ -472,25 +477,11 @@ class Application(ThreadingMixIn, object):
         """Abort current transaction."""
         if transaction is not self.txn:
             return
-        try:
-            # Abort txn in node where objects were stored
-            aborted_node = {}
-            for oid in self.txn_oid_list:
-                partition_id = oid % self.num_paritions
-                storage_node_list = self.pt.getCellList(partition_id, True)
-                for storage_node in storage_node_list:
-                    if not aborted_node.has_key(storage_node):
-                        conn = self.cm.getConnForNode(storage_node.getUUID())
-                        if conn is None:
-                            continue
-                        msg_id = conn.getNextId()
-                        p = Packet()
-                        p.abortTransaction(msg_id, self.tid)
-                        self.queue.put((None, msg_id, conn, p), True)
-                    aborted_node[storage_node] = 1
 
-            # Abort in nodes where transaction was stored
-            partition_id = self.tid % self.num_paritions
+        # Abort txn in node where objects were stored
+        aborted_node = {}
+        for oid in self.txn_oid_list:
+            partition_id = oid % self.num_paritions
             storage_node_list = self.pt.getCellList(partition_id, True)
             for storage_node in storage_node_list:
                 if not aborted_node.has_key(storage_node):
@@ -501,46 +492,57 @@ class Application(ThreadingMixIn, object):
                     p = Packet()
                     p.abortTransaction(msg_id, self.tid)
                     self.queue.put((None, msg_id, conn, p), True)
-        finally:
-            self._clear_txn()
+                aborted_node[storage_node] = 1
+
+        # Abort in nodes where transaction was stored
+        partition_id = self.tid % self.num_paritions
+        storage_node_list = self.pt.getCellList(partition_id, True)
+        for storage_node in storage_node_list:
+            if not aborted_node.has_key(storage_node):
+                conn = self.cm.getConnForNode(storage_node.getUUID())
+                if conn is None:
+                    continue
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.abortTransaction(msg_id, self.tid)
+                self.queue.put((None, msg_id, conn, p), True)
+
+        self._clear_txn()
 
 
     def tpc_finish(self, transaction, f=None):
         """Finish current transaction."""
         if self.txn is not transaction:
             return
+        # Call function given by ZODB
+        if f is not None:
+          f()
+        # Call finish on master
+        conn = self.master_conn
+        msg_id = conn.getNextId()
+        p = Packet()
+        p.finishTransaction(msg_id, self.oid_list, self.tid)
+        self.local_var.tmp_q = Queue(1)
+        self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
+        # Wait for answer
+        self._waitMessage()
+        if self.txn_finished != 1:
+            raise NEOStorateError('tpc_finish failed')
+
+        # Update cache
+        self.cache_lock_acquire()
         try:
-            # Call function given by ZODB
-            if f is not None:
-              f()
-            # Call finish on master
-            conn = self.master_conn
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.finishTransaction(msg_id, self.oid_list, self.tid)
-            self.local_var.tmp_q = Queue(1)
-            self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
-            # Wait for answer
-            self._waitMessage()
-            if self.txn_finished != 1:
-                raise NEOStorateError('tpc_finish failed')
-
-            # Update cache
-            self.cache_lock_acquire()
-            try:
-                for oid in self.txn_data_dict.keys:
-                    ddata = self.txn_data_dict[oid]
-                    # Now serial is same as tid
-                    self.cache[oid] = self.tid, ddata
-            finally:
-                self.cache_lock_release()
-            return self.tid
+            for oid in self.txn_data_dict.keys:
+                ddata = self.txn_data_dict[oid]
+                # Now serial is same as tid
+                self.cache[oid] = self.tid, ddata
         finally:
-            self._clear_txn()
+            self.cache_lock_release()
+        self._clear_txn()
+        return self.tid
 
 
-    def undo(self, transaction_id, txn):
-        # XXX conflict and non-undoable txn management is missing
+    def undo(self, transaction_id, txn, wrapper):
         if transaction is not self.txn:
             raise POSException.StorageTransactionError(self, transaction)
 
@@ -574,13 +576,35 @@ class Application(ThreadingMixIn, object):
         # Second get object data from storage node using loadBefore
         data_dict = {}
         for oid in oid_list:
-            data, start, end = self.loadBefore(oid, transaction_id)
+            try:
+                data, start, end = self.loadBefore(oid, transaction_id)
+            except NEOStorageNotFoundError:
+                # Object created by transaction, so no previous record
+                data_dict[oid] = None
+                continue
+            # end must be TID we are going to undone otherwise it means
+            # a later transaction modify the object
+            if end != transaction_id:
+                raise UndoError("non-undoable transaction")
             data_dict[oid] = data
         # Third do transaction with old data
         self.tpc_begin(txn)
+
         for oid in data_dict.keys():
             data = data_dict[oid]
-            self.store(oid, self.tid, data, None, txn)
+            try:
+                self.store(oid, self.tid, data, None, txn)
+            except NEOStorageConflictError, serial:
+                if serial <= self.tid:
+                    new_data = wrapper.tryToResolveConflict(oid, self.tid, serial
+                                                            data)
+                    if new_data is not None:
+                        self.store(oid, self.tid, new_data, None, txn)
+                        continue
+                raise POSException.ConflictError(oid=oid,
+                                                 serials=(self.tid,
+                                                          serial),data=data)
+
         self.tpc_vote(txn)
         self.tpc_finish(txn)
 

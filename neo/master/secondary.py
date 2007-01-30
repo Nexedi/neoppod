@@ -102,7 +102,7 @@ class SecondaryEventHandler(MasterEventHandler):
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
-            if node_type != MASTER_NODE:
+            if node_type != MASTER_NODE_TYPE:
                 # No interest.
                 continue
 

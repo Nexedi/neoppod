@@ -100,17 +100,19 @@ class NEOStorage(BaseStorage.BaseStorage,
             raise POSException.ReadOnlyError()
         try:
             return self.app.process_method('store', oid=oid, serial=serial, data=data,
-                                    version=version, transaction=transaction)
-        except NEOStorageConflictError:
-            new_data = self.tryToResolveConflict(oid, self.app.tid,
-                                                     serial, data)
-            if new_data is not None:
-                # try again after conflict resolution
-                self.store(oid, serial, new_data, version, transaction)
-            else:
-                raise POSException.ConflictError(oid=oid,
-                                                 serials=(self.app.tid,
-                                                          serial),data=data)
+                                           version=version, transaction=transaction)
+        except NEOStorageConflictError, conflict_serial:
+            if conflict_serial <= self.app.tid:
+                # Try to resolve conflict only if conflicting serial is older
+                # than the current transaction ID
+                new_data = self.tryToResolveConflict(oid, self.app.tid,
+                                                         serial, data)
+                if new_data is not None:
+                    # Try again after conflict resolution
+                    return self.store(oid, serial, new_data, version, transaction)
+            raise POSException.ConflictError(oid=oid,
+                                             serials=(self.app.tid,
+                                                      serial),data=data)
 
     def _clear_temp(self):
         raise NotImplementedError
@@ -143,7 +145,7 @@ class NEOStorage(BaseStorage.BaseStorage,
             raise POSException.ReadOnlyError()
         self._txn_lock_acquire()
         try:
-            return self.app.process_method('undo', transaction_id=transaction_id, txn=txn)
+            return self.app.process_method('undo', transaction_id=transaction_id, txn=txn, wrapper=self)
         except:
             self._txn_lock_release()
 

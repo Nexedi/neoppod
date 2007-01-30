@@ -3,9 +3,10 @@ import logging
 from neo.handler import EventHandler
 from neo.connection import ClientConnection
 from neo.protocol import Packet, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-     INVALID_UUID
+     INVALID_UUID, TEMPORARILY_DOWN_STATE, BROKEN_STATE
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.pt import PartitionTable
+from neo.client.NEOStorage import NEOStorageError
 
 from ZODB.TimeStamp import TimeStamp
 from ZODB.utils import p64
@@ -242,19 +243,19 @@ class ClientEventHandler(EventHandler):
                 else:
                     n = app.app.nm.getNodeByServer(addr)
                     if n is None:
-                        if node_type == MASTER_NODE:
+                        if node_type == MASTER_NODE_TYPE:
                             n = MasterNode(server = addr)
                             if uuid != INVALID_UUID:
                                 # If I don't know the UUID yet, believe what the peer
                                 # told me at the moment.
                                 if n.getUUID() is None:
                                     n.setUUID(uuid)
-                        elif node_typ == STORAGE_NODE:
+                        elif node_type == STORAGE_NODE_TYPE:
                             if uuid == INVALID_UUID:
                                 # No interest.
                                 continue
                             n = StorageNode(server = addr)
-                        elif node_typ == CLIENT_NODE:
+                        elif node_type == CLIENT_NODE_TYPE:
                             if uuid == INVALID_UUID:
                                 # No interest.
                                 continue
@@ -306,7 +307,17 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleInvalidateObjects(self, conn, packet, oid_list):
-        raise NotImplementedError('this method must be overridden')
+        if isinstance(conn, ClientConnection):
+            app = self.app
+            app._cache_lock_acquire()
+            try:
+                for oid in oid_list:
+                    if app.cache.has_key(oid):
+                        del app.cache[oid]
+            finally:
+                app._cache_lock_release()
+        else:
+            self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerNewOIDs(self, conn, packet, oid_list):
         if isinstance(conn, ClientConnection):
@@ -337,7 +348,7 @@ class ClientEventHandler(EventHandler):
         if isinstance(conn, ClientConnection):
             app = self.app
             if conflicting == '1':
-                app.object_stored = -1
+                app.object_stored = -1, serial
             else:
                 app.object_stored = oid, serial
         else:
