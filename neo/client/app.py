@@ -18,7 +18,7 @@ from neo.client.NEOStorage import NEOStorageError, NEOStorageConflictError, \
         NEOStorageNotFoundError
 from neo.client.multithreading import ThreadingMixIn
 
-from ZODB.POSException import UndoError, StorageTransactionError
+from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 
 
 class ConnectionManager(object):
@@ -60,7 +60,7 @@ class ConnectionManager(object):
             p.notifyNodeInformation(msg_id, node_list)
             self.storage.queue.put((None, msg_id, conn, p), True)
             return None
-        logging.debug('connected to storage node %s' %(addr,))
+        logging.info('connected to storage node %s' %(addr,))
         return conn
 
     def _dropConnection(self,):
@@ -128,6 +128,7 @@ class Application(ThreadingMixIn, object):
         self.uuid = None
         self.mq_cache = MQ()
         self.new_oid_list = []
+        self.ptid = None
         # Transaction specific variable
         self.tid = None
         self.txn = None
@@ -175,11 +176,18 @@ class Application(ThreadingMixIn, object):
                     pass
         logging.info("connected to primary master node")
 
-    def _waitMessage(self):
+    def _waitMessage(self,block=1):
         """Wait for a message returned by dispatcher in queues."""
         # First get message we are waiting for
         message = None
-        message = self.local_var.tmp_q.get(True, None)
+        if block:
+            message = self.local_var.tmp_q.get(True, None)
+        else:
+            # we don't want to block until we got a message
+            try:
+                message = self.local_var.tmp_q.get_nowait()
+            except Empty:
+                pass
         if message is not None:
             message[0].handler.dispatch(message[0], message[1])
         # Now check if there is global messages and execute them
@@ -190,7 +198,7 @@ class Application(ThreadingMixIn, object):
             except Empty:
                 break
             if global_message is not None:
-                global_message[0].handler.dispatch(message[0], message[1])
+                global_message[0].handler.dispatch(global_message[0], global_message[1])
 
 
     def connectToPrimaryMasterNode(self, defined_master_addr):
@@ -214,7 +222,7 @@ class Application(ThreadingMixIn, object):
             self.node_not_ready = 0
 
             while 1:
-                self._waitMessage()
+                self._waitMessage(block=0)
                 if self.primary_master_node == -1:
                     raise NEOStorageError("Unable to initialize connection to master node %s" %(defined_master_addr,))
                 if self.primary_master_node is not None:
@@ -222,12 +230,11 @@ class Application(ThreadingMixIn, object):
                 if self.node_not_ready:
                     # must wait
                     return
-        logging.debug('primary master node is %s' %(self.primary_master_node.server,))
+        logging.info('primary master node is %s' %(self.primary_master_node.server,))
         # Close connection if not already connected to primary master node
         if self.primary_master_node.getServer() !=  defined_master_addr:
             for conn in self.em.getConnectionList():
-                if not isinstance(conn, ListeningConnection):
-                    conn.close()
+                conn.close()
 
             # Connect to primary master node
             conn = ClientConnection(self.em, handler, self.primary_master_node.server)
@@ -242,7 +249,7 @@ class Application(ThreadingMixIn, object):
         self.master_conn = conn
         # Wait for primary master node information
         while 1:
-            self._waitMessage()
+            self._waitMessage(block=0)
             if self.pt.filled()  or self.node_not_ready:
                 break
 
@@ -600,7 +607,7 @@ class Application(ThreadingMixIn, object):
                 self.store(oid, self.tid, data, None, txn)
             except NEOStorageConflictError, serial:
                 if serial <= self.tid:
-                    new_data = wrapper.tryToResolveConflict(oid, self.tid, 
+                    new_data = wrapper.tryToResolveConflict(oid, self.tid,
                                                             serial, data)
                     if new_data is not None:
                         self.store(oid, self.tid, new_data, None, txn)
