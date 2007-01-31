@@ -129,6 +129,8 @@ class Application(ThreadingMixIn, object):
         self.mq_cache = MQ()
         self.new_oid_list = []
         self.ptid = None
+        self.num_replicas = 0
+        self.num_partitions = 0
         # Transaction specific variable
         self.tid = None
         self.txn = None

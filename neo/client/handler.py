@@ -143,7 +143,8 @@ class ClientEventHandler(EventHandler):
                 # Create partition table if necessary
                 if app.pt is None:
                     app.pt = PartitionTable(num_partitions, num_replicas)
-
+                    app.num_partitions = num_partitions
+                    app.num_replicas = num_replicas
                 # Ask a primary master.
                 msg_id = conn.getNextId()
                 p = Packet()
