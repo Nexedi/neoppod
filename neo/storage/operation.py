@@ -156,7 +156,8 @@ class OperationEventHandler(StorageEventHandler):
 
             p = Packet()
             p.acceptNodeIdentification(packet.getId(), STORAGE_NODE_TYPE,
-                                       app.uuid, app.server[0], app.server[1])
+                                       app.uuid, app.server[0], app.server[1],
+                                       app.num_partitions, app.num_replicas)
             conn.addPacket(p)
 
             if node_type == MASTER_NODE_TYPE:
