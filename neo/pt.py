@@ -25,6 +25,9 @@ class Cell(object):
     def getUUID(self):
         return self.node.getUUID()
 
+    def getServer(self):
+        return self.node.getServer()
+
 class PartitionTable(object):
     """This class manages a partition table."""
 
@@ -168,7 +171,7 @@ class PartitionTable(object):
                             node = self.findLeastUsedNode([cell.getNode() for cell in row])
                             if node is not None:
                                 row.append(Cell(node, OUT_OF_DATE_STATE))
-                                cell_list.append((offset, node.getUUID(), 
+                                cell_list.append((offset, node.getUUID(),
                                                   OUT_OF_DATE_STATE))
                         row.remove(cell)
                         cell_list.append((offset, uuid, DISCARDED_STATE))
@@ -218,7 +221,7 @@ class PartitionTable(object):
                 if max_count - node_count > 1:
                     if feeding_cell is not None \
                             or max_cell.getState() == OUT_OF_DATE_STATE:
-                        # If there is a feeding cell already or it is out-of-date, 
+                        # If there is a feeding cell already or it is out-of-date,
                         # just drop the node.
                         row.remove(max_cell)
                         cell_list.append((offset, max_cell.getUUID(), DISCARDED_STATE))
