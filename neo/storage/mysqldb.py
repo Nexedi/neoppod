@@ -264,7 +264,7 @@ class MySQLDatabaseManager(DatabaseManager):
         oid = e(oid)
         if tid is not None:
             tid = e(tid)
-            r = q("""SELECT serial, compression, checksum, data FROM obj
+            r = q("""SELECT serial, compression, checksum, value FROM obj
                         WHERE oid = '%s' AND serial = '%s'""" \
                     % (oid, tid))
             try:
@@ -274,7 +274,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 return None
         elif before_tid is not None:
             before_tid = e(before_tid)
-            r = q("""SELECT serial, compression, checksum, data FROM obj
+            r = q("""SELECT serial, compression, checksum, value FROM obj
                         WHERE oid = '%s' AND serial < '%s'
                         ORDER BY serial DESC LIMIT 1""" \
                     % (oid, before_tid))
@@ -293,7 +293,7 @@ class MySQLDatabaseManager(DatabaseManager):
         else:
             # XXX I want to express "HAVING serial = MAX(serial)", but
             # MySQL does not use an index for a HAVING clause!
-            r = q("""SELECT serial, compression, checksum, data FROM obj
+            r = q("""SELECT serial, compression, checksum, value FROM obj
                         WHERE oid = '%s' ORDER BY serial DESC LIMIT 1""" \
                     % oid)
             try:
@@ -424,7 +424,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         e = self.escape
         oid = e(oid)
-        r = q("""SELECT serial, LENGTH(data) FROM obj WHERE oid = '%s'
+        r = q("""SELECT serial, LENGTH(value) FROM obj WHERE oid = '%s'
                     ORDER BY serial DESC LIMIT %d""" \
                 % (oid, length))
         if r:
