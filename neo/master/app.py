@@ -256,7 +256,14 @@ class Application(object):
         node_type = node.getNodeType()
         state = node.getState()
         uuid = node.getUUID()
-        ip_address, port = node.getServer()
+
+        # The server address may be None.
+        addr = node.getServer()
+        if addr is None:
+            ip_address, port = None, None
+        else:
+            ip_address, port = addr
+
         if ip_address is None:
             ip_address = '0.0.0.0'
         if port is None:
