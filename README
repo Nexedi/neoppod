@@ -18,3 +18,37 @@ TODO
       a handler, otherwise too tricky to exchange a handler with another
 
     - Replication.
+
+Installation
+
+1. In zope:
+
+   a. Copy neo directory to /path/to/your/zope/lib/python
+
+   b. Edit your zope.conf,  remove the `zodb_zb` section that refers to
+      FileStorage, and replace it with :
+
+      %import neo
+      <zodb_db main>
+          # Main FileStorage database
+          <NEOStorage>
+                master_addr "127.0.0.1"
+                master_port 10010
+                name "main"
+          </NEOStorage>
+          mount-point /
+      </zodb_db>
+
+   c. Start zope
+
+2. In a python script:
+
+   a. Set your PYTHONPATH in order to be able to import Zope lib:
+
+     $ export PYTHONPATH=/path/to/your/zope/lib/python:$PYTHONPATH
+
+   b. Just create the storage object and play with it:
+
+   from neo.client.NEOStorare import NEOStorage
+   s = NEOStorage(master_addr="127.0.0.1", master_port=10010, name="main")
+   ...
