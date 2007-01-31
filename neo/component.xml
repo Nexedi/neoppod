@@ -1,0 +1,23 @@
+<component prefix="neo.client.config">
+  <sectiontype name="NEOStorage" datatype=".NEOStorage"
+               implements="ZODB.storage">
+     <description>
+       A scalable storage for Zope
+     </description>
+     <key name="master_addr" required="yes">
+      <description>
+       Give the ip of the master node
+      </description>
+     </key>
+     <key name="master_port" required="yes">
+      <description>
+       Give the port of the master node
+      </description>
+     </key>
+     <key name="name" required="yes">
+      <description>
+       Give the name of the cluster
+      </description>
+     </key>
+  </sectiontype>
+</component>
