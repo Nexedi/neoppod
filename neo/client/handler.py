@@ -417,8 +417,8 @@ class ClientEventHandler(EventHandler):
             # This can happen either when :
             # - loading an object
             # - asking for history
-            self.local_var.asked_object = -1
-            self.local_var.history = -1
+            app.local_var.asked_object = -1
+            app.local_var.history = -1
         else:
             self.handleUnexpectedPacket(conn, packet)
 
@@ -426,7 +426,7 @@ class ClientEventHandler(EventHandler):
         if isinstance(conn, ClientConnection):
             app = self.app
             # This can happen when requiring txn informations
-            self.local_var.txn_info = -1
+            app.local_var.txn_info = -1
         else:
             self.handleUnexpectedPacket(conn, packet)
 
