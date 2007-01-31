@@ -19,6 +19,8 @@ class NEOStorage(BaseStorage.BaseStorage,
                  ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
 
+    __name__ = 'NEOStorage'
+
     def __init__(self, master_addr, master_port, name, read_only=False, **kw):
         self._is_read_only = read_only
         # Transaction must be under protection of lock
