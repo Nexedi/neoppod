@@ -311,7 +311,7 @@ class Application(ThreadingMixIn, object):
                 continue
             msg_id = conn.getNextId()
             p = Packet()
-            p.askObject(msg_id, oid, serial, tid)
+            p.askObject(msg_id, str(oid), str(serial), str(tid))
             self.local_var.tmp_q = Queue(1)
             self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
 
@@ -328,7 +328,7 @@ class Application(ThreadingMixIn, object):
                 continue
 
             # Check data
-            noid, start_serial, end_serial, compression, checksum, data = self.local_var.loaded_object
+            noid, start_serial, end_serial, compression, checksum, data = self.local_var.asked_object
             if noid != oid:
                 # Oops, try with next node
                 logging.error('got wrong oid %s instead of %s from node %s' \
@@ -343,7 +343,7 @@ class Application(ThreadingMixIn, object):
                 # Everything looks allright
                 break
 
-        if self.local_var.loaded_object == -1:
+        if self.local_var.asked_object == -1:
             # We didn't got any object from all storage node
             raise NEOStorageNotFoundError()
 
