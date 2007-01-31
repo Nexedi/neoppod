@@ -6,7 +6,7 @@ from neo.master.handler import MasterEventHandler
 from neo.connection import ClientConnection
 from neo.exception import ElectionFailure, PrimaryFailure
 from neo.protocol import Packet, INVALID_UUID
-from neo.util import dump
+from neo.node import MasterNode
 
 class SecondaryEventHandler(MasterEventHandler):
     """This class deals with events for a secondary master."""

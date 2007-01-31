@@ -1,16 +1,14 @@
 import logging
 import os
-from socket import inet_aton
 from time import time, gmtime
 from struct import pack, unpack
 
 from neo.config import ConfigurationManager
-from neo.protocol import Packet, ProtocolError, \
+from neo.protocol import Packet, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, CLIENT_NODE_TYPE
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
-from neo.util import dump
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
 from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure, \
         OperationFailure
@@ -282,7 +280,7 @@ class Application(object):
                     p.notifyNodeInformation(c.getNextId(), node_list)
                     c.addPacket(p)
         else:
-            raise Runtime, 'unknown node type'
+            raise RuntimeError('unknown node type')
 
     def broadcastPartitionChanges(self, ptid, cell_list):
         """Broadcast a Notify Partition Changes packet."""
@@ -600,7 +598,8 @@ class Application(object):
 
         # If anything changed, send the changes.
         if cell_list:
-            app.broadcastPartitionChanges(self.getNextPartitionTableID(), cell_list)
+            self.broadcastPartitionChanges(self.getNextPartitionTableID(), 
+                                           cell_list)
 
     def provideService(self):
         """This is the normal mode for a primary master node. Handle transactions

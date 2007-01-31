@@ -1,11 +1,13 @@
 import logging
 
 from neo.handler import EventHandler
-from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
+from neo.protocol import Packet, \
+        INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
+from neo.exception import PrimaryFailure
 
 class StorageEventHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -28,6 +30,7 @@ class StorageEventHandler(EventHandler):
     def handleAskPrimaryMaster(self, conn, packet):
         """This should not be used in reality, because I am not a master
         node. But? If someone likes to ask me, I can help."""
+        logging.info('asked a primary master node')
         app = self.app
 
         if app.primary_master_node is not None:

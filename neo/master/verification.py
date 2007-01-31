@@ -1,9 +1,9 @@
 import logging
 
-from neo.protocol import MASTER_NODE_TYPE, \
+from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
 from neo.master.handler import MasterEventHandler
-from neo.exception import VerificationFailure
+from neo.exception import VerificationFailure, ElectionFailure
 from neo.protocol import Packet, INVALID_UUID
 from neo.util import dump
 from neo.node import ClientNode, StorageNode, MasterNode
@@ -102,7 +102,7 @@ class VerificationEventHandler(MasterEventHandler):
                 if node_type == MASTER_NODE_TYPE:
                     node = MasterNode(server = addr, uuid = uuid)
                 else:
-                    node = StorageNode(server = address, uuid = uuid)
+                    node = StorageNode(server = addr, uuid = uuid)
                 app.nm.add(node)
                 app.broadcastNodeInformation(node)
             else:
@@ -247,7 +247,7 @@ class VerificationEventHandler(MasterEventHandler):
 
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
-            if node_type == CLIENT_NODE:
+            if node_type == CLIENT_NODE_TYPE:
                 # No interest.
                 continue
             

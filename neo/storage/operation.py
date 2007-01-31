@@ -1,7 +1,8 @@
 import logging
 
 from neo.storage.handler import StorageEventHandler
-from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
+from neo.protocol import INVALID_UUID, INVALID_SERIAL, INVALID_TID, \
+        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
@@ -115,6 +116,7 @@ class OperationEventHandler(StorageEventHandler):
         if isinstance(conn, ClientConnection):
             self.handleUnexpectedPacket(conn, packet)
         else:
+            app = self.app
             if name != app.name:
                 logging.error('reject an alien cluster')
                 conn.addPacket(Packet().protocolError(packet.getId(),
@@ -384,7 +386,7 @@ class OperationEventHandler(StorageEventHandler):
                 return
 
         # Now store the object.
-        t = app.transaction_dict.setdefault(tid, Transaction(uuid))
+        t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
         t.addObject(oid, compression, checksum, data)
         conn.addPacket(Packet().answerStoreObject(packet.getId(), 0, 
                                                   oid, serial))

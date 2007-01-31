@@ -2,12 +2,11 @@ import logging
 
 from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        STORAGE_NODE_TYPE
+        STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.exception import ElectionFailure
 from neo.protocol import Packet, INVALID_UUID
 from neo.node import ClientNode, StorageNode, MasterNode
-from neo.util import dump
 
 class RecoveryEventHandler(MasterEventHandler):
     """This class deals with events for a recovery phase."""
@@ -226,7 +225,7 @@ class RecoveryEventHandler(MasterEventHandler):
 
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
-            if node_type == CLIENT_NODE:
+            if node_type == CLIENT_NODE_TYPE:
                 # No interest.
                 continue
             
@@ -301,7 +300,7 @@ class RecoveryEventHandler(MasterEventHandler):
         elif app.lptid == lptid and app.target_uuid is None:
             app.target_uuid = uuid
 
-    def handleAnswerPartitionTable(self, conn, packet, ptid, cell_list):
+    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()
         if uuid is None:
             self.handleUnexpectedPacket(conn, packet)

@@ -1,21 +1,17 @@
 import logging
-import MySQLdb
 import os
 from time import time
-from struct import pack, unpack
+from struct import unpack
 from collections import deque
 
 from neo.config import ConfigurationManager
-from neo.protocol import Packet, ProtocolError, \
-        RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID
+from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
+        INVALID_UUID, INVALID_PTID
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
-from neo.util import dump
-from neo.connection import ListeningConnection, ClientConnection, ServerConnection
+from neo.connection import ListeningConnection, ClientConnection 
 from neo.exception import OperationFailure, PrimaryFailure
-from neo.pt import PartitionTable
 from neo.storage.bootstrap import BootstrapEventHandler
 from neo.storage.verification import VerificationEventHandler
 from neo.storage.operation import OperationEventHandler

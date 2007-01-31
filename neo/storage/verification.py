@@ -1,14 +1,14 @@
 import logging
 
 from neo.storage.handler import StorageEventHandler
-from neo.protocol import INVALID_OID, INVALID_TID, INVALID_UUID, \
-        RUNNING_STATE, BROKEN_STATE, \
+from neo.protocol import INVALID_OID, INVALID_TID, \
+        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         Packet
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
-from neo.exception import PrimaryFailure
+from neo.exception import PrimaryFailure, OperationFailure
 
 class VerificationEventHandler(StorageEventHandler):
     """This class deals with events for a verification phase."""
@@ -48,6 +48,7 @@ class VerificationEventHandler(StorageEventHandler):
         if isinstance(conn, ClientConnection):
             self.handleUnexpectedPacket(conn, packet)
         else:
+            app = self.app
             if node_type != MASTER_NODE_TYPE:
                 logging.info('reject a connection from a non-master')
                 conn.addPacket(Packet().notReady(packet.getId(), 'retry later'))

@@ -1,11 +1,10 @@
 import logging
 
-from neo.protocol import MASTER_NODE_TYPE, \
+from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
 from neo.master.handler import MasterEventHandler
 from neo.protocol import Packet, INVALID_UUID
-from neo.exception import OperationFailure
-from neo.util import dump
+from neo.exception import OperationFailure, ElectionFailure
 from neo.node import ClientNode, StorageNode, MasterNode
 
 class FinishingTransaction(object):
@@ -128,7 +127,7 @@ class ServiceEventHandler(MasterEventHandler):
                 elif node_type == CLIENT_NODE_TYPE:
                     node = ClientNode(uuid = uuid)
                 else:
-                    node = StorageNode(server = address, uuid = uuid)
+                    node = StorageNode(server = addr, uuid = uuid)
                 app.nm.add(node)
                 app.broadcastNodeInformation(node)
             else:
@@ -285,7 +284,7 @@ class ServiceEventHandler(MasterEventHandler):
 
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
-            if node_type == CLIENT_NODE:
+            if node_type == CLIENT_NODE_TYPE:
                 # No interest.
                 continue
             

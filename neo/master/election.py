@@ -6,7 +6,6 @@ from neo.master.handler import MasterEventHandler
 from neo.connection import ClientConnection
 from neo.exception import ElectionFailure
 from neo.protocol import Packet, INVALID_UUID
-from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 
 class ElectionEventHandler(MasterEventHandler):
@@ -259,7 +258,7 @@ class ElectionEventHandler(MasterEventHandler):
 
             app = self.app
             for node_type, ip_address, port, uuid, state in node_list:
-                if node_type != MASTER_NODE:
+                if node_type != MASTER_NODE_TYPE:
                     # No interest.
                     continue
 
