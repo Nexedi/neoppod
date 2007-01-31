@@ -80,7 +80,7 @@ class Application(object):
 
         # Start the election of a primary master node.
         self.electPrimary()
-        
+
         # Start a normal operation.
         while 1:
             try:
@@ -99,7 +99,7 @@ class Application(object):
 
     def electPrimary(self, bootstrap = True):
         """Elect a primary master node.
-        
+
         The difficulty is that a master node must accept connections from
         others while attempting to connect to other master nodes at the
         same time. Note that storage nodes and client nodes may connect
@@ -240,7 +240,7 @@ class Application(object):
                             # Still not closed.
                             closed = False
                             break
-                    
+
                     if time() > t + 10:
                         # If too long, do not wait.
                         break
@@ -301,7 +301,7 @@ class Application(object):
                     while size:
                         amt = min(10000, size)
                         p = Packet()
-                        p.notifyPartitionChanges(c.getNextId(), ptid, 
+                        p.notifyPartitionChanges(c.getNextId(), ptid,
                                                  cell_list[start:start+amt])
                         c.addPacket(p)
                         size -= amt
@@ -428,7 +428,7 @@ class Application(object):
         if len(transaction_uuid_list) == 0:
             raise VerificationFailure
         uuid_set.update(transaction_uuid_list)
-        
+
         # Gather OIDs.
         self.asking_uuid_dict = {}
         self.unfinished_oid_set = set()
@@ -518,17 +518,17 @@ class Application(object):
                     for offset in xrange(self.num_partitions):
                         row_list.append((offset, self.pt.getRow(offset)))
                         if len(row_list) == 1000:
-                            p.sendPartitionTable(conn.getNextId(), 
+                            p.sendPartitionTable(conn.getNextId(),
                                                  self.lptid, row_list)
                             conn.addPacket(p)
                             del row_list[:]
                     if len(row_list) != 0:
-                        p.sendPartitionTable(conn.getNextId(), 
+                        p.sendPartitionTable(conn.getNextId(),
                                              self.lptid, row_list)
                         conn.addPacket(p)
-            
+
         # Gather all unfinished transactions.
-        # 
+        #
         # FIXME this part requires more brainstorming. Currently, this deals with
         # only unfinished transactions. But how about finished transactions?
         # Suppose that A and B have an unfinished transaction. First, A and B are
@@ -538,7 +538,7 @@ class Application(object):
         # no problem; because B's unfinished transaction will be committed correctly.
         # However, when B goes back, if A is down, what happens? If the state is
         # not very good, B may be asked to abort the transaction!
-        # 
+        #
         # This situation won't happen frequently, and B shouldn't be asked to drop
         # the transaction, if the cluster is not ready. However, there might be
         # some corner cases where this may happen. That's why more brainstorming
@@ -605,7 +605,7 @@ class Application(object):
 
         # If anything changed, send the changes.
         if cell_list:
-            self.broadcastPartitionChanges(self.getNextPartitionTableID(), 
+            self.broadcastPartitionChanges(self.getNextPartitionTableID(),
                                            cell_list)
 
     def provideService(self):
@@ -655,7 +655,7 @@ class Application(object):
                                 conn.abort()
 
                 # Then, go back, and restart.
-                return 
+                return
 
     def playPrimaryRole(self):
         logging.info('play the primary role')
@@ -738,5 +738,5 @@ class Application(object):
     def getPartition(self, oid_or_tid):
         return unpack('!Q', oid_or_tid)[0] % self.num_partitions
 
-    def getNewOidList(self, num_oids):
-        return [self.getNextOid() for i in xrange(num_oids)]
+    def getNewOIDList(self, num_oids):
+        return [self.getNextOID() for i in xrange(num_oids)]
