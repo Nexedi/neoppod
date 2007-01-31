@@ -1,6 +1,7 @@
 from Queue import Queue
 from threading import Lock
 from ZODB import BaseStorage, ConflictResolution, POSException
+from ZODB.utils import oid_repr, p64, u64
 
 from neo.client.dispatcher import Dispatcher
 from neo.event import EventManager
@@ -44,7 +45,7 @@ class NEOStorage(BaseStorage.BaseStorage,
 
     def load(self, oid, version=None):
         try:
-            return self.app.process_method('load', oid=oid)
+            return self.app.process_method('load', oid=u64(oid))
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError (oid)
 
@@ -123,13 +124,13 @@ class NEOStorage(BaseStorage.BaseStorage,
     # mutliple revisions
     def loadSerial(self, oid, serial):
         try:
-            return self.app.process_method('loadSerial', oid=oid, serial=serial)
+            return self.app.process_method('loadSerial', oid=u64(oid), serial=u64(serial))
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError (oid, serial)
 
     def loadBefore(self, oid, tid):
         try:
-            return self.app.process_method('loadBefore', oid=oid, tid=tid)
+            return self.app.process_method('loadBefore', oid=u64(oid), tid=u64(tid))
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError (oid, tid)
 
