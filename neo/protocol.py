@@ -280,11 +280,11 @@ class Packet(object):
                           'broken node disallowed error: ' + error_message)
 
     def oidNotFound(self, msg_id, error_message):
-        return self.error(msg_id, OID_NOT_FOUND_CODE, 
+        return self.error(msg_id, OID_NOT_FOUND_CODE,
                           'oid not found: ' + error_message)
 
     def tidNotFound(self, msg_id, error_message):
-        return self.error(msg_id, TID_NOT_FOUND_CODE, 
+        return self.error(msg_id, TID_NOT_FOUND_CODE,
                           'tid not found: ' + error_message)
 
     def ping(self, msg_id):
@@ -781,7 +781,7 @@ class Packet(object):
                     cell = unpack('!16sH', self._body[index:index+18])
                     index += 18
                     cell_list.append(cell)
-                row_list.append((offset, cell_list))
+                row_list.append((offset, tuple(cell_list)))
                 del cell_list[:]
         except:
             raise ProtocolError(self, 'invalid send partition table')
