@@ -266,7 +266,7 @@ class Application(ThreadingMixIn, object):
               conn = self.master_conn
               msg_id = conn.getNextId()
               p = Packet()
-              p.askNewOIDs(msg_id)
+              p.askNewOIDs(msg_id, 25)
               self.local_var.tmp_q = Queue(1)
               self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
               self._waitMessage()
@@ -281,8 +281,8 @@ class Application(ThreadingMixIn, object):
         # Try in cache first
         self._cache_lock_acquire()
         try:
-            if oid in self.cache:
-                return self.cache[oid][0]
+            if oid in self.mq_cache:
+                return self.mq_cache[oid][0]
         finally:
             self._cache_lock_release()
         # history return serial, so use it
@@ -296,7 +296,7 @@ class Application(ThreadingMixIn, object):
 
     def _load(self, oid, serial=INVALID_TID, tid=INVALID_TID, cache=0):
         """Internal method which manage load ,loadSerial and loadBefore."""
-        partition_id = oid % self.num_paritions
+        partition_id = oid % self.num_partitions
         # Only used up to date node for retrieving object
         storage_node_list = [x for x in self.pt.getCellList(partition_id, True) \
                              if x.getState() == UP_TO_DATE_STATE]
@@ -353,7 +353,7 @@ class Application(ThreadingMixIn, object):
         if cache:
             self.cache_lock_acquire()
             try:
-                self.cache[oid] = start_serial, data
+                self.mq_cache[oid] = start_serial, data
             finally:
                 self.cache_lock_release()
         if end_serial == INVALID_SERIAL:
@@ -366,8 +366,8 @@ class Application(ThreadingMixIn, object):
         # First try from cache
         self._cache_lock_acquire()
         try:
-            if oid in self.cache:
-                return loads(self.cache[oid][1]), self.cache[oid][0]
+            if oid in self.mq_cache:
+                return loads(self.mq_cache[oid][1]), self.mq_cache[oid][0]
         finally:
             self._cache_lock_release()
         # Otherwise get it from storage node
@@ -415,7 +415,7 @@ class Application(ThreadingMixIn, object):
         if transaction is not self.txn:
             raise StorageTransactionError(self, transaction)
         # Find which storage node to use
-        partition_id = oid % self.num_paritions
+        partition_id = oid % self.num_partitions
         storage_node_list = self.pt.getCellList(partition_id, True)
 
         # Store data on each node
@@ -458,7 +458,7 @@ class Application(ThreadingMixIn, object):
         ext = dumps(transaction._extension)
         oid_list = self.txn_data_dict.keys()
         # Store data on each node
-        partition_id = self.tid % self.num_paritions
+        partition_id = self.tid % self.num_partitions
         storage_node_list = self.pt.getCellList(partition_id, True)
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node.getUUID())
@@ -492,7 +492,7 @@ class Application(ThreadingMixIn, object):
         # Abort txn in node where objects were stored
         aborted_node = {}
         for oid in self.self.txn_data_dict.iterkeys():
-            partition_id = oid % self.num_paritions
+            partition_id = oid % self.num_partitions
             storage_node_list = self.pt.getCellList(partition_id, True)
             for storage_node in storage_node_list:
                 if not aborted_node.has_key(storage_node):
@@ -506,7 +506,7 @@ class Application(ThreadingMixIn, object):
                 aborted_node[storage_node] = 1
 
         # Abort in nodes where transaction was stored
-        partition_id = self.tid % self.num_paritions
+        partition_id = self.tid % self.num_partitions
         storage_node_list = self.pt.getCellList(partition_id, True)
         for storage_node in storage_node_list:
             if not aborted_node.has_key(storage_node):
@@ -546,7 +546,7 @@ class Application(ThreadingMixIn, object):
             for oid in self.txn_data_dict.iterkeys():
                 ddata = self.txn_data_dict[oid]
                 # Now serial is same as tid
-                self.cache[oid] = self.tid, ddata
+                self.mq_cache[oid] = self.tid, ddata
         finally:
             self.cache_lock_release()
         self._clear_txn()
@@ -558,7 +558,7 @@ class Application(ThreadingMixIn, object):
             raise StorageTransactionError(self, transaction_id)
 
         # First get transaction information from master node
-        partition_id = transaction_id % self.num_paritions
+        partition_id = transaction_id % self.num_partitions
         storage_node_list = self.pt.getCellList(partition_id, True)
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node.getUUID())
@@ -654,7 +654,7 @@ class Application(ThreadingMixIn, object):
         # For each transaction, get info
         undo_info = []
         for tid in ordered_tids:
-            partition_id = tid % self.num_paritions
+            partition_id = tid % self.num_partitions
             storage_node_list = self.pt.getCellList(partition_id, True)
             for storage_node in storage_node_list:
                 conn = self.cm.getConnForNode(storage_node.getUUID())
@@ -691,7 +691,7 @@ class Application(ThreadingMixIn, object):
 
     def history(self, oid, version, length=1, filter=None, object_only=0):
         # Get history informations for object first
-        partition_id = oid % self.num_paritions
+        partition_id = oid % self.num_partitions
         storage_node_list = [x for x in self.pt.getCellList(partition_id, True) \
                              if x.getState() == UP_TO_DATE_STATE]
         for storage_node in storage_node_list:
@@ -720,7 +720,7 @@ class Application(ThreadingMixIn, object):
         # Now that we have object informations, get txn informations
         history_list = []
         for serial, size in self.local_var.hisory[1]:
-            partition_id = serial % self.num_paritions
+            partition_id = serial % self.num_partitions
             storage_node_list = self.pt.getCellList(partition_id, True)
             for storage_node in storage_node_list:
                 conn = self.cm.getConnForNode(storage_node.getUUID())
