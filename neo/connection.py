@@ -1,7 +1,6 @@
 import socket
 import errno
 import logging
-from select import select
 
 from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent

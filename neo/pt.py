@@ -1,5 +1,3 @@
-import logging
-
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         BROKEN_STATE
@@ -120,7 +118,7 @@ class PartitionTable(object):
             for cell in row:
                 if cell.getNode() == node:
                     row.remove(cell)
-                    if state != FEEDING_STATE:
+                    if cell.getState() != FEEDING_STATE:
                         self.count_dict[node] = self.count_dict.get(node, 0) - 1
                     break
 

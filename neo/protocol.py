@@ -276,7 +276,7 @@ class Packet(object):
         return self.error(msg_id, NOT_READY_CODE, 'not ready: ' + error_message)
 
     def brokenNodeDisallowedError(self, msg_id, error_message):
-        return self.error(msg_id, BROKEN_NODE_DISALLOWED_ERROR,
+        return self.error(msg_id, BROKEN_NODE_DISALLOWED_CODE,
                           'broken node disallowed error: ' + error_message)
 
     def oidNotFound(self, msg_id, error_message):
@@ -791,6 +791,7 @@ class Packet(object):
     def _decodeNotifyPartitionChanges(self):
         try:
             ptid, n = unpack('!8sL', self._body[:12])
+            cell_list = []
             for i in xrange(n):
                 cell = unpack('!L16sH', self._body[12+i*22:34+i*22])
                 cell_list.append(cell)
@@ -1076,8 +1077,8 @@ class Packet(object):
     def _decodeAnswerObjectHistory(self):
         try:
             oid, length = unpack('!8sH', self._body[:10])
-            history_list = ()
-            for x in xrange(length):
+            history_list = []
+            for i in xrange(length):
                 serial, size = unpack('!8sL', self._body[10+i*12:22+i*12])
                 history_list.append(tuple(serial, size))
         except:
