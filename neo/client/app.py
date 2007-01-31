@@ -38,15 +38,15 @@ class ConnectionManager(object):
 
     def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
-        addr = node.getServer()
-        handler = ClientEventHandler(self.storage)
+        addr = node.getNode().getServer()
+        handler = ClientEventHandler(self.storage, self.storage.dispatcher)
         conn = ClientConnection(self.storage.em, handler, addr)
         msg_id = conn.getNextId()
         p = Packet()
-        p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid, addr[0],
+        p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.storage.uuid, addr[0],
                                     addr[1], self.storage.name)
         self.storage.local_var.tmp_q = Queue(1)
-        self.storage.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
+        self.storage.queue.put((self.storage.local_var.tmp_q, msg_id, conn, p), True)
         self.storage.local_var.storage_node = None
         self.storage._waitMessage()
         if self.storage.storage_node == -1:
@@ -82,7 +82,7 @@ class ConnectionManager(object):
             if conn is None:
                 return None
             # add node to node manager
-            if not self.storage.nm.hasNode(node):
+            if self.storage.nm.getNodeByServer(node.getServer()) is None:
                 n = StorageNode(node.getServer())
                 self.storage.nm.add(n)
             self.connection_dict[node.getUUID()] = conn
@@ -306,7 +306,7 @@ class Application(ThreadingMixIn, object):
 
         # Store data on each node
         for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node.getUUID())
+            conn = self.cm.getConnForNode(storage_node)
             if conn is None:
                 continue
             msg_id = conn.getNextId()
@@ -425,7 +425,7 @@ class Application(ThreadingMixIn, object):
         compressed_data = compress(ddata)
         checksum = adler32(compressed_data)
         for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node.getUUID())
+            conn = self.cm.getConnForNode(storage_node)
             if conn is None:
                 continue
             msg_id = conn.getNextId()
@@ -463,7 +463,7 @@ class Application(ThreadingMixIn, object):
         partition_id = self.tid % self.num_partitions
         storage_node_list = self.pt.getCellList(partition_id, True)
         for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node.getUUID())
+            conn = self.cm.getConnForNode(storage_node)
             if conn is None:
                 continue
             msg_id = conn.getNextId()
@@ -498,7 +498,7 @@ class Application(ThreadingMixIn, object):
             storage_node_list = self.pt.getCellList(partition_id, True)
             for storage_node in storage_node_list:
                 if not aborted_node.has_key(storage_node):
-                    conn = self.cm.getConnForNode(storage_node.getUUID())
+                    conn = self.cm.getConnForNode(storage_node)
                     if conn is None:
                         continue
                     msg_id = conn.getNextId()
@@ -512,7 +512,7 @@ class Application(ThreadingMixIn, object):
         storage_node_list = self.pt.getCellList(partition_id, True)
         for storage_node in storage_node_list:
             if not aborted_node.has_key(storage_node):
-                conn = self.cm.getConnForNode(storage_node.getUUID())
+                conn = self.cm.getConnForNode(storage_node)
                 if conn is None:
                     continue
                 msg_id = conn.getNextId()
@@ -563,7 +563,7 @@ class Application(ThreadingMixIn, object):
         partition_id = transaction_id % self.num_partitions
         storage_node_list = self.pt.getCellList(partition_id, True)
         for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node.getUUID())
+            conn = self.cm.getConnForNode(storage_node)
             if conn is None:
                 continue
             msg_id = conn.getNextId()
@@ -632,7 +632,7 @@ class Application(ThreadingMixIn, object):
         self.local_var.node_tids = {}
         self.local_var.tmp_q = Queue(len(storage_node_list))
         for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node.getUUID())
+            conn = self.cm.getConnForNode(storage_node)
             if conn is None:
                 continue
             msg_id = conn.getNextId()
@@ -659,7 +659,7 @@ class Application(ThreadingMixIn, object):
             partition_id = tid % self.num_partitions
             storage_node_list = self.pt.getCellList(partition_id, True)
             for storage_node in storage_node_list:
-                conn = self.cm.getConnForNode(storage_node.getUUID())
+                conn = self.cm.getConnForNode(storage_node)
                 if conn is None:
                     continue
                 msg_id = conn.getNextId()
@@ -697,7 +697,7 @@ class Application(ThreadingMixIn, object):
         storage_node_list = [x for x in self.pt.getCellList(partition_id, True) \
                              if x.getState() == UP_TO_DATE_STATE]
         for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node.getUUID())
+            conn = self.cm.getConnForNode(storage_node)
             if conn is None:
                 continue
             msg_id = conn.getNextId()
@@ -725,7 +725,7 @@ class Application(ThreadingMixIn, object):
             partition_id = serial % self.num_partitions
             storage_node_list = self.pt.getCellList(partition_id, True)
             for storage_node in storage_node_list:
-                conn = self.cm.getConnForNode(storage_node.getUUID())
+                conn = self.cm.getConnForNode(storage_node)
                 if conn is None:
                     continue
                 msg_id = conn.getNextId()
