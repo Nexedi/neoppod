@@ -241,7 +241,8 @@ class ClientEventHandler(EventHandler):
                 return
 
             app = self.app
-            node = app.nm.getNodeByUUID(uuid)
+            nm = app.nm
+            node = nm.getNodeByUUID(uuid)
             # This must be sent only by primary master node
             if not isinstance(node, MasterNode) \
                    or app.primary_master_node is None \
@@ -251,10 +252,11 @@ class ClientEventHandler(EventHandler):
             for node_type, ip_address, port, uuid, state in node_list:
                 # Register new nodes.
                 addr = (ip_address, port)
-                n = app.nm.getNodeByServer(addr)
+                n = nm.getNodeByServer(addr)
                 if n is None:
                     if node_type == MASTER_NODE_TYPE:
                         n = MasterNode(server = addr)
+                        nm.add(n)
                         if uuid != INVALID_UUID:
                             # If I don't know the UUID yet, believe what the peer
                             # told me at the moment.
@@ -264,15 +266,16 @@ class ClientEventHandler(EventHandler):
                         if uuid == INVALID_UUID:
                             # No interest.
                             continue
-                        n = StorageNode(server = addr)
+                        n = StorageNode(server = addr, uuid = uuid)
+                        nm.add(n)
                     elif node_type == CLIENT_NODE_TYPE:
                         if uuid == INVALID_UUID:
                             # No interest.
                             continue
-                        n = ClientNode(server = addr)
+                        n = ClientNode(server = addr, uuid = uuid)
+                        nm.add(n)
                     else:
                         continue
-                    app.nm.add(n)
 
                 n.setState(state)
         else:
