@@ -95,7 +95,15 @@ class VerificationEventHandler(StorageEventHandler):
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
-        self.handleUnexpectedPacket(conn, packet)
+        if isinstance(conn, ClientConnection):
+            app = self.app
+            if app.primary_master_node.getUUID() != primary_uuid:
+                raise PrimaryFailure('the primary master node seems to have changed')
+            # XXX is it better to deal with known_master_list here?
+            # But a primary master node is supposed not to send any info
+            # with this packet, so it would be useless.
+        else:
+            self.handleUnexpectedPacket(conn, packet)
 
     def handleAskLastIDs(self, conn, packet):
         if isinstance(conn, ClientConnection):
