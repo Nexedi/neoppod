@@ -9,7 +9,7 @@ from neo.node import ClientNode, StorageNode, MasterNode
 
 class FinishingTransaction(object):
     """This class describes a finishing transaction."""
-    
+
     def __init__(self, conn, packet, oid_list, uuid_set):
         self._conn = conn
         self._msg_id = packet.getId()
@@ -110,7 +110,7 @@ class ServiceEventHandler(MasterEventHandler):
         # an UUID, since an UUID never change when moving a storage node to a different
         # server, and an UUID always changes for a master node and a client node whenever
         # it restarts, so more reliable than a server address.
-        # 
+        #
         # However, master nodes can be known only as the server addresses. And, a node
         # may claim a server address used by another node.
         addr = (ip_address, port)
@@ -125,7 +125,7 @@ class ServiceEventHandler(MasterEventHandler):
                 if node_type == MASTER_NODE_TYPE:
                     node = MasterNode(server = addr, uuid = uuid)
                 elif node_type == CLIENT_NODE_TYPE:
-                    node = ClientNode(uuid = uuid)
+                    node = ClientNode(server = addr, uuid = uuid)
                 else:
                     node = StorageNode(server = addr, uuid = uuid)
                 app.nm.add(node)
@@ -232,7 +232,7 @@ class ServiceEventHandler(MasterEventHandler):
         node_list = []
         for n in app.nm.getNodeList():
             ip_address, port = n.getServer()
-            node_list.append((n.getNodeType(), ip_address, port, 
+            node_list.append((n.getNodeType(), ip_address, port,
                               n.getUUID() or INVALID_UUID, n.getState()))
             if len(node_list) == 10000:
                 # Ugly, but it is necessary to split a packet, if it is too big.
@@ -253,7 +253,7 @@ class ServiceEventHandler(MasterEventHandler):
             for offset in xrange(app.num_partitions):
                 row_list.append((offset, app.pt.getRow(offset)))
                 if len(row_list) == 1000:
-                    p.sendPartitionTable(app.lptid, row_list)
+                    p.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
                     conn.addPacket(p)
                     del row_list[:]
             if len(row_list) != 0:
@@ -287,7 +287,7 @@ class ServiceEventHandler(MasterEventHandler):
             if node_type == CLIENT_NODE_TYPE:
                 # No interest.
                 continue
-            
+
             if uuid == INVALID_UUID:
                 # No interest.
                 continue
