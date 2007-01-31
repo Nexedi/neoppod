@@ -596,7 +596,7 @@ class Application(ThreadingMixIn, object):
                 self.store(oid, self.tid, data, None, txn)
             except NEOStorageConflictError, serial:
                 if serial <= self.tid:
-                    new_data = wrapper.tryToResolveConflict(oid, self.tid, serial
+                    new_data = wrapper.tryToResolveConflict(oid, self.tid, serial,
                                                             data)
                     if new_data is not None:
                         self.store(oid, self.tid, new_data, None, txn)
