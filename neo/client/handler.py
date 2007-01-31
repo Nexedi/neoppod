@@ -24,7 +24,7 @@ class ClientEventHandler(EventHandler):
 
     def packetReceived(self, conn, packet):
         """Redirect all received packet to dispatcher thread."""
-        self.dispatcher.message = conn, packet
+        self.dispatcher.message.put((conn, packet), True)
 
     def connectionFailed(self, conn):
         app = self.app
@@ -44,7 +44,7 @@ class ClientEventHandler(EventHandler):
         uuid = conn.getUUID()
         if self.app.primary_master_node is None:
             EventHandler.connectionClosed(self, conn)
-        if uuid == self.app.primary_master_node.getUUID():
+        elif uuid == self.app.primary_master_node.getUUID():
             logging.critical("connection to primary master node closed")
             raise NEOStorageError("connection to primary master node closed")
         else:
@@ -209,6 +209,8 @@ class ClientEventHandler(EventHandler):
                 return
 
             app = self.app
+            nm = app.nm
+            pt = app.pt
             node = app.nm.getNodeByUUID(uuid)
             # This must be sent only by primary master node
             if not isinstance(node, MasterNode) \
@@ -216,10 +218,18 @@ class ClientEventHandler(EventHandler):
                    or app.primary_master_node.getUUID() != uuid:
                 return
 
-            # FIXME this part requires a serious fix. Look at
-            # neo/storage/verification.py for details.
-            for offset, node in row_list:
-                app.pt.setRow(offset, row)
+            if app.ptid != ptid:
+                app.ptid = ptid
+                pt.clear()
+            for offset, row in row_list:
+                for uuid, state in row:
+                    node = nm.getNodeByUUID(uuid)
+                    if node is None:
+                        node = StorageNode(uuid = uuid)
+                        if uuid != app.uuid:
+                            node.setState(TEMPORARILY_DOWN_STATE)
+                        nm.add(node)
+                    pt.setCell(offset, node, state)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
@@ -241,40 +251,38 @@ class ClientEventHandler(EventHandler):
             for node_type, ip_address, port, uuid, state in node_list:
                 # Register new nodes.
                 addr = (ip_address, port)
-                if app.server == addr:
-                    # This is self.
-                    continue
-                else:
-                    n = app.app.nm.getNodeByServer(addr)
-                    if n is None:
-                        if node_type == MASTER_NODE_TYPE:
-                            n = MasterNode(server = addr)
-                            if uuid != INVALID_UUID:
-                                # If I don't know the UUID yet, believe what the peer
-                                # told me at the moment.
-                                if n.getUUID() is None:
-                                    n.setUUID(uuid)
-                        elif node_type == STORAGE_NODE_TYPE:
-                            if uuid == INVALID_UUID:
-                                # No interest.
-                                continue
-                            n = StorageNode(server = addr)
-                        elif node_type == CLIENT_NODE_TYPE:
-                            if uuid == INVALID_UUID:
-                                # No interest.
-                                continue
-                            n = ClientNode(server = addr)
-                        else:
+                n = app.nm.getNodeByServer(addr)
+                if n is None:
+                    if node_type == MASTER_NODE_TYPE:
+                        n = MasterNode(server = addr)
+                        if uuid != INVALID_UUID:
+                            # If I don't know the UUID yet, believe what the peer
+                            # told me at the moment.
+                            if n.getUUID() is None:
+                                n.setUUID(uuid)
+                    elif node_type == STORAGE_NODE_TYPE:
+                        if uuid == INVALID_UUID:
+                            # No interest.
                             continue
-                        app.app.nm.add(n)
+                        n = StorageNode(server = addr)
+                    elif node_type == CLIENT_NODE_TYPE:
+                        if uuid == INVALID_UUID:
+                            # No interest.
+                            continue
+                        n = ClientNode(server = addr)
+                    else:
+                        continue
+                    app.nm.add(n)
 
-                    n.setState(state)
+                n.setState(state)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         if isinstance(conn, ClientConnection):
             app = self.app
+            nm = app.nm
+            pt = app.pt
             uuid = conn.getUUID()
             if uuid is None:
                 self.handleUnexpectedPacket(conn, packet)
@@ -288,10 +296,20 @@ class ClientEventHandler(EventHandler):
                    or app.primary_master_node.getUUID() != uuid:
                 return
 
-            # FIXME this part requires a serious fix. Look at
-            # neo/storage/verification.py for details.
-            for cell in cell_list:
-                app.pt.addNode(cell)
+            if app.ptid >= ptid:
+                # Ignore this packet.
+                return
+
+            app.ptid = ptid
+            for offset, uuid, state in cell_list:
+                node = nm.getNodeByUUID(uuid)
+                if node is None:
+                    node = StorageNode(uuid = uuid)
+                    if uuid != app.uuid:
+                        node.setState(TEMPORARILY_DOWN_STATE)
+                    nm.add(node)
+
+                pt.setCell(offset, node, state)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
