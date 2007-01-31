@@ -242,9 +242,6 @@ class PartitionTable(object):
             return ()
         return [(cell.getUUID(), cell.getState()) for cell in row]
 
-    def setRow(self, offset, row):
-        self.partition_list[offset] = row
-
     def tweak(self):
         """Test if nodes are distributed uniformly. Otherwise, correct the partition
         table."""

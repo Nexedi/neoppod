@@ -1,12 +1,9 @@
 from Queue import Queue
 from threading import Lock
 from ZODB import BaseStorage, ConflictResolution, POSException
-from ZODB.utils import p64, u64, cp, z64
 
-from thread import get_ident
 from neo.client.dispatcher import Dispatcher
 from neo.event import EventManager
-import logging
 
 class NEOStorageError(POSException.StorageError):
     pass

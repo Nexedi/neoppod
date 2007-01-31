@@ -2,11 +2,13 @@ import logging
 
 from neo.handler import EventHandler
 from neo.connection import ClientConnection
-from neo.protocol import Packet, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-     INVALID_UUID, TEMPORARILY_DOWN_STATE, BROKEN_STATE
+from neo.protocol import Packet, \
+        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
+        INVALID_UUID, TEMPORARILY_DOWN_STATE, BROKEN_STATE
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.pt import PartitionTable
 from neo.client.NEOStorage import NEOStorageError
+from neo.exception import ElectionFailure
 
 from ZODB.TimeStamp import TimeStamp
 from ZODB.utils import p64
@@ -214,6 +216,8 @@ class ClientEventHandler(EventHandler):
                    or app.primary_master_node.getUUID() != uuid:
                 return
 
+            # FIXME this part requires a serious fix. Look at
+            # neo/storage/verification.py for details.
             for offset, node in row_list:
                 app.pt.setRow(offset, row)
         else:
@@ -284,6 +288,8 @@ class ClientEventHandler(EventHandler):
                    or app.primary_master_node.getUUID() != uuid:
                 return
 
+            # FIXME this part requires a serious fix. Look at
+            # neo/storage/verification.py for details.
             for cell in cell_list:
                 app.pt.addNode(cell)
         else:
