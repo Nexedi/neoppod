@@ -125,7 +125,7 @@ class ServiceEventHandler(MasterEventHandler):
                 if node_type == MASTER_NODE_TYPE:
                     node = MasterNode(server = addr, uuid = uuid)
                 elif node_type == CLIENT_NODE_TYPE:
-                    node = ClientNode(server = addr, uuid = uuid)
+                    node = ClientNode(uuid = uuid)
                 else:
                     node = StorageNode(server = addr, uuid = uuid)
                 app.nm.add(node)
