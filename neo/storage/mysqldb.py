@@ -112,8 +112,8 @@ class MySQLDatabaseManager(DatabaseManager):
         q("""CREATE TABLE IF NOT EXISTS obj (
                  oid BINARY(8) NOT NULL,
                  serial BINARY(8) NOT NULL,
-                 checksum INT UNSIGNED NOT NULL,
                  compression TINYINT UNSIGNED NOT NULL,
+                 checksum INT UNSIGNED NOT NULL,
                  value MEDIUMBLOB NOT NULL,
                  PRIMARY KEY (oid, serial)
              ) ENGINE = InnoDB""")
@@ -131,8 +131,8 @@ class MySQLDatabaseManager(DatabaseManager):
         q("""CREATE TABLE IF NOT EXISTS tobj (
                  oid BINARY(8) NOT NULL,
                  serial BINARY(8) NOT NULL,
-                 checksum INT UNSIGNED NOT NULL,
                  compression TINYINT UNSIGNED NOT NULL,
+                 checksum INT UNSIGNED NOT NULL,
                  value MEDIUMBLOB NOT NULL
              ) ENGINE = InnoDB""")
 
