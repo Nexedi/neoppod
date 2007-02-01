@@ -941,7 +941,7 @@ class Packet(object):
             tid = unpack('8s', self._body)[0]
         except:
             raise ProtocolError(self, 'invalid unlock information')
-        return tid
+        return (tid,)
     decode_table[UNLOCK_INFORMATION] = _decodeUnlockInformation
 
     def _decodeAbortTransaction(self):
