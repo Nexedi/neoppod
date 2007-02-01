@@ -452,7 +452,7 @@ class Application(ThreadingMixIn, object):
                 raise NEOStorageConflictError
 
         # Store object in tmp cache
-        noid, nserial = self.object_stored
+        noid, nserial = self.txn_object_stored
         self.txn_data_dict[oid] = ddata
 
 
