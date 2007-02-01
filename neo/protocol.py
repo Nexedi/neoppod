@@ -536,7 +536,8 @@ class Packet(object):
         body.append(user)
         body.append(desc)
         body.append(ext)
-        body.expend(oid_list)
+        for oid in oid_list:
+            body.append(pack('8s', oid))
         self._body = ''.join(body)
         return self
 
@@ -955,8 +956,8 @@ class Packet(object):
     def _decodeAskStoreObject(self):
         try:
             oid, serial, tid, compression, checksum, data_len \
-                 = unpack('!8s8s8sBLL', self._body[:25])
-            data = self._body[25:]
+                 = unpack('!8s8s8sBLL', self._body[:33])
+            data = self._body[33:]
         except:
             raise ProtocolError(self, 'invalid ask store object')
         if data_len != len(data):
