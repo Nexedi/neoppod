@@ -231,7 +231,17 @@ class ServiceEventHandler(MasterEventHandler):
         # Send the information.
         node_list = []
         for n in app.nm.getNodeList():
-            ip_address, port = n.getServer()
+            addr = n.getServer()
+            if addr is None:
+                ip_address, port = None, None
+            else:
+                ip_address, port = addr
+
+            if ip_address is None:
+                ip_address = '0.0.0.0'
+            if port is None:
+                port = 0
+
             node_list.append((n.getNodeType(), ip_address, port,
                               n.getUUID() or INVALID_UUID, n.getState()))
             if len(node_list) == 10000:
