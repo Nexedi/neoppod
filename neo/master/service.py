@@ -46,6 +46,7 @@ class ServiceEventHandler(MasterEventHandler):
             node = app.nm.getNodeByUUID(uuid)
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
+                logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
                 if isinstance(node, ClientNode):
                     # If this node is a client, just forget it.
@@ -63,6 +64,7 @@ class ServiceEventHandler(MasterEventHandler):
             node = app.nm.getNodeByUUID(uuid)
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
+                logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
                 if isinstance(node, ClientNode):
                     # If this node is a client, just forget it.
@@ -80,6 +82,7 @@ class ServiceEventHandler(MasterEventHandler):
             node = app.nm.getNodeByUUID(uuid)
             if node.getState() != BROKEN_STATE:
                 node.setState(BROKEN_STATE)
+                logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
                 if isinstance(node, ClientNode):
                     # If this node is a client, just forget it.
@@ -129,6 +132,7 @@ class ServiceEventHandler(MasterEventHandler):
                 else:
                     node = StorageNode(server = addr, uuid = uuid)
                 app.nm.add(node)
+                logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
             else:
                 # Otherwise, I know it only by the server address or the same server
@@ -146,6 +150,7 @@ class ServiceEventHandler(MasterEventHandler):
                     node.setUUID(uuid)
                     if node.getState() != RUNNING_STATE:
                         node.setState(RUNNING_STATE)
+                    logging.debug('broadcasting node information')
                     app.broadcastNodeInformation(node)
                 else:
                     # This node has a different UUID.
@@ -158,10 +163,12 @@ class ServiceEventHandler(MasterEventHandler):
                     else:
                         # Otherwise, forget the old one.
                         node.setState(BROKEN_STATE)
+                        logging.debug('broadcasting node information')
                         app.broadcastNodeInformation(node)
                         # And insert a new one.
                         node.setUUID(uuid)
                         node.setState(RUNNING_STATE)
+                        logging.debug('broadcasting node information')
                         app.broadcastNodeInformation(node)
         else:
             # I know this node by the UUID.
@@ -176,10 +183,12 @@ class ServiceEventHandler(MasterEventHandler):
                 else:
                     # Otherwise, forget the old one.
                     node.setState(BROKEN_STATE)
+                    logging.debug('broadcasting node information')
                     app.broadcastNodeInformation(node)
                     # And insert a new one.
                     node.setServer(addr)
                     node.setState(RUNNING_STATE)
+                    logging.debug('broadcasting node information')
                     app.broadcastNodeInformation(node)
             else:
                 # If this node is broken, reject it. Otherwise, assume that it is
@@ -193,6 +202,7 @@ class ServiceEventHandler(MasterEventHandler):
                 else:
                     node.setUUID(uuid)
                     node.setState(RUNNING_STATE)
+                    logging.debug('broadcasting node information')
                     app.broadcastNodeInformation(node)
 
         conn.setUUID(uuid)
@@ -229,6 +239,8 @@ class ServiceEventHandler(MasterEventHandler):
         conn.addPacket(p)
 
         # Send the information.
+        logging.debug('sending notify node information to %s:%d',
+                      *(conn.getAddress()))
         node_list = []
         for n in app.nm.getNodeList():
             try:
@@ -331,6 +343,7 @@ class ServiceEventHandler(MasterEventHandler):
                 if c.getUUID() == uuid:
                     c.close()
             node.setState(state)
+            logging.debug('broadcasting node information')
             app.broadcastNodeInformation(node)
 
             if isinstance(node, StorageNode) and state in (DOWN_STATE, BROKEN_STATE):

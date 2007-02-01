@@ -248,34 +248,31 @@ class ElectionEventHandler(MasterEventHandler):
         raise ElectionFailure, 'reelection requested'
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        if isinstance(conn, ClientConnection):
+        uuid = conn.getUUID()
+        if uuid is None:
             self.handleUnexpectedPacket(conn, packet)
-        else:
-            uuid = conn.getUUID()
-            if uuid is None:
-                self.handleUnexpectedPacket(conn, packet)
-                return
+            return
 
-            app = self.app
-            for node_type, ip_address, port, uuid, state in node_list:
-                if node_type != MASTER_NODE_TYPE:
-                    # No interest.
-                    continue
+        app = self.app
+        for node_type, ip_address, port, uuid, state in node_list:
+            if node_type != MASTER_NODE_TYPE:
+                # No interest.
+                continue
 
-                # Register new master nodes.
-                addr = (ip_address, port)
-                if app.server == addr:
-                    # This is self.
-                    continue
-                else:
-                    n = app.nm.getNodeByServer(addr)
-                    if n is None:
-                        n = MasterNode(server = addr)
-                        app.nm.add(n)
-                        app.unconnected_master_node_set.add(addr)
+            # Register new master nodes.
+            addr = (ip_address, port)
+            if app.server == addr:
+                # This is self.
+                continue
+            else:
+                n = app.nm.getNodeByServer(addr)
+                if n is None:
+                    n = MasterNode(server = addr)
+                    app.nm.add(n)
+                    app.unconnected_master_node_set.add(addr)
 
-                    if uuid != INVALID_UUID:
-                        # If I don't know the UUID yet, believe what the peer
-                        # told me at the moment.
-                        if n.getUUID() is None:
-                            n.setUUID(uuid)
+                if uuid != INVALID_UUID:
+                    # If I don't know the UUID yet, believe what the peer
+                    # told me at the moment.
+                    if n.getUUID() is None:
+                        n.setUUID(uuid)
