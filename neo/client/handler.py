@@ -366,7 +366,7 @@ class ClientEventHandler(EventHandler):
                            checksum, data):
         if isinstance(conn, ClientConnection):
             app = self.app
-            app.local_var.loaded_object = (oid, start_serial, end_serial, compression,
+            app.local_var.asked_object = (oid, start_serial, end_serial, compression,
                                            checksum, data)
         else:
             self.handleUnexpectedPacket(conn, packet)
