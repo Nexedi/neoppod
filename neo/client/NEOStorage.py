@@ -105,7 +105,7 @@ class NEOStorage(BaseStorage.BaseStorage,
         if self._is_read_only:
             raise POSException.ReadOnlyError()
         try:
-            r = return self.app.process_method('tpc_abort', transaction=transaction)
+            r = self.app.process_method('tpc_abort', transaction=transaction)
             if r in (NEO_ERROR, NEO_NOT_FOUND_ERROR, NEO_CONFLICT_ERROR):
                 raise NEOStorageError
             else:
