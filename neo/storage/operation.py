@@ -261,7 +261,7 @@ class OperationEventHandler(StorageEventHandler):
             except KeyError:
                 pass
 
-            conn.addPacket(Packet().notifyInformationLocked(conn.getId(), tid))
+            conn.addPacket(Packet().notifyInformationLocked(packet.getId(), tid))
         else:
             self.handleUnexpectedPacket(conn, packet)
 
@@ -367,8 +367,8 @@ class OperationEventHandler(StorageEventHandler):
             if locking_tid < tid:
                 # Delay the response.
                 app.queueEvent(self.handleAskStoreObject, conn, packet,
-                               oid, serial, compression, data,
-                               checksum, tid)
+                               oid, serial, compression, checksum,
+                               data, tid)
             else:
                 # If a newer transaction already locks this object,
                 # do not try to resolve a conflict, so return immediately.
