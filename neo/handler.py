@@ -209,7 +209,7 @@ class EventHandler(object):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAskStoreObject(self, conn, packet, oid, serial,
-                             compression, data, checksum, tid):
+                             compression, checksum, data, tid):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerStoreObject(self, conn, packet, status, oid):

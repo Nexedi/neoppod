@@ -355,7 +355,7 @@ class OperationEventHandler(StorageEventHandler):
         conn.addPacket(Packet().answerStoreTransaction(packet.getId(), tid))
 
     def handleAskStoreObject(self, conn, packet, oid, serial,
-                             compression, data, checksum, tid):
+                             compression, checksum, data, tid):
         uuid = conn.getUUID()
         if uuid is None:
             self.handleUnexpectedPacket(conn, packet)

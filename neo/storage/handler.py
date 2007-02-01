@@ -203,6 +203,6 @@ class StorageEventHandler(EventHandler):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAskStoreObject(self, conn, packet, oid, serial,
-                             compression, data, checksum, tid):
+                             compression, checksum, data, tid):
         self.handleUnexpectedPacket(conn, packet)
 
