@@ -8,6 +8,7 @@
       <description>
        Give the list of the master node like ip:port ip:port...
       </description>
+     </key>
      <key name="name" required="yes">
       <description>
        Give the name of the cluster
