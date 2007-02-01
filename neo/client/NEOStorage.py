@@ -20,6 +20,8 @@ NEO_ERROR = 'neo_error'
 NEO_CONFLICT_ERROR = 'neo_conflict_error'
 NEO_NOT_FOUND_ERROR = 'neo_not_found_error'
 
+import logging
+
 class NEOStorage(BaseStorage.BaseStorage,
                  ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
@@ -51,11 +53,11 @@ class NEOStorage(BaseStorage.BaseStorage,
                                message_queue, request_queue)
 
     def load(self, oid, version=None):
-        r = self.app.process_method('load', oid=u64(oid))
+        r = self.app.process_method('load', oid=oid)
         if r == NEO_NOT_FOUND_ERROR:
             raise POSException.POSKeyError (oid)
         else:
-            return r
+            return r[0], r[1]
 
     def close(self):
         return self.app.process_method('close')
@@ -74,41 +76,60 @@ class NEOStorage(BaseStorage.BaseStorage,
     def new_oid(self):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        return self.app.process_method('new_oid')
+        r = self.app.process_method('new_oid')
+        if r in (NEO_ERROR, NEO_NOT_FOUND_ERROR, NEO_CONFLICT_ERROR):
+            raise NEOStorageError
+        else:
+            return r
 
     def tpc_begin(self, transaction, tid=None, status=' '):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
         self._txn_lock_acquire()
-        return self.app.process_method('tpc_begin', transaction=transaction, tid=tid, status=status)
+        r =  self.app.process_method('tpc_begin', transaction=transaction, tid=tid, status=status)
+        if r in (NEO_ERROR, NEO_NOT_FOUND_ERROR, NEO_CONFLICT_ERROR):
+            raise NEOStorageError
+        else:
+            return r
 
     def tpc_vote(self, transaction):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        return self.app.process_method('tpc_vote', transaction=transaction)
+        r = self.app.process_method('tpc_vote', transaction=transaction)
+        if r in (NEO_ERROR, NEO_NOT_FOUND_ERROR, NEO_CONFLICT_ERROR):
+            raise NEOStorageError
+        else:
+            return r
 
     def tpc_abort(self, transaction):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
         try:
-            return self.app.process_method('tpc_abort', transaction=transaction)
-        except:
+            r = return self.app.process_method('tpc_abort', transaction=transaction)
+            if r in (NEO_ERROR, NEO_NOT_FOUND_ERROR, NEO_CONFLICT_ERROR):
+                raise NEOStorageError
+            else:
+                return r
+        finally:
             self._txn_lock_release()
 
     def tpc_finish(self, transaction, f=None):
         try:
-            return self.app.process_method('tpc_finish', transaction=transaction, f=f)
-        except:
+            r = self.app.process_method('tpc_finish', transaction=transaction, f=f)
+            if r in (NEO_ERROR, NEO_NOT_FOUND_ERROR, NEO_CONFLICT_ERROR):
+                raise NEOStorageError
+            else:
+                return r
+        finally:
             self._txn_lock_release()
 
     def store(self, oid, serial, data, version, transaction):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        try:
-            return self.app.process_method('store', oid=oid, serial=serial, data=data,
-                                           version=version, transaction=transaction)
-        except NEOStorageConflictError, conflict_serial:
-            if conflict_serial <= self.app.tid:
+        r = self.app.process_method('store', oid=oid, serial=serial, data=data,
+                                       version=version, transaction=transaction)
+        if r == NEO_CONFLICT_ERROR:
+            if self.app.conflict_serial <= self.app.tid:
                 # Try to resolve conflict only if conflicting serial is older
                 # than the current transaction ID
                 new_data = self.tryToResolveConflict(oid, self.app.tid,
@@ -119,28 +140,41 @@ class NEOStorage(BaseStorage.BaseStorage,
             raise POSException.ConflictError(oid=oid,
                                              serials=(self.app.tid,
                                                       serial),data=data)
+        elif r in (NEO_ERROR, NEO_NOT_FOUND_ERROR):
+            raise NEOStorageError
+        else:
+            return r
 
     def _clear_temp(self):
         raise NotImplementedError
 
     def getSerial(self, oid):
-        try:
-            return self.app.process_method('getSerial', oid=oid)
-        except NEOStorageNotFoundError:
+        r =  self.app.process_method('getSerial', oid=oid)
+        if r == NEO_NOT_FOUND_ERROR:
             raise POSException.POSKeyError (oid)
+        elif r in (NEO_ERROR, NEO_CONFLICT_ERROR):
+            raise NEOStorageError
+        else:
+            return r
 
     # mutliple revisions
     def loadSerial(self, oid, serial):
-        try:
-            return self.app.process_method('loadSerial', oid=u64(oid), serial=u64(serial))
-        except NEOStorageNotFoundError:
+        r = self.app.process_method('loadSerial', oid=oid, serial=serial)
+        if r == NEO_NOT_FOUND_ERROR:
             raise POSException.POSKeyError (oid, serial)
+        elif r in (NEO_ERROR, NEO_CONFLICT_ERROR):
+            raise NEOStorageError
+        else:
+            return r
 
     def loadBefore(self, oid, tid):
-        try:
-            return self.app.process_method('loadBefore', oid=u64(oid), tid=u64(tid))
-        except NEOStorageNotFoundError:
+        r =  self.app.process_method('loadBefore', oid=oid, tid=tid)
+        if r == NEO_NOT_FOUND_ERROR:
             raise POSException.POSKeyError (oid, tid)
+        elif r in (NEO_ERROR, NEO_CONFLICT_ERROR):
+            raise NEOStorageError
+        else:
+            return r
 
     def iterator(self, start=None, stop=None):
         raise NotImplementedError
@@ -151,14 +185,24 @@ class NEOStorage(BaseStorage.BaseStorage,
             raise POSException.ReadOnlyError()
         self._txn_lock_acquire()
         try:
-            return self.app.process_method('undo', transaction_id=transaction_id, txn=txn, wrapper=self)
-        except:
+            r = self.app.process_method('undo', transaction_id=transaction_id, txn=txn, wrapper=self)
+            if r == NEO_CONFLICT_ERROR:
+                raise POSException.ConflictError
+            elif r in (NEO_ERROR, NOT_FOUND_ERROR):
+                raise NEOStorageError
+            else:
+                return r
+        finally:
             self._txn_lock_release()
 
     def undoLog(self, first, last, filter):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        return self.undoLog(first, last, filter)
+        r = self.undoLog(first, last, filter)
+        if r in (NEO_ERROR, NEO_NOT_FOUND_ERROR, NEO_CONFLICT_ERROR):
+            raise NEOStorageError
+        else:
+            return r
 
     def supportsUndo(self):
         return 0
