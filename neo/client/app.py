@@ -446,7 +446,8 @@ class Application(ThreadingMixIn, object):
                     # previous node which already store data as it would be resent
                     # again if conflict is resolved or txn will be aborted
                     del self.txn_data_dict[oid]
-                raise NEOStorageConflictError(self.object_stored[1])
+                self.conflict_serial = self.object_stored[1]
+                raise NEOStorageConflictError
 
         # Store object in tmp cache
         noid, nserial = self.object_stored
