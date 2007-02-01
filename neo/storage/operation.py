@@ -301,6 +301,7 @@ class OperationEventHandler(StorageEventHandler):
         o = app.dm.getObject(oid, serial, tid)
         p = Packet()
         if o is not None:
+            logging.debug('o = %r' % (o,))
             serial, next_serial, compression, checksum, data = o
             if next_serial is None:
                 next_serial = INVALID_SERIAL
@@ -341,16 +342,14 @@ class OperationEventHandler(StorageEventHandler):
 
     def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
                                   ext, oid_list):
-        app = self.app
-
-        try:
-            t = app.transaction_dict[tid]
-        except KeyError:
-            p = Packet()
-            p.protocolError(packet.getId(), 'unknown tid %s' % dump(tid))
-            conn.addPacket(p)
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
             return
 
+        app = self.app
+
+        t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
         t.addTransaction(oid_list, user, desc, ext)
         conn.addPacket(Packet().answerStoreTransaction(packet.getId(), tid))
 
