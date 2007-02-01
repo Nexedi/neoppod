@@ -45,6 +45,7 @@ class ClientEventHandler(EventHandler):
             EventHandler.connectionClosed(self, conn)
         elif uuid == self.app.master_conn.getUUID():
             logging.critical("connection to primary master node closed")
+            # FIXME, client must try to connect to master node again
             raise NEOStorageError("connection to primary master node closed")
         else:
             app = self.app
@@ -374,9 +375,9 @@ class ClientEventHandler(EventHandler):
         if isinstance(conn, ClientConnection):
             app = self.app
             if conflicting == '1':
-                app.object_stored = -1, serial
+                app.txn_object_stored = -1, serial
             else:
-                app.object_stored = oid, serial
+                app.txn_object_stored = oid, serial
         else:
             self.handleUnexpectedPacket(conn, packet)
 

@@ -134,7 +134,7 @@ class Application(ThreadingMixIn, object):
         self.tid = None
         self.txn = None
         self.txn_data_dict = {}
-        self.txn_obj_stored = 0
+        self.txn_object_stored = 0
         self.txn_voted = 0
         self.txn_finished = 0
         # Internal attribute distinct between thread
@@ -305,6 +305,8 @@ class Application(ThreadingMixIn, object):
         data = None
 
         # Store data on each node
+        if len(storage_node_list) == 0:
+            raise NEOStorageNotFoundError()
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node)
             if conn is None:
@@ -446,7 +448,7 @@ class Application(ThreadingMixIn, object):
                     # previous node which already store data as it would be resent
                     # again if conflict is resolved or txn will be aborted
                     del self.txn_data_dict[oid]
-                self.conflict_serial = self.object_stored[1]
+                self.conflict_serial = self.txn_object_stored[1]
                 raise NEOStorageConflictError
 
         # Store object in tmp cache
