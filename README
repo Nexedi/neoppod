@@ -32,9 +32,8 @@ Installation
       <zodb_db main>
           # Main FileStorage database
           <NEOStorage>
-                master_addr "127.0.0.1"
-                master_port 10010
-                name "main"
+                master_nodes 127.0.0.1:10010 127.0.0.1:10011
+                name main
           </NEOStorage>
           mount-point /
       </zodb_db>
