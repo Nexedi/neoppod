@@ -11,7 +11,6 @@ from neo.client.NEOStorage import NEOStorageError
 from neo.exception import ElectionFailure
 
 from ZODB.TimeStamp import TimeStamp
-from ZODB.utils import p64
 
 
 class ClientEventHandler(EventHandler):
@@ -217,6 +216,8 @@ class ClientEventHandler(EventHandler):
             if not isinstance(node, MasterNode) \
                    or app.primary_master_node is None \
                    or app.primary_master_node.getUUID() != uuid:
+                # FIXME sometimes primary master node is None, but we are
+                # connected to it, so client wait forever
                 return
 
             if app.ptid != ptid:
@@ -385,7 +386,7 @@ class ClientEventHandler(EventHandler):
     def handleAnswerStoreTransaction(self, conn, packet, tid):
         if isinstance(conn, ClientConnection):
             app = self.app
-            app.txn_stored = 1
+            app.txn_voted = 1
         else:
             self.handleUnexpectedPacket(conn, packet)
 
