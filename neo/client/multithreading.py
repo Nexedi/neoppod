@@ -1,5 +1,9 @@
 from threading import Thread
 
+from neo.client.NEOStorage import NEOStorageError, NEOStorageConflictError, \
+     NEOStorageNotFoundError, NEO_ERROR, NEO_CONFLICT_ERROR, NEO_NOT_FOUND_ERROR
+import logging
+
 class ThreadingMixIn:
     """Mix-in class to handle each method in a new thread."""
 
@@ -8,9 +12,18 @@ class ThreadingMixIn:
         r = None
         try:
             r = m(**kw)
-        finally:
             self._return_lock_acquire()
             self.returned_data = r
+        except NEOStorageConflictError:
+            self._return_lock_acquire()
+            self.returned_data = NEO_CONFLICT_ERROR
+        except NEOStorageNotFoundError:
+            self._return_lock_acquire()
+            self.returned_data = NEO_NOT_FOUND_ERROR
+        except:
+            self._return_lock_acquire()
+            self.returned_data = NEO_ERROR
+
 
     def process_method(self, method, **kw):
         """Start a new thread to process the method."""

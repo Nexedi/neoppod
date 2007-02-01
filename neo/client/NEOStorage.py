@@ -15,6 +15,11 @@ class NEOStorageConflictError(NEOStorageError):
 class NEOStorageNotFoundError(NEOStorageError):
     pass
 
+# defined variable used to notify thread of exception
+NEO_ERROR = 'neo_error'
+NEO_CONFLICT_ERROR = 'neo_conflict_error'
+NEO_NOT_FOUND_ERROR = 'neo_not_found_error'
+
 class NEOStorage(BaseStorage.BaseStorage,
                  ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
@@ -46,10 +51,11 @@ class NEOStorage(BaseStorage.BaseStorage,
                                message_queue, request_queue)
 
     def load(self, oid, version=None):
-        try:
-            return self.app.process_method('load', oid=u64(oid))
-        except NEOStorageNotFoundError:
+        r = self.app.process_method('load', oid=u64(oid))
+        if r == NEO_NOT_FOUND_ERROR:
             raise POSException.POSKeyError (oid)
+        else:
+            return r
 
     def close(self):
         return self.app.process_method('close')
