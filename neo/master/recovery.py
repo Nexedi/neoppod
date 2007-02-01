@@ -183,7 +183,10 @@ class RecoveryEventHandler(MasterEventHandler):
         # Send the information.
         node_list = []
         for n in app.nm.getNodeList():
-            ip_address, port = n.getServer()
+            try:
+                ip_address, port = n.getServer()
+            except TypeError:
+                ip_address, port = '0.0.0.0', 0
             node_list.append((n.getNodeType(), ip_address, port, 
                               n.getUUID() or INVALID_UUID, n.getState()))
             if len(node_list) == 10000:
