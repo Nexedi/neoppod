@@ -4,16 +4,10 @@
      <description>
        A scalable storage for Zope
      </description>
-     <key name="master_addr" required="yes">
+     <key name="master_nodes" required="yes">
       <description>
-       Give the ip of the master node
+       Give the list of the master node like ip:port ip:port...
       </description>
-     </key>
-     <key name="master_port" required="yes">
-      <description>
-       Give the port of the master node
-      </description>
-     </key>
      <key name="name" required="yes">
       <description>
        Give the name of the cluster

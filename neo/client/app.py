@@ -109,11 +109,10 @@ class ConnectionManager(object):
 class Application(ThreadingMixIn, object):
     """The client node application."""
 
-    def __init__(self, master_addr, master_port, name, em, dispatcher, message_queue,
+    def __init__(self, master_nodes, name, em, dispatcher, message_queue,
                  request_queue, **kw):
         logging.basicConfig(level = logging.DEBUG)
-        logging.debug('master node address is %s, port is %d' %(master_addr,
-                                                                master_port))
+        logging.debug('master node address are %s' %(master_nodes,))
         # Internal Attributes common to all thread
         self.name = name
         self.em = em
@@ -163,11 +162,11 @@ class Application(ThreadingMixIn, object):
                     break
             self.uuid = uuid
         # Connect to primary master node
-        defined_master_addr = (master_addr, master_port)
+        self.master_node_list = master_nodes.split(' ')
         while 1:
             self.node_not_ready = 0
             logging.debug("trying to connect to primary master...")
-            self.connectToPrimaryMasterNode(defined_master_addr)
+            self.connectToPrimaryMasterNode()
             if not self.node_not_ready and self.pt.filled():
                 # got a connection and partition table
                 break
@@ -203,21 +202,22 @@ class Application(ThreadingMixIn, object):
                 global_message[0].handler.dispatch(global_message[0], global_message[1])
 
 
-    def connectToPrimaryMasterNode(self, defined_master_addr):
+    def connectToPrimaryMasterNode(self):
         """Connect to the primary master node."""
+        addr, port = self.master_node_list[0].split(':')
+        port = int(port)
         handler = ClientEventHandler(self, self.dispatcher)
-        n = MasterNode(server = defined_master_addr)
+        n = MasterNode(server = (addr, port))
         self.nm.add(n)
 
-        # Connect to defined master node and get primary master node
+        # Connect to first master node defined and get primary master node
         self.local_var.tmp_q = Queue(1)
         if self.primary_master_node is None:
-            conn = ClientConnection(self.em, handler, defined_master_addr)
+            conn = ClientConnection(self.em, handler, (addr, port))
             msg_id = conn.getNextId()
             p = Packet()
             p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid,
-                                        defined_master_addr[0],
-                                        defined_master_addr[1], self.name)
+                                        addr, port, self.name)
             # send message to dispatcher
             self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
             self.primary_master_node = None
@@ -226,7 +226,7 @@ class Application(ThreadingMixIn, object):
             while 1:
                 self._waitMessage(block=0)
                 if self.primary_master_node == -1:
-                    raise NEOStorageError("Unable to initialize connection to master node %s" %(defined_master_addr,))
+                    raise NEOStorageError("Unable to initialize connection to master node %s:%d" %(addr, port))
                 if self.primary_master_node is not None:
                     break
                 if self.node_not_ready:
@@ -234,7 +234,7 @@ class Application(ThreadingMixIn, object):
                     return
         logging.info('primary master node is %s' %(self.primary_master_node.server,))
         # Close connection if not already connected to primary master node
-        if self.primary_master_node.getServer() !=  defined_master_addr:
+        if self.primary_master_node.getServer() !=  (addr, port):
             for conn in self.em.getConnectionList():
                 conn.close()
 

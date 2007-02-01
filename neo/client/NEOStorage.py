@@ -21,7 +21,7 @@ class NEOStorage(BaseStorage.BaseStorage,
 
     __name__ = 'NEOStorage'
 
-    def __init__(self, master_addr, master_port, name, read_only=False, **kw):
+    def __init__(self, master_nodes, name, read_only=False, **kw):
         self._is_read_only = read_only
         # Transaction must be under protection of lock
         l = Lock()
@@ -42,7 +42,7 @@ class NEOStorage(BaseStorage.BaseStorage,
         dispatcher.start()
         # Import here to prevent recursive import
         from neo.client.app import Application
-        self.app = Application(master_addr, master_port, name, em, dispatcher,
+        self.app = Application(master_nodes, name, em, dispatcher,
                                message_queue, request_queue)
 
     def load(self, oid, version=None):
