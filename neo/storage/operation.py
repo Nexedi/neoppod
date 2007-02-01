@@ -360,7 +360,6 @@ class OperationEventHandler(StorageEventHandler):
         if uuid is None:
             self.handleUnexpectedPacket(conn, packet)
             return
-
         # First, check for the locking state.
         app = self.app
         locking_tid = app.store_lock_dict.get(oid)
@@ -368,7 +367,7 @@ class OperationEventHandler(StorageEventHandler):
             if locking_tid < tid:
                 # Delay the response.
                 app.queueEvent(self.handleAskStoreObject, conn, packet,
-                               packet.getId(), oid, serial, compression, data,
+                               oid, serial, compression, data,
                                checksum, tid)
             else:
                 # If a newer transaction already locks this object,
@@ -385,7 +384,6 @@ class OperationEventHandler(StorageEventHandler):
                 conn.addPacket(Packet().answerStoreObject(packet.getId(), 1,
                                                           oid, last_serial))
                 return
-
         # Now store the object.
         t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
         t.addObject(oid, compression, checksum, data)
