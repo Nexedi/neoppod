@@ -136,7 +136,7 @@ class OperationEventHandler(StorageEventHandler):
                     # If I do not know such a node, and it is not even a master
                     # node, simply reject it.
                     logging.error('reject an unknown node')
-                    conn.addPacket(Packet().notReady(packet.getId(), 
+                    conn.addPacket(Packet().notReady(packet.getId(),
                                                      'unknown node'))
                     conn.abort()
                     return
@@ -235,7 +235,7 @@ class OperationEventHandler(StorageEventHandler):
             if t is None:
                 p.tidNotFound(packet.getId(), '%s does not exist' % dump(tid))
             else:
-                p.answerTransactionInformation(packet.getId(), tid, 
+                p.answerTransactionInformation(packet.getId(), tid,
                                                t[1], t[2], t[0])
             conn.addPacket(p)
 
@@ -304,7 +304,7 @@ class OperationEventHandler(StorageEventHandler):
             serial, next_serial, compression, checksum, data = o
             if next_serial is None:
                 next_serial = INVALID_SERIAL
-            p.answerObject(packet.getId(), oid, serial, next_serial, 
+            p.answerObject(packet.getId(), oid, serial, next_serial,
                            compression, checksum, data)
         else:
             p.oidNotFound(packet.getId(), '%s does not exist' % dump(oid))
@@ -314,7 +314,7 @@ class OperationEventHandler(StorageEventHandler):
         # This method is complicated, because I must return TIDs only
         # about usable partitions assigned to me.
         if first >= last:
-            conn.addPacket(Packet().protocolError(packet.getId(), 
+            conn.addPacket(Packet().protocolError(packet.getId(),
                                                   'invalid offsets'))
             return
 
@@ -329,14 +329,14 @@ class OperationEventHandler(StorageEventHandler):
                     partition_list.append(offset)
                     break
 
-        tid_list = app.dm.getTIDList(first, last - first, 
+        tid_list = app.dm.getTIDList(first, last - first,
                                      app.num_partitions, partition_list)
         conn.addPacket(Packet().answerTIDs(packet.getId(), tid_list))
 
     def handleAskObjectHistory(self, conn, packet, oid, length):
         app = self.app
         history_list = app.dm.getObjectHistory(oid, length)
-        conn.addPacket(Packet().answerObjectHistory(packet.getId(), 
+        conn.addPacket(Packet().answerObjectHistory(packet.getId(),
                                                     history_list))
 
     def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
@@ -354,7 +354,7 @@ class OperationEventHandler(StorageEventHandler):
         t.addTransaction(oid_list, user, desc, ext)
         conn.addPacket(Packet().answerStoreTransaction(packet.getId(), tid))
 
-    def handleAskStoreObject(self, conn, packet, msg_id, oid, serial,
+    def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, data, checksum, tid):
         uuid = conn.getUUID()
         if uuid is None:
@@ -367,8 +367,8 @@ class OperationEventHandler(StorageEventHandler):
         if locking_tid is not None:
             if locking_tid < tid:
                 # Delay the response.
-                app.queueEvent(self.handleAskStoreObject, conn, packet, 
-                               msg_id, oid, serial, compression, data,
+                app.queueEvent(self.handleAskStoreObject, conn, packet,
+                               packet.getId(), oid, serial, compression, data,
                                checksum, tid)
             else:
                 # If a newer transaction already locks this object,
@@ -389,7 +389,7 @@ class OperationEventHandler(StorageEventHandler):
         # Now store the object.
         t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
         t.addObject(oid, compression, checksum, data)
-        conn.addPacket(Packet().answerStoreObject(packet.getId(), 0, 
+        conn.addPacket(Packet().answerStoreObject(packet.getId(), 0,
                                                   oid, serial))
         app.store_lock_dict[oid] = tid
 

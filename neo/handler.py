@@ -208,7 +208,7 @@ class EventHandler(object):
     def handleUnlockInformation(self, conn, packet, tid):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAskStoreObject(self, conn, packet, msg_id, oid, serial,
+    def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, data, checksum, tid):
         self.handleUnexpectedPacket(conn, packet)
 
