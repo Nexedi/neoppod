@@ -213,11 +213,7 @@ class ClientEventHandler(EventHandler):
             pt = app.pt
             node = app.nm.getNodeByUUID(uuid)
             # This must be sent only by primary master node
-            if not isinstance(node, MasterNode) \
-                   or app.primary_master_node is None \
-                   or app.primary_master_node.getUUID() != uuid:
-                # FIXME sometimes primary master node is None, but we are
-                # connected to it, so client wait forever
+            if not isinstance(node, MasterNode):
                 return
 
             if app.ptid != ptid:
