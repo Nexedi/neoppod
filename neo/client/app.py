@@ -306,6 +306,7 @@ class Application(ThreadingMixIn, object):
 
         # Store data on each node
         if len(storage_node_list) == 0:
+            # FIXME must wait for cluster to be ready
             raise NEOStorageNotFoundError()
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node)
@@ -423,7 +424,9 @@ class Application(ThreadingMixIn, object):
         # Find which storage node to use
         partition_id = u64(oid) % self.num_partitions
         storage_node_list = self.pt.getCellList(partition_id, True)
-
+        if len(storage_node_list) == 0:
+            # FIXME must wait for cluster to be ready
+            raise NEOStorageError
         # Store data on each node
         ddata = dumps(data)
         compressed_data = compress(ddata)
@@ -441,7 +444,7 @@ class Application(ThreadingMixIn, object):
             # Check we don't get any conflict
             self.txn_object_stored = 0
             self._waitMessage()
-            if self.object_stored[0] == -1:
+            if self.txn_object_stored[0] == -1:
                 if self.txn_data_dict.has_key(oid):
                     # One storage already accept the object, is it normal ??
                     # remove from dict and raise ConflictError, don't care of
