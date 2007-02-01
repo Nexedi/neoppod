@@ -428,7 +428,7 @@ class ServiceEventHandler(MasterEventHandler):
         t = FinishingTransaction(conn, packet, oid_list, uuid_set)
         app.finishing_transaction_dict[tid] = t
 
-    def handleNotifyTransactionLocked(self, conn, packet, tid):
+    def handleNotifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()
         if uuid is None:
             self.handleUnexpectedPacket(conn, packet)

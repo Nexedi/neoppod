@@ -66,6 +66,6 @@ class MasterEventHandler(EventHandler):
         logging.info('ignoring Finish Transaction')
         pass
 
-    def handleNotifyTransactionLocked(self, conn, packet, tid):
-        logging.info('ignoring Notify Transaction Locked')
+    def handleNotifyInformationLocked(self, conn, packet, tid):
+        logging.info('ignoring Notify Information Locked')
         pass
