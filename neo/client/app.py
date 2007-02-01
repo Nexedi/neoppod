@@ -165,7 +165,7 @@ class Application(ThreadingMixIn, object):
         self.master_node_list = master_nodes.split(' ')
         while 1:
             self.node_not_ready = 0
-            logging.debug("trying to connect to primary master...")
+            logging.info("trying to connect to primary master...")
             self.connectToPrimaryMasterNode()
             if not self.node_not_ready and self.pt.filled():
                 # got a connection and partition table
@@ -353,11 +353,11 @@ class Application(ThreadingMixIn, object):
 
         # Put in cache only when using load
         if cache:
-            self.cache_lock_acquire()
+            self._cache_lock_acquire()
             try:
                 self.mq_cache[oid] = start_serial, data
             finally:
-                self.cache_lock_release()
+                self._cache_lock_release()
         if end_serial == INVALID_SERIAL:
             end_serial = None
         return loads(data), start_serial, end_serial
@@ -496,7 +496,7 @@ class Application(ThreadingMixIn, object):
 
         # Abort txn in node where objects were stored
         aborted_node = {}
-        for oid in self.self.txn_data_dict.iterkeys():
+        for oid in self.txn_data_dict.iterkeys():
             partition_id = u64(oid) % self.num_partitions
             storage_node_list = self.pt.getCellList(partition_id, True)
             for storage_node in storage_node_list:
@@ -532,7 +532,7 @@ class Application(ThreadingMixIn, object):
             return
         # Call function given by ZODB
         if f is not None:
-          f()
+          f(self.tid)
         # Call finish on master
         oid_list = self.txn_data_dict.keys()
         conn = self.master_conn
@@ -547,14 +547,14 @@ class Application(ThreadingMixIn, object):
             raise NEOStorageError('tpc_finish failed')
 
         # Update cache
-        self.cache_lock_acquire()
+        self._cache_lock_acquire()
         try:
             for oid in self.txn_data_dict.iterkeys():
                 ddata = self.txn_data_dict[oid]
                 # Now serial is same as tid
                 self.mq_cache[oid] = self.tid, ddata
         finally:
-            self.cache_lock_release()
+            self._cache_lock_release()
         self._clear_txn()
         return self.tid
 
