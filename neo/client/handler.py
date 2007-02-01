@@ -41,14 +41,15 @@ class ClientEventHandler(EventHandler):
 
     def connectionClosed(self, conn):
         uuid = conn.getUUID()
-        if self.app.primary_master_node is None:
+        if self.app.master_conn is None:
             EventHandler.connectionClosed(self, conn)
-        elif uuid == self.app.primary_master_node.getUUID():
+        elif uuid == self.app.master_conn.getUUID():
             logging.critical("connection to primary master node closed")
             raise NEOStorageError("connection to primary master node closed")
         else:
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
+            logging.info("connection to storage node %s closed" %(node.getServer(),))
             if isinstance(node, StorageNode):
                 # Notify primary master node that a storage node is temporarily down
                 conn = app.master_conn
