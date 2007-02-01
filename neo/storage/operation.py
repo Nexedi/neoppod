@@ -301,7 +301,6 @@ class OperationEventHandler(StorageEventHandler):
         o = app.dm.getObject(oid, serial, tid)
         p = Packet()
         if o is not None:
-            logging.debug('o = %r' % (o,))
             serial, next_serial, compression, checksum, data = o
             if next_serial is None:
                 next_serial = INVALID_SERIAL
