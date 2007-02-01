@@ -2,6 +2,7 @@ import MySQLdb
 from MySQLdb import OperationalError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 import logging
+from array import array
 
 from neo.storage.database import DatabaseManager
 from neo.exception import DatabaseFailure
@@ -55,7 +56,16 @@ class MySQLDatabaseManager(DatabaseManager):
             conn.query(query)
             r = conn.store_result()
             if r is not None:
-                r = r.fetch_row(r.num_rows())
+                new_r = []
+                for row in r.fetch_row(r.num_rows()):
+                    new_row = []
+                    for d in row:
+                        if isinstance(d, array):
+                            d = d.tostring()
+                        new_row.append(d)
+                    new_r.append(tuple(new_row))
+                r = tuple(new_r)
+
         except OperationalError, m:
             if m[0] in (SERVER_GONE_ERROR, SERVER_LOST):
                 logging.info('the MySQL server is gone; reconnecting')
