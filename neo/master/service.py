@@ -458,7 +458,7 @@ class ServiceEventHandler(MasterEventHandler):
                 for c in app.em.getConnectionList():
                     uuid = c.getUUID()
                     if uuid is not None:
-                        node = app.nm.getNodeByUUID()
+                        node = app.nm.getNodeByUUID(uuid)
                         if isinstance(node, ClientNode):
                             if c is t.getConnection():
                                 p.notifyTransactionFinished(t.getMessageId(), tid)
