@@ -158,7 +158,7 @@ class NEOStorage(BaseStorage.BaseStorage,
         self._txn_lock_acquire()
         try:
             try:
-                r = self.app.process_method('undo', 
+                r = self.app.process_method('undo',
                                             transaction_id = transaction_id,
                                             txn = txn, wrapper = self)
                 return r
@@ -170,7 +170,7 @@ class NEOStorage(BaseStorage.BaseStorage,
     def undoLog(self, first, last, filter):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        r = self.undoLog(first, last, filter)
+        r = self.app.undoLog(first, last, filter)
         return r
 
     def supportsUndo(self):
