@@ -24,7 +24,7 @@ class Dispatcher(Thread):
             # First check if we receive any new message from other node
             m = None
             try:
-                self.em.poll(1)
+                self.em.poll(0.2)
             except KeyError:
                 # This happen when there is no connection
                 logging.error('Dispatcher, run, poll returned a KeyError')
