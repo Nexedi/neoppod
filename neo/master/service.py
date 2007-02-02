@@ -477,7 +477,7 @@ class ServiceEventHandler(MasterEventHandler):
                                 p.notifyTransactionFinished(t.getMessageId(), tid)
                                 c.addPacket(p)
                             else:
-                                p.invalidateObjects(c.getNextId(), t.getOidList())
+                                p.invalidateObjects(c.getNextId(), t.getOIDList())
                                 c.addPacket(p)
                         elif isinstance(node, StorageNode):
                             if uuid in t.getUUIDSet():
