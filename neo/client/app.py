@@ -180,7 +180,16 @@ class Application(ThreadingMixIn, object):
 
     def _waitMessage(self,block=1):
         """Wait for a message returned by dispatcher in queues."""
-        # First get message we are waiting for
+        # First check if there are global messages and execute them
+        global_message = None
+        while 1:
+            try:
+                global_message = self.request_queue.get_nowait()
+            except Empty:
+                break
+            if global_message is not None:
+                global_message[0].handler.dispatch(global_message[0], global_message[1])
+        # Next get messages we are waiting for
         message = None
         if block:
             message = self.local_var.tmp_q.get(True, None)
@@ -192,16 +201,6 @@ class Application(ThreadingMixIn, object):
                 pass
         if message is not None:
             message[0].handler.dispatch(message[0], message[1])
-        # Now check if there is global messages and execute them
-        global_message = None
-        while 1:
-            try:
-                global_message = self.request_queue.get_nowait()
-            except Empty:
-                break
-            if global_message is not None:
-                global_message[0].handler.dispatch(global_message[0], global_message[1])
-
 
     def connectToPrimaryMasterNode(self):
         """Connect to the primary master node."""

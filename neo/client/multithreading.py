@@ -21,6 +21,8 @@ class ThreadingMixIn:
         """Start a new thread to process the method."""
         # XXX why is it necessary to start a new thread here? -yo
         # XXX it is too heavy to create a new thread every time. -yo
+        return getattr(self, method)(**kw)
+
         t = Thread(target = self.process_method_thread,
                    args = (method, kw))
         t.start()
