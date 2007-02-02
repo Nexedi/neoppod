@@ -712,7 +712,7 @@ class Application(object):
     def getNextTID(self):
         tm = time()
         gmt = gmtime(tm)
-        upper = (((gmt.tm_year * 12 + gmt.tm_mon) * 31 + gmt.tm_mday - 1) \
+        upper = ((((gmt.tm_year - 1900) * 12 + gmt.tm_mon) * 31 + gmt.tm_mday - 1) \
                 * 24 + gmt.tm_hour) * 60 + gmt.tm_min
         lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / (60.0 / 65536.0 / 65536.0))
         tid = pack('!LL', upper, lower)
