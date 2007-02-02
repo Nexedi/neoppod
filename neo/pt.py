@@ -155,7 +155,6 @@ class PartitionTable(object):
             logging.debug('pt: row %d: %s', offset, ', '.join(desc_list))
 
     def operational(self):
-        self.log()
         if not self.filled():
             return False
 
