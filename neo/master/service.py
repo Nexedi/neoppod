@@ -262,6 +262,8 @@ class ServiceEventHandler(MasterEventHandler):
         # If this is a storage node or a client node, send the partition table.
         node = app.nm.getNodeByUUID(uuid)
         if isinstance(node, (StorageNode, ClientNode)):
+            logging.debug('sending send partition table to %s:%d',
+                          *(conn.getAddress()))
             # Split the packet if too huge.
             p = Packet()
             row_list = []

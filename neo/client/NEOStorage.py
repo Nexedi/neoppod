@@ -188,3 +188,7 @@ class NEOStorage(BaseStorage.BaseStorage,
 
     def copyTransactionsFrom(self, other, verbose=0):
         raise NotImplementedError
+
+    def __len__(self):
+        # XXX bogus but how to implement this?
+        return 0

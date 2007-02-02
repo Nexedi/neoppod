@@ -40,6 +40,8 @@ class ConnectionManager(object):
     def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
         addr = node.getNode().getServer()
+        if addr is None:
+            return None
         handler = ClientEventHandler(self.storage, self.storage.dispatcher)
         conn = ClientConnection(self.storage.em, handler, addr)
         msg_id = conn.getNextId()
@@ -252,7 +254,7 @@ class Application(ThreadingMixIn, object):
         # Wait for primary master node information
         while 1:
             self._waitMessage(block=0)
-            if self.pt.filled()  or self.node_not_ready:
+            if self.pt.operational() or self.node_not_ready:
                 break
 
 

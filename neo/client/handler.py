@@ -4,7 +4,7 @@ from neo.handler import EventHandler
 from neo.connection import ClientConnection
 from neo.protocol import Packet, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        INVALID_UUID, TEMPORARILY_DOWN_STATE, BROKEN_STATE
+        INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.pt import PartitionTable
 from neo.client.NEOStorage import NEOStorageError
@@ -228,8 +228,7 @@ class ClientEventHandler(EventHandler):
                     node = nm.getNodeByUUID(uuid)
                     if node is None:
                         node = StorageNode(uuid = uuid)
-                        if uuid != app.uuid:
-                            node.setState(TEMPORARILY_DOWN_STATE)
+                        node.setState(TEMPORARILY_DOWN_STATE)
                         nm.add(node)
                     pt.setCell(offset, node, state)
         else:
@@ -254,30 +253,40 @@ class ClientEventHandler(EventHandler):
             for node_type, ip_address, port, uuid, state in node_list:
                 # Register new nodes.
                 addr = (ip_address, port)
-                n = nm.getNodeByServer(addr)
-                if n is None:
-                    if node_type == MASTER_NODE_TYPE:
+
+                if node_type == MASTER_NODE_TYPE:
+                    n = nm.getNodeByServer(addr)
+                    if n is None:
                         n = MasterNode(server = addr)
                         nm.add(n)
-                        if uuid != INVALID_UUID:
-                            # If I don't know the UUID yet, believe what the peer
-                            # told me at the moment.
-                            if n.getUUID() is None:
-                                n.setUUID(uuid)
-                    elif node_type == STORAGE_NODE_TYPE:
-                        if uuid == INVALID_UUID:
-                            # No interest.
-                            continue
+                    if uuid != INVALID_UUID:
+                        # If I don't know the UUID yet, believe what the peer
+                        # told me at the moment.
+                        if n.getUUID() is None:
+                            n.setUUID(uuid)
+                elif node_type == STORAGE_NODE_TYPE:
+                    if uuid == INVALID_UUID:
+                        # No interest.
+                        continue
+                    n = nm.getNodeByUUID(uuid)
+                    if n is None:
                         n = StorageNode(server = addr, uuid = uuid)
                         nm.add(n)
-                    elif node_type == CLIENT_NODE_TYPE:
-                        if uuid == INVALID_UUID:
-                            # No interest.
-                            continue
-                        n = ClientNode(server = addr, uuid = uuid)
-                        nm.add(n)
                     else:
+                        n.setServer(addr)
+                elif node_type == CLIENT_NODE_TYPE:
+                    if uuid == INVALID_UUID:
+                        # No interest.
                         continue
+                    if state == RUNNING_STATE:
+                        n = app.nm.getNodeByUUID(uuid)
+                        if n is None:
+                            n = ClientNode(server = addr, uuid = uuid)
+                            nm.add(n)
+                    else:
+                        n = app.nm.getNodeByUUID(uuid)
+                        if n is not None:
+                            app.nm.remove(n)
 
                 n.setState(state)
         else:
