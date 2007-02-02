@@ -370,6 +370,7 @@ class OperationEventHandler(StorageEventHandler):
             else:
                 # If a newer transaction already locks this object,
                 # do not try to resolve a conflict, so return immediately.
+                logging.info('unresolvable conflict in %s', dump(oid))
                 conn.addPacket(Packet().answerStoreObject(packet.getId(), 1,
                                                           oid, locking_tid))
             return
@@ -379,6 +380,7 @@ class OperationEventHandler(StorageEventHandler):
         if history_list:
             last_serial = history_list[0][0]
             if last_serial != serial:
+                logging.info('resolvable conflict in %s', dump(oid))
                 conn.addPacket(Packet().answerStoreObject(packet.getId(), 1,
                                                           oid, last_serial))
                 return

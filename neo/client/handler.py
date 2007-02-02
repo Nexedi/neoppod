@@ -9,6 +9,7 @@ from neo.node import MasterNode, StorageNode, ClientNode
 from neo.pt import PartitionTable
 from neo.client.NEOStorage import NEOStorageError
 from neo.exception import ElectionFailure
+from neo.util import dump
 
 from ZODB.TimeStamp import TimeStamp
 
@@ -244,10 +245,12 @@ class ClientEventHandler(EventHandler):
             app = self.app
             nm = app.nm
             node = nm.getNodeByUUID(uuid)
-            # This must be sent only by primary master node
-            if not isinstance(node, MasterNode) \
-                   or app.primary_master_node is None \
-                   or app.primary_master_node.getUUID() != uuid:
+            # This must be sent only by a primary master node.
+            # Note that this may be sent before I know that it is 
+            # a primary master node.
+            if not isinstance(node, MasterNode):
+                logging.warn('ignoring notify node information from %s', 
+                             dump(uuid))
                 return
 
             for node_type, ip_address, port, uuid, state in node_list:
@@ -287,6 +290,7 @@ class ClientEventHandler(EventHandler):
                         n = app.nm.getNodeByUUID(uuid)
                         if n is not None:
                             app.nm.remove(n)
+                    continue
 
                 n.setState(state)
         else:
@@ -385,7 +389,7 @@ class ClientEventHandler(EventHandler):
     def handleAnswerStoreObject(self, conn, packet, conflicting, oid, serial):
         if isinstance(conn, ClientConnection):
             app = self.app
-            if conflicting == '1':
+            if conflicting:
                 app.txn_object_stored = -1, serial
             else:
                 app.txn_object_stored = oid, serial

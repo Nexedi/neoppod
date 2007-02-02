@@ -143,15 +143,20 @@ class PartitionTable(object):
             node_dict[node] = i
         for node, i in node_dict.iteritems():
             logging.debug('pt: node %d: %s', i, dump(node.getUUID()))
-        state_dict = { UP_TO_DATE_STATE: 'U', 
-                       OUT_OF_DATE_STATE: 'O', 
-                       FEEDING_STATE: 'F' }
+        node_state_dict = { RUNNING_STATE: 'R',
+                            TEMPORARILY_DOWN_STATE: 'T',
+                            DOWN_STATE: 'D',
+                            BROKEN_STATE: 'B' }
+        cell_state_dict = { UP_TO_DATE_STATE: 'U', 
+                            OUT_OF_DATE_STATE: 'O', 
+                            FEEDING_STATE: 'F' }
         for offset, row in enumerate(self.partition_list):
             desc_list = []
             for cell in row:
                 i = node_dict[cell.getNode()]
-                s = state_dict[cell.getState()]
-                desc_list.append('%d %s' % (i, s))
+                cell_state = cell_state_dict[cell.getState()]
+                node_state = node_state_dict[cell.getNodeState()]
+                desc_list.append('%d %s %s' % (i, cell_state, node_state))
             logging.debug('pt: row %d: %s', offset, ', '.join(desc_list))
 
     def operational(self):

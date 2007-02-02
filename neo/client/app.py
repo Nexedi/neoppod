@@ -539,7 +539,7 @@ class Application(ThreadingMixIn, object):
             return
         # Call function given by ZODB
         if f is not None:
-          f(self.tid)
+            f(self.tid)
         # Call finish on master
         oid_list = self.txn_data_dict.keys()
         conn = self.master_conn
