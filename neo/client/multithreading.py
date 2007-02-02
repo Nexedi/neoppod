@@ -1,7 +1,7 @@
 from threading import Thread
 
 from neo.client.NEOStorage import NEOStorageError, NEOStorageConflictError, \
-     NEOStorageNotFoundError, NEO_ERROR, NEO_CONFLICT_ERROR, NEO_NOT_FOUND_ERROR
+     NEOStorageNotFoundError
 import logging
 
 class ThreadingMixIn:
@@ -9,24 +9,18 @@ class ThreadingMixIn:
 
     def process_method_thread(self, method, kw):
         m = getattr(self, method)
-        r = None
         try:
             r = m(**kw)
-            self._return_lock_acquire()
-            self.returned_data = r
-        except NEOStorageConflictError:
-            self._return_lock_acquire()
-            self.returned_data = NEO_CONFLICT_ERROR
-        except NEOStorageNotFoundError:
-            self._return_lock_acquire()
-            self.returned_data = NEO_NOT_FOUND_ERROR
-        except:
-            self._return_lock_acquire()
-            self.returned_data = NEO_ERROR
+        except Exception, e:
+            r = e.__class__
 
+        self._return_lock_acquire()
+        self.returned_data = r
 
     def process_method(self, method, **kw):
         """Start a new thread to process the method."""
+        # XXX why is it necessary to start a new thread here? -yo
+        # XXX it is too heavy to create a new thread every time. -yo
         t = Thread(target = self.process_method_thread,
                    args = (method, kw))
         t.start()
@@ -34,6 +28,14 @@ class ThreadingMixIn:
         # under protection of a lock
         try:
             t.join()
-            return self.returned_data
+            r = self.returned_data
+            try:
+                if issubclass(r, NEOStorageError):
+                    raise r()
+                elif issubclass(r, Exception):
+                    raise NEOStorageError()
+            except TypeError:
+                pass
+            return r
         finally:
             self._return_lock_release()

@@ -50,13 +50,15 @@ class ClientEventHandler(EventHandler):
         else:
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
-            logging.info("connection to storage node %s closed" %(node.getServer(),))
+            if node is not None:
+                logging.info("connection to storage node %s closed",
+                             node.getServer())
             if isinstance(node, StorageNode):
                 # Notify primary master node that a storage node is temporarily down
                 conn = app.master_conn
                 msg_id = conn.getNextId()
                 p = Packet()
-                ip_address, port =  node.getServer()
+                ip_address, port = node.getServer()
                 node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
                              TEMPORARILY_DOWN_STATE),]
                 p.notifyNodeInformation(msg_id, node_list)
@@ -362,7 +364,7 @@ class ClientEventHandler(EventHandler):
 
 
     # Storage node handler
-    def handleAnwserObject(self, conn, packet, oid, start_serial, end_serial, compression,
+    def handleAnswerObject(self, conn, packet, oid, start_serial, end_serial, compression,
                            checksum, data):
         if isinstance(conn, ClientConnection):
             app = self.app

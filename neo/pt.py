@@ -1,6 +1,9 @@
+import logging
+
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         BROKEN_STATE
+from neo.util import dump
 
 class Cell(object):
     """This class represents a cell in a partition table."""
@@ -131,7 +134,28 @@ class PartitionTable(object):
     def hasOffset(self, offset):
         return self.partition_list[offset] is not None
 
+    def log(self):
+        """Help debugging partition table management."""
+        node_list = self.count_dict.keys()
+        node_list.sort()
+        node_dict = {}
+        for i, node in enumerate(node_list):
+            node_dict[node] = i
+        for node, i in node_dict.iteritems():
+            logging.debug('pt: node %d: %s', i, dump(node.getUUID()))
+        state_dict = { UP_TO_DATE_STATE: 'U', 
+                       OUT_OF_DATE_STATE: 'O', 
+                       FEEDING_STATE: 'F' }
+        for offset, row in enumerate(self.partition_list):
+            desc_list = []
+            for cell in row:
+                i = node_dict[cell.getNode()]
+                s = state_dict[cell.getState()]
+                desc_list.append('%d %s' % (i, s))
+            logging.debug('pt: row %d: %s', offset, ', '.join(desc_list))
+
     def operational(self):
+        self.log()
         if not self.filled():
             return False
 

@@ -3,7 +3,7 @@ import os
 from time import time
 from threading import Lock, local
 from cPickle import dumps, loads
-from zlib import compress, adler32, decompress
+from zlib import compress, decompress
 from Queue import Queue, Empty
 
 from neo.client.mq import MQ
@@ -17,9 +17,10 @@ from neo.client.handler import ClientEventHandler
 from neo.client.NEOStorage import NEOStorageError, NEOStorageConflictError, \
         NEOStorageNotFoundError
 from neo.client.multithreading import ThreadingMixIn
+from neo.util import makeChecksum
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
-from ZODB.utils import p64, u64
+from ZODB.utils import p64, u64, oid_repr
 
 class ConnectionManager(object):
     """This class manage a pool of connection to storage node."""
@@ -337,13 +338,13 @@ class Application(ThreadingMixIn, object):
                 logging.error('got wrong oid %s instead of %s from node %s' \
                               %(noid, oid, storage_node.getServer()))
                 continue
-            elif compression and checksum != adler32(data):
-                # Check checksum if we use compression
+            elif checksum != makeChecksum(data):
+                # Check checksum.
                 logging.error('wrong checksum from node %s for oid %s' \
                               %(storage_node.getServer(), oid))
                 continue
             else:
-                # Everything looks allright
+                # Everything looks alright.
                 break
 
         if self.local_var.asked_object == -1:
@@ -430,7 +431,7 @@ class Application(ThreadingMixIn, object):
         # Store data on each node
         ddata = dumps(data)
         compressed_data = compress(ddata)
-        checksum = adler32(compressed_data)
+        checksum = makeChecksum(compressed_data)
         for storage_node in storage_node_list:
             conn = self.cm.getConnForNode(storage_node)
             if conn is None:
