@@ -304,9 +304,12 @@ class OperationEventHandler(StorageEventHandler):
             serial, next_serial, compression, checksum, data = o
             if next_serial is None:
                 next_serial = INVALID_SERIAL
+            logging.debug('oid = %s, serial = %s, next_serial = %s',
+                          dump(oid), dump(serial), dump(next_serial))
             p.answerObject(packet.getId(), oid, serial, next_serial,
                            compression, checksum, data)
         else:
+            logging.debug('oid = %s not found', dump(oid))
             p.oidNotFound(packet.getId(), '%s does not exist' % dump(oid))
         conn.addPacket(p)
 

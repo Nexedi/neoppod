@@ -3,6 +3,7 @@ from MySQLdb import OperationalError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 import logging
 from array import array
+import string
 
 from neo.storage.database import DatabaseManager
 from neo.exception import DatabaseFailure
@@ -52,7 +53,14 @@ class MySQLDatabaseManager(DatabaseManager):
         """Query data from a database."""
         conn = self.conn
         try:
-            logging.debug('querying %s...', query.split('\n', 1)[0])
+            printable_char_list = []
+            for c in query.split('\n', 1)[0]:
+                if c not in string.printable or c in '\t\x0b\x0c\r':
+                    c = '\\x%02x' % ord(c)
+                printable_char_list.append(c)
+            query_part = ''.join(printable_char_list)
+
+            logging.debug('querying %s...', query_part)
             conn.query(query)
             r = conn.store_result()
             if r is not None:

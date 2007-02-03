@@ -356,7 +356,7 @@ class Application(object):
             # Now I have at least one to ask.
             prev_lptid = self.lptid
             node = nm.getNodeByUUID(self.target_uuid)
-            if node.getState() != RUNNING_STATE:
+            if node is None or node.getState() != RUNNING_STATE:
                 # Weird. It's dead.
                 logging.info('the target storage node is dead')
                 continue
@@ -712,8 +712,8 @@ class Application(object):
     def getNextTID(self):
         tm = time()
         gmt = gmtime(tm)
-        upper = ((((gmt.tm_year - 1900) * 12 + gmt.tm_mon) * 31 + gmt.tm_mday - 1) \
-                * 24 + gmt.tm_hour) * 60 + gmt.tm_min
+        upper = ((((gmt.tm_year - 1900) * 12 + gmt.tm_mon - 1) * 31 \
+                  + gmt.tm_mday - 1) * 24 + gmt.tm_hour) * 60 + gmt.tm_min
         lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / (60.0 / 65536.0 / 65536.0))
         tid = pack('!LL', upper, lower)
         if tid <= self.ltid:
@@ -721,13 +721,11 @@ class Application(object):
             if lower == 0xffffffff:
                 # This should not happen usually.
                 from datetime import timedelta, datetime
-                hour, min = divmod(upper, 60)
-                day, hour = divmod(hour, 24)
-                month, day = divmod(day, 31)
-                year, month = divmod(month, 12)
-                d = datetime(year, month, day + 1, hour, min) + timedelta(0, 60)
-                upper = (((d.year * 12 + d.month) * 31 + d.day - 1) \
-                        * 24 + d.hour) * 60 + d.minute
+                d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday, 
+                             gmt.tm_hour, gmt.tm_min) \
+                        + timedelta(0, 60)
+                upper = ((((d.year - 1900) * 12 + d.month - 1) * 31 \
+                          + d.day - 1) * 24 + d.hour) * 60 + d.minute
                 lower = 0
             else:
                 lower += 1

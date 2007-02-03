@@ -5,6 +5,7 @@ from threading import Lock, local
 from cPickle import dumps, loads
 from zlib import compress, decompress
 from Queue import Queue, Empty
+from random import shuffle
 
 from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
@@ -17,7 +18,7 @@ from neo.client.handler import ClientEventHandler
 from neo.client.NEOStorage import NEOStorageError, NEOStorageConflictError, \
         NEOStorageNotFoundError
 from neo.client.multithreading import ThreadingMixIn
-from neo.util import makeChecksum
+from neo.util import makeChecksum, dump
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.utils import p64, u64, oid_repr
@@ -302,16 +303,19 @@ class Application(ThreadingMixIn, object):
         """Internal method which manage load ,loadSerial and loadBefore."""
         partition_id = u64(oid) % self.num_partitions
         # Only used up to date node for retrieving object
-        storage_node_list = [x for x in self.pt.getCellList(partition_id, True) \
-                             if x.getState() == UP_TO_DATE_STATE]
+        cell_list = self.pt.getCellList(partition_id, True)
         data = None
 
-        # Store data on each node
-        if len(storage_node_list) == 0:
+        if len(cell_list) == 0:
             # FIXME must wait for cluster to be ready
             raise NEOStorageNotFoundError()
-        for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node)
+
+        shuffle(cell_list)
+        self.local_var.asked_object = -1
+        for cell in cell_list:
+            logging.debug('trying to load %s from %s', 
+                          dump(oid), dump(cell.getUUID()))
+            conn = self.cm.getConnForNode(cell)
             if conn is None:
                 continue
             msg_id = conn.getNextId()
@@ -350,6 +354,7 @@ class Application(ThreadingMixIn, object):
 
         if self.local_var.asked_object == -1:
             # We didn't got any object from all storage node
+            logging.debug('oid %s not found', dump(oid))
             raise NEOStorageNotFoundError()
 
         # Uncompress data
@@ -374,6 +379,7 @@ class Application(ThreadingMixIn, object):
         self._cache_lock_acquire()
         try:
             if oid in self.mq_cache:
+                logging.debug('oid %s is cached', dump(oid))
                 return loads(self.mq_cache[oid][1]), self.mq_cache[oid][0]
         finally:
             self._cache_lock_release()
@@ -383,13 +389,15 @@ class Application(ThreadingMixIn, object):
 
     def loadSerial(self, oid, serial):
         """Load an object for a given oid and serial."""
-        # Do not try in cache as it managed only up-to-date object
+        # Do not try in cache as it manages only up-to-date object
+        logging.debug('loading %s at %s', dump(oid), dump(serial))
         return self._load(oid, serial)[:2], None
 
 
     def loadBefore(self, oid, tid):
         """Load an object for a given oid before tid committed."""
-        # Do not try in cache as it managed only up-to-date object
+        # Do not try in cache as it manages only up-to-date object
+        logging.debug('loading %s before %s', dump(oid), dump(tid))
         return self._load(oid, tid)
 
 
@@ -423,9 +431,11 @@ class Application(ThreadingMixIn, object):
             raise StorageTransactionError(self, transaction)
         if serial is None:
             serial = INVALID_SERIAL
+        logging.info('storing oid %s serial %s',
+                     dump(oid), dump(serial))
         # Find which storage node to use
         partition_id = u64(oid) % self.num_partitions
-        storage_node_list = self.pt.getCellList(partition_id, True)
+        storage_node_list = self.pt.getCellList(partition_id, False)
         if len(storage_node_list) == 0:
             # FIXME must wait for cluster to be ready
             raise NEOStorageError
@@ -459,6 +469,8 @@ class Application(ThreadingMixIn, object):
         # Store object in tmp cache
         noid, nserial = self.txn_object_stored
         self.txn_data_dict[oid] = ddata
+
+        return self.tid
 
 
     def tpc_vote(self, transaction):

@@ -438,7 +438,7 @@ class ServiceEventHandler(MasterEventHandler):
             if c.getUUID() in uuid_set:
                 msg_id = c.getNextId()
                 c.addPacket(Packet().lockInformation(msg_id, tid))
-                c.expectMessage(msg_id)
+                c.expectMessage(msg_id, timeout = 60)
 
         t = FinishingTransaction(conn, packet, oid_list, uuid_set)
         app.finishing_transaction_dict[tid] = t

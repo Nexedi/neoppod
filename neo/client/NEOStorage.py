@@ -114,11 +114,14 @@ class NEOStorage(BaseStorage.BaseStorage,
             if self.app.conflict_serial <= self.app.tid:
                 # Try to resolve conflict only if conflicting serial is older
                 # than the current transaction ID
-                new_data = self.tryToResolveConflict(oid, self.app.tid,
-                                                         serial, data)
+                new_data = self.tryToResolveConflict(oid, 
+                                                     self.app.conflict_serial,
+                                                     serial, data)
                 if new_data is not None:
                     # Try again after conflict resolution
-                    return self.store(oid, serial, new_data, version, transaction)
+                    self.store(oid, self.app.conflict_serial, 
+                               new_data, version, transaction)
+                    return ConflictResolution.ResolvedSerial 
             raise POSException.ConflictError(oid=oid,
                                              serials=(self.app.tid,
                                                       serial),data=data)
