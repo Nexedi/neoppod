@@ -44,7 +44,7 @@ class ServiceEventHandler(MasterEventHandler):
         if uuid is not None:
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
-            if node.getState() == RUNNING_STATE:
+            if node is not None and node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
                 logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
@@ -62,7 +62,7 @@ class ServiceEventHandler(MasterEventHandler):
         if uuid is not None:
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
-            if node.getState() == RUNNING_STATE:
+            if node is not None and node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
                 logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
@@ -80,7 +80,7 @@ class ServiceEventHandler(MasterEventHandler):
         if uuid is not None:
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
-            if node.getState() != BROKEN_STATE:
+            if node is not None and node.getState() != BROKEN_STATE:
                 node.setState(BROKEN_STATE)
                 logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
