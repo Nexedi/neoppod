@@ -335,6 +335,8 @@ class Application(ThreadingMixIn, object):
     def loadBefore(self, oid, tid):
         """Load an object for a given oid before tid committed."""
         # Do not try in cache as it manages only up-to-date object
+        if tid is None:
+            tid = INVALID_TID
         logging.debug('loading %s before %s', dump(oid), dump(tid))
         return self._load(oid, tid)
 
