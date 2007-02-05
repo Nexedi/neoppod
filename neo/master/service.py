@@ -172,7 +172,11 @@ class ServiceEventHandler(MasterEventHandler):
                         app.broadcastNodeInformation(node)
         else:
             # I know this node by the UUID.
-            if node.getServer() != addr:
+            try:
+                ip_address, port = node.getServer()
+            except TypeError:
+                ip_address, port = '0.0.0.0', 0
+            if  (ip_address, port) != addr:
                 # This node has a different server address.
                 if node.getState() == RUNNING_STATE:
                     # If it is still running, reject this node.
