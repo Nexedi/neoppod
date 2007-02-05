@@ -2,10 +2,13 @@ from zlib import adler32
 
 def dump(s):
     """Dump a binary string in hex."""
-    ret = []
-    for c in s:
-        ret.append('%02x' % ord(c))
-    return ''.join(ret)
+    if isinstance(s, str):
+        ret = []
+        for c in s:
+            ret.append('%02x' % ord(c))
+        return ''.join(ret)
+    else:
+        return repr(s)
 
 
 def makeChecksum(s):
