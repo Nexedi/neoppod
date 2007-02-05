@@ -40,11 +40,14 @@ class NEOStorage(BaseStorage.BaseStorage,
         # Create dispatcher thread
         dispatcher = Dispatcher(em, message_queue, request_queue)
         dispatcher.setDaemon(True)
-        dispatcher.start()
         # Import here to prevent recursive import
         from neo.client.app import Application
         self.app = Application(master_nodes, name, em, dispatcher,
                                message_queue, request_queue)
+        # Connect to primary master node
+        dispatcher.connectToPrimaryMasterNode(self.app)
+        # Start dispatcher
+        dispatcher.start()
 
     def load(self, oid, version=None):
         try:
@@ -114,14 +117,14 @@ class NEOStorage(BaseStorage.BaseStorage,
             if self.app.conflict_serial <= self.app.tid:
                 # Try to resolve conflict only if conflicting serial is older
                 # than the current transaction ID
-                new_data = self.tryToResolveConflict(oid, 
+                new_data = self.tryToResolveConflict(oid,
                                                      self.app.conflict_serial,
                                                      serial, data)
                 if new_data is not None:
                     # Try again after conflict resolution
-                    self.store(oid, self.app.conflict_serial, 
+                    self.store(oid, self.app.conflict_serial,
                                new_data, version, transaction)
-                    return ConflictResolution.ResolvedSerial 
+                    return ConflictResolution.ResolvedSerial
             raise POSException.ConflictError(oid=oid,
                                              serials=(self.app.tid,
                                                       serial),data=data)

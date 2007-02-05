@@ -32,9 +32,12 @@ class ClientEventHandler(EventHandler):
         if app.primary_master_node is None:
             # Failed to connect to a master node
             app.primary_master_node = -1
-        elif uuid == self.app.primary_master_node.getUUID():
+        elif self.app.primary_master_node is not None and uuid == \
+                 self.app.primary_master_node.getUUID():
             logging.critical("connection to primary master node failed")
-            raise NEOStorageError("connection to primary master node failed")
+            if self.dispatcher.connecting_to_master_node == 0:
+                logging.critical("trying reconnection to master node...")
+                self.dispatcher.connectToPrimaryMasterNode(app)
         else:
             # Connection to a storage node failed
             app.storage_node = -1
@@ -42,12 +45,17 @@ class ClientEventHandler(EventHandler):
 
     def connectionClosed(self, conn):
         uuid = conn.getUUID()
-        if self.app.master_conn is None:
+        app = self.app
+        if app.master_conn is None:
             EventHandler.connectionClosed(self, conn)
-        elif uuid == self.app.master_conn.getUUID():
+        elif uuid == app.master_conn.getUUID():
             logging.critical("connection to primary master node closed")
-            # FIXME, client must try to connect to master node again
-            raise NEOStorageError("connection to primary master node closed")
+            # Close connection
+            app.master_conn.close()
+            app.master_conn = None
+            if self.dispatcher.connecting_to_master_node == 0:
+                logging.critical("trying reconnection to master node...")
+                self.dispatcher.connectToPrimaryMasterNode(app)
         else:
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
@@ -66,13 +74,15 @@ class ClientEventHandler(EventHandler):
                 app.queue.put((None, msg_id, conn, p), True)
                 # Remove from pool connection
                 app.cm.removeConnection(node)
-        EventHandler.connectionClosed(self, conn)
+            EventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
         uuid = conn.getUUID()
         if uuid == self.app.primary_master_node.getUUID():
             logging.critical("connection timeout to primary master node expired")
-            raise NEOStorageError("connection timeout to primary master node expired")
+            if self.dispatcher.connecting_to_master_node == 0:
+                logging.critical("trying reconnection to master node...")
+                self.dispatcher.connectToPrimaryMasterNode(app)
         else:
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
@@ -94,7 +104,9 @@ class ClientEventHandler(EventHandler):
         uuid = conn.getUUID()
         if uuid == self.app.primary_master_node.getUUID():
             logging.critical("primary master node is broken")
-            raise NEOStorageError("primary master node is broken")
+            if self.dispatcher.connecting_to_master_node == 0:
+                logging.critical("trying reconnection to master node...")
+                self.dispatcher.connectToPrimaryMasterNode(app)
         else:
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
@@ -246,13 +258,12 @@ class ClientEventHandler(EventHandler):
             nm = app.nm
             node = nm.getNodeByUUID(uuid)
             # This must be sent only by a primary master node.
-            # Note that this may be sent before I know that it is 
+            # Note that this may be sent before I know that it is
             # a primary master node.
             if not isinstance(node, MasterNode):
-                logging.warn('ignoring notify node information from %s', 
+                logging.warn('ignoring notify node information from %s',
                              dump(uuid))
                 return
-
             for node_type, ip_address, port, uuid, state in node_list:
                 # Register new nodes.
                 addr = (ip_address, port)
@@ -354,8 +365,8 @@ class ClientEventHandler(EventHandler):
             app._cache_lock_acquire()
             try:
                 for oid in oid_list:
-                    if app.cache.has_key(oid):
-                        del app.cache[oid]
+                    if app.mq_cache.has_key(oid):
+                        del app.mq_cache[oid]
             finally:
                 app._cache_lock_release()
         else:
@@ -371,7 +382,7 @@ class ClientEventHandler(EventHandler):
 
     def handleStopOperation(self, conn, packet):
         if isinstance(conn, ClientConnection):
-            raise NEOStorageError('operation stopped')
+            logging.critical("master node ask to stop operation")
         else:
             self.handleUnexpectedPacket(conn, packet)
 

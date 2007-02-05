@@ -127,6 +127,7 @@ class Application(ThreadingMixIn, object):
         self.queue = message_queue
         self.request_queue = request_queue
         self.primary_master_node = None
+        self.master_node_list = master_nodes.split(' ')
         self.master_conn = None
         self.uuid = None
         self.mq_cache = MQ()
@@ -165,21 +166,6 @@ class Application(ThreadingMixIn, object):
                 if uuid != INVALID_UUID:
                     break
             self.uuid = uuid
-        # Connect to primary master node
-        self.master_node_list = master_nodes.split(' ')
-        while 1:
-            self.node_not_ready = 0
-            logging.info("trying to connect to primary master...")
-            self.connectToPrimaryMasterNode()
-            if not self.node_not_ready and self.pt.filled():
-                # got a connection and partition table
-                break
-            else:
-                # wait a bit before reasking
-                t = time()
-                while time() < t + 1:
-                    pass
-        logging.info("connected to primary master node")
 
     def _waitMessage(self,block=1):
         """Wait for a message returned by dispatcher in queues."""
@@ -193,6 +179,8 @@ class Application(ThreadingMixIn, object):
             if global_message is not None:
                 global_message[0].handler.dispatch(global_message[0], global_message[1])
         # Next get messages we are waiting for
+        if not hasattr(self.local_var, 'tmp_q'):
+            return
         message = None
         if block:
             message = self.local_var.tmp_q.get(True, None)
@@ -204,59 +192,6 @@ class Application(ThreadingMixIn, object):
                 pass
         if message is not None:
             message[0].handler.dispatch(message[0], message[1])
-
-    def connectToPrimaryMasterNode(self):
-        """Connect to the primary master node."""
-        addr, port = self.master_node_list[0].split(':')
-        port = int(port)
-        handler = ClientEventHandler(self, self.dispatcher)
-        n = MasterNode(server = (addr, port))
-        self.nm.add(n)
-
-        # Connect to first master node defined and get primary master node
-        self.local_var.tmp_q = Queue(1)
-        if self.primary_master_node is None:
-            conn = ClientConnection(self.em, handler, (addr, port))
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid,
-                                        addr, port, self.name)
-            # send message to dispatcher
-            self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
-            self.primary_master_node = None
-            self.node_not_ready = 0
-
-            while 1:
-                self._waitMessage(block=0)
-                if self.primary_master_node == -1:
-                    raise NEOStorageError("Unable to initialize connection to master node %s:%d" %(addr, port))
-                if self.primary_master_node is not None:
-                    break
-                if self.node_not_ready:
-                    # must wait
-                    return
-        logging.info('primary master node is %s' %(self.primary_master_node.server,))
-        # Close connection if not already connected to primary master node
-        if self.primary_master_node.getServer() !=  (addr, port):
-            for conn in self.em.getConnectionList():
-                conn.close()
-
-            # Connect to primary master node
-            conn = ClientConnection(self.em, handler, self.primary_master_node.server)
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid,
-                                        self.primary_master_node.server[0],
-                                        self.primary_master_node.server[1] , self.name)
-            # send message to dispatcher
-            self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
-
-        self.master_conn = conn
-        # Wait for primary master node information
-        while 1:
-            self._waitMessage(block=0)
-            if self.pt.operational() or self.node_not_ready:
-                break
 
 
     def new_oid(self):
@@ -313,7 +248,7 @@ class Application(ThreadingMixIn, object):
         shuffle(cell_list)
         self.local_var.asked_object = -1
         for cell in cell_list:
-            logging.debug('trying to load %s from %s', 
+            logging.debug('trying to load %s from %s',
                           dump(oid), dump(cell.getUUID()))
             conn = self.cm.getConnForNode(cell)
             if conn is None:
