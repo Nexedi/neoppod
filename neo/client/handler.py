@@ -364,9 +364,14 @@ class ClientEventHandler(EventHandler):
             app = self.app
             app._cache_lock_acquire()
             try:
+                # ZODB required a dict with oid as key, so create it
+                oids = {}
                 for oid in oid_list:
+                    oids[oid] = 1
                     if app.mq_cache.has_key(oid):
                         del app.mq_cache[oid]
+                if app._db is not None:
+                    app._db.invalidate(None, oids)
             finally:
                 app._cache_lock_release()
         else:

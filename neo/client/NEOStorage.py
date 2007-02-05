@@ -198,3 +198,6 @@ class NEOStorage(BaseStorage.BaseStorage,
     def __len__(self):
         # XXX bogus but how to implement this?
         return 0
+
+    def registerDB(self, db, limit):
+        self.app.registerDB(db, limit)

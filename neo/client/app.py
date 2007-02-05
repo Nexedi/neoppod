@@ -194,6 +194,9 @@ class Application(ThreadingMixIn, object):
             message[0].handler.dispatch(message[0], message[1])
 
 
+    def registerDB(self, db, limit):
+        self._db = db
+
     def new_oid(self):
         """Get a new OID."""
         self._oid_lock_acquire()
