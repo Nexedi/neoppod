@@ -206,3 +206,6 @@ class StorageEventHandler(EventHandler):
                              compression, checksum, data, tid):
         self.handleUnexpectedPacket(conn, packet)
 
+    def handleAbortTransaction(self, conn, packet, tid):
+        logging.info('ignoring abort transaction')
+        pass

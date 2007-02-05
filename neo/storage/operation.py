@@ -394,3 +394,27 @@ class OperationEventHandler(StorageEventHandler):
                                                   oid, serial))
         app.store_lock_dict[oid] = tid
 
+    def handleAbortTransaction(self, conn, packet, tid):
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        app = self.app
+        try:
+            t = app.transaction_dict[tid]
+            object_list = t.getObjectList()
+            for o in object_list:
+                oid = o[0]
+                try:
+                    del app.load_lock_dict[oid]
+                except KeyError:
+                    pass
+                del app.store_lock_dict[oid]
+
+            del app.transaction_dict[tid]
+
+            # Now it may be possible to execute some events.
+            app.executeQueuedEvents()
+        except KeyError:
+            pass

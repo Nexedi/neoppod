@@ -62,8 +62,9 @@ class EventHandler(object):
 
     def packetMalformed(self, conn, packet, error_message):
         """Called when a packet is malformed."""
-        logging.info('malformed packet from %s:%d: %s',
-                     conn.getAddress()[0], conn.getAddress()[1], error_message)
+        logging.info('malformed packet %x from %s:%d: %s',
+                     packet.getType(), conn.getAddress()[0], 
+                     conn.getAddress()[1], error_message)
         conn.addPacket(Packet().protocolError(packet.getId(), error_message))
         conn.abort()
         self.peerBroken(conn)
