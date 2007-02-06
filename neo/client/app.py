@@ -74,12 +74,25 @@ class ConnectionPool(object):
                 conn.unlock()
             return None
 
-        logging.info('connected to storage node %s' %(addr,))
+        logging.info('connected to storage node %s:%d', *(conn.getAddress()))
         return conn
 
     def _dropConnection(self):
         """Drop a connection."""
-        raise NotImplementedError
+        for node_uuid, conn in self.connection_dict.items():
+            # Drop first connection which looks not used
+            if not conn.prending():
+                self.connection_dict.pop(node_uuid)
+                # Recheck connection again because it can have been
+                # returned by pool to another thread
+                if conn.prending():
+                    self.connection_dict[node_uuid] = conn
+                    continue
+
+                else:
+                    conn.close()
+                    break
+        logging.info('connection to storage node %s:%d closed', *(conn.getAddress()))
 
     def _createNodeConnection(self, node):
         """Create a connection to a given storage node."""
