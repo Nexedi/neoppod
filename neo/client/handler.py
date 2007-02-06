@@ -1,7 +1,7 @@
 import logging
 
 from neo.handler import EventHandler
-from neo.connection import ClientConnection
+from neo.connection import MTClientConnection
 from neo.protocol import Packet, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE
@@ -74,7 +74,7 @@ class ClientEventHandler(EventHandler):
                 p.notifyNodeInformation(msg_id, node_list)
                 app.queue.put((None, msg_id, conn, p), True)
                 # Remove from pool connection
-                app.cm.removeConnection(node)
+                app.cp.removeConnection(node)
             EventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
@@ -98,7 +98,7 @@ class ClientEventHandler(EventHandler):
                 p.notifyNodeInformation(msg_id, node_list)
                 app.queue.put((None, msg_id, conn, p), True)
                 # Remove from pool connection
-                app.cm.removeConnection(node)
+                app.cp.removeConnection(node)
         EventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
@@ -122,12 +122,12 @@ class ClientEventHandler(EventHandler):
                 p.notifyNodeInformation(msg_id, node_list)
                 app.queue.put((None, msg_id, conn, p), True)
                 # Remove from pool connection
-                app.cm.removeConnection(node)
+                app.cp.removeConnection(node)
         EventHandler.peerBroken(self, conn)
 
 
     def handleNotReady(self, conn, packet, message):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             app.node_not_ready = 1
         else:
@@ -136,7 +136,7 @@ class ClientEventHandler(EventHandler):
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             node = app.nm.getNodeByServer(conn.getAddress())
             # It can be eiter a master node or a storage node
@@ -162,12 +162,18 @@ class ClientEventHandler(EventHandler):
                     app.pt = PartitionTable(num_partitions, num_replicas)
                     app.num_partitions = num_partitions
                     app.num_replicas = num_replicas
+
                 # Ask a primary master.
-                msg_id = conn.getNextId()
-                p = Packet()
-                p.askPrimaryMaster(msg_id)
-                # send message to dispatcher
-                app.queue.put((app.local_var.tmp_q, msg_id, conn, p), True)
+                conn.lock()
+                try:
+                    msg_id = conn.getNextId()
+                    p = Packet()
+                    p.askPrimaryMaster(msg_id)
+                    conn.addPacket(p)
+                    conn.expectMessage(msg_id)
+                    app.dispatcher.register(conn, msg_id, app.getQueue())
+                finally:
+                    conn.unlock()
             elif node_type == STORAGE_NODE_TYPE:
                 app.storage_node = node
         else:
@@ -176,7 +182,7 @@ class ClientEventHandler(EventHandler):
 
     # Master node handler
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             uuid = conn.getUUID()
             if uuid is None:
                 self.handleUnexpectedPacket(conn, packet)
@@ -220,7 +226,7 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             uuid = conn.getUUID()
             if uuid is None:
                 self.handleUnexpectedPacket(conn, packet)
@@ -249,7 +255,7 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             uuid = conn.getUUID()
             if uuid is None:
                 self.handleUnexpectedPacket(conn, packet)
@@ -309,7 +315,7 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             nm = app.nm
             pt = app.pt
@@ -344,14 +350,14 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerNewTID(self, conn, packet, tid):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             app.tid = tid
         else:
             self.handleUnexpectedPacket(conn, packet)
 
     def handleNotifyTransactionFinished(self, conn, packet, tid):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             if tid != app.tid:
                 app.txn_finished = -1
@@ -361,7 +367,7 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleInvalidateObjects(self, conn, packet, oid_list):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             app._cache_lock_acquire()
             try:
@@ -379,7 +385,7 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerNewOIDs(self, conn, packet, oid_list):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             app.new_oid_list = oid_list
             app.new_oid_list.reverse()
@@ -387,7 +393,7 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleStopOperation(self, conn, packet):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             logging.critical("master node ask to stop operation")
         else:
             self.handleUnexpectedPacket(conn, packet)
@@ -396,7 +402,7 @@ class ClientEventHandler(EventHandler):
     # Storage node handler
     def handleAnswerObject(self, conn, packet, oid, start_serial, end_serial, compression,
                            checksum, data):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             app.local_var.asked_object = (oid, start_serial, end_serial, compression,
                                            checksum, data)
@@ -404,7 +410,7 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerStoreObject(self, conn, packet, conflicting, oid, serial):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             if conflicting:
                 app.txn_object_stored = -1, serial
@@ -414,14 +420,14 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerStoreTransaction(self, conn, packet, tid):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             app.txn_voted = 1
         else:
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerTransactionInformation(self, conn, packet, tid, user, desc, oid_list):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             # transaction information are returned as a dict
             info = {}
@@ -435,7 +441,7 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerObjectHistory(self, conn, packet, oid, history_list):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             # history_list is a list of tuple (serial, size)
             self.history = oid, history_list
@@ -443,7 +449,7 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleOidNotFound(self, conn, packet, message):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             # This can happen either when :
             # - loading an object
@@ -454,7 +460,7 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleTidNotFound(self, conn, packet, message):
-        if isinstance(conn, ClientConnection):
+        if isinstance(conn, MTClientConnection):
             app = self.app
             # This can happen when requiring txn informations
             app.local_var.txn_info = -1

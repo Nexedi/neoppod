@@ -1,6 +1,5 @@
 import logging
 import os
-from time import time
 from threading import Lock, local
 from cPickle import dumps, loads
 from zlib import compress, decompress
@@ -9,7 +8,7 @@ from random import shuffle
 
 from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
-from neo.connection import ListeningConnection, ClientConnection
+from neo.connection import MTClientConnection
 from neo.protocol import Packet, INVALID_UUID, INVALID_TID, \
         STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         TEMPORARILY_DOWN_STATE, \
@@ -23,17 +22,17 @@ from neo.util import makeChecksum, dump
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.utils import p64, u64, oid_repr
 
-class ConnectionManager(object):
-    """This class manage a pool of connection to storage node."""
+class ConnectionPool(object):
+    """This class manages a pool of connections to storage nodes."""
 
-    def __init__(self, storage, pool_size=25):
-        self.storage = storage
+    def __init__(self, app, pool_size = 25):
+        self.app = app
         self.pool_size = 0
         self.max_pool_size = pool_size
         self.connection_dict = {}
-        # define a lock in order to create one connection to
-        # a storage node at a time to avoid multiple connection
-        # to the same node
+        # Define a lock in order to create one connection to
+        # a storage node at a time to avoid multiple connections
+        # to the same node.
         l = Lock()
         self.connection_lock_acquire = l.acquire
         self.connection_lock_release = l.release
@@ -43,33 +42,45 @@ class ConnectionManager(object):
         addr = node.getNode().getServer()
         if addr is None:
             return None
-        handler = ClientEventHandler(self.storage, self.storage.dispatcher)
-        conn = ClientConnection(self.storage.em, handler, addr)
-        msg_id = conn.getNextId()
-        p = Packet()
-        p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.storage.uuid, addr[0],
-                                    addr[1], self.storage.name)
-        self.storage.local_var.tmp_q = Queue(1)
-        self.storage.queue.put((self.storage.local_var.tmp_q, msg_id, conn, p), True)
-        self.storage.local_var.storage_node = None
-        self.storage._waitMessage()
-        if self.storage.storage_node == -1:
-            # Connection failed, notify primary master node
-            logging.error('Connection to storage node %s failed' %(addr,))
-            conn = self.storage.master_conn
+        handler = ClientEventHandler(self.app, self.app.dispatcher)
+        conn = MTClientConnection(self.app.em, handler, addr)
+        conn.lock()
+        try:
             msg_id = conn.getNextId()
             p = Packet()
-            node_list = [(STORAGE_NODE_TYPE, addr[0], addr[1], node.getUUID(),
-                         TEMPORARILY_DOWN_STATE),]
-            p.notifyNodeInformation(msg_id, node_list)
-            self.storage.queue.put((None, msg_id, conn, p), True)
+            p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, 
+                                        self.app.uuid, addr[0],
+                                        addr[1], self.app.name)
+            conn.addPacket(p)
+            conn.expectMessage(msg_id)
+            self.app.dispatcher.register(conn, msg_id, self.app.getQueue())
+            self.app.local_var.storage_node = None
+        finally:
+            conn.unlock()
+
+        self.app._waitMessage(conn, msg_id)
+        if self.app.storage_node == -1:
+            # Connection failed, notify primary master node
+            logging.error('Connection to storage node %s failed' %(addr,))
+            conn = self.app.master_conn
+            conn.lock()
+            try:
+                msg_id = conn.getNextId()
+                p = Packet()
+                node_list = [(STORAGE_NODE_TYPE, addr[0], addr[1], 
+                              node.getUUID(), TEMPORARILY_DOWN_STATE),]
+                p.notifyNodeInformation(msg_id, node_list)
+                conn.addPacket(p)
+            finally:
+                conn.unlock()
             return None
+
         logging.info('connected to storage node %s' %(addr,))
         return conn
 
-    def _dropConnection(self,):
+    def _dropConnection(self):
         """Drop a connection."""
-        pass
+        raise NotImplementedError
 
     def _createNodeConnection(self, node):
         """Create a connection to a given storage node."""
@@ -81,14 +92,14 @@ class ConnectionManager(object):
                 return self.connection_dict[node.getUUID()]
             if self.pool_size > self.max_pool_size:
                 # must drop some unused connections
-                self.dropConnection()
+                self._dropConnection()
             conn = self._initNodeConnection(node)
             if conn is None:
                 return None
             # add node to node manager
-            if self.storage.nm.getNodeByServer(node.getServer()) is None:
+            if self.app.nm.getNodeByServer(node.getServer()) is None:
                 n = StorageNode(node.getServer())
-                self.storage.nm.add(n)
+                self.app.nm.add(n)
             self.connection_dict[node.getUUID()] = conn
             return conn
         finally:
@@ -113,8 +124,7 @@ class ConnectionManager(object):
 class Application(ThreadingMixIn, object):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, em, dispatcher, message_queue,
-                 request_queue, **kw):
+    def __init__(self, master_nodes, name, em, dispatcher, request_queue, **kw):
         logging.basicConfig(level = logging.DEBUG)
         logging.debug('master node address are %s' %(master_nodes,))
         # Internal Attributes common to all thread
@@ -122,9 +132,8 @@ class Application(ThreadingMixIn, object):
         self.em = em
         self.dispatcher = dispatcher
         self.nm = NodeManager()
-        self.cm = ConnectionManager(self)
+        self.cp = ConnectionPool(self)
         self.pt = None
-        self.queue = message_queue
         self.request_queue = request_queue
         self.primary_master_node = None
         self.master_node_list = master_nodes.split(' ')
@@ -167,32 +176,35 @@ class Application(ThreadingMixIn, object):
                     break
             self.uuid = uuid
 
-    def _waitMessage(self,block=1):
-        """Wait for a message returned by dispatcher in queues."""
-        # First check if there are global messages and execute them
-        global_message = None
+    def getQueue(self):
+        return self.local_var.__dict__.setdefault('queue', Queue(5))
+
+    def _waitMessage(self, target_conn = None, msg_id = None):
+        """Wait for a message returned by the dispatcher in queues."""
+        global_queue = self.request_queue
+        local_queue = self.getQueue()
+
         while 1:
             try:
-                global_message = self.request_queue.get_nowait()
+                conn, packet = global_queue.get_nowait()
+                conn.handler.dispatch(conn, packet)
             except Empty:
-                break
-            if global_message is not None:
-                global_message[0].handler.dispatch(global_message[0], global_message[1])
-        # Next get messages we are waiting for
-        if not hasattr(self.local_var, 'tmp_q'):
-            return
-        message = None
-        if block:
-            message = self.local_var.tmp_q.get(True, None)
-        else:
-            # we don't want to block until we got a message
-            try:
-                message = self.local_var.tmp_q.get_nowait()
-            except Empty:
-                pass
-        if message is not None:
-            message[0].handler.dispatch(message[0], message[1])
+                if msg_id is None:
+                    try:
+                        conn, packet = local_queue.get_nowait()
+                    except Empty:
+                        break
+                else:
+                    conn, packet = local_queue.get()
 
+            conn.lock()
+            try:
+                conn.handler.dispatch(conn, packet)
+            finally:
+                conn.unlock()
+
+            if target_conn is conn and msg_id == packet.getId():
+                break
 
     def registerDB(self, db, limit):
         self._db = db
@@ -202,19 +214,25 @@ class Application(ThreadingMixIn, object):
         self._oid_lock_acquire()
         try:
             if len(self.new_oid_list) == 0:
-              # Get new oid list from master node
-              # we manage a list of oid here to prevent
-              # from asking too many time new oid one by one
-              # from master node
-              conn = self.master_conn
-              msg_id = conn.getNextId()
-              p = Packet()
-              p.askNewOIDs(msg_id, 25)
-              self.local_var.tmp_q = Queue(1)
-              self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
-              self._waitMessage()
-              if len(self.new_oid_list) <= 0:
-                  raise NEOStorageError('new_oid failed')
+                # Get new oid list from master node
+                # we manage a list of oid here to prevent
+                # from asking too many time new oid one by one
+                # from master node
+                conn = self.master_conn
+                conn.lock()
+                try:
+                    msg_id = conn.getNextId()
+                    p = Packet()
+                    p.askNewOIDs(msg_id, 25)
+                    conn.addPacket(p)
+                    conn.expectMessage(msg_id)
+                    self.dispatcher.register(conn, msg_id, self.getQueue())
+                finally:
+                    conn.unlock()
+
+                self._waitMessage(conn, msg_id)
+                if len(self.new_oid_list) <= 0:
+                    raise NEOStorageError('new_oid failed')
             return self.new_oid_list.pop()
         finally:
             self._oid_lock_release()
@@ -229,7 +247,7 @@ class Application(ThreadingMixIn, object):
         finally:
             self._cache_lock_release()
         # history return serial, so use it
-        hist = self.history(oid, length=1, object_only=1)
+        hist = self.history(oid, length = 1, object_only = 1)
         if len(hist) == 0:
             raise NEOStorageNotFoundError()
         if hist[0] != oid:
@@ -237,7 +255,7 @@ class Application(ThreadingMixIn, object):
         return hist[1][0][0]
 
 
-    def _load(self, oid, serial=INVALID_TID, tid=INVALID_TID, cache=0):
+    def _load(self, oid, serial = INVALID_TID, tid = INVALID_TID, cache = 0):
         """Internal method which manage load ,loadSerial and loadBefore."""
         partition_id = u64(oid) % self.num_partitions
         # Only used up to date node for retrieving object
@@ -253,21 +271,27 @@ class Application(ThreadingMixIn, object):
         for cell in cell_list:
             logging.debug('trying to load %s from %s',
                           dump(oid), dump(cell.getUUID()))
-            conn = self.cm.getConnForNode(cell)
+            conn = self.cp.getConnForNode(cell)
             if conn is None:
                 continue
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.askObject(msg_id, oid, serial, tid)
-            self.local_var.tmp_q = Queue(1)
-            self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
+
+            conn.lock()
+            try:
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askObject(msg_id, oid, serial, tid)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                self.dispatcher.register(conn, msg_id, self.getQueue())
+                self.local_var.asked_object = 0
+            finally:
+                conn.unlock()
 
             # Wait for answer
-            self.local_var.asked_object = 0
             # asked object retured value are :
             # -1 : oid not found
             # other : data
-            self._waitMessage()
+            self._waitMessage(conn, msg_id)
             if self.local_var.asked_object == -1:
                 # OID not found
                 # XXX either try with another node, either raise error here
@@ -275,16 +299,17 @@ class Application(ThreadingMixIn, object):
                 continue
 
             # Check data
-            noid, start_serial, end_serial, compression, checksum, data = self.local_var.asked_object
+            noid, start_serial, end_serial, compression, checksum, data \
+                    = self.local_var.asked_object
             if noid != oid:
                 # Oops, try with next node
                 logging.error('got wrong oid %s instead of %s from node %s' \
-                              %(noid, oid, storage_node.getServer()))
+                              % (noid, oid, cell.getServer()))
                 continue
             elif checksum != makeChecksum(data):
                 # Check checksum.
                 logging.error('wrong checksum from node %s for oid %s' \
-                              %(storage_node.getServer(), oid))
+                              % (cell.getServer(), oid))
                 continue
             else:
                 # Everything looks alright.
@@ -352,13 +377,19 @@ class Application(ThreadingMixIn, object):
         if tid is None:
             self.tid = None
             conn = self.master_conn
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.askNewTID(msg_id)
-            self.local_var.tmp_q = Queue(1)
-            self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
+            conn.lock()
+            try:
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askNewTID(msg_id)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                self.dispatcher.register(conn, msg_id, self.getQueue())
+            finally:
+                conn.unlock()
+
             # Wait for answer
-            self._waitMessage()
+            self._waitMessage(conn, msg_id)
             if self.tid is None:
                 raise NEOStorageError('tpc_begin failed')
         else:
@@ -375,27 +406,34 @@ class Application(ThreadingMixIn, object):
                      dump(oid), dump(serial))
         # Find which storage node to use
         partition_id = u64(oid) % self.num_partitions
-        storage_node_list = self.pt.getCellList(partition_id, False)
-        if len(storage_node_list) == 0:
+        cell_list = self.pt.getCellList(partition_id, False)
+        if len(cell_list) == 0:
             # FIXME must wait for cluster to be ready
             raise NEOStorageError
         # Store data on each node
         ddata = dumps(data)
         compressed_data = compress(ddata)
         checksum = makeChecksum(compressed_data)
-        for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node)
+        for cell in cell_list:
+            conn = self.cp.getConnForNode(cell)
             if conn is None:
                 continue
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.askStoreObject(msg_id, oid, serial, 1, checksum, compressed_data, self.tid)
-            self.local_var.tmp_q = Queue(1)
-            self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
+
+            conn.lock()
+            try:
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askStoreObject(msg_id, oid, serial, 1, 
+                                 checksum, compressed_data, self.tid)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                self.dispatcher.register(conn, msg_id, self.getQueue())
+                self.txn_object_stored = 0
+            finally:
+                conn.unlock()
 
             # Check we don't get any conflict
-            self.txn_object_stored = 0
-            self._waitMessage()
+            self._waitMessage(conn, msg_id)
             if self.txn_object_stored[0] == -1:
                 if self.txn_data_dict.has_key(oid):
                     # One storage already accept the object, is it normal ??
@@ -423,21 +461,28 @@ class Application(ThreadingMixIn, object):
         oid_list = self.txn_data_dict.keys()
         # Store data on each node
         partition_id = u64(self.tid) % self.num_partitions
-        storage_node_list = self.pt.getCellList(partition_id, True)
-        for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node)
+        cell_list = self.pt.getCellList(partition_id, True)
+        for cell in cell_list:
+            conn = self.cp.getConnForNode(cell)
             if conn is None:
                 continue
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.askStoreTransaction(msg_id, self.tid, user, desc, ext, oid_list)
-            self.local_var.tmp_q = Queue(1)
-            self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
-            self.txn_voted == 0
-            self._waitMessage()
+
+            conn.lock()
+            try:
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askStoreTransaction(msg_id, self.tid, user, desc, ext, 
+                                      oid_list)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                self.dispatcher.register(conn, msg_id, self.getQueue())
+                self.txn_voted == 0
+            finally:
+                conn.unlock()
+
+            self._waitMessage(conn, msg_id)
             if self.txn_voted != 1:
                 raise NEOStorageError('tpc_vote failed')
-
 
     def _clear_txn(self):
         """Clear some transaction parameters."""
@@ -447,61 +492,80 @@ class Application(ThreadingMixIn, object):
         self.txn_voted = 0
         self.txn_finished = 0
 
-
     def tpc_abort(self, transaction):
         """Abort current transaction."""
         if transaction is not self.txn:
             return
 
         # Abort txn in node where objects were stored
-        aborted_node = {}
+        aborted_node_set = set()
         for oid in self.txn_data_dict.iterkeys():
             partition_id = u64(oid) % self.num_partitions
-            storage_node_list = self.pt.getCellList(partition_id, True)
-            for storage_node in storage_node_list:
-                if not aborted_node.has_key(storage_node):
-                    conn = self.cm.getConnForNode(storage_node)
+            cell_list = self.pt.getCellList(partition_id, True)
+            for cell in cell_list:
+                if cell.getNode() not in aborted_node_set:
+                    conn = self.cp.getConnForNode(cell)
                     if conn is None:
                         continue
-                    msg_id = conn.getNextId()
-                    p = Packet()
-                    p.abortTransaction(msg_id, self.tid)
-                    self.queue.put((None, msg_id, conn, p), True)
-                aborted_node[storage_node] = 1
+
+                    conn.lock()
+                    try:
+                        msg_id = conn.getNextId()
+                        p = Packet()
+                        p.abortTransaction(msg_id, self.tid)
+                        conn.addPacket(p)
+                    finally:
+                        conn.unlock()
+
+                    aborted_node_set.add(cell.getNode())
 
         # Abort in nodes where transaction was stored
         partition_id = u64(self.tid) % self.num_partitions
-        storage_node_list = self.pt.getCellList(partition_id, True)
-        for storage_node in storage_node_list:
-            if not aborted_node.has_key(storage_node):
-                conn = self.cm.getConnForNode(storage_node)
+        cell_list = self.pt.getCellList(partition_id, True)
+        for cell in cell_list:
+            if cell.getNode() not in aborted_node_set:
+                conn = self.cp.getConnForNode(cell)
                 if conn is None:
                     continue
-                msg_id = conn.getNextId()
-                p = Packet()
-                p.abortTransaction(msg_id, self.tid)
-                self.queue.put((None, msg_id, conn, p), True)
+
+                conn.lock()
+                try:
+                    msg_id = conn.getNextId()
+                    p = Packet()
+                    p.abortTransaction(msg_id, self.tid)
+                    conn.addPacket(p)
+                finally:
+                    conn.unlock()
+
+                aborted_node_set.add(cell.getNode())
 
         self._clear_txn()
-
 
     def tpc_finish(self, transaction, f=None):
         """Finish current transaction."""
         if self.txn is not transaction:
             return
+
         # Call function given by ZODB
         if f is not None:
             f(self.tid)
+
         # Call finish on master
         oid_list = self.txn_data_dict.keys()
         conn = self.master_conn
-        msg_id = conn.getNextId()
-        p = Packet()
-        p.finishTransaction(msg_id, oid_list, self.tid)
-        self.local_var.tmp_q = Queue(1)
-        self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
+        conn.lock()
+        try:
+            msg_id = conn.getNextId()
+            p = Packet()
+            p.finishTransaction(msg_id, oid_list, self.tid)
+            conn.addPacket(p)
+            conn.expectMessage(msg_id, additional_timeout = 300)
+            self.dispatcher.register(conn, msg_id, self.getQueue())
+        finally:
+            conn.unlock()
+
         # Wait for answer
-        self._waitMessage()
+        self._waitMessage(conn, msg_id)
         if self.txn_finished != 1:
             raise NEOStorageError('tpc_finish failed')
 
@@ -522,25 +586,33 @@ class Application(ThreadingMixIn, object):
         if transaction_id is not self.txn:
             raise StorageTransactionError(self, transaction_id)
 
-        # First get transaction information from master node
+        # First get transaction information from a storage node.
         partition_id = u64(transaction_id) % self.num_partitions
-        storage_node_list = self.pt.getCellList(partition_id, True)
-        for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node)
+        cell_list = self.pt.getCellList(partition_id, True)
+        shuffle(cell_list)
+        for cell in cell_list:
+            conn = self.cp.getConnForNode(cell)
             if conn is None:
                 continue
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.askTransactionInformation(msg_id, transaction_id)
-            self.local_var.tmp_q = Queue(1)
-            self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
+
+            conn.lock()
+            try:
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askTransactionInformation(msg_id, transaction_id)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                self.dispatcher.register(conn, msg_id, self.getQueue())
+                self.local_var.txn_info = 0
+            finally:
+                conn.unlock()
+
             # Wait for answer
-            self.local_var.txn_info = 0
-            self._waitMessage()
+            self._waitMessage(conn, msg_id)
             if self.local_var.txn_info == -1:
                 # Tid not found, try with next node
                 continue
-            elif isinstance(self.local_var.txn_info, {}):
+            elif isinstance(self.local_var.txn_info, dict):
                 break
             else:
                 raise NEOStorageError('undo failed')
@@ -589,21 +661,26 @@ class Application(ThreadingMixIn, object):
             # See FileStorage.py for explanation
             last = first - last
 
-        # First get list of transaction from all storage node
+        # First get a list of transactions from all storage nodes.
         storage_node_list = [x for x in self.pt.getNodeList() if x.getState() \
                              in (UP_TO_DATE_STATE, FEEDING_STATE)]
         self.local_var.node_tids = {}
-        self.local_var.tmp_q = Queue(len(storage_node_list))
         for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node)
+            conn = self.cp.getConnForNode(storage_node)
             if conn is None:
                 continue
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.askTIDs(msg_id, first, last)
-            self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
 
-        # Wait for answer from all storages
+            conn.lock()
+            try:
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askTIDs(msg_id, first, last)
+                conn.addPacket(p)
+            finally:
+                conn.unlock()
+
+        # Wait for answers from all storages.
+        # FIXME this is a busy loop.
         while True:
             self._waitMessage()
             if len(self.local_var.node_tids) == len(storage_node_list):
@@ -620,23 +697,31 @@ class Application(ThreadingMixIn, object):
         undo_info = []
         for tid in ordered_tids:
             partition_id = u64(tid) % self.num_partitions
-            storage_node_list = self.pt.getCellList(partition_id, True)
-            for storage_node in storage_node_list:
-                conn = self.cm.getConnForNode(storage_node)
+            cell_list = self.pt.getCellList(partition_id, True)
+            shuffle(cell_list)
+            for cell in cell_list:
+                conn = self.cp.getConnForNode(storage_node)
                 if conn is None:
                     continue
-                msg_id = conn.getNextId()
-                p = Packet()
-                p.askTransactionInformation(msg_id, tid)
-                self.local_var.tmp_q = Queue(1)
-                self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
+
+                conn.lock()
+                try:
+                    msg_id = conn.getNextId()
+                    p = Packet()
+                    p.askTransactionInformation(msg_id, tid)
+                    conn.addPacket(p)
+                    conn.expectMessage(msg_id)
+                    self.dispatcher.register(conn, msg_id, self.getQueue())
+                    self.local_var.txn_info = 0
+                finally:
+                    conn.unlock()
+
                 # Wait for answer
-                self.local_var.txn_info = 0
-                self._waitMessage()
+                self._waitMessage(conn, msg_id)
                 if self.local_var.txn_info == -1:
                     # TID not found, go on with next node
                     continue
-                elif isinstance(self.local_var.txn_info, {}):
+                elif isinstance(self.local_var.txn_info, dict):
                     break
 
             # Filter result if needed
@@ -648,7 +733,7 @@ class Application(ThreadingMixIn, object):
             # Append to returned list
             self.local_var.txn_info.pop("oids")
             undo_info.append(self.local_var.txn_info)
-            if len(undo_info) >= last-first:
+            if len(undo_info) >= last - first:
                 break
 
         return undo_info
@@ -657,26 +742,35 @@ class Application(ThreadingMixIn, object):
     def history(self, oid, version, length=1, filter=None, object_only=0):
         # Get history informations for object first
         partition_id = u64(oid) % self.num_partitions
-        storage_node_list = [x for x in self.pt.getCellList(partition_id, True) \
-                             if x.getState() == UP_TO_DATE_STATE]
-        for storage_node in storage_node_list:
-            conn = self.cm.getConnForNode(storage_node)
+        cell_list = self.pt.getCellList(partition_id, True)
+        shuffle(cell_list)
+
+        for cell in cell_list:
+            conn = self.cp.getConnForNode(cell)
             if conn is None:
                 continue
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.askObjectHistory(msg_id, oid, length)
-            self.local_var.tmp_q = Queue(1)
-            self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
-            self.local_var.history = None
-            self._waitMessage()
+
+            conn.lock()
+            try:
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askObjectHistory(msg_id, oid, length)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                self.dispatcher.register(conn, msg_id, self.getQueue())
+                self.local_var.history = None
+            finally:
+                conn.unlock()
+
+            self._waitMessage(conn, msg_id)
             if self.local_var.history == -1:
                 # Not found, go on with next node
                 continue
             if self.local_var.history[0] != oid:
                 # Got history for wrong oid
                 continue
-        if not isinstance(self.local_var.history, {}):
+
+        if not isinstance(self.local_var.history, dict):
             raise NEOStorageError('history failed')
         if object_only:
             # Use by getSerial
@@ -686,23 +780,32 @@ class Application(ThreadingMixIn, object):
         history_list = []
         for serial, size in self.local_var.hisory[1]:
             partition_id = u64(serial) % self.num_partitions
-            storage_node_list = self.pt.getCellList(partition_id, True)
-            for storage_node in storage_node_list:
-                conn = self.cm.getConnForNode(storage_node)
+            cell_list = self.pt.getCellList(partition_id, True)
+            shuffle(cell_list)
+
+            for cell in cell_list:
+                conn = self.cp.getConnForNode(cell)
                 if conn is None:
                     continue
-                msg_id = conn.getNextId()
-                p = Packet()
-                p.askTransactionInformation(msg_id, serial)
-                self.local_var.tmp_q = Queue(1)
-                self.queue.put((self.local_var.tmp_q, msg_id, conn, p), True)
+
+                conn.lock()
+                try:
+                    msg_id = conn.getNextId()
+                    p = Packet()
+                    p.askTransactionInformation(msg_id, serial)
+                    conn.addPacket(p)
+                    conn.expectMessage(msg_id)
+                    self.dispatcher.register(conn, msg_id, self.getQueue())
+                    self.local_var.txn_info = None
+                finally:
+                    conn.unlock()
+
                 # Wait for answer
-                self.local_var.txn_info = None
-                self._waitMessage()
+                self._waitMessage(conn, msg_id)
                 if self.local_var.txn_info == -1:
                     # TID not found
                     continue
-                if isinstance(self.local_var.txn_info, {}):
+                if isinstance(self.local_var.txn_info, dict):
                     break
 
             # create history dict

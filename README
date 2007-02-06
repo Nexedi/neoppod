@@ -19,6 +19,16 @@ TODO
 
     - Replication.
 
+Requirements
+
+    - Python 2.4 or later
+
+    - ctypes http://python.net/crew/theller/ctypes/
+
+    - MySQLdb http://sourceforge.net/projects/mysql-python
+
+    - Zope 2.8 or later
+
 Installation
 
 1. In zope:

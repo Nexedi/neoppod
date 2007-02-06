@@ -1,6 +1,7 @@
 import socket
 import errno
 import logging
+from threading import RLock
 
 from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent
@@ -45,6 +46,12 @@ class BaseConnection(object):
 
     def getUUID(self):
         return None
+
+    def acquire(self, block = 1):
+        return 1
+
+    def release(self):
+        pass
 
 class ListeningConnection(BaseConnection):
     """A listen connection."""
@@ -305,3 +312,31 @@ class ClientConnection(Connection):
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
     pass
+
+class MTClientConnection(ClientConnection):
+    """A Multithread-safe version of ClientConnection."""
+    def __init__(self, *args, **kwargs):
+        super(MTClientConnection, self).__init__(*args, **kwargs)
+        lock = RLock()
+        self.acquire = lock.acquire
+        self.release = lock.release
+
+    def lock(self, blocking = 1):
+        return self.acquire(blocking = blocking)
+
+    def unlock(self):
+        self.release()
+
+class MTServerConnection(ServerConnection):
+    """A Multithread-safe version of ServerConnection."""
+    def __init__(self, *args, **kwargs):
+        super(MTClientConnection, self).__init__(*args, **kwargs)
+        lock = RLock()
+        self.acquire = lock.acquire
+        self.release = lock.release
+
+    def lock(self, blocking = 1):
+        return self.acquire(blocking = blocking)
+
+    def unlock(self):
+        self.release()

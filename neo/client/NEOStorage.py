@@ -28,22 +28,19 @@ class NEOStorage(BaseStorage.BaseStorage,
         l = Lock()
         self._txn_lock_acquire = l.acquire
         self._txn_lock_release = l.release
-        # Create two queue for message between thread and dispatcher
-        # - message queue is for message that has to be send to other node
-        # through the dispatcher
+        # Create a queue for message between thread and dispatcher
         # - request queue is for message receive from other node which have to
         # be processed
-        message_queue = Queue()
         request_queue = Queue()
         # Create the event manager
         em = EventManager()
         # Create dispatcher thread
-        dispatcher = Dispatcher(em, message_queue, request_queue)
+        dispatcher = Dispatcher(em, request_queue)
         dispatcher.setDaemon(True)
         # Import here to prevent recursive import
         from neo.client.app import Application
         self.app = Application(master_nodes, name, em, dispatcher,
-                               message_queue, request_queue)
+                               request_queue)
         # Connect to primary master node
         dispatcher.connectToPrimaryMasterNode(self.app)
         # Start dispatcher
