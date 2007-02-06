@@ -16,6 +16,12 @@ class BaseConnection(object):
         if s is not None:
             event_manager.register(self)
 
+    def lock(self):
+        return 1
+
+    def unlock(self):
+        return None
+
     def getSocket(self):
         return self.s
 
@@ -46,12 +52,6 @@ class BaseConnection(object):
 
     def getUUID(self):
         return None
-
-    def acquire(self, block = 1):
-        return 1
-
-    def release(self):
-        pass
 
 class ListeningConnection(BaseConnection):
     """A listen connection."""
@@ -246,7 +246,7 @@ class Connection(BaseConnection):
 
     def expectMessage(self, msg_id = None, timeout = 5, additional_timeout = 30):
         """Expect a message for a reply to a given message ID or any message.
-        
+
         The purpose of this method is to define how much amount of time is
         acceptable to wait for a message, thus to detect a down or broken
         peer. This is important, because one error may halt a whole cluster
@@ -257,10 +257,10 @@ class Connection(BaseConnection):
         The message ID specifies what ID is expected. Usually, this should
         be identical with an ID for a request message. If it is None, any
         message is acceptable, so it can be used to check idle time.
-        
+
         The timeout is the amount of time to wait until keep-alive messages start.
         Once the timeout is expired, the connection starts to ping the peer.
-        
+
         The additional timeout defines the amount of time after the timeout
         to invoke a timeoutExpired callback. If it is zero, no ping is sent, and
         the callback is executed immediately."""

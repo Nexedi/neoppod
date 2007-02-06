@@ -1,5 +1,5 @@
 <component prefix="neo.client.config">
-  <sectiontype name="NEOStorage" datatype=".NEOStorage"
+  <sectiontype name="NeoStorage" datatype=".NeoStorage"
                implements="ZODB.storage">
      <description>
        A scalable storage for Zope

@@ -1,9 +1,9 @@
 from ZODB.config import BaseConfig
 
-class NEOStorage(BaseConfig):
+class NeoStorage(BaseConfig):
 
   def open(self):
-    from NEOStorage import NEOStorage
-    return NEOStorage(master_nodes = self.config.master_nodes, name = self.config.name)
+    from Storage import Storage
+    return Storage(master_nodes = self.config.master_nodes, name = self.config.name)
 
 

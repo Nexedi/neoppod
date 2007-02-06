@@ -16,8 +16,8 @@ class NEOStorageConflictError(NEOStorageError):
 class NEOStorageNotFoundError(NEOStorageError):
     pass
 
-class NEOStorage(BaseStorage.BaseStorage,
-                 ConflictResolution.ConflictResolvingStorage):
+class Storage(BaseStorage.BaseStorage,
+              ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
 
     __name__ = 'NEOStorage'
@@ -53,7 +53,7 @@ class NEOStorage(BaseStorage.BaseStorage,
             raise POSException.POSKeyError(oid)
 
     def close(self):
-        return self.appclose()
+        return self.app.close()
 
     def cleanup(self):
         raise NotImplementedError
