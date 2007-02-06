@@ -14,8 +14,8 @@ from neo.protocol import Packet, INVALID_UUID, INVALID_TID, \
         TEMPORARILY_DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, INVALID_SERIAL
 from neo.client.handler import ClientEventHandler
-from neo.client.NEOStorage import NEOStorageError, NEOStorageConflictError, \
-        NEOStorageNotFoundError
+from neo.client.Storage import NEOStorageError, NEOStorageConflictError, \
+     NEOStorageNotFoundError
 from neo.util import makeChecksum, dump
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
@@ -202,7 +202,7 @@ class Application(object):
             finally:
                 conn.unlock()
 
-            if target_conn is conn and msg_id == packet.getId():
+            if target_conn is conn and msg_id == packet.getId() and packet.getType() & 0x8000:
                 break
 
     def registerDB(self, db, limit):
