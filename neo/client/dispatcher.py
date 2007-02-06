@@ -33,32 +33,6 @@ class Dispatcher(Thread):
                 # This happen when there is no connection
                 logging.error('Dispatcher, run, poll returned a KeyError')
 
-            while 1:
-                try:
-                    conn, packet = self.message.get_nowait()
-                except Empty:
-                    break
-
-                # Send message to waiting thread
-                key = (conn.getUUID(), packet.getId())
-                #logging.info('dispatcher got packet %s' %(key,))
-                if key in self.message_table:
-                    queue = self.message_table.pop(key)
-                    queue.put((conn, packet))
-                else:
-                    #conn, packet = self.message
-                    method_type = packet.getType()
-                    if method_type == PING:
-                        # must answer with no delay
-                        conn.lock()
-                        try:
-                            conn.addPacket(Packet().pong(packet.getId()))
-                        finally:
-                            conn.unlock()
-                    else:
-                        # put message in request queue
-                        self._request_queue.put((conn, packet))
-
     def register(self, conn, msg_id, queue):
         """Register an expectation for a reply. Thanks to GIL, it is
         safe not to use a lock here."""
@@ -106,6 +80,7 @@ class Dispatcher(Thread):
                 # Send message
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
+                self.register(conn, msg_id, app.getQueue())
             finally:
                 conn.unlock()
 
@@ -118,24 +93,7 @@ class Dispatcher(Thread):
                     while time() < t + 1:
                         pass
                     break
-                # Check if we got a reply
-                try:
-                    conn, packet = self.message.get_nowait()
-                    method_type = packet.getType()
-                    conn.lock()
-                    try:
-                        if method_type == PING:
-                            # Must answer with no delay
-                            conn.addPacket(Packet().pong(packet.getId()))
-                            break
-                        else:
-                            # Process message by handler
-                            conn.handler.dispatch(conn, packet)
-                    finally:
-                        conn.unlock()
-                except Empty:
-                    pass
-
+                app._waitMessage()
                 # Now check result
                 if app.primary_master_node is not None:
                     if app.primary_master_node == -1:

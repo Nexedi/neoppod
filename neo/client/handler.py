@@ -4,7 +4,8 @@ from neo.handler import EventHandler
 from neo.connection import MTClientConnection
 from neo.protocol import Packet, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE
+        INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
+        BROKEN_STATE, PING
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.pt import PartitionTable
 from neo.client.NEOStorage import NEOStorageError
@@ -25,7 +26,24 @@ class ClientEventHandler(EventHandler):
 
     def packetReceived(self, conn, packet):
         """Redirect all received packet to dispatcher thread."""
-        self.dispatcher.message.put((conn, packet), True)
+        dispatcher = self.dispatcher
+        # Send message to waiting thread
+        key = (conn.getUUID(), packet.getId())
+        if key in dispatcher.message_table:
+            queue = dispatcher.message_table.pop(key)
+            queue.put((conn, packet))
+        else:
+            method_type = packet.getType()
+            if method_type == PING:
+                # must answer with no delay
+                conn.lock()
+                try:
+                    conn.addPacket(Packet().pong(packet.getId()))
+                finally:
+                    conn.unlock()
+            else:
+                # put message in request queue
+                dispatcher._request_queue.put((conn, packet))
 
     def connectionFailed(self, conn):
         app = self.app
