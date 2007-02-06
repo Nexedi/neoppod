@@ -8,7 +8,7 @@ from neo.protocol import Packet, \
         BROKEN_STATE, PING
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.pt import PartitionTable
-from neo.client.NEOStorage import NEOStorageError
+from neo.client.Storage import NEOStorageError
 from neo.exception import ElectionFailure
 from neo.util import dump
 
@@ -90,7 +90,9 @@ class ClientEventHandler(EventHandler):
                 node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
                              TEMPORARILY_DOWN_STATE),]
                 p.notifyNodeInformation(msg_id, node_list)
-                app.queue.put((None, msg_id, conn, p), True)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                self.dispatcher.register(conn, msg_id, app.getQueue())
                 # Remove from pool connection
                 app.cp.removeConnection(node)
             EventHandler.connectionClosed(self, conn)
@@ -114,7 +116,9 @@ class ClientEventHandler(EventHandler):
                 node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
                              TEMPORARILY_DOWN_STATE),]
                 p.notifyNodeInformation(msg_id, node_list)
-                app.queue.put((None, msg_id, conn, p), True)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                self.dispatcher.register(conn, msg_id, app.getQueue())
                 # Remove from pool connection
                 app.cp.removeConnection(node)
         EventHandler.timeoutExpired(self, conn)
@@ -138,7 +142,9 @@ class ClientEventHandler(EventHandler):
                 node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
                              BROKEN_STATE),]
                 p.notifyNodeInformation(msg_id, node_list)
-                app.queue.put((None, msg_id, conn, p), True)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                self.dispatcher.register(conn, msg_id, app.getQueue())
                 # Remove from pool connection
                 app.cp.removeConnection(node)
         EventHandler.peerBroken(self, conn)
