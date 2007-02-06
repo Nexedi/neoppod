@@ -114,6 +114,6 @@ class Dispatcher(Thread):
                         # Connected to primary master node
                         break
 
-        logging.info("connected to primary master node %s %d" %app.primary_master_node.getServer())
+        logging.info("connected to primary master node %s:%d" %app.primary_master_node.getServer())
         app.master_conn = conn
         self.connecting_to_master_node = 0
