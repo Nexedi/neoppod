@@ -48,13 +48,12 @@ class NEOStorage(BaseStorage.BaseStorage,
 
     def load(self, oid, version=None):
         try:
-            r = self.app.process_method('load', oid=oid)
-            return r[0], r[1]
+            return self.app.load(oid=oid)
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
     def close(self):
-        return self.app.process_method('close')
+        return self.appclose()
 
     def cleanup(self):
         raise NotImplementedError
@@ -70,35 +69,30 @@ class NEOStorage(BaseStorage.BaseStorage,
     def new_oid(self):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        r = self.app.process_method('new_oid')
-        return r
+        return self.app.new_oid()
 
     def tpc_begin(self, transaction, tid=None, status=' '):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
         self._txn_lock_acquire()
-        r = self.app.process_method('tpc_begin', transaction=transaction, tid=tid, status=status)
-        return r
+        return self.app.tpc_begin(transaction=transaction, tid=tid, status=status)
 
     def tpc_vote(self, transaction):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        r = self.app.process_method('tpc_vote', transaction=transaction)
-        return r
+        return self.app.tpc_vote(transaction=transaction)
 
     def tpc_abort(self, transaction):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
         try:
-            r = self.app.process_method('tpc_abort', transaction=transaction)
-            return r
+            return self.app.tpc_abort(transaction=transaction)
         finally:
             self._txn_lock_release()
 
     def tpc_finish(self, transaction, f=None):
         try:
-            r = self.app.process_method('tpc_finish', transaction=transaction, f=f)
-            return r
+            return self.app.tpc_finish(transaction=transaction, f=f)
         finally:
             self._txn_lock_release()
 
@@ -106,10 +100,9 @@ class NEOStorage(BaseStorage.BaseStorage,
         if self._is_read_only:
             raise POSException.ReadOnlyError()
         try:
-            r = self.app.process_method('store', oid = oid, serial = serial,
-                                        data = data, version = version,
-                                        transaction = transaction)
-            return r
+            return self.app.store(oid = oid, serial = serial,
+                                   data = data, version = version,
+                                   transaction = transaction)
         except NEOStorageConflictError:
             if self.app.conflict_serial <= self.app.tid:
                 # Try to resolve conflict only if conflicting serial is older
@@ -131,23 +124,20 @@ class NEOStorage(BaseStorage.BaseStorage,
 
     def getSerial(self, oid):
         try:
-            r = self.app.process_method('getSerial', oid = oid)
-            return r
+            return self.app.getSerial(oid = oid)
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
     # mutliple revisions
     def loadSerial(self, oid, serial):
         try:
-            r = self.app.process_method('loadSerial', oid=oid, serial=serial)
-            return r
+            return self.app.loadSerial(oid=oid, serial=serial)
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError (oid, serial)
 
     def loadBefore(self, oid, tid):
         try:
-            r = self.app.process_method('loadBefore', oid=oid, tid=tid)
-            return r
+            return self.app.loadBefore(oid=oid, tid=tid)
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError (oid, tid)
 
@@ -161,10 +151,8 @@ class NEOStorage(BaseStorage.BaseStorage,
         self._txn_lock_acquire()
         try:
             try:
-                r = self.app.process_method('undo',
-                                            transaction_id = transaction_id,
-                                            txn = txn, wrapper = self)
-                return r
+                return self.app.undo(transaction_id = transaction_id,
+                                     txn = txn, wrapper = self)
             except NEOStorageConflictError:
                 raise POSException.ConflictError
         finally:
@@ -173,8 +161,7 @@ class NEOStorage(BaseStorage.BaseStorage,
     def undoLog(self, first, last, filter):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        r = self.app.undoLog(first, last, filter)
-        return r
+        return self.app.undoLog(first, last, filter)
 
     def supportsUndo(self):
         return 0

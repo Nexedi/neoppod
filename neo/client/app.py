@@ -16,7 +16,6 @@ from neo.protocol import Packet, INVALID_UUID, INVALID_TID, \
 from neo.client.handler import ClientEventHandler
 from neo.client.NEOStorage import NEOStorageError, NEOStorageConflictError, \
         NEOStorageNotFoundError
-from neo.client.multithreading import ThreadingMixIn
 from neo.util import makeChecksum, dump
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
@@ -48,7 +47,7 @@ class ConnectionPool(object):
         try:
             msg_id = conn.getNextId()
             p = Packet()
-            p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, 
+            p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE,
                                         self.app.uuid, addr[0],
                                         addr[1], self.app.name)
             conn.addPacket(p)
@@ -67,7 +66,7 @@ class ConnectionPool(object):
             try:
                 msg_id = conn.getNextId()
                 p = Packet()
-                node_list = [(STORAGE_NODE_TYPE, addr[0], addr[1], 
+                node_list = [(STORAGE_NODE_TYPE, addr[0], addr[1],
                               node.getUUID(), TEMPORARILY_DOWN_STATE),]
                 p.notifyNodeInformation(msg_id, node_list)
                 conn.addPacket(p)
@@ -121,7 +120,7 @@ class ConnectionPool(object):
             self.connection_dict.pop(node.getUUID())
 
 
-class Application(ThreadingMixIn, object):
+class Application(object):
     """The client node application."""
 
     def __init__(self, master_nodes, name, em, dispatcher, request_queue, **kw):
@@ -402,7 +401,7 @@ class Application(ThreadingMixIn, object):
             raise StorageTransactionError(self, transaction)
         if serial is None:
             serial = INVALID_SERIAL
-        logging.info('storing oid %s serial %s',
+        logging.debug('storing oid %s serial %s',
                      dump(oid), dump(serial))
         # Find which storage node to use
         partition_id = u64(oid) % self.num_partitions
@@ -423,7 +422,7 @@ class Application(ThreadingMixIn, object):
             try:
                 msg_id = conn.getNextId()
                 p = Packet()
-                p.askStoreObject(msg_id, oid, serial, 1, 
+                p.askStoreObject(msg_id, oid, serial, 1,
                                  checksum, compressed_data, self.tid)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
@@ -471,7 +470,7 @@ class Application(ThreadingMixIn, object):
             try:
                 msg_id = conn.getNextId()
                 p = Packet()
-                p.askStoreTransaction(msg_id, self.tid, user, desc, ext, 
+                p.askStoreTransaction(msg_id, self.tid, user, desc, ext,
                                       oid_list)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
