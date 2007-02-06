@@ -216,7 +216,7 @@ class Connection(BaseConnection):
                 elif r == len(msg):
                     del self.write_buf[:]
                 else:
-                    self.write_buf = [msg[:r]]
+                    self.write_buf = [msg[r:]]
             except socket.error, m:
                 if m[0] == errno.EAGAIN:
                     return

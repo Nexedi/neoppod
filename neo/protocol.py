@@ -254,8 +254,9 @@ class Packet(object):
     # Encoders.
     def encode(self):
         msg = pack('!LHL', self._id, self._type, 10 + len(self._body)) + self._body
+        logging.debug('encoding %d:%x', self._id, self._type)
         if len(msg) > MAX_PACKET_SIZE:
-            raise ProtocolError(self, 'message too big (%d)' % len(msg))
+            raise RuntimeError('message too big (%d)' % len(msg))
         return msg
 
     __str__ = encode

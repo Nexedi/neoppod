@@ -1,7 +1,7 @@
 from threading import Thread
 from Queue import Empty, Queue
 
-from neo.protocol import PING, Packet, CLIENT_NODE_TYPE
+from neo.protocol import PING, Packet, CLIENT_NODE_TYPE, FINISH_TRANSACTION
 from neo.connection import ClientConnection
 from neo.node import MasterNode
 
@@ -62,9 +62,16 @@ class Dispatcher(Thread):
                     conn.addPacket(p)
                     if tmp_q is not None:
                         # We expect an answer
-                        key = "%s-%s" %(conn.getUUID(),msg_id)
+                        key = "%s-%s" %(conn.getUUID(), msg_id)
                         self.message_table[key] = tmp_q
-                        conn.expectMessage(msg_id)
+                        # XXX this is a hack. Probably queued tasks themselves
+                        # should specify the timeout values.
+                        if p.getType() == FINISH_TRANSACTION:
+                            # Finish Transaction may take a lot of time when
+                            # many objects are committed at a time.
+                            conn.expectMessage(msg_id, additional_timeout = 300)
+                        else:
+                            conn.expectMessage(msg_id)
             except Empty:
                 continue
 

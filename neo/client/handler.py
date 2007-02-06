@@ -12,6 +12,7 @@ from neo.exception import ElectionFailure
 from neo.util import dump
 
 from ZODB.TimeStamp import TimeStamp
+from ZODB.utils import p64
 
 
 class ClientEventHandler(EventHandler):
@@ -78,13 +79,13 @@ class ClientEventHandler(EventHandler):
 
     def timeoutExpired(self, conn):
         uuid = conn.getUUID()
-        if uuid == self.app.primary_master_node.getUUID():
+        app = self.app
+        if uuid == app.primary_master_node.getUUID():
             logging.critical("connection timeout to primary master node expired")
             if self.dispatcher.connecting_to_master_node == 0:
                 logging.critical("trying reconnection to master node...")
                 self.dispatcher.connectToPrimaryMasterNode(app)
         else:
-            app = self.app
             node = app.nm.getNodeByUUID(uuid)
             if isinstance(node, StorageNode):
                 # Notify primary master node that a storage node is temporarily down
@@ -102,13 +103,13 @@ class ClientEventHandler(EventHandler):
 
     def peerBroken(self, conn):
         uuid = conn.getUUID()
-        if uuid == self.app.primary_master_node.getUUID():
+        app = self.app
+        if uuid == app.primary_master_node.getUUID():
             logging.critical("primary master node is broken")
             if self.dispatcher.connecting_to_master_node == 0:
                 logging.critical("trying reconnection to master node...")
                 self.dispatcher.connectToPrimaryMasterNode(app)
         else:
-            app = self.app
             node = app.nm.getNodeByUUID(uuid)
             if isinstance(node, StorageNode):
                 # Notify primary master node that a storage node is broken
