@@ -52,6 +52,10 @@ class Dispatcher(Thread):
         conn = None
         # Make application execute remaining message if any
         app._waitMessage()
+        # Wait a bit before trying to reconnect
+        t = time()
+        while time() < t + 1:
+            pass
         handler = ClientEventHandler(app, app.dispatcher)
         while 1:
             if app.pt is not None and app.pt.operational():
