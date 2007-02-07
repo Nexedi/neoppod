@@ -97,6 +97,10 @@ class DatabaseManager(object):
         thrown away."""
         raise NotImplementedError('this method must be overridden')
 
+    def dropUnfinishedData(self):
+        """Drop any unfinished data from a database."""
+        raise NotImplementedError('this method must be overridden')
+
     def storeTransaction(self, tid, object_list, transaction):
         """Store a transaction temporarily. Note that this transaction
         is not finished yet. The list of objects contains tuples,

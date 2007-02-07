@@ -123,8 +123,11 @@ class VerificationEventHandler(StorageEventHandler):
             try:
                 for offset in offset_list:
                     row = []
-                    for cell in app.pt.getCellList(offset):
-                        row.append((cell.getUUID(), cell.getState()))
+                    try:
+                        for cell in app.pt.getCellList(offset):
+                            row.append((cell.getUUID(), cell.getState()))
+                    except TypeError:
+                        pass
                     row_list.append((offset, row))
             except IndexError:
                 p = Packet()
@@ -155,7 +158,7 @@ class VerificationEventHandler(StorageEventHandler):
                     node = nm.getNodeByUUID(uuid)
                     if node is None:
                         node = StorageNode(uuid = uuid)
-                        if uuid != self.uuid:
+                        if uuid != app.uuid:
                             node.setState(TEMPORARILY_DOWN_STATE)
                         nm.add(node)
 

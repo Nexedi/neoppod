@@ -332,7 +332,7 @@ class MySQLDatabaseManager(DatabaseManager):
             for offset, uuid, state in cell_list:
                 uuid = e(uuid)
                 if state == DISCARDED_STATE:
-                    q("""DELETE FROM pt WHERE offset = %d AND uuid = '%s'""" \
+                    q("""DELETE FROM pt WHERE rid = %d AND uuid = '%s'""" \
                             % (offset, uuid))
                 else:
                     q("""INSERT INTO pt VALUES (%d, '%s', %d)
@@ -350,6 +350,17 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def setPartitionTable(self, ptid, cell_list):
         self.doSetPartitionTable(ptid, cell_list, False)
+
+    def dropUnfinishedData(self):
+        q = self.query
+        self.begin()
+        try:
+            q("""TRUNCATE tobj""")
+            q("""TRUNCATE ttrans""")
+        except:
+            self.rollback()
+            raise
+        self.commit()
 
     def storeTransaction(self, tid, object_list, transaction):
         q = self.query

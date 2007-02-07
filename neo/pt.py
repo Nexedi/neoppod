@@ -193,13 +193,16 @@ class PartitionTable(object):
         for offset, row in enumerate(self.partition_list):
             if row is not None:
                 for cell in row:
-                    if cell.getNode() == node:
+                    if cell.getNode() is node:
                         if cell.getState() != FEEDING_STATE:
-                            # If this cell is not feeding, find another node to be added.
-                            node = self.findLeastUsedNode([cell.getNode() for cell in row])
-                            if node is not None:
-                                row.append(Cell(node, OUT_OF_DATE_STATE))
-                                cell_list.append((offset, node.getUUID(),
+                            # If this cell is not feeding, find another node
+                            # to be added.
+                            node_list = [c.getNode() for c in row]
+                            n = self.findLeastUsedNode(node_list)
+                            if n is not None:
+                                row.append(Cell(n, OUT_OF_DATE_STATE))
+                                self.count_dict[n] += 1
+                                cell_list.append((offset, n.getUUID(),
                                                   OUT_OF_DATE_STATE))
                         row.remove(cell)
                         cell_list.append((offset, uuid, DISCARDED_STATE))

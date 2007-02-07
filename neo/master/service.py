@@ -1,4 +1,5 @@
 import logging
+from copy import copy
 
 from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
@@ -6,6 +7,7 @@ from neo.master.handler import MasterEventHandler
 from neo.protocol import Packet, INVALID_UUID
 from neo.exception import OperationFailure, ElectionFailure
 from neo.node import ClientNode, StorageNode, MasterNode
+from neo.util import dump
 
 class FinishingTransaction(object):
     """This class describes a finishing transaction."""
@@ -109,22 +111,24 @@ class ServiceEventHandler(MasterEventHandler):
             conn.abort()
             return
 
-        # Here are many situations. In principle, a node should be identified by
-        # an UUID, since an UUID never change when moving a storage node to a different
-        # server, and an UUID always changes for a master node and a client node whenever
-        # it restarts, so more reliable than a server address.
+        # Here are many situations. In principle, a node should be identified
+        # by an UUID, since an UUID never change when moving a storage node
+        # to a different server, and an UUID always changes for a master node
+        # and a client node whenever it restarts, so more reliable than a
+        # server address.
         #
-        # However, master nodes can be known only as the server addresses. And, a node
-        # may claim a server address used by another node.
+        # However, master nodes can be known only as the server addresses.
+        # And, a node may claim a server address used by another node.
         addr = (ip_address, port)
         # First, get the node by the UUID.
         node = app.nm.getNodeByUUID(uuid)
+        old_node = None
         if node is None:
             # If nothing is present, try with the server address.
             node = app.nm.getNodeByServer(addr)
             if node is None:
-                # Nothing is found. So this must be the first time that this node
-                # connected to me.
+                # Nothing is found. So this must be the first time that
+                # this node connected to me.
                 if node_type == MASTER_NODE_TYPE:
                     node = MasterNode(server = addr, uuid = uuid)
                 elif node_type == CLIENT_NODE_TYPE:
@@ -135,15 +139,18 @@ class ServiceEventHandler(MasterEventHandler):
                 logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
             else:
-                # Otherwise, I know it only by the server address or the same server
-                # address but with a different UUID.
+                # Otherwise, I know it only by the server address or the same
+                # server address but with a different UUID.
                 if node.getUUID() is None:
                     # This must be a master node.
-                    if not isinstance(node, MasterNode) or node_type != MASTER_NODE_TYPE:
-                        # Error. This node uses the same server address as a master
-                        # node.
-                        conn.addPacket(Packet().protocolError(packet.getId(),
-                                                              'invalid server address'))
+                    if not isinstance(node, MasterNode) \
+                            or node_type != MASTER_NODE_TYPE:
+                        # Error. This node uses the same server address as
+                        # a master node.
+                        p = Packet()
+                        p.protocolError(packet.getId(), 
+                                        'invalid server address') 
+                        conn.addPacket(p)
                         conn.abort()
                         return
 
@@ -156,47 +163,59 @@ class ServiceEventHandler(MasterEventHandler):
                     # This node has a different UUID.
                     if node.getState() == RUNNING_STATE:
                         # If it is still running, reject this node.
-                        conn.addPacket(Packet().protocolError(packet.getId(),
-                                                              'invalid server address'))
+                        p = Packet()
+                        p.protocolError(packet.getId(), 
+                                        'invalid server address') 
+                        conn.addPacket(p)
                         conn.abort()
                         return
                     else:
                         # Otherwise, forget the old one.
-                        node.setState(BROKEN_STATE)
+                        node.setState(DOWN_STATE)
                         logging.debug('broadcasting node information')
                         app.broadcastNodeInformation(node)
+                        app.nm.remove(node)
+                        old_node = node
+                        node = copy(node)
                         # And insert a new one.
                         node.setUUID(uuid)
                         node.setState(RUNNING_STATE)
                         logging.debug('broadcasting node information')
                         app.broadcastNodeInformation(node)
+                        app.nm.add(node)
         else:
             # I know this node by the UUID.
             try:
                 ip_address, port = node.getServer()
             except TypeError:
                 ip_address, port = '0.0.0.0', 0
-            if  (ip_address, port) != addr:
+            if (ip_address, port) != addr:
                 # This node has a different server address.
                 if node.getState() == RUNNING_STATE:
                     # If it is still running, reject this node.
-                    conn.addPacket(Packet().protocolError(packet.getId(),
-                                                          'invalid server address'))
+                    p = Packet()
+                    p.protocolError(packet.getId(), 
+                                    'invalid server address') 
+                    conn.addPacket(p)
                     conn.abort()
                     return
                 else:
                     # Otherwise, forget the old one.
-                    node.setState(BROKEN_STATE)
+                    node.setState(DOWN_STATE)
                     logging.debug('broadcasting node information')
                     app.broadcastNodeInformation(node)
+                    app.nm.remove(node)
+                    old_node = node
+                    node = copy(node)
                     # And insert a new one.
                     node.setServer(addr)
                     node.setState(RUNNING_STATE)
                     logging.debug('broadcasting node information')
                     app.broadcastNodeInformation(node)
+                    app.nm.add(node)
             else:
-                # If this node is broken, reject it. Otherwise, assume that it is
-                # working again.
+                # If this node is broken, reject it. Otherwise, assume that
+                # it is working again.
                 if node.getState() == BROKEN_STATE:
                     p = Packet()
                     p.brokenNodeDisallowedError(packet.getId(), 'go away')
@@ -214,7 +233,15 @@ class ServiceEventHandler(MasterEventHandler):
         if isinstance(node, StorageNode):
             # If this is a storage node, add it into the partition table.
             # Note that this does no harm, even if the node is not new.
-            cell_list = app.pt.addNode(node)
+            if old_node is not None:
+                logging.info('dropping %s from a partition table', 
+                             dump(old_node.getUUID()))
+                cell_list = app.pt.dropNode(old_node)
+            else:
+                cell_list = []
+            logging.info('adding %s into a partition table',
+                         dump(node.getUUID()))
+            cell_list.extend(app.pt.addNode(node))
             if len(cell_list) != 0:
                 ptid = app.getNextPartitionTableID()
                 app.broadcastPartitionChanges(ptid, cell_list)

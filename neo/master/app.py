@@ -291,6 +291,7 @@ class Application(object):
 
     def broadcastPartitionChanges(self, ptid, cell_list):
         """Broadcast a Notify Partition Changes packet."""
+        self.pt.log()
         for c in self.em.getConnectionList():
             if c.getUUID() is not None:
                 n = self.nm.getNodeByUUID(c.getUUID())

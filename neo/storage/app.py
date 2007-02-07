@@ -114,6 +114,7 @@ class Application(object):
         # start the operation. This cycle will be executed permentnly,
         # until the user explicitly requests a shutdown.
         while 1:
+            self.operational = False
             self.connectToPrimaryMaster()
             try:
                 while 1:
@@ -122,6 +123,7 @@ class Application(object):
                         self.doOperation()
                     except OperationFailure:
                         logging.error('operation stopped')
+                        self.operational = False
             except PrimaryFailure:
                 logging.error('primary master is down')
 
@@ -203,7 +205,6 @@ class Application(object):
         for conn in em.getConnectionList():
             conn.setHandler(handler)
 
-        self.operational = False
         while not self.operational:
             em.poll(1)
 
@@ -238,6 +239,9 @@ class Application(object):
 
         # This is a queue of events used to delay operations due to locks.
         self.event_queue = deque()
+
+        # Forget all unfinished data.
+        self.dm.dropUnfinishedData()
 
         while 1:
             em.poll(1)
