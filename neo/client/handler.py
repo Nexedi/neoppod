@@ -390,7 +390,7 @@ class ClientEventHandler(EventHandler):
         else:
             self.handleUnexpectedPacket(conn, packet)
 
-    def handleInvalidateObjects(self, conn, packet, oid_list):
+    def handleInvalidateObjects(self, conn, packet, oid_list, tid):
         if isinstance(conn, MTClientConnection):
             app = self.app
             app._cache_lock_acquire()
@@ -402,7 +402,7 @@ class ClientEventHandler(EventHandler):
                     if app.mq_cache.has_key(oid):
                         del app.mq_cache[oid]
                 if app._db is not None:
-                    app._db.invalidate(None, oids)
+                    app._db.invalidate(tid, oids)
             finally:
                 app._cache_lock_release()
         else:
