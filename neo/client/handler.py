@@ -498,4 +498,8 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerTIDs(self, conn, packet, tid_list):
-        raise NotImplementedError
+        if isinstance(conn, MTClientConnection):
+            app = self.app
+            app.local_var.node_tids[conn.getUUID()] = tid_list
+        else:
+            self.handleUnexpectedPacket(conn, packet)
