@@ -491,3 +491,5 @@ class ClientEventHandler(EventHandler):
         else:
             self.handleUnexpectedPacket(conn, packet)
 
+    def handleAnswerTIDs(self, conn, packet, tid_list):
+        raise NotImplementedError
