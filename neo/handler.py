@@ -204,7 +204,7 @@ class EventHandler(object):
     def handleNotifyInformationLocked(self, conn, packet, tid):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleInvalidateObjects(self, conn, packet, oid_list):
+    def handleInvalidateObjects(self, conn, packet, oid_list, tid):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleUnlockInformation(self, conn, packet, tid):

@@ -507,10 +507,12 @@ class ServiceEventHandler(MasterEventHandler):
                         node = app.nm.getNodeByUUID(uuid)
                         if isinstance(node, ClientNode):
                             if c is t.getConnection():
-                                p.notifyTransactionFinished(t.getMessageId(), tid)
+                                p.notifyTransactionFinished(t.getMessageId(), 
+                                                            tid)
                                 c.addPacket(p)
                             else:
-                                p.invalidateObjects(c.getNextId(), t.getOIDList())
+                                p.invalidateObjects(c.getNextId(), 
+                                                    t.getOIDList(), tid)
                                 c.addPacket(p)
                         elif isinstance(node, StorageNode):
                             if uuid in t.getUUIDSet():

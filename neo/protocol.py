@@ -507,10 +507,10 @@ class Packet(object):
         self._body = tid
         return self
 
-    def invalidateObjects(self, msg_id, oid_list):
+    def invalidateObjects(self, msg_id, oid_list, tid):
         self._id = msg_id
         self._type = INVALIDATE_OBJECTS
-        body = [pack('!L', len(oid_list))]
+        body = [pack('!8sL', tid, len(oid_list))]
         body.extend(oid_list)
         self._body = ''.join(body)
         return self
@@ -927,14 +927,14 @@ class Packet(object):
 
     def _decodeInvalidateObjects(self):
         try:
-            n = unpack('!L', self._body[:4])[0]
+            tid, n = unpack('!8sL', self._body[:12])
             oid_list = []
-            for i in xrange(n):
-                oid = unpack('8s', self._body[4+i*8:12+i*8])[0]
+            for i in xrange(12, 12 + n * 8, 8):
+                oid = unpack('8s', self._body[i:i+8])[0]
                 oid_list.append(oid)
         except:
             raise ProtocolError(self, 'invalid finish transaction')
-        return (oid_list,)
+        return oid_list, tid
     decode_table[INVALIDATE_OBJECTS] = _decodeInvalidateObjects
 
     def _decodeUnlockInformation(self):
