@@ -84,15 +84,16 @@ class ClientEventHandler(EventHandler):
             if isinstance(node, StorageNode):
                 # Notify primary master node that a storage node is temporarily down
                 conn = app.master_conn
-                msg_id = conn.getNextId()
-                p = Packet()
-                ip_address, port = node.getServer()
-                node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
-                             TEMPORARILY_DOWN_STATE),]
-                p.notifyNodeInformation(msg_id, node_list)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
-                self.dispatcher.register(conn, msg_id, app.getQueue())
+                conn.lock()
+                try:
+                    p = Packet()
+                    ip_address, port = node.getServer()
+                    node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
+                                 TEMPORARILY_DOWN_STATE),]
+                    p.notifyNodeInformation(msg_id, node_list)
+                    conn.addPacket(p)
+                finally:
+                    conn.unlock()
                 # Remove from pool connection
                 app.cp.removeConnection(node)
             EventHandler.connectionClosed(self, conn)
@@ -110,15 +111,16 @@ class ClientEventHandler(EventHandler):
             if isinstance(node, StorageNode):
                 # Notify primary master node that a storage node is temporarily down
                 conn = app.master_conn
-                msg_id = conn.getNextId()
-                p = Packet()
-                ip_address, port =  node.getServer()
-                node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
-                             TEMPORARILY_DOWN_STATE),]
-                p.notifyNodeInformation(msg_id, node_list)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
-                self.dispatcher.register(conn, msg_id, app.getQueue())
+                conn.lock()
+                try:
+                    p = Packet()
+                    ip_address, port =  node.getServer()
+                    node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
+                                 TEMPORARILY_DOWN_STATE),]
+                    p.notifyNodeInformation(msg_id, node_list)
+                    conn.addPacket(p)
+                finally:
+                    conn.unlock()
                 # Remove from pool connection
                 app.cp.removeConnection(node)
         EventHandler.timeoutExpired(self, conn)
@@ -136,15 +138,16 @@ class ClientEventHandler(EventHandler):
             if isinstance(node, StorageNode):
                 # Notify primary master node that a storage node is broken
                 conn = app.master_conn
-                msg_id = conn.getNextId()
-                p = Packet()
-                ip_address, port =  node.getServer()
-                node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
-                             BROKEN_STATE),]
-                p.notifyNodeInformation(msg_id, node_list)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
-                self.dispatcher.register(conn, msg_id, app.getQueue())
+                conn.lock()
+                try:
+                    p = Packet()
+                    ip_address, port =  node.getServer()
+                    node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
+                                 BROKEN_STATE),]
+                    p.notifyNodeInformation(msg_id, node_list)
+                    conn.addPacket(p)
+                finally:
+                    conn.unlock()
                 # Remove from pool connection
                 app.cp.removeConnection(node)
         EventHandler.peerBroken(self, conn)
