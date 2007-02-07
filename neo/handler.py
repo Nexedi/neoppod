@@ -238,7 +238,7 @@ class EventHandler(object):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerTIDs(self, conn, packet, tid_list):
-        self.handleUnexpectedPacket(conn, conn, packet, packet)
+        self.handleUnexpectedPacket(conn, packet)
 
     def handleAskTransactionInformation(self, conn, packet, tid):
         self.handleUnexpectedPacket(conn, packet)
