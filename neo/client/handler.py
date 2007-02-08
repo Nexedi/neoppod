@@ -87,6 +87,7 @@ class ClientEventHandler(EventHandler):
                 if conn is not None:
                     conn.lock()
                     try:
+                        msg_id = conn.getNextId()
                         p = Packet()
                         ip_address, port = node.getServer()
                         node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
@@ -115,6 +116,7 @@ class ClientEventHandler(EventHandler):
                 if conn is not None:
                     conn.lock()
                     try:
+                        msg_id = conn.getNextId()
                         p = Packet()
                         ip_address, port =  node.getServer()
                         node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
@@ -143,6 +145,7 @@ class ClientEventHandler(EventHandler):
                 if conn is not None:
                     conn.lock()
                     try:
+                        msg_id = conn.getNextId()
                         p = Packet()
                         ip_address, port =  node.getServer()
                         node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
