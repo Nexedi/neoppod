@@ -375,7 +375,12 @@ class Application(object):
         if tid is None:
             tid = INVALID_TID
         logging.debug('loading %s before %s', dump(oid), dump(tid))
-        return self._load(oid, tid)
+        data, start, end = self._load(oid, tid)
+        if end is None:
+            # No previous version
+            return None
+        else:
+            return data, start, end
 
 
     def tpc_begin(self, transaction, tid=None, status=' '):
