@@ -152,10 +152,10 @@ ASK_OBJECT = 0x001b
 ANSWER_OBJECT = 0x801b
 
 # Ask for TIDs between a range of offsets. The order of TIDs is descending,
-# and the range is [first, last). C -> S.
+# and the range is [first, last). C, S -> S.
 ASK_TIDS = 0x001d
 
-# Answer the requested TIDs. S -> C.
+# Answer the requested TIDs. S -> C, S.
 ANSWER_TIDS = 0x801d
 
 # Ask information about a transaction. PM, C -> S.
@@ -164,10 +164,11 @@ ASK_TRANSACTION_INFORMATION = 0x001e
 # Answer information (user, description) about a transaction. S -> C, PM.
 ANSWER_TRANSACTION_INFORMATION = 0x801e
 
-# Ask history information for a given object. C -> S.
+# Ask history information for a given object. The order of serials is
+# descending, and the range is [first, last]. C, S -> S.
 ASK_OBJECT_HISTORY = 0x001f
 
-# Answer history information (serial, size) for an object. S -> C.
+# Answer history information (serial, size) for an object. S -> C, S.
 ANSWER_OBJECT_HISTORY = 0x801f
 
 # Error codes.
@@ -577,7 +578,7 @@ class Packet(object):
     def askTIDs(self, msg_id, first, last):
         self._id = msg_id
         self._type = ASK_TIDS
-        self._body = pack('!LL', first, last)
+        self._body = pack('!QQ', first, last)
         return self
 
     def answerTIDs(self, msg_id, tid_list):
@@ -604,19 +605,19 @@ class Packet(object):
         self._body = ''.join(body)
         return self
 
-    def askObjectHistory(self, msg_id, oid, length):
+    def askObjectHistory(self, msg_id, oid, first, last):
         self._id = msg_id
         self._type = ASK_OBJECT_HISTORY
-        self._body = pack('!8sH', oid, length)
+        self._body = pack('!8sQQ', oid, first, last)
         return self
 
     def answerObjectHistory(self, msg_id, oid, history_list):
         self._id = msg_id
         self._type = ANSWER_OBJECT_HISTORY
-        body = [pack('!8sH', oid, len(history_list))]
+        body = [pack('!8sL', oid, len(history_list))]
         # history_list is a list of tuple (serial, size)
         for history_tuple in history_list:
-            body.append(pack('8sL', history_tuple[0], history_tuple[1]))
+            body.append(pack('!8sL', history_tuple[0], history_tuple[1]))
         self._body = ''.join(body)
         return self
 
@@ -1024,7 +1025,7 @@ class Packet(object):
 
     def _decodeAskTIDs(self):
         try:
-            first, last = unpack('!LL', self._body[:8])
+            first, last = unpack('!QQ', self._body)
         except:
             raise ProtocolError(self, 'invalid ask tids')
         return first, last
@@ -1069,18 +1070,18 @@ class Packet(object):
 
     def _decodeAskObjectHistory(self):
         try:
-            oid, length = unpack('!8sH', self._body)
+            oid, first, last = unpack('!8sQQ', self._body)
         except:
             raise ProtocolError(self, 'invalid ask object history')
-        return oid, length
+        return oid, first, last
     decode_table[ASK_OBJECT_HISTORY] = _decodeAskObjectHistory
 
     def _decodeAnswerObjectHistory(self):
         try:
-            oid, length = unpack('!8sH', self._body[:10])
+            oid, length = unpack('!8sL', self._body[:12])
             history_list = []
-            for i in xrange(length):
-                serial, size = unpack('!8sL', self._body[10+i*12:22+i*12])
+            for i in xrange(12, 12 + length * 12, 12):
+                serial, size = unpack('!8sL', self._body[i:i+12])
                 history_list.append(tuple(serial, size))
         except:
             raise ProtocolError(self, 'invalid answer object history')

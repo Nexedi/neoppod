@@ -336,9 +336,14 @@ class OperationEventHandler(StorageEventHandler):
                                      app.num_partitions, partition_list)
         conn.addPacket(Packet().answerTIDs(packet.getId(), tid_list))
 
-    def handleAskObjectHistory(self, conn, packet, oid, length):
+    def handleAskObjectHistory(self, conn, packet, oid, first, last):
+        if first >= last:
+            conn.addPacket(Packet().protocolError(packet.getId(),
+                                                  'invalid offsets'))
+            return
+
         app = self.app
-        history_list = app.dm.getObjectHistory(oid, length)
+        history_list = app.dm.getObjectHistory(oid, first, last - first)
         conn.addPacket(Packet().answerObjectHistory(packet.getId(),
                                                     history_list))
 

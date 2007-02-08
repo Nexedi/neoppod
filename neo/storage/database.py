@@ -129,7 +129,7 @@ class DatabaseManager(object):
         area as well."""
         raise NotImplementedError('this method must be overridden')
 
-    def getObjectHistory(self, oid, length = 1):
+    def getObjectHistory(self, oid, offset = 0, length = 1):
         """Return a list of serials and sizes for a given object ID.
         The length specifies the maximum size of such a list. The first serial
         must be the last serial, and the list must be sorted in descending

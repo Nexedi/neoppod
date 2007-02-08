@@ -459,12 +459,12 @@ class MySQLDatabaseManager(DatabaseManager):
             return oid_list, user, desc, ext
         return None
 
-    def getObjectHistory(self, oid, length = 1):
+    def getObjectHistory(self, oid, offset = 0, length = 1):
         q = self.query
         oid = u64(oid)
         r = q("""SELECT serial, LENGTH(value) FROM obj WHERE oid = %d
-                    ORDER BY serial DESC LIMIT %d""" \
-                % (oid, length))
+                    ORDER BY serial DESC LIMIT %d,%d""" \
+                % (oid, offset, length))
         if r:
             return [(p64(serial), length) for serial, length in r]
         return None

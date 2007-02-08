@@ -771,7 +771,7 @@ class Application(object):
             try:
                 msg_id = conn.getNextId()
                 p = Packet()
-                p.askObjectHistory(msg_id, oid, length)
+                p.askObjectHistory(msg_id, oid, 0, length)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
                 self.dispatcher.register(conn, msg_id, self.getQueue())

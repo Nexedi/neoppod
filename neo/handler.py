@@ -246,7 +246,7 @@ class EventHandler(object):
     def handleAnswerTransactionInformation(self, conn, packet, tid, user, desc, oid_list):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAskObjectHistory(self, conn, packet, oid, length):
+    def handleAskObjectHistory(self, conn, packet, oid, first, last):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerObjectHistory(self, conn, packet, oid, history_list):
