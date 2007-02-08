@@ -49,74 +49,67 @@ class Dispatcher(Thread):
         if app.pt is not None:
             app.pt.clear()
         master_index = 0
+        t = 0
         conn = None
         # Make application execute remaining message if any
         app._waitMessage()
-        # Wait a bit before trying to reconnect
-        t = time()
-        while time() < t + 1:
-            pass
         handler = ClientEventHandler(app, app.dispatcher)
         while 1:
-            if app.pt is not None and app.pt.operational():
-                # Connected to primary master node and got all informations
-                break
-            app.node_not_ready = 0
-            if app.primary_master_node is None:
-                # Try with master node defined in config
-                addr, port = app.master_node_list[master_index].split(':')
-                port = int(port)
-            else:
-                addr, port = app.primary_master_node.getServer()
-            # Request Node Identification
-            conn = MTClientConnection(app.em, handler, (addr, port))
-            if app.nm.getNodeByServer((addr, port)) is None:
-                n = MasterNode(server = (addr, port))
-                app.nm.add(n)
-
-            conn.lock()
-            try:
-                msg_id = conn.getNextId()
-                p = Packet()
-                p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, app.uuid,
-                                            '0.0.0.0', 0, app.name)
-
-                # Send message
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
-                self.register(conn, msg_id, app.getQueue())
-            finally:
-                conn.unlock()
-
-            # Wait for answer
-            while 1:
-                try:
-                    self.em.poll(1)
-                except TypeError:
-                    t = time()
-                    while time() < t + 1:
-                        pass
+            if t + 1 < time():
+                if app.pt is not None and app.pt.operational():
+                    # Connected to primary master node and got all informations
                     break
-                app._waitMessage()
-                # Now check result
-                if app.primary_master_node is not None:
-                    if app.primary_master_node == -1:
-                        # Connection failed, try with another master node
-                        app.primary_master_node = None
-                        master_index += 1
+                app.node_not_ready = 0
+                if app.primary_master_node is None:
+                    # Try with master node defined in config
+                    addr, port = app.master_node_list[master_index].split(':')
+                    port = int(port)
+                else:
+                    addr, port = app.primary_master_node.getServer()
+                # Request Node Identification
+                conn = MTClientConnection(app.em, handler, (addr, port))
+                if app.nm.getNodeByServer((addr, port)) is None:
+                    n = MasterNode(server = (addr, port))
+                    app.nm.add(n)
+
+                conn.lock()
+                try:
+                    msg_id = conn.getNextId()
+                    p = Packet()
+                    p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, app.uuid,
+                                                '0.0.0.0', 0, app.name)
+
+                    # Send message
+                    conn.addPacket(p)
+                    conn.expectMessage(msg_id)
+                    self.register(conn, msg_id, app.getQueue())
+                finally:
+                    conn.unlock()
+
+                # Wait for answer
+                while 1:
+                    try:
+                        self.em.poll(1)
+                    except TypeError:
                         break
-                    elif app.primary_master_node.getServer() != (addr, port):
-                        # Master node changed, connect to new one
-                        break
-                    elif app.node_not_ready:
-                        # Wait a bit and reask again
-                        t = time()
-                        while time() < t + 1:
-                            pass
-                        break
-                    elif app.pt is not None and app.pt.operational():
-                        # Connected to primary master node
-                        break
+                    app._waitMessage()
+                    # Now check result
+                    if app.primary_master_node is not None:
+                        if app.primary_master_node == -1:
+                            # Connection failed, try with another master node
+                            app.primary_master_node = None
+                            master_index += 1
+                            break
+                        elif app.primary_master_node.getServer() != (addr, port):
+                            # Master node changed, connect to new one
+                            break
+                        elif app.node_not_ready:
+                            # Wait a bit and reask again
+                            break
+                        elif app.pt is not None and app.pt.operational():
+                            # Connected to primary master node
+                            break
+                t = time()
 
         logging.info("connected to primary master node %s:%d" %app.primary_master_node.getServer())
         app.master_conn = conn
