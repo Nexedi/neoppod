@@ -308,7 +308,7 @@ class MySQLDatabaseManager(DatabaseManager):
             try:
                 serial, compression, checksum, data = r[0]
                 r = q("""SELECT serial FROM obj
-                            WHERE oid = %d AND serial > %d
+                            WHERE oid = %d AND serial >= %d
                             ORDER BY serial LIMIT 1""" \
                         % (oid, before_tid))
                 try:
