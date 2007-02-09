@@ -609,7 +609,7 @@ class Application(object):
 
 
     def undo(self, transaction_id, txn, wrapper):
-        if transaction_id is not self.txn:
+        if txn is not self.txn:
             raise StorageTransactionError(self, transaction_id)
 
         # First get transaction information from a storage node.
@@ -660,9 +660,8 @@ class Application(object):
             if end != transaction_id:
                 raise UndoError("non-undoable transaction")
             data_dict[oid] = data
-        # Third do transaction with old data
-        self.tpc_begin(txn)
 
+        # Third do transaction with old data
         for oid in data_dict.keys():
             data = data_dict[oid]
             try:
@@ -677,11 +676,8 @@ class Application(object):
                 raise ConflictError(oid = oid, serials = (self.tid, serial),
                                     data = data)
 
-        self.tpc_vote(txn)
-        self.tpc_finish(txn)
 
-
-    def undoLog(self, first, last, filter=None):
+    def undoLog(self, first, last, filter=None, block=0):
         if last < 0:
             # See FileStorage.py for explanation
             last = first - last
@@ -754,7 +750,7 @@ class Application(object):
             # Filter result if needed
             if filter is not None:
                 # Filter method return True if match
-                if not filter(self.local_var.txn_info['description']):
+                if not filter(self.local_var.txn_info):
                     continue
 
             # Append to returned list
@@ -762,7 +758,10 @@ class Application(object):
             undo_info.append(self.local_var.txn_info)
             if len(undo_info) >= last - first:
                 break
-
+        # Check we return at least one element, otherwise call
+        # again but extend offset
+        if len(undo_info) == 0 and not block:
+            undo_info = self.undoLog(first=first, last=last*5, filter=filter, block=1)
         return undo_info
 
 
