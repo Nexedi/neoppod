@@ -560,7 +560,7 @@ class Application(object):
         conn = self.master_conn
         conn.lock()
         try:
-            conn.addPacket(Packet.abortTransaction(conn.getNextId(), self.tid))
+            conn.addPacket(Packet().abortTransaction(conn.getNextId(), self.tid))
         finally:
             conn.unlock()
 
