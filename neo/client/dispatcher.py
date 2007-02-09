@@ -41,7 +41,7 @@ class Dispatcher(Thread):
 
     def registered(self, uuid):
         """Check if a connection is registered into message table."""
-        for conn_uuid, msg_id in self.message_table.keys():
+        for conn_uuid, msg_id in self.message_table.iterkeys():
             if uuid == conn_uuid:
                 return True
         return False
