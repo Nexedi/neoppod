@@ -226,19 +226,16 @@ class OperationEventHandler(StorageEventHandler):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAskTransactionInformation(self, conn, packet, tid):
-        if isinstance(conn, ClientConnection):
-            self.handleUnexpectedPacket(conn, packet)
-        else:
-            app = self.app
-            t = app.dm.getTransaction(tid)
+        app = self.app
+        t = app.dm.getTransaction(tid)
 
-            p = Packet()
-            if t is None:
-                p.tidNotFound(packet.getId(), '%s does not exist' % dump(tid))
-            else:
-                p.answerTransactionInformation(packet.getId(), tid,
-                                               t[1], t[2], t[3], t[0])
-            conn.addPacket(p)
+        p = Packet()
+        if t is None:
+            p.tidNotFound(packet.getId(), '%s does not exist' % dump(tid))
+        else:
+            p.answerTransactionInformation(packet.getId(), tid,
+                                           t[1], t[2], t[3], t[0])
+        conn.addPacket(p)
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):
         self.handleUnexpectedPacket(conn, packet)
