@@ -662,10 +662,11 @@ class Application(object):
             data_dict[oid] = data
 
         # Third do transaction with old data
-        for oid in data_dict.keys():
+        oid_list = data_dict.keys()
+        for oid in oid_list:
             data = data_dict[oid]
             try:
-                self.store(oid, self.tid, data, None, txn)
+                self.store(oid, transaction_id, data, None, txn)
             except NEOStorageConflictError, serial:
                 if serial <= self.tid:
                     new_data = wrapper.tryToResolveConflict(oid, self.tid,
@@ -675,7 +676,7 @@ class Application(object):
                         continue
                 raise ConflictError(oid = oid, serials = (self.tid, serial),
                                     data = data)
-
+        return self.tid, oid_list
 
     def undoLog(self, first, last, filter=None, block=0):
         if last < 0:
