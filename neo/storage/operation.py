@@ -345,7 +345,7 @@ class OperationEventHandler(StorageEventHandler):
 
         app = self.app
         history_list = app.dm.getObjectHistory(oid, first, last - first)
-        conn.addPacket(Packet().answerObjectHistory(packet.getId(), oid
+        conn.addPacket(Packet().answerObjectHistory(packet.getId(), oid,
                                                     history_list))
 
     def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
