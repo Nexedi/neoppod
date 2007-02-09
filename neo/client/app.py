@@ -166,13 +166,13 @@ class Application(object):
         # Internal attribute distinct between thread
         self.local_var = local()
         # Lock definition :
-        # _return_lock is used to return data from thread to ZODB
+        # _load_lock is used to make loading and storing atmic
         # _oid_lock is used in order to not call multiple oid
         # generation at the same time
         # _cache_lock is used for the client cache
         lock = Lock()
-        self._return_lock_acquire = lock.acquire
-        self._return_lock_release = lock.release
+        self._load_lock_acquire = lock.acquire
+        self._load_lock_release = lock.release
         lock = Lock()
         self._oid_lock_acquire = lock.acquire
         self._oid_lock_release = lock.release
@@ -351,15 +351,19 @@ class Application(object):
     def load(self, oid, version=None):
         """Load an object for a given oid."""
         # First try from cache
-        self._cache_lock_acquire()
+        self._load_lock_acquire()
         try:
-            if oid in self.mq_cache:
-                logging.debug('oid %s is cached', dump(oid))
-                return loads(self.mq_cache[oid][1]), self.mq_cache[oid][0]
+            self._cache_lock_acquire()
+            try:
+                if oid in self.mq_cache:
+                    logging.debug('load oid %s is cached', dump(oid))
+                    return loads(self.mq_cache[oid][1]), self.mq_cache[oid][0]
+            finally:
+                self._cache_lock_release()
+            # Otherwise get it from storage node
+            return self._load(oid, cache=1)[:2]
         finally:
-            self._cache_lock_release()
-        # Otherwise get it from storage node
-        return self._load(oid, cache=1)[:2]
+            self._load_lock_release()
 
 
     def loadSerial(self, oid, serial):
@@ -570,41 +574,44 @@ class Application(object):
         """Finish current transaction."""
         if self.txn is not transaction:
             return
-
-        # Call function given by ZODB
-        if f is not None:
-            f(self.tid)
-
-        # Call finish on master
-        oid_list = self.txn_data_dict.keys()
-        conn = self.master_conn
-        conn.lock()
+        self._load_lock_acquire()
         try:
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.finishTransaction(msg_id, oid_list, self.tid)
-            conn.addPacket(p)
-            conn.expectMessage(msg_id, additional_timeout = 300)
-            self.dispatcher.register(conn, msg_id, self.getQueue())
-        finally:
-            conn.unlock()
+            # Call function given by ZODB
+            if f is not None:
+                f(self.tid)
 
-        # Wait for answer
-        self._waitMessage(conn, msg_id)
-        if self.txn_finished != 1:
-            raise NEOStorageError('tpc_finish failed')
+            # Call finish on master
+            oid_list = self.txn_data_dict.keys()
+            conn = self.master_conn
+            conn.lock()
+            try:
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.finishTransaction(msg_id, oid_list, self.tid)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id, additional_timeout = 300)
+                self.dispatcher.register(conn, msg_id, self.getQueue())
+            finally:
+                conn.unlock()
 
-        # Update cache
-        self._cache_lock_acquire()
-        try:
-            for oid in self.txn_data_dict.iterkeys():
-                ddata = self.txn_data_dict[oid]
-                # Now serial is same as tid
-                self.mq_cache[oid] = self.tid, ddata
+            # Wait for answer
+            self._waitMessage(conn, msg_id)
+            if self.txn_finished != 1:
+                raise NEOStorageError('tpc_finish failed')
+
+            # Update cache
+            self._cache_lock_acquire()
+            try:
+                for oid in self.txn_data_dict.iterkeys():
+                    ddata = self.txn_data_dict[oid]
+                    # Now serial is same as tid
+                    self.mq_cache[oid] = self.tid, ddata
+            finally:
+                self._cache_lock_release()
+            self._clear_txn()
+            return self.tid
         finally:
-            self._cache_lock_release()
-        self._clear_txn()
-        return self.tid
+            self._load_lock_release()
 
 
     def undo(self, transaction_id, txn, wrapper):
