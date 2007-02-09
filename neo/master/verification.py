@@ -335,7 +335,7 @@ class VerificationEventHandler(MasterEventHandler):
         app.asking_uuid_dict[uuid] = True
 
     def handleAnswerTransactionInformation(self, conn, packet, tid,
-                                           user, desc, oid_list):
+                                           user, desc, ext, oid_list):
         uuid = conn.getUUID()
         if uuid is None:
             self.handleUnexpectedPacket(conn, packet)

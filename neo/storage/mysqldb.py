@@ -477,3 +477,9 @@ class MySQLDatabaseManager(DatabaseManager):
                    ','.join([str(p) for p in partition_list]), 
                    offset, length))
         return [p64(t[0]) for t in r]
+
+    def getTIDListPresent(self, tid_list):
+        q = self.query
+        r = q("""SELECT tid FROM trans WHERE tid in (%s)""" \
+                % ','.join([str(u64(tid)) for tid in tid_list]))
+        return [p64(t[0]) for t in r]

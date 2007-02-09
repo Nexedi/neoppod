@@ -237,7 +237,7 @@ class OperationEventHandler(StorageEventHandler):
                 p.tidNotFound(packet.getId(), '%s does not exist' % dump(tid))
             else:
                 p.answerTransactionInformation(packet.getId(), tid,
-                                               t[1], t[2], t[0])
+                                               t[1], t[2], t[3], t[0])
             conn.addPacket(p)
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):

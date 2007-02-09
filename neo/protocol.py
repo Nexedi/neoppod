@@ -596,12 +596,15 @@ class Packet(object):
         self._body = pack('!8s', tid)
         return self
 
-    def answerTransactionInformation(self, msg_id, tid, user, desc, oid_list):
+    def answerTransactionInformation(self, msg_id, tid, user, desc, ext, 
+                                     oid_list):
         self._id = msg_id
         self._type = ANSWER_TRANSACTION_INFORMATION
-        body = [pack('!8sHHL', tid, len(user), len(desc), len(oid_list))]
+        body = [pack('!8sHHHL', tid, len(user), len(desc), len(ext), 
+                     len(oid_list))]
         body.append(user)
         body.append(desc)
+        body.append(ext)
         body.extend(oid_list)
         self._body = ''.join(body)
         return self
@@ -1054,19 +1057,22 @@ class Packet(object):
 
     def _decodeAnswerTransactionInformation(self):
         try:
-            tid, user_len, desc_len, oid_len = unpack('!8sHHL', self._body[:16])
-            offset = 16
+            tid, user_len, desc_len, ext_len, oid_len \
+                    = unpack('!8sHHHL', self._body[:18])
+            offset = 18
             user = self._body[offset:offset+user_len]
             offset += user_len
             desc = self._body[offset:offset+desc_len]
             offset += desc_len
+            ext = self._body[offset:offset+ext_len]
+            offset += ext_len
             oid_list = []
             for i in xrange(oid_len):
                 oid = unpack('8s', self._body[offset+i*8:offset+8+i*8])[0]
                 oid_list.append(oid)
         except:
             raise ProtocolError(self, 'invalid answer transaction information')
-        return tid, user, desc, oid_list
+        return tid, user, desc, ext_len, oid_list
     decode_table[ANSWER_TRANSACTION_INFORMATION] = _decodeAnswerTransactionInformation
 
     def _decodeAskObjectHistory(self):

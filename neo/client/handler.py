@@ -459,7 +459,8 @@ class ClientEventHandler(EventHandler):
         else:
             self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerTransactionInformation(self, conn, packet, tid, user, desc, oid_list):
+    def handleAnswerTransactionInformation(self, conn, packet, tid, 
+                                           user, desc, ext, oid_list):
         if isinstance(conn, MTClientConnection):
             app = self.app
             # transaction information are returned as a dict

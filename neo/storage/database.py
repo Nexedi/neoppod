@@ -141,3 +141,8 @@ class DatabaseManager(object):
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""
         raise NotImplementedError('this method must be overridden')
+
+    def getTIDListPresent(self, tid_list):
+        """Return a list of TIDs which are present in a database among
+        the given list."""
+        raise NotImplementedError('this method must be overridden')

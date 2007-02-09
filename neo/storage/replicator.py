@@ -47,6 +47,38 @@ class ReplicationEventHandler(StorageEventHandler):
         # Nothing to do.
         pass
 
+    def handleAnswerTIDs(self, conn, packet, tid_list):
+        app = self.app
+        if tid_list:
+            present_tid_list = app.dm.getTIDListPresent(tid_list)
+            tid_set = set(tid_list)
+            present_tid_set = set(present_tid_list)
+            tid_set -= present_tid_set
+            for tid in tid_set:
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askTransactionInformation(msg_id, tid)
+                conn.addPacket(p)
+                conn.expectMessage(timeout = 300)
+
+            app.replicator.tid_offset += 1000
+            offset = app.replicator.tid_offset
+            msg_id = conn.getNextId()
+            p = Packet()
+            p.askTIDs(msg_id, offset, offset + 1000, 
+                      app.replicator.current_partition.getRID())
+            conn.addPacket(p)
+            conn.expectMessage(timeout = 300)
+        else:
+            msg_id = conn.getNextId()
+            p = Packet()
+            p.askOIDs(msg_id, 0, 1000, 
+                      app.replicator.current_partition.getRID())
+            conn.addPacket(p)
+            conn.expectMessage(timeout = 300)
+            app.replicator.oid_offset = 0
+
+
 
 class Replicator(object):
     """This class handles replications of objects and transactions.
@@ -181,6 +213,7 @@ class Replicator(object):
             self.current_connection.addPacket(p)
             self.current_connection.expectMessage(msg_id)
 
+        self.tid_offset = 0
         msg_id = self.current_connection.getNextId()
         p = Packet()
         p.askTIDs(msg_id, 0, 1000, self.current_partition.getRID())

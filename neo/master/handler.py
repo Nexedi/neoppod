@@ -38,7 +38,7 @@ class MasterEventHandler(EventHandler):
         pass
 
     def handleAnswerTransactionInformation(self, conn, packet, tid,
-                                           user, desc, oid_list):
+                                           user, desc, ext, oid_list):
         logging.info('ignoring Answer Transactin Information')
         pass
 
