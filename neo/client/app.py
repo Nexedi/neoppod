@@ -713,10 +713,10 @@ class Application(object):
         # Reorder tids
         ordered_tids = []
         for tids in self.local_var.node_tids.values():
-            ordered_tids.append(tids)
+            ordered_tids.extend(tids)
         # XXX do we need a special cmp function here ?
         ordered_tids.sort(reverse=True)
-
+        logging.info("UndoLog, tids %s", ordered_tids)
         # For each transaction, get info
         undo_info = []
         for tid in ordered_tids:
@@ -746,6 +746,10 @@ class Application(object):
                     continue
                 elif isinstance(self.local_var.txn_info, dict):
                     break
+
+            if self.local_var.txn_info == -1:
+                # TID not found at all
+                continue
 
             # Filter result if needed
             if filter is not None:
