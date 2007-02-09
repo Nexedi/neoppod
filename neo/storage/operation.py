@@ -423,3 +423,15 @@ class OperationEventHandler(StorageEventHandler):
             app.executeQueuedEvents()
         except KeyError:
             pass
+
+    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
+        if isinstance(conn, ClientConnection):
+            self.app.replicator.setCriticalTID(packet, ltid)
+        else:
+            self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
+        if isinstance(conn, ClientConnection):
+            self.app.replicator.setUnfinishedTIDList(tid_list)
+        else:
+            self.handleUnexpectedPacket(conn, packet)

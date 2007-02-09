@@ -209,3 +209,11 @@ class StorageEventHandler(EventHandler):
     def handleAbortTransaction(self, conn, packet, tid):
         logging.info('ignoring abort transaction')
         pass
+
+    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
+        logging.info('ignoring answer last ids')
+        pass
+
+    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
+        logging.info('ignoring answer unfinished transactions')
+        pass

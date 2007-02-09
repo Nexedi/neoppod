@@ -15,6 +15,7 @@ from neo.exception import OperationFailure, PrimaryFailure
 from neo.storage.bootstrap import BootstrapEventHandler
 from neo.storage.verification import VerificationEventHandler
 from neo.storage.operation import OperationEventHandler
+from neo.storage.replicator import Replicator
 
 class Application(object):
     """The storage node application."""
@@ -224,6 +225,9 @@ class Application(object):
         for node in nm.getClientNodeList():
             nm.remove(node)
 
+        # Forget all unfinished data.
+        self.dm.dropUnfinishedData()
+
         # This is a mapping between transaction IDs and information on
         # UUIDs of client nodes which issued transactions and objects
         # which were stored.
@@ -240,11 +244,13 @@ class Application(object):
         # This is a queue of events used to delay operations due to locks.
         self.event_queue = deque()
 
-        # Forget all unfinished data.
-        self.dm.dropUnfinishedData()
+        # The replicator.
+        self.replicator = Replicator(self)
 
         while 1:
             em.poll(1)
+            if self.replicator.pending():
+                self.replicator.act()
 
     def queueEvent(self, callable, *args, **kwargs):
         self.event_queue.append((callable, args, kwargs))

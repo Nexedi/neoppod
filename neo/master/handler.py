@@ -73,3 +73,11 @@ class MasterEventHandler(EventHandler):
     def handleAbortTransaction(self, conn, packet, tid):
         logging.info('ignoring Abort Transaction')
         pass
+
+    def handleAskLastIDs(self, conn, packet):
+        logging.info('ignoring Ask Last IDs')
+        pass
+
+    def handleAskUnfinishedTransactions(self, conn, packet):
+        logging.info('ignoring ask unfinished transactions')
+        pass
