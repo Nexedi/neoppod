@@ -211,6 +211,7 @@ INVALID_TID = '\0\0\0\0\0\0\0\0'
 INVALID_SERIAL = '\0\0\0\0\0\0\0\0'
 INVALID_OID = '\0\0\0\0\0\0\0\0'
 INVALID_PTID = '\0\0\0\0\0\0\0\0'
+INVALID_PARTITION = 0xffffffff
 
 class ProtocolError(Exception): pass
 
@@ -575,10 +576,10 @@ class Packet(object):
                           compression, checksum, len(data)) + data
         return self
 
-    def askTIDs(self, msg_id, first, last):
+    def askTIDs(self, msg_id, first, last, partition):
         self._id = msg_id
         self._type = ASK_TIDS
-        self._body = pack('!QQ', first, last)
+        self._body = pack('!QQL', first, last, partition)
         return self
 
     def answerTIDs(self, msg_id, tid_list):
@@ -1025,10 +1026,10 @@ class Packet(object):
 
     def _decodeAskTIDs(self):
         try:
-            first, last = unpack('!QQ', self._body)
+            first, last, partition = unpack('!QQL', self._body)
         except:
             raise ProtocolError(self, 'invalid ask tids')
-        return first, last
+        return first, last, partition
     decode_table[ASK_TIDS] = _decodeAskTIDs
 
     def _decodeAnswerTIDs(self):

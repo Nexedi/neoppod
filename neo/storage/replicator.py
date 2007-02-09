@@ -183,7 +183,7 @@ class Replicator(object):
 
         msg_id = self.current_connection.getNextId()
         p = Packet()
-        p.askTIDs(msg_id, 0, 1000)
+        p.askTIDs(msg_id, 0, 1000, self.current_partition.getRID())
         self.current_connection.addPacket(p)
         self.current_connection.expectMessage(timeout = 300)
 

@@ -2,6 +2,7 @@ import logging
 
 from neo.storage.handler import StorageEventHandler
 from neo.protocol import INVALID_UUID, INVALID_SERIAL, INVALID_TID, \
+        INVALID_PARTITION, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
 from neo.util import dump
@@ -313,7 +314,7 @@ class OperationEventHandler(StorageEventHandler):
             p.oidNotFound(packet.getId(), '%s does not exist' % dump(oid))
         conn.addPacket(p)
 
-    def handleAskTIDs(self, conn, packet, first, last):
+    def handleAskTIDs(self, conn, packet, first, last, partition):
         # This method is complicated, because I must return TIDs only
         # about usable partitions assigned to me.
         if first >= last:
@@ -323,14 +324,17 @@ class OperationEventHandler(StorageEventHandler):
 
         app = self.app
 
-        # Collect all usable partitions for me.
-        getCellList = app.pt.getCellList
-        partition_list = []
-        for offset in xrange(app.num_partitions):
-            for cell in getCellList(offset, True):
-                if cell.getUUID() == app.uuid:
-                    partition_list.append(offset)
-                    break
+        if partition == INVALID_PARTITION:
+            # Collect all usable partitions for me.
+            getCellList = app.pt.getCellList
+            partition_list = []
+            for offset in xrange(app.num_partitions):
+                for cell in getCellList(offset, True):
+                    if cell.getUUID() == app.uuid:
+                        partition_list.append(offset)
+                        break
+        else:
+            partition_list = [partition]
 
         tid_list = app.dm.getTIDList(first, last - first,
                                      app.num_partitions, partition_list)

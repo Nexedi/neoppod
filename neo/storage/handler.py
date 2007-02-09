@@ -192,7 +192,7 @@ class StorageEventHandler(EventHandler):
     def handleAskObject(self, conn, packet, oid, serial, tid):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAskTIDs(self, conn, packet, first, last):
+    def handleAskTIDs(self, conn, packet, first, last, partition):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAskObjectHistory(self, conn, packet, oid, first, last):

@@ -234,7 +234,7 @@ class EventHandler(object):
                            serial_end, compression, checksum, data):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAskTIDs(self, conn, packet, first, last):
+    def handleAskTIDs(self, conn, packet, first, last, partition):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerTIDs(self, conn, packet, tid_list):

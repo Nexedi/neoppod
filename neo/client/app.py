@@ -9,7 +9,7 @@ from random import shuffle
 from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connection import MTClientConnection
-from neo.protocol import Packet, INVALID_UUID, INVALID_TID, \
+from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
         STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         TEMPORARILY_DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, INVALID_SERIAL
@@ -698,7 +698,7 @@ class Application(object):
             try:
                 msg_id = conn.getNextId()
                 p = Packet()
-                p.askTIDs(msg_id, first, last)
+                p.askTIDs(msg_id, first, last, INVALID_PARTITION)
                 conn.addPacket(p)
             finally:
                 conn.unlock()
