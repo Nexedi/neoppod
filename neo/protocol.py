@@ -48,11 +48,11 @@ REELECT_PRIMARY_MASTER = 0x0005
 # Notify information about one or more nodes. Any -> PM, PM -> Any.
 NOTIFY_NODE_INFORMATION = 0x0006
 
-# Ask the last OID, the last TID and the last Partition Table ID that a storage node
-# stores. Used to recover information. PM -> S.
+# Ask the last OID, the last TID and the last Partition Table ID that
+# a storage node stores. Used to recover information. PM -> S, S -> PM.
 ASK_LAST_IDS = 0x0007
 
-# Reply to Ask Last IDs. S -> PM.
+# Reply to Ask Last IDs. S -> PM, PM -> S.
 ANSWER_LAST_IDS = 0x8007
 
 # Ask rows in a partition table that a storage node stores. Used to recover
@@ -134,7 +134,7 @@ ASK_STORE_OBJECT = 0x0018
 # node must not try to resolve the conflict. S -> C.
 ANSWER_STORE_OBJECT = 0x8018
 
-# Abort a transaction. C -> S
+# Abort a transaction. C -> S, PM.
 ABORT_TRANSACTION = 0x0019
 
 # Ask to store a transaction. C -> S.

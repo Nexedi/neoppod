@@ -69,3 +69,7 @@ class MasterEventHandler(EventHandler):
     def handleNotifyInformationLocked(self, conn, packet, tid):
         logging.info('ignoring Notify Information Locked')
         pass
+
+    def handleAbortTransaction(self, conn, packet, tid):
+        logging.info('ignoring Abort Transaction')
+        pass
