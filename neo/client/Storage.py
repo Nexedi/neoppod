@@ -6,6 +6,7 @@ import logging
 
 from neo.client.dispatcher import Dispatcher
 from neo.event import EventManager
+from neo.util import dump
 
 class NEOStorageError(POSException.StorageError):
     pass
@@ -148,15 +149,12 @@ class Storage(BaseStorage.BaseStorage,
     def undo(self, transaction_id, txn):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        self._txn_lock_acquire()
         try:
-            try:
-                return self.app.undo(transaction_id = transaction_id,
-                                     txn = txn, wrapper = self)
-            except NEOStorageConflictError:
-                raise POSException.ConflictError
-        finally:
-            self._txn_lock_release()
+            return self.app.undo(transaction_id = transaction_id,
+                                 txn = txn, wrapper = self)
+        except NEOStorageConflictError:
+            raise POSException.ConflictError
+
 
     def undoLog(self, first, last, filter):
         if self._is_read_only:
