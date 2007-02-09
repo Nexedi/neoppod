@@ -39,6 +39,13 @@ class Dispatcher(Thread):
         key = (conn.getUUID(), msg_id)
         self.message_table[key] = queue
 
+    def registered(self, uuid):
+        """Check if a connection is registered into message table."""
+        for conn_uuid, msg_id in self.message_table.keys():
+            if uuid == conn_uuid:
+                return True
+        return False
+
     def connectToPrimaryMasterNode(self, app):
         """Connect to a primary master node.
         This can be called either at bootstrap or when
