@@ -596,11 +596,11 @@ class Packet(object):
         self._body = pack('!8s', tid)
         return self
 
-    def answerTransactionInformation(self, msg_id, tid, user, desc, ext, 
+    def answerTransactionInformation(self, msg_id, tid, user, desc, ext,
                                      oid_list):
         self._id = msg_id
         self._type = ANSWER_TRANSACTION_INFORMATION
-        body = [pack('!8sHHHL', tid, len(user), len(desc), len(ext), 
+        body = [pack('!8sHHHL', tid, len(user), len(desc), len(ext),
                      len(oid_list))]
         body.append(user)
         body.append(desc)
@@ -1089,7 +1089,7 @@ class Packet(object):
             history_list = []
             for i in xrange(12, 12 + length * 12, 12):
                 serial, size = unpack('!8sL', self._body[i:i+12])
-                history_list.append(tuple(serial, size))
+                history_list.append((serial, size))
         except:
             raise ProtocolError(self, 'invalid answer object history')
         return oid, history_list
