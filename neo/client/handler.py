@@ -464,10 +464,10 @@ class ClientEventHandler(EventHandler):
             app = self.app
             # transaction information are returned as a dict
             info = {}
-            info['time'] = TimeStamp(p64(long(tid))).timeTime()
+            info['time'] = TimeStamp(tid).timeTime()
             info['user_name'] = user
             info['description'] = desc
-            info['id'] = p64(long(tid))
+            info['id'] = tid
             info['oids'] = oid_list
             app.local_var.txn_info = info
         else:
