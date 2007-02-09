@@ -556,6 +556,14 @@ class Application(object):
 
                 aborted_node_set.add(cell.getNode())
 
+        # Abort the transaction in the primary master node.
+        conn = self.master_conn
+        conn.lock()
+        try:
+            conn.addPacket(Packet.abortTransaction(conn.getNextId(), self.tid))
+        finally:
+            conn.unlock()
+
         self._clear_txn()
 
     def tpc_finish(self, transaction, f=None):
