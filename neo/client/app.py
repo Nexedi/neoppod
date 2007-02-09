@@ -366,7 +366,7 @@ class Application(object):
         """Load an object for a given oid and serial."""
         # Do not try in cache as it manages only up-to-date object
         logging.debug('loading %s at %s', dump(oid), dump(serial))
-        return self._load(oid, serial)[0]
+        return self._load(oid, serial=serial)[0]
 
 
     def loadBefore(self, oid, tid):
@@ -375,7 +375,7 @@ class Application(object):
         if tid is None:
             tid = INVALID_TID
         logging.debug('loading %s before %s', dump(oid), dump(tid))
-        data, start, end = self._load(oid, tid)
+        data, start, end = self._load(oid, tid=tid)
         if end is None:
             # No previous version
             return None
