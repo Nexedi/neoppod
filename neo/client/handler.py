@@ -459,7 +459,7 @@ class ClientEventHandler(EventHandler):
         else:
             self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerTransactionInformation(self, conn, packet, tid, 
+    def handleAnswerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):
         if isinstance(conn, MTClientConnection):
             app = self.app
@@ -478,7 +478,7 @@ class ClientEventHandler(EventHandler):
         if isinstance(conn, MTClientConnection):
             app = self.app
             # history_list is a list of tuple (serial, size)
-            self.history = oid, history_list
+            app.local_var.history = oid, history_list
         else:
             self.handleUnexpectedPacket(conn, packet)
 
