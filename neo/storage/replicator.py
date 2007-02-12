@@ -65,9 +65,7 @@ class ReplicationEventHandler(StorageEventHandler):
             # If I have pending TIDs, check which TIDs I don't have, and
             # request the data.
             present_tid_list = app.dm.getTIDListPresent(tid_list)
-            tid_set = set(tid_list)
-            present_tid_set = set(present_tid_list)
-            tid_set -= present_tid_set
+            tid_set = set(tid_list) - set(present_tid_list)
             for tid in tid_set:
                 msg_id = conn.getNextId()
                 p = Packet()
@@ -122,7 +120,24 @@ class ReplicationEventHandler(StorageEventHandler):
         app = self.app
         if history_list:
             # Check if I have objects, request those which I don't have.
-            raise NotImplementedError
+            serial_list = [t[0] for t in history_list]
+            present_serial_list = app.dm.getSerialListPresent(oid, serial_list)
+            serial_set = set(serial_list) - set(present_serial_list)
+            for serial in serial_set:
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askObject(msg_id, oid, serial, INVALID_TID)
+                conn.addPacket(p)
+                conn.expectMessage(timeout = 300)
+
+            # And, ask more serials.
+            app.replicator.serial_offset += 1000
+            offset = app.replicator.serial_offset
+            msg_id = conn.getNextId()
+            p = Packet()
+            p.askObjectHistory(msg_id, oid, offset, offset + 1000)
+            conn.addPacket(p)
+            conn.expectMessage(timeout = 300)
         else:
             # This OID is finished. So advance to next.
             oid_list = app.replicator.oid_list
@@ -146,7 +161,14 @@ class ReplicationEventHandler(StorageEventHandler):
                 conn.addPacket(p)
                 conn.expectMessage(timeout = 300)
 
-
+    def answerObject(self, msg_id, oid, serial_start, serial_end, compression,
+                     checksum, data):
+        app = self.app
+        # Directly store the transaction.
+        obj = (oid, compression, checksum, data)
+        app.dm.storeTransaction(serial_start, [obj], None, True)
+        del obj
+        del data
 
 
 class Replicator(object):

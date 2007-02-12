@@ -152,3 +152,9 @@ class DatabaseManager(object):
         """Return a list of TIDs which are present in a database among
         the given list."""
         raise NotImplementedError('this method must be overridden')
+
+    def getSerialListPresent(self, oid, serial_list):
+        """Return a list of serials which are present in a database among
+        the given list."""
+        raise NotImplementedError('this method must be overridden')
+

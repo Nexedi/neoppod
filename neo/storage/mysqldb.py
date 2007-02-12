@@ -500,3 +500,11 @@ class MySQLDatabaseManager(DatabaseManager):
         r = q("""SELECT tid FROM trans WHERE tid in (%s)""" \
                 % ','.join([str(u64(tid)) for tid in tid_list]))
         return [p64(t[0]) for t in r]
+
+    def getSerialListPresent(self, oid, serial_list):
+        q = self.query
+        oid = u64(oid)
+        r = q("""SELECT serial FROM obj WHERE oid = %d AND serial in (%s)""" \
+                % (oid, ','.join([str(u64(serial)) for serial in serial_list])))
+        return [p64(t[0]) for t in r]
+
