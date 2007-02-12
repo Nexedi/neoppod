@@ -158,10 +158,10 @@ ASK_TIDS = 0x001d
 # Answer the requested TIDs. S -> C, S.
 ANSWER_TIDS = 0x801d
 
-# Ask information about a transaction. PM, C -> S.
+# Ask information about a transaction. Any -> S.
 ASK_TRANSACTION_INFORMATION = 0x001e
 
-# Answer information (user, description) about a transaction. S -> C, PM.
+# Answer information (user, description) about a transaction. S -> Any.
 ANSWER_TRANSACTION_INFORMATION = 0x801e
 
 # Ask history information for a given object. The order of serials is
@@ -170,6 +170,14 @@ ASK_OBJECT_HISTORY = 0x001f
 
 # Answer history information (serial, size) for an object. S -> C, S.
 ANSWER_OBJECT_HISTORY = 0x801f
+
+# Ask for OIDs between a range of offsets. The order of OIDs is descending,
+# and the range is [first, last). S -> S.
+ASK_OIDS = 0x0020
+
+# Answer the requested OIDs. S -> S.
+ANSWER_OIDS = 0x8020
+
 
 # Error codes.
 NOT_READY_CODE = 1
@@ -622,6 +630,20 @@ class Packet(object):
         # history_list is a list of tuple (serial, size)
         for history_tuple in history_list:
             body.append(pack('!8sL', history_tuple[0], history_tuple[1]))
+        self._body = ''.join(body)
+        return self
+
+    def askOIDs(self, msg_id, first, last, partition):
+        self._id = msg_id
+        self._type = ASK_OIDS
+        self._body = pack('!QQL', first, last, partition)
+        return self
+
+    def answerOIDs(self, msg_id, oid_list):
+        self._id = msg_id
+        self._type = ANSWER_OIDS
+        body = [pack('!L', len(oid_list))]
+        body.extend(oid_list)
         self._body = ''.join(body)
         return self
 
@@ -1094,4 +1116,24 @@ class Packet(object):
             raise ProtocolError(self, 'invalid answer object history')
         return oid, history_list
     decode_table[ANSWER_OBJECT_HISTORY] = _decodeAnswerObjectHistory
+
+    def _decodeAskOIDs(self):
+        try:
+            first, last, partition = unpack('!QQL', self._body)
+        except:
+            raise ProtocolError(self, 'invalid ask oids')
+        return first, last, partition
+    decode_table[ASK_OIDS] = _decodeAskOIDs
+
+    def _decodeAnswerOIDs(self):
+        try:
+            n = unpack('!L', self._body[:4])[0]
+            oid_list = []
+            for i in xrange(n):
+                oid = unpack('8s', self._body[4+i*8:12+i*8])[0]
+                oid_list.append(oid)
+        except:
+            raise ProtocolError(self, 'invalid answer oids')
+        return (oid_list,)
+    decode_table[ANSWER_OIDS] = _decodeAnswerOIDs
 

@@ -101,13 +101,13 @@ class DatabaseManager(object):
         """Drop any unfinished data from a database."""
         raise NotImplementedError('this method must be overridden')
 
-    def storeTransaction(self, tid, object_list, transaction):
-        """Store a transaction temporarily. Note that this transaction
-        is not finished yet. The list of objects contains tuples,
-        each of which consists of an object ID, a compression specification,
-        a checksum and object data. The transaction is either None or
-        a tuple of the list of OIDs, user information, a description and
-        extension information."""
+    def storeTransaction(self, tid, object_list, transaction, temporary = True):
+        """Store a transaction temporarily, if temporary is true. Note
+        that this transaction is not finished yet. The list of objects
+        contains tuples, each of which consists of an object ID,
+        a compression specification, a checksum and object data.
+        The transaction is either None or a tuple of the list of OIDs,
+        user information, a description and extension information."""
         raise NotImplementedError('this method must be overridden')
 
     def finishTransaction(self, tid):

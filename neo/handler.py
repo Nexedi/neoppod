@@ -253,6 +253,12 @@ class EventHandler(object):
     def handleAnswerObjectHistory(self, conn, packet, oid, history_list):
         self.handleUnexpectedPacket(conn, packet)
 
+    def handleAskOIDs(self, conn, packet, first, last, partition):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerOIDs(self, conn, packet, tid_list):
+        self.handleUnexpectedPacket(conn, packet)
+
     # Error packet handlers.
 
     handleNotReady = handleUnexpectedPacket

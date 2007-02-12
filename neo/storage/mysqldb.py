@@ -375,10 +375,18 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def storeTransaction(self, tid, object_list, transaction):
+    def storeTransaction(self, tid, object_list, transaction, temporary = True):
         q = self.query
         e = self.escape
         tid = u64(tid)
+
+        if temporary:
+            obj_table = 'tobj'
+            trans_table = 'ttrans'
+        else:
+            obj_table = 'obj'
+            trans_table = 'trans'
+
         self.begin()
         try:
             # XXX it might be more efficient to insert multiple objects
@@ -390,16 +398,16 @@ class MySQLDatabaseManager(DatabaseManager):
             for oid, compression, checksum, data in object_list:
                 oid = u64(oid)
                 data = e(data)
-                q("""INSERT INTO tobj VALUES (%d, %d, %d, %d, '%s')""" \
-                        % (oid, tid, compression, checksum, data))
+                q("""INSERT INTO %s VALUES (%d, %d, %d, %d, '%s')""" \
+                        % (obj_table, oid, tid, compression, checksum, data))
             if transaction is not None:
                 oid_list, user, desc, ext = transaction
                 oids = e(''.join(oid_list))
                 user = e(user)
                 desc = e(desc)
                 ext = e(ext)
-                q("""INSERT INTO ttrans VALUES (%d, '%s', '%s', '%s', '%s')""" \
-                        % (tid, oids, user, desc, ext))
+                q("""INSERT INTO %s VALUES (%d, '%s', '%s', '%s', '%s')""" \
+                        % (trans_table, tid, oids, user, desc, ext))
         except:
             self.rollback()
             raise

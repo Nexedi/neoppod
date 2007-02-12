@@ -78,6 +78,14 @@ class ReplicationEventHandler(StorageEventHandler):
             conn.expectMessage(timeout = 300)
             app.replicator.oid_offset = 0
 
+    def handleAnswerTransactionInformation(self, conn, packet, tid,
+                                           user, desc, ext, oid_list):
+        app = self.app
+        # Directly store the transaction.
+        app.dm.storeTransaction(tid, (), (oid_list, user, desc, ext), True)
+
+    
+
 
 
 class Replicator(object):
