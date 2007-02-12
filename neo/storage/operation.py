@@ -436,3 +436,29 @@ class OperationEventHandler(StorageEventHandler):
             self.app.replicator.setUnfinishedTIDList(tid_list)
         else:
             self.handleUnexpectedPacket(conn, packet)
+
+    def handleAskOIDs(self, conn, packet, first, last, partition):
+        # This method is complicated, because I must return OIDs only
+        # about usable partitions assigned to me.
+        if first >= last:
+            conn.addPacket(Packet().protocolError(packet.getId(),
+                                                  'invalid offsets'))
+            return
+
+        app = self.app
+
+        if partition == INVALID_PARTITION:
+            # Collect all usable partitions for me.
+            getCellList = app.pt.getCellList
+            partition_list = []
+            for offset in xrange(app.num_partitions):
+                for cell in getCellList(offset, True):
+                    if cell.getUUID() == app.uuid:
+                        partition_list.append(offset)
+                        break
+        else:
+            partition_list = [partition]
+
+        oid_list = app.dm.getOIDList(first, last - first,
+                                     app.num_partitions, partition_list)
+        conn.addPacket(Packet().answerOIDs(packet.getId(), oid_list))

@@ -398,7 +398,7 @@ class MySQLDatabaseManager(DatabaseManager):
             for oid, compression, checksum, data in object_list:
                 oid = u64(oid)
                 data = e(data)
-                q("""INSERT INTO %s VALUES (%d, %d, %d, %d, '%s')""" \
+                q("""REPLACE INTO %s VALUES (%d, %d, %d, %d, '%s')""" \
                         % (obj_table, oid, tid, compression, checksum, data))
             if transaction is not None:
                 oid_list, user, desc, ext = transaction
@@ -406,7 +406,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 user = e(user)
                 desc = e(desc)
                 ext = e(ext)
-                q("""INSERT INTO %s VALUES (%d, '%s', '%s', '%s', '%s')""" \
+                q("""REPLACE INTO %s VALUES (%d, '%s', '%s', '%s', '%s')""" \
                         % (trans_table, tid, oids, user, desc, ext))
         except:
             self.rollback()
@@ -466,6 +466,15 @@ class MySQLDatabaseManager(DatabaseManager):
                 oid_list.append(oids[i:i+8])
             return oid_list, user, desc, ext
         return None
+
+    def getOIDList(self, offset, length, num_partitions, partition_list):
+        q = self.query
+        r = q("""SELECT DISTINCT oid FROM obj WHERE MOD(oid,%d) in (%s)
+                    ORDER BY oid DESC LIMIT %d,%d""" \
+                % (num_partitions, 
+                   ','.join([str(p) for p in partition_list]), 
+                   offset, length))
+        return [p64(t[0]) for t in r]
 
     def getObjectHistory(self, oid, offset = 0, length = 1):
         q = self.query

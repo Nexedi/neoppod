@@ -217,3 +217,7 @@ class StorageEventHandler(EventHandler):
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
         logging.info('ignoring answer unfinished transactions')
         pass
+
+    def handleAskOIDs(self, conn, packet, first, last, partition):
+        logging.info('ignoring ask oids')
+        pass

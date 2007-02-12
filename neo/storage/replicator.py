@@ -41,6 +41,18 @@ class ReplicationEventHandler(StorageEventHandler):
         logging.error('replication is stopped due to connection failure')
         self.app.replicator.reset()
 
+    def timeoutExpired(self, conn):
+        logging.error('replication is stopped due to timeout')
+        self.app.replicator.reset()
+
+    def connectionClosed(self, conn):
+        logging.error('replication is stopped due to close')
+        self.app.replicator.reset()
+
+    def peerBroken(self, conn):
+        logging.error('replication is stopped due to breakage')
+        self.app.replicator.reset()
+
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas):
@@ -50,6 +62,8 @@ class ReplicationEventHandler(StorageEventHandler):
     def handleAnswerTIDs(self, conn, packet, tid_list):
         app = self.app
         if tid_list:
+            # If I have pending TIDs, check which TIDs I don't have, and
+            # request the data.
             present_tid_list = app.dm.getTIDListPresent(tid_list)
             tid_set = set(tid_list)
             present_tid_set = set(present_tid_list)
@@ -61,6 +75,7 @@ class ReplicationEventHandler(StorageEventHandler):
                 conn.addPacket(p)
                 conn.expectMessage(timeout = 300)
 
+            # And, ask more TIDs.
             app.replicator.tid_offset += 1000
             offset = app.replicator.tid_offset
             msg_id = conn.getNextId()
@@ -70,6 +85,8 @@ class ReplicationEventHandler(StorageEventHandler):
             conn.addPacket(p)
             conn.expectMessage(timeout = 300)
         else:
+            # If no more TID, a replication of transactions is finished.
+            # So start to replicate objects now.
             msg_id = conn.getNextId()
             p = Packet()
             p.askOIDs(msg_id, 0, 1000, 
@@ -84,7 +101,51 @@ class ReplicationEventHandler(StorageEventHandler):
         # Directly store the transaction.
         app.dm.storeTransaction(tid, (), (oid_list, user, desc, ext), True)
 
+    def handleAnswerOIDs(self, conn, packet, oid_list):
+        app = self.app
+        if oid_list:
+            # Pick one up, and ask the history.
+            oid = oid_list.pop()
+            msg_id = conn.getNextId()
+            p = Packet()
+            p.askObjectHistory(msg_id, oid, 0, 1000)
+            conn.addPacket(p)
+            conn.expectMessage(timeout = 300)
+            app.replicator.serial_offset = 0
+            app.replicator.oid_list = oid_list
+        else:
+            # Nothing remains, so the replication for this partition is
+            # finished.
+            app.replicator.replication_done = True
     
+    def handleAnswerObjectHistory(self, conn, packet, oid, history_list):
+        app = self.app
+        if history_list:
+            # Check if I have objects, request those which I don't have.
+            raise NotImplementedError
+        else:
+            # This OID is finished. So advance to next.
+            oid_list = app.replicator.oid_list
+            if oid_list:
+                # If I have more pending OIDs, pick one up.
+                oid = oid_list.pop()
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askObjectHistory(msg_id, oid, 0, 1000)
+                conn.addPacket(p)
+                conn.expectMessage(timeout = 300)
+                app.replicator.serial_offset = 0
+            else:
+                # Otherwise, acquire more OIDs.
+                app.replicator.oid_offset += 1000
+                offset = app.replicator.oid_offset
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.askOIDs(msg_id, offset, offset + 1000, 
+                          app.replicator.current_partition.getRID())
+                conn.addPacket(p)
+                conn.expectMessage(timeout = 300)
+
 
 
 

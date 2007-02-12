@@ -17,6 +17,7 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         ABORT_TRANSACTION, ASK_STORE_TRANSACTION, ANSWER_STORE_TRANSACTION, \
         ASK_OBJECT, ANSWER_OBJECT, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
         ANSWER_TRANSACTION_INFORMATION, ASK_OBJECT_HISTORY, ANSWER_OBJECT_HISTORY, \
+        ASK_OIDS, ANSWER_OIDS, \
         NOT_READY_CODE, OID_NOT_FOUND_CODE, SERIAL_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
         INTERNAL_ERROR_CODE
@@ -256,7 +257,7 @@ class EventHandler(object):
     def handleAskOIDs(self, conn, packet, first, last, partition):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleAnswerOIDs(self, conn, packet, tid_list):
+    def handleAnswerOIDs(self, conn, packet, oid_list):
         self.handleUnexpectedPacket(conn, packet)
 
     # Error packet handlers.
@@ -329,6 +330,8 @@ class EventHandler(object):
         d[ANSWER_TRANSACTION_INFORMATION] = self.handleAnswerTransactionInformation
         d[ASK_OBJECT_HISTORY] = self.handleAskObjectHistory
         d[ANSWER_OBJECT_HISTORY] = self.handleAnswerObjectHistory
+        d[ASK_OIDS] = self.handleAskOIDs
+        d[ANSWER_OIDS] = self.handleAnswerOIDs
 
         self.packet_dispatch_table = d
 

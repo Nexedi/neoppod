@@ -129,6 +129,12 @@ class DatabaseManager(object):
         area as well."""
         raise NotImplementedError('this method must be overridden')
 
+    def getOIDList(self, offset, length, num_partitions, partition_list):
+        """Return a list of OIDs in descending order from an offset,
+        at most the specified length. The list of partitions are passed
+        to filter out non-applicable TIDs."""
+        raise NotImplementedError('this method must be overridden')
+
     def getObjectHistory(self, oid, offset = 0, length = 1):
         """Return a list of serials and sizes for a given object ID.
         The length specifies the maximum size of such a list. The first serial
