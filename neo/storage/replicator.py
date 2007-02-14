@@ -390,3 +390,21 @@ class Replicator(object):
             if self.replication_done:
                 logging.info('replication is done')
                 self._finishReplication()
+
+    def removePartition(self, rid):
+        """This is a callback from OperationEventHandler."""
+        try:
+            self.partition_list.remove(rid)
+        except ValueError:
+            pass
+
+        try:
+            self.new_partition_list.remove(rid)
+        except ValueError:
+            pass
+
+    def addPartition(self, rid):
+        """This is a callback from OperationEventHandler."""
+        if rid not in self.partition_list \
+                and rid not in self.new_partition_list:
+            self.new_partition_list.append(rid)

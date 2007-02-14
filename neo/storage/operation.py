@@ -4,7 +4,8 @@ from neo.storage.handler import StorageEventHandler
 from neo.protocol import INVALID_UUID, INVALID_SERIAL, INVALID_TID, \
         INVALID_PARTITION, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
+        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
+        DISCARDED_STATE, OUT_OF_DATE_STATE
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
@@ -194,6 +195,7 @@ class OperationEventHandler(StorageEventHandler):
             pt = app.pt
             if app.ptid >= ptid:
                 # Ignore this packet.
+                logging.info('ignoring older partition changes')
                 return
 
             # First, change the table on memory.
@@ -207,6 +209,13 @@ class OperationEventHandler(StorageEventHandler):
                     nm.add(node)
 
                 pt.setCell(offset, node, state)
+
+                if uuid == app.uuid:
+                    # If this is for myself, this can affect replications.
+                    if state == DISCARDED_STATE:
+                        app.replicator.removePartition(offset)
+                    elif state == OUT_OF_DATE_STATE:
+                        app.replicator.addPartition(offset)
 
             # Then, the database.
             app.dm.changePartitionTable(ptid, cell_list)
