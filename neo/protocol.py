@@ -789,7 +789,8 @@ class Packet(object):
                     cell = unpack('!16sH', self._body[index:index+18])
                     index += 18
                     cell_list.append(cell)
-                row_list.append((offset, cell_list))
+                row_list.append((offset, tuple(cell_list)))
+                del cell_list[:]
         except:
             raise ProtocolError(self, 'invalid answer partition table')
         return ptid, row_list
@@ -809,6 +810,7 @@ class Packet(object):
                     index += 18
                     cell_list.append(cell)
                 row_list.append((offset, tuple(cell_list)))
+                del cell_list[:]
         except:
             raise ProtocolError(self, 'invalid send partition table')
         return ptid, row_list

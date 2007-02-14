@@ -347,7 +347,7 @@ class Replicator(object):
             conn = self.primary_master_connection
             p = Packet()
             p.notifyPartitionChanges(conn.getNextId(), 
-                                     app.lptid, 
+                                     app.ptid, 
                                      [(self.current_partition.getRID(), 
                                        app.uuid, 
                                        UP_TO_DATE_STATE)])

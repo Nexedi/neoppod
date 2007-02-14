@@ -185,6 +185,7 @@ class VerificationEventHandler(StorageEventHandler):
             pt = app.pt
             if app.ptid >= ptid:
                 # Ignore this packet.
+                logging.info('ignoring older partition changes')
                 return
 
             # First, change the table on memory.
