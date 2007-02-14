@@ -1092,7 +1092,7 @@ class Packet(object):
                 oid_list.append(oid)
         except:
             raise ProtocolError(self, 'invalid answer transaction information')
-        return tid, user, desc, ext_len, oid_list
+        return tid, user, desc, ext, oid_list
     decode_table[ANSWER_TRANSACTION_INFORMATION] = _decodeAnswerTransactionInformation
 
     def _decodeAskObjectHistory(self):

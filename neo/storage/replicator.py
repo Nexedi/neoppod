@@ -5,6 +5,7 @@ from neo.protocol import Packet, OUT_OF_DATE_STATE, STORAGE_NODE_TYPE, \
         INVALID_OID, INVALID_TID, RUNNING_STATE
 from neo.connection import ClientConnection
 from neo.storage.handler import StorageEventHandler
+from neo.util import dump
 
 class Partition(object):
     """This class abstracts the state of a partition."""
@@ -245,6 +246,10 @@ class Replicator(object):
         """This is a callback from OperationEventHandler."""
         msg_id = packet.getId()
         try:
+            partition_list = self.critical_tid_dict[msg_id]
+            logging.debug('setting critical TID %s to %s',
+                          dump(tid),
+                          ', '.join([str(p.getRID()) for p in partition_list]))
             for partition in self.critical_tid_dict[msg_id]:
                 partition.setCriticalTID(tid)
             del self.critical_tid_dict[msg_id]
@@ -252,7 +257,6 @@ class Replicator(object):
             pass
 
     def _askCriticalTID(self):
-        logging.debug('self.new_partition_list = %r', self.new_partition_list)
         conn = self.primary_master_connection
         msg_id = conn.getNextId()
         conn.addPacket(Packet().askLastIDs(msg_id))
@@ -263,6 +267,8 @@ class Replicator(object):
 
     def setUnfinishedTIDList(self, tid_list):
         """This is a callback from OperationEventHandler."""
+        logging.debug('setting unfinished TIDs %s',
+                      ','.join([dump(tid) for tid in tid_list]))
         self.waiting_for_unfinished_tids = False
         self.unfinished_tid_list = tid_list
 
@@ -277,12 +283,15 @@ class Replicator(object):
         # Choose a storage node for the source.
         app = self.app
         try:
-            cell_list = app.pt.getCellList(self.current_partition, True)
+            cell_list = app.pt.getCellList(self.current_partition.getRID(), 
+                                           True)
             node_list = [cell.getNode() for cell in cell_list
                             if cell.getNodeState() == RUNNING_STATE]
             node = choice(node_list)
         except:
             # Not operational.
+            logging.error('not operational', exc_info = 1)
+            self.current_partition = None
             return
 
         addr = node.getServer()
@@ -324,6 +333,7 @@ class Replicator(object):
             # I need to choose something.
             if self.waiting_for_unfinished_tids:
                 # Still waiting.
+                logging.debug('waiting for unfinished tids')
                 return
             elif self.unfinished_tid_list is not None:
                 # Try to select something.
@@ -334,15 +344,18 @@ class Replicator(object):
                         break
                 else:
                     # Not yet.
+                    logging.debug('not ready yet')
                     self.unfinished_tid_list = None
                     return
 
                 self._startReplication()
             else:
                 # Ask pending transactions.
+                logging.debug('asking unfinished tids')
                 self._askUnfinishedTIDs()
         else:
             if self.replication_done:
+                logging.info('replication is done')
                 try:
                     self.partition_list.remove(self.current_partition)
                 except ValueError:
