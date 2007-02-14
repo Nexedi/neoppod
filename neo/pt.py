@@ -280,8 +280,8 @@ class PartitionTable(object):
         return [(cell.getUUID(), cell.getState()) for cell in row]
 
     def tweak(self):
-        """Test if nodes are distributed uniformly. Otherwise, correct the partition
-        table."""
+        """Test if nodes are distributed uniformly. Otherwise, correct the
+        partition table."""
         changed_cell_list = []
 
         for offset, row in enumerate(self.partition_list):
@@ -322,13 +322,16 @@ class PartitionTable(object):
 
                 max_count = 0
                 chosen_cell = None
-                for cell in out_of_date_cell_list + up_to_date_cell_list:
+                for cell in cell_list:
                     count = self.count_dict[cell.getNode()]
                     if max_count < count:
                         max_count = count
                         chosen_cell = cell
                 removed_cell_list.append(chosen_cell)
-                ideal_num -= 1
+                try:
+                    out_of_date_cell_list.remove(chosen_cell)
+                except ValueError:
+                    up_to_date_cell_list.remove(chosen_cell)
 
             # Now remove cells really.
             for cell in removed_cell_list:
