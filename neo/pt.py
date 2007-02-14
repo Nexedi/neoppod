@@ -152,11 +152,14 @@ class PartitionTable(object):
                             FEEDING_STATE: 'F' }
         for offset, row in enumerate(self.partition_list):
             desc_list = []
-            for cell in row:
-                i = node_dict[cell.getNode()]
-                cell_state = cell_state_dict[cell.getState()]
-                node_state = node_state_dict[cell.getNodeState()]
-                desc_list.append('%d %s %s' % (i, cell_state, node_state))
+            if row is None:
+                desc_list.append('None')
+            else:
+                for cell in row:
+                    i = node_dict[cell.getNode()]
+                    cell_state = cell_state_dict[cell.getState()]
+                    node_state = node_state_dict[cell.getNodeState()]
+                    desc_list.append('%d %s %s' % (i, cell_state, node_state))
             logging.debug('pt: row %d: %s', offset, ', '.join(desc_list))
 
     def operational(self):

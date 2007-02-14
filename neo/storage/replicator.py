@@ -252,6 +252,7 @@ class Replicator(object):
             pass
 
     def _askCriticalTID(self):
+        logging.debug('self.new_partition_list = %r', self.new_partition_list)
         conn = self.primary_master_connection
         msg_id = conn.getNextId()
         conn.addPacket(Packet().askLastIDs(msg_id))
@@ -268,7 +269,7 @@ class Replicator(object):
     def _askUnfinishedTIDs(self):
         conn = self.primary_master_connection
         msg_id = conn.getNextId()
-        conn.addPacket(Packet().askUnfinishedTIDs(msg_id))
+        conn.addPacket(Packet().askUnfinishedTransactions(msg_id))
         conn.expectMessage(msg_id)
         self.waiting_for_unfinished_tids = True
 

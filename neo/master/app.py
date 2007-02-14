@@ -18,6 +18,7 @@ from neo.master.verification import VerificationEventHandler
 from neo.master.service import ServiceEventHandler
 from neo.master.secondary import SecondaryEventHandler
 from neo.pt import PartitionTable
+from neo.util import dump
 
 class Application(object):
     """The master node application."""
@@ -401,11 +402,15 @@ class Application(object):
 
                 if self.lptid != prev_lptid or not self.pt.filled():
                     # I got something newer or the target is dead.
+                    logging.debug('self.lptid = %s, prev_lptid = %s',
+                                  dump(self.lptid), dump(prev_lptid))
+                    self.pt.log()
                     continue
 
                 # Wait until the cluster gets operational or the Partition Table ID
                 # turns out to be not the latest.
                 logging.debug('waiting for the cluster to be operational')
+                self.pt.log()
                 while 1:
                     em.poll(1)
                     if self.pt.operational():

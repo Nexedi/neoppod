@@ -316,6 +316,8 @@ class RecoveryEventHandler(MasterEventHandler):
             return
         if uuid != app.target_uuid:
             # If this is not from a target node, ignore it.
+            logging.warn('got answer partition table from %s while waiting for %s',
+                         dump(uuid), dump(app.target_uuid))
             return
 
         for offset, cell_list in row_list:
