@@ -345,6 +345,8 @@ class OperationEventHandler(StorageEventHandler):
 
         app = self.app
         history_list = app.dm.getObjectHistory(oid, first, last - first)
+        if history_list is None:
+            history_list = []
         conn.addPacket(Packet().answerObjectHistory(packet.getId(), oid,
                                                     history_list))
 
