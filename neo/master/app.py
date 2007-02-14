@@ -376,9 +376,10 @@ class Application(object):
                 logging.debug('creating a new partition table')
                 self.pt.make(nm.getStorageNodeList())
             else:
-                # Obtain a partition table. It is necessary to split this message
-                # because the packet size can be huge.
-                logging.debug('asking a partition table to %s:%d', *(node.getServer()))
+                # Obtain a partition table. It is necessary to split this
+                # message, because the packet size can be huge.
+                logging.debug('asking a partition table to %s:%d', 
+                              *(node.getServer()))
                 start = 0
                 size = self.num_partitions
                 while size:
@@ -407,8 +408,8 @@ class Application(object):
                     self.pt.log()
                     continue
 
-                # Wait until the cluster gets operational or the Partition Table ID
-                # turns out to be not the latest.
+                # Wait until the cluster gets operational or the Partition
+                # Table ID turns out to be not the latest.
                 logging.debug('waiting for the cluster to be operational')
                 self.pt.log()
                 while 1:

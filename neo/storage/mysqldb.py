@@ -359,10 +359,10 @@ class MySQLDatabaseManager(DatabaseManager):
         self.commit()
 
     def changePartitionTable(self, ptid, cell_list):
-        self.doSetPartitionTable(ptid, cell_list, True)
+        self.doSetPartitionTable(ptid, cell_list, False)
 
     def setPartitionTable(self, ptid, cell_list):
-        self.doSetPartitionTable(ptid, cell_list, False)
+        self.doSetPartitionTable(ptid, cell_list, True)
 
     def dropUnfinishedData(self):
         q = self.query
