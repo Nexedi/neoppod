@@ -2,7 +2,8 @@ import logging
 from copy import copy
 
 from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
+        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
+        UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.master.handler import MasterEventHandler
 from neo.protocol import Packet, INVALID_UUID
 from neo.exception import OperationFailure, ElectionFailure
@@ -583,3 +584,43 @@ class ServiceEventHandler(MasterEventHandler):
         p.answerUnfinishedTransactions(packet.getId(), 
                                        app.finishing_transaction_dict.keys())
         conn.addPacket(p)
+
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        # This should be sent when a cell becomes up-to-date because
+        # a replication has finished.
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        app = self.app
+        node = app.nm.getNodeByUUID(uuid)
+        if node is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        new_cell_list = []
+        for cell in cell_list:
+            if cell[2] != UP_TO_DATE_STATE:
+                logging.warn('only up-to-date state should be sent')
+                continue
+
+            if uuid != cell[1]:
+                logging.warn('only a cell itself should send this packet')
+                continue
+
+            offset = cell[0]
+            app.pt.setCell(offset, node, UP_TO_DATE_STATE)
+            new_cell_list.append(cell)
+
+            # If the partition contains a feeding cell, drop it now.
+            for feeding_cell in app.pt.getCellList(offset):
+                if feeding_cell.getState() == FEEDING_STATE:
+                    app.pt.removeCell(offset, feeding_cell.getNode())
+                    new_cell_list.append((offset, feeding_cell.getUUID(), 
+                                          DISCARDED_STATE))
+                    break
+
+        if new_cell_list:
+            ptid = app.getNextPartitionTableID()
+            app.broadcastPartitionChanges(ptid, new_cell_list)

@@ -111,7 +111,7 @@ class PartitionTable(object):
             for cell in row:
                 if cell.getNode() == node:
                     row.remove(cell)
-                    if state != FEEDING_STATE:
+                    if cell.getState() != FEEDING_STATE:
                         self.count_dict[node] = self.count_dict.get(node, 0) - 1
                     break
             row.append(Cell(node, state))
@@ -219,10 +219,11 @@ class PartitionTable(object):
         return cell_list
 
     def addNode(self, node):
-        """Add a node. Take it into account that it might not be really a new node.
-        The strategy is, if a row does not contain a good number of cells, add this
-        node to the row, unless the node is already present in the same row. Otherwise,
-        check if this node should replace another cell."""
+        """Add a node. Take it into account that it might not be really a new
+        node. The strategy is, if a row does not contain a good number of
+        cells, add this node to the row, unless the node is already present
+        in the same row. Otherwise, check if this node should replace another
+        cell."""
         cell_list = []
         node_count = self.count_dict.get(node, 0)
         for offset, row in enumerate(self.partition_list):
@@ -255,22 +256,26 @@ class PartitionTable(object):
                 if max_count - node_count > 1:
                     if feeding_cell is not None \
                             or max_cell.getState() == OUT_OF_DATE_STATE:
-                        # If there is a feeding cell already or it is out-of-date,
-                        # just drop the node.
+                        # If there is a feeding cell already or it is
+                        # out-of-date, just drop the node.
                         row.remove(max_cell)
-                        cell_list.append((offset, max_cell.getUUID(), DISCARDED_STATE))
+                        cell_list.append((offset, max_cell.getUUID(), 
+                                          DISCARDED_STATE))
                         self.count_dict[max_cell.getNode()] -= 1
                     else:
                         # Otherwise, use it as a feeding cell for safety.
                         max_cell.setState(FEEDING_STATE)
-                        cell_list.append((offset, max_cell.getUUID(), FEEDING_STATE))
+                        cell_list.append((offset, max_cell.getUUID(), 
+                                          FEEDING_STATE))
                         # Don't count a feeding cell.
                         self.count_dict[max_cell.getNode()] -= 1
                     row.append(Cell(node, OUT_OF_DATE_STATE))
-                    cell_list.append((offset, node.getUUID(), OUT_OF_DATE_STATE))
+                    cell_list.append((offset, node.getUUID(), 
+                                      OUT_OF_DATE_STATE))
                     node_count += 1
 
         self.count_dict[node] = node_count
+        self.log()
         return cell_list
 
     def getRow(self, offset):
@@ -359,6 +364,7 @@ class PartitionTable(object):
         # to reduce differences between frequently used nodes and rarely used
         # nodes by replacing cells.
 
+        self.log()
         return changed_cell_list
 
     def outdate(self):

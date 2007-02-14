@@ -19,6 +19,12 @@ TODO
 
     - Replication.
 
+    - History.
+
+    - Multiple undo.
+
+    - An addition of a new node to a partition table seeming a bit buggy
+
 Requirements
 
     - Python 2.4 or later

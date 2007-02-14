@@ -31,7 +31,8 @@ class IdleEvent(object):
         if t > self._critical_time:
             conn.lock()
             try:
-                logging.info('timeout with %s:%d', *(conn.getAddress()))
+                logging.info('timeout for %r with %s:%d', 
+                             self._id, *(conn.getAddress()))
                 conn.getHandler().timeoutExpired(conn)
                 conn.close()
                 return True
@@ -106,9 +107,10 @@ class SelectEventManager(object):
             t = time()
             if t - self.prev_time >= 1:
                 self.prev_time = t
-                event_list.sort(key = lambda event: event.getTime())
+                event_list.sort(key = lambda event: event.getTime(), 
+                                reverse = True)
                 while event_list:
-                    event = event_list[0]
+                    event = event_list.pop()
                     if event(t):
                         try:
                             event_list.remove(event)

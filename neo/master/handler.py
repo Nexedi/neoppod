@@ -81,3 +81,7 @@ class MasterEventHandler(EventHandler):
     def handleAskUnfinishedTransactions(self, conn, packet):
         logging.info('ignoring ask unfinished transactions')
         pass
+
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        logging.info('ignoring notify partition changes')
+        pass

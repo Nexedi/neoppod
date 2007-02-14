@@ -1,7 +1,8 @@
 import logging
 from random import choice
 
-from neo.protocol import Packet, OUT_OF_DATE_STATE, STORAGE_NODE_TYPE, \
+from neo.protocol import Packet, STORAGE_NODE_TYPE, \
+        UP_TO_DATE_STATE, OUT_OF_DATE_STATE, \
         INVALID_OID, INVALID_TID, RUNNING_STATE
 from neo.connection import ClientConnection
 from neo.storage.handler import StorageEventHandler
@@ -62,6 +63,9 @@ class ReplicationEventHandler(StorageEventHandler):
 
     def handleAnswerTIDs(self, conn, packet, tid_list):
         app = self.app
+        if app.replicator.current_connection is not conn:
+            return
+
         if tid_list:
             # If I have pending TIDs, check which TIDs I don't have, and
             # request the data.
@@ -72,7 +76,7 @@ class ReplicationEventHandler(StorageEventHandler):
                 p = Packet()
                 p.askTransactionInformation(msg_id, tid)
                 conn.addPacket(p)
-                conn.expectMessage(timeout = 300)
+                conn.expectMessage(msg_id, timeout = 300)
 
             # And, ask more TIDs.
             app.replicator.tid_offset += 1000
@@ -82,7 +86,7 @@ class ReplicationEventHandler(StorageEventHandler):
             p.askTIDs(msg_id, offset, offset + 1000, 
                       app.replicator.current_partition.getRID())
             conn.addPacket(p)
-            conn.expectMessage(timeout = 300)
+            conn.expectMessage(msg_id, timeout = 300)
         else:
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
@@ -91,17 +95,23 @@ class ReplicationEventHandler(StorageEventHandler):
             p.askOIDs(msg_id, 0, 1000, 
                       app.replicator.current_partition.getRID())
             conn.addPacket(p)
-            conn.expectMessage(timeout = 300)
+            conn.expectMessage(msg_id, timeout = 300)
             app.replicator.oid_offset = 0
 
     def handleAnswerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):
         app = self.app
+        if app.replicator.current_connection is not conn:
+            return
+
         # Directly store the transaction.
         app.dm.storeTransaction(tid, (), (oid_list, user, desc, ext), True)
 
     def handleAnswerOIDs(self, conn, packet, oid_list):
         app = self.app
+        if app.replicator.current_connection is not conn:
+            return
+
         if oid_list:
             # Pick one up, and ask the history.
             oid = oid_list.pop()
@@ -109,7 +119,7 @@ class ReplicationEventHandler(StorageEventHandler):
             p = Packet()
             p.askObjectHistory(msg_id, oid, 0, 1000)
             conn.addPacket(p)
-            conn.expectMessage(timeout = 300)
+            conn.expectMessage(msg_id, timeout = 300)
             app.replicator.serial_offset = 0
             app.replicator.oid_list = oid_list
         else:
@@ -119,6 +129,9 @@ class ReplicationEventHandler(StorageEventHandler):
     
     def handleAnswerObjectHistory(self, conn, packet, oid, history_list):
         app = self.app
+        if app.replicator.current_connection is not conn:
+            return
+
         if history_list:
             # Check if I have objects, request those which I don't have.
             serial_list = [t[0] for t in history_list]
@@ -129,7 +142,7 @@ class ReplicationEventHandler(StorageEventHandler):
                 p = Packet()
                 p.askObject(msg_id, oid, serial, INVALID_TID)
                 conn.addPacket(p)
-                conn.expectMessage(timeout = 300)
+                conn.expectMessage(msg_id, timeout = 300)
 
             # And, ask more serials.
             app.replicator.serial_offset += 1000
@@ -138,7 +151,7 @@ class ReplicationEventHandler(StorageEventHandler):
             p = Packet()
             p.askObjectHistory(msg_id, oid, offset, offset + 1000)
             conn.addPacket(p)
-            conn.expectMessage(timeout = 300)
+            conn.expectMessage(msg_id, timeout = 300)
         else:
             # This OID is finished. So advance to next.
             oid_list = app.replicator.oid_list
@@ -149,7 +162,7 @@ class ReplicationEventHandler(StorageEventHandler):
                 p = Packet()
                 p.askObjectHistory(msg_id, oid, 0, 1000)
                 conn.addPacket(p)
-                conn.expectMessage(timeout = 300)
+                conn.expectMessage(msg_id, timeout = 300)
                 app.replicator.serial_offset = 0
             else:
                 # Otherwise, acquire more OIDs.
@@ -160,11 +173,14 @@ class ReplicationEventHandler(StorageEventHandler):
                 p.askOIDs(msg_id, offset, offset + 1000, 
                           app.replicator.current_partition.getRID())
                 conn.addPacket(p)
-                conn.expectMessage(timeout = 300)
+                conn.expectMessage(msg_id, timeout = 300)
 
-    def answerObject(self, msg_id, oid, serial_start, serial_end, compression,
-                     checksum, data):
+    def handleAnswerObject(self, conn, packet, oid, serial_start,
+                           serial_end, compression, checksum, data):
         app = self.app
+        if app.replicator.current_connection is not conn:
+            return
+
         # Directly store the transaction.
         obj = (oid, compression, checksum, data)
         app.dm.storeTransaction(serial_start, [obj], None, True)
@@ -319,9 +335,26 @@ class Replicator(object):
         p = Packet()
         p.askTIDs(msg_id, 0, 1000, self.current_partition.getRID())
         self.current_connection.addPacket(p)
-        self.current_connection.expectMessage(timeout = 300)
+        self.current_connection.expectMessage(msg_id, timeout = 300)
 
         self.replication_done = False
+
+    def _finishReplication(self):
+        app = self.app
+        try:
+            self.partition_list.remove(self.current_partition)
+            # Notify to a primary master node that my cell is now up-to-date.
+            conn = self.primary_master_connection
+            p = Packet()
+            p.notifyPartitionChanges(conn.getNextId(), 
+                                     app.lptid, 
+                                     [(self.current_partition.getRID(), 
+                                       app.uuid, 
+                                       UP_TO_DATE_STATE)])
+            conn.addPacket(p)
+        except ValueError:
+            pass
+        self.current_partition = None
 
     def act(self):
         # If the new partition list is not empty, I must ask a critical
@@ -356,8 +389,4 @@ class Replicator(object):
         else:
             if self.replication_done:
                 logging.info('replication is done')
-                try:
-                    self.partition_list.remove(self.current_partition)
-                except ValueError:
-                    pass
-                self.current_partition = None
+                self._finishReplication()
