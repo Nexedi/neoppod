@@ -194,7 +194,11 @@ class Application(object):
             self.uuid = uuid
 
     def getQueue(self):
-        return self.local_var.__dict__.setdefault('queue', Queue(5))
+        try:
+            return self.local_var.queue
+        except AttributeError:
+            self.local_var.queue = Queue(5)
+            return self.local_var.queue
 
     def _waitMessage(self, target_conn = None, msg_id = None):
         """Wait for a message returned by the dispatcher in queues."""
@@ -204,7 +208,6 @@ class Application(object):
         while 1:
             try:
                 conn, packet = global_queue.get_nowait()
-                conn.handler.dispatch(conn, packet)
             except Empty:
                 if msg_id is None:
                     try:
