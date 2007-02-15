@@ -105,7 +105,7 @@ class ReplicationEventHandler(StorageEventHandler):
             return
 
         # Directly store the transaction.
-        app.dm.storeTransaction(tid, (), (oid_list, user, desc, ext), True)
+        app.dm.storeTransaction(tid, (), (oid_list, user, desc, ext), False)
 
     def handleAnswerOIDs(self, conn, packet, oid_list):
         app = self.app
@@ -183,7 +183,7 @@ class ReplicationEventHandler(StorageEventHandler):
 
         # Directly store the transaction.
         obj = (oid, compression, checksum, data)
-        app.dm.storeTransaction(serial_start, [obj], None, True)
+        app.dm.storeTransaction(serial_start, [obj], None, False)
         del obj
         del data
 
