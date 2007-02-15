@@ -234,6 +234,9 @@ class Connection(BaseConnection):
 
     def addPacket(self, packet):
         """Add a packet into the write buffer."""
+        if self.s is None:
+            return
+
         try:
             self.write_buf.append(packet.encode())
         except ProtocolError, m:
@@ -264,6 +267,9 @@ class Connection(BaseConnection):
         The additional timeout defines the amount of time after the timeout
         to invoke a timeoutExpired callback. If it is zero, no ping is sent, and
         the callback is executed immediately."""
+        if self.s is None:
+            return
+
         event = IdleEvent(self, msg_id, timeout, additional_timeout)
         self.event_dict[msg_id] = event
         self.em.addIdleEvent(event)
@@ -271,7 +277,7 @@ class Connection(BaseConnection):
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
     def __init__(self, event_manager, handler, addr = None, **kw):
-        self.connecting = False
+        self.connecting = True
         Connection.__init__(self, event_manager, handler, addr = addr)
         handler.connectionStarted(self)
         try:
@@ -283,11 +289,11 @@ class ClientConnection(Connection):
                 s.connect(addr)
             except socket.error, m:
                 if m[0] == errno.EINPROGRESS:
-                    self.connecting = True
                     event_manager.addWriter(self)
                 else:
                     raise
             else:
+                self.connecting = False
                 self.handler.connectionCompleted()
                 event_manager.addReader(self)
         except:
@@ -319,7 +325,11 @@ class MTClientConnection(ClientConnection):
         lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
-        super(MTClientConnection, self).__init__(*args, **kwargs)
+        try:
+            self.lock()
+            super(MTClientConnection, self).__init__(*args, **kwargs)
+        finally:
+            self.unlock()
 
     def lock(self, blocking = 1):
         return self.acquire(blocking = blocking)
@@ -333,7 +343,11 @@ class MTServerConnection(ServerConnection):
         lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
-        super(MTServerConnection, self).__init__(*args, **kwargs)
+        try:
+            self.lock()
+            super(MTServerConnection, self).__init__(*args, **kwargs)
+        finally:
+            self.unlock()
 
     def lock(self, blocking = 1):
         return self.acquire(blocking = blocking)
