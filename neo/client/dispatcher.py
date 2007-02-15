@@ -36,13 +36,13 @@ class Dispatcher(Thread):
     def register(self, conn, msg_id, queue):
         """Register an expectation for a reply. Thanks to GIL, it is
         safe not to use a lock here."""
-        key = (conn.getUUID(), msg_id)
+        key = (id(conn), msg_id)
         self.message_table[key] = queue
 
-    def registered(self, uuid):
+    def registered(self, id):
         """Check if a connection is registered into message table."""
-        for conn_uuid, msg_id in self.message_table.iterkeys():
-            if uuid == conn_uuid:
+        for conn_id, msg_id in self.message_table.iterkeys():
+            if id == conn_id:
                 return True
         return False
 

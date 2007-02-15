@@ -28,7 +28,7 @@ class ClientEventHandler(EventHandler):
         """Redirect all received packet to dispatcher thread."""
         dispatcher = self.dispatcher
         # Send message to waiting thread
-        key = (conn.getUUID(), packet.getId())
+        key = (id(conn), packet.getId())
         if key in dispatcher.message_table:
             queue = dispatcher.message_table.pop(key)
             queue.put((conn, packet))

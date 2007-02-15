@@ -83,7 +83,7 @@ class ConnectionPool(object):
             conn.lock()
             try:
                 if not conn.pending() and \
-                        not self.app.dispatcher.registered(conn.getUUID()):
+                        not self.app.dispatcher.registered(id(conn)):
                     del self.connection_dict[conn.getUUID()]
                     conn.close()
                     logging.info('connection to storage node %s:%d closed', 
