@@ -127,6 +127,9 @@ class Connection(BaseConnection):
                 em.removeIdleEvent(event)
             self.event_dict.clear()
 
+    def __del__(self):
+        self.close()
+
     def abort(self):
         """Abort dealing with this connection."""
         logging.debug('aborting a socket for %s:%d', *(self.addr))
