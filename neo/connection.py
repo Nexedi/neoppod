@@ -322,11 +322,7 @@ class MTClientConnection(ClientConnection):
         super(MTClientConnection, self).__init__(*args, **kwargs)
 
     def lock(self, blocking = 1):
-        try:
-            return self.acquire(blocking = blocking)
-        except:
-            import pdb
-            pdb.set_trace()
+        return self.acquire(blocking = blocking)
 
     def unlock(self):
         self.release()
