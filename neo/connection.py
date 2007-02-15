@@ -82,15 +82,15 @@ class ListeningConnection(BaseConnection):
 class Connection(BaseConnection):
     """A connection."""
     def __init__(self, event_manager, handler, s = None, addr = None):
-        BaseConnection.__init__(self, event_manager, handler, s = s, addr = addr)
-        if s is not None:
-            event_manager.addReader(self)
         self.read_buf = []
         self.write_buf = []
         self.cur_id = 0
         self.event_dict = {}
         self.aborted = False
         self.uuid = None
+        BaseConnection.__init__(self, event_manager, handler, s = s, addr = addr)
+        if s is not None:
+            event_manager.addReader(self)
 
     def getUUID(self):
         return self.uuid
@@ -271,8 +271,8 @@ class Connection(BaseConnection):
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
     def __init__(self, event_manager, handler, addr = None, **kw):
-        Connection.__init__(self, event_manager, handler, addr = addr)
         self.connecting = False
+        Connection.__init__(self, event_manager, handler, addr = addr)
         handler.connectionStarted(self)
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -316,13 +316,17 @@ class ServerConnection(Connection):
 class MTClientConnection(ClientConnection):
     """A Multithread-safe version of ClientConnection."""
     def __init__(self, *args, **kwargs):
-        super(MTClientConnection, self).__init__(*args, **kwargs)
         lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
+        super(MTClientConnection, self).__init__(*args, **kwargs)
 
     def lock(self, blocking = 1):
-        return self.acquire(blocking = blocking)
+        try:
+            return self.acquire(blocking = blocking)
+        except:
+            import pdb
+            pdb.set_trace()
 
     def unlock(self):
         self.release()
@@ -330,10 +334,10 @@ class MTClientConnection(ClientConnection):
 class MTServerConnection(ServerConnection):
     """A Multithread-safe version of ServerConnection."""
     def __init__(self, *args, **kwargs):
-        super(MTClientConnection, self).__init__(*args, **kwargs)
         lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
+        super(MTServerConnection, self).__init__(*args, **kwargs)
 
     def lock(self, blocking = 1):
         return self.acquire(blocking = blocking)

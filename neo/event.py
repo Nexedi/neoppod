@@ -214,28 +214,40 @@ class EpollEventManager(object):
             pass
 
     def addReader(self, conn):
-        fd = conn.getSocket().fileno()
-        if fd not in self.reader_set:
-            self.reader_set.add(fd)
-            self.epoll.modify(fd, 1, fd in self.writer_set)
+        try:
+            fd = conn.getSocket().fileno()
+            if fd not in self.reader_set:
+                self.reader_set.add(fd)
+                self.epoll.modify(fd, 1, fd in self.writer_set)
+        except AttributeError:
+            pass
 
     def removeReader(self, conn):
-        fd = conn.getSocket().fileno()
-        if fd in self.reader_set:
-            self.reader_set.remove(fd)
-            self.epoll.modify(fd, 0, fd in self.writer_set)
+        try:
+            fd = conn.getSocket().fileno()
+            if fd in self.reader_set:
+                self.reader_set.remove(fd)
+                self.epoll.modify(fd, 0, fd in self.writer_set)
+        except AttributeError:
+            pass
 
     def addWriter(self, conn):
-        fd = conn.getSocket().fileno()
-        if fd not in self.writer_set:
-            self.writer_set.add(fd)
-            self.epoll.modify(fd, fd in self.reader_set, 1)
+        try:
+            fd = conn.getSocket().fileno()
+            if fd not in self.writer_set:
+                self.writer_set.add(fd)
+                self.epoll.modify(fd, fd in self.reader_set, 1)
+        except AttributeError:
+            pass
 
     def removeWriter(self, conn):
-        fd = conn.getSocket().fileno()
-        if fd in self.writer_set:
-            self.writer_set.remove(fd)
-            self.epoll.modify(fd, fd in self.reader_set, 0)
+        try:
+            fd = conn.getSocket().fileno()
+            if fd in self.writer_set:
+                self.writer_set.remove(fd)
+                self.epoll.modify(fd, fd in self.reader_set, 0)
+        except AttributeError:
+            pass
 
 # Default to EpollEventManager.
 EventManager = EpollEventManager
