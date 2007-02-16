@@ -1,17 +1,18 @@
 import logging
 import os
-from threading import Lock, local
+from threading import Lock, RLock, local
 from cPickle import dumps, loads
 from zlib import compress, decompress
 from Queue import Queue, Empty
 from random import shuffle
+from time import sleep
 
 from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connection import MTClientConnection
 from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
         STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        TEMPORARILY_DOWN_STATE, \
+        RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, INVALID_SERIAL
 from neo.client.handler import ClientEventHandler
 from neo.client.Storage import NEOStorageError, NEOStorageConflictError, \
@@ -31,7 +32,7 @@ class ConnectionPool(object):
         # Define a lock in order to create one connection to
         # a storage node at a time to avoid multiple connections
         # to the same node.
-        l = Lock()
+        l = RLock()
         self.connection_lock_acquire = l.acquire
         self.connection_lock_release = l.release
 
@@ -40,41 +41,50 @@ class ConnectionPool(object):
         addr = node.getNode().getServer()
         if addr is None:
             return None
-        handler = ClientEventHandler(self.app, self.app.dispatcher)
-        conn = MTClientConnection(self.app.em, handler, addr)
-        conn.lock()
-        try:
-            msg_id = conn.getNextId()
-            p = Packet()
-            p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE,
-                                        self.app.uuid, addr[0],
-                                        addr[1], self.app.name)
-            conn.addPacket(p)
-            conn.expectMessage(msg_id)
-            self.app.dispatcher.register(conn, msg_id, self.app.getQueue())
-            self.app.local_var.storage_node = None
-        finally:
-            conn.unlock()
 
-        self.app._waitMessage(conn, msg_id)
-        if self.app.storage_node == -1:
-            # Connection failed, notify primary master node
-            logging.error('Connection to storage node %s failed' %(addr,))
-            conn = self.app.master_conn
-            conn.lock()
-            try:
-                msg_id = conn.getNextId()
-                p = Packet()
-                node_list = [(STORAGE_NODE_TYPE, addr[0], addr[1],
-                              node.getUUID(), TEMPORARILY_DOWN_STATE),]
-                p.notifyNodeInformation(msg_id, node_list)
-                conn.addPacket(p)
-            finally:
-                conn.unlock()
+        if node.getState() != RUNNING_STATE:
             return None
 
-        logging.info('connected to storage node %s:%d', *(conn.getAddress()))
-        return conn
+        app = self.app
+        handler = ClientEventHandler(app, app.dispatcher)
+
+        # Loop until a connection is obtained.
+        while 1:
+            logging.info('trying to connect to %s:%d', *addr)
+            app.local_var.node_not_ready = 0
+            conn = MTClientConnection(app.em, handler, addr)
+            conn.lock()
+            try:
+                if conn.getSocket() is None:
+                    # This happens, if a connection could not be established.
+                    logging.error('Connection to storage node %s failed', addr)
+                    return None
+
+                msg_id = conn.getNextId()
+                p = Packet()
+                p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE,
+                                            app.uuid, addr[0],
+                                            addr[1], app.name)
+                conn.addPacket(p)
+                conn.expectMessage(msg_id)
+                app.dispatcher.register(conn, msg_id, app.getQueue())
+            finally:
+                conn.unlock()
+
+            try:
+                app._waitMessage(conn, msg_id)
+            except NEOStorageError:
+                logging.error('Connection to storage node %s failed', addr)
+                return None
+
+            if app.local_var.node_not_ready:
+                # Connection failed, notify primary master node
+                logging.info('Storage node %s not ready', addr)
+            else:
+                logging.info('connected to storage node %s:%d', *addr)
+                return conn
+
+            sleep(1)
 
     def _dropConnections(self):
         """Drop connections."""
@@ -98,9 +108,16 @@ class ConnectionPool(object):
         if len(self.connection_dict) > self.max_pool_size:
             # must drop some unused connections
             self._dropConnections()
-        conn = self._initNodeConnection(node)
+
+        self.connection_lock_release()
+        try:
+            conn = self._initNodeConnection(node)
+        finally:
+            self.connection_lock_acquire()
+
         if conn is None:
             return None
+
         # add node to node manager
         if self.app.nm.getNodeByServer(node.getServer()) is None:
             n = StorageNode(node.getServer())
@@ -112,9 +129,9 @@ class ConnectionPool(object):
     def getConnForNode(self, node):
         """Return a locked connection object to a given node
         If no connection exists, create a new one"""
+        uuid = node.getUUID()
         self.connection_lock_acquire()
         try:
-            uuid = node.getUUID()
             try:
                 conn = self.connection_dict[uuid]
                 # Already connected to node
@@ -217,13 +234,20 @@ class Application(object):
                 else:
                     conn, packet = local_queue.get()
 
+            if packet is None:
+                if conn is target_conn:
+                    raise NEOStorageError('connection closed')
+                else:
+                    continue
+
             conn.lock()
             try:
                 conn.handler.dispatch(conn, packet)
             finally:
                 conn.unlock()
 
-            if target_conn is conn and msg_id == packet.getId() and packet.getType() & 0x8000:
+            if target_conn is conn and msg_id == packet.getId() \
+                    and packet.getType() & 0x8000:
                 break
 
     def registerDB(self, db, limit):
@@ -278,61 +302,55 @@ class Application(object):
     def _load(self, oid, serial = INVALID_TID, tid = INVALID_TID, cache = 0):
         """Internal method which manage load ,loadSerial and loadBefore."""
         partition_id = u64(oid) % self.num_partitions
-        # Only used up to date node for retrieving object
-        cell_list = self.pt.getCellList(partition_id, True)
-        data = None
 
-        if len(cell_list) == 0:
-            # FIXME must wait for cluster to be ready
-            raise NEOStorageNotFoundError()
-
-        shuffle(cell_list)
-        self.local_var.asked_object = -1
-        for cell in cell_list:
-            logging.debug('trying to load %s from %s',
-                          dump(oid), dump(cell.getUUID()))
-            conn = self.cp.getConnForNode(cell)
-            if conn is None:
+        self.local_var.asked_object = None
+        while self.local_var.asked_object is None:
+            cell_list = self.pt.getCellList(partition_id, True)
+            if len(cell_list) == 0:
+                sleep(1)
                 continue
 
-            try:
-                msg_id = conn.getNextId()
-                p = Packet()
-                p.askObject(msg_id, oid, serial, tid)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
-                self.dispatcher.register(conn, msg_id, self.getQueue())
-                self.local_var.asked_object = 0
-            finally:
-                conn.unlock()
+            shuffle(cell_list)
+            self.local_var.asked_object = None
+            for cell in cell_list:
+                logging.debug('trying to load %s from %s',
+                              dump(oid), dump(cell.getUUID()))
+                conn = self.cp.getConnForNode(cell)
+                if conn is None:
+                    continue
 
-            # Wait for answer
-            # asked object retured value are :
-            # -1 : oid not found
-            # other : data
-            self._waitMessage(conn, msg_id)
-            if self.local_var.asked_object == -1:
-                # OID not found
-                # XXX either try with another node, either raise error here
-                # for now try with another node
-                continue
+                try:
+                    msg_id = conn.getNextId()
+                    p = Packet()
+                    p.askObject(msg_id, oid, serial, tid)
+                    conn.addPacket(p)
+                    conn.expectMessage(msg_id)
+                    self.dispatcher.register(conn, msg_id, self.getQueue())
+                    self.local_var.asked_object = 0
+                finally:
+                    conn.unlock()
 
-            # Check data
-            noid, start_serial, end_serial, compression, checksum, data \
+                self._waitMessage(conn, msg_id)
+                if self.local_var.asked_object == -1:
+                    # OID not found
+                    break
+
+                # Check data
+                noid, start_serial, end_serial, compression, checksum, data \
                     = self.local_var.asked_object
-            if noid != oid:
-                # Oops, try with next node
-                logging.error('got wrong oid %s instead of %s from node %s' \
-                              % (noid, oid, cell.getServer()))
-                continue
-            elif checksum != makeChecksum(data):
-                # Check checksum.
-                logging.error('wrong checksum from node %s for oid %s' \
-                              % (cell.getServer(), oid))
-                continue
-            else:
-                # Everything looks alright.
-                break
+                if noid != oid:
+                    # Oops, try with next node
+                    logging.error('got wrong oid %s instead of %s from node %s',
+                                  noid, oid, cell.getServer())
+                    continue
+                elif checksum != makeChecksum(data):
+                    # Check checksum.
+                    logging.error('wrong checksum from node %s for oid %s',
+                                  cell.getServer(), oid)
+                    continue
+                else:
+                    # Everything looks alright.
+                    break
 
         if self.local_var.asked_object == -1:
             # We didn't got any object from all storage node
@@ -488,7 +506,7 @@ class Application(object):
         oid_list = self.txn_data_dict.keys()
         # Store data on each node
         partition_id = u64(self.tid) % self.num_partitions
-        cell_list = self.pt.getCellList(partition_id, True)
+        cell_list = self.pt.getCellList(partition_id, False)
         for cell in cell_list:
             conn = self.cp.getConnForNode(cell)
             if conn is None:
@@ -527,7 +545,7 @@ class Application(object):
         aborted_node_set = set()
         for oid in self.txn_data_dict.iterkeys():
             partition_id = u64(oid) % self.num_partitions
-            cell_list = self.pt.getCellList(partition_id, True)
+            cell_list = self.pt.getCellList(partition_id)
             for cell in cell_list:
                 if cell.getNode() not in aborted_node_set:
                     conn = self.cp.getConnForNode(cell)
@@ -546,7 +564,7 @@ class Application(object):
 
         # Abort in nodes where transaction was stored
         partition_id = u64(self.tid) % self.num_partitions
-        cell_list = self.pt.getCellList(partition_id, True)
+        cell_list = self.pt.getCellList(partition_id)
         for cell in cell_list:
             if cell.getNode() not in aborted_node_set:
                 conn = self.cp.getConnForNode(cell)

@@ -137,7 +137,7 @@ class OperationEventHandler(StorageEventHandler):
                 else:
                     # If I do not know such a node, and it is not even a master
                     # node, simply reject it.
-                    logging.error('reject an unknown node')
+                    logging.error('reject an unknown node %s', dump(uuid))
                     conn.addPacket(Packet().notReady(packet.getId(),
                                                      'unknown node'))
                     conn.abort()

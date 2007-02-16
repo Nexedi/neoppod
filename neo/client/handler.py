@@ -45,6 +45,36 @@ class ClientEventHandler(EventHandler):
                 # put message in request queue
                 dispatcher._request_queue.put((conn, packet))
 
+    def _dealWithStorageFailure(self, conn, node, state):
+        app = self.app
+
+        # Remove from pool connection
+        app.cp.removeConnection(node)
+
+        # Put fake packets to task queues.
+        queue_set = set()
+        for key in self.dispatcher.message_table.keys():
+            if id(conn) == key[0]:
+                queue = self.dispatcher.message_table.pop(key)
+                queue_set.add(queue)
+        for queue in queue_set:
+            queue.put((conn, None))
+
+        # Notify the primary master node of the failure.
+        conn = app.master_conn
+        if conn is not None:
+            conn.lock()
+            try:
+                msg_id = conn.getNextId()
+                p = Packet()
+                ip_address, port = node.getServer()
+                node_list = [(STORAGE_NODE_TYPE, ip_address, port, 
+                              node.getUUID(), state)]
+                p.notifyNodeInformation(msg_id, node_list)
+                conn.addPacket(p)
+            finally:
+                conn.unlock()
+
     def connectionFailed(self, conn):
         app = self.app
         uuid = conn.getUUID()
@@ -59,15 +89,16 @@ class ClientEventHandler(EventHandler):
                 self.dispatcher.connectToPrimaryMasterNode(app)
         else:
             # Connection to a storage node failed
-            app.storage_node = -1
+            node = app.nm.getNodeByServer(conn.getAddress())
+            if isinstance(node, StorageNode):
+                self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
+
         EventHandler.connectionFailed(self, conn)
 
     def connectionClosed(self, conn):
         uuid = conn.getUUID()
         app = self.app
-        if app.master_conn is None:
-            EventHandler.connectionClosed(self, conn)
-        elif uuid == app.master_conn.getUUID():
+        if app.master_conn is not None and uuid == app.master_conn.getUUID():
             logging.critical("connection to primary master node closed")
             # Close connection
             app.master_conn.close()
@@ -76,29 +107,14 @@ class ClientEventHandler(EventHandler):
                 logging.critical("trying reconnection to master node...")
                 self.dispatcher.connectToPrimaryMasterNode(app)
         else:
-            app = self.app
-            node = app.nm.getNodeByUUID(uuid)
-            if node is not None:
-                logging.info("connection to storage node %s closed",
-                             node.getServer())
+            node = app.nm.getNodeByServer(conn.getAddress())
             if isinstance(node, StorageNode):
                 # Notify primary master node that a storage node is temporarily down
-                conn = app.master_conn
-                if conn is not None:
-                    conn.lock()
-                    try:
-                        msg_id = conn.getNextId()
-                        p = Packet()
-                        ip_address, port = node.getServer()
-                        node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
-                                     TEMPORARILY_DOWN_STATE),]
-                        p.notifyNodeInformation(msg_id, node_list)
-                        conn.addPacket(p)
-                    finally:
-                        conn.unlock()
-                # Remove from pool connection
-                app.cp.removeConnection(node)
-            EventHandler.connectionClosed(self, conn)
+                logging.info("connection to storage node %s closed",
+                             node.getServer())
+                self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
+
+        EventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
         uuid = conn.getUUID()
@@ -109,24 +125,12 @@ class ClientEventHandler(EventHandler):
                 logging.critical("trying reconnection to master node...")
                 self.dispatcher.connectToPrimaryMasterNode(app)
         else:
-            node = app.nm.getNodeByUUID(uuid)
+            node = app.nm.getNodeByServer(conn.getAddress())
             if isinstance(node, StorageNode):
-                # Notify primary master node that a storage node is temporarily down
-                conn = app.master_conn
-                if conn is not None:
-                    conn.lock()
-                    try:
-                        msg_id = conn.getNextId()
-                        p = Packet()
-                        ip_address, port =  node.getServer()
-                        node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
-                                     TEMPORARILY_DOWN_STATE),]
-                        p.notifyNodeInformation(msg_id, node_list)
-                        conn.addPacket(p)
-                    finally:
-                        conn.unlock()
-                # Remove from pool connection
-                app.cp.removeConnection(node)
+                # Notify primary master node that a storage node is
+                # temporarily down.
+                self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
+
         EventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
@@ -138,31 +142,17 @@ class ClientEventHandler(EventHandler):
                 logging.critical("trying reconnection to master node...")
                 self.dispatcher.connectToPrimaryMasterNode(app)
         else:
-            node = app.nm.getNodeByUUID(uuid)
+            node = app.nm.getNodeByServer(conn.getAddress())
             if isinstance(node, StorageNode):
-                # Notify primary master node that a storage node is broken
-                conn = app.master_conn
-                if conn is not None:
-                    conn.lock()
-                    try:
-                        msg_id = conn.getNextId()
-                        p = Packet()
-                        ip_address, port =  node.getServer()
-                        node_list = [(STORAGE_NODE_TYPE, ip_address, port, node.getUUID(),
-                                     BROKEN_STATE),]
-                        p.notifyNodeInformation(msg_id, node_list)
-                        conn.addPacket(p)
-                    finally:
-                        conn.unlock()
-                # Remove from pool connection
-                app.cp.removeConnection(node)
+                self._dealWithStorageFailure(conn, node, BROKEN_STATE)
+
         EventHandler.peerBroken(self, conn)
 
 
     def handleNotReady(self, conn, packet, message):
         if isinstance(conn, MTClientConnection):
             app = self.app
-            app.node_not_ready = 1
+            app.local_var.node_not_ready = 1
         else:
             self.handleUnexpectedPacket(conn, packet)
 

@@ -66,7 +66,7 @@ class Dispatcher(Thread):
                 if app.pt is not None and app.pt.operational():
                     # Connected to primary master node and got all informations
                     break
-                app.node_not_ready = 0
+                app.local_var.node_not_ready = 0
                 if app.primary_master_node is None:
                     # Try with master node defined in config
                     addr, port = app.master_node_list[master_index].split(':')
@@ -110,7 +110,7 @@ class Dispatcher(Thread):
                         elif app.primary_master_node.getServer() != (addr, port):
                             # Master node changed, connect to new one
                             break
-                        elif app.node_not_ready:
+                        elif app.local_var.node_not_ready:
                             # Wait a bit and reask again
                             break
                         elif app.pt is not None and app.pt.operational():

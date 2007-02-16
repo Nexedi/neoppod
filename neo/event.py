@@ -167,12 +167,15 @@ class EpollEventManager(object):
     def poll(self, timeout = 1):
         rlist, wlist = self.epoll.poll(timeout)
         for fd in rlist:
-            conn = self.connection_dict[fd]
-            conn.lock()
             try:
-                conn.readable()
-            finally:
-                conn.unlock()
+                conn = self.connection_dict[fd]
+                conn.lock()
+                try:
+                    conn.readable()
+                finally:
+                    conn.unlock()
+            except KeyError:
+                pass
 
         for fd in wlist:
             # This can fail, if a connection is closed in readable().

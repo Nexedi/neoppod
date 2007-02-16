@@ -99,6 +99,7 @@ class StorageEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
             return
 
+        logging.debug('handleNotifyNodeInformation: node_list = %r', node_list)
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
         if not isinstance(node, MasterNode) \
@@ -142,12 +143,15 @@ class StorageEventHandler(EventHandler):
                 if state == RUNNING_STATE:
                     n = app.nm.getNodeByUUID(uuid)
                     if n is None:
+                        logging.debug('adding client node %s', dump(uuid))
                         n = ClientNode(uuid = uuid)
                         app.nm.add(n)
+                        assert app.nm.getNodeByUUID(uuid) is n
                 else:
                     self.dealWithClientFailure(uuid)
                     n = app.nm.getNodeByUUID(uuid)
                     if n is not None:
+                        logging.debug('removing client node %s', dump(uuid))
                         app.nm.remove(n)
 
     def handleAskLastIDs(self, conn, packet):

@@ -1,7 +1,9 @@
 from time import time
+import logging
 
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
+from neo.util import dump
 
 class Node(object):
     """This class represents a node."""

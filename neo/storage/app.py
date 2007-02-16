@@ -221,10 +221,6 @@ class Application(object):
         for conn in em.getConnectionList():
             conn.setHandler(handler)
 
-        # Forget all client nodes.
-        for node in nm.getClientNodeList():
-            nm.remove(node)
-
         # Forget all unfinished data.
         self.dm.dropUnfinishedData()
 
