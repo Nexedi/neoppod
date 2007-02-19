@@ -99,7 +99,6 @@ class StorageEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
             return
 
-        logging.debug('handleNotifyNodeInformation: node_list = %r', node_list)
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
         if not isinstance(node, MasterNode) \
