@@ -74,6 +74,8 @@ class FIFO(object):
     if element is None:
       return None
     del self[element]
+    del element.next
+    del element.prev
     return element
     
   def __delitem__(self, element):
@@ -95,6 +97,13 @@ class Data(object):
   """
   pass
       
+def sizeof(o):
+  """This function returns the estimated size of an object."""
+  if isinstance(o, tuple):
+    return sum((len(s)+16 for s in o))
+  else:
+    return len(o)+16
+
 class MQ(object):
   """
     This class manages cached data by a variant of Multi-Queue.
@@ -142,7 +151,7 @@ class MQ(object):
     data = self._data[id]
     if data.level >= 0:
       value = data.value
-      self._size -= len(value) # XXX inaccurate
+      self._size -= sizeof(value) # XXX inaccurate
       self.store(id, value)
       return value
     raise KeyError(id)
@@ -160,13 +169,13 @@ class MQ(object):
       Evict an element to the history buffer.
     """
     data = self._data[id]
-    self._size -= len(data.value) # XXX inaccurate
+    self._size -= sizeof(data.value) # XXX inaccurate
     del self._cache_buffers[data.level][data.element]
     element = self._history_buffer.append()
     data.level = -1
     data.element = element
-    delattr(data, 'value')
-    delattr(data, 'expire_time')
+    del data.value
+    del data.expire_time
     element.data = data
     if len(self._history_buffer) > self._max_history_size:
       element = self._history_buffer.shift()
@@ -197,7 +206,8 @@ class MQ(object):
     data.counter = counter
     element.data = data
     self._data[id] = data
-    self._size += len(value) # XXX inaccurate
+    self._size += sizeof(value) # XXX inaccurate
+    del value
     
     self._time += 1
 
@@ -230,7 +240,8 @@ class MQ(object):
             break
           data = element.data
           del self._data[data.id]
-          size -= len(data.value) # XXX inaccurate
+          size -= sizeof(data.value) # XXX inaccurate
+	  del data.value
         if size <= max_size:
           break
       self._size = size
