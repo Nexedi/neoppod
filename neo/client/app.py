@@ -877,3 +877,6 @@ class Application(object):
         for conn in self.em.getConnectionList():
             conn.close()
     close = __del__
+
+    def sync(self):
+        self._waitMessage()

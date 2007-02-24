@@ -397,9 +397,11 @@ class ClientEventHandler(EventHandler):
                 # ZODB required a dict with oid as key, so create it
                 oids = {}
                 for oid in oid_list:
-                    oids[oid] = 1
-                    if app.mq_cache.has_key(oid):
+                    oids[oid] = tid
+                    try:
                         del app.mq_cache[oid]
+                    except KeyError:
+                        pass
                 if app._db is not None:
                     app._db.invalidate(tid, oids)
             finally:

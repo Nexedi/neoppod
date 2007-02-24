@@ -187,4 +187,6 @@ class Storage(BaseStorage.BaseStorage,
     def history(self, oid, version, length=1, filter=None):
         return self.app.history(oid, version, length, filter)
 
+    def sync(self):
+        self.app.sync()
 
