@@ -223,7 +223,7 @@ class VerificationEventHandler(MasterEventHandler):
             for offset in xrange(app.num_partitions):
                 row_list.append((offset, app.pt.getRow(offset)))
                 if len(row_list) == 1000:
-                    p.sendPartitionTable(app.lptid, row_list)
+                    p.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
                     conn.addPacket(p)
                     del row_list[:]
             if len(row_list) != 0:
