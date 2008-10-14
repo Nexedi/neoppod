@@ -57,10 +57,15 @@ class PartitionTable(object):
 
     def getCellList(self, offset, usable_only = False):
         if usable_only:
-            return [cell for cell in self.partition_list[offset] \
-                    if cell.getState() in (UP_TO_DATE_STATE, FEEDING_STATE)]
-
-        return self.partition_list[offset]
+            try:
+                return [cell for cell in self.partition_list[offset] \
+                        if cell is not None and cell.getState() in (UP_TO_DATE_STATE, FEEDING_STATE)]
+            except (TypeError, KeyError):
+                return []
+        try:
+            return self.partition_list[offset]
+        except KeyError:
+            return []
 
     def make(self, node_list):
         """Make a new partition table from scratch."""
