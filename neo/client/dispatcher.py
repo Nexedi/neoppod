@@ -69,7 +69,11 @@ class Dispatcher(Thread):
                 app.local_var.node_not_ready = 0
                 if app.primary_master_node is None:
                     # Try with master node defined in config
-                    addr, port = app.master_node_list[master_index].split(':')
+                    try:
+                        addr, port = app.master_node_list[master_index].split(':')                        
+                    except IndexError:
+                        master_index = 0
+                        addr, port = app.master_node_list[master_index].split(':')
                     port = int(port)
                 else:
                     addr, port = app.primary_master_node.getServer()
