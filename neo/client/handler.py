@@ -74,7 +74,7 @@ class ClientEventHandler(EventHandler):
                 conn.addPacket(p)
             finally:
                 conn.unlock()
-
+        
     def connectionFailed(self, conn):
         app = self.app
         uuid = conn.getUUID()
@@ -98,6 +98,9 @@ class ClientEventHandler(EventHandler):
     def connectionClosed(self, conn):
         uuid = conn.getUUID()
         app = self.app
+        if app.primary_master_node is None:
+            # Failed to connect to a master node
+            app.primary_master_node = -1
         if app.master_conn is not None and uuid == app.master_conn.getUUID():
             logging.critical("connection to primary master node closed")
             # Close connection
@@ -119,7 +122,10 @@ class ClientEventHandler(EventHandler):
     def timeoutExpired(self, conn):
         uuid = conn.getUUID()
         app = self.app
-        if uuid == app.primary_master_node.getUUID():
+        if app.primary_master_node is None:
+            # Failed to connect to a master node
+            app.primary_master_node = -1
+        if app.master_conn is not None and uuid == app.primary_master_node.getUUID():
             logging.critical("connection timeout to primary master node expired")
             if self.dispatcher.connecting_to_master_node == 0:
                 logging.critical("trying reconnection to master node...")
@@ -136,7 +142,10 @@ class ClientEventHandler(EventHandler):
     def peerBroken(self, conn):
         uuid = conn.getUUID()
         app = self.app
-        if uuid == app.primary_master_node.getUUID():
+        if app.primary_master_node is None:
+            # Failed to connect to a master node
+            app.primary_master_node = -1
+        if app.master_conn is not None and uuid == app.primary_master_node.getUUID():
             logging.critical("primary master node is broken")
             if self.dispatcher.connecting_to_master_node == 0:
                 logging.critical("trying reconnection to master node...")
