@@ -106,6 +106,7 @@ class ClientEventHandler(EventHandler):
             # Close connection
             app.master_conn.close()
             app.master_conn = None
+            app.primary_master_node = None
             if self.dispatcher.connecting_to_master_node == 0:
                 logging.critical("trying reconnection to master node...")
                 self.dispatcher.connectToPrimaryMasterNode(app)
