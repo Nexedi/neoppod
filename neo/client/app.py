@@ -418,11 +418,12 @@ class Application(object):
         if self.txn == transaction:
             # We already begin the same transaction
             return
-        self.txn = transaction
         # Get a new transaction id if necessary
         if tid is None:
             self.tid = None
             conn = self.master_conn
+            if conn is None:
+                raise NEOStorageError("Connection failed")
             conn.lock()
             try:
                 msg_id = conn.getNextId()
@@ -433,13 +434,13 @@ class Application(object):
                 self.dispatcher.register(conn, msg_id, self.getQueue())
             finally:
                 conn.unlock()
-
             # Wait for answer
             self._waitMessage(conn, msg_id)
             if self.tid is None:
                 raise NEOStorageError('tpc_begin failed')
         else:
             self.tid = tid
+        self.txn = transaction            
 
 
     def store(self, oid, serial, data, version, transaction):
