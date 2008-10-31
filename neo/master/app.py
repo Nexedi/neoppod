@@ -374,6 +374,7 @@ class Application(object):
             if self.lptid == INVALID_PTID:
                 # This looks like the first time. So make a fresh table.
                 logging.debug('creating a new partition table')
+                self.getNextPartitionTableID()
                 self.pt.make(nm.getStorageNodeList())
             else:
                 # Obtain a partition table. It is necessary to split this
