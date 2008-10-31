@@ -7,6 +7,7 @@ from neo.master.handler import MasterEventHandler
 from neo.exception import ElectionFailure
 from neo.protocol import Packet, INVALID_UUID
 from neo.node import ClientNode, StorageNode, MasterNode
+from neo.util import dump
 
 class RecoveryEventHandler(MasterEventHandler):
     """This class deals with events for a recovery phase."""
