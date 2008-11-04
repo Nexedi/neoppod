@@ -10,7 +10,7 @@ except ImportError:
     c_uint32 = c_uint
     c_uint64 = c_ulonglong
 from os import close
-from errno import EINTR
+from errno import EINTR, EAGAIN
 
 libc = cdll.LoadLibrary('libc.so.6')
 epoll_create = libc.epoll_create
@@ -65,7 +65,7 @@ class Epoll(object):
                            timeout)
             if n == -1:
                 e = errno.value
-                if e == EINTR:
+                if e in (EINTR, EAGAIN):
                     continue
                 else:
                     raise OSError(e, 'epoll_wait failed')
