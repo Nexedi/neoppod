@@ -642,13 +642,32 @@ class Application(object):
                     conn.addPacket(Packet().startOperation(conn.getNextId()))
 
         # Now everything is passive.
+        expiration = 10
         while 1:
+            t = 0
             try:
                 em.poll(1)
-                # FIXME implement an expiration of temporary down nodes.
+                # implement an expiration of temporary down nodes.
                 # If a temporary down storage node is expired, it moves to
                 # down state, and the partition table must drop the node,
                 # thus repartitioning must be performed.
+                current_time = time()
+                if current_time >= t + 1:
+                    t = current_time
+                    for node in nm.getStorageNodeList():
+                        if node.getState() == TEMPORARILY_DOWN_STATE \
+                               and node.getLastStateChange() + expiration < current_time:
+                            logging.info('%s:%d is down' % node.getServer())
+                            node.setState(DOWN_STATE)
+                            self.broadcastNodeInformation(node)
+                            cell_list = self.pt.dropNode(node)
+                            ptid = self.getNextPartitionTableID()
+                            self.broadcastPartitionChanges(ptid, cell_list)
+                            if not self.pt.operational():
+                                # Catastrophic.
+                                raise OperationFailure, 'cannot continue operation'
+
+                        
             except OperationFailure:
                 # If not operational, send Stop Operation packets to storage nodes
                 # and client nodes. Abort connections to client nodes.
