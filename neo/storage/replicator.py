@@ -407,4 +407,4 @@ class Replicator(object):
         """This is a callback from OperationEventHandler."""
         if rid not in self.partition_list \
                 and rid not in self.new_partition_list:
-            self.new_partition_list.append(rid)
+            self.new_partition_list.append(Partition(rid))
