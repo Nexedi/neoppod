@@ -80,6 +80,7 @@ class ConnectionPool(object):
             if app.local_var.node_not_ready:
                 # Connection failed, notify primary master node
                 logging.info('Storage node %s not ready', addr)
+                return None
             else:
                 logging.info('connected to storage node %s:%d', *addr)
                 return conn
@@ -96,7 +97,7 @@ class ConnectionPool(object):
                         not self.app.dispatcher.registered(id(conn)):
                     del self.connection_dict[conn.getUUID()]
                     conn.close()
-                    logging.info('connection to storage node %s:%d closed', 
+                    logging.info('_dropConnections : connection to storage node %s:%d closed', 
                                  *(conn.getAddress()))
                     if len(self.connection_dict) <= self.max_pool_size:
                         break
@@ -423,7 +424,7 @@ class Application(object):
             self.tid = None
             conn = self.master_conn
             if conn is None:
-                raise NEOStorageError("Connection failed")
+                raise NEOStorageError("Connection to master node failed")
             conn.lock()
             try:
                 msg_id = conn.getNextId()
@@ -453,7 +454,7 @@ class Application(object):
                      dump(oid), dump(serial))
         # Find which storage node to use
         partition_id = u64(oid) % self.num_partitions
-        cell_list = self.pt.getCellList(partition_id, False)
+        cell_list = self.pt.getCellList(partition_id, True)
         if len(cell_list) == 0:
             # FIXME must wait for cluster to be ready
             raise NEOStorageError
@@ -462,6 +463,7 @@ class Application(object):
         compressed_data = compress(ddata)
         checksum = makeChecksum(compressed_data)
         for cell in cell_list:
+            logging.info("storing object %s %s" %(cell.getServer(),cell.getState()))
             conn = self.cp.getConnForNode(cell)
             if conn is None:
                 continue
@@ -507,8 +509,9 @@ class Application(object):
         oid_list = self.txn_data_dict.keys()
         # Store data on each node
         partition_id = u64(self.tid) % self.num_partitions
-        cell_list = self.pt.getCellList(partition_id, False)
+        cell_list = self.pt.getCellList(partition_id, True)
         for cell in cell_list:
+            logging.info("voting object %s %s" %(cell.getServer(), cell.getState()))
             conn = self.cp.getConnForNode(cell)
             if conn is None:
                 continue
@@ -546,7 +549,7 @@ class Application(object):
         aborted_node_set = set()
         for oid in self.txn_data_dict.iterkeys():
             partition_id = u64(oid) % self.num_partitions
-            cell_list = self.pt.getCellList(partition_id)
+            cell_list = self.pt.getCellList(partition_id, True)
             for cell in cell_list:
                 if cell.getNode() not in aborted_node_set:
                     conn = self.cp.getConnForNode(cell)
@@ -565,7 +568,7 @@ class Application(object):
 
         # Abort in nodes where transaction was stored
         partition_id = u64(self.tid) % self.num_partitions
-        cell_list = self.pt.getCellList(partition_id)
+        cell_list = self.pt.getCellList(partition_id, True)
         for cell in cell_list:
             if cell.getNode() not in aborted_node_set:
                 conn = self.cp.getConnForNode(cell)
