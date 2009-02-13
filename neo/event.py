@@ -172,12 +172,12 @@ class EpollEventManager(object):
         return self.connection_dict.values()
 
     def register(self, conn):
-        fd = conn.getSocket().fileno()
+        fd = conn.getDescriptor()
         self.connection_dict[fd] = conn
         self.epoll.register(fd)
 
     def unregister(self, conn):
-        fd = conn.getSocket().fileno()
+        fd = conn.getDescriptor()
         self.epoll.unregister(fd)
         del self.connection_dict[fd]
 
@@ -235,7 +235,7 @@ class EpollEventManager(object):
 
     def addReader(self, conn):
         try:
-            fd = conn.getSocket().fileno()
+            fd = conn.getDescriptor()
             if fd not in self.reader_set:
                 self.reader_set.add(fd)
                 self.epoll.modify(fd, 1, fd in self.writer_set)
@@ -244,7 +244,7 @@ class EpollEventManager(object):
 
     def removeReader(self, conn):
         try:
-            fd = conn.getSocket().fileno()
+            fd = conn.getDescriptor()
             if fd in self.reader_set:
                 self.reader_set.remove(fd)
                 self.epoll.modify(fd, 0, fd in self.writer_set)
@@ -253,7 +253,7 @@ class EpollEventManager(object):
 
     def addWriter(self, conn):
         try:
-            fd = conn.getSocket().fileno()
+            fd = conn.getDescriptor()
             if fd not in self.writer_set:
                 self.writer_set.add(fd)
                 self.epoll.modify(fd, fd in self.reader_set, 1)
@@ -262,7 +262,7 @@ class EpollEventManager(object):
 
     def removeWriter(self, conn):
         try:
-            fd = conn.getSocket().fileno()
+            fd = conn.getDescriptor()
             if fd in self.writer_set:
                 self.writer_set.remove(fd)
                 self.epoll.modify(fd, fd in self.reader_set, 0)

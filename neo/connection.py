@@ -43,6 +43,9 @@ class BaseConnection(object):
     def getSocket(self):
         return self.s
 
+    def getDescriptor(self):
+        return self.s.fileno()
+
     def setSocket(self, s):
         if self.s is not None:
             raise RuntimeError, 'cannot overwrite a socket in a connection'
