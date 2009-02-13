@@ -318,7 +318,7 @@ class ClientConnection(Connection):
                     raise
             else:
                 self.connecting = False
-                self.handler.connectionCompleted()
+                self.handler.connectionCompleted(self)
                 event_manager.addReader(self)
         except:
             handler.connectionFailed(self)
