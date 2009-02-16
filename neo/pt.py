@@ -55,13 +55,13 @@ class PartitionTable(object):
         self.np = num_partitions
         self.nr = num_replicas
         self.num_filled_rows = 0
-        self.partition_list = [None] * num_partitions
+        self.partition_list = [[]] * num_partitions
         self.count_dict = {}
 
     def clear(self):
         """Forget an existing partition table."""
         self.num_filled_rows = 0
-        self.partition_list = [None] * self.np
+        self.partition_list = [[]] * self.np
         self.count_dict.clear()
 
     def getNodeList(self):
