@@ -591,12 +591,22 @@ class ServiceEventHandler(MasterEventHandler):
             pass
 
     def handleAskLastIDs(self, conn, packet):
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
         app = self.app
         p = Packet()
         p.answerLastIDs(packet.getId(), app.loid, app.ltid, app.lptid)
         conn.addPacket(p)
 
     def handleAskUnfinishedTransactions(self, conn, packet):
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
         app = self.app
         p = Packet()
         p.answerUnfinishedTransactions(packet.getId(), 
