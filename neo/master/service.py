@@ -178,7 +178,7 @@ class ServiceEventHandler(MasterEventHandler):
                 # Otherwise, I know it only by the server address or the same
                 # server address but with a different UUID.
                 if node.getUUID() is None:
-                    # This must be a master node.
+                    # This must be a master node. XXX Why ??
                     if not isinstance(node, MasterNode) \
                             or node_type != MASTER_NODE_TYPE:
                         # Error. This node uses the same server address as
@@ -403,6 +403,8 @@ class ServiceEventHandler(MasterEventHandler):
 
             if state == RUNNING_STATE:
                 # No problem.
+                # XXX means that if a node is known as broken and is notified as
+                # running, it will not be taken into account, is it OK ?
                 continue
 
             # Something wrong happened possibly. Cut the connection to
@@ -452,7 +454,6 @@ class ServiceEventHandler(MasterEventHandler):
         if not isinstance(node, ClientNode):
             self.handleUnexpectedPacket(conn, packet)
             return
-
         tid = app.getNextTID()
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
         conn.addPacket(Packet().answerNewTID(packet.getId(), tid))
@@ -584,7 +585,7 @@ class ServiceEventHandler(MasterEventHandler):
             return
 
         try:
-            app.finishing_transaction_dict[tid]
+            del app.finishing_transaction_dict[tid]
         except KeyError:
             logging.warn('aborting transaction %s does not exist', dump(tid))
             pass
