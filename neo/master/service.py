@@ -627,6 +627,11 @@ class ServiceEventHandler(MasterEventHandler):
             self.handleUnexpectedPacket(conn, packet)
             return
 
+        if not isinstance(node, StorageNode):
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+
         new_cell_list = []
         for cell in cell_list:
             if cell[2] != UP_TO_DATE_STATE:
