@@ -160,7 +160,7 @@ class ElectionEventHandler(MasterEventHandler):
                         app.primary = False
                         app.primary_master_node = primary_node
             else:
-                if app.uuid < uuid:
+                if app.uuid < conn.getUUID():
                     # I lost.
                     app.primary = False
 
