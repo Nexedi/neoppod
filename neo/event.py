@@ -89,10 +89,10 @@ class SelectEventManager(object):
         return self.connection_dict.values()
 
     def register(self, conn):
-        self.connection_dict[conn.getSocket()] = conn
+        self.connection_dict[conn.getConnector()] = conn
 
     def unregister(self, conn):
-        del self.connection_dict[conn.getSocket()]
+        del self.connection_dict[conn.getConnector()]
 
     def poll(self, timeout = 1):
         rlist, wlist, xlist = select(self.reader_set, self.writer_set, self.exc_list,
@@ -146,16 +146,16 @@ class SelectEventManager(object):
             pass
 
     def addReader(self, conn):
-        self.reader_set.add(conn.getSocket())
+        self.reader_set.add(conn.getConnector())
 
     def removeReader(self, conn):
-        self.reader_set.discard(conn.getSocket())
+        self.reader_set.discard(conn.getConnector())
 
     def addWriter(self, conn):
-        self.writer_set.add(conn.getSocket())
+        self.writer_set.add(conn.getConnector())
 
     def removeWriter(self, conn):
-        self.writer_set.discard(conn.getSocket())
+        self.writer_set.discard(conn.getConnector())
 
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
@@ -186,6 +186,7 @@ class EpollEventManager(object):
         for fd in rlist:
             try:
                 conn = self.connection_dict[fd]
+                #logging.info("conn is %s" %(conn,))
                 conn.lock()
                 try:
                     conn.readable()

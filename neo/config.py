@@ -69,6 +69,9 @@ class ConfigurationManager:
     def getPartitions(self):
         return int(self['partitions'])
 
+    def getConnector(self):
+        return str(self['connector'])
+
     def getName(self):
         return self['name']
 

@@ -33,6 +33,7 @@ from neo.storage.bootstrap import BootstrapEventHandler
 from neo.storage.verification import VerificationEventHandler
 from neo.storage.operation import OperationEventHandler
 from neo.storage.replicator import Replicator
+from neo import connector
 
 class Application(object):
     """The storage node application."""
@@ -44,6 +45,8 @@ class Application(object):
         self.num_replicas = None
         self.name = config.getName()
         logging.debug('the name is %s', self.name)
+        connector_handler = config.getConnector()
+        self.connector_handler = getattr(connector, connector_handler)
 
         self.server = config.getServer()
         logging.debug('IP address is %s, port is %d', *(self.server))
@@ -126,7 +129,8 @@ class Application(object):
             self.nm.add(MasterNode(server = server))
 
         # Make a listening port.
-        ListeningConnection(self.em, None, addr = self.server)
+        ListeningConnection(self.em, None, addr = self.server,
+                            connector_handler = self.connector_handler)
 
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permentnly,
@@ -208,7 +212,8 @@ class Application(object):
                     index += 1
 
                 ClientConnection(em, handler, \
-                        addr = self.trying_master_node.getServer())
+                                 addr = self.trying_master_node.getServer(),
+                                 connector_handler = self.connector_handler)
                 t = time()
 
     def verifyData(self):

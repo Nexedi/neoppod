@@ -24,6 +24,7 @@ import logging
 from neo.client.dispatcher import Dispatcher
 from neo.event import EventManager
 from neo.util import dump
+from neo import connector as Connector
 
 class NEOStorageError(POSException.StorageError):
     pass
@@ -40,7 +41,7 @@ class Storage(BaseStorage.BaseStorage,
 
     __name__ = 'NEOStorage'
 
-    def __init__(self, master_nodes, name, read_only=False, **kw):
+    def __init__(self, master_nodes, name, connector, read_only=False, **kw):
         self._is_read_only = read_only
         # Transaction must be under protection of lock
         l = Lock()
@@ -56,11 +57,12 @@ class Storage(BaseStorage.BaseStorage,
         dispatcher = Dispatcher(em, request_queue)
         dispatcher.setDaemon(True)
         # Import here to prevent recursive import
+        connector_handler = getattr(Connector, connector)
         from neo.client.app import Application
         self.app = Application(master_nodes, name, em, dispatcher,
-                               request_queue)
+                               request_queue, connector_handler)
         # Connect to primary master node
-        dispatcher.connectToPrimaryMasterNode(self.app)
+        dispatcher.connectToPrimaryMasterNode(self.app, self.app.connector_handler)
         # Start dispatcher
         dispatcher.start()
 

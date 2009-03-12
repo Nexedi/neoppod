@@ -69,10 +69,11 @@ class ConnectionPool(object):
         while 1:
             logging.info('trying to connect to %s:%d', *addr)
             app.local_var.node_not_ready = 0
-            conn = MTClientConnection(app.em, handler, addr)
+            conn = MTClientConnection(app.em, handler, addr,
+                                      connector_handler=self.app.connector_handler)
             conn.lock()
             try:
-                if conn.getSocket() is None:
+                if conn.getConnector() is None:
                     # This happens, if a connection could not be established.
                     logging.error('Connection to storage node %s failed', addr)
                     return None
@@ -176,12 +177,13 @@ class ConnectionPool(object):
 class Application(object):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, em, dispatcher, request_queue, **kw):
+    def __init__(self, master_nodes, name, em, dispatcher, request_queue, connector, **kw):
         logging.basicConfig(level = logging.DEBUG)
         logging.debug('master node address are %s' %(master_nodes,))
         # Internal Attributes common to all thread
         self.name = name
         self.em = em
+        self.connector_handler = connector
         self.dispatcher = dispatcher
         self.nm = NodeManager()
         self.cp = ConnectionPool(self)

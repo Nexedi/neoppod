@@ -14,5 +14,10 @@
        Give the name of the cluster
       </description>
      </key>
+     <key name="connector" required="yes">
+      <description>
+       Give the name of the connector used at low-level
+      </description>
+     </key>
   </sectiontype>
 </component>

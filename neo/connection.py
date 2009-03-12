@@ -15,42 +15,45 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-
-import socket
-import errno
 import logging
 from threading import RLock
 
 from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent
+from neo.connector import *
 
 class BaseConnection(object):
     """A base connection."""
-    def __init__(self, event_manager, handler, s = None, addr = None):
+
+    def __init__(self, event_manager, handler, connector = None,
+                 addr = None, connector_handler = None):
         self.em = event_manager
-        self.s = s
+        self.connector = connector
         self.addr = addr
         self.handler = handler
-        if s is not None:
+        if connector is not None:
+            self.connector_handler = connector.__class__
             event_manager.register(self)
-
+        else:            
+            self.connector_handler = connector_handler
+            
     def lock(self):
         return 1
 
     def unlock(self):
         return None
 
-    def getSocket(self):
-        return self.s
+    def getConnector(self):
+        return self.connector
 
     def getDescriptor(self):
-        return self.s.fileno()
+        return self.connector.getDescriptor()
 
-    def setSocket(self, s):
-        if self.s is not None:
-            raise RuntimeError, 'cannot overwrite a socket in a connection'
-        if s is not None:
-            self.s = s
+    def setConnector(self, connector):
+        if self.connector is not None:
+            raise RuntimeError, 'cannot overwrite a connector in a connection'
+        if connector is not None:
+            self.connector = connector
             self.em.register(self)
 
     def getAddress(self):
@@ -76,41 +79,40 @@ class BaseConnection(object):
 
 class ListeningConnection(BaseConnection):
     """A listen connection."""
-    def __init__(self, event_manager, handler, addr = None, **kw):
+    def __init__(self, event_manager, handler, addr = None,
+                 connector_handler = None, **kw):
         logging.info('listening to %s:%d', *addr)
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.setblocking(0)
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind(addr)
-            s.listen(5)
-        except:
-            s.close()
-            raise
-        BaseConnection.__init__(self, event_manager, handler, s = s, addr = addr)
+        BaseConnection.__init__(self, event_manager, handler,
+                                addr = addr,
+                                connector_handler = connector_handler)
+        connector = self.connector_handler()
+        connector.makeListeningConnection(addr)
+        self.setConnector(connector)
         self.em.addReader(self)
 
     def readable(self):
         try:
-            new_s, addr = self.s.accept()
+            new_s, addr = self.connector.getNewConnection()
             logging.info('accepted a connection from %s:%d', *addr)
             self.handler.connectionAccepted(self, new_s, addr)
-        except socket.error, m:
-            if m[0] == errno.EAGAIN:
-                return
-            raise
-
+        except ConnectorTryAgainException:
+            pass
+            
 class Connection(BaseConnection):
     """A connection."""
-    def __init__(self, event_manager, handler, s = None, addr = None):
+    def __init__(self, event_manager, handler,
+                 connector = None, addr = None,
+                 connector_handler = None):
         self.read_buf = []
         self.write_buf = []
         self.cur_id = 0
         self.event_dict = {}
         self.aborted = False
         self.uuid = None
-        BaseConnection.__init__(self, event_manager, handler, s = s, addr = addr)
-        if s is not None:
+        BaseConnection.__init__(self, event_manager, handler,
+                                connector = connector, addr = addr,
+                                connector_handler = connector_handler)
+        if connector is not None:
             event_manager.addReader(self)
 
     def getUUID(self):
@@ -130,20 +132,15 @@ class Connection(BaseConnection):
 
     def close(self):
         """Close the connection."""
-        s = self.s
         em = self.em
-        if s is not None:
-            logging.debug('closing a socket for %s:%d', *(self.addr))
+        if self.connector is not None:
+            logging.debug('closing a connector for %s:%d', *(self.addr))
             em.removeReader(self)
             em.removeWriter(self)
-            em.unregister(self)
-            try:
-                # This may fail if the socket is not connected.
-                s.shutdown(socket.SHUT_RDWR)
-            except socket.error:
-                pass
-            s.close()
-            self.s = None
+            em.unregister(self)            
+            self.connector.shutdown()
+            self.connector.close()
+            self.connector = None
             for event in self.event_dict.itervalues():
                 em.removeIdleEvent(event)
             self.event_dict.clear()
@@ -153,7 +150,7 @@ class Connection(BaseConnection):
 
     def abort(self):
         """Abort dealing with this connection."""
-        logging.debug('aborting a socket for %s:%d', *(self.addr))
+        logging.debug('aborting a connetor for %s:%d', *(self.addr))
         self.aborted = True
 
     def writable(self):
@@ -209,37 +206,33 @@ class Connection(BaseConnection):
                 del self.read_buf[:]
 
     def pending(self):
-        return self.s is not None and len(self.write_buf) != 0
+        return self.connector is not None and len(self.write_buf) != 0
 
     def recv(self):
-        """Receive data from a socket."""
-        s = self.s
+        """Receive data from a connector."""
         try:
-            r = s.recv(4096)
+            r = self.connector.receive()
             if not r:
                 logging.error('cannot read')
                 self.handler.connectionClosed(self)
                 self.close()
             else:
                 self.read_buf.append(r)
-        except socket.error, m:
-            if m[0] == errno.EAGAIN:
-                pass
-            else:
-                logging.error('%s', m[1])
-                self.handler.connectionClosed(self)
-                self.close()
+        except ConnectorTryAgainException:
+            pass
+        except:
+            self.handler.connectionClosed(self)
+            self.close()
 
     def send(self):
-        """Send data to a socket."""
-        s = self.s
+        """Send data to a connector."""
         if self.write_buf:
             if len(self.write_buf) == 1:
                 msg = self.write_buf[0]
             else:
                 msg = ''.join(self.write_buf)
             try:
-                r = s.send(msg)
+                r = self.connector.send(msg)
                 if not r:
                     logging.error('cannot write')
                     self.handler.connectionClosed(self)
@@ -248,17 +241,15 @@ class Connection(BaseConnection):
                     del self.write_buf[:]
                 else:
                     self.write_buf = [msg[r:]]
-            except socket.error, m:
-                if m[0] == errno.EAGAIN:
-                    return
-                else:
-                    logging.error('%s', m[1])
-                    self.handler.connectionClosed(self)
-                    self.close()
+            except ConnectorTryAgainException:
+                return
+            except:
+                self.handler.connectionClosed(self)
+                self.close()
 
     def addPacket(self, packet):
         """Add a packet into the write buffer."""
-        if self.s is None:
+        if self.connector is None:
             return
 
         try:
@@ -291,7 +282,7 @@ class Connection(BaseConnection):
         The additional timeout defines the amount of time after the timeout
         to invoke a timeoutExpired callback. If it is zero, no ping is sent, and
         the callback is executed immediately."""
-        if self.s is None:
+        if self.connector is None:
             return
 
         event = IdleEvent(self, msg_id, timeout, additional_timeout)
@@ -300,22 +291,19 @@ class Connection(BaseConnection):
 
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
-    def __init__(self, event_manager, handler, addr = None, **kw):
+    def __init__(self, event_manager, handler, addr = None,
+                 connector_handler = None, **kw):
         self.connecting = True
-        Connection.__init__(self, event_manager, handler, addr = addr)
+        Connection.__init__(self, event_manager, handler, addr = addr,
+                            connector_handler = connector_handler)
         handler.connectionStarted(self)
         try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.setSocket(s)
-
+            connector = self.connector_handler()
+            self.setConnector(connector)
             try:
-                s.setblocking(0)
-                s.connect(addr)
-            except socket.error, m:
-                if m[0] == errno.EINPROGRESS:
-                    event_manager.addWriter(self)
-                else:
-                    raise
+                connector.makeClientConnection(addr)
+            except ConnectorInProgressException:
+                event_manager.addWriter(self)
             else:
                 self.connecting = False
                 self.handler.connectionCompleted(self)
@@ -327,7 +315,7 @@ class ClientConnection(Connection):
     def writable(self):
         """Called when self is writable."""
         if self.connecting:
-            err = self.s.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            err = self.connector.getError()
             if err:
                 self.handler.connectionFailed(self)
                 self.close()
@@ -378,3 +366,4 @@ class MTServerConnection(ServerConnection):
 
     def unlock(self):
         self.release()
+

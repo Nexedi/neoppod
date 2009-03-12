@@ -36,6 +36,7 @@ from neo.master.service import ServiceEventHandler
 from neo.master.secondary import SecondaryEventHandler
 from neo.pt import PartitionTable
 from neo.util import dump
+from neo import connector
 
 class Application(object):
     """The master node application."""
@@ -46,6 +47,8 @@ class Application(object):
         self.num_replicas = config.getReplicas()
         self.num_partitions = config.getPartitions()
         self.name = config.getName()
+        connector_handler = config.getConnector()
+        self.connector_handler = getattr(connector, connector_handler)
         logging.debug('the number of replicas is %d, the number of partitions is %d, the name is %s',
                       self.num_replicas, self.num_partitions, self.name)
 
@@ -94,7 +97,8 @@ class Application(object):
             self.nm.add(MasterNode(server = server))
 
         # Make a listening port.
-        ListeningConnection(self.em, None, addr = self.server)
+        ListeningConnection(self.em, None, addr = self.server,
+                            connector_handler = self.connector_handler)
 
         # Start the election of a primary master node.
         self.electPrimary()
@@ -172,8 +176,8 @@ class Application(object):
                         # Try to connect to master nodes.
                         if self.unconnected_master_node_set:
                             for addr in list(self.unconnected_master_node_set):
-                                ClientConnection(em, handler, addr = addr)
-
+                                ClientConnection(em, handler, addr = addr,
+                                                 connector_handler = self.connector_handler)
                     if len(self.unconnected_master_node_set) == 0 \
                             and len(self.negotiating_master_node_set) == 0:
                         break

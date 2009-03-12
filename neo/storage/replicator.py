@@ -339,7 +339,8 @@ class Replicator(object):
         if self.current_connection is None:
             handler = ReplicationEventHandler(app)
             self.current_connection = ClientConnection(app.em, handler, 
-                                                       addr = addr)
+                                                       addr = addr,
+                                                       connector_handler = app.connector_handler)
             msg_id = self.current_connection.getNextId()
             p = Packet()
             p.requestNodeIdentification(msg_id, STORAGE_NODE_TYPE, app.uuid,

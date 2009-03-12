@@ -57,11 +57,11 @@ class EventHandler(object):
         """Called when a connection failed."""
         logging.debug('connection failed for %s:%d', *(conn.getAddress()))
 
-    def connectionAccepted(self, conn, s, addr):
+    def connectionAccepted(self, conn, connector, addr):
         """Called when a connection is accepted."""
         logging.debug('connection accepted from %s:%d', *addr)
         new_conn = ServerConnection(conn.getEventManager(), conn.getHandler(),
-                                    s = s, addr = addr)
+                                    connector = connector, addr = addr)
         # A request for a node identification should arrive.
         new_conn.expectMessage(timeout = 10, additional_timeout = 0)
 

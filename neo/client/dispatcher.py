@@ -63,7 +63,7 @@ class Dispatcher(Thread):
                 return True
         return False
 
-    def connectToPrimaryMasterNode(self, app):
+    def connectToPrimaryMasterNode(self, app, connector):
         """Connect to a primary master node.
         This can be called either at bootstrap or when
         client got disconnected during process"""
@@ -95,7 +95,7 @@ class Dispatcher(Thread):
                 else:
                     addr, port = app.primary_master_node.getServer()
                 # Request Node Identification
-                conn = MTClientConnection(app.em, handler, (addr, port))
+                conn = MTClientConnection(app.em, handler, (addr, port), connector_handler=connector)
                 if app.nm.getNodeByServer((addr, port)) is None:
                     n = MasterNode(server = (addr, port))
                     app.nm.add(n)
