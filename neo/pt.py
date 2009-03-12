@@ -111,17 +111,16 @@ class PartitionTable(object):
 
         self.num_filled_rows = self.np
 
-    def setCell(self, offset, node, state):
+    def setCell(self, offset, node, state):        
         if state == DISCARDED_STATE:
             return self.removeCell(offset, node)
-
         if node.getState() in (BROKEN_STATE, DOWN_STATE):
             return
 
         row = self.partition_list[offset]
-        if row is None:
+        if len(row) == 0:
             # Create a new row.
-            row = [Cell(node, state)]
+            row = [Cell(node, state),]
             if state != FEEDING_STATE:
                 self.count_dict[node] = self.count_dict.get(node, 0) + 1
             self.partition_list[offset] = row
@@ -184,7 +183,7 @@ class PartitionTable(object):
                     desc_list.append('%d %s %s' % (i, cell_state, node_state))
             logging.debug('pt: row %d: %s', offset, ', '.join(desc_list))
 
-    def operational(self):
+    def operational(self):        
         if not self.filled():
             return False
 
