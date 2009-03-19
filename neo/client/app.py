@@ -71,23 +71,19 @@ class ConnectionPool(object):
             app.local_var.node_not_ready = 0
             conn = MTClientConnection(app.em, handler, addr,
                                       connector_handler=self.app.connector_handler)
-            conn.lock()
-            try:
-                if conn.getConnector() is None:
-                    # This happens, if a connection could not be established.
-                    logging.error('Connection to storage node %s failed', addr)
-                    return None
+            if conn.getConnector() is None:
+                # This happens, if a connection could not be established.
+                logging.error('Connection to storage node %s failed', addr)
+                return None
 
-                msg_id = conn.getNextId()
-                p = Packet()
-                p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE,
-                                            app.uuid, addr[0],
-                                            addr[1], app.name)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
-                app.dispatcher.register(conn, msg_id, app.getQueue())
-            finally:
-                conn.unlock()
+            msg_id = conn.getNextId()
+            p = Packet()
+            p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE,
+                                        app.uuid, addr[0],
+                                        addr[1], app.name)
+            conn.addPacket(p)
+            conn.expectMessage(msg_id)
+            app.dispatcher.register(conn, msg_id, app.getQueue())
 
             try:
                 app._waitMessage(conn, msg_id)
