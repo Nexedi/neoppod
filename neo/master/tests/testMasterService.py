@@ -68,6 +68,8 @@ user: neo
 # The password for the database.
 password: neo
 
+connector: SocketConnector
+
 # The first master.
 [mastertest]
 server: 127.0.0.1:10010
