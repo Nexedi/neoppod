@@ -337,11 +337,7 @@ class MTClientConnection(ClientConnection):
         lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
-        try:
-            self.lock()
-            super(MTClientConnection, self).__init__(*args, **kwargs)
-        finally:
-            self.unlock()
+        super(MTClientConnection, self).__init__(*args, **kwargs)
 
     def lock(self, blocking = 1):
         return self.acquire(blocking = blocking)
@@ -355,11 +351,7 @@ class MTServerConnection(ServerConnection):
         lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
-        try:
-            self.lock()
-            super(MTServerConnection, self).__init__(*args, **kwargs)
-        finally:
-            self.unlock()
+        super(MTServerConnection, self).__init__(*args, **kwargs)
 
     def lock(self, blocking = 1):
         return self.acquire(blocking = blocking)
