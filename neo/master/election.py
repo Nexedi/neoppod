@@ -73,10 +73,11 @@ class ElectionEventHandler(MasterEventHandler):
         addr = conn.getAddress()
         node = app.nm.getNodeByServer(addr)
         if isinstance(conn, ClientConnection):
-            node.setState(DOWN_STATE)
+            if node is not None:
+                node.setState(DOWN_STATE)
             app.negotiating_master_node_set.discard(addr)
         else:
-            if node.getUUID() is not None:
+            if node is not None and node.getUUID() is not None:
                 node.setState(BROKEN_STATE)
         MasterEventHandler.peerBroken(self, conn)
 
@@ -141,7 +142,7 @@ class ElectionEventHandler(MasterEventHandler):
                         # told me at the moment.
                         if n.getUUID() is None:
                             n.setUUID(uuid)
-
+                            
             if primary_uuid != INVALID_UUID:
                 # The primary master is defined.
                 if app.primary_master_node is not None \
@@ -237,7 +238,6 @@ class ElectionEventHandler(MasterEventHandler):
                     continue
                 info = n.getServer() + (n.getUUID() or INVALID_UUID,)
                 known_master_list.append(info)
-
             p = Packet()
             p.answerPrimaryMaster(packet.getId(), primary_uuid, known_master_list)
             conn.addPacket(p)
