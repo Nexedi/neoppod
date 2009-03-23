@@ -22,18 +22,11 @@ from ZODB.utils import oid_repr, p64, u64
 import logging
 
 from neo.client.dispatcher import Dispatcher
+from neo.client.app import Application
+from neo.client.exception import NEOStorageConflictError, NEOStorageNotFoundError
 from neo.event import EventManager
 from neo.util import dump
 from neo import connector as Connector
-
-class NEOStorageError(POSException.StorageError):
-    pass
-
-class NEOStorageConflictError(NEOStorageError):
-    pass
-
-class NEOStorageNotFoundError(NEOStorageError):
-    pass
 
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
@@ -56,9 +49,7 @@ class Storage(BaseStorage.BaseStorage,
         # Create dispatcher thread
         dispatcher = Dispatcher(em, request_queue)
         dispatcher.setDaemon(True)
-        # Import here to prevent recursive import
         connector_handler = getattr(Connector, connector)
-        from neo.client.app import Application
         self.app = Application(master_nodes, name, em, dispatcher,
                                request_queue, connector_handler)
         # Connect to primary master node

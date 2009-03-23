@@ -25,7 +25,7 @@ from neo.protocol import Packet, \
         BROKEN_STATE, PING
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.pt import PartitionTable
-from neo.client.Storage import NEOStorageError
+from neo.client.exception import NEOStorageError
 from neo.exception import ElectionFailure
 from neo.util import dump
 
