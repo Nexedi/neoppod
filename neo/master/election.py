@@ -97,7 +97,7 @@ class ElectionEventHandler(MasterEventHandler):
                 # The peer is not a master node!
                 logging.error('%s:%d is not a master node', ip_address, port)
                 app.nm.remove(node)
-                app.negotiating_master_node_set.discard(node.getAddress())
+                app.negotiating_master_node_set.discard(node.getServer())
                 conn.close()
                 return
             if conn.getAddress() != (ip_address, port):
