@@ -282,14 +282,32 @@ class ElectionEventHandler(MasterEventHandler):
                 # This is self.
                 continue
             else:
-                n = app.nm.getNodeByServer(addr)
-                if n is None:
-                    n = MasterNode(server = addr)
-                    app.nm.add(n)
+                node = app.nm.getNodeByServer(addr)
+                if node is None:
+                    node = MasterNode(server = addr)
+                    app.nm.add(node)
                     app.unconnected_master_node_set.add(addr)
 
                 if uuid != INVALID_UUID:
                     # If I don't know the UUID yet, believe what the peer
                     # told me at the moment.
-                    if n.getUUID() is None:
-                        n.setUUID(uuid)
+                    if node.getUUID() is None:
+                        node.setUUID(uuid)
+
+                if node.getState() == state:
+                    # No change. Don't care.
+                    continue
+
+                if state == RUNNING_STATE:
+                    # No problem.
+                    continue
+
+                # Something wrong happened possibly. Cut the connection to
+                # this node, if any, and notify the information to others.
+                # XXX this can be very slow.
+                for c in app.em.getConnectionList():
+                    if c.getUUID() == uuid:
+                        c.close()
+                node.setState(state)
+                logging.debug('broadcasting node information')
+                app.broadcastNodeInformation(node)
