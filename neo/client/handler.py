@@ -103,7 +103,7 @@ class ClientEventHandler(EventHandler):
             logging.critical("connection to primary master node failed")
             if self.dispatcher.connecting_to_master_node == 0:
                 logging.critical("trying reconnection to master node...")
-                self.dispatcher.connectToPrimaryMasterNode(app)
+                self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             # Connection to a storage node failed
             node = app.nm.getNodeByServer(conn.getAddress())
@@ -126,7 +126,7 @@ class ClientEventHandler(EventHandler):
             app.primary_master_node = None
             if self.dispatcher.connecting_to_master_node == 0:
                 logging.critical("trying reconnection to master node...")
-                self.dispatcher.connectToPrimaryMasterNode(app)
+                self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
             if isinstance(node, StorageNode):
@@ -147,7 +147,7 @@ class ClientEventHandler(EventHandler):
             logging.critical("connection timeout to primary master node expired")
             if self.dispatcher.connecting_to_master_node == 0:
                 logging.critical("trying reconnection to master node...")
-                self.dispatcher.connectToPrimaryMasterNode(app)
+                self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
             if isinstance(node, StorageNode):
@@ -167,7 +167,7 @@ class ClientEventHandler(EventHandler):
             logging.critical("primary master node is broken")
             if self.dispatcher.connecting_to_master_node == 0:
                 logging.critical("trying reconnection to master node...")
-                self.dispatcher.connectToPrimaryMasterNode(app)
+                self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
             if isinstance(node, StorageNode):
