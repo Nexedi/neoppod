@@ -84,7 +84,7 @@ class Dispatcher(Thread):
         This can be called either at bootstrap or when
         client got disconnected during process"""
         # Indicate we are trying to connect to avoid multiple try a time
-        acquired = self.connecting_to_master_node.acquire(blocking=0)
+        acquired = self.connecting_to_master_node.acquire(0)
         if acquired:
             try:
                 from neo.client.handler import ClientEventHandler
