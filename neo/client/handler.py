@@ -41,7 +41,7 @@ class ClientEventHandler(EventHandler):
         self.dispatcher = dispatcher
         EventHandler.__init__(self)
 
-    def packetReceived(self, conn, packet):
+    def dispatch(self, conn, packet):
         """Redirect all received packet to dispatcher thread."""
         dispatcher = self.dispatcher
         # Send message to waiting thread
