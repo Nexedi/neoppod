@@ -18,6 +18,7 @@
 import socket
 import errno
 import logging
+from neo.master.tests.connector import *
 
 class SocketConnector:
   """ This class is a wrapper for a socket """
