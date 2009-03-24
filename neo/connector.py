@@ -40,7 +40,7 @@ class SocketConnector:
       if m[0] == errno.EINPROGRESS:
         raise ConnectorInProgressException
       else:
-        logging.error('%s', m[1])        
+        logging.error('makeClientConnection: %s', m[1])        
         raise
 
   def makeListeningConnection(self, addr):
@@ -68,7 +68,7 @@ class SocketConnector:
       if m[0] == errno.EAGAIN:
         raise ConnectorTryAgainException
       else:
-        logging.error('%s', m[1])        
+        logging.error('getNewConnection: %s', m[1])        
         raise
 
   def shutdown(self):
@@ -85,7 +85,7 @@ class SocketConnector:
       if m[0] == errno.EAGAIN:
         raise ConnectorTryAgainException
       else:
-        logging.error('%s', m[1])                    
+        logging.error('receive: %s', m[1])                    
         raise
 
   def send(self, msg):
@@ -95,7 +95,7 @@ class SocketConnector:
       if m[0] == errno.EAGAIN:
         raise ConnectorTryAgainException
       else:
-        logging.error('%s', m[1])        
+        logging.error('send: %s', m[1])        
         raise
 
 
