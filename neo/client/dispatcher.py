@@ -32,8 +32,6 @@ class Dispatcher(Thread):
         Thread.__init__(self, **kw)
         self._request_queue = request_queue
         self.em = em
-        # Queue of received packet that have to be processed
-        self.message = Queue()
         # This dict is used to associate conn/message id to client thread queue
         # and thus redispatch answer to the original thread
         self.message_table = {}
