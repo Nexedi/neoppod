@@ -43,7 +43,8 @@ class ClientEventHandler(EventHandler):
 
     def packetReceived(self, conn, packet):
         """Redirect all received packet to dispatcher thread."""
-        EventHandler.packetReceived(self, conn, packet)
+        logging.debug('packet %d:%x received from %s:%d',
+                      packet.getId(), packet.getType(), *(conn.getAddress()))
         self.dispatcher.dispatch(conn, packet)
 
     def _dealWithStorageFailure(self, conn, node, state):
