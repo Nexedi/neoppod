@@ -28,9 +28,8 @@ import logging
 class Dispatcher(Thread):
     """Dispatcher class use to redirect request to thread."""
 
-    def __init__(self, em, request_queue, **kw):
+    def __init__(self, em, **kw):
         Thread.__init__(self, **kw)
-        self._request_queue = request_queue
         self.em = em
         # This dict is used to associate conn/message id to client thread queue
         # and thus redispatch answer to the original thread
@@ -47,23 +46,9 @@ class Dispatcher(Thread):
                 # This happen when there is no connection
                 logging.error('Dispatcher, run, poll returned a KeyError')
 
-    def dispatch(self, conn, packet):
+    def getQueue(self, conn, packet):
         key = (id(conn), packet.getId())
-        queue = self.message_table.pop(key, None)
-        if queue is None:
-            method_type = packet.getType()
-            if method_type == PING:
-                # must answer with no delay
-                conn.lock()
-                try:
-                    conn.addPacket(Packet().pong(packet.getId()))
-                finally:
-                    conn.unlock()
-            else:
-                # put message in request queue
-                self._request_queue.put((conn, packet))
-        else:
-            queue.put((conn, packet))
+        return self.message_table.pop(key, None)
 
     def register(self, conn, msg_id, queue):
         """Register an expectation for a reply. Thanks to GIL, it is

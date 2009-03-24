@@ -173,7 +173,7 @@ class ConnectionPool(object):
 class Application(object):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, em, dispatcher, request_queue, connector, **kw):
+    def __init__(self, master_nodes, name, em, dispatcher, connector, **kw):
         logging.basicConfig(level = logging.DEBUG)
         logging.debug('master node address are %s' %(master_nodes,))
         # Internal Attributes common to all thread
@@ -184,7 +184,6 @@ class Application(object):
         self.nm = NodeManager()
         self.cp = ConnectionPool(self)
         self.pt = None
-        self.request_queue = request_queue
         self.primary_master_node = None
         self.master_node_list = master_nodes.split(' ')
         self.master_conn = None
@@ -235,20 +234,16 @@ class Application(object):
 
     def _waitMessage(self, target_conn = None, msg_id = None):
         """Wait for a message returned by the dispatcher in queues."""
-        global_queue = self.request_queue
         local_queue = self.getQueue()
 
         while 1:
-            try:
-                conn, packet = global_queue.get_nowait()
-            except Empty:
-                if msg_id is None:
-                    try:
-                        conn, packet = local_queue.get_nowait()
-                    except Empty:
-                        break
-                else:
-                    conn, packet = local_queue.get()
+            if msg_id is None:
+                try:
+                    conn, packet = local_queue.get_nowait()
+                except Empty:
+                    break
+            else:
+                conn, packet = local_queue.get()
 
             if packet is None:
                 if conn is target_conn:

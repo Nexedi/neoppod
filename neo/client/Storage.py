@@ -40,18 +40,14 @@ class Storage(BaseStorage.BaseStorage,
         l = Lock()
         self._txn_lock_acquire = l.acquire
         self._txn_lock_release = l.release
-        # Create a queue for message between thread and dispatcher
-        # - request queue is for message receive from other node which have to
-        # be processed
-        request_queue = Queue()
         # Create the event manager
         em = EventManager()
         # Create dispatcher thread
-        dispatcher = Dispatcher(em, request_queue)
+        dispatcher = Dispatcher(em)
         dispatcher.setDaemon(True)
         connector_handler = getattr(Connector, connector)
         self.app = Application(master_nodes, name, em, dispatcher,
-                               request_queue, connector_handler)
+                               connector_handler)
         # Connect to primary master node
         dispatcher.connectToPrimaryMasterNode(self.app, self.app.connector_handler)
         # Start dispatcher
