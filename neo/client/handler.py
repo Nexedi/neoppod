@@ -41,8 +41,9 @@ class ClientEventHandler(EventHandler):
         self.dispatcher = dispatcher
         EventHandler.__init__(self)
 
-    def dispatch(self, conn, packet):
+    def packetReceived(self, conn, packet):
         """Redirect all received packet to dispatcher thread."""
+        EventHandler.packetReceived(self, conn, packet)
         self.dispatcher.dispatch(conn, packet)
 
     def _dealWithStorageFailure(self, conn, node, state):
