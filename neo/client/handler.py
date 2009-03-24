@@ -101,9 +101,7 @@ class ClientEventHandler(EventHandler):
         elif self.app.primary_master_node is not None and uuid == \
                  self.app.primary_master_node.getUUID():
             logging.critical("connection to primary master node failed")
-            if self.dispatcher.connecting_to_master_node == 0:
-                logging.critical("trying reconnection to master node...")
-                self.dispatcher.connectToPrimaryMasterNode(app, conn)
+            self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             # Connection to a storage node failed
             node = app.nm.getNodeByServer(conn.getAddress())
@@ -124,9 +122,7 @@ class ClientEventHandler(EventHandler):
             app.master_conn.close()
             app.master_conn = None
             app.primary_master_node = None
-            if self.dispatcher.connecting_to_master_node == 0:
-                logging.critical("trying reconnection to master node...")
-                self.dispatcher.connectToPrimaryMasterNode(app, conn)
+            self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
             if isinstance(node, StorageNode):
@@ -145,9 +141,7 @@ class ClientEventHandler(EventHandler):
             app.primary_master_node = -1
         if app.master_conn is not None and uuid == app.primary_master_node.getUUID():
             logging.critical("connection timeout to primary master node expired")
-            if self.dispatcher.connecting_to_master_node == 0:
-                logging.critical("trying reconnection to master node...")
-                self.dispatcher.connectToPrimaryMasterNode(app, conn)
+            self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
             if isinstance(node, StorageNode):
@@ -165,9 +159,7 @@ class ClientEventHandler(EventHandler):
             app.primary_master_node = -1
         if app.master_conn is not None and uuid == app.primary_master_node.getUUID():
             logging.critical("primary master node is broken")
-            if self.dispatcher.connecting_to_master_node == 0:
-                logging.critical("trying reconnection to master node...")
-                self.dispatcher.connectToPrimaryMasterNode(app, conn)
+            self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
             if isinstance(node, StorageNode):
