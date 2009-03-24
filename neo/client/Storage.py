@@ -67,7 +67,9 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.close()
 
     def cleanup(self):
-        raise NotImplementedError
+        # Used in unit tests to remove local database files.
+        # We have no such thing, so make this method a no-op.
+        pass
 
     def lastSerial(self):
         # does not seem to be used
