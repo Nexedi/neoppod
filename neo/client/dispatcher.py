@@ -53,10 +53,11 @@ class Dispatcher(Thread):
         key = (id(conn), msg_id)
         self.message_table[key] = queue
 
-    def registered(self, id):
+    def registered(self, conn):
         """Check if a connection is registered into message table."""
+        searched_id = id(conn)
         for conn_id, msg_id in self.message_table.iterkeys():
-            if id == conn_id:
+            if searched_id == conn_id:
                 return True
         return False
 
