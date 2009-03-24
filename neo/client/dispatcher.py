@@ -47,6 +47,24 @@ class Dispatcher(Thread):
                 # This happen when there is no connection
                 logging.error('Dispatcher, run, poll returned a KeyError')
 
+    def dispatch(self, conn, packet):
+        key = (id(conn), packet.getId())
+        queue = self.message_table.pop(key, None)
+        if queue is None:
+            method_type = packet.getType()
+            if method_type == PING:
+                # must answer with no delay
+                conn.lock()
+                try:
+                    conn.addPacket(Packet().pong(packet.getId()))
+                finally:
+                    conn.unlock()
+            else:
+                # put message in request queue
+                self._request_queue.put((conn, packet))
+        else:
+            queue.put((conn, packet))
+
     def register(self, conn, msg_id, queue):
         """Register an expectation for a reply. Thanks to GIL, it is
         safe not to use a lock here."""

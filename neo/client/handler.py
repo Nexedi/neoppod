@@ -22,7 +22,7 @@ from neo.connection import MTClientConnection
 from neo.protocol import Packet, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
-        BROKEN_STATE, PING
+        BROKEN_STATE
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.pt import PartitionTable
 from neo.client.exception import NEOStorageError
@@ -43,24 +43,7 @@ class ClientEventHandler(EventHandler):
 
     def dispatch(self, conn, packet):
         """Redirect all received packet to dispatcher thread."""
-        dispatcher = self.dispatcher
-        # Send message to waiting thread
-        key = (id(conn), packet.getId())
-        if key in dispatcher.message_table:
-            queue = dispatcher.message_table.pop(key)
-            queue.put((conn, packet))
-        else:
-            method_type = packet.getType()
-            if method_type == PING:
-                # must answer with no delay
-                conn.lock()
-                try:
-                    conn.addPacket(Packet().pong(packet.getId()))
-                finally:
-                    conn.unlock()
-            else:
-                # put message in request queue
-                dispatcher._request_queue.put((conn, packet))
+        self.dispatcher.dispatch(conn, packet)
 
     def _dealWithStorageFailure(self, conn, node, state):
         app = self.app
