@@ -75,8 +75,11 @@ class Epoll(object):
         self.events = epoll_event_array()
 
     def poll(self, timeout = 1):
-        timeout *= 1000
-        timeout = int(timeout)
+        if timeout is None:
+            timeout = -1
+        else:
+            timeout *= 1000
+            timeout = int(timeout)
         while 1:
             n = epoll_wait(self.efd, byref(self.events), self.maxevents, 
                            timeout)
