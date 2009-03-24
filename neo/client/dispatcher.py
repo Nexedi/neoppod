@@ -41,7 +41,6 @@ class Dispatcher(Thread):
     def run(self):
         while 1:
             # First check if we receive any new message from other node
-            m = None
             try:
                 self.em.poll()
             except KeyError:
