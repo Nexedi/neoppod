@@ -196,7 +196,7 @@ class ClientEventHandler(EventHandler):
                     p.askPrimaryMaster(msg_id)
                     conn.addPacket(p)
                     conn.expectMessage(msg_id)
-                    app.dispatcher.register(conn, msg_id, app.getQueue())
+                    self.dispatcher.register(conn, msg_id, app.getQueue())
                 finally:
                     conn.unlock()
             elif node_type == STORAGE_NODE_TYPE:
