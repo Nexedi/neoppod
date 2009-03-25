@@ -344,6 +344,11 @@ class VerificationEventHandler(MasterEventHandler):
         logging.info('got unfinished transactions %s from %s:%d', 
                 tid_list, *(conn.getAddress()))
         app = self.app
+        node = app.nm.getNodeByUUID(uuid)
+        if not isinstance(node, StorageNode):
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
@@ -361,6 +366,11 @@ class VerificationEventHandler(MasterEventHandler):
         logging.info('got OIDs %s for %s from %s:%d', 
                 oid_list, tid, *(conn.getAddress()))
         app = self.app
+        node = app.nm.getNodeByUUID(uuid)
+        if not isinstance(node, StorageNode):
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
@@ -384,6 +394,11 @@ class VerificationEventHandler(MasterEventHandler):
 
         logging.info('TID not found: %s', message)
         app = self.app
+        node = app.nm.getNodeByUUID(uuid)
+        if not isinstance(node, StorageNode):
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
@@ -399,6 +414,11 @@ class VerificationEventHandler(MasterEventHandler):
 
         logging.info('object %s:%s found', dump(oid), dump(tid))
         app = self.app
+        node = app.nm.getNodeByUUID(uuid)
+        if not isinstance(node, StorageNode):
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
@@ -413,6 +433,11 @@ class VerificationEventHandler(MasterEventHandler):
 
         logging.info('OID not found: %s', message)
         app = self.app
+        node = app.nm.getNodeByUUID(uuid)
+        if not isinstance(node, StorageNode):
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
