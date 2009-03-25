@@ -156,14 +156,24 @@ class PartitionTable(object):
         return len(self.partition_list[offset]) > 0
 
     def log(self):
-        """Help debugging partition table management."""
-        node_list = self.count_dict.keys()
-        node_list.sort()
-        node_dict = {}
-        for i, node in enumerate(node_list):
-            node_dict[node] = i
-        for node, i in node_dict.iteritems():
-            logging.debug('pt: node %d: %s', i, dump(node.getUUID()))
+        """Help debugging partition table management.
+
+        Output sample:
+        DEBUG:root:pt: node 0: ad7ffe8ceef4468a0c776f3035c7a543, R
+        DEBUG:root:pt: node 1: a68a01e8bf93e287bd505201c1405bc2, R
+        DEBUG:root:pt: node 2: 67ae354b4ed240a0594d042cf5c01b28, R
+        DEBUG:root:pt: node 3: df57d7298678996705cd0092d84580f4, R
+        DEBUG:root:pt: 00000000: .UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.
+        DEBUG:root:pt: 00000009: U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U
+
+        Here, there are 4 nodes in RUNNING_STATE.
+        The first partition has 2 replicas in UP_TO_DATE_STATE, on nodes 1 and
+        2 (nodes 0 and 4 are displayed as unused for that partition by
+        displaying a dot).
+        The 8-digits number on the left represents the number of the first
+        partition on the line (here, line length is 9 to keep the docstring
+        width under 80 column).
+        """
         node_state_dict = { RUNNING_STATE: 'R',
                             TEMPORARILY_DOWN_STATE: 'T',
                             DOWN_STATE: 'D',
@@ -171,17 +181,36 @@ class PartitionTable(object):
         cell_state_dict = { UP_TO_DATE_STATE: 'U', 
                             OUT_OF_DATE_STATE: 'O', 
                             FEEDING_STATE: 'F' }
+        node_list = self.count_dict.keys()
+        node_list.sort()
+        node_dict = {}
+        for i, node in enumerate(node_list):
+            node_dict[node] = i
+        for node, i in node_dict.iteritems():
+            logging.debug('pt: node %d: %s, %s', i, dump(node.getUUID()),
+                          node_state_dict[node.getState()])
+        line = []
+        max_line_len = 20 # XXX: hardcoded number of partitions per line
         for offset, row in enumerate(self.partition_list):
-            desc_list = []
+            if len(line) == max_line_len:
+                logging.debug('pt: %08d: %s', offset - max_line_len,
+                              '|'.join(line))
+                line = []
             if row is None:
-                desc_list.append('None')
+                line.append('X' * len(node_list))
             else:
-                for cell in row:
-                    i = node_dict[cell.getNode()]
-                    cell_state = cell_state_dict[cell.getState()]
-                    node_state = node_state_dict[cell.getNodeState()]
-                    desc_list.append('%d %s %s' % (i, cell_state, node_state))
-            logging.debug('pt: row %d: %s', offset, ', '.join(desc_list))
+                cell = []
+                cell_dict = dict([(node_dict[x.getNode()], x) for x in row])
+                for node in xrange(len(node_list)):
+                    if node in cell_dict:
+                        cell.append(cell_state_dict[cell_dict[node].getState()])
+                    else:
+                        cell.append('.')
+                line.append(''.join(cell))
+        if len(line):
+            logging.debug('pt: %08d: %s', offset - len(line),
+                          '|'.join(line))
+
 
     def operational(self):        
         if not self.filled():
