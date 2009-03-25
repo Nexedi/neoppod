@@ -573,7 +573,7 @@ server: 127.0.0.1:10023
         election.handleAskPrimaryMaster(conn, packet)        
         self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        self.checkCalledAnswerPrimaryMaster(conn, 1)
+        self.checkCalledAnswerPrimaryMaster(conn, 0)
 
     def test_12_handleAnnouncePrimaryMaster(self):
         election = self.election
