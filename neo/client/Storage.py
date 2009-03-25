@@ -26,7 +26,6 @@ from neo.client.app import Application
 from neo.client.exception import NEOStorageConflictError, NEOStorageNotFoundError
 from neo.event import EventManager
 from neo.util import dump
-from neo import connector as Connector
 
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
@@ -45,9 +44,7 @@ class Storage(BaseStorage.BaseStorage,
         # Create dispatcher thread
         dispatcher = Dispatcher(em)
         dispatcher.setDaemon(True)
-        connector_handler = getattr(Connector, connector)
-        self.app = Application(master_nodes, name, em, dispatcher,
-                               connector_handler)
+        self.app = Application(master_nodes, name, em, dispatcher, connector)
         # Connect to primary master node
         dispatcher.connectToPrimaryMasterNode(self.app, self.app.connector_handler)
         # Start dispatcher
