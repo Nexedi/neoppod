@@ -222,6 +222,14 @@ server: 127.0.0.1:10023
         self.assertEquals(packet.getType(), ANSWER_LAST_IDS)
         return packet._decodeAnswerLastIDs()
 
+    def checkCalledAskLastIDs(self, conn, packet_number=0):
+        """ Check start operation message has been send"""
+        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        packet = call.getParam(0)
+        self.assertTrue(isinstance(packet, Packet))
+        self.assertEquals(packet.getType(), ASK_LAST_IDS)
+        return packet._decodeAskLastIDs()
+
     # Tests
     def test_01_connectionClosed(self):
         uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
@@ -527,6 +535,7 @@ server: 127.0.0.1:10023
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
         self.checkCalledAnswerPrimaryMaster(conn, 0)
         self.checkCalledNotifyNodeInformation(conn, 1)
+        self.checkCalledAskLastIDs(conn, 2)
 
 
     def test_06_handleAnnouncePrimaryMaster(self):
