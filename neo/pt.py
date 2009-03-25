@@ -111,7 +111,7 @@ class PartitionTable(object):
 
         self.num_filled_rows = self.np
 
-    def setCell(self, offset, node, state):        
+    def setCell(self, offset, node, state):
         if state == DISCARDED_STATE:
             return self.removeCell(offset, node)
         if node.getState() in (BROKEN_STATE, DOWN_STATE):
@@ -153,7 +153,7 @@ class PartitionTable(object):
         return self.num_filled_rows == self.np
 
     def hasOffset(self, offset):
-        return self.partition_list[offset] is not None
+        return len(self.partition_list[offset]) > 0
 
     def log(self):
         """Help debugging partition table management."""
