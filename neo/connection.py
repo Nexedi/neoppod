@@ -22,6 +22,26 @@ from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent
 from neo.connector import *
 
+def lockCheckWrapper(func):
+    """
+    This function is to be used as a wrapper around
+    MT(Client|Server)Connection class methods.
+
+    It uses a "_" method on RLock class, so it might stop working without
+    notice (sadly, RLock does not offer any "acquired" method, but that one
+    will do as it checks that current thread holds this lock).
+
+    It requires moniroted class to have an RLock instance in self._lock
+    property.
+    """
+    def wrapper(self, *args, **kw):
+        if not self._lock._is_owned():
+            import traceback
+            logging.warning('%s called on %s instance without being locked. Stack:\n%s', func.func_code.co_name, self.__class__.__name__, ''.join(traceback.format_stack()))
+        # Call anyway
+        return func(self, *args, **kw)
+    return wrapper
+
 class BaseConnection(object):
     """A base connection."""
 
@@ -334,7 +354,8 @@ class ServerConnection(Connection):
 class MTClientConnection(ClientConnection):
     """A Multithread-safe version of ClientConnection."""
     def __init__(self, *args, **kwargs):
-        lock = RLock()
+        # _lock is only here for lock debugging purposes. Do not use.
+        self._lock = lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
         super(MTClientConnection, self).__init__(*args, **kwargs)
@@ -345,10 +366,43 @@ class MTClientConnection(ClientConnection):
     def unlock(self):
         self.release()
 
+    @lockCheckWrapper
+    def recv(self, *args, **kw):
+        return super(MTClientConnection, self).recv(*args, **kw)
+
+    @lockCheckWrapper
+    def send(self, *args, **kw):
+        return super(MTClientConnection, self).send(*args, **kw)
+
+    @lockCheckWrapper
+    def writable(self, *args, **kw):
+        return super(MTClientConnection, self).writable(*args, **kw)
+
+    @lockCheckWrapper
+    def readable(self, *args, **kw):
+        return super(MTClientConnection, self).readable(*args, **kw)
+
+    @lockCheckWrapper
+    def analyse(self, *args, **kw):
+        return super(MTClientConnection, self).analyse(*args, **kw)
+
+    @lockCheckWrapper
+    def addPacket(self, *args, **kw):
+        return super(MTClientConnection, self).addPacket(*args, **kw)
+
+    @lockCheckWrapper
+    def getNextId(self, *args, **kw):
+        return super(MTClientConnection, self).getNextId(*args, **kw)
+
+    @lockCheckWrapper
+    def expectMessage(self, *args, **kw):
+        return super(MTClientConnection, self).expectMessage(*args, **kw)
+
 class MTServerConnection(ServerConnection):
     """A Multithread-safe version of ServerConnection."""
     def __init__(self, *args, **kwargs):
-        lock = RLock()
+        # _lock is only here for lock debugging purposes. Do not use.
+        self._lock = lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
         super(MTServerConnection, self).__init__(*args, **kwargs)
@@ -358,4 +412,36 @@ class MTServerConnection(ServerConnection):
 
     def unlock(self):
         self.release()
+
+    @lockCheckWrapper
+    def recv(self, *args, **kw):
+        return super(MTServerConnection, self).recv(*args, **kw)
+
+    @lockCheckWrapper
+    def send(self, *args, **kw):
+        return super(MTServerConnection, self).send(*args, **kw)
+
+    @lockCheckWrapper
+    def writable(self, *args, **kw):
+        return super(MTServerConnection, self).writable(*args, **kw)
+
+    @lockCheckWrapper
+    def readable(self, *args, **kw):
+        return super(MTServerConnection, self).readable(*args, **kw)
+
+    @lockCheckWrapper
+    def analyse(self, *args, **kw):
+        return super(MTServerConnection, self).analyse(*args, **kw)
+
+    @lockCheckWrapper
+    def addPacket(self, *args, **kw):
+        return super(MTServerConnection, self).addPacket(*args, **kw)
+
+    @lockCheckWrapper
+    def getNextId(self, *args, **kw):
+        return super(MTServerConnection, self).getNextId(*args, **kw)
+
+    @lockCheckWrapper
+    def expectMessage(self, *args, **kw):
+        return super(MTServerConnection, self).expectMessage(*args, **kw)
 
