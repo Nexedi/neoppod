@@ -18,7 +18,23 @@
 import socket
 import errno
 import logging
-from neo.master.tests.connector import *
+
+# Global connector registry.
+# Fill by calling registerConnectorHandler.
+# Read by calling getConnectorHandler.
+connector_registry = {}
+
+def registerConnectorHandler(connector_handler):
+  connector_registry[connector_handler.__name__] = connector_handler
+
+def getConnectorHandler(connector):
+  if isinstance(connector, basestring):
+    connector_handler = connector_registry.get(connector)
+  else:
+    # Allow to directly provide a handler class without requiring to register
+    # it first.
+    connector_handler = connector
+  return connector_handler
 
 class SocketConnector:
   """ This class is a wrapper for a socket """
@@ -99,6 +115,7 @@ class SocketConnector:
         logging.error('send: %s', m[1])        
         raise
 
+registerConnectorHandler(SocketConnector)
 
 class ConnectorTryAgainException(Exception): pass
 class ConnectorInProgressException(Exception): pass  

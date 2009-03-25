@@ -35,7 +35,7 @@ from neo.client.handler import ClientEventHandler
 from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
      NEOStorageNotFoundError
 from neo.util import makeChecksum, dump
-from neo import connector as Connector
+from neo.connector import getConnectorHandler
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.utils import p64, u64, oid_repr
@@ -180,7 +180,7 @@ class Application(object):
         # Internal Attributes common to all thread
         self.name = name
         self.em = em
-        self.connector_handler = getattr(Connector, connector)
+        self.connector_handler = getConnectorHandler(connector)
         self.dispatcher = dispatcher
         self.nm = NodeManager()
         self.cp = ConnectionPool(self)

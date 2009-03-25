@@ -36,7 +36,7 @@ from neo.master.service import ServiceEventHandler
 from neo.master.secondary import SecondaryEventHandler
 from neo.pt import PartitionTable
 from neo.util import dump
-from neo import connector
+from neo.connector import getConnectorHandler
 
 class Application(object):
     """The master node application."""
@@ -47,8 +47,7 @@ class Application(object):
         self.num_replicas = config.getReplicas()
         self.num_partitions = config.getPartitions()
         self.name = config.getName()
-        connector_handler = config.getConnector()
-        self.connector_handler = getattr(connector, connector_handler)
+        self.connector_handler = getConnectorHandler(config.getConnector())
         logging.debug('the number of replicas is %d, the number of partitions is %d, the name is %s',
                       self.num_replicas, self.num_partitions, self.name)
 
