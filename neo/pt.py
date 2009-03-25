@@ -153,7 +153,10 @@ class PartitionTable(object):
         return self.num_filled_rows == self.np
 
     def hasOffset(self, offset):
-        return len(self.partition_list[offset]) > 0
+        try:
+            return len(self.partition_list[offset]) > 0
+        except IndexError:
+            return False
 
     def log(self):
         """Help debugging partition table management.
