@@ -200,6 +200,13 @@ server: 127.0.0.1:10023
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
 
+    def checkCalledAnswerPrimaryMaster(self, conn, packet_number=0):
+        """ Check Answer primaty master message has been send"""
+        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        packet = call.getParam(0)
+        self.assertTrue(isinstance(packet, Packet))
+        self.assertEquals(packet.getType(), ANSWER_PRIMARY_MASTER)
+
     # Tests
     def test_01_connectionStarted(self):
         uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
@@ -566,7 +573,7 @@ server: 127.0.0.1:10023
         election.handleAskPrimaryMaster(conn, packet)        
         self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        conn.checkCalledAnswerPrimaryMaster(conn, 1)
+        self.checkCalledAnswerPrimaryMaster(conn, 1)
 
     def test_12_handleAnnouncePrimaryMaster(self):
         election = self.election
