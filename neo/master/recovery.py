@@ -37,9 +37,6 @@ class RecoveryEventHandler(MasterEventHandler):
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
                 app.broadcastNodeInformation(node)
-                if isinstance(node, ClientNode):
-                    # If this node is a client, just forget it.
-                    app.nm.remove(node)
         MasterEventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
@@ -50,9 +47,6 @@ class RecoveryEventHandler(MasterEventHandler):
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
                 app.broadcastNodeInformation(node)
-                if isinstance(node, ClientNode):
-                    # If this node is a client, just forget it.
-                    app.nm.remove(node)
         MasterEventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
@@ -63,9 +57,6 @@ class RecoveryEventHandler(MasterEventHandler):
             if node.getState() != BROKEN_STATE:
                 node.setState(BROKEN_STATE)
                 app.broadcastNodeInformation(node)
-                if isinstance(node, ClientNode):
-                    # If this node is a client, just forget it.
-                    app.nm.remove(node)
         MasterEventHandler.peerBroken(self, conn)
 
     def packetReceived(self, conn, packet):
