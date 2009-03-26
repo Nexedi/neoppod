@@ -26,6 +26,7 @@ class ConfigurationManager:
                            'user' : 'test',
                            'password' : None,
                            'server' : '127.0.0.1',
+                           'connector' : 'SocketConnector',
                            'master_nodes' : '',
                            'replicas' : '1',
                            'partitions' : '1009',
