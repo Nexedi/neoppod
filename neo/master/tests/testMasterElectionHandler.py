@@ -63,7 +63,7 @@ ClientConnection.addPacket = addPacket
 ClientConnection.expectMessage = expectMessage
 
 
-class MasterServiceTests(unittest.TestCase):
+class MasterElectionTests(unittest.TestCase):
 
     def setUp(self):
         logging.basicConfig(level = logging.DEBUG)

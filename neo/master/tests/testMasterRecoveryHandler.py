@@ -50,20 +50,7 @@ from neo.node import MasterNode, StorageNode
 from neo.master.tests.connector import DoNothingConnector
 from neo.connection import ClientConnection
 
-# patch connection so that we can register addPacket messages
-# in mock object
-def addPacket(self, packet):
-    if self.connector is not None:
-        self.connector.addPacket(packet)
-def expectMessage(self, packet):
-    if self.connector is not None:
-        self.connector.expectMessage(packet)
-
-ClientConnection.addPacket = addPacket
-ClientConnection.expectMessage = expectMessage
-
-
-class MasterServiceTests(unittest.TestCase):
+class MasterRecoveryTests(unittest.TestCase):
 
     def setUp(self):
         logging.basicConfig(level = logging.DEBUG)
