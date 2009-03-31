@@ -48,11 +48,11 @@ class Node(object):
 
     def setServer(self, server):
         if self.server != server:
-            if self.server is not None:
+            if self.server is not None and self.manager is not None:
                 self.manager.unregisterServer(self)
 
             self.server = server
-            if server is not None:
+            if server is not None and self.manager is not None:
                 self.manager.registerServer(self)
 
     def getServer(self):
@@ -60,11 +60,11 @@ class Node(object):
 
     def setUUID(self, uuid):
         if self.uuid != uuid:
-            if self.uuid is not None:
+            if self.uuid is not None and self.manager is not None:
                 self.manager.unregisterUUID(self)
 
             self.uuid = uuid
-            if uuid is not None:
+            if uuid is not None and self.manager is not None:
                 self.manager.registerUUID(self)
 
     def getUUID(self):
@@ -146,3 +146,4 @@ class NodeManager(object):
 
     def getNodeByUUID(self, uuid):
         return self.uuid_dict.get(uuid)
+    
