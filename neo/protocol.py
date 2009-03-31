@@ -27,7 +27,7 @@ PROTOCOL_VERSION = (4, 0)
 # Size restrictions.
 MIN_PACKET_SIZE = 10
 MAX_PACKET_SIZE = 0x100000
-
+PACKET_HEADER_SIZE = 10
 # Message types.
 
 # Error is a special type of message, because this can be sent against any other message,
@@ -252,7 +252,7 @@ class Packet(object):
         # logging.debug('parsing %s', dump(msg))
         if len(msg) < MIN_PACKET_SIZE:
             return None
-        msg_id, msg_type, msg_len = unpack('!LHL', msg[:10])
+        msg_id, msg_type, msg_len = unpack('!LHL', msg[:PACKET_HEADER_SIZE])
         if msg_len > MAX_PACKET_SIZE:
             raise ProtocolError(cls(msg_id, msg_type),
                                 'message too big (%d)' % msg_len)
@@ -262,7 +262,7 @@ class Packet(object):
         if len(msg) < msg_len:
             # Not enough.
             return None
-        return cls(msg_id, msg_type, msg[10:msg_len])
+        return cls(msg_id, msg_type, msg[PACKET_HEADER_SIZE:msg_len])
 
     def __init__(self, msg_id = None, msg_type = None, body = None):
         self._id = msg_id
@@ -276,11 +276,11 @@ class Packet(object):
         return self._type
 
     def __len__(self):
-        return 10 + len(self._body)
+        return PACKET_HEADER_SIZE + len(self._body)
 
     # Encoders.
     def encode(self):
-        msg = pack('!LHL', self._id, self._type, 10 + len(self._body)) + self._body
+        msg = pack('!LHL', self._id, self._type, PACKET_HEADER_SIZE + len(self._body)) + self._body
         logging.debug('encoding %d:%x', self._id, self._type)
         if len(msg) > MAX_PACKET_SIZE:
             raise RuntimeError('message too big (%d)' % len(msg))
