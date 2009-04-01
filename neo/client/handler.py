@@ -327,7 +327,6 @@ class ClientEventHandler(EventHandler):
             self.handleUnexpectedPacket(conn, packet)
             return
 
-        app = self.app
         node = app.nm.getNodeByUUID(uuid)
         # This must be sent only by primary master node
         if node.getNodeType() != MASTER_NODE_TYPE \
