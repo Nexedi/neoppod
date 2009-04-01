@@ -105,7 +105,7 @@ class ClientEventHandler(EventHandler):
         if app.primary_master_node is None:
             # Failed to connect to a master node
             app.primary_master_node = -1
-        if app.master_conn is not None and uuid == app.master_conn.getUUID():
+        elif app.master_conn is not None and uuid == app.master_conn.getUUID():
             logging.critical("connection to primary master node closed")
             # Close connection
             app.master_conn.close()
@@ -128,7 +128,7 @@ class ClientEventHandler(EventHandler):
         if app.primary_master_node is None:
             # Failed to connect to a master node
             app.primary_master_node = -1
-        if app.master_conn is not None and uuid == app.primary_master_node.getUUID():
+        elif app.master_conn is not None and uuid == app.primary_master_node.getUUID():
             logging.critical("connection timeout to primary master node expired")
             self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
@@ -146,7 +146,7 @@ class ClientEventHandler(EventHandler):
         if app.primary_master_node is None:
             # Failed to connect to a master node
             app.primary_master_node = -1
-        if app.master_conn is not None and uuid == app.primary_master_node.getUUID():
+        elif app.master_conn is not None and uuid == app.primary_master_node.getUUID():
             logging.critical("primary master node is broken")
             self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
