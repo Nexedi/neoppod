@@ -276,7 +276,10 @@ class Packet(object):
         return self._type
 
     def __len__(self):
-        return PACKET_HEADER_SIZE + len(self._body)
+        try:
+            return PACKET_HEADER_SIZE + len(self._body)
+        except TypeError:
+            return PACKET_HEADER_SIZE
 
     # Encoders.
     def encode(self):
