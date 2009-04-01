@@ -327,18 +327,6 @@ class ClientEventHandler(EventHandler):
                     else:
                         n.setServer(addr)
                 elif node_type == CLIENT_NODE_TYPE:
-                    if uuid == INVALID_UUID:
-                        # No interest.
-                        continue
-                    if state == RUNNING_STATE:
-                        n = app.nm.getNodeByUUID(uuid)
-                        if n is None:
-                            n = ClientNode(server = addr, uuid = uuid)
-                            nm.add(n)
-                    else:
-                        n = app.nm.getNodeByUUID(uuid)
-                        if n is not None:
-                            app.nm.remove(n)
                     continue
 
                 n.setState(state)
