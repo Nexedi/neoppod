@@ -20,7 +20,7 @@ from threading import RLock
 
 from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent
-from neo.connector import *
+from neo.connector import ConnectorTryAgainException, ConnectorInProgressException
 
 def lockCheckWrapper(func):
     """
