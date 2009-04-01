@@ -36,10 +36,10 @@ class VerificationEventHandler(MasterEventHandler):
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
                 app.broadcastNodeInformation(node)
-                if isinstance(node, ClientNode):
+                if node.getNodeType() == CLIENT_NODE_TYPE:
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
-                elif isinstance(node, StorageNode):
+                elif node.getNodeType() == STORAGE_NODE_TYPE:
                     if not app.pt.operational():
                         # Catastrophic.
                         raise VerificationFailure, 'cannot continue verification'
@@ -53,10 +53,10 @@ class VerificationEventHandler(MasterEventHandler):
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
                 app.broadcastNodeInformation(node)
-                if isinstance(node, ClientNode):
+                if node.getNodeType() == CLIENT_NODE_TYPE:
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
-                elif isinstance(node, StorageNode):
+                elif node.getNodeType() == STORAGE_NODE_TYPE:
                     if not app.pt.operational():
                         # Catastrophic.
                         raise VerificationFailure, 'cannot continue verification'
@@ -70,10 +70,10 @@ class VerificationEventHandler(MasterEventHandler):
             if node.getState() != BROKEN_STATE:
                 node.setState(BROKEN_STATE)
                 app.broadcastNodeInformation(node)
-                if isinstance(node, ClientNode):
+                if node.getNodeType() == CLIENT_NODE_TYPE:
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
-                elif isinstance(node, StorageNode):
+                elif node.getNodeType() == STORAGE_NODE_TYPE:
                     cell_list = app.pt.dropNode(node)
                     ptid = app.getNextPartitionTableID()
                     app.broadcastPartitionChanges(ptid, cell_list)
@@ -127,7 +127,7 @@ class VerificationEventHandler(MasterEventHandler):
                 # address but with a different UUID.
                 if node.getUUID() is None:
                     # This must be a master node.
-                    if not isinstance(node, MasterNode) or node_type != MASTER_NODE_TYPE:
+                    if node.getNodeType() != MASTER_NODE_TYPE or node_type != MASTER_NODE_TYPE:
                         # Error. This node uses the same server address as a master
                         # node.
                         conn.addPacket(Packet().protocolError(packet.getId(),
@@ -233,7 +233,7 @@ class VerificationEventHandler(MasterEventHandler):
 
         # If this is a storage node, send the partition table.
         node = app.nm.getNodeByUUID(uuid)
-        if isinstance(node, StorageNode):
+        if node.getNodeType() == STORAGE_NODE_TYPE:
             # Split the packet if too huge.
             p = Packet()
             row_list = []
@@ -322,7 +322,7 @@ class VerificationEventHandler(MasterEventHandler):
         app = self.app
 
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -345,7 +345,7 @@ class VerificationEventHandler(MasterEventHandler):
                 tid_list, *(conn.getAddress()))
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -367,7 +367,7 @@ class VerificationEventHandler(MasterEventHandler):
                 oid_list, tid, *(conn.getAddress()))
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -395,7 +395,7 @@ class VerificationEventHandler(MasterEventHandler):
         logging.info('TID not found: %s', message)
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -415,7 +415,7 @@ class VerificationEventHandler(MasterEventHandler):
         logging.info('object %s:%s found', dump(oid), dump(tid))
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -434,7 +434,7 @@ class VerificationEventHandler(MasterEventHandler):
         logging.info('OID not found: %s', message)
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 

@@ -23,7 +23,8 @@ from struct import pack, unpack
 from neo.config import ConfigurationManager
 from neo.protocol import Packet, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, CLIENT_NODE_TYPE
+        INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, \
+        CLIENT_NODE_TYPE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
@@ -295,12 +296,12 @@ class Application(object):
             for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
                     n = self.nm.getNodeByUUID(c.getUUID())
-                    if isinstance(n, (MasterNode, StorageNode)):
+                    if n.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
                         p = Packet()
                         node_list = [(node_type, ip_address, port, uuid, state)]
                         p.notifyNodeInformation(c.getNextId(), node_list)
                         c.addPacket(p)
-        elif isinstance(node, (MasterNode, StorageNode)):
+        elif node.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
             for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
                     p = Packet()
@@ -316,7 +317,7 @@ class Application(object):
         for c in self.em.getConnectionList():
             if c.getUUID() is not None:
                 n = self.nm.getNodeByUUID(c.getUUID())
-                if isinstance(n, (ClientNode, StorageNode)):
+                if n.getNodeType() in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
                     # Split the packet if too big.
                     size = len(cell_list)
                     start = 0
@@ -358,7 +359,7 @@ class Application(object):
                     uuid = conn.getUUID()
                     if uuid is not None:
                         node = nm.getNodeByUUID(uuid)
-                        if isinstance(node, StorageNode) \
+                        if node.getNodeType() == STORAGE_NODE_TYPE \
                                 and node.getState() == RUNNING_STATE:
                             p = Packet()
                             msg_id = conn.getNextId()
@@ -539,7 +540,7 @@ class Application(object):
             uuid = conn.getUUID()
             if uuid is not None:
                 node = nm.getNodeByUUID(uuid)
-                if isinstance(node, StorageNode):
+                if node.getNodeType() == STORAGE_NODE_TYPE:
                     # Split the packet if too huge.
                     p = Packet()
                     row_list = []
@@ -577,7 +578,7 @@ class Application(object):
             uuid = conn.getUUID()
             if uuid is not None:
                 node = nm.getNodeByUUID(uuid)
-                if isinstance(node, StorageNode):
+                if node.getNodeType() == STORAGE_NODE_TYPE:
                     self.asking_uuid_dict[uuid] = False
                     p = Packet()
                     msg_id = conn.getNextId()
@@ -603,7 +604,7 @@ class Application(object):
                     uuid = conn.getUUID()
                     if uuid is not None:
                         node = nm.getNodeByUUID(uuid)
-                        if isinstance(node, StorageNode):
+                        if node.getNodeType() == STORAGE_NODE_TYPE:
                             p = Packet()
                             p.deleteTransaction(conn.getNextId(), tid)
                             conn.addPacket(p)
@@ -658,7 +659,7 @@ class Application(object):
             uuid = conn.getUUID()
             if uuid is not None:
                 node = nm.getNodeByUUID(uuid)
-                if isinstance(node, StorageNode):
+                if node.getNodeType() == STORAGE_NODE_TYPE:
                     conn.addPacket(Packet().startOperation(conn.getNextId()))
 
         # Now everything is passive.
@@ -696,9 +697,9 @@ class Application(object):
                     uuid = conn.getUUID()
                     if uuid is not None:
                         node = nm.getNodeByUUID(uuid)
-                        if isinstance(node, (StorageNode, ClientNode)):
+                        if node.getNodeType() in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE):
                             conn.addPacket(Packet().stopOperation(conn.getNextId()))
-                            if isinstance(node, ClientNode):
+                            if node.getNodeType() == CLIENT_NODE_TYPE:
                                 conn.abort()
 
                 # Then, go back, and restart.

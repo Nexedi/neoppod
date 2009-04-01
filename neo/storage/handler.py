@@ -84,7 +84,7 @@ class StorageEventHandler(EventHandler):
         if node is None:
             raise RuntimeError('I do not know the uuid %r' % dump(uuid))
 
-        if not isinstance(node, MasterNode):
+        if node.getNodeType() != MASTER_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -118,7 +118,7 @@ class StorageEventHandler(EventHandler):
 
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, MasterNode) \
+        if node.getNodeType() != MASTER_NODE_TYPE \
                 or app.primary_master_node is None \
                 or app.primary_master_node.getUUID() != uuid:
             return

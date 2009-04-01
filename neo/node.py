@@ -133,13 +133,13 @@ class NodeManager(object):
         return [n for n in self.node_list if filter(n)]
 
     def getMasterNodeList(self):
-        return self.getNodeList(filter = lambda node: isinstance(node, MasterNode))
+        return self.getNodeList(filter = lambda node: node.getNodeType() == MASTER_NODE_TYPE)
 
     def getStorageNodeList(self):
-        return self.getNodeList(filter = lambda node: isinstance(node, StorageNode))
+        return self.getNodeList(filter = lambda node: node.getNodeType() == STORAGE_NODE_TYPE)
 
     def getClientNodeList(self):
-        return self.getNodeList(filter = lambda node: isinstance(node, ClientNode))
+        return self.getNodeList(filter = lambda node: node.getNodeType() == CLIENT_NODE_TYPE)
 
     def getNodeByServer(self, server):
         return self.server_dict.get(server)

@@ -104,7 +104,7 @@ class RecoveryEventHandler(MasterEventHandler):
                 # address but with a different UUID.
                 if node.getUUID() is None:
                     # This must be a master node.
-                    if not isinstance(node, MasterNode) or node_type != MASTER_NODE_TYPE:
+                    if node.getNodeType() != MASTER_NODE_TYPE or node_type != MASTER_NODE_TYPE:
                         # Error. This node uses the same server address as a master
                         # node.
                         conn.addPacket(Packet().protocolError(packet.getId(),
@@ -210,7 +210,7 @@ class RecoveryEventHandler(MasterEventHandler):
 
         # If this is a storage node, ask the last IDs.
         node = app.nm.getNodeByUUID(uuid)
-        if isinstance(node, StorageNode):
+        if node.getNodeType() == STORAGE_NODE_TYPE:
             p = Packet()
             msg_id = conn.getNextId()
             p.askLastIDs(msg_id)
@@ -292,7 +292,7 @@ class RecoveryEventHandler(MasterEventHandler):
         app = self.app
 
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -320,7 +320,7 @@ class RecoveryEventHandler(MasterEventHandler):
 
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
         if uuid != app.target_uuid:

@@ -94,7 +94,7 @@ class ClientEventHandler(EventHandler):
         else:
             # Connection to a storage node failed
             node = app.nm.getNodeByServer(conn.getAddress())
-            if isinstance(node, StorageNode):
+            if node.getNodeType() == STORAGE_NODE_TYPE:
                 self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
 
         EventHandler.connectionFailed(self, conn)
@@ -114,7 +114,7 @@ class ClientEventHandler(EventHandler):
             self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
-            if isinstance(node, StorageNode):
+            if node.getNodeType() == STORAGE_NODE_TYPE:
                 # Notify primary master node that a storage node is temporarily down
                 logging.info("connection to storage node %s closed",
                              node.getServer())
@@ -133,7 +133,7 @@ class ClientEventHandler(EventHandler):
             self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
-            if isinstance(node, StorageNode):
+            if node.getNodeType() == STORAGE_NODE_TYPE:
                 # Notify primary master node that a storage node is
                 # temporarily down.
                 self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
@@ -151,7 +151,7 @@ class ClientEventHandler(EventHandler):
             self.dispatcher.connectToPrimaryMasterNode(app, conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
-            if isinstance(node, StorageNode):
+            if node.getNodeType() == STORAGE_NODE_TYPE:
                 self._dealWithStorageFailure(conn, node, BROKEN_STATE)
 
         EventHandler.peerBroken(self, conn)
@@ -222,7 +222,7 @@ class ClientEventHandler(EventHandler):
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
             # This must be sent only by primary master node
-            if not isinstance(node, MasterNode):
+            if node.getNodeType() != MASTER_NODE_TYPE:
                 return
             # Register new master nodes.
             for ip_address, port, uuid in known_master_list:
@@ -268,7 +268,7 @@ class ClientEventHandler(EventHandler):
             pt = app.pt
             node = app.nm.getNodeByUUID(uuid)
             # This must be sent only by primary master node
-            if not isinstance(node, MasterNode):
+            if node.getNodeType() != MASTER_NODE_TYPE:
                 return
 
             if app.ptid != ptid:
@@ -298,7 +298,7 @@ class ClientEventHandler(EventHandler):
             # This must be sent only by a primary master node.
             # Note that this may be sent before I know that it is
             # a primary master node.
-            if not isinstance(node, MasterNode):
+            if node.getNodeType() != MASTER_NODE_TYPE:
                 logging.warn('ignoring notify node information from %s',
                              dump(uuid))
                 return
@@ -358,7 +358,7 @@ class ClientEventHandler(EventHandler):
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
             # This must be sent only by primary master node
-            if not isinstance(node, MasterNode) \
+            if node.getNodeType() != MASTER_NODE_TYPE \
                    or app.primary_master_node is None \
                    or app.primary_master_node.getUUID() != uuid:
                 return

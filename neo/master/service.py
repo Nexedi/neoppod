@@ -20,7 +20,7 @@ from copy import copy
 
 from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
+        UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, STORAGE_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.protocol import Packet, INVALID_UUID
 from neo.exception import OperationFailure, ElectionFailure
@@ -77,13 +77,13 @@ class ServiceEventHandler(MasterEventHandler):
                 node.setState(TEMPORARILY_DOWN_STATE)
                 logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
-                if isinstance(node, ClientNode):
+                if node.getNodeType() == CLIENT_NODE_TYPE:
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
                     for tid, t in app.finishing_transaction_dict.items():
                         if t.getConnection() is conn:
                             del app.finishing_transaction_dict[tid]
-                elif isinstance(node, StorageNode):
+                elif node.getNodeType() == STORAGE_NODE_TYPE:
                     if not app.pt.operational():
                         # Catastrophic.
                         raise OperationFailure, 'cannot continue operation'
@@ -98,13 +98,13 @@ class ServiceEventHandler(MasterEventHandler):
                 node.setState(TEMPORARILY_DOWN_STATE)
                 logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
-                if isinstance(node, ClientNode):
+                if node.getNodeType() == CLIENT_NODE_TYPE:
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
                     for tid, t in app.finishing_transaction_dict.items():
                         if t.getConnection() is conn:
                             del app.finishing_transaction_dict[tid]
-                elif isinstance(node, StorageNode):
+                elif node.getNodeType() == STORAGE_NODE_TYPE:
                     if not app.pt.operational():
                         # Catastrophic.
                         raise OperationFailure, 'cannot continue operation'
@@ -119,13 +119,13 @@ class ServiceEventHandler(MasterEventHandler):
                 node.setState(BROKEN_STATE)
                 logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
-                if isinstance(node, ClientNode):
+                if node.getNodeType() == CLIENT_NODE_TYPE:
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
                     for tid, t in app.finishing_transaction_dict.items():
                         if t.getConnection() is conn:
                             del app.finishing_transaction_dict[tid]
-                elif isinstance(node, StorageNode):
+                elif node.getNodeType() == STORAGE_NODE_TYPE:
                     cell_list = app.pt.dropNode(node)
                     ptid = app.getNextPartitionTableID()
                     app.broadcastPartitionChanges(ptid, cell_list)
@@ -179,7 +179,7 @@ class ServiceEventHandler(MasterEventHandler):
                 # server address but with a different UUID.
                 if node.getUUID() is None:
                     # This must be a master node. XXX Why ??
-                    if not isinstance(node, MasterNode) \
+                    if node.getNodeType() != MASTER_NODE_TYPE \
                             or node_type != MASTER_NODE_TYPE:
                         # Error. This node uses the same server address as
                         # a master node.
@@ -266,7 +266,7 @@ class ServiceEventHandler(MasterEventHandler):
 
         conn.setUUID(uuid)
 
-        if isinstance(node, StorageNode):
+        if node.getNodeType() == STORAGE_NODE_TYPE:
             # If this is a storage node, add it into the partition table.
             # Note that this does no harm, even if the node is not new.
             if old_node is not None:
@@ -328,7 +328,7 @@ class ServiceEventHandler(MasterEventHandler):
 
         # If this is a storage node or a client node, send the partition table.
         node = app.nm.getNodeByUUID(uuid)
-        if isinstance(node, (StorageNode, ClientNode)):
+        if node.getNodeType() in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE):
             logging.debug('sending send partition table to %s:%d',
                           *(conn.getAddress()))
             # Split the packet if too huge.
@@ -345,7 +345,7 @@ class ServiceEventHandler(MasterEventHandler):
                 conn.addPacket(p)
 
         # If this is a storage node, ask it to start.
-        if isinstance(node, StorageNode):
+        if node.getNodeType() == STORAGE_NODE_TYPE:
             conn.addPacket(Packet().startOperation(conn.getNextId()))
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
@@ -417,7 +417,7 @@ class ServiceEventHandler(MasterEventHandler):
             logging.debug('broadcasting node information')
             app.broadcastNodeInformation(node)
 
-            if isinstance(node, StorageNode) \
+            if node.getNodeType() == STORAGE_NODE_TYPE \
                     and state in (DOWN_STATE, BROKEN_STATE):
                 cell_list = app.pt.dropNode(node)
                 if len(cell_list) != 0:
@@ -433,7 +433,7 @@ class ServiceEventHandler(MasterEventHandler):
         app = self.app
 
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -451,7 +451,7 @@ class ServiceEventHandler(MasterEventHandler):
         app = self.app
 
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, ClientNode):
+        if node.getNodeType() != CLIENT_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
         tid = app.getNextTID()
@@ -467,7 +467,7 @@ class ServiceEventHandler(MasterEventHandler):
         app = self.app
 
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, ClientNode):
+        if node.getNodeType() != CLIENT_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -483,7 +483,7 @@ class ServiceEventHandler(MasterEventHandler):
         app = self.app
 
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, ClientNode):
+        if node.getNodeType() != CLIENT_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -530,7 +530,7 @@ class ServiceEventHandler(MasterEventHandler):
         app = self.app
 
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -553,7 +553,7 @@ class ServiceEventHandler(MasterEventHandler):
                     uuid = c.getUUID()
                     if uuid is not None:
                         node = app.nm.getNodeByUUID(uuid)
-                        if isinstance(node, ClientNode):
+                        if node.getNodeType() == CLIENT_NODE_TYPE:
                             if c is t.getConnection():
                                 p.notifyTransactionFinished(t.getMessageId(), 
                                                             tid)
@@ -562,7 +562,7 @@ class ServiceEventHandler(MasterEventHandler):
                                 p.invalidateObjects(c.getNextId(), 
                                                     t.getOIDList(), tid)
                                 c.addPacket(p)
-                        elif isinstance(node, StorageNode):
+                        elif node.getNodeType() == STORAGE_NODE_TYPE:
                             if uuid in t.getUUIDSet():
                                 p.unlockInformation(c.getNextId(), tid)
                                 c.addPacket(p)
@@ -580,7 +580,7 @@ class ServiceEventHandler(MasterEventHandler):
         app = self.app
 
         node = app.nm.getNodeByUUID(uuid)
-        if not isinstance(node, ClientNode):
+        if node.getNodeType() != CLIENT_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
@@ -627,7 +627,7 @@ class ServiceEventHandler(MasterEventHandler):
             self.handleUnexpectedPacket(conn, packet)
             return
 
-        if not isinstance(node, StorageNode):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
 
