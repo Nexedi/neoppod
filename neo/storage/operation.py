@@ -73,7 +73,7 @@ class OperationEventHandler(StorageEventHandler):
         if uuid is not None:
             app = self.app
             node = app.nm.getNodeByUUID(uuid)
-            if node.getNodeType() == CLIENT_NODE_TYPE:
+            if node is not None and node.getNodeType() == CLIENT_NODE_TYPE:
                 for tid, t in app.transaction_dict.items():
                     if t.getUUID() == uuid:
                         for o in t.getObjectList():
