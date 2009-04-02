@@ -51,6 +51,16 @@ class ClientEventHandler(EventHandler):
         else:
             queue.put((conn, packet))
 
+    def dispatch(self, conn, packet):
+        # Before calling superclass's dispatch method, lock the connection.
+        # This covers the case where handler sends a response to received
+        # packet.
+        conn.lock()
+        try:
+            super(ClientEventHandler, self).dispatch(conn, packet)
+        finally:
+            conn.release()
+
     def _dealWithStorageFailure(self, conn, node, state):
         app = self.app
 

@@ -256,11 +256,7 @@ class Application(object):
                 else:
                     continue
 
-            conn.lock()
-            try:
-                conn.handler.dispatch(conn, packet)
-            finally:
-                conn.unlock()
+            conn.handler.dispatch(conn, packet)
 
             if target_conn is conn and msg_id == packet.getId() \
                     and packet.getType() & 0x8000:
