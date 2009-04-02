@@ -358,8 +358,8 @@ class MTClientConnection(ClientConnection):
         self._lock = lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
+        self.lock()
         try:
-            self.lock()
             super(MTClientConnection, self).__init__(*args, **kwargs)
         finally:
             self.unlock()
@@ -409,8 +409,8 @@ class MTServerConnection(ServerConnection):
         self._lock = lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
+        self.lock()
         try:
-            self.lock()
             super(MTServerConnection, self).__init__(*args, **kwargs)
         finally:
             self.unlock()
