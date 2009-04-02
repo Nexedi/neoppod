@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import logging
-from threading import RLock
+from neo.locking import RLock
 
 from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent

@@ -17,7 +17,7 @@
 
 import logging
 import os
-from threading import Lock, RLock, local
+from threading import local
 from cPickle import dumps, loads
 from zlib import compress, decompress
 from Queue import Queue, Empty
@@ -39,6 +39,7 @@ from neo.connector import getConnectorHandler
 from neo.client.dispatcher import Dispatcher
 from neo.client.poll import ThreadedPoll
 from neo.event import EventManager
+from neo.locking import RLock, Lock
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.utils import p64, u64, oid_repr
