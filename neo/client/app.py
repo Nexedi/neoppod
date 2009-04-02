@@ -73,7 +73,7 @@ class ConnectionPool(object):
             logging.info('trying to connect to %s:%d', *addr)
             app.local_var.node_not_ready = 0
             conn = MTClientConnection(app.em, app.handler, addr,
-                                      connector_handler=self.app.connector_handler)
+                                      connector_handler=app.connector_handler)
             conn.lock()
             try:
                 if conn.getConnector() is None:
