@@ -81,9 +81,6 @@ class Dispatcher(Thread):
                 app._waitMessage()
                 handler = ClientEventHandler(app, app.dispatcher)
                 while 1:
-                    if app.pt is not None and app.pt.operational():
-                        # Connected to primary master node and got all informations
-                        break
                     app.local_var.node_not_ready = 0
                     if app.primary_master_node is None:
                         # Try with master node defined in config
@@ -138,6 +135,9 @@ class Dispatcher(Thread):
                             elif app.pt is not None and app.pt.operational():
                                 # Connected to primary master node
                                 break
+                    if app.pt is not None and app.pt.operational():
+                        # Connected to primary master node and got all informations
+                        break
                     time.sleep(1)
 
                 logging.info("connected to primary master node %s:%d" %app.primary_master_node.getServer())
