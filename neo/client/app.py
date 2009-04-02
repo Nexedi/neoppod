@@ -67,13 +67,12 @@ class ConnectionPool(object):
             return None
 
         app = self.app
-        handler = ClientEventHandler(app, app.dispatcher)
 
         # Loop until a connection is obtained.
         while 1:
             logging.info('trying to connect to %s:%d', *addr)
             app.local_var.node_not_ready = 0
-            conn = MTClientConnection(app.em, handler, addr,
+            conn = MTClientConnection(app.em, app.handler, addr,
                                       connector_handler=self.app.connector_handler)
             conn.lock()
             try:
@@ -204,6 +203,7 @@ class Application(object):
         self.ptid = None
         self.num_replicas = 0
         self.num_partitions = 0
+        self.handler = ClientEventHandler(self, self.dispatcher)
         self.answer_handler = ClientAnswerEventHandler(self, self.dispatcher)
         # Transaction specific variable
         self.tid = None
@@ -925,7 +925,6 @@ class Application(object):
                 conn = None
                 # Make application execute remaining message if any
                 self._waitMessage()
-                handler = ClientEventHandler(self, self.dispatcher)
                 while 1:
                     self.local_var.node_not_ready = 0
                     if self.primary_master_node is None:
@@ -939,7 +938,7 @@ class Application(object):
                     else:
                         addr, port = self.primary_master_node.getServer()
                     # Request Node Identification
-                    conn = MTClientConnection(self.em, handler, (addr, port), connector_handler=connector_handler)
+                    conn = MTClientConnection(self.em, self.handler, (addr, port), connector_handler=connector_handler)
                     if self.nm.getNodeByServer((addr, port)) is None:
                         n = MasterNode(server = (addr, port))
                         self.nm.add(n)
