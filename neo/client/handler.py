@@ -39,7 +39,7 @@ class ClientEventHandler(EventHandler):
     def __init__(self, app, dispatcher):
         self.app = app
         self.dispatcher = dispatcher
-        EventHandler.__init__(self)
+        super(ClientEventHandler, self).__init__()
 
     def packetReceived(self, conn, packet):
         """Redirect all received packet to dispatcher thread."""
@@ -107,7 +107,7 @@ class ClientEventHandler(EventHandler):
             if node.getNodeType() == STORAGE_NODE_TYPE:
                 self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
 
-        EventHandler.connectionFailed(self, conn)
+        super(ClientEventHandler, self).connectionFailed(conn)
 
     def connectionClosed(self, conn):
         uuid = conn.getUUID()
@@ -130,7 +130,7 @@ class ClientEventHandler(EventHandler):
                              node.getServer())
                 self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
 
-        EventHandler.connectionClosed(self, conn)
+        super(ClientEventHandler, self).connectionClosed(conn)
 
     def timeoutExpired(self, conn):
         uuid = conn.getUUID()
@@ -148,7 +148,7 @@ class ClientEventHandler(EventHandler):
                 # temporarily down.
                 self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
 
-        EventHandler.timeoutExpired(self, conn)
+        super(ClientEventHandler, self).timeoutExpired(conn)
 
     def peerBroken(self, conn):
         uuid = conn.getUUID()
@@ -164,7 +164,7 @@ class ClientEventHandler(EventHandler):
             if node.getNodeType() == STORAGE_NODE_TYPE:
                 self._dealWithStorageFailure(conn, node, BROKEN_STATE)
 
-        EventHandler.peerBroken(self, conn)
+        super(ClientEventHandler, self).peerBroken(conn)
 
 
     def handleNotReady(self, conn, packet, message):
