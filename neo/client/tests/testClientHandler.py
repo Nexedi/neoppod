@@ -43,7 +43,7 @@ from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIF
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import ElectionFailure
 
-from neo.client.handler import ClientEventHandler
+from neo.client.handler import ClientEventHandler, ClientAnswerEventHandler
 from neo.node import StorageNode
 
 MARKER = []
@@ -227,7 +227,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         client_handler.handleNotReady(conn, None, None)
         self.assertEquals(app.local_var.node_not_ready, 1)
@@ -240,7 +240,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             pt = None
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         uuid = self.getUUID()
         client_handler.handleAcceptNodeIdentification(conn, None, CLIENT_NODE_TYPE,
@@ -261,7 +261,7 @@ class ClientEventHandlerTest(unittest.TestCase):
                 return None
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         uuid = self.getUUID()
         client_handler.handleAcceptNodeIdentification(conn, None, MASTER_NODE_TYPE,
@@ -286,7 +286,7 @@ class ClientEventHandlerTest(unittest.TestCase):
                 return None
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         uuid = self.getUUID()
         client_handler.handleAcceptNodeIdentification(conn, None, STORAGE_NODE_TYPE,
@@ -319,7 +319,7 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     # Master node handler
     def test_initialAnswerPrimaryMaster(self):
-        client_handler = ClientEventHandler(None, self.getDispatcher())
+        client_handler = ClientAnswerEventHandler(None, self.getDispatcher())
         conn = Mock({'getUUID': None})
         call_list = self._testHandleUnexpectedPacketCalledWithMedhod(
             client_handler, client_handler.handleAnswerPrimaryMaster,
@@ -334,7 +334,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             class App:
                 nm = Mock({'getNodeByUUID': node, 'getNodeByServer': None, 'add': None})
             app = App()
-            client_handler = ClientEventHandler(app, self.getDispatcher())
+            client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
             conn = self.getConnection()
             client_handler.handleAnswerPrimaryMaster(conn, None, 0, [])
             # Check that nothing happened
@@ -348,7 +348,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             # TODO: add an expectation on getNodeByUUID parameter: must be conn.getUUID()
             primary_master_node = None
         app = App()
-        client_handler = ClientEventHandler(app, self.getDispatcher())
+        client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
         test_master_list = [('127.0.0.1', 10010, self.getUUID())]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
@@ -375,7 +375,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             # TODO: add an expectation on getNodeByServer parameter: must be (ip_address, port)
             primary_master_node = None
         app = App()
-        client_handler = ClientEventHandler(app, self.getDispatcher())
+        client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
         test_node_uuid = self.getUUID()
         test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
@@ -402,7 +402,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             # TODO: add an expectation on getNodeByServer parameter: must be (ip_address, port)
             primary_master_node = None
         app = App()
-        client_handler = ClientEventHandler(app, self.getDispatcher())
+        client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
         test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
@@ -437,7 +437,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             # TODO: add an expectation on getNodeByServer parameter: must be (ip_address, port)
             primary_master_node = test_primary_master_node
         app = App()
-        client_handler = ClientEventHandler(app, self.getDispatcher())
+        client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
         # If primary master is already set *and* is not given primary master
         # handle call raises.
@@ -452,7 +452,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': node, 'add': None})
             primary_master_node = node
         app = App()
-        client_handler = ClientEventHandler(app, self.getDispatcher())
+        client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
         client_handler.handleAnswerPrimaryMaster(conn, None, test_node_uuid, [])
         # Check that primary node is (still) node.
@@ -469,7 +469,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             # TODO: add an expectation on getNodeByUUID parameter: must be conn.getUUID(), then test_primary_node_uuid
             primary_master_node = None
         app = App()
-        client_handler = ClientEventHandler(app, self.getDispatcher())
+        client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
         client_handler.handleAnswerPrimaryMaster(conn, None, test_primary_node_uuid, [])
         # Check that primary node was not updated.
@@ -484,7 +484,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             # TODO: add an expectation on getNodeByServer parameter: must be (ip_address, port)
             primary_master_node = None
         app = App()
-        client_handler = ClientEventHandler(app, self.getDispatcher())
+        client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
         test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
         client_handler.handleAnswerPrimaryMaster(conn, None, test_node_uuid, test_master_list)
@@ -822,7 +822,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             tid = None
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         test_tid = 1
         client_handler.handleAnswerNewTID(conn, None, test_tid)
@@ -834,7 +834,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             txn_finished = None
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         client_handler.handleNotifyTransactionFinished(conn, None, 1)
         self.assertEquals(app.txn_finished, 1)
@@ -878,7 +878,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             new_oid_list = []
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
         client_handler.handleAnswerNewOIDs(conn, None, test_oid_list[:])
@@ -896,7 +896,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         # TODO: use realistic values
         test_object_data = ('\x00\x00\x00\x00\x00\x00\x00\x01', 0, 0, 0, 0, 'test')
@@ -905,7 +905,7 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     def _testAnswerStoreObject(self, app, conflicting, oid, serial):
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         client_handler.handleAnswerStoreObject(conn, None, conflicting, oid, serial)
 
@@ -933,7 +933,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             txn_voted = 0
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         test_tid = 10
         client_handler.handleAnswerStoreTransaction(conn, None, test_tid)
@@ -947,7 +947,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         tid = '\x00\x00\x00\x00\x00\x00\x00\x01' # TODO: use a more realistic tid
         user = 'bar'
@@ -969,7 +969,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         test_oid = '\x00\x00\x00\x00\x00\x00\x00\x01'
         # TODO: use realistic values
@@ -988,7 +988,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         client_handler.handleOidNotFound(conn, None, None)
         self.assertEquals(app.local_var.asked_object, -1)
@@ -1001,7 +1001,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         client_handler.handleTidNotFound(conn, None, None)
         self.assertEquals(app.local_var.txn_info, -1)
@@ -1013,7 +1013,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = ClientEventHandler(app, dispatcher)
+        client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         test_tid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
         client_handler.handleAnswerTIDs(conn, None, test_tid_list[:])

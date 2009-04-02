@@ -31,7 +31,7 @@ from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
         STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, INVALID_SERIAL
-from neo.client.handler import ClientEventHandler
+from neo.client.handler import ClientEventHandler, ClientAnswerEventHandler
 from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
      NEOStorageNotFoundError
 from neo.util import makeChecksum, dump
@@ -198,6 +198,7 @@ class Application(object):
         self.ptid = None
         self.num_replicas = 0
         self.num_partitions = 0
+        self.answer_handler = ClientAnswerEventHandler(self, dispatcher)
         # Transaction specific variable
         self.tid = None
         self.txn = None
@@ -256,7 +257,7 @@ class Application(object):
                 else:
                     continue
 
-            conn.handler.dispatch(conn, packet)
+            self.answer_handler.dispatch(conn, packet)
 
             if target_conn is conn and msg_id == packet.getId() \
                     and packet.getType() & 0x8000:
