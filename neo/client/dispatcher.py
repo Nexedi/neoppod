@@ -16,12 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from threading import Thread
-from Queue import Empty, Queue
-
-from neo.protocol import PING, Packet, CLIENT_NODE_TYPE, FINISH_TRANSACTION
-from neo.connection import MTClientConnection
-from neo.node import MasterNode
-from neo.client.handler import ClientEventHandler
 
 import logging
 
