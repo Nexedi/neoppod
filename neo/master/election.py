@@ -259,7 +259,7 @@ class ElectionEventHandler(MasterEventHandler):
             node = app.nm.getNodeByUUID(uuid)
             app.primary = False
             app.primary_master_node = node
-            logging.info('%s:%d is the primary', *(node.getServer()))
+            logging.info('%s is the primary', node)
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'

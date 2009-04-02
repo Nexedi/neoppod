@@ -60,7 +60,8 @@ class ConnectionPool(object):
 
     def _initNodeConnection(self, cell):
         """Init a connection to a given storage node."""
-        addr = cell.getNode().getServer()
+        node = cell.getNode()
+        addr = node.getServer()
         if addr is None:
             return None
 
@@ -71,7 +72,7 @@ class ConnectionPool(object):
 
         # Loop until a connection is obtained.
         while 1:
-            logging.info('trying to connect to %s:%d', *addr)
+            logging.info('trying to connect to %s', node)
             app.local_var.node_not_ready = 0
             conn = MTClientConnection(app.em, app.handler, addr,
                                       connector_handler=app.connector_handler)
@@ -79,7 +80,7 @@ class ConnectionPool(object):
             try:
                 if conn.getConnector() is None:
                     # This happens, if a connection could not be established.
-                    logging.error('Connection to storage node %s failed', addr)
+                    logging.error('Connection to storage node %s failed', node)
                     return None
 
                 msg_id = conn.getNextId()
@@ -96,15 +97,15 @@ class ConnectionPool(object):
             try:
                 app._waitMessage(conn, msg_id)
             except NEOStorageError:
-                logging.error('Connection to storage node %s failed', addr)
+                logging.error('Connection to storage node %s failed', node)
                 return None
 
             if app.local_var.node_not_ready:
                 # Connection failed, notify primary master node
-                logging.info('Storage node %s not ready', addr)
+                logging.info('Storage node %s not ready', node)
                 return None
             else:
-                logging.info('connected to storage node %s:%d', *addr)
+                logging.info('connected to storage node %s', node)
                 return conn
 
             sleep(1)
@@ -982,7 +983,7 @@ class Application(object):
                         break
                     sleep(1)
 
-                logging.info("connected to primary master node %s:%d" % self.primary_master_node.getServer())
+                logging.info("connected to primary master node %s" % self.primary_master_node)
                 self.master_conn = conn
             finally:
                 self._connecting_to_master_node_release()

@@ -169,7 +169,7 @@ class Application(object):
                         for node in nm.getMasterNodeList():
                             if node.getState() == TEMPORARILY_DOWN_STATE \
                                     and node.getLastStateChange() + expiration < current_time:
-                                logging.info('%s:%d is down' % node.getServer())
+                                logging.info('%s is down' % (node, ))
                                 node.setState(DOWN_STATE)
                                 self.unconnected_master_node_set.discard(node.getServer())
 
@@ -400,8 +400,7 @@ class Application(object):
             else:
                 # Obtain a partition table. It is necessary to split this
                 # message, because the packet size can be huge.
-                logging.debug('asking a partition table to %s:%d', 
-                              *(node.getServer()))
+                logging.debug('asking a partition table to %s', node)
                 start = 0
                 size = self.num_partitions
                 while size:
@@ -678,7 +677,7 @@ class Application(object):
                     for node in nm.getStorageNodeList():
                         if node.getState() == TEMPORARILY_DOWN_STATE \
                                and node.getLastStateChange() + expiration < current_time:
-                            logging.info('%s:%d is down' % node.getServer())
+                            logging.info('%s is down' % (node, ))
                             node.setState(DOWN_STATE)
                             self.broadcastNodeInformation(node)
                             cell_list = self.pt.dropNode(node)
