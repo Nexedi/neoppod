@@ -21,10 +21,8 @@ from ZODB import BaseStorage, ConflictResolution, POSException
 from ZODB.utils import oid_repr, p64, u64
 import logging
 
-from neo.client.dispatcher import Dispatcher
 from neo.client.app import Application
 from neo.client.exception import NEOStorageConflictError, NEOStorageNotFoundError
-from neo.event import EventManager
 from neo.util import dump
 
 class Storage(BaseStorage.BaseStorage,
@@ -39,13 +37,7 @@ class Storage(BaseStorage.BaseStorage,
         l = Lock()
         self._txn_lock_acquire = l.acquire
         self._txn_lock_release = l.release
-        # Create the event manager
-        em = EventManager()
-        # Create dispatcher thread
-        dispatcher = Dispatcher(em)
-        dispatcher.setDaemon(True)
-        dispatcher.start()
-        self.app = Application(master_nodes, name, em, dispatcher, connector)
+        self.app = Application(master_nodes, name, connector)
 
     def load(self, oid, version=None):
         try:

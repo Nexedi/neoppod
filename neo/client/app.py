@@ -36,6 +36,9 @@ from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
      NEOStorageNotFoundError
 from neo.util import makeChecksum, dump
 from neo.connector import getConnectorHandler
+from neo.client.dispatcher import Dispatcher
+from neo.client.poll import ThreadedPoll
+from neo.event import EventManager
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.utils import p64, u64, oid_repr
@@ -178,14 +181,17 @@ class ConnectionPool(object):
 class Application(object):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, em, dispatcher, connector, **kw):
+    def __init__(self, master_nodes, name, connector, **kw):
         logging.basicConfig(level = logging.DEBUG)
         logging.debug('master node address are %s' %(master_nodes,))
+        em = EventManager()
+        # Start polling thread
+        self.poll_thread = ThreadedPoll(em)
         # Internal Attributes common to all thread
         self.name = name
         self.em = em
         self.connector_handler = getConnectorHandler(connector)
-        self.dispatcher = dispatcher
+        self.dispatcher = Dispatcher()
         self.nm = NodeManager()
         self.cp = ConnectionPool(self)
         self.pt = None
@@ -198,7 +204,7 @@ class Application(object):
         self.ptid = None
         self.num_replicas = 0
         self.num_partitions = 0
-        self.answer_handler = ClientAnswerEventHandler(self, dispatcher)
+        self.answer_handler = ClientAnswerEventHandler(self, self.dispatcher)
         # Transaction specific variable
         self.tid = None
         self.txn = None
@@ -895,6 +901,7 @@ class Application(object):
 
     def __del__(self):
         """Clear all connection."""
+        # TODO: Stop polling thread here.
         # Due to bug in ZODB, close is not always called when shutting
         # down zope, so use __del__ to close connections
         for conn in self.em.getConnectionList():

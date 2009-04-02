@@ -15,28 +15,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-from threading import Thread
-
-import logging
-
-class Dispatcher(Thread):
+class Dispatcher:
     """Dispatcher class use to redirect request to thread."""
 
-    def __init__(self, em, **kw):
-        Thread.__init__(self, **kw)
-        self.em = em
+    def __init__(self):
         # This dict is used to associate conn/message id to client thread queue
         # and thus redispatch answer to the original thread
         self.message_table = {}
-
-    def run(self):
-        while 1:
-            # First check if we receive any new message from other node
-            try:
-                self.em.poll(None)
-            except KeyError:
-                # This happen when there is no connection
-                logging.error('Dispatcher, run, poll returned a KeyError')
 
     def getQueue(self, conn, packet):
         key = (id(conn), packet.getId())
