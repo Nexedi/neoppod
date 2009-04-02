@@ -58,13 +58,13 @@ class ConnectionPool(object):
         self.connection_lock_acquire = l.acquire
         self.connection_lock_release = l.release
 
-    def _initNodeConnection(self, node):
+    def _initNodeConnection(self, cell):
         """Init a connection to a given storage node."""
-        addr = node.getNode().getServer()
+        addr = cell.getNode().getServer()
         if addr is None:
             return None
 
-        if node.getState() != RUNNING_STATE:
+        if cell.getState() != RUNNING_STATE:
             return None
 
         app = self.app
