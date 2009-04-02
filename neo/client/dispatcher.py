@@ -21,6 +21,7 @@ from Queue import Empty, Queue
 from neo.protocol import PING, Packet, CLIENT_NODE_TYPE, FINISH_TRANSACTION
 from neo.connection import MTClientConnection
 from neo.node import MasterNode
+from neo.client.handler import ClientEventHandler
 
 import time
 import logging
@@ -72,7 +73,6 @@ class Dispatcher(Thread):
         acquired = self.connecting_to_master_node.acquire(0)
         if acquired:
             try:
-                from neo.client.handler import ClientEventHandler
                 if app.pt is not None:
                     app.pt.clear()
                 master_index = 0
