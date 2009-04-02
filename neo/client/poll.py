@@ -31,7 +31,7 @@ class ThreadedPoll(Thread):
         while 1:
             # First check if we receive any new message from other node
             try:
-                self.em.poll(None)
+                self.em.poll()
             except KeyError:
                 # This happen when there is no connection
                 # XXX: This should be handled inside event manager, not here.
