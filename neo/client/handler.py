@@ -103,7 +103,7 @@ class ClientEventHandler(BaseClientEventHandler):
         elif self.app.primary_master_node is not None and uuid == \
                  self.app.primary_master_node.getUUID():
             logging.critical("connection to primary master node failed")
-            self.dispatcher.connectToPrimaryMasterNode(app, conn)
+            app.connectToPrimaryMasterNode(conn)
         else:
             # Connection to a storage node failed
             node = app.nm.getNodeByServer(conn.getAddress())
@@ -124,7 +124,7 @@ class ClientEventHandler(BaseClientEventHandler):
             app.master_conn.close()
             app.master_conn = None
             app.primary_master_node = None
-            self.dispatcher.connectToPrimaryMasterNode(app, conn)
+            app.connectToPrimaryMasterNode(conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
             if node.getNodeType() == STORAGE_NODE_TYPE:
@@ -143,7 +143,7 @@ class ClientEventHandler(BaseClientEventHandler):
             app.primary_master_node = -1
         elif app.master_conn is not None and uuid == app.primary_master_node.getUUID():
             logging.critical("connection timeout to primary master node expired")
-            self.dispatcher.connectToPrimaryMasterNode(app, conn)
+            app.connectToPrimaryMasterNode(conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
             if node.getNodeType() == STORAGE_NODE_TYPE:
@@ -161,7 +161,7 @@ class ClientEventHandler(BaseClientEventHandler):
             app.primary_master_node = -1
         elif app.master_conn is not None and uuid == app.primary_master_node.getUUID():
             logging.critical("primary master node is broken")
-            self.dispatcher.connectToPrimaryMasterNode(app, conn)
+            app.connectToPrimaryMasterNode(conn)
         else:
             node = app.nm.getNodeByServer(conn.getAddress())
             if node.getNodeType() == STORAGE_NODE_TYPE:

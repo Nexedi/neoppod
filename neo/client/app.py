@@ -213,6 +213,8 @@ class Application(object):
         # _oid_lock is used in order to not call multiple oid
         # generation at the same time
         # _cache_lock is used for the client cache
+        # _connecting_to_master_node is used to prevent simultaneous master
+        # node connection attemps
         lock = Lock()
         self._load_lock_acquire = lock.acquire
         self._load_lock_release = lock.release
@@ -222,6 +224,9 @@ class Application(object):
         lock = Lock()
         self._cache_lock_acquire = lock.acquire
         self._cache_lock_release = lock.release
+        lock = Lock()
+        self._connecting_to_master_node_acquire = lock.acquire
+        self._connecting_to_master_node_release = lock.release
         # XXX Generate an UUID for self. For now, just use a random string.
         # Avoid an invalid UUID.
         if self.uuid is None:
@@ -230,6 +235,8 @@ class Application(object):
                 if uuid != INVALID_UUID:
                     break
             self.uuid = uuid
+        # Connect to master node
+        self.connectToPrimaryMasterNode(self.connector_handler)
 
     def getQueue(self):
         try:
@@ -896,3 +903,79 @@ class Application(object):
 
     def sync(self):
         self._waitMessage()
+
+    def connectToPrimaryMasterNode(self, connector_handler):
+        """Connect to a primary master node.
+        This can be called either at bootstrap or when
+        client got disconnected during process"""
+        # Indicate we are trying to connect to avoid multiple try a time
+        acquired = self._connecting_to_master_node_acquire(0)
+        if acquired:
+            try:
+                if self.pt is not None:
+                    self.pt.clear()
+                master_index = 0
+                conn = None
+                # Make application execute remaining message if any
+                self._waitMessage()
+                handler = ClientEventHandler(self, self.dispatcher)
+                while 1:
+                    self.local_var.node_not_ready = 0
+                    if self.primary_master_node is None:
+                        # Try with master node defined in config
+                        try:
+                            addr, port = self.master_node_list[master_index].split(':')                        
+                        except IndexError:
+                            master_index = 0
+                            addr, port = self.master_node_list[master_index].split(':')
+                        port = int(port)
+                    else:
+                        addr, port = self.primary_master_node.getServer()
+                    # Request Node Identification
+                    conn = MTClientConnection(self.em, handler, (addr, port), connector_handler=connector_handler)
+                    if self.nm.getNodeByServer((addr, port)) is None:
+                        n = MasterNode(server = (addr, port))
+                        self.nm.add(n)
+
+                    conn.lock()
+                    try:
+                        msg_id = conn.getNextId()
+                        p = Packet()
+                        p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid,
+                                                    '0.0.0.0', 0, self.name)
+
+                        # Send message
+                        conn.addPacket(p)
+                        conn.expectMessage(msg_id)
+                        self.dispatcher.register(conn, msg_id, self.getQueue())
+                    finally:
+                        conn.unlock()
+
+                    # Wait for answer
+                    while 1:
+                        self._waitMessage()
+                        # Now check result
+                        if self.primary_master_node is not None:
+                            if self.primary_master_node == -1:
+                                # Connection failed, try with another master node
+                                self.primary_master_node = None
+                                master_index += 1
+                                break
+                            elif self.primary_master_node.getServer() != (addr, port):
+                                # Master node changed, connect to new one
+                                break
+                            elif self.local_var.node_not_ready:
+                                # Wait a bit and reask again
+                                break
+                            elif self.pt is not None and self.pt.operational():
+                                # Connected to primary master node
+                                break
+                    if self.pt is not None and self.pt.operational():
+                        # Connected to primary master node and got all informations
+                        break
+                    sleep(1)
+
+                logging.info("connected to primary master node %s:%d" % self.primary_master_node.getServer())
+                self.master_conn = conn
+            finally:
+                self._connecting_to_master_node_release()

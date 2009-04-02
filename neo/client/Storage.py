@@ -44,11 +44,8 @@ class Storage(BaseStorage.BaseStorage,
         # Create dispatcher thread
         dispatcher = Dispatcher(em)
         dispatcher.setDaemon(True)
-        self.app = Application(master_nodes, name, em, dispatcher, connector)
-        # Connect to primary master node
-        dispatcher.connectToPrimaryMasterNode(self.app, self.app.connector_handler)
-        # Start dispatcher
         dispatcher.start()
+        self.app = Application(master_nodes, name, em, dispatcher, connector)
 
     def load(self, oid, version=None):
         try:
