@@ -73,6 +73,15 @@ class Node(object):
     def getNodeType(self):
         raise NotImplementedError
 
+    def __str__(self):
+        server = self.getServer()
+        if server is None:
+            address, port = None, None
+        else:
+            address, port = server
+        uuid = self.getUUID()
+        return '%r:%r (%s)' % (address, port, dump(uuid))
+
 class MasterNode(Node):
     """This class represents a master node."""
     def getNodeType(self):
