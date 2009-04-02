@@ -54,9 +54,6 @@ class ClientEventHandlerTest(unittest.TestCase):
         # Silence all log messages
         logging.basicConfig(level=logging.CRITICAL + 1)
 
-#    def tearDown(self):
-#        pass
-
     def getConnection(self, uuid=None, port=10010, next_id=None, ip='127.0.0.1'):
         if uuid is None:
             uuid = self.getUUID()
@@ -231,7 +228,6 @@ class ClientEventHandlerTest(unittest.TestCase):
         conn = self.getConnection()
         client_handler.handleNotReady(conn, None, None)
         self.assertEquals(app.local_var.node_not_ready, 1)
-
 
     def test_clientAcceptNodeIdentification(self):
         class App:
