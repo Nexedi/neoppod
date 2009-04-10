@@ -111,18 +111,17 @@ class ClientEventHandlerTest(unittest.TestCase):
         storage_ip = '127.0.0.1'
         storage_port = 10011
         fake_storage_node_uuid = self.getUUID()
-        # XXX: Must be replaced by a Mock object, but application uses isinstance...
-        fake_storage_node = StorageNode(uuid=fake_storage_node_uuid, server=(storage_ip, storage_port))
+        fake_storage_node = Mock({'getUUID': fake_storage_node_uuid, 'getServer': (storage_ip, storage_port), 'getNodeType': STORAGE_NODE_TYPE})
         master_node_next_packet_id = 1
         class App:
             primary_master_node = Mock({'getUUID': self.getUUID()})
             nm = Mock({'getNodeByServer': fake_storage_node})
-            cp = Mock({'removeConnection': None}) # TODO: Add expectation on parameter value (must be fake_storage_node)
+            cp = Mock({'removeConnection': None})
             master_conn = self.getConnection(next_id=ReturnValues(master_node_next_packet_id))
         app = App()
         conn = self.getConnection(port=storage_port, ip=storage_ip)
         key_1 = (id(conn), 0)
-        queue_1 = Mock({'put': None, '__hash__': 1}) # TODO: Add expectation on parameter value (must be key_1)
+        queue_1 = Mock({'put': None, '__hash__': 1})
         # Fake another Storage connection by adding 1 to id(conn)
         key_2 = (id(conn) + 1, 0)
         queue_2 = Mock({'put': None, '__hash__': 2})
@@ -154,7 +153,6 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertEqual(len(queue_1_put_call_list), 1)
         self.assertEqual(queue_1_put_call_list[0].getParam(0), (conn, None))
         self.assertEqual(len(queue_2.mockGetNamedCalls('put')), 0)
-
 
     def _testConnectionFailed(self, dispatcher, app, uuid=None, conn=None):
         client_handler = ClientEventHandler(app, dispatcher)
