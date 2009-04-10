@@ -642,9 +642,8 @@ class ClientEventHandlerTest(unittest.TestCase):
         raise NotImplementedError
 
     def test_unknownStorageNotifyNodeInformation(self):
-        # TODO: use realistic value for node state
         test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getUUID(),
-                     0)
+                     RUNNING_STATE)
         nm = self._testNotifyNodeInformation(test_node, getNodeByUUID=None)
         # Check that node got added
         add_call_list = nm.mockGetNamedCalls('add')
@@ -657,10 +656,9 @@ class ClientEventHandlerTest(unittest.TestCase):
         # Likewise for server address and node uuid.
 
     def test_knownStorageNotifyNodeInformation(self):
-        # TODO: use realistic value for node state
         node = Mock({'setState': None, 'setServer': None})
         test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getUUID(),
-                     0)
+                     RUNNING_STATE)
         nm = self._testNotifyNodeInformation(test_node, getNodeByUUID=node)
         # Check that no node got added
         self.assertEqual(len(nm.mockGetNamedCalls('add')), 0)
