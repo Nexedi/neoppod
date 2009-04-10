@@ -843,7 +843,7 @@ class testPartitionTable(unittest.TestCase):
         cells =  pt.getCellList(0)
         self.assertEqual(len(cells), 3)
         for cell in cells:
-            self.assertNotEqual(cell.getState(), BROKEN_STATE)
+            self.assertNotEqual(cell.getState(), DISCARDED_STATE)
             if cell.getNode() == sn2:
                 self.assertEqual(cell.getState(), UP_TO_DATE_STATE)
             else:
