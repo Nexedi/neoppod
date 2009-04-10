@@ -530,7 +530,7 @@ class testPartitionTable(unittest.TestCase):
         cells = pt.getCellList(4)
         self.assertEqual(len(cells), 1)
         cell = cells[0]
-        self.assertEqual(cell.getState(), RUNNING_STATE)
+        self.assertEqual(cell.getState(), UP_TO_DATE_STATE)
         
     def test_14_addNode(self):
         num_partitions = 5
@@ -810,7 +810,7 @@ class testPartitionTable(unittest.TestCase):
         server5 = ("127.0.0.5", 19005)
         sn5 = StorageNode(server5, uuid5)
         # create partition table
-        # 0 : sn1(broken), sn2(up), -> sn2 must remain
+        # 0 : sn1(discarded), sn2(up), -> sn2 must remain
         # 1 : sn1(feeding), sn2(feeding), sn3(up) -> one feeding and sn3 must remain
         # 2 : sn1(feeding), sn2(up), sn3(up) -> sn2 and sn3 must remain, feeding must go away
         # 3 : sn1(up), sn2(up), sn3(up), sn4(up) -> only 3 cell must remain
@@ -819,7 +819,7 @@ class testPartitionTable(unittest.TestCase):
         num_replicas = 3
         pt = PartitionTable(num_partitions, num_replicas)
         # part 0
-        pt.setCell(0, sn1, BROKEN_STATE)
+        pt.setCell(0, sn1, DISCARDED_STATE)
         pt.setCell(0, sn2, UP_TO_DATE_STATE)
         # part 1
         pt.setCell(1, sn1, FEEDING_STATE)
