@@ -338,13 +338,16 @@ class ClientEventHandlerTest(unittest.TestCase):
         node = Mock({'getNodeType': MASTER_NODE_TYPE})
         class App:
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': None, 'add': None})
-            # TODO: add an expectation on getNodeByUUID parameter: must be conn.getUUID()
             primary_master_node = None
         app = App()
         client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
         test_master_list = [('127.0.0.1', 10010, self.getUUID())]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
+        # Test sanity check
+        getNodeByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
+        self.assertEqual(len(getNodeByUUID_call_list), 1)
+        self.assertEqual(getNodeByUUID_call_list[0].getParam(0), conn.getUUID())
         # Check that yet-unknown master node got added
         getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         add_call_list = app.nm.mockGetNamedCalls('add')
@@ -364,8 +367,6 @@ class ClientEventHandlerTest(unittest.TestCase):
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': None, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': node, 'add': None})
-            # TODO: add an expectation on getNodeByUUID parameter: must be conn.getUUID()
-            # TODO: add an expectation on getNodeByServer parameter: must be (ip_address, port)
             primary_master_node = None
         app = App()
         client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
@@ -373,6 +374,13 @@ class ClientEventHandlerTest(unittest.TestCase):
         test_node_uuid = self.getUUID()
         test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
+        # Test sanity checks
+        getNodeByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
+        self.assertEqual(len(getNodeByUUID_call_list), 1)
+        self.assertEqual(getNodeByUUID_call_list[0].getParam(0), conn.getUUID())
+        getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
+        self.assertEqual(len(getNodeByServer_call_list), 1)
+        self.assertEqual(getNodeByServer_call_list[0].getParam(0), test_master_list[0][:2])
         # Check that known master node did not get added
         getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         add_call_list = app.nm.mockGetNamedCalls('add')
@@ -429,8 +437,6 @@ class ClientEventHandlerTest(unittest.TestCase):
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': node, 'add': None})
-            # TODO: add an expectation on getNodeByUUID parameter: must be conn.getUUID()
-            # TODO: add an expectation on getNodeByServer parameter: must be (ip_address, port)
             primary_master_node = test_primary_master_node
         app = App()
         client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
@@ -440,6 +446,12 @@ class ClientEventHandlerTest(unittest.TestCase):
         # XXX: is it acceptable for a handle call to raise without any proper fallback ?
         self.assertRaises(ElectionFailure, client_handler.handleAnswerPrimaryMaster,
                           conn, None, test_node_uuid, [])
+        # Test sanity checks
+        getNodeByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
+        self.assertEqual(len(getNodeByUUID_call_list), 1)
+        self.assertEqual(getNodeByUUID_call_list[0].getParam(0), conn.getUUID())
+        getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
+        self.assertEqual(len(getNodeByServer_call_list), 0)
 
     def test_alreadySamePrimaryAnswerPrimaryMaster(self):
         test_node_uuid = self.getUUID()
@@ -462,12 +474,16 @@ class ClientEventHandlerTest(unittest.TestCase):
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': ReturnValues(node, None), 'getNodeByServer': node, 'add': None})
-            # TODO: add an expectation on getNodeByUUID parameter: must be conn.getUUID(), then test_primary_node_uuid
             primary_master_node = None
         app = App()
         client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
         client_handler.handleAnswerPrimaryMaster(conn, None, test_primary_node_uuid, [])
+        # Test sanity checks
+        getNodeByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
+        self.assertEqual(len(getNodeByUUID_call_list), 2)
+        self.assertEqual(getNodeByUUID_call_list[0].getParam(0), conn.getUUID())
+        self.assertEqual(getNodeByUUID_call_list[1].getParam(0), test_primary_node_uuid)
         # Check that primary node was not updated.
         self.assertTrue(app.primary_master_node is None)
 
@@ -476,14 +492,20 @@ class ClientEventHandlerTest(unittest.TestCase):
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': node, 'add': None})
-            # TODO: add an expectation on getNodeByUUID parameter: must be conn.getUUID()
-            # TODO: add an expectation on getNodeByServer parameter: must be (ip_address, port)
             primary_master_node = None
         app = App()
         client_handler = ClientAnswerEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
         test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
         client_handler.handleAnswerPrimaryMaster(conn, None, test_node_uuid, test_master_list)
+        # Test sanity checks
+        getNodeByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
+        self.assertEqual(len(getNodeByUUID_call_list), 2)
+        self.assertEqual(getNodeByUUID_call_list[0].getParam(0), conn.getUUID())
+        self.assertEqual(getNodeByUUID_call_list[1].getParam(0), test_node_uuid)
+        getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
+        self.assertEqual(len(getNodeByServer_call_list), 1)
+        self.assertEqual(getNodeByServer_call_list[0].getParam(0), test_master_list[0][:2])
         # Check that primary master was updated to known node
         self.assertTrue(app.primary_master_node is node)
 
