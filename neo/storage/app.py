@@ -23,7 +23,7 @@ from collections import deque
 
 from neo.config import ConfigurationManager
 from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        INVALID_UUID, INVALID_PTID
+        INVALID_UUID, INVALID_PTID, partition_cell_states
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
@@ -114,6 +114,7 @@ class Application(object):
                     # node starts to connect to a primary master node.
                     node.setState(TEMPORARILY_DOWN_STATE)
                 nm.add(node)
+            state = partition_cell_states.get(state)
 
             pt.setCell(offset, node, state)
 

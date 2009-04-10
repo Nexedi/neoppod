@@ -21,6 +21,65 @@ import logging
 
 from neo.util import dump
 
+class EnumItem(int):
+    """
+      Enumerated value type.
+      Not to be used outside of Enum class.
+    """
+    def __new__(cls, enum, name, value):
+        instance = super(EnumItem, cls).__new__(cls, value)
+        instance.enum = enum
+        instance.name = name
+        return instance
+
+    def __eq__(self, other):
+        """
+          Raise if compared type doesn't match.
+        """
+        if not isinstance(other, EnumItem):
+            raise TypeError, 'Comparing an enum with an int.'
+        if other.enum is not self.enum:
+            raise TypeError, 'Comparing enums of incompatible types: %s ' \
+                             'and %s' % (self, other)
+        return int(other) == int(self)
+
+    def __ne__(self, other):
+        return not(self == other)
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return '<EnumItem %r (%r) of %r>' % (self.name, int(self), self.enum)
+
+class Enum(object):
+    """
+      C-style enumerated type support with extended typechecking.
+      Instantiate with a dict whose keys are variable names and values are
+      the value of that variable.
+      Variables are added to module's globals and can be used directly.
+
+      The purpose of this class is purely to prevent developper from
+      mistakenly comparing an enumerated value with a value from another enum,
+      or even not from any enum at all.
+    """
+    def __init__(self, value_dict):
+        global_dict = globals()
+        self.enum_dict = enum_dict = {}
+        for key, value in value_dict.iteritems():
+            # Only integer types are supported. This should be enough, and
+            # extending support to other types would only make moving to other
+            # languages harder.
+            if not isinstance(value, int):
+                raise TypeError, 'Enum class only support integer values.'
+            global_dict[key] = enum_dict[value] = EnumItem(self, key, value)
+
+    def get(self, value, default=None):
+        return self.enum_dict.get(value, default)
+
+    def __getitem__(self, value):
+        return self.enum_dict[value]
+
 # The protocol version (major, minor).
 PROTOCOL_VERSION = (4, 0)
 
@@ -214,18 +273,22 @@ CLIENT_NODE_TYPE = 3
 VALID_NODE_TYPE_LIST = (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE)
 
 # Node states.
-RUNNING_STATE = 0
-TEMPORARILY_DOWN_STATE = 1
-DOWN_STATE = 2
-BROKEN_STATE = 3
+node_states = Enum({
+'RUNNING_STATE': 0,
+'TEMPORARILY_DOWN_STATE': 1,
+'DOWN_STATE': 2,
+'BROKEN_STATE': 3,
+})
 
 VALID_NODE_STATE_LIST = (RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE)
 
 # Partition cell states.
-UP_TO_DATE_STATE = 0
-OUT_OF_DATE_STATE = 1
-FEEDING_STATE = 2
-DISCARDED_STATE = 3
+partition_cell_states = Enum({
+'UP_TO_DATE_STATE': 0,
+'OUT_OF_DATE_STATE': 1,
+'FEEDING_STATE': 2,
+'DISCARDED_STATE': 3,
+})
 
 VALID_CELL_STATE_LIST = (UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE,
                          DISCARDED_STATE)
@@ -762,6 +825,7 @@ class Packet(object):
                 ip_address = inet_ntoa(ip_address)
                 if node_type not in VALID_NODE_TYPE_LIST:
                     raise ProtocolError(self, 'invalid node type %d' % node_type)
+                state = node_states.get(state)
                 if state not in VALID_NODE_STATE_LIST:
                     raise ProtocolError(self, 'invalid node state %d' % state)
                 node_list.append((node_type, ip_address, port, uuid, state))
@@ -806,9 +870,10 @@ class Packet(object):
                 offset, m = unpack('!LL', self._body[index:index+8])
                 index += 8
                 for j in xrange(m):
-                    cell = unpack('!16sH', self._body[index:index+18])
+                    uuid, state = unpack('!16sH', self._body[index:index+18])
                     index += 18
-                    cell_list.append(cell)
+                    state = partition_cell_states.get(state)
+                    cell_list.append((uuid, state))
                 row_list.append((offset, tuple(cell_list)))
                 del cell_list[:]
         except:
@@ -826,9 +891,10 @@ class Packet(object):
                 offset, m = unpack('!LL', self._body[index:index+8])
                 index += 8
                 for j in xrange(m):
-                    cell = unpack('!16sH', self._body[index:index+18])
+                    uuid, state = unpack('!16sH', self._body[index:index+18])
                     index += 18
-                    cell_list.append(cell)
+                    state = partition_cell_states.get(state)
+                    cell_list.append((uuid, state))
                 row_list.append((offset, tuple(cell_list)))
                 del cell_list[:]
         except:
@@ -841,8 +907,9 @@ class Packet(object):
             ptid, n = unpack('!8sL', self._body[:12])
             cell_list = []
             for i in xrange(n):
-                cell = unpack('!L16sH', self._body[12+i*22:34+i*22])
-                cell_list.append(cell)
+                offset, uuid, state = unpack('!L16sH', self._body[12+i*22:34+i*22])
+                state = partition_cell_states.get(state)
+                cell_list.append((offset, uuid, state))
         except:
             raise ProtocolError(self, 'invalid notify partition changes')
         return ptid, cell_list
