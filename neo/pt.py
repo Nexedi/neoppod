@@ -19,7 +19,7 @@ import logging
 
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        BROKEN_STATE
+        BROKEN_STATE, VALID_CELL_STATE_LIST
 from neo.util import dump
 
 class Cell(object):
@@ -27,12 +27,14 @@ class Cell(object):
 
     def __init__(self, node, state = UP_TO_DATE_STATE):
         self.node = node
+        assert state in VALID_CELL_STATE_LIST
         self.state = state
 
     def getState(self):
         return self.state
 
     def setState(self, state):
+        assert state in VALID_CELL_STATE_LIST
         self.state = state
 
     def getNode(self):
@@ -112,6 +114,7 @@ class PartitionTable(object):
         self.num_filled_rows = self.np
 
     def setCell(self, offset, node, state):
+        assert state in VALID_CELL_STATE_LIST
         if state == DISCARDED_STATE:
             return self.removeCell(offset, node)
         if node.getState() in (BROKEN_STATE, DOWN_STATE):
