@@ -61,9 +61,6 @@ class testProtocol(unittest.TestCase):
 
     def test_01_Packet_init(self):
         p = Packet(msg_id=1, msg_type=ASK_PRIMARY_MASTER, body=None)
-        self.assertEqual(p._id, 1)
-        self.assertEqual(p._type, ASK_PRIMARY_MASTER)
-        self.assertEqual(p._body, None)
         self.assertEqual(p.getId(), 1)
         self.assertEqual(p.getType(), ASK_PRIMARY_MASTER)
         self.assertEqual(len(p), PACKET_HEADER_SIZE)
