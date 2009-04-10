@@ -96,17 +96,16 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     def _testMasterWithMethod(self, method):
         uuid = self.getUUID()
-        class App:
-            primary_master_node = Mock({'getUUID': uuid})
-            master_conn = Mock({'close': None, 'getUUID': uuid})
-        app = App()
+        app = Mock({'connectToPrimaryMasterNode': None})
+        app.primary_master_node = Mock({'getUUID': uuid})
+        app.master_conn = Mock({'close': None, 'getUUID': uuid})
         dispatcher = self.getDispatcher()
         method(dispatcher, app, uuid=uuid)
         # XXX: should connection closure be tested ? It's not implemented in all cases
         #self.assertEquals(len(App.master_conn.mockGetNamedCalls('close')), 1)
         #self.assertEquals(app.master_conn, None)
         #self.assertEquals(app.primary_master_node, None)
-        self.assertEquals(len(dispatcher.mockGetNamedCalls('connectToPrimaryMasterNode')), 1)
+        self.assertEquals(len(app.mockGetNamedCalls('connectToPrimaryMasterNode')), 1)
 
     def _testStorageWithMethod(self, method, state=TEMPORARILY_DOWN_STATE):
         storage_ip = '127.0.0.1'
