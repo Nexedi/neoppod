@@ -65,7 +65,7 @@ class BootstrapEventHandler(StorageEventHandler):
         StorageEventHandler.connectionAccepted(self, conn, s, addr)
 
     def timeoutExpired(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.islisteningConnection():
             app = self.app
             if app.trying_master_node is app.primary_master_node:
                 # If a primary master node timeouts, I should not rely on it.
@@ -76,7 +76,7 @@ class BootstrapEventHandler(StorageEventHandler):
         StorageEventHandler.timeoutExpired(self, conn)
 
     def connectionClosed(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.islisteningConnection():
             app = self.app
             if app.trying_master_node is app.primary_master_node:
                 # If a primary master node closes, I should not rely on it.
@@ -87,7 +87,7 @@ class BootstrapEventHandler(StorageEventHandler):
         StorageEventHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.islisteningConnection():
             app = self.app
             if app.trying_master_node is app.primary_master_node:
                 # If a primary master node gets broken, I should not rely
@@ -99,7 +99,7 @@ class BootstrapEventHandler(StorageEventHandler):
         StorageEventHandler.peerBroken(self, conn)
 
     def handleNotReady(self, conn, packet, message):
-        if isinstance(conn, ClientConnection):
+        if not conn.islisteningConnection():
             app = self.app
             if app.trying_master_node is not None:
                 app.trying_master_node = None
@@ -108,7 +108,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             self.handleUnexpectedPacket(conn, packet)
         else:
             app = self.app
@@ -155,7 +155,7 @@ class BootstrapEventHandler(StorageEventHandler):
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas):
-        if not isinstance(conn, ClientConnection):
+        if conn.isListeningConnection():
             self.handleUnexpectedPacket(conn, packet)
         else:
             app = self.app
@@ -197,7 +197,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
-        if not isinstance(conn, ClientConnection):
+        if conn.isListeningConnection():
             self.handleUnexpectedPacket(conn, packet)
         else:
             app = self.app
