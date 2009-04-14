@@ -65,7 +65,7 @@ class BootstrapEventHandler(StorageEventHandler):
         StorageEventHandler.connectionAccepted(self, conn, s, addr)
 
     def timeoutExpired(self, conn):
-        if not conn.islisteningConnection():
+        if not conn.isListeningConnection():
             app = self.app
             if app.trying_master_node is app.primary_master_node:
                 # If a primary master node timeouts, I should not rely on it.
@@ -76,7 +76,7 @@ class BootstrapEventHandler(StorageEventHandler):
         StorageEventHandler.timeoutExpired(self, conn)
 
     def connectionClosed(self, conn):
-        if not conn.islisteningConnection():
+        if not conn.isListeningConnection():
             app = self.app
             if app.trying_master_node is app.primary_master_node:
                 # If a primary master node closes, I should not rely on it.
@@ -87,7 +87,7 @@ class BootstrapEventHandler(StorageEventHandler):
         StorageEventHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
-        if not conn.islisteningConnection():
+        if not conn.isListeningConnection():
             app = self.app
             if app.trying_master_node is app.primary_master_node:
                 # If a primary master node gets broken, I should not rely
@@ -99,7 +99,7 @@ class BootstrapEventHandler(StorageEventHandler):
         StorageEventHandler.peerBroken(self, conn)
 
     def handleNotReady(self, conn, packet, message):
-        if not conn.islisteningConnection():
+        if not conn.isListeningConnection():
             app = self.app
             if app.trying_master_node is not None:
                 app.trying_master_node = None
