@@ -244,7 +244,7 @@ class Application(object):
                     break
             self.uuid = uuid
         # Connect to master node
-        self.connectToPrimaryMasterNode(self.connector_handler)
+        self.connectToPrimaryMasterNode()
 
     def getQueue(self):
         try:
@@ -913,7 +913,7 @@ class Application(object):
     def sync(self):
         self._waitMessage()
 
-    def connectToPrimaryMasterNode(self, connector_handler):
+    def connectToPrimaryMasterNode(self):
         """Connect to a primary master node.
         This can be called either at bootstrap or when
         client got disconnected during process"""
@@ -940,7 +940,7 @@ class Application(object):
                     else:
                         addr, port = self.primary_master_node.getServer()
                     # Request Node Identification
-                    conn = MTClientConnection(self.em, self.handler, (addr, port), connector_handler=connector_handler)
+                    conn = MTClientConnection(self.em, self.handler, (addr, port), connector_handler=self.connector_handler)
                     if self.nm.getNodeByServer((addr, port)) is None:
                         n = MasterNode(server = (addr, port))
                         self.nm.add(n)
