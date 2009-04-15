@@ -51,7 +51,7 @@ from neo.node import MasterNode, StorageNode
 class MasterServiceTests(unittest.TestCase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.DEBUG)
+        logging.basicConfig(level = logging.WARNING)
         # create an application object
         config_file_text = """# Default parameters.
 [DEFAULT]
@@ -100,6 +100,7 @@ server: 127.0.0.1:10023
         tmp_file.close()
         self.app = Application(self.tmp_path, "mastertest")        
         self.app.pt.clear()
+        self.app.em = Mock({"getConnectionList" : []})
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
             self.app.nm.add(MasterNode(server = server))
@@ -658,9 +659,8 @@ server: 127.0.0.1:10023
         storage_uuid = self.identifyToMasterNode()
         storage_conn = Mock({"getUUID" : storage_uuid,
                              "getAddress" : ("127.0.0.1", self.storage_port),
-                             "getSockect" : 1,
-                             "getDescriptor" : 1})        
-        self.app.em.register(storage_conn)
+                             "getSockect" : 50,
+                             "getDescriptor" : 50})        
         self.assertNotEquals(uuid, client_uuid)
         conn = Mock({"getUUID" : client_uuid,
                      "getAddress" : ("127.0.0.1", self.client_port)})
@@ -669,6 +669,7 @@ server: 127.0.0.1:10023
         tid = self.app.ltid
         conn = Mock({"getUUID" : client_uuid,
                      "getAddress" : ("127.0.0.1", self.client_port)})
+        self.app.em = Mock({"getConnectionList" : [conn, storage_conn]})
         service.handleFinishTransaction(conn, packet, oid_list, tid)
         self.checkCalledLockInformation(storage_conn)
         self.assertEquals(len(storage_conn.mockGetNamedCalls("expectMessage")), 1)
@@ -714,35 +715,43 @@ server: 127.0.0.1:10023
                              "getAddress" : ("127.0.0.1", self.storage_port),
                              "getSockect" : 1,
                              "getDescriptor" : 1})        
-        self.app.em.register(storage_conn_1)
         storage_conn_2 = Mock({"getUUID" : storage_uuid_2,
                                "getAddress" : ("127.0.0.1", 10022),
                                "getSockect" : 2,
                                "getDescriptor" : 2})        
-        self.app.em.register(storage_conn_2)
-        
         conn = Mock({"getUUID" : client_uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "getSockect" : 3,
-                     "getDescriptor" : 3})        
-        self.app.em.register(conn)
+                     "getDescriptor" : 3})
         service.handleAskNewTID(conn, packet)
+        # clean mock object
+        conn.mockCalledMethods = {}
+        conn.mockAllCalledMethods = []
+        self.app.em = Mock({"getConnectionList" : [conn, storage_conn_1, storage_conn_2]})
         oid_list = []
         tid = self.app.ltid
         service.handleFinishTransaction(conn, packet, oid_list, tid)
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
         self.checkCalledLockInformation(storage_conn_1)
         self.checkCalledLockInformation(storage_conn_2)
         self.assertFalse(self.app.finishing_transaction_dict.values()[0].allLocked())
         self.assertEquals(len(storage_conn_1.mockGetNamedCalls("addPacket")), 1)
+        self.assertEquals(len(storage_conn_2.mockGetNamedCalls("addPacket")), 1)
+        
         service.handleNotifyInformationLocked(storage_conn_1, packet, tid)
         self.assertEquals(len(storage_conn_1.mockGetNamedCalls("addPacket")), 1)
+        self.assertEquals(len(storage_conn_2.mockGetNamedCalls("addPacket")), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
         self.assertFalse(self.app.finishing_transaction_dict.values()[0].allLocked())
+
+        print "notify"
         service.handleNotifyInformationLocked(storage_conn_2, packet, tid)
+        self.checkCalledNotifyTransactionFinished(conn)
         self.assertEquals(len(storage_conn_1.mockGetNamedCalls("addPacket")), 2)
         self.assertEquals(len(storage_conn_2.mockGetNamedCalls("addPacket")), 2)
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
         self.checkCalledLockInformation(storage_conn_1)
         self.checkCalledLockInformation(storage_conn_2)
-        self.checkCalledNotifyTransactionFinished(conn, 1)
         
 
     def test_11_handleAbortTransaction(self):
