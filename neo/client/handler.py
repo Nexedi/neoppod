@@ -297,8 +297,9 @@ class ClientEventHandler(BaseClientEventHandler):
                     del app.mq_cache[oid]
                 except KeyError:
                     pass
-            if app._db is not None:
-                app._db.invalidate(tid, oids)
+            db = app.getDB()
+            if db is not None:
+                db.invalidate(tid, oids)
         finally:
             app._cache_lock_release()
 

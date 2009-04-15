@@ -864,7 +864,12 @@ class ClientEventHandlerTest(unittest.TestCase):
             def _cache_lock_release(self):
                 pass
 
-            _db = Mock({'invalidate': None})
+            def registerDB(self, db, limit):
+                self.db = db
+
+            def getDB(self):
+                return self.db
+
             mq_cache = Mock({'__delitem__': None})
         app = App()
         dispatcher = self.getDispatcher()
@@ -872,9 +877,13 @@ class ClientEventHandlerTest(unittest.TestCase):
         conn = self.getConnection()
         test_tid = 1
         test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
+        test_db = Mock({'invalidate': None})
+        app.registerDB(test_db, None)
         client_handler.handleInvalidateObjects(conn, None, test_oid_list[:], test_tid)
         # 'invalidate' is called just once
-        invalidate_call_list = app._db.mockGetNamedCalls('invalidate')
+        db = app.getDB()
+        self.assertTrue(db is test_db)
+        invalidate_call_list = db.mockGetNamedCalls('invalidate')
         self.assertEquals(len(invalidate_call_list), 1)
         invalidate_call = invalidate_call_list[0]
         invalidate_tid = invalidate_call.getParam(0)

@@ -281,6 +281,9 @@ class Application(object):
     def registerDB(self, db, limit):
         self._db = db
 
+    def getDB(self):
+        return self._db
+
     def new_oid(self):
         """Get a new OID."""
         self._oid_lock_acquire()
