@@ -18,6 +18,7 @@
 import os
 import unittest
 import logging
+import MySQLdb
 from tempfile import mkstemp
 from mock import Mock
 from neo.master.app import MasterNode
@@ -30,6 +31,12 @@ from neo.protocol import BROKEN_STATE, RUNNING_STATE, Packet, INVALID_UUID
 from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION
 from neo.protocol import ERROR, BROKEN_NODE_DISALLOWED_CODE, ASK_PRIMARY_MASTER
 from neo.protocol import ANSWER_PRIMARY_MASTER
+
+SQL_ADMIN_USER = 'root'
+SQL_ADMIN_PASSWORD = None
+NEO_SQL_USER = 'test'
+NEO_SQL_PASSWORD = 'test'
+NEO_SQL_DATABASE = 'test_neo1'
 
 class StorageBootstrapTests(unittest.TestCase):
 
@@ -57,9 +64,23 @@ connector : SocketConnector
 server: 127.0.0.1:10010
 
 [storagetest]
-database: neotest1
+database: %(database)s
 server: 127.0.0.1:10020
-"""
+""" % {
+    'database': NEO_SQL_DATABASE
+}
+        # SQL connection
+        connect_arg_dict = {'user': SQL_ADMIN_USER}
+        if SQL_ADMIN_PASSWORD is not None:
+            connect_arg_dict['passwd'] = SQL_ADMIN_PASSWORD
+        sql_connection = MySQLdb.Connect(**connect_arg_dict)
+        cursor = sql_connection.cursor()
+        # new database
+        cursor.execute('DROP DATABASE IF EXISTS %s' % (NEO_SQL_DATABASE, ))
+        cursor.execute('CREATE DATABASE %s' % (NEO_SQL_DATABASE, ))
+        cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY "%s"' % 
+                (NEO_SQL_DATABASE, NEO_SQL_USER, NEO_SQL_PASSWORD))
+        # config file
         tmp_id, self.tmp_path = mkstemp()
         tmp_file = os.fdopen(tmp_id, "w+b")
         tmp_file.write(config_file_text)
