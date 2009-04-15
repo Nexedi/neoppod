@@ -554,7 +554,7 @@ class Application(object):
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
-                self.txn_voted == 0
+                self.txn_voted = 0
             finally:
                 conn.unlock()
 
