@@ -55,9 +55,9 @@ partitions: 1009
 # The name of this cluster.
 name: main
 # The user name for the database.
-user: neo
+user: %(user)s
 # The password for the database.
-password: neo
+password: %(password)s
 connector : SocketConnector
 # The first master.
 [mastertest]
@@ -67,7 +67,9 @@ server: 127.0.0.1:10010
 database: %(database)s
 server: 127.0.0.1:10020
 """ % {
-    'database': NEO_SQL_DATABASE
+    'database': NEO_SQL_DATABASE,
+    'user': NEO_SQL_USER,
+    'password': NEO_SQL_PASSWORD,
 }
         # SQL connection
         connect_arg_dict = {'user': SQL_ADMIN_USER}
