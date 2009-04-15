@@ -212,8 +212,8 @@ class Application(object):
         self.txn = None
         self.txn_data_dict = {}
         self.txn_object_stored = 0
-        self.txn_voted = 0
-        self.txn_finished = 0
+        self.txn_voted = False
+        self.txn_finished = False
         # Internal attribute distinct between thread
         self.local_var = local()
         # Lock definition :
@@ -554,12 +554,12 @@ class Application(object):
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
-                self.txn_voted = 0
+                self.txn_voted = False
             finally:
                 conn.unlock()
 
             self._waitMessage(conn, msg_id)
-            if self.txn_voted != 1:
+            if not self.isTransactionVoted():
                 raise NEOStorageError('tpc_vote failed')
 
     def _clear_txn(self):
@@ -567,8 +567,8 @@ class Application(object):
         self.tid = None
         self.txn = None
         self.txn_data_dict.clear()
-        self.txn_voted = 0
-        self.txn_finished = 0
+        self.txn_voted = False
+        self.txn_finished = False
 
     def tpc_abort(self, transaction):
         """Abort current transaction."""
@@ -651,7 +651,7 @@ class Application(object):
 
             # Wait for answer
             self._waitMessage(conn, msg_id)
-            if self.txn_finished != 1:
+            if not self.isTransactionFinished():
                 raise NEOStorageError('tpc_finish failed')
 
             # Update cache
@@ -999,4 +999,25 @@ class Application(object):
 
     def isNodeReady(self):
         return self.local_var.node_ready
+
+    def setTID(self, value):
+        self.tid = value
+
+    def getTID(self):
+        return self.tid
+
+    def getConflictSerial(self):
+        return self.conflict_serial
+
+    def setTransactionFinished(self):
+        self.txn_finished = True
+
+    def isTransactionFinished(self):
+        return self.txn_finished
+
+    def setTransactionVoted(self):
+        self.txn_voted = True
+
+    def isTransactionVoted(self):
+        return self.txn_voted
 

@@ -401,7 +401,7 @@ class ClientAnswerEventHandler(BaseClientEventHandler):
 
     def handleAnswerNewTID(self, conn, packet, tid):
         app = self.app
-        app.tid = tid
+        app.setTID(tid)
 
     def handleAnswerNewOIDs(self, conn, packet, oid_list):
         app = self.app
@@ -410,11 +410,8 @@ class ClientAnswerEventHandler(BaseClientEventHandler):
 
     def handleNotifyTransactionFinished(self, conn, packet, tid):
         app = self.app
-        if tid != app.tid:
-            app.txn_finished = -1
-        else:
-            app.txn_finished = 1
-
+        if tid == app.getTID():
+            app.setTransactionFinished()
 
     # Storage node handler
     def handleAnswerObject(self, conn, packet, oid, start_serial, end_serial, compression,
@@ -432,7 +429,7 @@ class ClientAnswerEventHandler(BaseClientEventHandler):
 
     def handleAnswerStoreTransaction(self, conn, packet, tid):
         app = self.app
-        app.txn_voted = 1
+        app.setTransactionVoted()
 
     def handleAnswerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):

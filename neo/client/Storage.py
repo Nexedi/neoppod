@@ -100,19 +100,21 @@ class Storage(BaseStorage.BaseStorage,
                              data = data, version = version,
                              transaction = transaction)
         except NEOStorageConflictError:
-            if app.conflict_serial <= app.tid:
+            conflict_serial = app.getConflictSerial()
+            tid = app.getTID()
+            if conflict_serial <= tid:
                 # Try to resolve conflict only if conflicting serial is older
                 # than the current transaction ID
                 new_data = self.tryToResolveConflict(oid,
-                                                     app.conflict_serial,
+                                                     conflict_serial,
                                                      serial, data)
                 if new_data is not None:
                     # Try again after conflict resolution
-                    self.store(oid, app.conflict_serial,
+                    self.store(oid, conflict_serial,
                                new_data, version, transaction)
                     return ConflictResolution.ResolvedSerial
             raise POSException.ConflictError(oid=oid,
-                                             serials=(app.tid,
+                                             serials=(tid,
                                                       serial),data=data)
 
     def _clear_temp(self):

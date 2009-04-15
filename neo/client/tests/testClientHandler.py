@@ -830,26 +830,24 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertEqual(state, test_cell_list[0][2])
 
     def test_AnswerNewTID(self):
-        class App:
-            tid = None
-        app = App()
+        app = Mock({'setTID': None})
         dispatcher = self.getDispatcher()
         client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         test_tid = 1
         client_handler.handleAnswerNewTID(conn, None, test_tid)
-        self.assertEquals(app.tid, test_tid)
+        setTID_call_list = app.mockGetNamedCalls('setTID')
+        self.assertEquals(len(setTID_call_list), 1)
+        self.assertEquals(setTID_call_list[0].getParam(0), test_tid)
 
     def test_NotifyTransactionFinished(self):
-        class App:
-            tid = 1
-            txn_finished = None
-        app = App()
+        test_tid = 1
+        app = Mock({'getTID': test_tid, 'setTransactionFinished': None})
         dispatcher = self.getDispatcher()
         client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
-        client_handler.handleNotifyTransactionFinished(conn, None, 1)
-        self.assertEquals(app.txn_finished, 1)
+        client_handler.handleNotifyTransactionFinished(conn, None, test_tid)
+        self.assertEquals(len(app.mockGetNamedCalls('setTransactionFinished')), 1)
         # TODO: decide what to do when non-current transaction is notified as finished, and test that behaviour
 
     def test_InvalidateObjects(self):
@@ -949,16 +947,13 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertEqual(app.txn_object_stored, (test_oid, test_serial))
 
     def test_AnswerStoreTransaction(self):
-        class App:
-            tid = 10
-            txn_voted = 0
-        app = App()
+        test_tid = 10
+        app = Mock({'getTID': test_tid, 'setTransactionVoted': None})
         dispatcher = self.getDispatcher()
         client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
-        test_tid = 10
         client_handler.handleAnswerStoreTransaction(conn, None, test_tid)
-        self.assertEquals(app.txn_voted, 1)
+        self.assertEquals(len(app.mockGetNamedCalls('setTransactionVoted')), 1)
         # TODO: test handleAnswerObject with test_tid not matching app.tid (not handled in program)
 
     def test_AnswerTransactionInformation(self):
