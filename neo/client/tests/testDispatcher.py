@@ -22,7 +22,7 @@ from neo.client.dispatcher import Dispatcher
 class DispatcherTest(unittest.TestCase):
 
     def test_register(self):
-        dispatcher = Dispatcher(None)
+        dispatcher = Dispatcher()
         conn = []
         other_conn = []
         queue = []
