@@ -89,7 +89,7 @@ class OperationEventHandler(StorageEventHandler):
                 app.executeQueuedEvents()
 
     def timeoutExpired(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             if conn.getUUID() == self.app.primary_master_node.getUUID():
                 # If a primary master node timeouts, I cannot continue.
                 logging.critical('the primary master node times out')
@@ -103,7 +103,7 @@ class OperationEventHandler(StorageEventHandler):
         StorageEventHandler.timeoutExpired(self, conn)
 
     def connectionClosed(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             if conn.getUUID() == self.app.primary_master_node.getUUID():
                 # If a primary master node closes, I cannot continue.
                 logging.critical('the primary master node is dead')
@@ -117,7 +117,7 @@ class OperationEventHandler(StorageEventHandler):
         StorageEventHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             if conn.getUUID() == self.app.primary_master_node.getUUID():
                 # If a primary master node gets broken, I cannot continue.
                 logging.critical('the primary master node is broken')
@@ -132,7 +132,7 @@ class OperationEventHandler(StorageEventHandler):
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             self.handleUnexpectedPacket(conn, packet)
         else:
             app = self.app
@@ -185,7 +185,7 @@ class OperationEventHandler(StorageEventHandler):
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             raise NotImplementedError
         else:
             self.handleUnexpectedPacket(conn, packet)
@@ -206,7 +206,7 @@ class OperationEventHandler(StorageEventHandler):
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             nm = app.nm
             pt = app.pt
@@ -243,7 +243,7 @@ class OperationEventHandler(StorageEventHandler):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleStopOperation(self, conn, packet):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             raise OperationFailure('operation stopped')
         else:
             self.handleUnexpectedPacket(conn, packet)
@@ -273,7 +273,7 @@ class OperationEventHandler(StorageEventHandler):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleLockInformation(self, conn, packet, tid):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             try:
                 t = app.transaction_dict[tid]
@@ -290,7 +290,7 @@ class OperationEventHandler(StorageEventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleUnlockInformation(self, conn, packet, tid):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             try:
                 t = app.transaction_dict[tid]
@@ -454,13 +454,13 @@ class OperationEventHandler(StorageEventHandler):
             pass
 
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             self.app.replicator.setCriticalTID(packet, ltid)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             self.app.replicator.setUnfinishedTIDList(tid_list)
         else:
             self.handleUnexpectedPacket(conn, packet)
