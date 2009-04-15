@@ -92,26 +92,27 @@ class Storage(BaseStorage.BaseStorage,
             self._txn_lock_release()
 
     def store(self, oid, serial, data, version, transaction):
+        app = self.app
         if self._is_read_only:
             raise POSException.ReadOnlyError()
         try:
-            return self.app.store(oid = oid, serial = serial,
-                                   data = data, version = version,
-                                   transaction = transaction)
+            return app.store(oid = oid, serial = serial,
+                             data = data, version = version,
+                             transaction = transaction)
         except NEOStorageConflictError:
-            if self.app.conflict_serial <= self.app.tid:
+            if app.conflict_serial <= app.tid:
                 # Try to resolve conflict only if conflicting serial is older
                 # than the current transaction ID
                 new_data = self.tryToResolveConflict(oid,
-                                                     self.app.conflict_serial,
+                                                     app.conflict_serial,
                                                      serial, data)
                 if new_data is not None:
                     # Try again after conflict resolution
-                    self.store(oid, self.app.conflict_serial,
+                    self.store(oid, app.conflict_serial,
                                new_data, version, transaction)
                     return ConflictResolution.ResolvedSerial
             raise POSException.ConflictError(oid=oid,
-                                             serials=(self.app.tid,
+                                             serials=(app.tid,
                                                       serial),data=data)
 
     def _clear_temp(self):
