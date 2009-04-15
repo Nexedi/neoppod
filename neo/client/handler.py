@@ -311,7 +311,7 @@ class ClientAnswerEventHandler(BaseClientEventHandler):
 
     def handleNotReady(self, conn, packet, message):
         app = self.app
-        app.local_var.node_not_ready = 1
+        app.setNodeNotReady()
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,

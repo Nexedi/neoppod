@@ -73,7 +73,7 @@ class ConnectionPool(object):
         # Loop until a connection is obtained.
         while 1:
             logging.info('trying to connect to %s', node)
-            app.local_var.node_not_ready = 0
+            app.setNodeReady()
             conn = MTClientConnection(app.em, app.handler, addr,
                                       connector_handler=app.connector_handler)
             conn.lock()
@@ -100,13 +100,13 @@ class ConnectionPool(object):
                 logging.error('Connection to storage node %s failed', node)
                 return None
 
-            if app.local_var.node_not_ready:
+            if app.isNodeReady():
+                logging.info('connected to storage node %s', node)
+                return conn
+            else:
                 # Connection failed, notify primary master node
                 logging.info('Storage node %s not ready', node)
                 return None
-            else:
-                logging.info('connected to storage node %s', node)
-                return conn
 
             sleep(1)
 
@@ -931,7 +931,7 @@ class Application(object):
                 # Make application execute remaining message if any
                 self._waitMessage()
                 while 1:
-                    self.local_var.node_not_ready = 0
+                    self.setNodeReady()
                     if self.primary_master_node is None:
                         # Try with master node defined in config
                         try:
@@ -975,7 +975,7 @@ class Application(object):
                             elif self.primary_master_node.getServer() != (addr, port):
                                 # Master node changed, connect to new one
                                 break
-                            elif self.local_var.node_not_ready:
+                            elif not self.isNodeReady():
                                 # Wait a bit and reask again
                                 break
                             elif self.pt is not None and self.pt.operational():
@@ -990,3 +990,13 @@ class Application(object):
                 self.master_conn = conn
             finally:
                 self._connecting_to_master_node_release()
+
+    def setNodeReady(self):
+        self.local_var.node_ready = True
+
+    def setNodeNotReady(self):
+        self.local_var.node_ready = False
+
+    def isNodeReady(self):
+        return self.local_var.node_ready
+

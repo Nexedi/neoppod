@@ -215,16 +215,12 @@ class ClientEventHandlerTest(unittest.TestCase):
         self._testStorageWithMethod(self._testPeerBroken, state=BROKEN_STATE)
 
     def test_notReady(self):
-        class FakeLocal:
-            node_not_ready = None
-        class App:
-            local_var = FakeLocal()
-        app = App()
+        app = Mock({'setNodeNotReady': None})
         dispatcher = self.getDispatcher()
         client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         client_handler.handleNotReady(conn, None, None)
-        self.assertEquals(app.local_var.node_not_ready, 1)
+        self.assertEquals(len(app.mockGetNamedCalls('setNodeNotReady')), 1)
 
     def test_clientAcceptNodeIdentification(self):
         class App:
