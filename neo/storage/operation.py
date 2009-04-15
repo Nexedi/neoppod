@@ -96,7 +96,7 @@ class OperationEventHandler(StorageEventHandler):
                 raise PrimaryFailure('the primary master node times out')
             else:
                 # Otherwise, this connection is to another storage node.
-                raise NotImplemented
+                raise NotImplementedError
         else:
             self.dealWithClientFailure(conn.getUUID())
 
@@ -110,7 +110,7 @@ class OperationEventHandler(StorageEventHandler):
                 raise PrimaryFailure('the primary master node is dead')
             else:
                 # Otherwise, this connection is to another storage node.
-                raise NotImplemented
+                raise NotImplementedError
         else:
             self.dealWithClientFailure(conn.getUUID())
 
@@ -124,7 +124,7 @@ class OperationEventHandler(StorageEventHandler):
                 raise PrimaryFailure('the primary master node is broken')
             else:
                 # Otherwise, this connection is to another storage node.
-                raise NotImplemented
+                raise NotImplementedError
         else:
             self.dealWithClientFailure(conn.getUUID())
 
