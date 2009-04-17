@@ -548,10 +548,10 @@ class ServiceEventHandler(MasterEventHandler):
                 # Transaction Finished to the initiated client node,
                 # Invalidate Objects to the other client nodes, and Unlock
                 # Information to relevant storage nodes.
-                p = Packet()
                 for c in app.em.getConnectionList():
                     uuid = c.getUUID()
                     if uuid is not None:
+                        p = Packet()
                         node = app.nm.getNodeByUUID(uuid)
                         if node.getNodeType() == CLIENT_NODE_TYPE:
                             if c is t.getConnection():

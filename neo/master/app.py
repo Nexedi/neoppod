@@ -541,16 +541,17 @@ class Application(object):
                 node = nm.getNodeByUUID(uuid)
                 if node.getNodeType() == STORAGE_NODE_TYPE:
                     # Split the packet if too huge.
-                    p = Packet()
                     row_list = []
                     for offset in xrange(self.num_partitions):
                         row_list.append((offset, self.pt.getRow(offset)))
                         if len(row_list) == 1000:
+                            p = Packet()
                             p.sendPartitionTable(conn.getNextId(),
                                                  self.lptid, row_list)
                             conn.addPacket(p)
                             del row_list[:]
                     if len(row_list) != 0:
+                        p = Packet()
                         p.sendPartitionTable(conn.getNextId(),
                                              self.lptid, row_list)
                         conn.addPacket(p)
