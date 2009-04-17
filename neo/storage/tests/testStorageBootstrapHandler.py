@@ -41,8 +41,7 @@ NEO_SQL_DATABASE = 'test_neo1'
 class StorageBootstrapTests(unittest.TestCase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.DEBUG)
-        #logging.basicConfig(level = logging.ERROR)
+        #logging.basicConfig(level = logging.DEBUG)
         # create an application object
         config_file_text = """# Default parameters.
 [DEFAULT]
@@ -82,6 +81,7 @@ server: 127.0.0.1:10020
         cursor.execute('CREATE DATABASE %s' % (NEO_SQL_DATABASE, ))
         cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY "%s"' % 
                 (NEO_SQL_DATABASE, NEO_SQL_USER, NEO_SQL_PASSWORD))
+        cursor.close()
         # config file
         tmp_id, self.tmp_path = mkstemp()
         tmp_file = os.fdopen(tmp_id, "w+b")
@@ -89,15 +89,9 @@ server: 127.0.0.1:10020
         tmp_file.close()
         self.app = Application(self.tmp_path, "storagetest")        
         for server in self.app.master_node_list:
-            master = MasterNode(server = server)
-            self.app.nm.add(master)
-        self.trying_master_node = master
+            self.app.nm.add(MasterNode(server = server))
+        self.trying_master_node = self.app.nm.getMasterNodeList()[0 ]
         self.bootstrap = BootstrapEventHandler(self.app)
-        self.app.unconnected_master_node_set = set()
-        self.app.negotiating_master_node_set = set()
-        for node in self.app.nm.getMasterNodeList():
-            self.app.unconnected_master_node_set.add(node.getServer())
-            node.setState(RUNNING_STATE)
         # define some variable to simulate client and storage node
         self.master_port = 10010
         self.storage_port = 10020
@@ -140,30 +134,37 @@ server: 127.0.0.1:10020
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
 
+    def checkNoPacketSent(self, conn):
+        # no packet should be sent
+        self.assertEquals(len(conn.mockGetNamedCalls('addPacket')), 0)
+
     # Tests
     def test_01_connectionCompleted(self):
+        # trying mn is None -> RuntimeError
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.app.trying_master_node = None
         self.assertRaises(RuntimeError, self.bootstrap.connectionCompleted, conn)
+        # request identification
         self.app.trying_master_node = self.trying_master_node
         self.bootstrap.connectionCompleted(conn)
         self.checkCalledRequestNodeIdentification(conn)
 
     def test_02_connectionFailed(self):
+        # trying mn is None -> RuntimeError
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.app.trying_master_node = None
         self.assertRaises(RuntimeError, self.bootstrap.connectionFailed, conn)
-
+        # the primary is dead
         self.app.trying_master_node = self.trying_master_node
         self.app.primary_master_node = self.app.trying_master_node
         self.bootstrap.connectionFailed(conn)
         self.assertEquals(self.app.primary_master_node, None)
         self.assertEquals(self.app.trying_master_node, None)
-
+        # a master is dead
         self.app.trying_master_node = self.trying_master_node
         master_node = MasterNode()
         self.app.primary_master_node = master_node
@@ -171,87 +172,94 @@ server: 127.0.0.1:10020
         self.assertEquals(self.app.primary_master_node, master_node)
         self.assertEquals(self.app.trying_master_node, None)
 
-    def test_03_connectionAcccepted(self):
+    def test_03_connectionAccepted(self):
+        # no packet sent
         uuid = self.getNewUUID()
+        em = Mock({ 'register': None})
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port),
                      "getHandler" : self.bootstrap,
+                     "getEventManager": em
         })
         connector = Mock({ })
         addr = ("127.0.0.1", self.master_port)
-        #self.bootstrap.connectionAccepted(conn, connector, addr)
-        # FIXME: nothing to test ?
+        self.bootstrap.connectionAccepted(conn, connector, addr)
+        self.assertEquals(len(connector.mockGetNamedCalls('getEventManager')), 0)
+        self.checkNoPacketSent(conn)
 
     def test_04_timeoutExpired(self):
         conn = Mock({
             "isListeningConnection": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
-        
+        # pmn connection has expired
         self.app.trying_master_node = self.trying_master_node
         self.app.trying_master_node = self.trying_master_node
         self.bootstrap.timeoutExpired(conn)
         self.assertEquals(self.app.primary_master_node, None)
         self.assertEquals(self.app.trying_master_node, None)
-
+        # another master connection as expired
         self.app.trying_master_node = self.trying_master_node
         master_node = MasterNode()
         self.app.primary_master_node = master_node
         self.bootstrap.connectionFailed(conn)
         self.assertEquals(self.app.primary_master_node, master_node)
         self.assertEquals(self.app.trying_master_node, None)
+        self.checkNoPacketSent(conn)
 
     def test_05_connectionClosed(self):
         conn = Mock({
             "isListeningConnection": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
-        
+        # pmn connection is closed
         self.app.trying_master_node = self.trying_master_node
         self.app.trying_master_node = self.trying_master_node
         self.bootstrap.connectionClosed(conn)
         self.assertEquals(self.app.primary_master_node, None)
         self.assertEquals(self.app.trying_master_node, None)
-
+        # another master node connection is closed
         self.app.trying_master_node = self.trying_master_node
         master_node = MasterNode()
         self.app.primary_master_node = master_node
         self.bootstrap.connectionClosed(conn)
         self.assertEquals(self.app.primary_master_node, master_node)
         self.assertEquals(self.app.trying_master_node, None)
+        self.checkNoPacketSent(conn)
 
     def test_06_peerBroken(self):
         conn = Mock({
             "isListeningConnection": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
-        
+        # the primary is broken 
         self.app.trying_master_node = self.trying_master_node
         self.app.trying_master_node = self.trying_master_node
         self.bootstrap.peerBroken(conn)
         self.assertEquals(self.app.primary_master_node, None)
         self.assertEquals(self.app.trying_master_node, None)
-
+        # another master is broken
         self.app.trying_master_node = self.trying_master_node
         master_node = MasterNode()
         self.app.primary_master_node = master_node
         self.bootstrap.peerBroken(conn)
         self.assertEquals(self.app.primary_master_node, master_node)
         self.assertEquals(self.app.trying_master_node, None)
+        self.checkNoPacketSent(conn)
 
     def test_07_handleNotReady(self):
         conn = Mock({
             "isListeningConnection": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
-        
+        # the primary is not ready 
         self.app.trying_master_node = self.trying_master_node
         self.app.trying_master_node = self.trying_master_node
         self.bootstrap.handleNotReady(conn, None, None)
         self.assertEquals(self.app.primary_master_node, None)
         self.assertEquals(self.app.trying_master_node, None)
         self.assertEquals(len(conn.mockGetNamedCalls("close")), 1)
-
+        # another master is not ready
         self.app.trying_master_node = self.trying_master_node
         master_node = MasterNode()
         self.app.primary_master_node = master_node
@@ -259,6 +267,7 @@ server: 127.0.0.1:10020
         self.assertEquals(self.app.primary_master_node, master_node)
         self.assertEquals(self.app.trying_master_node, None)
         self.assertEquals(len(conn.mockGetNamedCalls("close")), 2)
+        self.checkNoPacketSent(conn)
 
     def test_08_handleRequestNodeIdentification1(self):
         # client connection
