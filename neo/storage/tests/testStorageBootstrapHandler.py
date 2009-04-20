@@ -270,7 +270,7 @@ server: 127.0.0.1:10020
         self.checkNoPacketSent(conn)
 
     def test_08_handleRequestNodeIdentification1(self):
-        # client connection
+        # client socket connection -> rejected
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isListeningConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
@@ -284,9 +284,10 @@ server: 127.0.0.1:10020
             ip_address='127.0.0.1',
             name='',)
         self.checkCalledAbort(conn)
+        self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
 
     def test_08_handleRequestNodeIdentification2(self):
-        # not a master node
+        # not a master node -> rejected
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isListeningConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
@@ -299,9 +300,10 @@ server: 127.0.0.1:10020
             ip_address='127.0.0.1',
             name=self.app.name,)
         self.checkCalledAbort(conn)
+        self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
 
     def test_08_handleRequestNodeIdentification3(self):
-        # bad app name
+        # bad app name -> rejected
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isListeningConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
@@ -314,25 +316,40 @@ server: 127.0.0.1:10020
             ip_address='127.0.0.1',
             name='INVALID_NAME',)
         self.checkCalledAbort(conn)
+        self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
 
     def test_08_handleRequestNodeIdentification4(self):
         # new master
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isListeningConnection": True,
-            "getAddress" : ("127.0.0.1", self.master_port), })
+            "getAddress" : ("192.168.1.1", self.master_port), })
+        # master not known
+        mn = self.app.nm.getNodeByServer(('192.168.1.1', self.master_port))
+        self.assertEquals(mn, None)
         count = len(self.app.nm.getNodeList())
+        uuid = self.getNewUUID()
         self.bootstrap.handleRequestNodeIdentification(
             conn=conn,
-            uuid=self.getNewUUID(),
+            uuid=uuid,
             packet=packet, 
             port=self.master_port,
             node_type=MASTER_NODE_TYPE,
             ip_address='192.168.1.1',
             name=self.app.name,)
         self.assertEquals(len(self.app.nm.getNodeList()), count + 1)
+        # check packet
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
+        call = conn.mockGetNamedCalls("addPacket")[0]
+        packet = call.getParam(0)
+        self.assertTrue(isinstance(packet, Packet))
+        self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
+        # check connection uuid
+        self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
+        call = conn.mockGetNamedCalls("setUUID")[0]
+        self.assertEquals(call.getParam(0), uuid)
 
     def test_08_handleRequestNodeIdentification5(self):
-        # broken node
+        # broken node -> rejected
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isListeningConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
@@ -349,12 +366,16 @@ server: 127.0.0.1:10020
             ip_address='127.0.0.1',
             name=self.app.name,)
         self.checkCalledAbort(conn)
+        self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
 
     def test_08_handleRequestNodeIdentification6(self):
-        # well case
+        # master node is already known
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isListeningConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
+        # master known
+        mn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
+        self.assertNotEquals(mn, None)
         uuid = self.getNewUUID()
         self.bootstrap.handleRequestNodeIdentification(
             conn=conn,
@@ -374,13 +395,13 @@ server: 127.0.0.1:10020
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
-        # uuid
+        # connection uuid
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
         call = conn.mockGetNamedCalls("setUUID")[0]
         self.assertEquals(call.getParam(0), uuid)
 
     def test_09_handleAcceptNodeIdentification1(self):
-        # server connection rejected
+        # server socket connection -> rejected
         conn = Mock({"isListeningConnection": True,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
@@ -397,7 +418,7 @@ server: 127.0.0.1:10020
         self.checkCalledAbort(conn)
 
     def test_09_handleAcceptNodeIdentification2(self):
-        # not a master node
+        # not a master node -> rejected
         conn = Mock({"isListeningConnection": False,
                     "getAddress" : ("127.0.0.1", self.storage_port), })
         self.app.trying_master_node = self.trying_master_node
@@ -419,7 +440,7 @@ server: 127.0.0.1:10020
         self.assertEquals(len(conn.mockGetNamedCalls("close")), 1)
 
     def test_09_handleAcceptNodeIdentification3(self):
-        # bad address
+        # bad address -> rejected
         conn = Mock({"isListeningConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
@@ -466,6 +487,8 @@ server: 127.0.0.1:10020
             num_partitions=self.app.num_partitions,
             num_replicas=self.num_replicas + 1,
             **args)
+        self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
 
     def test_09_handleAcceptNodeIdentification5(self):
         # no PT
@@ -501,7 +524,6 @@ server: 127.0.0.1:10020
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ASK_PRIMARY_MASTER)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
-
         
     def test_09_handleAcceptNodeIdentification6(self):
         conn = Mock({"isListeningConnection": False,
@@ -530,13 +552,13 @@ server: 127.0.0.1:10020
         self.assertEquals(packet.getType(), ASK_PRIMARY_MASTER)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
 
-
     def test_10_handleAnswerPrimaryMaster01(self):
         # server connection rejected
         conn = Mock({"isListeningConnection": True,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
         self.app.trying_master_node = self.trying_master_node
+        self.app.primary_master_node = None
         self.bootstrap.handleAnswerPrimaryMaster(
             conn=conn,
             packet=packet,
@@ -544,6 +566,8 @@ server: 127.0.0.1:10020
             known_master_list=()
         )
         self.checkCalledAbort(conn)
+        self.assertEquals(self.app.trying_master_node, self.trying_master_node)
+        self.assertEquals(self.app.primary_master_node, None)
 
     def test_10_handleAnswerPrimaryMaster02(self):
         # register new master nodes
@@ -568,9 +592,12 @@ server: 127.0.0.1:10020
         n = self.app.nm.getNodeByServer(new_master[:2])
         self.assertTrue(isinstance(n, MasterNode))
         self.assertEquals(n.getUUID(), new_master[2])
+        self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
         
     def test_10_handleAnswerPrimaryMaster03(self):
-        # invalid primary master uuid
+        # invalid primary master uuid -> close connection
         conn = Mock({"isListeningConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
@@ -585,15 +612,17 @@ server: 127.0.0.1:10020
         )
         self.assertEquals(self.app.primary_master_node, None)
         self.assertEquals(self.app.trying_master_node, None)
+        self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('close')), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
 
     def test_10_handleAnswerPrimaryMaster04(self):
-        # check primary master node
+        # trying_master_node is not pmn -> close connection
         conn = Mock({"isListeningConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
         pmn.setUUID(self.getNewUUID())
-        # trying_master_node is not pmn
         self.app.primary_master_node = None
         self.app.trying_master_node = None
         self.assertNotEquals(pmn.getUUID(), None)
@@ -607,15 +636,15 @@ server: 127.0.0.1:10020
         self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 0)
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 1)
         self.assertEquals(self.app.trying_master_node, None)
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
 
     def test_10_handleAnswerPrimaryMaster05(self):
-        # check primary master node
+        # trying_master_node is pmn -> set verification handler
         conn = Mock({"isListeningConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
         pmn.setUUID(self.getNewUUID())
-        # trying_master_node is pmn
         self.app.primary_master_node = None
         self.app.trying_master_node = pmn
         self.assertNotEquals(pmn.getUUID(), None)
@@ -631,6 +660,27 @@ server: 127.0.0.1:10020
         self.assertTrue(isinstance(call.getParam(0), VerificationEventHandler))
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
         self.assertEquals(self.app.trying_master_node, pmn)
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+
+    def test_10_handleAnswerPrimaryMaster06(self):
+        # primary_uuid not known -> nothing happen
+        conn = Mock({"isListeningConnection": False,
+                    "getAddress" : ("127.0.0.1", self.master_port), })
+        packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
+        self.app.primary_master_node = None
+        self.app.trying_master_node = None
+        new_uuid = self.getNewUUID()
+        self.bootstrap.handleAnswerPrimaryMaster(
+            conn=conn,
+            packet=packet,
+            primary_uuid=new_uuid,
+            known_master_list=()
+        )
+        self.assertEquals(self.app.primary_master_node, None)
+        self.assertEquals(self.app.trying_master_node, None)
+        self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
     
 if __name__ == "__main__":
     unittest.main()
