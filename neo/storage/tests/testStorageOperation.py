@@ -32,7 +32,6 @@ from neo.protocol import *
 SQL_ADMIN_USER = 'root'
 SQL_ADMIN_PASSWORD = None
 NEO_SQL_USER = 'test'
-NEO_SQL_PASSWORD = 'test'
 NEO_SQL_DATABASE = 'test_neo1'
 
 class StorageOperationTests(unittest.TestCase):
@@ -84,7 +83,6 @@ class StorageOperationTests(unittest.TestCase):
         self.assertEquals(len(conn.mockGetNamedCalls('addPacket')), 0)
 
     def setUp(self):
-        #logging.basicConfig(level = logging.DEBUG)
         logging.basicConfig(level = logging.ERROR)
         # create an application object
         config_file_text = """# Default parameters.
@@ -99,8 +97,6 @@ partitions: 1009
 name: main
 # The user name for the database.
 user: %(user)s
-# The password for the database.
-password: %(password)s
 connector : SocketConnector
 # The first master.
 [mastertest]
@@ -112,7 +108,6 @@ server: 127.0.0.1:10020
 """ % {
     'database': NEO_SQL_DATABASE,
     'user': NEO_SQL_USER,
-    'password': NEO_SQL_PASSWORD,
 }
         # SQL connection
         connect_arg_dict = {'user': SQL_ADMIN_USER}
@@ -123,8 +118,8 @@ server: 127.0.0.1:10020
         # new database
         cursor.execute('DROP DATABASE IF EXISTS %s' % (NEO_SQL_DATABASE, ))
         cursor.execute('CREATE DATABASE %s' % (NEO_SQL_DATABASE, ))
-        cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY "%s"' % 
-                (NEO_SQL_DATABASE, NEO_SQL_USER, NEO_SQL_PASSWORD))
+        cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' % 
+                (NEO_SQL_DATABASE, NEO_SQL_USER))
         # config file
         tmp_id, self.tmp_path = mkstemp()
         tmp_file = os.fdopen(tmp_id, "w+b")

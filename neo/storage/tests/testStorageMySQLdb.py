@@ -27,13 +27,11 @@ from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 SQL_ADMIN_USER = 'root'
 SQL_ADMIN_PASSWORD = None
 NEO_SQL_USER = 'test'
-NEO_SQL_PASSWORD = 'test'
 NEO_SQL_DATABASE = 'test_neo1'
 
 class StorageMySQSLdbTests(unittest.TestCase):
 
     def setUp(self):
-        #logging.basicConfig(level = logging.DEBUG)
         logging.basicConfig(level = logging.ERROR)
         # SQL connection
         connect_arg_dict = {'user': SQL_ADMIN_USER}
@@ -44,13 +42,12 @@ class StorageMySQSLdbTests(unittest.TestCase):
         # new database
         cursor.execute('DROP DATABASE IF EXISTS %s' % (NEO_SQL_DATABASE, ))
         cursor.execute('CREATE DATABASE %s' % (NEO_SQL_DATABASE, ))
-        cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY "%s"' % 
-                (NEO_SQL_DATABASE, NEO_SQL_USER, NEO_SQL_PASSWORD))
+        cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' % 
+                (NEO_SQL_DATABASE, NEO_SQL_USER))
         # db manager
         self.db = MySQLDatabaseManager(
             database=NEO_SQL_DATABASE, 
             user=NEO_SQL_USER,
-            password=NEO_SQL_PASSWORD,
         )
 
     def tearDown(self):
@@ -73,12 +70,10 @@ class StorageMySQSLdbTests(unittest.TestCase):
         db = MySQLDatabaseManager(
             database=NEO_SQL_DATABASE, 
             user=NEO_SQL_USER,
-            password=NEO_SQL_PASSWORD,
         )
         # init
         self.assertEquals(db.db, NEO_SQL_DATABASE)
         self.assertEquals(db.user, NEO_SQL_USER)
-        self.assertEquals(db.passwd, NEO_SQL_PASSWORD)
         # & connect
         import MySQLdb
         self.assertTrue(isinstance(db.conn, MySQLdb.connection))
