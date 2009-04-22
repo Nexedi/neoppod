@@ -121,7 +121,7 @@ NEO_MASTER_NODES = '127.0.0.1:%(port_1)s 127.0.0.1:%(port_2)s 127.0.0.1:%(port_3
     'port_3': NEO_MASTER_PORT_3
 }
 NEO_SQL_USER = 'test'
-NEO_SQL_PASSWORD = 'test'
+NEO_SQL_PASSWORD = ''
 NEO_SQL_DATABASE_1 = 'test_neo1'
 NEO_SQL_DATABASE_2 = 'test_neo2'
 NEO_SQL_DATABASE_3 = 'test_neo3'
