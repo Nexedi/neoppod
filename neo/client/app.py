@@ -827,7 +827,7 @@ class Application(object):
         return undo_info
 
 
-    def history(self, oid, version, length=1, filter=None, object_only=0):
+    def history(self, oid, version=None, length=1, filter=None, object_only=0):
         # Get history informations for object first
         partition_id = u64(oid) % self.num_partitions
         cell_list = self.pt.getCellList(partition_id, True)
