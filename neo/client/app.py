@@ -857,7 +857,7 @@ class Application(object):
                 # Got history for wrong oid
                 continue
 
-        if not isinstance(self.local_var.history, dict):
+        if not isinstance(self.local_var.history, tuple):
             raise NEOStorageError('history failed')
         if object_only:
             # Use by getSerial
@@ -865,7 +865,7 @@ class Application(object):
 
         # Now that we have object informations, get txn informations
         history_list = []
-        for serial, size in self.local_var.hisory[1]:
+        for serial, size in self.local_var.history[1]:
             partition_id = u64(serial) % self.num_partitions
             cell_list = self.pt.getCellList(partition_id, True)
             shuffle(cell_list)
