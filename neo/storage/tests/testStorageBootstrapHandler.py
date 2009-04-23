@@ -494,6 +494,8 @@ server: 127.0.0.1:10020
         conn = Mock({"isListeningConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
+        self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
+        self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
         self.bootstrap.handleAcceptNodeIdentification(
             conn=conn,
@@ -513,6 +515,7 @@ server: 127.0.0.1:10020
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
         call = conn.mockGetNamedCalls("setUUID")[0]
         self.assertEquals(call.getParam(0), uuid)
+        self.assertEquals(self.app.trying_master_node.getUUID(), uuid)
         # packet
         self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
         call = conn.mockGetNamedCalls("addPacket")[0]
@@ -527,6 +530,7 @@ server: 127.0.0.1:10020
         self.app.trying_master_node = self.trying_master_node
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
         uuid = self.getNewUUID()
+        self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
         self.bootstrap.handleAcceptNodeIdentification(
             conn=conn,
             uuid=uuid,
@@ -540,6 +544,7 @@ server: 127.0.0.1:10020
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
         call = conn.mockGetNamedCalls("setUUID")[0]
         self.assertEquals(call.getParam(0), uuid)
+        self.assertEquals(self.app.trying_master_node.getUUID(), uuid)
         # packet
         self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
         call = conn.mockGetNamedCalls("addPacket")[0]
