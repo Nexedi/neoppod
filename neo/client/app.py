@@ -401,7 +401,7 @@ class Application(object):
                 self._cache_lock_release()
         if end_serial == INVALID_SERIAL:
             end_serial = None
-        return loads(data), start_serial, end_serial
+        return data, start_serial, end_serial
 
 
     def load(self, oid, version=None):
@@ -413,7 +413,7 @@ class Application(object):
             try:
                 if oid in self.mq_cache:
                     logging.debug('load oid %s is cached', dump(oid))
-                    return loads(self.mq_cache[oid][1]), self.mq_cache[oid][0]
+                    return self.mq_cache[oid][1], self.mq_cache[oid][0]
             finally:
                 self._cache_lock_release()
             # Otherwise get it from storage node
@@ -489,8 +489,7 @@ class Application(object):
             # FIXME must wait for cluster to be ready
             raise NEOStorageError
         # Store data on each node
-        ddata = dumps(data)
-        compressed_data = compress(ddata)
+        compressed_data = compress(data)
         checksum = makeChecksum(compressed_data)
         for cell in cell_list:
             logging.info("storing object %s %s" %(cell.getServer(),cell.getState()))
@@ -524,7 +523,7 @@ class Application(object):
 
         # Store object in tmp cache
         noid, nserial = self.txn_object_stored
-        self.txn_data_dict[oid] = ddata
+        self.txn_data_dict[oid] = data
 
         return self.tid
 
@@ -658,9 +657,9 @@ class Application(object):
             self._cache_lock_acquire()
             try:
                 for oid in self.txn_data_dict.iterkeys():
-                    ddata = self.txn_data_dict[oid]
+                    data = self.txn_data_dict[oid]
                     # Now serial is same as tid
-                    self.mq_cache[oid] = self.tid, ddata
+                    self.mq_cache[oid] = self.tid, data
             finally:
                 self._cache_lock_release()
             self._clear_txn()
