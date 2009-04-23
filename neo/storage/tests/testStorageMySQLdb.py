@@ -101,7 +101,7 @@ class StorageMySQSLdbTests(unittest.TestCase):
         self.db.under_transaction = True
         self.db.commit()
         self.assertEquals(len(self.db.conn.mockGetNamedCalls('commit')), 1)
-        selg.assertEquals(serlf.db.under_transaction, False)
+        self.assertEquals(self.db.under_transaction, False)
 
     def test_06_rollback(self):
         # rollback called and no current transaction
