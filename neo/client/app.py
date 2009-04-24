@@ -446,7 +446,7 @@ class Application(object):
     def tpc_begin(self, transaction, tid=None, status=' '):
         """Begin a new transaction."""
         # First get a transaction, only one is allowed at a time
-        if self.txn == transaction:
+        if self.txn is transaction:
             # We already begin the same transaction
             return
         # Get a new transaction id if necessary
