@@ -349,7 +349,7 @@ class Packet(object):
         msg = pack('!LHL', self._id, self._type, PACKET_HEADER_SIZE + len(self._body)) + self._body
         logging.debug('encoding %d:%x', self._id, self._type)
         if len(msg) > MAX_PACKET_SIZE:
-            raise RuntimeError('message too big (%d)' % len(msg))
+            raise ProtocolError('message too big (%d)' % len(msg))
         return msg
 
     __str__ = encode
