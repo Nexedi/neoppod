@@ -574,45 +574,26 @@ class Application(object):
         if transaction is not self.txn:
             return
 
-        # Abort txn in node where objects were stored
-        aborted_node_set = set()
+        cell_set = set()
+
+        # select nodes where objects were stored
         for oid in self.txn_data_dict.iterkeys():
             partition_id = u64(oid) % self.num_partitions
-            cell_list = self.pt.getCellList(partition_id, True)
-            for cell in cell_list:
-                if cell.getNode() not in aborted_node_set:
-                    conn = self.cp.getConnForNode(cell)
-                    if conn is None:
-                        continue
+            cell_set |= set(self.pt.getCellList(partition_id, True))
 
-                    try:
-                        msg_id = conn.getNextId()
-                        p = Packet()
-                        p.abortTransaction(msg_id, self.tid)
-                        conn.addPacket(p)
-                    finally:
-                        conn.unlock()
-
-                    aborted_node_set.add(cell.getNode())
-
-        # Abort in nodes where transaction was stored
+        # select nodes where transaction was stored
         partition_id = u64(self.tid) % self.num_partitions
-        cell_list = self.pt.getCellList(partition_id, True)
-        for cell in cell_list:
-            if cell.getNode() not in aborted_node_set:
-                conn = self.cp.getConnForNode(cell)
-                if conn is None:
-                    continue
+        cell_set |= set(self.pt.getCellList(partition_id, True))
 
-                try:
-                    msg_id = conn.getNextId()
-                    p = Packet()
-                    p.abortTransaction(msg_id, self.tid)
-                    conn.addPacket(p)
-                finally:
-                    conn.unlock()
-
-                aborted_node_set.add(cell.getNode())
+        # cancel transaction one all those nodes
+        for cell in cell_set:
+            conn = self.cp.getConnForNode(cell)
+            if conn is None:
+                continue
+            try:
+                conn.addPacket(Packet().abortTransaction(conn.getNextId(), self.tid))
+            finally:
+                conn.unlock()
 
         # Abort the transaction in the primary master node.
         conn = self.master_conn
