@@ -276,7 +276,7 @@ class Connection(BaseConnection):
             self.write_buf.append(packet.encode())
         except ProtocolError, m:
             logging.critical('trying to send a too big message')
-            return self.addPacket(packet.internalError(packet.getId(), m[1]))
+            return self.addPacket(packet.internalError(packet.getId(), m[0]))
 
         # If this is the first time, enable polling for writing.
         if len(self.write_buf) == 1:
