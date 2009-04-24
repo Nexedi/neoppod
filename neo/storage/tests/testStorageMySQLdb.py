@@ -359,6 +359,10 @@ class StorageMySQSLdbTests(unittest.TestCase):
         self.db.query("delete from pt")
         args = (0, uuid1, DISCARDED_STATE)
         self.db.query('insert into pt (rid, uuid, state) values (%d, "%s", %d)' % args)
+        result = self.db.query('select rid, uuid, state from pt')
+        self.assertEquals(len(result), 1)
+        self.assertEquals(result[0], (0, uuid1, 3))
+        self.assertEquals(self.db.getPTID(), ptid)
         self.db.changePartitionTable(ptid, cells)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
@@ -392,8 +396,13 @@ class StorageMySQSLdbTests(unittest.TestCase):
         self.assertEquals(result[0], (1, uuid2, 0))
         self.assertEquals(self.db.getPTID(), ptid)
         # delete previous entries for a DISCARDED_STATE node
+        self.db.query("delete from pt")
         args = (0, uuid1, DISCARDED_STATE)
         self.db.query('insert into pt (rid, uuid, state) values (%d, "%s", %d)' % args)
+        result = self.db.query('select rid, uuid, state from pt')
+        self.assertEquals(len(result), 1)
+        self.assertEquals(result[0], (0, uuid1, 3))
+        self.assertEquals(self.db.getPTID(), ptid)
         self.db.setPartitionTable(ptid, cells)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
@@ -436,7 +445,7 @@ class StorageMySQSLdbTests(unittest.TestCase):
         self.assertEquals(result[1], (2L, 1, 0, 0, ''))
         result = self.db.query('select * from obj')
         self.assertEquals(len(result), 0)
-        # and in persistent table
+        # and in obj table
         self.db.setup(reset=True)
         self.db.storeTransaction(tid, object_list, transaction=None, temporary=False)
         result = self.db.query('select oid, serial, compression, checksum, value from obj')
