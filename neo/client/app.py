@@ -699,7 +699,7 @@ class Application(object):
             # end must be TID we are going to undone otherwise it means
             # a later transaction modify the object
             if end != transaction_id:
-                raise UndoError("non-undoable transaction")
+                raise UndoError("non-undoable transaction", oid)
             data_dict[oid] = data
 
         # Third do transaction with old data
