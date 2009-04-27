@@ -16,8 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import unittest
-from mock import Mock, ReturnValues
-from ZODB.POSException import StorageTransactionError
+from mock import Mock, ReturnValues, ReturnIterator
+from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
 from neo.protocol import INVALID_UUID
 from neo.client.app import Application
 from neo.protocol import Packet
@@ -72,7 +72,17 @@ class TestSocketConnector(object):
     def send(self, msg):
         raise NotImplementedError
 
-class ConnectionPoolTest(unittest.TestCase):
+class ClientApplicationTest(unittest.TestCase):
+
+    # some helpers
+
+    def getApp(self, master_nodes='127.0.0.1:10010', name='test',
+               connector='SocketConnector', **kw):
+        # TODO: properly simulate master node connection
+        app = Application(master_nodes, name, connector, **kw)
+        app.num_partitions = 10
+        app.num_replicas = 2
+        return app
 
     def getUUID(self):
         uuid = INVALID_UUID
@@ -95,6 +105,49 @@ class ConnectionPoolTest(unittest.TestCase):
         txn.description = description
         txn._extension = _extension
         return txn
+
+    def beginTransaction(self, app, tid):
+        txn = self.makeTransactionObject()
+        app.tpc_begin(txn, tid=tid)
+        return txn
+
+    def storeObject(self, app, oid=None, data='DATA'):
+        tid = app.tid
+        if oid is None:
+            oid = self.makeOID()
+        obj = (oid, tid, 'DATA', '', app.txn)
+        packet = Packet()
+        packet.answerStoreObject(msg_id=1, conflicting=0, oid=oid, serial=tid)
+        conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
+        cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
+        app.cp = Mock({ 'getConnForNode': conn})
+        app.pt = Mock({ 'getCellList': (cell, cell, ) })
+        return oid
+
+    def voteTransaction(self, app):
+        tid = app.tid
+        txn = app.txn
+        packet = Packet()
+        packet.answerStoreTransaction(msg_id=1, tid=tid)
+        conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
+        cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
+        app.pt = Mock({ 'getCellList': (cell, cell, ) })
+        app.cp = Mock({ 'getConnForNode': ReturnValues(None, conn), })
+        app.tpc_vote(txn)
+
+    def finishTransaction(self, app):
+        txn = app.txn
+        tid = app.tid
+        packet = Packet()
+        packet.notifyTransactionFinished(1, tid)
+        app.master_conn = Mock({ 
+            'getNextId': 1,
+            'getAddress': ('127.0.0.1', 10010),
+            'fakeReceived': packet,    
+        })
+        app.tpc_finish(txn)
+
+    # common checks
 
     def checkDispatcherRegisterCalled(self, app, conn, msg_id):
         calls = app.dispatcher.mockGetNamedCalls('register')
@@ -119,13 +172,7 @@ class ConnectionPoolTest(unittest.TestCase):
         self.assertEquals(len(conn.mockGetNamedCalls('addPacket')), 0)
         self.assertEquals(len(conn.mockGetNamedCalls('expectMessage')), 0)
 
-    def getApp(self, master_nodes='127.0.0.1:10010', name='test',
-               connector='SocketConnector', **kw):
-        # TODO: properly simulate master node connection
-        app = Application(master_nodes, name, connector, **kw)
-        app.num_partitions = 10
-        app.num_replicas = 2
-        return app
+    # tests
 
     def test_getQueue(self):
         app = self.getApp()
@@ -591,11 +638,11 @@ class ConnectionPoolTest(unittest.TestCase):
         self.checkDispatcherRegisterCalled(app, app.master_conn, 1)
 
     def test_tpc_finish3(self):
+        # transaction is finished
         app = self.getApp()
         tid = self.makeTID()
         txn = self.makeTransactionObject()
         app.txn, app.tid = txn, tid
-        # test callable passed to tpc_finish
         self.f_called = False
         self.f_called_with_tid = None
         def hook(tid): 
@@ -615,9 +662,96 @@ class ConnectionPoolTest(unittest.TestCase):
         self.assertEquals(self.f_called_with_tid, tid)
         self.checkPacketSent(app.master_conn, 1, FINISH_TRANSACTION)
         self.checkDispatcherRegisterCalled(app, app.master_conn, 1)
+        self.assertEquals(app.tid, None)
+        self.assertEquals(app.txn, None)
+        self.assertEquals(app.txn_data_dict, {})
+        self.assertEquals(app.txn_voted, False)
+        self.assertEquals(app.txn_finished, False)
 
-    def test_undo(self):
-        raise NotImplementedError
+    def test_undo1(self):
+        # invalid transaction
+        app = self.getApp()
+        tid = self.makeTID()
+        txn = self.makeTransactionObject()
+        wrapper = Mock()
+        app.txn = old_txn = object()
+        app.master_conn = Mock()
+        self.assertFalse(app.txn is txn)
+        conn = Mock()
+        cell = Mock()
+        self.assertRaises(StorageTransactionError, app.undo, tid, txn, wrapper)
+        # no packet sent
+        self.checkNoPacketSent(conn)
+        self.checkNoPacketSent(app.master_conn)
+        # nothing done
+        self.assertEquals(len(wrapper.mockGetNamedCalls('tryToResolveConflict')), 0)
+        self.assertEquals(app.txn, old_txn)
+
+    def test_undo2(self):
+        # Four tests here :
+        # undo txn1 where obj1 was created -> fail
+        # undo txn2 where obj2 was modified in tid3 -> fail
+        # undo txn3 where there is a conflict on obj2
+        # undo txn3 where obj2 was altered from tid2 -> ok
+        # txn4 is the transaction where the undo occurs
+        app = self.getApp()
+        app.num_partitions = 2
+        oid1, oid2 = self.makeOID(1), self.makeOID(2)
+        tid1, tid2 = self.makeTID(1), self.makeTID(2)
+        tid3, tid4 = self.makeTID(3), self.makeTID(4)
+        # commit version 1 of object 1
+        txn1 = self.beginTransaction(app, tid=tid1)
+        self.storeObject(app, oid=oid1, data='O1V1')
+        self.voteTransaction(app)
+        self.finishTransaction(app)
+        # commit version 1 of object 2
+        txn2 = self.beginTransaction(app, tid=tid2)
+        self.storeObject(app, oid=oid2, data='O1V2')
+        self.voteTransaction(app)
+        self.finishTransaction(app)
+        # commit version 2 of object 2
+        txn3 = self.beginTransaction(app, tid=tid3)
+        self.storeObject(app, oid=oid2, data='O2V2')
+        self.voteTransaction(app)
+        self.finishTransaction(app)
+        # undo 1 -> no previous revision
+        u1p1, u1p2 = Packet(), Packet()
+        u1p1.answerTransactionInformation(1, tid1, '', '', '', (oid1, ))
+        u1p2.answerObject(1, oid1, tid1, INVALID_SERIAL, 0, 0, 'O1V1')
+        # undo 2 -> not end tid
+        u2p1, u2p2 = Packet(), Packet()
+        u2p1.answerTransactionInformation(1, tid2, '', '', '', (oid2, ))
+        u2p2.answerObject(1, oid2, tid2, tid3, 0, 0, 'O2V1')
+        # undo 3 -> conflict
+        u3p1, u3p2, u3p3 = Packet(), Packet(), Packet()
+        u3p1.answerTransactionInformation(1, tid3, '', '', '', (oid2, ))
+        u3p2.answerObject(1, oid2, tid3, tid3, 0, 0, 'O2V2')
+        u3p3.answerStoreObject(msg_id=1, conflicting=1, oid=oid2, serial=tid2)
+        # undo 4 -> ok
+        u4p1, u4p2, u4p3 = Packet(), Packet(), Packet()
+        u4p1.answerTransactionInformation(1, tid3, '', '', '', (oid2, ))
+        u4p2.answerObject(1, oid2, tid3, tid3, 0, 0, 'O2V2')
+        u4p3.answerStoreObject(msg_id=1, conflicting=0, oid=oid2, serial=tid2)
+        # test logic
+        packets = (u1p1, u1p2, u2p1, u2p2, u3p1, u3p2, u3p3, u3p1, u4p2, u4p3)
+        conn = Mock({ 
+            'getNextId': 1, 
+            'fakeReceived': ReturnValues(*packets),
+            'getAddress': ('127.0.0.1', 10010),
+        })
+        cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
+        app.pt = Mock({ 'getCellList': (cell, ) })
+        app.cp = Mock({ 'getConnForNode': conn})
+        wrapper = Mock({'tryToResolveConflict': None})
+        txn4 = self.beginTransaction(app, tid=tid4)
+        # all start here
+        self.assertRaises(UndoError, app.undo, tid1, txn4, wrapper)
+        self.assertRaises(UndoError, app.undo, tid2, txn4, wrapper)
+        self.assertRaises(ConflictError, app.undo, tid3, txn4, wrapper)
+        self.assertEquals(len(wrapper.mockGetNamedCalls('tryToResolveConflict')), 1)
+        self.assertEquals(app.undo(tid3, txn4, wrapper), (tid4, [oid2, ]))
+        self.finishTransaction(app)
+
 
     def test_undoLog(self):
         raise NotImplementedError
