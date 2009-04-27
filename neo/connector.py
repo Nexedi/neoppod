@@ -44,10 +44,6 @@ class SocketConnector:
       self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     else:
       self.socket = s
-
-  def __getattr__(self, name):
-    """ fallback to default socket methods """
-    return getattr(self.socket, name)
   
   def makeClientConnection(self, addr):
     try:
@@ -114,6 +110,9 @@ class SocketConnector:
       else:
         logging.error('send: %s', m[1])        
         raise
+
+  def close(self):
+    return self.socket.close()
 
 registerConnectorHandler(SocketConnector)
 
