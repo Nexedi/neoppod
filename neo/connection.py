@@ -17,6 +17,8 @@
 
 import logging
 from neo.locking import RLock
+import sys
+import traceback
 
 from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent
@@ -241,6 +243,8 @@ class Connection(BaseConnection):
         except ConnectorTryAgainException:
             pass
         except:
+            traceback.print_exc()
+            logging.warning('recv called on %s(%s) failed.'%(self, self.getAddress()))
             self.handler.connectionClosed(self)
             self.close()
 
@@ -264,6 +268,8 @@ class Connection(BaseConnection):
             except ConnectorTryAgainException:
                 return
             except:
+                traceback.print_exc()
+                logging.warning('send called on %s(%s) failed.'%(self, self.getAddress()))
                 self.handler.connectionClosed(self)
                 self.close()
 
@@ -332,6 +338,8 @@ class ClientConnection(Connection):
                 self.handler.connectionCompleted(self)
                 event_manager.addReader(self)
         except:
+            traceback.print_exc()
+            logging.warning('send called on %s(%s) failed.'%(self, self.getAddress()))
             handler.connectionFailed(self)
             self.close()
 
