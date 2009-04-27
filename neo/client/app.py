@@ -690,12 +690,11 @@ class Application(object):
         # Second get object data from storage node using loadBefore
         data_dict = {}
         for oid in oid_list:
-            try:
-                data, start, end = self.loadBefore(oid, transaction_id)
-            except NEOStorageNotFoundError:
-                # Object created by transaction, so no previous record
-                data_dict[oid] = None
-                continue
+            result = self.loadBefore(oid, transaction_id)
+            # no previous revision, can't undo
+            if result is None:
+                raise UndoError("non-undoable transaction", oid)
+            data, start, end = result
             # end must be TID we are going to undone otherwise it means
             # a later transaction modify the object
             if end != transaction_id:
@@ -725,8 +724,13 @@ class Application(object):
             last = first - last
 
         # First get a list of transactions from all storage nodes.
-        storage_node_list = [x for x in self.pt.getNodeList() if x.getState() \
-                             in (UP_TO_DATE_STATE, FEEDING_STATE)]
+        #storage_node_list = [x for x in self.pt.getNodeList() if x.getState() \
+        #                     in (UP_TO_DATE_STATE, FEEDING_STATE)]
+        storage_node_list = []
+        for cell in self.pt.getCellList(0): # FIXME: check the argument
+            if cell.getState() in (UP_TO_DATE_STATE, FEEDING_STATE):
+                storage_node_list.append(cell.getNode())
+
         self.local_var.node_tids = {}
         for storage_node in storage_node_list:
             conn = self.cp.getConnForNode(storage_node)
