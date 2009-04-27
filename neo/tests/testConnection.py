@@ -20,7 +20,8 @@ from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROK
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, INVALID_UUID
 from neo.node import Node, MasterNode, StorageNode, ClientNode, NodeManager
 from time import time
-from neo.connection import BaseConnection, ListeningConnection, Connection
+from neo.connection import BaseConnection, ListeningConnection, Connection, \
+     ClientConnection, ServerConnection, MTClientConnection
 from neo.connector import getConnectorHandler
 from neo.handler import EventHandler
 from neo.master.tests.connector import DoNothingConnector, SimpleConnector
@@ -722,7 +723,214 @@ class testConnection(unittest.TestCase):
         self.assertEquals(len(connector.mockGetNamedCalls("close")), 0)
 
 
+    def test_12_ClientConnection_init(self):
+        # create a good client connection
+        em = Mock()
+        handler = Mock()
+        connector = DoNothingConnector()
+        bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
+                              addr=("127.0.0.7", 93413))
+        # check connector created and connection initialize
+        self.assertFalse(bc.connecting)
+        self.assertFalse(bc.isListeningConnection())
+        self.assertNotEqual(bc.getConnector(), None)
+        conn = bc.getConnector()
+        self.assertEquals(len(conn.mockGetNamedCalls("makeClientConnection")), 1)
+        call = conn.mockGetNamedCalls("makeClientConnection")[0]
+        data = call.getParam(0)
+        self.assertEqual(data, ("127.0.0.7", 93413))
+        # check call to handler
+        self.assertNotEqual(bc.getHandler(), None)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionStarted")), 1)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 1)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 0)
+        # check call to event manager
+        self.assertNotEqual(bc.getEventManager(), None)
+        self.assertEquals(len(em.mockGetNamedCalls("addReader")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 0)
+
+        # raise connection in progress
+        def makeClientConnection(self, *args, **kw):
+            raise ConnectorInProgressException
+        DoNothingConnector.makeClientConnection = makeClientConnection
+        em = Mock()
+        handler = Mock()
+        connector = DoNothingConnector()
+        bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
+                              addr=("127.0.0.7", 93413))
+        # check connector created and connection initialize
+        self.assertTrue(bc.connecting)
+        self.assertFalse(bc.isListeningConnection())
+        self.assertNotEqual(bc.getConnector(), None)
+        conn = bc.getConnector()
+        self.assertEquals(len(conn.mockGetNamedCalls("makeClientConnection")), 1)
+        call = conn.mockGetNamedCalls("makeClientConnection")[0]
+        data = call.getParam(0)
+        self.assertEqual(data, ("127.0.0.7", 93413))
+        # check call to handler
+        self.assertNotEqual(bc.getHandler(), None)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionStarted")), 1)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 0)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 0)
+        # check call to event manager
+        self.assertNotEqual(bc.getEventManager(), None)
+        self.assertEquals(len(em.mockGetNamedCalls("addReader")), 0)
+        self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 1)
+
+        # raise another error, connection must fail
+        def makeClientConnection(self, *args, **kw):
+            raise ValueError
+        DoNothingConnector.makeClientConnection = makeClientConnection
+        em = Mock()
+        handler = Mock()
+        connector = DoNothingConnector()
+        bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
+                              addr=("127.0.0.7", 93413))
+        # check connector created and connection initialize
+        self.assertTrue(bc.connecting)
+        self.assertFalse(bc.isListeningConnection())
+        self.assertEqual(bc.getConnector(), None)
+        call = conn.mockGetNamedCalls("makeClientConnection")[0]
+        data = call.getParam(0)
+        self.assertEqual(data, ("127.0.0.7", 93413))
+        # check call to handler
+        self.assertNotEqual(bc.getHandler(), None)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionStarted")), 1)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 0)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 1)
+        # check call to event manager
+        self.assertNotEqual(bc.getEventManager(), None)
+        self.assertEquals(len(em.mockGetNamedCalls("addReader")), 0)
+        self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 0)
 
 
+    def test_12_ClientConnection_writable(self):
+        # with a non connecting connection, will call parent's method
+        em = Mock()
+        handler = Mock()
+        def makeClientConnection(self, *args, **kw):
+            return "OK"
+        DoNothingConnector.makeClientConnection = makeClientConnection
+        def send(self, data):
+            return len(data)
+        DoNothingConnector.send = send
+        bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
+                              addr=("127.0.0.7", 93413))
+        # check connector created and connection initialize
+        self.assertFalse(bc.connecting)
+        self.assertNotEqual(bc.getConnector(), None)
+        self.assertEqual(bc.write_buf, [])
+        bc.write_buf = ["testdata",]
+        self.assertTrue(bc.pending())
+        self.assertFalse(bc.aborted)
+        # call
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("addReader")), 1)
+        bc.writable()
+        conn = bc.getConnector()
+        self.assertFalse(bc.pending())
+        self.assertFalse(bc.aborted)
+        self.assertFalse(bc.connecting)
+        self.assertEquals(len(conn.mockGetNamedCalls("send")), 1)
+        call = conn.mockGetNamedCalls("send")[0]
+        data = call.getParam(0)
+        self.assertEquals(data, "testdata")
+        self.assertEqual(bc.write_buf, [])
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 1)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 0)
+        self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
+        self.assertEquals(len(em.mockGetNamedCalls("addReader")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("removeWriter")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("removeReader")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("shutdown")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("send")), 1)
+        call = conn.mockGetNamedCalls("send")[0]
+        data = call.getParam(0)
+        self.assertEquals(data, "testdata")
+
+
+        # with a connecting connection, must not call parent's method
+        # with no error, just complete connection
+        em = Mock()
+        handler = Mock()
+        def getError(self):
+            return None
+        DoNothingConnector.getError = getError
+        bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
+                              addr=("127.0.0.7", 93413))
+        # check connector created and connection initialize
+        bc.connecting = True
+        self.assertNotEqual(bc.getConnector(), None)
+        self.assertEqual(bc.write_buf, [])
+        bc.write_buf = ["testdata",]
+        self.assertTrue(bc.pending())
+        self.assertFalse(bc.aborted)
+        # call
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("addReader")), 1)
+        bc.writable()
+        conn = bc.getConnector()
+        self.assertFalse(bc.connecting)
+        self.assertTrue(bc.pending())
+        self.assertFalse(bc.aborted)
+        self.assertEqual(bc.write_buf, ["testdata"])
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 2)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 0)
+        self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
+        self.assertEquals(len(em.mockGetNamedCalls("addReader")), 2)
+        self.assertEquals(len(em.mockGetNamedCalls("removeWriter")), 0)
+        self.assertEquals(len(em.mockGetNamedCalls("removeReader")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("send")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("shutdown")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
+
+        # with a connecting connection, must not call parent's method
+        # with errors, close connection
+        em = Mock()
+        handler = Mock()
+        def getError(self):
+            return True
+        DoNothingConnector.getError = getError
+        bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
+                              addr=("127.0.0.7", 93413))
+        # check connector created and connection initialize
+        bc.connecting = True
+        self.assertNotEqual(bc.getConnector(), None)
+        self.assertEqual(bc.write_buf, [])
+        bc.write_buf = ["testdata",]
+        self.assertTrue(bc.pending())
+        self.assertFalse(bc.aborted)
+        # call
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("addReader")), 1)
+        bc.writable()
+        self.assertEqual(bc.getConnector(), None)
+        self.assertTrue(bc.connecting)
+        self.assertFalse(bc.pending())
+        self.assertFalse(bc.aborted)
+        self.assertEqual(bc.write_buf, ["testdata"])
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 1)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("unregister")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("addReader")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("removeWriter")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("removeReader")), 1)
+
+
+    def test_13_ServerConnection(self):
+        em = Mock()
+        handler = Mock()
+        bc = ServerConnection(em, handler, connector_handler=DoNothingConnector,
+                              addr=("127.0.0.7", 93413))
+        self.assertTrue(bc.isListeningConnection())
+        
+
+
+
+        
 if __name__ == '__main__':
     unittest.main()
