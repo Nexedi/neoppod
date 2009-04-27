@@ -339,7 +339,7 @@ class ClientConnection(Connection):
                 event_manager.addReader(self)
         except:
             traceback.print_exc()
-            logging.warning('send called on %s(%s) failed.'%(self, self.getAddress()))
+            logging.warning('init called on %s(%s) failed.'%(self, self.getAddress()))
             handler.connectionFailed(self)
             self.close()
 
