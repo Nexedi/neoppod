@@ -211,7 +211,7 @@ class VerificationEventHandler(StorageEventHandler):
                 node = nm.getNodeByUUID(uuid)
                 if node is None:
                     node = StorageNode(uuid = uuid)
-                    if uuid != self.uuid:
+                    if uuid != app.uuid:
                         node.setState(TEMPORARILY_DOWN_STATE)
                     nm.add(node)
 
