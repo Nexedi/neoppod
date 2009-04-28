@@ -742,8 +742,8 @@ class Application(object):
                 p = Packet()
                 p.askTIDs(msg_id, first, last, INVALID_PARTITION)
                 conn.addPacket(p)
-                    conn.expectMessage(msg_id)
-                    self.dispatcher.register(conn, msg_id, self.getQueue())
+                conn.expectMessage(msg_id)
+                self.dispatcher.register(conn, msg_id, self.getQueue())
             finally:
                 conn.unlock()
 
