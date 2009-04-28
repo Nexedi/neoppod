@@ -37,7 +37,7 @@ class VerificationEventHandler(StorageEventHandler):
         StorageEventHandler.connectionAccepted(self, conn, s, addr)
 
     def timeoutExpired(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             # If a primary master node timeouts, I cannot continue.
             logging.critical('the primary master node times out')
             raise PrimaryFailure('the primary master node times out')
@@ -45,7 +45,7 @@ class VerificationEventHandler(StorageEventHandler):
         StorageEventHandler.timeoutExpired(self, conn)
 
     def connectionClosed(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             # If a primary master node closes, I cannot continue.
             logging.critical('the primary master node is dead')
             raise PrimaryFailure('the primary master node is dead')
@@ -53,7 +53,7 @@ class VerificationEventHandler(StorageEventHandler):
         StorageEventHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             # If a primary master node gets broken, I cannot continue.
             logging.critical('the primary master node is broken')
             raise PrimaryFailure('the primary master node is broken')
@@ -62,7 +62,7 @@ class VerificationEventHandler(StorageEventHandler):
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             self.handleUnexpectedPacket(conn, packet)
         else:
             app = self.app
@@ -112,7 +112,7 @@ class VerificationEventHandler(StorageEventHandler):
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             if app.primary_master_node.getUUID() != primary_uuid:
                 raise PrimaryFailure('the primary master node seems to have changed')
@@ -123,7 +123,7 @@ class VerificationEventHandler(StorageEventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAskLastIDs(self, conn, packet):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             p = Packet()
             oid = app.dm.getLastOID() or INVALID_OID
@@ -134,7 +134,7 @@ class VerificationEventHandler(StorageEventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAskPartitionTable(self, conn, packet, offset_list):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             row_list = []
             try:
@@ -162,7 +162,7 @@ class VerificationEventHandler(StorageEventHandler):
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         """A primary master node sends this packet to synchronize a partition
         table. Note that the message can be split into multiple packets."""
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             nm = app.nm
             pt = app.pt
@@ -196,7 +196,7 @@ class VerificationEventHandler(StorageEventHandler):
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             nm = app.nm
             pt = app.pt
@@ -223,19 +223,19 @@ class VerificationEventHandler(StorageEventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleStartOperation(self, conn, packet):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             self.app.operational = True
         else:
             self.handleUnexpectedPacket(conn, packet)
 
     def handleStopOperation(self, conn, packet):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             raise OperationFailure('operation stopped')
         else:
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAskUnfinishedTransactions(self, conn, packet):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             tid_list = app.dm.getUnfinishedTIDList()
             p = Packet()
@@ -246,7 +246,7 @@ class VerificationEventHandler(StorageEventHandler):
 
     def handleAskTransactionInformation(self, conn, packet, tid):
         app = self.app
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             # If this is from a primary master node, assume that it wants
             # to obtain information about the transaction, even if it has
             # not been finished.
@@ -263,7 +263,7 @@ class VerificationEventHandler(StorageEventHandler):
         conn.addPacket(p)
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             p = Packet()
             if app.dm.objectPresent(oid, tid):
@@ -276,14 +276,14 @@ class VerificationEventHandler(StorageEventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleDeleteTransaction(self, conn, packet, tid):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             app.dm.deleteTransaction(tid, all = True)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
     def handleCommitTransaction(self, conn, packet, tid):
-        if isinstance(conn, ClientConnection):
+        if not conn.isListeningConnection():
             app = self.app
             app.dm.finishTransaction(tid)
         else:
