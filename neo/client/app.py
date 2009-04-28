@@ -726,10 +726,8 @@ class Application(object):
         # First get a list of transactions from all storage nodes.
         #storage_node_list = [x for x in self.pt.getNodeList() if x.getState() \
         #                     in (UP_TO_DATE_STATE, FEEDING_STATE)]
-        storage_node_list = []
-        for cell in self.pt.getCellList(0): # FIXME: check the argument
-            if cell.getState() in (UP_TO_DATE_STATE, FEEDING_STATE):
-                storage_node_list.append(cell.getNode())
+        # FIXME: should we filter the node list with usable cells ?
+        storage_node_list = self.pt.getNodeList()
 
         self.local_var.node_tids = {}
         for storage_node in storage_node_list:
