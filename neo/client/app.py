@@ -690,10 +690,11 @@ class Application(object):
         # Second get object data from storage node using loadBefore
         data_dict = {}
         for oid in oid_list:
-            result = self.loadBefore(oid, transaction_id)
-            # no previous revision, can't undo
-            if result is None:
-                raise UndoError("non-undoable transaction", oid)
+            try:
+                result = self.loadBefore(oid, transaction_id)
+            except NEOStorageNotFoundError:
+                # no previous revision, can't undo (as in filestorage)
+                raise UndoError("no previous record", oid)
             data, start, end = result
             # end must be TID we are going to undone otherwise it means
             # a later transaction modify the object
