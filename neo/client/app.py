@@ -881,7 +881,7 @@ class Application(object):
             # create history dict
             self.local_var.txn_info.pop('id')
             self.local_var.txn_info.pop('oids')
-            self.local_var.txn_info['serial'] = serial
+            self.local_var.txn_info['tid'] = serial
             self.local_var.txn_info['version'] = None
             self.local_var.txn_info['size'] = size
             history_list.append(self.local_var.txn_info)
