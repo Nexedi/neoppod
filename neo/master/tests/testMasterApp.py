@@ -24,7 +24,7 @@ from neo.protocol import INVALID_PTID, INVALID_OID, INVALID_TID, \
 from neo.node import MasterNode, ClientNode, StorageNode
 from neo.storage.mysqldb import p64, u64
 
-class MasterServiceTests(unittest.TestCase):
+class MasterAppTests(unittest.TestCase):
 
     def setUp(self):
         logging.basicConfig(level = logging.WARNING)
