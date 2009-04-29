@@ -810,7 +810,7 @@ class Application(object):
             undo_info = self.undoLog(first=first, last=last*5, filter=filter, block=1)
         return undo_info
 
-
+    # FIXME: filter function isn't used 
     def history(self, oid, version=None, length=1, filter=None, object_only=0):
         # Get history informations for object first
         partition_id = u64(oid) % self.num_partitions
@@ -879,12 +879,12 @@ class Application(object):
                     break
 
             # create history dict
-            self.txn_info.remove('id')
-            self.txn_info.remove('oids')
-            self.txn_info['serial'] = serial
-            self.txn_info['version'] = None
-            self.txn_info['size'] = size
-            history_list.append(self.txn_info)
+            self.local_var.txn_info.pop('id')
+            self.local_var.txn_info.pop('oids')
+            self.local_var.txn_info['serial'] = serial
+            self.local_var.txn_info['version'] = None
+            self.local_var.txn_info['size'] = size
+            history_list.append(self.local_var.txn_info)
 
         return history_list
 
