@@ -717,7 +717,7 @@ class ClientApplicationTest(unittest.TestCase):
         # undo 1 -> no previous revision
         u1p1, u1p2 = Packet(), Packet()
         u1p1.answerTransactionInformation(1, tid1, '', '', '', (oid1, ))
-        u1p2.answerObject(1, oid1, tid1, INVALID_SERIAL, 0, 0, 'O1V1')
+        u1p2.oidNotFound(1, 'oid not found')
         # undo 2 -> not end tid
         u2p1, u2p2 = Packet(), Packet()
         u2p1.answerTransactionInformation(1, tid2, '', '', '', (oid2, ))
@@ -817,11 +817,10 @@ class ClientApplicationTest(unittest.TestCase):
         app.cp = Mock({ 'getConnForNode': conn})
         result = app.history(oid)
         self.assertEquals(len(result), 2)
-        self.assertEquals(result[0]['serial'], tid1)
-        self.assertEquals(result[1]['serial'], tid2)
+        self.assertEquals(result[0]['tid'], tid1)
+        self.assertEquals(result[1]['tid'], tid2)
         self.assertEquals(result[0]['size'], 42)
         self.assertEquals(result[1]['size'], 42)
-
 
 #    def test_connectToPrimaryMasterNode(self):
 #        raise NotImplementedError
