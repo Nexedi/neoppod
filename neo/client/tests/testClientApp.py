@@ -752,20 +752,81 @@ class ClientApplicationTest(unittest.TestCase):
         self.assertEquals(app.undo(tid3, txn4, wrapper), (tid4, [oid2, ]))
         self.finishTransaction(app)
 
-
     def test_undoLog(self):
-        raise NotImplementedError
+        app = self.getApp()
+        app.num_partitions = 2
+        uuid1, uuid2 = '\x00' * 15 + '\x01', '\x00' * 15 + '\x02'
+        # two nodes, two partition, two transaction, two objects :
+        node1, node2 = Mock({}), Mock({})
+        cell1, cell2 = Mock({}), Mock({})
+        tid1, tid2 = self.makeTID(1), self.makeTID(2)
+        oid1, oid2 = self.makeOID(1), self.makeOID(2)
+        # TIDs packets supplied by _waitMessage hook
+        # TXN info packets
+        p3, p4 = Packet(), Packet()
+        p3.answerTransactionInformation(1, tid1, '', '', '', (oid1, ))
+        p4.answerTransactionInformation(1, tid2, '', '', '', (oid2, ))
+        conn = Mock({
+            'getNextId': 1,
+            'getUUID': ReturnValues(uuid1, uuid2),
+            'fakeGetApp': app,
+            'fakeReceived': ReturnValues(p3, p4),
+            'getAddress': ('127.0.0.1', 10010),
+        })
+        app.pt = Mock({
+            'getNodeList': (node1, node2, ),
+            'getCellList': ReturnValues([cell1], [cell2]),
+        })
+        app.cp = Mock({ 'getConnForNode': conn})
+        def _waitMessage(self, conn=None, msg_id=None):
+            self.local_var.node_tids = {uuid1: (tid1, ), uuid2: (tid2, )}
+            Application._waitMessage = _waitMessage_old
+        _waitMessage_old = Application._waitMessage
+        Application._waitMessage = _waitMessage
+        def txn_filter(info):
+            return info['id'] > '\x00' * 8
+        result = app.undoLog(0, 4, filter=txn_filter)
+        self.assertEquals(result[0]['id'], tid1)
+        self.assertEquals(result[1]['id'], tid2)
 
     def test_history(self):
-        raise NotImplementedError
+        app = self.getApp()
+        oid = self.makeOID(1)
+        tid1, tid2 = self.makeTID(1), self.makeTID(2)
+        object_history = ( (tid1, 42), (tid2, 42),)
+        # object history, first is a wrong oid, second is valid
+        p1, p2 = Packet(), Packet()
+        p1.answerObjectHistory(1, self.makeOID(2), ())
+        p2.answerObjectHistory(1, oid, object_history)
+        # transaction history
+        p3, p4 = Packet(), Packet()
+        p3.answerTransactionInformation(1, tid1, 'u', 'd', 'e', (oid, ))
+        p4.answerTransactionInformation(1, tid2, 'u', 'd', 'e', (oid, ))
+        conn = Mock({
+            'getNextId': 1,
+            'fakeGetApp': app,
+            'fakeReceived': ReturnValues(p1, p2, p3, p4),
+            'getAddress': ('127.0.0.1', 10010),
+        })
+        object_cells = [ Mock({}), Mock({}) ]
+        history_cells = [ Mock({}), Mock({}) ]
+        app.pt = Mock({
+            'getCellList': ReturnValues(object_cells, history_cells,
+                history_cells),
+        })
+        app.cp = Mock({ 'getConnForNode': conn})
+        result = app.history(oid)
+        self.assertEquals(len(result), 2)
+        self.assertEquals(result[0]['serial'], tid1)
+        self.assertEquals(result[1]['serial'], tid2)
+        self.assertEquals(result[0]['size'], 42)
+        self.assertEquals(result[1]['size'], 42)
 
-    def test_sync(self):
-        raise NotImplementedError
 
-    def test_connectToPrimaryMasterNode(self):
-        raise NotImplementedError
-        app = getApp()
-        app.connectToPrimaryMasterNode_org()
+#    def test_connectToPrimaryMasterNode(self):
+#        raise NotImplementedError
+#        app = getApp()
+#        app.connectToPrimaryMasterNode_org()
 
 if __name__ == '__main__':
     unittest.main()
