@@ -69,11 +69,7 @@ class Application(object):
 
         # XXX Generate an UUID for self. For now, just use a random string.
         # Avoid an invalid UUID.
-        while 1:
-            uuid = os.urandom(16)
-            if uuid != INVALID_UUID:
-                break
-        self.uuid = uuid
+        self.uuid = self.getNewUUID()
 
         # The last OID.
         self.loid = INVALID_OID
@@ -786,3 +782,9 @@ class Application(object):
 
     def getNewOIDList(self, num_oids):
         return [self.getNextOID() for i in xrange(num_oids)]
+
+    def getNewUUID(self):
+        uuid = INVALID_UUID
+        while uuid == INVALID_UUID:
+            uuid = os.urandom(16)
+        return uuid
