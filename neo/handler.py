@@ -130,7 +130,7 @@ class EventHandler(object):
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
-                                       num_partitions, num_replicas):
+                                       num_partitions, num_replicas, your_uuid):
         self.handleUnexpectedPacket(conn, packet)
 
     def handlePing(self, conn, packet):

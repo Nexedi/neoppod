@@ -41,7 +41,7 @@ class StorageEventHandler(EventHandler):
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
-                                       num_partitions, num_replicas):
+                                       num_partitions, num_replicas, your_uuid):
         raise NotImplementedError('this method must be overridden')
 
     def handleAskPrimaryMaster(self, conn, packet):

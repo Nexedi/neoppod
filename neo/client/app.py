@@ -199,7 +199,8 @@ class Application(object):
         self.primary_master_node = None
         self.master_node_list = master_nodes.split(' ')
         self.master_conn = None
-        self.uuid = None
+        # no self-assigned UUID, primary master will supply us one
+        self.uuid = INVALID_UUID
         self.mq_cache = MQ()
         self.new_oid_list = []
         self.ptid = None
@@ -235,16 +236,10 @@ class Application(object):
         lock = Lock()
         self._connecting_to_master_node_acquire = lock.acquire
         self._connecting_to_master_node_release = lock.release
-        # XXX Generate an UUID for self. For now, just use a random string.
-        # Avoid an invalid UUID.
-        if self.uuid is None:
-            while 1:
-                uuid = os.urandom(16)
-                if uuid != INVALID_UUID:
-                    break
-            self.uuid = uuid
         # Connect to master node
         self.connectToPrimaryMasterNode()
+        if self.uuid == INVALID_UUID:
+            raise NEOStorageError('No UUID given from the primary master')
 
     def getQueue(self):
         try:

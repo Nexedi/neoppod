@@ -24,7 +24,8 @@ from neo.config import ConfigurationManager
 from neo.protocol import Packet, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, \
-        CLIENT_NODE_TYPE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE
+        CLIENT_NODE_TYPE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
+        UUID_NAMESPACES
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
@@ -67,9 +68,8 @@ class Application(object):
         self.primary = None
         self.primary_master_node = None
 
-        # XXX Generate an UUID for self. For now, just use a random string.
-        # Avoid an invalid UUID.
-        self.uuid = self.getNewUUID()
+        # Generate an UUID for self
+        self.uuid = self.getNewUUID(MASTER_NODE_TYPE)
 
         # The last OID.
         self.loid = INVALID_OID
@@ -783,8 +783,21 @@ class Application(object):
     def getNewOIDList(self, num_oids):
         return [self.getNextOID() for i in xrange(num_oids)]
 
-    def getNewUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        return uuid
+    def getNewUUID(self, node_type):
+        # build an UUID
+        uuid = os.urandom(15)
+        while uuid == INVALID_UUID[1:]:
+            uuid = os.urandom(15)
+        # look for the prefix
+        prefix = UUID_NAMESPACES.get(node_type, None)
+        if prefix is None:
+            raise RuntimeError, 'No UUID namespace found for this node type'
+        return prefix + uuid
+
+    def isValidUUID(self, uuid, addr):
+        for node in self.nm.getNodeList():
+            if addr != node.getServer() and node.getUUID() == uuid:
+                return False
+        return uuid != self.uuid and uuid != INVALID_UUID
+
+

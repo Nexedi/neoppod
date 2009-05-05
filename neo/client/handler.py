@@ -315,7 +315,7 @@ class ClientAnswerEventHandler(BaseClientEventHandler):
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
-                                       num_partitions, num_replicas):
+                                       num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getNodeByServer(conn.getAddress())
         # It can be eiter a master node or a storage node
@@ -341,6 +341,10 @@ class ClientAnswerEventHandler(BaseClientEventHandler):
                 app.pt = PartitionTable(num_partitions, num_replicas)
                 app.num_partitions = num_partitions
                 app.num_replicas = num_replicas
+
+            if your_uuid != INVALID_UUID:
+                # got an uuid from the primary master
+                app.uuid = your_uuid
 
             # Ask a primary master.
             conn.lock()

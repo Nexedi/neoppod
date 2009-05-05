@@ -74,7 +74,7 @@ class ReplicationEventHandler(StorageEventHandler):
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
-                                       num_partitions, num_replicas):
+                                       num_partitions, num_replicas, your_uuid):
         # Nothing to do.
         pass
 

@@ -156,6 +156,9 @@ class ServiceEventHandler(MasterEventHandler):
         # However, master nodes can be known only as the server addresses.
         # And, a node may claim a server address used by another node.
         addr = (ip_address, port)
+        # generate a new uuid for this node
+        while not app.isValidUUID(uuid, addr):
+            uuid = app.getNewUUID(node_type)
         # First, get the node by the UUID.
         node = app.nm.getNodeByUUID(uuid)
         old_node = None
@@ -285,7 +288,7 @@ class ServiceEventHandler(MasterEventHandler):
         p = Packet()
         p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
                                    app.uuid, app.server[0], app.server[1],
-                                   app.num_partitions, app.num_replicas)
+                                   app.num_partitions, app.num_replicas, uuid)
         conn.addPacket(p)
         # Next, the peer should ask a primary master node.
         conn.expectMessage()

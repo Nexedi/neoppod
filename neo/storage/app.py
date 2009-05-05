@@ -75,14 +75,7 @@ class Application(object):
 
         self.uuid = dm.getUUID()
         if self.uuid is None:
-            # XXX Generate an UUID for self. For now, just use a random string.
-            # Avoid an invalid UUID.
-            while 1:
-                uuid = os.urandom(16)
-                if uuid != INVALID_UUID:
-                    break
-            self.uuid = uuid
-            dm.setUUID(uuid)
+            self.uuid = INVALID_UUID
 
         self.num_partitions = dm.getNumPartitions()
 
@@ -138,6 +131,8 @@ class Application(object):
         while 1:
             self.operational = False
             self.connectToPrimaryMaster()
+            if self.uuid == INVALID_UUID:
+                raise RuntimeError, 'No UUID supplied from the primary master'
             try:
                 while 1:
                     try:

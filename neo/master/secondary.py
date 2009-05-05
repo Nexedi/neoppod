@@ -67,7 +67,7 @@ class SecondaryEventHandler(MasterEventHandler):
                 return
 
             # Add a node only if it is a master node and I do not know it yet.
-            if node_type == MASTER_NODE_TYPE:
+            if node_type == MASTER_NODE_TYPE and uuid != INVALID_UUID:
                 addr = (ip_address, port)
                 node = app.nm.getNodeByServer(addr)
                 if node is None:
@@ -82,7 +82,8 @@ class SecondaryEventHandler(MasterEventHandler):
             p = Packet()
             p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
                                        app.uuid, app.server[0], app.server[1],
-                                       app.num_partitions, app.num_replicas)
+                                       app.num_partitions, app.num_replicas,
+                                       uuid)
             conn.addPacket(p)
             # Next, the peer should ask a primary master node.
             conn.expectMessage()

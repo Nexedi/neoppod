@@ -146,7 +146,7 @@ class BootstrapEventHandler(StorageEventHandler):
             p = Packet()
             p.acceptNodeIdentification(packet.getId(), STORAGE_NODE_TYPE,
                                        app.uuid, app.server[0], app.server[1],
-                                       0, 0)
+                                       0, 0, uuid)
             conn.addPacket(p)
 
             # Now the master node should know that I am not the right one.
@@ -154,7 +154,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
-                                       num_partitions, num_replicas):
+                                       num_partitions, num_replicas, your_uuid):
         if conn.isListeningConnection():
             self.handleUnexpectedPacket(conn, packet)
         else:
@@ -186,6 +186,10 @@ class BootstrapEventHandler(StorageEventHandler):
                 raise RuntimeError('the number of partitions is inconsistent')
             elif app.num_replicas != num_replicas:
                 raise RuntimeError('the number of replicas is inconsistent')
+
+            if your_uuid != INVALID_UUID and app.uuid != your_uuid:
+                # got an uuid from the primary master
+                app.uuid = your_uuid
 
             conn.setUUID(uuid)
             node.setUUID(uuid)

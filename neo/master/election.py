@@ -90,7 +90,7 @@ class ElectionEventHandler(MasterEventHandler):
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port, num_partitions,
-                                       num_replicas):
+                                       num_replicas, your_uuid):
         if not conn.isListeningConnection():
             app = self.app
             node = app.nm.getNodeByServer(conn.getAddress())
@@ -110,6 +110,11 @@ class ElectionEventHandler(MasterEventHandler):
                 app.negotiating_master_node_set.discard(node.getServer())
                 conn.close()
                 return
+
+            if your_uuid != app.uuid:
+                # uuid conflict happened, accept the new one and restart election
+                app.uuid = your_uuid
+                raise ElectionFailure, 'new uuid supplied'
 
             conn.setUUID(uuid)
             node.setUUID(uuid)
@@ -203,14 +208,18 @@ class ElectionEventHandler(MasterEventHandler):
                         conn.abort()
                         return
 
-            # Trust the UUID sent by the peer.
+            # supplied another uuid in case of conflict
+            while not app.isValidUUID(uuid, addr):
+                uuid = app.getNewUUID(node_type)
+
             node.setUUID(uuid)
             conn.setUUID(uuid)
 
             p = Packet()
             p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
                                        app.uuid, app.server[0], app.server[1],
-                                       app.num_partitions, app.num_replicas)
+                                       app.num_partitions, app.num_replicas,
+                                       uuid)
             conn.addPacket(p)
             # Next, the peer should ask a primary master node.
             conn.expectMessage()

@@ -176,7 +176,8 @@ class OperationEventHandler(StorageEventHandler):
             p = Packet()
             p.acceptNodeIdentification(packet.getId(), STORAGE_NODE_TYPE,
                                        app.uuid, app.server[0], app.server[1],
-                                       app.num_partitions, app.num_replicas)
+                                       app.num_partitions, app.num_replicas,
+                                       uuid)
             conn.addPacket(p)
 
             if node_type == MASTER_NODE_TYPE:
@@ -184,7 +185,7 @@ class OperationEventHandler(StorageEventHandler):
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
-                                       num_partitions, num_replicas):
+                                       num_partitions, num_replicas, your_uuid):
         if not conn.isListeningConnection():
             raise NotImplementedError
         else:

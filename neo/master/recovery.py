@@ -62,8 +62,8 @@ class RecoveryEventHandler(MasterEventHandler):
     def packetReceived(self, conn, packet):
         MasterEventHandler.packetReceived(self, conn, packet)
 
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
+    def handleRequestNodeIdentification(self, conn, packet, node_type, uuid, 
+                                        ip_address, port, name):
         app = self.app
         if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
             logging.info('reject a connection from a client')
@@ -84,7 +84,11 @@ class RecoveryEventHandler(MasterEventHandler):
         # 
         # However, master nodes can be known only as the server addresses. And, a node
         # may claim a server address used by another node.
+
         addr = (ip_address, port)
+        # generate a new uuid for this node
+        while not app.isValidUUID(uuid, addr):
+            uuid = app.getNewUUID(node_type)
         # First, get the node by the UUID.
         node = app.nm.getNodeByUUID(uuid)
         if node is None:
@@ -169,7 +173,7 @@ class RecoveryEventHandler(MasterEventHandler):
         p = Packet()
         p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
                                    app.uuid, app.server[0], app.server[1],
-                                   app.num_partitions, app.num_replicas)
+                                   app.num_partitions, app.num_replicas, uuid)
         conn.addPacket(p)
         # Next, the peer should ask a primary master node.
         conn.expectMessage()

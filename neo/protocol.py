@@ -301,6 +301,16 @@ INVALID_OID = '\0\0\0\0\0\0\0\0'
 INVALID_PTID = '\0\0\0\0\0\0\0\0'
 INVALID_PARTITION = 0xffffffff
 
+STORAGE_NS = 'S'
+MASTER_NS = 'M'
+CLIENT_NS = 'C'
+
+UUID_NAMESPACES = { 
+    STORAGE_NODE_TYPE: STORAGE_NS,
+    MASTER_NODE_TYPE: MASTER_NS,
+    CLIENT_NODE_TYPE: CLIENT_NS,
+}
+
 class ProtocolError(Exception): pass
 
 class Packet(object):
@@ -401,12 +411,12 @@ class Packet(object):
         return self
 
     def acceptNodeIdentification(self, msg_id, node_type, uuid, ip_address,
-                                 port, num_partitions, num_replicas):
+             port, num_partitions, num_replicas, your_uuid):
         self._id = msg_id
         self._type = ACCEPT_NODE_IDENTIFICATION
-        self._body = pack('!H16s4sHLL', node_type, uuid,
+        self._body = pack('!H16s4sHLL16s', node_type, uuid, 
                           inet_aton(ip_address), port,
-                          num_partitions, num_replicas)
+                          num_partitions, num_replicas, your_uuid)
         return self
 
     def askPrimaryMaster(self, msg_id):
@@ -780,14 +790,14 @@ class Packet(object):
 
     def _decodeAcceptNodeIdentification(self):
         try:
-            node_type, uuid, ip_address, port, num_partitions, num_replicas \
-                    = unpack('!H16s4sHLL', self._body)
+            node_type, uuid, ip_address, port, num_partitions, num_replicas, your_uuid \
+                    = unpack('!H16s4sHLL16s', self._body)
             ip_address = inet_ntoa(ip_address)
         except:
             raise ProtocolError(self, 'invalid accept node identification')
         if node_type not in VALID_NODE_TYPE_LIST:
             raise ProtocolError(self, 'invalid node type %d' % node_type)
-        return node_type, uuid, ip_address, port, num_partitions, num_replicas
+        return node_type, uuid, ip_address, port, num_partitions, num_replicas, your_uuid
     decode_table[ACCEPT_NODE_IDENTIFICATION] = _decodeAcceptNodeIdentification
 
     def _decodeAskPrimaryMaster(self):

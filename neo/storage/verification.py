@@ -100,7 +100,7 @@ class VerificationEventHandler(StorageEventHandler):
             p = Packet()
             p.acceptNodeIdentification(packet.getId(), STORAGE_NODE_TYPE,
                                        app.uuid, app.server[0], app.server[1],
-                                       app.num_partitions, app.num_replicas)
+                                       uuid)
             conn.addPacket(p)
 
             # Now the master node should know that I am not the right one.
@@ -108,7 +108,7 @@ class VerificationEventHandler(StorageEventHandler):
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
-                                       num_partitions, num_replicas):
+                                       num_partitions, num_replicas, your_uuid):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
