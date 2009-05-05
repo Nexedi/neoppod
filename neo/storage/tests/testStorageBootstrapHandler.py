@@ -185,7 +185,7 @@ server: 127.0.0.1:10020
 
     def test_04_timeoutExpired(self):
         conn = Mock({
-            "isListeningConnection": False, 
+            "isServerConnection": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         # pmn connection has expired
@@ -205,7 +205,7 @@ server: 127.0.0.1:10020
 
     def test_05_connectionClosed(self):
         conn = Mock({
-            "isListeningConnection": False, 
+            "isServerConnection": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         # pmn connection is closed
@@ -225,7 +225,7 @@ server: 127.0.0.1:10020
 
     def test_06_peerBroken(self):
         conn = Mock({
-            "isListeningConnection": False, 
+            "isServerConnection": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         # the primary is broken 
@@ -245,7 +245,7 @@ server: 127.0.0.1:10020
 
     def test_07_handleNotReady(self):
         conn = Mock({
-            "isListeningConnection": False, 
+            "isServerConnection": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         # the primary is not ready 
@@ -268,7 +268,7 @@ server: 127.0.0.1:10020
     def test_08_handleRequestNodeIdentification1(self):
         # client socket connection -> rejected
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
         self.bootstrap.handleRequestNodeIdentification(
@@ -285,7 +285,7 @@ server: 127.0.0.1:10020
     def test_08_handleRequestNodeIdentification2(self):
         # not a master node -> rejected
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isListeningConnection": True,
+        conn = Mock({"isServerConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
         self.bootstrap.handleRequestNodeIdentification(
             conn=conn,
@@ -301,7 +301,7 @@ server: 127.0.0.1:10020
     def test_08_handleRequestNodeIdentification3(self):
         # bad app name -> rejected
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isListeningConnection": True,
+        conn = Mock({"isServerConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
         self.bootstrap.handleRequestNodeIdentification(
             conn=conn,
@@ -317,7 +317,7 @@ server: 127.0.0.1:10020
     def test_08_handleRequestNodeIdentification4(self):
         # new master
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isListeningConnection": True,
+        conn = Mock({"isServerConnection": True,
             "getAddress" : ("192.168.1.1", self.master_port), })
         # master not known
         mn = self.app.nm.getNodeByServer(('192.168.1.1', self.master_port))
@@ -347,7 +347,7 @@ server: 127.0.0.1:10020
     def test_08_handleRequestNodeIdentification5(self):
         # broken node -> rejected
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isListeningConnection": True,
+        conn = Mock({"isServerConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
         master = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
         uuid=self.getNewUUID()
@@ -367,7 +367,7 @@ server: 127.0.0.1:10020
     def test_08_handleRequestNodeIdentification6(self):
         # master node is already known
         packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isListeningConnection": True,
+        conn = Mock({"isServerConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
         # master known
         mn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
@@ -398,7 +398,7 @@ server: 127.0.0.1:10020
 
     def test_09_handleAcceptNodeIdentification1(self):
         # server socket connection -> rejected
-        conn = Mock({"isListeningConnection": True,
+        conn = Mock({"isServerConnection": True,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
         self.app.trying_master_node = self.trying_master_node
@@ -416,7 +416,7 @@ server: 127.0.0.1:10020
 
     def test_09_handleAcceptNodeIdentification2(self):
         # not a master node -> rejected
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.storage_port), })
         self.app.trying_master_node = self.trying_master_node
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
@@ -439,7 +439,7 @@ server: 127.0.0.1:10020
 
     def test_09_handleAcceptNodeIdentification3(self):
         # bad address -> rejected
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
@@ -459,7 +459,7 @@ server: 127.0.0.1:10020
 
     def test_09_handleAcceptNodeIdentification4(self):
         # bad number of replicas/partitions 
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
@@ -495,7 +495,7 @@ server: 127.0.0.1:10020
         uuid, your_uuid = self.getNewUUID(), self.getNewUUID()
         self.app.num_partitions = None
         self.app.num_replicas = None
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
         self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
@@ -530,7 +530,7 @@ server: 127.0.0.1:10020
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
         
     def test_09_handleAcceptNodeIdentification6(self):
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
@@ -561,7 +561,7 @@ server: 127.0.0.1:10020
 
     def test_10_handleAnswerPrimaryMaster01(self):
         # server connection rejected
-        conn = Mock({"isListeningConnection": True,
+        conn = Mock({"isServerConnection": True,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
         self.app.trying_master_node = self.trying_master_node
@@ -581,7 +581,7 @@ server: 127.0.0.1:10020
         existing_master = ('127.0.0.1', self.master_port, self.getNewUUID(), )
         new_master = ('192.168.0.1', 10001, self.getNewUUID(), )
         known_masters = (existing_master, new_master, )
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
         self.assertTrue(existing_master[:2] in self.app.nm.server_dict)
@@ -605,7 +605,7 @@ server: 127.0.0.1:10020
         
     def test_10_handleAnswerPrimaryMaster03(self):
         # invalid primary master uuid -> close connection
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
@@ -625,7 +625,7 @@ server: 127.0.0.1:10020
 
     def test_10_handleAnswerPrimaryMaster04(self):
         # trying_master_node is not pmn -> close connection
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
@@ -647,7 +647,7 @@ server: 127.0.0.1:10020
 
     def test_10_handleAnswerPrimaryMaster05(self):
         # trying_master_node is pmn -> set verification handler
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
@@ -671,7 +671,7 @@ server: 127.0.0.1:10020
 
     def test_10_handleAnswerPrimaryMaster06(self):
         # primary_uuid not known -> nothing happen
-        conn = Mock({"isListeningConnection": False,
+        conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
         self.app.primary_master_node = None

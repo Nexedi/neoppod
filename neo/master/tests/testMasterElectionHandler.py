@@ -162,7 +162,7 @@ server: 127.0.0.1:10023
         uuid = self.getNewUUID()
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None,
-                     "isListeningConnection" : True})
+                     "isServerConnection" : True})
         self.election.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=node_type,
@@ -284,7 +284,7 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
         # Without a client connection
         conn = Mock({"getUUID" : uuid,
-                     "isListeningConnection" : True,
+                     "isServerConnection" : True,
                      "getAddress" : ("127.0.0.1", self.master_port),})
         self.assertEqual(len(self.app.unconnected_master_node_set), 1)
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
@@ -499,7 +499,7 @@ server: 127.0.0.1:10023
         uuid = self.getNewUUID()
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None,
-                     "isListeningConnection" : True})
+                     "isServerConnection" : True})
         election.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=MASTER_NODE_TYPE,
@@ -510,7 +510,7 @@ server: 127.0.0.1:10023
         self.checkCalledAbort(conn)        
         # test connection of a storage node
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None,
-                    "isListeningConnection" : True})
+                    "isServerConnection" : True})
         election.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=STORAGE_NODE_TYPE,
@@ -522,7 +522,7 @@ server: 127.0.0.1:10023
 
         # known node
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None,
-                    "isListeningConnection" : True})
+                    "isServerConnection" : True})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         node = self.app.nm.getMasterNodeList()[0]
         self.assertEqual(node.getUUID(), None)
@@ -540,7 +540,7 @@ server: 127.0.0.1:10023
         self.checkCalledAcceptNodeIdentification(conn)
         # unknown node
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None,
-                    "isListeningConnection" : True})
+                    "isServerConnection" : True})
         new_uuid = self.getNewUUID()
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         self.assertEqual(len(self.app.unconnected_master_node_set), 1)
@@ -558,7 +558,7 @@ server: 127.0.0.1:10023
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
         # broken node
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None,
-                    "isListeningConnection" : True})
+                    "isServerConnection" : True})
         node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port+1))
         self.assertEqual(node.getUUID(), new_uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
@@ -580,7 +580,7 @@ server: 127.0.0.1:10023
         packet = Packet(msg_id=2)
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
-                     "isListeningConnection" : True,
+                     "isServerConnection" : True,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         election.handleAskPrimaryMaster(conn, packet)        
@@ -595,7 +595,7 @@ server: 127.0.0.1:10023
         # No uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
-                     "isListeningConnection" : True,
+                     "isServerConnection" : True,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         election.handleAnnouncePrimaryMaster(conn, packet)
@@ -603,7 +603,7 @@ server: 127.0.0.1:10023
         # announce
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
-                     "isListeningConnection" : True,
+                     "isServerConnection" : True,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(self.app.primary, None)
         self.assertEqual(self.app.primary_master_node, None)
@@ -613,7 +613,7 @@ server: 127.0.0.1:10023
         # set current as primary, and announce another, must raise
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
-                     "isListeningConnection" : True,
+                     "isServerConnection" : True,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.app.primary = True
         self.assertEqual(self.app.primary, True)
@@ -627,7 +627,7 @@ server: 127.0.0.1:10023
         # No uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
-                     "isListeningConnection" : True,
+                     "isServerConnection" : True,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertRaises(ElectionFailure, election.handleReelectPrimaryMaster, conn, packet)
 

@@ -59,12 +59,12 @@ class ElectionEventHandler(MasterEventHandler):
         MasterEventHandler.connectionFailed(self, conn)
 
     def connectionClosed(self, conn):
-        if not conn.isListeningConnection():
+        if not conn.isServerConnection():
             self.connectionFailed(conn)
         MasterEventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
-        if not conn.isListeningConnection():
+        if not conn.isServerConnection():
             self.connectionFailed(conn)
         MasterEventHandler.timeoutExpired(self, conn)
 
@@ -72,7 +72,7 @@ class ElectionEventHandler(MasterEventHandler):
         app = self.app
         addr = conn.getAddress()
         node = app.nm.getNodeByServer(addr)
-        if not conn.isListeningConnection():
+        if not conn.isServerConnection():
             if node is not None:
                 node.setState(DOWN_STATE)
             app.negotiating_master_node_set.discard(addr)
@@ -82,7 +82,7 @@ class ElectionEventHandler(MasterEventHandler):
         MasterEventHandler.peerBroken(self, conn)
 
     def packetReceived(self, conn, packet):
-        if not conn.isListeningConnection():
+        if not conn.isServerConnection():
             node = self.app.nm.getNodeByServer(conn.getAddress())
             if node.getState() != BROKEN_STATE:
                 node.setState(RUNNING_STATE)
@@ -91,7 +91,7 @@ class ElectionEventHandler(MasterEventHandler):
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port, num_partitions,
                                        num_replicas, your_uuid):
-        if not conn.isListeningConnection():
+        if not conn.isServerConnection():
             app = self.app
             node = app.nm.getNodeByServer(conn.getAddress())
             if node_type != MASTER_NODE_TYPE:
@@ -127,7 +127,7 @@ class ElectionEventHandler(MasterEventHandler):
             self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
-        if not conn.isListeningConnection():
+        if not conn.isServerConnection():
             app = self.app
             # Register new master nodes.
             for ip_address, port, uuid in known_master_list:
@@ -176,7 +176,7 @@ class ElectionEventHandler(MasterEventHandler):
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
-        if not conn.isListeningConnection():
+        if not conn.isServerConnection():
             self.handleUnexpectedPacket(conn, packet)
         else:
             app = self.app
@@ -225,7 +225,7 @@ class ElectionEventHandler(MasterEventHandler):
             conn.expectMessage()
 
     def handleAskPrimaryMaster(self, conn, packet):
-        if not conn.isListeningConnection():
+        if not conn.isServerConnection():
             self.handleUnexpectedPacket(conn, packet)
         else:
             uuid = conn.getUUID()
@@ -252,7 +252,7 @@ class ElectionEventHandler(MasterEventHandler):
             conn.addPacket(p)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
-        if not conn.isListeningConnection():
+        if not conn.isServerConnection():
             self.handleUnexpectedPacket(conn, packet)
         else:
             uuid = conn.getUUID()

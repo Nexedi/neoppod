@@ -315,7 +315,7 @@ class Connection(BaseConnection):
         self.event_dict[msg_id] = event
         self.em.addIdleEvent(event)
 
-    def isListeningConnection(self):
+    def isServerConnection(self):
         raise NotImplementedError
 
 class ClientConnection(Connection):
@@ -358,12 +358,12 @@ class ClientConnection(Connection):
         else:
             Connection.writable(self)
 
-    def isListeningConnection(self):
+    def isServerConnection(self):
         return False
 
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
-    def isListeningConnection(self):
+    def isServerConnection(self):
         return True
 
 class MTClientConnection(ClientConnection):

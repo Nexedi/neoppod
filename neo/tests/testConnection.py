@@ -182,7 +182,7 @@ class testConnection(unittest.TestCase):
         # test abort
         bc.abort()
         self.assertEqual(bc.aborted, True)
-        self.assertRaises(NotImplementedError, bc.isListeningConnection)
+        self.assertRaises(NotImplementedError, bc.isServerConnection)
 
     def test_04_Connection_pending(self):
         em = Mock()
@@ -732,7 +732,7 @@ class testConnection(unittest.TestCase):
                               addr=("127.0.0.7", 93413))
         # check connector created and connection initialize
         self.assertFalse(bc.connecting)
-        self.assertFalse(bc.isListeningConnection())
+        self.assertFalse(bc.isServerConnection())
         self.assertNotEqual(bc.getConnector(), None)
         conn = bc.getConnector()
         self.assertEquals(len(conn.mockGetNamedCalls("makeClientConnection")), 1)
@@ -760,7 +760,7 @@ class testConnection(unittest.TestCase):
                               addr=("127.0.0.7", 93413))
         # check connector created and connection initialize
         self.assertTrue(bc.connecting)
-        self.assertFalse(bc.isListeningConnection())
+        self.assertFalse(bc.isServerConnection())
         self.assertNotEqual(bc.getConnector(), None)
         conn = bc.getConnector()
         self.assertEquals(len(conn.mockGetNamedCalls("makeClientConnection")), 1)
@@ -788,7 +788,7 @@ class testConnection(unittest.TestCase):
                               addr=("127.0.0.7", 93413))
         # check connector created and connection initialize
         self.assertTrue(bc.connecting)
-        self.assertFalse(bc.isListeningConnection())
+        self.assertFalse(bc.isServerConnection())
         self.assertEqual(bc.getConnector(), None)
         call = conn.mockGetNamedCalls("makeClientConnection")[0]
         data = call.getParam(0)
@@ -955,7 +955,7 @@ class testConnection(unittest.TestCase):
         # test abort
         bc.abort()
         self.assertEqual(bc.aborted, True)
-        self.assertTrue(bc.isListeningConnection())
+        self.assertTrue(bc.isServerConnection())
         
 
     def test_15_MTClientConnection(self):
@@ -968,7 +968,7 @@ class testConnection(unittest.TestCase):
                               addr=("127.0.0.7", 93413))
         # check connector created and connection initialize
         self.assertFalse(bc.connecting)
-        self.assertFalse(bc.isListeningConnection())
+        self.assertFalse(bc.isServerConnection())
         self.assertNotEqual(bc.getConnector(), None)
         conn = bc.getConnector()
         self.assertEquals(len(conn.mockGetNamedCalls("makeClientConnection")), 1)
@@ -995,7 +995,7 @@ class testConnection(unittest.TestCase):
                               addr=("127.0.0.7", 93413))
         # check connector created and connection initialize
         self.assertTrue(bc.connecting)
-        self.assertFalse(bc.isListeningConnection())
+        self.assertFalse(bc.isServerConnection())
         self.assertNotEqual(bc.getConnector(), None)
         conn = bc.getConnector()
         self.assertEquals(len(conn.mockGetNamedCalls("makeClientConnection")), 1)
@@ -1023,7 +1023,7 @@ class testConnection(unittest.TestCase):
                               addr=("127.0.0.7", 93413))
         # check connector created and connection initialize
         self.assertTrue(bc.connecting)
-        self.assertFalse(bc.isListeningConnection())
+        self.assertFalse(bc.isServerConnection())
         self.assertEqual(bc.getConnector(), None)
         call = conn.mockGetNamedCalls("makeClientConnection")[0]
         data = call.getParam(0)
@@ -1075,7 +1075,7 @@ class testConnection(unittest.TestCase):
         # test abort
         bc.abort()
         self.assertEqual(bc.aborted, True)
-        self.assertTrue(bc.isListeningConnection())
+        self.assertTrue(bc.isServerConnection())
 
         # XXX check locking ???
 
