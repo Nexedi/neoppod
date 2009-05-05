@@ -72,7 +72,8 @@ class Enum(object):
             # languages harder.
             if not isinstance(value, int):
                 raise TypeError, 'Enum class only support integer values.'
-            global_dict[key] = enum_dict[value] = EnumItem(self, key, value)
+            item = EnumItem(self, key, value)
+            global_dict[key] = enum_dict[value] = item
 
     def get(self, value, default=None):
         return self.enum_dict.get(value, default)
@@ -89,171 +90,173 @@ MAX_PACKET_SIZE = 0x100000
 PACKET_HEADER_SIZE = 10
 # Message types.
 
-# Error is a special type of message, because this can be sent against any other message,
-# even if such a message does not expect a reply usually. Any -> Any.
-ERROR = 0x8000
+packet_types = Enum({
 
-# Check if a peer is still alive. Any -> Any.
-PING = 0x0001
+    # Error is a special type of message, because this can be sent against any other message,
+    # even if such a message does not expect a reply usually. Any -> Any.
+    'ERROR': 0x8000,
 
-# Notify being alive. Any -> Any.
-PONG = 0x8001
+    # Check if a peer is still alive. Any -> Any.
+    'PING': 0x0001,
 
-# Request a node identification. This must be the first packet for any connection.
-# Any -> Any.
-REQUEST_NODE_IDENTIFICATION = 0x0002
+    # Notify being alive. Any -> Any.
+    'PONG': 0x8001,
 
-# Accept a node identification. This should be a reply to Request Node Identification.
-# Any -> Any.
-ACCEPT_NODE_IDENTIFICATION = 0x8002
+    # Request a node identification. This must be the first packet for any connection.
+    # Any -> Any.
+    'REQUEST_NODE_IDENTIFICATION': 0x0002,
 
-# Ask a current primary master node. This must be the second message when connecting
-# to a master node. Any -> M.
-ASK_PRIMARY_MASTER = 0x0003
+    # Accept a node identification. This should be a reply to Request Node Identification.
+    # Any -> Any.
+    'ACCEPT_NODE_IDENTIFICATION': 0x8002,
 
-# Reply to Ask Primary Master. This message includes a list of known master nodes,
-# to make sure that a peer has the same information. M -> Any.
-ANSWER_PRIMARY_MASTER = 0x8003
+    # Ask a current primary master node. This must be the second message when connecting
+    # to a master node. Any -> M.
+    'ASK_PRIMARY_MASTER': 0x0003,
 
-# Announce a primary master node election. PM -> SM.
-ANNOUNCE_PRIMARY_MASTER = 0x0004
+    # Reply to Ask Primary Master. This message includes a list of known master nodes,
+    # to make sure that a peer has the same information. M -> Any.
+    'ANSWER_PRIMARY_MASTER': 0x8003,
 
-# Force a re-election of a primary master node. M -> M.
-REELECT_PRIMARY_MASTER = 0x0005
+    # Announce a primary master node election. PM -> SM.
+    'ANNOUNCE_PRIMARY_MASTER': 0x0004,
 
-# Notify information about one or more nodes. Any -> PM, PM -> Any.
-NOTIFY_NODE_INFORMATION = 0x0006
+    # Force a re-election of a primary master node. M -> M.
+    'REELECT_PRIMARY_MASTER': 0x0005,
 
-# Ask the last OID, the last TID and the last Partition Table ID that
-# a storage node stores. Used to recover information. PM -> S, S -> PM.
-ASK_LAST_IDS = 0x0007
+    # Notify information about one or more nodes. Any -> PM, PM -> Any.
+    'NOTIFY_NODE_INFORMATION': 0x0006,
 
-# Reply to Ask Last IDs. S -> PM, PM -> S.
-ANSWER_LAST_IDS = 0x8007
+    # Ask the last OID, the last TID and the last Partition Table ID that
+    # a storage node stores. Used to recover information. PM -> S, S -> PM.
+    'ASK_LAST_IDS': 0x0007,
 
-# Ask rows in a partition table that a storage node stores. Used to recover
-# information. PM -> S.
-ASK_PARTITION_TABLE = 0x0008
+    # Reply to Ask Last IDs. S -> PM, PM -> S.
+    'ANSWER_LAST_IDS': 0x8007,
 
-# Answer rows in a partition table. S -> PM.
-ANSWER_PARTITION_TABLE = 0x8008
+    # Ask rows in a partition table that a storage node stores. Used to recover
+    # information. PM -> S.
+    'ASK_PARTITION_TABLE': 0x0008,
 
-# Send rows in a partition table to update other nodes. PM -> S, C.
-SEND_PARTITION_TABLE = 0x0009
+    # Answer rows in a partition table. S -> PM.
+    'ANSWER_PARTITION_TABLE': 0x8008,
 
-# Notify a subset of a partition table. This is used to notify changes. PM -> S, C.
-NOTIFY_PARTITION_CHANGES = 0x000a
+    # Send rows in a partition table to update other nodes. PM -> S, C.
+    'SEND_PARTITION_TABLE': 0x0009,
 
-# Tell a storage nodes to start an operation. Until a storage node receives this
-# message, it must not serve client nodes. PM -> S.
-START_OPERATION = 0x000b
+    # Notify a subset of a partition table. This is used to notify changes. PM -> S, C.
+    'NOTIFY_PARTITION_CHANGES': 0x000a,
 
-# Tell a storage node to stop an operation. Once a storage node receives this message,
-# it must not serve client nodes. PM -> S.
-STOP_OPERATION = 0x000c
+    # Tell a storage nodes to start an operation. Until a storage node receives this
+    # message, it must not serve client nodes. PM -> S.
+    'START_OPERATION': 0x000b,
 
-# Ask unfinished transactions' IDs. PM -> S.
-ASK_UNFINISHED_TRANSACTIONS = 0x000d
+    # Tell a storage node to stop an operation. Once a storage node receives this message,
+    # it must not serve client nodes. PM -> S.
+    'STOP_OPERATION': 0x000c,
 
-# Answer unfinished transactions' IDs. S -> PM.
-ANSWER_UNFINISHED_TRANSACTIONS = 0x800d
+    # Ask unfinished transactions' IDs. PM -> S.
+    'ASK_UNFINISHED_TRANSACTIONS': 0x000d,
 
-# Ask if an object is present. If not present, OID_NOT_FOUND should be returned. PM -> S.
-ASK_OBJECT_PRESENT = 0x000f
+    # Answer unfinished transactions' IDs. S -> PM.
+    'ANSWER_UNFINISHED_TRANSACTIONS': 0x800d,
 
-# Answer that an object is present. PM -> S.
-ANSWER_OBJECT_PRESENT = 0x800f
+    # Ask if an object is present. If not present, OID_NOT_FOUND should be returned. PM -> S.
+    'ASK_OBJECT_PRESENT': 0x000f,
 
-# Delete a transaction. PM -> S.
-DELETE_TRANSACTION = 0x0010
+    # Answer that an object is present. PM -> S.
+    'ANSWER_OBJECT_PRESENT': 0x800f,
 
-# Commit a transaction. PM -> S.
-COMMIT_TRANSACTION = 0x0011
+    # Delete a transaction. PM -> S.
+    'DELETE_TRANSACTION': 0x0010,
 
-# Ask a new transaction ID. C -> PM.
-ASK_NEW_TID = 0x0012
+    # Commit a transaction. PM -> S.
+    'COMMIT_TRANSACTION': 0x0011,
 
-# Answer a new transaction ID. PM -> C.
-ANSWER_NEW_TID = 0x8012
+    # Ask a new transaction ID. C -> PM.
+    'ASK_NEW_TID': 0x0012,
 
-# Finish a transaction. C -> PM.
-FINISH_TRANSACTION = 0x0013
+    # Answer a new transaction ID. PM -> C.
+    'ANSWER_NEW_TID': 0x8012,
 
-# Notify a transaction finished. PM -> C.
-NOTIFY_TRANSACTION_FINISHED = 0x8013
+    # Finish a transaction. C -> PM.
+    'FINISH_TRANSACTION': 0x0013,
 
-# Lock information on a transaction. PM -> S.
-LOCK_INFORMATION = 0x0014
+    # Notify a transaction finished. PM -> C.
+    'NOTIFY_TRANSACTION_FINISHED': 0x8013,
 
-# Notify information on a transaction locked. S -> PM.
-NOTIFY_INFORMATION_LOCKED = 0x8014
+    # Lock information on a transaction. PM -> S.
+    'LOCK_INFORMATION': 0x0014,
 
-# Invalidate objects. PM -> C.
-INVALIDATE_OBJECTS = 0x0015
+    # Notify information on a transaction locked. S -> PM.
+    'NOTIFY_INFORMATION_LOCKED': 0x8014,
 
-# Unlock information on a transaction. PM -> S.
-UNLOCK_INFORMATION = 0x0016
+    # Invalidate objects. PM -> C.
+    'INVALIDATE_OBJECTS': 0x0015,
 
-# Ask new object IDs. C -> PM.
-ASK_NEW_OIDS = 0x0017
+    # Unlock information on a transaction. PM -> S.
+    'UNLOCK_INFORMATION': 0x0016,
 
-# Answer new object IDs. PM -> C.
-ANSWER_NEW_OIDS = 0x8017
+    # Ask new object IDs. C -> PM.
+    'ASK_NEW_OIDS': 0x0017,
 
-# Ask to store an object. Send an OID, an original serial, a current
-# transaction ID, and data. C -> S.
-ASK_STORE_OBJECT = 0x0018
+    # Answer new object IDs. PM -> C.
+    'ANSWER_NEW_OIDS': 0x8017,
 
-# Answer if an object has been stored. If an object is in conflict,
-# a serial of the conflicting transaction is returned. In this case,
-# if this serial is newer than the current transaction ID, a client
-# node must not try to resolve the conflict. S -> C.
-ANSWER_STORE_OBJECT = 0x8018
+    # Ask to store an object. Send an OID, an original serial, a current
+    # transaction ID, and data. C -> S.
+    'ASK_STORE_OBJECT': 0x0018,
 
-# Abort a transaction. C -> S, PM.
-ABORT_TRANSACTION = 0x0019
+    # Answer if an object has been stored. If an object is in conflict,
+    # a serial of the conflicting transaction is returned. In this case,
+    # if this serial is newer than the current transaction ID, a client
+    # node must not try to resolve the conflict. S -> C.
+    'ANSWER_STORE_OBJECT': 0x8018,
 
-# Ask to store a transaction. C -> S.
-ASK_STORE_TRANSACTION = 0x001a
+    # Abort a transaction. C -> S, PM.
+    'ABORT_TRANSACTION': 0x0019,
 
-# Answer if transaction has been stored. S -> C.
-ANSWER_STORE_TRANSACTION = 0x801a
+    # Ask to store a transaction. C -> S.
+    'ASK_STORE_TRANSACTION': 0x001a,
 
-# Ask a stored object by its OID and a serial or a TID if given. If a serial
-# is specified, the specified revision of an object will be returned. If
-# a TID is specified, an object right before the TID will be returned. C -> S.
-ASK_OBJECT = 0x001b
+    # Answer if transaction has been stored. S -> C.
+    'ANSWER_STORE_TRANSACTION': 0x801a,
 
-# Answer the requested object. S -> C.
-ANSWER_OBJECT = 0x801b
+    # Ask a stored object by its OID and a serial or a TID if given. If a serial
+    # is specified, the specified revision of an object will be returned. If
+    # a TID is specified, an object right before the TID will be returned. C -> S.
+    'ASK_OBJECT': 0x001b,
 
-# Ask for TIDs between a range of offsets. The order of TIDs is descending,
-# and the range is [first, last). C, S -> S.
-ASK_TIDS = 0x001d
+    # Answer the requested object. S -> C.
+    'ANSWER_OBJECT': 0x801b,
 
-# Answer the requested TIDs. S -> C, S.
-ANSWER_TIDS = 0x801d
+    # Ask for TIDs between a range of offsets. The order of TIDs is descending,
+    # and the range is [first, last). C, S -> S.
+    'ASK_TIDS': 0x001d,
 
-# Ask information about a transaction. Any -> S.
-ASK_TRANSACTION_INFORMATION = 0x001e
+    # Answer the requested TIDs. S -> C, S.
+    'ANSWER_TIDS': 0x801d,
 
-# Answer information (user, description) about a transaction. S -> Any.
-ANSWER_TRANSACTION_INFORMATION = 0x801e
+    # Ask information about a transaction. Any -> S.
+    'ASK_TRANSACTION_INFORMATION': 0x001e,
 
-# Ask history information for a given object. The order of serials is
-# descending, and the range is [first, last]. C, S -> S.
-ASK_OBJECT_HISTORY = 0x001f
+    # Answer information (user, description) about a transaction. S -> Any.
+    'ANSWER_TRANSACTION_INFORMATION': 0x801e,
 
-# Answer history information (serial, size) for an object. S -> C, S.
-ANSWER_OBJECT_HISTORY = 0x801f
+    # Ask history information for a given object. The order of serials is
+    # descending, and the range is [first, last]. C, S -> S.
+    'ASK_OBJECT_HISTORY': 0x001f,
 
-# Ask for OIDs between a range of offsets. The order of OIDs is descending,
-# and the range is [first, last). S -> S.
-ASK_OIDS = 0x0020
+    # Answer history information (serial, size) for an object. S -> C, S.
+    'ANSWER_OBJECT_HISTORY': 0x801f,
 
-# Answer the requested OIDs. S -> S.
-ANSWER_OIDS = 0x8020
+    # Ask for OIDs between a range of offsets. The order of OIDs is descending,
+    # and the range is [first, last). S -> S.
+    'ASK_OIDS': 0x0020,
 
+    # Answer the requested OIDs. S -> S.
+    'ANSWER_OIDS': 0x8020,
+})
 
 # Error codes.
 NOT_READY_CODE = 1
@@ -326,6 +329,7 @@ class Packet(object):
         if len(msg) < MIN_PACKET_SIZE:
             return None
         msg_id, msg_type, msg_len = unpack('!LHL', msg[:PACKET_HEADER_SIZE])
+        msg_type = packet_types[msg_type]
         if msg_len > MAX_PACKET_SIZE:
             raise ProtocolError(cls(msg_id, msg_type),
                                 'message too big (%d)' % msg_len)
@@ -357,7 +361,6 @@ class Packet(object):
     # Encoders.
     def encode(self):
         msg = pack('!LHL', self._id, self._type, PACKET_HEADER_SIZE + len(self._body)) + self._body
-        logging.debug('encoding %d:%x', self._id, self._type)
         if len(msg) > MAX_PACKET_SIZE:
             raise ProtocolError('message too big (%d)' % len(msg))
         return msg

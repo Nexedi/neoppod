@@ -284,6 +284,9 @@ class Connection(BaseConnection):
         if self.connector is None:
             return
 
+        ip, port = self.getAddress()
+        logging.debug('#0x%04x %s to %s:%d', packet.getId(),
+                packet.getType(), *self.getAddress())
         try:
             self.write_buf.append(packet.encode())
         except ProtocolError, m:
