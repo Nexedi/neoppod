@@ -100,6 +100,7 @@ class VerificationEventHandler(StorageEventHandler):
             p = Packet()
             p.acceptNodeIdentification(packet.getId(), STORAGE_NODE_TYPE,
                                        app.uuid, app.server[0], app.server[1],
+                                       app.num_partitions, app.num_replicas,
                                        uuid)
             conn.addPacket(p)
 
