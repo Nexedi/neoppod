@@ -29,6 +29,7 @@ import os
 
 def connectToPrimaryMasterNode(self):
     # TODO: remove monkeypatching and properly simulate master node connection
+    self.uuid = 'C' * 16
     pass
 Application.connectToPrimaryMasterNode_org = Application.connectToPrimaryMasterNode
 Application.connectToPrimaryMasterNode = connectToPrimaryMasterNode
