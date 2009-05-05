@@ -232,12 +232,14 @@ class ClientEventHandlerTest(unittest.TestCase):
         client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         uuid = self.getUUID()
+        app.uuid = 'C' * 16
         client_handler.handleAcceptNodeIdentification(conn, None, CLIENT_NODE_TYPE,
                                                       uuid, '127.0.0.1', 10010,
-                                                      0, 0)
+                                                      0, 0, INVALID_UUID)
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 1)
         self.assertEquals(app.storage_node, None)
         self.assertEquals(app.pt, None)
+        self.assertEquals(app.uuid, 'C' * 16)
 
     def test_masterAcceptNodeIdentification(self):
         node = Mock({'setUUID': None})
@@ -253,9 +255,11 @@ class ClientEventHandlerTest(unittest.TestCase):
         client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         uuid = self.getUUID()
+        your_uuid = 'C' * 16
+        app.uuid = INVALID_UUID
         client_handler.handleAcceptNodeIdentification(conn, None, MASTER_NODE_TYPE,
                                                       uuid, '127.0.0.1', 10010,
-                                                      10, 2)
+                                                      10, 2, your_uuid)
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
         self.assertEquals(len(conn.mockGetNamedCalls('setUUID')), 1)
         setUUID_call_list = node.mockGetNamedCalls('setUUID')
@@ -263,6 +267,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertEquals(setUUID_call_list[0].getParam(0), uuid)
         self.assertEquals(app.storage_node, None)
         self.assertTrue(app.pt is not None)
+        self.assertEquals(app.uuid, your_uuid)
 
     def test_storageAcceptNodeIdentification(self):
         node = Mock({'setUUID': None})
@@ -278,9 +283,10 @@ class ClientEventHandlerTest(unittest.TestCase):
         client_handler = ClientAnswerEventHandler(app, dispatcher)
         conn = self.getConnection()
         uuid = self.getUUID()
+        app.uuid = 'C' * 16
         client_handler.handleAcceptNodeIdentification(conn, None, STORAGE_NODE_TYPE,
                                                       uuid, '127.0.0.1', 10010,
-                                                      0, 0)
+                                                      0, 0, INVALID_UUID)
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
         self.assertEquals(len(conn.mockGetNamedCalls('setUUID')), 1)
         setUUID_call_list = node.mockGetNamedCalls('setUUID')
@@ -288,6 +294,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertEquals(setUUID_call_list[0].getParam(0), uuid)
         self.assertTrue(app.storage_node is node)
         self.assertEquals(app.pt,  None)
+        self.assertEquals(app.uuid, 'C' * 16)
 
     def _testHandleUnexpectedPacketCalledWithMedhod(self, client_handler, method, args=(), kw=()):
         # Monkey-patch handleUnexpectedPacket to check if it is called
