@@ -331,7 +331,7 @@ class Application(object):
 
         self.local_var.asked_object = None
         while self.local_var.asked_object is None:
-            cell_list = self.pt.getCellList(partition_id, True)
+            cell_list = self.pt.getCellList(partition_id, readable=True)
             if len(cell_list) == 0:
                 sleep(1)
                 continue
@@ -479,7 +479,7 @@ class Application(object):
                      dump(oid), dump(serial))
         # Find which storage node to use
         partition_id = u64(oid) % self.num_partitions
-        cell_list = self.pt.getCellList(partition_id, True)
+        cell_list = self.pt.getCellList(partition_id, writable=True)
         if len(cell_list) == 0:
             # FIXME must wait for cluster to be ready
             raise NEOStorageError
@@ -533,7 +533,7 @@ class Application(object):
         oid_list = self.txn_data_dict.keys()
         # Store data on each node
         partition_id = u64(self.tid) % self.num_partitions
-        cell_list = self.pt.getCellList(partition_id, True)
+        cell_list = self.pt.getCellList(partition_id, writable=True)
         for cell in cell_list:
             logging.info("voting object %s %s" %(cell.getServer(), cell.getState()))
             conn = self.cp.getConnForNode(cell)
@@ -574,11 +574,11 @@ class Application(object):
         # select nodes where objects were stored
         for oid in self.txn_data_dict.iterkeys():
             partition_id = u64(oid) % self.num_partitions
-            cell_set |= set(self.pt.getCellList(partition_id, True))
+            cell_set |= set(self.pt.getCellList(partition_id, writable=True))
 
         # select nodes where transaction was stored
         partition_id = u64(self.tid) % self.num_partitions
-        cell_set |= set(self.pt.getCellList(partition_id, True))
+        cell_set |= set(self.pt.getCellList(partition_id, writable=True))
 
         # cancel transaction one all those nodes
         for cell in cell_set:
@@ -650,7 +650,7 @@ class Application(object):
 
         # First get transaction information from a storage node.
         partition_id = u64(transaction_id) % self.num_partitions
-        cell_list = self.pt.getCellList(partition_id, True)
+        cell_list = self.pt.getCellList(partition_id, writable=True)
         shuffle(cell_list)
         for cell in cell_list:
             conn = self.cp.getConnForNode(cell)
@@ -759,7 +759,7 @@ class Application(object):
         undo_info = []
         for tid in ordered_tids:
             partition_id = u64(tid) % self.num_partitions
-            cell_list = self.pt.getCellList(partition_id, True)
+            cell_list = self.pt.getCellList(partition_id, readable=True)
             shuffle(cell_list)
             for cell in cell_list:
                 conn = self.cp.getConnForNode(storage_node)
@@ -810,7 +810,7 @@ class Application(object):
     def history(self, oid, version=None, length=1, filter=None, object_only=0):
         # Get history informations for object first
         partition_id = u64(oid) % self.num_partitions
-        cell_list = self.pt.getCellList(partition_id, True)
+        cell_list = self.pt.getCellList(partition_id, readable=True)
         shuffle(cell_list)
 
         for cell in cell_list:
@@ -847,7 +847,7 @@ class Application(object):
         history_list = []
         for serial, size in self.local_var.history[1]:
             partition_id = u64(serial) % self.num_partitions
-            cell_list = self.pt.getCellList(partition_id, True)
+            cell_list = self.pt.getCellList(partition_id, readable=True)
             shuffle(cell_list)
 
             for cell in cell_list:

@@ -448,7 +448,7 @@ class Application(object):
         # Determine to which nodes I should ask.
         partition = self.getPartition(tid)
         transaction_uuid_list = [cell.getUUID() for cell \
-                in self.pt.getCellList(partition, True)]
+                in self.pt.getCellList(partition, readable=True)]
         if len(transaction_uuid_list) == 0:
             raise VerificationFailure
         uuid_set.update(transaction_uuid_list)
@@ -484,7 +484,7 @@ class Application(object):
                 self.asking_uuid_dict.clear()
                 partition = self.getPartition(oid)
                 object_uuid_list = [cell.getUUID() for cell \
-                            in self.pt.getCellList(partition, True)]
+                            in self.pt.getCellList(partition, readable=True)]
                 if len(object_uuid_list) == 0:
                     raise VerificationFailure
                 uuid_set.update(object_uuid_list)

@@ -74,16 +74,20 @@ class PartitionTable(object):
                 node_list.append(node)
         return node_list
 
-    def getCellList(self, offset, usable_only = False):
-        if usable_only:
-            try:
-                return [cell for cell in self.partition_list[offset] \
-                        if cell is not None and cell.getState() in (UP_TO_DATE_STATE, FEEDING_STATE)]
-            except (TypeError, KeyError):
-                return []
+    def getCellList(self, offset, readable=False, writable=False):
+        # allow all cell states
+        state_set = set(VALID_CELL_STATE_LIST)
+        if readable or writable:
+            # except non readables
+            state_set.remove(DISCARDED_STATE)
+        if readable:
+            # except non writables
+            state_set.remove(OUT_OF_DATE_STATE)
+        allowed_states = tuple(state_set)
         try:
-            return self.partition_list[offset]
-        except KeyError:
+            return [cell for cell in self.partition_list[offset] \
+                    if cell is not None and cell.getState() in allowed_states]
+        except (TypeError, KeyError):
             return []
 
     def make(self, node_list):

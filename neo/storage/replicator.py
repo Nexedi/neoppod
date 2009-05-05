@@ -317,7 +317,7 @@ class Replicator(object):
         app = self.app
         try:
             cell_list = app.pt.getCellList(self.current_partition.getRID(), 
-                                           True)
+                                           readable=True)
             node_list = [cell.getNode() for cell in cell_list
                             if cell.getNodeState() == RUNNING_STATE]
             node = choice(node_list)

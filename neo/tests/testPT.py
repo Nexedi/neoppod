@@ -228,16 +228,34 @@ class testPartitionTable(unittest.TestCase):
         self.assertEqual(len(pt.partition_list[0]), 3)
         for x in xrange(num_partitions):
             if x == 0:
-                self.assertEqual(len(pt.getCellList(0, False)), 3)
-                all_cell = pt.getCellList(0, False)
+                # all nodes
+                all_cell = pt.getCellList(0)
                 all_nodes = [x.getNode() for x in all_cell]
+                self.assertEqual(len(all_cell), 3)
                 self.failUnless(sn1 in all_nodes)
                 self.failUnless(sn2 in all_nodes)
                 self.failUnless(sn3 in all_nodes)
                 self.failUnless(sn4 not in all_nodes)
-                self.assertEqual(len(pt.getCellList(0, True)), 2)
-                all_cell = pt.getCellList(0, True)
+                # writable nodes
+                all_cell = pt.getCellList(0, writable=True)
                 all_nodes = [x.getNode() for x in all_cell]
+                self.assertEqual(len(all_cell), 3)
+                self.failUnless(sn1 in all_nodes)
+                self.failUnless(sn2 in all_nodes)
+                self.failUnless(sn3 in all_nodes)
+                self.failUnless(sn4 not in all_nodes)
+                # readable nodes
+                all_cell = pt.getCellList(0, readable=True)
+                all_nodes = [x.getNode() for x in all_cell]
+                self.assertEqual(len(all_cell), 2)
+                self.failUnless(sn1 in all_nodes)
+                self.failUnless(sn2 not in all_nodes)
+                self.failUnless(sn3 in all_nodes)
+                self.failUnless(sn4 not in all_nodes)
+                # writable & readable nodes
+                all_cell = pt.getCellList(0, readable=True, writable=True)
+                all_nodes = [x.getNode() for x in all_cell]
+                self.assertEqual(len(all_cell), 2)
                 self.failUnless(sn1 in all_nodes)
                 self.failUnless(sn2 not in all_nodes)
                 self.failUnless(sn3 in all_nodes)

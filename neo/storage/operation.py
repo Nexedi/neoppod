@@ -353,7 +353,7 @@ class OperationEventHandler(StorageEventHandler):
             getCellList = app.pt.getCellList
             partition_list = []
             for offset in xrange(app.num_partitions):
-                for cell in getCellList(offset, True):
+                for cell in getCellList(offset, readable=True):
                     if cell.getUUID() == app.uuid:
                         partition_list.append(offset)
                         break
@@ -481,7 +481,7 @@ class OperationEventHandler(StorageEventHandler):
             getCellList = app.pt.getCellList
             partition_list = []
             for offset in xrange(app.num_partitions):
-                for cell in getCellList(offset, True):
+                for cell in getCellList(offset, readable=True):
                     if cell.getUUID() == app.uuid:
                         partition_list.append(offset)
                         break
