@@ -367,8 +367,9 @@ server: 127.0.0.1:10023
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
         self.checkCalledAcceptNodeIdentification(conn)
+        known_uuid = uuid
 
-        # 5. known by uuid, but different address
+        # 5. known by uuid, but different address -> conflict / new master
         conn = Mock({"addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
@@ -387,9 +388,18 @@ server: 127.0.0.1:10023
                                                 ip_address='127.0.0.2',
                                                 port=self.master_port,
                                                 name=self.app.name,)
-        self.checkCalledAbort(conn)
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        self.assertEqual(node.getUUID(), uuid)
+        self.assertEqual(node.getState(), RUNNING_STATE)
+        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
+        self.checkCalledAcceptNodeIdentification(conn)
+        # a new uuid is sent
+        call = conn.mockGetNamedCalls('addPacket')[0]
+        body = call.getParam(0)._body
+        new_uuid = body[:-16]
+        self.assertNotEquals(new_uuid, uuid)
 
-        # 6.known by uuid, but different address and non running state
+        # 6.known by uuid, but different address and non running state -> conflict
         conn = Mock({"addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
@@ -402,7 +412,7 @@ server: 127.0.0.1:10023
         node.setState(DOWN_STATE)
         self.assertEqual(node.getState(), DOWN_STATE)
         self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
+        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
         recovery.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=MASTER_NODE_TYPE,
@@ -410,32 +420,27 @@ server: 127.0.0.1:10023
                                                 ip_address='127.0.0.2',
                                                 port=self.master_port,
                                                 name=self.app.name,)
-
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkCalledAbort(conn)
 
         # 7. known node but broken
         conn = Mock({"addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
-                     "getAddress" : ("127.0.0.2", self.master_port)})
+                     "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertNotEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
         self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
         node = self.app.nm.getNodeByServer(conn.getAddress())
-        self.assertEqual(node.getState(), RUNNING_STATE)
+        self.assertEqual(node.getState(), DOWN_STATE)
         node.setState(BROKEN_STATE)
         self.assertEqual(node.getState(), BROKEN_STATE)
         self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
+        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
         recovery.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=MASTER_NODE_TYPE,
                                                 uuid=uuid,
-                                                ip_address='127.0.0.2',
+                                                ip_address='127.0.0.1',
                                                 port=self.master_port,
                                                 name=self.app.name,)
 
@@ -446,7 +451,7 @@ server: 127.0.0.1:10023
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
-                     "getAddress" : ("127.0.0.2", self.master_port)})
+                     "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertNotEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
         self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
         node = self.app.nm.getNodeByServer(conn.getAddress())
@@ -454,17 +459,17 @@ server: 127.0.0.1:10023
         node.setState(DOWN_STATE)
         self.assertEqual(node.getState(), DOWN_STATE)
         self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
+        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
         recovery.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=MASTER_NODE_TYPE,
                                                 uuid=uuid,
-                                                ip_address='127.0.0.2',
+                                                ip_address='127.0.0.1',
                                                 port=self.master_port,
                                                 name=self.app.name,)
 
         node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
+        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
         self.checkCalledAcceptNodeIdentification(conn)
@@ -478,7 +483,7 @@ server: 127.0.0.1:10023
                      "getAddress" : ("127.0.0.3", self.master_port)})
         self.assertEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
         self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
+        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
         recovery.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=MASTER_NODE_TYPE,
@@ -488,7 +493,7 @@ server: 127.0.0.1:10023
                                                 name=self.app.name,)
 
         node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
+        self.assertEqual(len(self.app.nm.getMasterNodeList()), 3)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
         self.checkCalledAcceptNodeIdentification(conn)
