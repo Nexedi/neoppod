@@ -156,13 +156,16 @@ class ServiceEventHandler(MasterEventHandler):
         # However, master nodes can be known only as the server addresses.
         # And, a node may claim a server address used by another node.
         addr = (ip_address, port)
-        # generate a new uuid for this node
-        while not app.isValidUUID(uuid, addr):
-            uuid = app.getNewUUID(node_type)
         # First, get the node by the UUID.
         node = app.nm.getNodeByUUID(uuid)
+        if node is not None and node.getServer() != addr:
+            # Here we have an UUID conflict, assume that's a new node
+            node = None
         old_node = None
         if node is None:
+            # generate a new uuid for this node
+            while not app.isValidUUID(uuid, addr):
+                uuid = app.getNewUUID(node_type)
             # If nothing is present, try with the server address.
             node = app.nm.getNodeByServer(addr)
             if node is None:
