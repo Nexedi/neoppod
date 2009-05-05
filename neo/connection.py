@@ -99,6 +99,9 @@ class BaseConnection(object):
     def getUUID(self):
         return None
 
+    def isListeningConnection(self):
+        raise NotImplementedError
+
 class ListeningConnection(BaseConnection):
     """A listen connection."""
     def __init__(self, event_manager, handler, addr = None,
@@ -120,6 +123,9 @@ class ListeningConnection(BaseConnection):
         except ConnectorTryAgainException:
             pass
             
+    def isListeningConnection(self):
+        return True
+
 class Connection(BaseConnection):
     """A connection."""
     def __init__(self, event_manager, handler,
@@ -317,6 +323,9 @@ class Connection(BaseConnection):
 
     def isServerConnection(self):
         raise NotImplementedError
+
+    def isListeningConnection(self):
+        return False
 
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
