@@ -301,7 +301,7 @@ server: 127.0.0.1:10020
         p = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
         self.verification.handleAcceptNodeIdentification(conn, p, CLIENT_NODE_TYPE,
                                                          self.getNewUUID(),"127.0.0.1", self.client_port,
-                                                         1009, 2)
+                                                         1009, 2, uuid)
         self.checkCalledAbort(conn)    
 
     def test_07_handleAnswerPrimaryMaster(self):

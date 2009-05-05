@@ -467,7 +467,9 @@ server: 127.0.0.1:10020
             ip_address='127.0.0.1',
             port=self.master_port,
             num_partitions=self.app.num_partitions,
-            num_replicas=self.app.num_replicas)
+            num_replicas=self.app.num_replicas,
+            your_uuid=INVALID_UUID,
+        )
 
     def test_10_handleAcceptNodeIdentification2(self):
         # server connection rejected
@@ -480,7 +482,8 @@ server: 127.0.0.1:10020
             ip_address='127.0.0.1',
             port=self.master_port,
             num_partitions=self.app.num_partitions,
-            num_replicas=self.app.num_replicas
+            num_replicas=self.app.num_replicas,
+            your_uuid=INVALID_UUID,
         )
 
     def test_11_handleAnswerPrimaryMaster(self):

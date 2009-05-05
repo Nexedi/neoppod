@@ -410,7 +410,8 @@ server: 127.0.0.1:10020
             ip_address='127.0.0.1',
             port=self.master_port,
             num_partitions=self.app.num_partitions,
-            num_replicas=self.app.num_replicas)
+            num_replicas=self.app.num_replicas,
+            your_uuid=self.getNewUUID())
         self.checkCalledAbort(conn)
 
     def test_09_handleAcceptNodeIdentification2(self):
@@ -431,7 +432,8 @@ server: 127.0.0.1:10020
             node_type=STORAGE_NODE_TYPE,
             ip_address='127.0.0.1',
             num_partitions=self.num_partitions,
-            num_replicas=self.app.num_replicas)
+            num_replicas=self.app.num_replicas,
+            your_uuid=self.getNewUUID())
         self.assertTrue(server not in self.app.nm.server_dict)
         self.assertEquals(len(conn.mockGetNamedCalls("close")), 1)
 
@@ -449,7 +451,8 @@ server: 127.0.0.1:10020
             node_type=MASTER_NODE_TYPE,
             ip_address='127.0.0.1',
             num_partitions=self.num_partitions,
-            num_replicas=self.app.num_replicas)
+            num_replicas=self.app.num_replicas,
+            your_uuid=self.getNewUUID())
         server = ('127.0.0.1', self.master_port)
         self.assertTrue(server not in self.app.nm.server_dict)
         self.assertEquals(len(conn.mockGetNamedCalls("close")), 1)
@@ -468,6 +471,7 @@ server: 127.0.0.1:10020
             'port':self.master_port,
             'node_type':MASTER_NODE_TYPE,
             'ip_address':'127.0.0.1',
+            'your_uuid': self.getNewUUID()
         }
         self.app.num_partitions = 1
         self.app.num_replicas = 1
@@ -488,7 +492,7 @@ server: 127.0.0.1:10020
 
     def test_09_handleAcceptNodeIdentification5(self):
         # no PT
-        uuid = self.getNewUUID()
+        uuid, your_uuid = self.getNewUUID(), self.getNewUUID()
         self.app.num_partitions = None
         self.app.num_replicas = None
         conn = Mock({"isListeningConnection": False,
@@ -505,7 +509,8 @@ server: 127.0.0.1:10020
             node_type=MASTER_NODE_TYPE,
             ip_address='127.0.0.1',
             num_partitions=self.num_partitions,
-            num_replicas=self.num_replicas)
+            num_replicas=self.num_replicas,
+            your_uuid=your_uuid)
         # check PT
         self.assertEquals(self.app.num_partitions, self.num_partitions)
         self.assertEquals(self.app.num_replicas, self.num_replicas)
@@ -529,7 +534,7 @@ server: 127.0.0.1:10020
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
-        uuid = self.getNewUUID()
+        uuid, your_uuid = self.getNewUUID(), self.getNewUUID()
         self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
         self.bootstrap.handleAcceptNodeIdentification(
             conn=conn,
@@ -539,7 +544,8 @@ server: 127.0.0.1:10020
             node_type=MASTER_NODE_TYPE,
             ip_address='127.0.0.1',
             num_partitions=self.num_partitions,
-            num_replicas=self.num_replicas)
+            num_replicas=self.num_replicas,
+            your_uuid=your_uuid)
         # uuid
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
         call = conn.mockGetNamedCalls("setUUID")[0]
