@@ -18,7 +18,8 @@
 import logging
 
 from neo.protocol import MASTER_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
+        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
+        DOWN_STATE, ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.connection import ClientConnection
 from neo.exception import ElectionFailure, PrimaryFailure

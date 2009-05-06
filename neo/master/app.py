@@ -25,7 +25,7 @@ from neo.protocol import Packet, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, \
         CLIENT_NODE_TYPE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
-        UUID_NAMESPACES
+        UUID_NAMESPACES, ADMIN_NODE_TYPE
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
@@ -292,7 +292,7 @@ class Application(object):
             for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
                     n = self.nm.getNodeByUUID(c.getUUID())
-                    if n.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
+                    if n.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
                         p = Packet()
                         node_list = [(node_type, ip_address, port, uuid, state)]
                         p.notifyNodeInformation(c.getNextId(), node_list)
@@ -304,7 +304,7 @@ class Application(object):
                     node_list = [(node_type, ip_address, port, uuid, state)]
                     p.notifyNodeInformation(c.getNextId(), node_list)
                     c.addPacket(p)
-        else:
+        elif node.getNodeType() != ADMIN_NODE_TYPE:
             raise RuntimeError('unknown node type')
 
     def broadcastPartitionChanges(self, ptid, cell_list):
@@ -313,7 +313,7 @@ class Application(object):
         for c in self.em.getConnectionList():
             if c.getUUID() is not None:
                 n = self.nm.getNodeByUUID(c.getUUID())
-                if n.getNodeType() in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
+                if n.getNodeType() in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
                     # Split the packet if too big.
                     size = len(cell_list)
                     start = 0
@@ -350,7 +350,7 @@ class Application(object):
 
             if self.lptid is not None:
                 # I need to retrieve last ids again.
-                logging.debug('resending Ask Last IDs')
+                logging.info('resending Ask Last IDs')
                 for conn in em.getConnectionList():
                     uuid = conn.getUUID()
                     if uuid is not None:
@@ -427,7 +427,7 @@ class Application(object):
 
                 # Wait until the cluster gets operational or the Partition
                 # Table ID turns out to be not the latest.
-                logging.debug('waiting for the cluster to be operational')
+                logging.info('waiting for the cluster to be operational')
                 self.pt.log()
                 while 1:
                     em.poll(1)

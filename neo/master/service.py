@@ -20,11 +20,12 @@ from copy import copy
 
 from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, STORAGE_NODE_TYPE
+        UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, \
+        STORAGE_NODE_TYPE, ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.protocol import Packet, INVALID_UUID
 from neo.exception import OperationFailure, ElectionFailure
-from neo.node import ClientNode, StorageNode, MasterNode
+from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
 from neo.util import dump
 
 class FinishingTransaction(object):
@@ -83,6 +84,9 @@ class ServiceEventHandler(MasterEventHandler):
                     for tid, t in app.finishing_transaction_dict.items():
                         if t.getConnection() is conn:
                             del app.finishing_transaction_dict[tid]
+                elif node.getNodeType() == ADMIN_NODE_TYPE:
+                    # If this node is an admin , just forget it.
+                    app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
                     if not app.pt.operational():
                         # Catastrophic.
@@ -104,6 +108,9 @@ class ServiceEventHandler(MasterEventHandler):
                     for tid, t in app.finishing_transaction_dict.items():
                         if t.getConnection() is conn:
                             del app.finishing_transaction_dict[tid]
+                elif node.getNodeType() == ADMIN_NODE_TYPE:
+                    # If this node is an admin , just forget it.
+                    app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
                     if not app.pt.operational():
                         # Catastrophic.
@@ -125,6 +132,9 @@ class ServiceEventHandler(MasterEventHandler):
                     for tid, t in app.finishing_transaction_dict.items():
                         if t.getConnection() is conn:
                             del app.finishing_transaction_dict[tid]
+                elif node.getNodeType() == ADMIN_NODE_TYPE:
+                    # If this node is an admin , just forget it.
+                    app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
                     cell_list = app.pt.dropNode(node)
                     ptid = app.getNextPartitionTableID()
@@ -175,6 +185,8 @@ class ServiceEventHandler(MasterEventHandler):
                     node = MasterNode(server = addr, uuid = uuid)
                 elif node_type == CLIENT_NODE_TYPE:
                     node = ClientNode(uuid = uuid)
+                elif node_type == ADMIN_NODE_TYPE:
+                    node = AdminNode(uuid = uuid)
                 else:
                     node = StorageNode(server = addr, uuid = uuid)
                 app.nm.add(node)
@@ -312,7 +324,7 @@ class ServiceEventHandler(MasterEventHandler):
         conn.addPacket(p)
 
         # Send the information.
-        logging.debug('sending notify node information to %s:%d',
+        logging.info('sending notify node information to %s:%d',
                       *(conn.getAddress()))
         node_list = []
         for n in app.nm.getNodeList():
@@ -332,10 +344,10 @@ class ServiceEventHandler(MasterEventHandler):
         p.notifyNodeInformation(conn.getNextId(), node_list)
         conn.addPacket(p)
 
-        # If this is a storage node or a client node, send the partition table.
+        # If this is a storage node or a client node or an admin node, send the partition table.
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE):
-            logging.debug('sending send partition table to %s:%d',
+        if node.getNodeType() in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
+            logging.info('sending partition table to %s:%d',
                           *(conn.getAddress()))
             # Split the packet if too huge.
             p = Packet()
@@ -374,7 +386,7 @@ class ServiceEventHandler(MasterEventHandler):
 
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
-            if node_type == CLIENT_NODE_TYPE:
+            if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                 # No interest.
                 continue
 

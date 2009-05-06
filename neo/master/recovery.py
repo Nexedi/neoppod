@@ -19,11 +19,11 @@ import logging
 
 from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
+        STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.exception import ElectionFailure
-from neo.protocol import Packet, INVALID_UUID
-from neo.node import ClientNode, StorageNode, MasterNode
+from neo.protocol import Packet, INVALID_UUID, INVALID_PTID
+from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
 from neo.util import dump
 
 class RecoveryEventHandler(MasterEventHandler):
@@ -65,7 +65,7 @@ class RecoveryEventHandler(MasterEventHandler):
     def handleRequestNodeIdentification(self, conn, packet, node_type, uuid, 
                                         ip_address, port, name):
         app = self.app
-        if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
+        if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
             logging.info('reject a connection from a client')
             conn.addPacket(Packet().notReady(packet.getId(), 'retry later'))
             conn.abort()
@@ -102,6 +102,8 @@ class RecoveryEventHandler(MasterEventHandler):
                 # connected to me.
                 if node_type == MASTER_NODE_TYPE:
                     node = MasterNode(server = addr, uuid = uuid)
+                elif node_type == ADMIN_NODE_TYPE:
+                    node = AdminNode(uuid = uuid)
                 else:
                     node = StorageNode(server = addr, uuid = uuid)
                 app.nm.add(node)
@@ -224,6 +226,22 @@ class RecoveryEventHandler(MasterEventHandler):
             p.askLastIDs(msg_id)
             conn.addPacket(p)
             conn.expectMessage(msg_id)
+        elif node.getNodeType() == ADMIN_NODE_TYPE and app.lptid not in (INVALID_PTID, None):
+            # send partition table if exists
+            logging.info('sending partition table %s to %s' %(app.lptid,
+                                                              conn.getAddress()))
+            # Split the packet if too huge.
+            p = Packet()
+            row_list = []
+            for offset in xrange(app.num_partitions):
+                row_list.append((offset, app.pt.getRow(offset)))
+                if len(row_list) == 1000:
+                    p.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
+                    conn.addPacket(p)
+                    del row_list[:]
+            if len(row_list) != 0:
+                p.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
+                conn.addPacket(p)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
@@ -245,7 +263,7 @@ class RecoveryEventHandler(MasterEventHandler):
 
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
-            if node_type == CLIENT_NODE_TYPE:
+            if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                 # No interest.
                 continue
             
@@ -328,7 +346,7 @@ class RecoveryEventHandler(MasterEventHandler):
 
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
+        if node.getNodeType() not in (STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
             self.handleUnexpectedPacket(conn, packet)
             return
         if uuid != app.target_uuid:

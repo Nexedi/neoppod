@@ -18,7 +18,8 @@
 import logging
 
 from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
+        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
+        ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.exception import VerificationFailure, ElectionFailure
 from neo.protocol import Packet, INVALID_UUID
@@ -36,7 +37,7 @@ class VerificationEventHandler(MasterEventHandler):
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
                 app.broadcastNodeInformation(node)
-                if node.getNodeType() == CLIENT_NODE_TYPE:
+                if node.getNodeType() in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
@@ -53,7 +54,7 @@ class VerificationEventHandler(MasterEventHandler):
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
                 app.broadcastNodeInformation(node)
-                if node.getNodeType() == CLIENT_NODE_TYPE:
+                if node.getNodeType() in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
@@ -70,7 +71,7 @@ class VerificationEventHandler(MasterEventHandler):
             if node.getState() != BROKEN_STATE:
                 node.setState(BROKEN_STATE)
                 app.broadcastNodeInformation(node)
-                if node.getNodeType() == CLIENT_NODE_TYPE:
+                if node.getNodeType() in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
@@ -88,7 +89,7 @@ class VerificationEventHandler(MasterEventHandler):
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
         app = self.app
-        if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
+        if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
             logging.info('reject a connection from a client')
             conn.addPacket(Packet().notReady(packet.getId(), 'retry later'))
             conn.abort()
@@ -125,6 +126,8 @@ class VerificationEventHandler(MasterEventHandler):
                 # connected to me.
                 if node_type == MASTER_NODE_TYPE:
                     node = MasterNode(server = addr, uuid = uuid)
+                elif node_type == ADMIN_NODE_TYPE:
+                    node = AdminNode(uuid = uuid)
                 else:
                     node = StorageNode(server = addr, uuid = uuid)
                 app.nm.add(node)
@@ -238,9 +241,9 @@ class VerificationEventHandler(MasterEventHandler):
         p.notifyNodeInformation(conn.getNextId(), node_list)
         conn.addPacket(p)
 
-        # If this is a storage node, send the partition table.
+        # If this is a storage node or an admin node, send the partition table.
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() == STORAGE_NODE_TYPE:
+        if node.getNodeType() in (STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
             # Split the packet if too huge.
             p = Packet()
             row_list = []
@@ -274,7 +277,7 @@ class VerificationEventHandler(MasterEventHandler):
 
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
-            if node_type == CLIENT_NODE_TYPE:
+            if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                 # No interest.
                 continue
             
