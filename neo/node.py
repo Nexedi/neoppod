@@ -19,7 +19,7 @@ from time import time
 import logging
 
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, VALID_NODE_STATE_LIST
+        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, VALID_NODE_STATE_LIST, ADMIN_NODE_TYPE
 from neo.util import dump
 
 class Node(object):
@@ -97,6 +97,11 @@ class ClientNode(Node):
     """This class represents a client node."""
     def getNodeType(self):
         return CLIENT_NODE_TYPE
+
+class AdminNode(Node):
+    """This class represents an admin node."""
+    def getNodeType(self):
+        return ADMIN_NODE_TYPE
 
 class NodeManager(object):
     """This class manages node status."""
