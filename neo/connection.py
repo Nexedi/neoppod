@@ -23,6 +23,7 @@ import traceback
 from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent
 from neo.connector import ConnectorTryAgainException, ConnectorInProgressException
+from neo.util import dump
 
 def lockCheckWrapper(func):
     """
@@ -225,6 +226,8 @@ class Connection(BaseConnection):
                     except KeyError:
                         pass
 
+                logging.debug('#0x%04x %-30s from %s (%s:%d)', packet.getId(), 
+                        packet.getType(), dump(self.uuid), *self.getAddress())
                 self.handler.packetReceived(self, packet)
                 msg = msg[len(packet):]
 
@@ -285,8 +288,8 @@ class Connection(BaseConnection):
             return
 
         ip, port = self.getAddress()
-        logging.debug('#0x%04x %s to %s:%d', packet.getId(),
-                packet.getType(), *self.getAddress())
+        logging.debug('#0x%04x %-30s  to  %s (%s:%d)', packet.getId(),
+                packet.getType(), dump(self.uuid), *self.getAddress())
         try:
             self.write_buf.append(packet.encode())
         except ProtocolError, m:

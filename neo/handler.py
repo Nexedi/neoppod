@@ -75,8 +75,6 @@ class EventHandler(object):
 
     def packetReceived(self, conn, packet):
         """Called when a packet is received."""
-        logging.debug('#0x%04x %s from %s:%d', 
-                packet.getId(), packet.getType(), *conn.getAddress())
         self.dispatch(conn, packet)
 
     def packetMalformed(self, conn, packet, error_message):
