@@ -57,6 +57,7 @@ class Application(object):
         self.pt = None
         self.uuid = INVALID_UUID
         self.primary_master_node = None
+        self.ptid = INVALID_PTID
 
 
     def run(self):
@@ -70,7 +71,8 @@ class Application(object):
             self.nm.add(MasterNode(server = server))
 
         # Make a listening port.
-        ListeningConnection(self.em, None, addr = self.server,
+        handler = AdminEventHandler(self)
+        ListeningConnection(self.em, handler, addr = self.server,
                             connector_handler = self.connector_handler)
 
         # Connect to a primary master node, verify data, and

@@ -31,28 +31,24 @@ from neo.util import dump
 class BaseEventHandler(EventHandler):
     """ Base handler for admin node """
 
-    def connectionAccepted(self, conn, s, addr):
-        """Called when a connection is accepted."""
-        # we only accept connection from command tool
-        logging.info("accepted a connection from %s:%d" %(conn.getAddress(),))
-        if conn.isServerConnection():
-            conn.setHandler(AdminEventHandler)
-        else:
-            # XXX why do we get there ?
-            self.handleUnexpectedPacket(conn, packet)
-
-
-class AdminEventHandler(EventHandler):
-    """This class deals with events for administrating cluster."""
-    pass
-
-
-class MonitoringEventHandler(EventHandler):
-    """This class deals with events for monitoring cluster."""
-
     def __init__(self, app):
         self.app = app
         EventHandler.__init__(self)
+
+class AdminEventHandler(BaseEventHandler):
+    """This class deals with events for administrating cluster."""
+
+    def connectionAccepted(self, conn, s, addr):
+        """Called when a connection is accepted."""
+        # we only accept connection from command tool
+        logging.info("accepted a connection from %s" %(addr,))
+
+class MonitoringEventHandler(BaseEventHandler):
+    """This class deals with events for monitoring cluster."""
+
+    def connectionAccepted(self, conn, s, addr):
+        """Called when a connection is accepted."""
+        self.handleUnexpectedPacket(conn, packet)
 
     def connectionCompleted(self, conn):
         app = self.app
@@ -226,12 +222,108 @@ class MonitoringEventHandler(EventHandler):
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         logging.warning("handleSendPartitionTable")
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        app = self.app
+        nm = app.nm
+        pt = app.pt
+        node = app.nm.getNodeByUUID(uuid)
+        # This must be sent only by primary master node
+        if node.getNodeType() != MASTER_NODE_TYPE:
+            return
+
+        if app.ptid != ptid:
+            app.ptid = ptid
+            pt.clear()
+        for offset, row in row_list:
+            for uuid, state in row:
+                node = nm.getNodeByUUID(uuid)
+                if node is None:
+                    node = StorageNode(uuid = uuid)
+                    node.setState(TEMPORARILY_DOWN_STATE)
+                    nm.add(node)
+                pt.setCell(offset, node, state)
 
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         logging.warning("handleNotifyPartitionChanges")
+        app = self.app
+        nm = app.nm
+        pt = app.pt
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        node = app.nm.getNodeByUUID(uuid)
+        # This must be sent only by primary master node
+        if node.getNodeType() != MASTER_NODE_TYPE \
+               or app.primary_master_node is None \
+               or app.primary_master_node.getUUID() != uuid:
+            return
+
+        if app.ptid >= ptid:
+            # Ignore this packet.
+            return
+
+        app.ptid = ptid
+        for offset, uuid, state in cell_list:
+            node = nm.getNodeByUUID(uuid)
+            if node is None:
+                node = StorageNode(uuid = uuid)
+                if uuid != app.uuid:
+                    node.setState(TEMPORARILY_DOWN_STATE)
+                nm.add(node)
+
+            pt.setCell(offset, node, state)
 
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         logging.warning("handleNotifyNodeInformation")
+        uuid = conn.getUUID()
+        if uuid is None:
+            self.handleUnexpectedPacket(conn, packet)
+            return
+
+        app = self.app
+        nm = app.nm
+        node = nm.getNodeByUUID(uuid)
+        # This must be sent only by a primary master node.
+        # Note that this may be sent before I know that it is
+        # a primary master node.
+        if node.getNodeType() != MASTER_NODE_TYPE:
+            logging.warn('ignoring notify node information from %s',
+                         dump(uuid))
+            return
+        for node_type, ip_address, port, uuid, state in node_list:
+            # Register new nodes.
+            addr = (ip_address, port)
+
+            if node_type == MASTER_NODE_TYPE:
+                n = nm.getNodeByServer(addr)
+                if n is None:
+                    n = MasterNode(server = addr)
+                    nm.add(n)
+                if uuid != INVALID_UUID:
+                    # If I don't know the UUID yet, believe what the peer
+                    # told me at the moment.
+                    if n.getUUID() is None:
+                        n.setUUID(uuid)
+            elif node_type == STORAGE_NODE_TYPE:
+                if uuid == INVALID_UUID:
+                    # No interest.
+                    continue
+                n = nm.getNodeByUUID(uuid)
+                if n is None:
+                    n = StorageNode(server = addr, uuid = uuid)
+                    nm.add(n)
+                else:
+                    n.setServer(addr)
+            elif node_type == CLIENT_NODE_TYPE:
+                continue
+
+            n.setState(state)
 
