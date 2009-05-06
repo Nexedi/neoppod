@@ -82,8 +82,8 @@ class Application(object):
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
-        if self.num_replicas <= 0:
-            raise RuntimeError, 'replicas must be more than zero'
+        if self.num_replicas < 0:
+            raise RuntimeError, 'replicas must be a positive integer'
         if self.num_partitions <= 0:
             raise RuntimeError, 'partitions must be more than zero'
         if len(self.name) == 0:

@@ -102,7 +102,7 @@ class PartitionTable(object):
 
         # Take it into account that the number of storage nodes may be less than the
         # number of replicas.
-        repeats = min(self.nr, len(node_list))
+        repeats = min(self.nr + 1, len(node_list))
         index = 0
         for offset in xrange(self.np):
             row = []
@@ -308,7 +308,7 @@ class PartitionTable(object):
             if skip:
                 continue
 
-            if num_cells < self.nr:
+            if num_cells <= self.nr:
                 row.append(Cell(node, OUT_OF_DATE_STATE))
                 cell_list.append((offset, node.getUUID(), OUT_OF_DATE_STATE))
                 node_count += 1
@@ -374,7 +374,7 @@ class PartitionTable(object):
             if len(out_of_date_cell_list) == 0 and feeding_cell is not None:
                 removed_cell_list.append(feeding_cell)
 
-            ideal_num = self.nr
+            ideal_num = self.nr + 1
             while len(out_of_date_cell_list) + len(up_to_date_cell_list) > ideal_num:
                 # This row contains too many cells.
                 if len(up_to_date_cell_list) > 1:
@@ -411,7 +411,7 @@ class PartitionTable(object):
             for cell in row:
                 if cell.getState() != FEEDING_STATE:
                     num_cells += 1
-            while num_cells < self.nr:
+            while num_cells <= self.nr:
                 node = self.findLeastUsedNode([cell.getNode() for cell in row])
                 if node is None:
                     break

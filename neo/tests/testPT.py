@@ -602,7 +602,7 @@ class testPartitionTable(unittest.TestCase):
         # 2 : sn1, sn4
         # 3 : sn1, sn5
         num_partitions = 4
-        num_replicas = 2
+        num_replicas = 1
         pt = PartitionTable(num_partitions, num_replicas)
         # node most used is out of date, just dropped
         pt.setCell(0, sn1, OUT_OF_DATE_STATE)
@@ -755,7 +755,7 @@ class testPartitionTable(unittest.TestCase):
         
     def test_16_make(self):
         num_partitions = 5
-        num_replicas = 2
+        num_replicas = 1
         pt = PartitionTable(num_partitions, num_replicas)
         # add nodes
         uuid1 = self.getNewUUID()
@@ -834,7 +834,7 @@ class testPartitionTable(unittest.TestCase):
         # 3 : sn1(up), sn2(up), sn3(up), sn4(up) -> only 3 cell must remain
         # 4 : sn1(up), sn5(up) -> one more cell must be added
         num_partitions = 5
-        num_replicas = 3
+        num_replicas = 2
         pt = PartitionTable(num_partitions, num_replicas)
         # part 0
         pt.setCell(0, sn1, DISCARDED_STATE)

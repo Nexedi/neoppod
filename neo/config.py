@@ -28,7 +28,7 @@ class ConfigurationManager:
                            'server' : '127.0.0.1',
                            'connector' : 'SocketConnector',
                            'master_nodes' : '',
-                           'replicas' : '1',
+                           'replicas' : '0',
                            'partitions' : '1009',
                            'name' : 'main'}
 
