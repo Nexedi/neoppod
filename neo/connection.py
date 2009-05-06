@@ -289,7 +289,6 @@ class Connection(BaseConnection):
         if self.connector is None:
             return
 
-        ip, port = self.getAddress()
         logging.debug('#0x%04x %-30s  to  %s (%s:%d)', packet.getId(),
                 packet.getType(), dump(self.uuid), *self.getAddress())
         try:
