@@ -1,0 +1,237 @@
+#
+# Copyright (C) 2009  Nexedi SA
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+import logging
+
+from neo.handler import EventHandler
+from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
+        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
+        ADMIN_NODE_TYPE
+from neo.node import MasterNode, StorageNode, ClientNode
+from neo.connection import ClientConnection
+from neo.protocol import Packet
+from neo.pt import PartitionTable
+from neo.exception import PrimaryFailure
+from neo.util import dump
+
+class BaseEventHandler(EventHandler):
+    """ Base handler for admin node """
+
+    def connectionAccepted(self, conn, s, addr):
+        """Called when a connection is accepted."""
+        # we only accept connection from command tool
+        logging.info("accepted a connection from %s:%d" %(conn.getAddress(),))
+        if conn.isServerConnection():
+            conn.setHandler(AdminEventHandler)
+        else:
+            # XXX why do we get there ?
+            self.handleUnexpectedPacket(conn, packet)
+
+
+class AdminEventHandler(EventHandler):
+    """This class deals with events for administrating cluster."""
+    pass
+
+
+class MonitoringEventHandler(EventHandler):
+    """This class deals with events for monitoring cluster."""
+
+    def __init__(self, app):
+        self.app = app
+        EventHandler.__init__(self)
+
+    def connectionCompleted(self, conn):
+        app = self.app
+        if app.trying_master_node is None:
+            # Should not happen.
+            raise RuntimeError('connection completed while not trying to connect')
+
+        p = Packet()
+        msg_id = conn.getNextId()
+        p.requestNodeIdentification(msg_id, ADMIN_NODE_TYPE, app.uuid,
+                                    app.server[0], app.server[1], app.name)
+        conn.addPacket(p)
+        conn.expectMessage(msg_id)
+        EventHandler.connectionCompleted(self, conn)
+
+    def connectionFailed(self, conn):
+        app = self.app
+
+        if app.primary_master_node and conn.getUUID() == app.primary_master_node.getUUID():
+            raise PrimaryFailure
+
+        if app.trying_master_node is None:
+            # Should not happen.
+            raise RuntimeError('connection failed while not trying to connect')
+
+        if app.trying_master_node is app.primary_master_node:
+            # Tried to connect to a primary master node and failed.
+            # So this would effectively mean that it is dead.
+            app.primary_master_node = None
+
+        app.trying_master_node = None
+
+        EventHandler.connectionFailed(self, conn)
+
+
+    def timeoutExpired(self, conn):
+        app = self.app
+
+        if app.primary_master_node and conn.getUUID() == app.primary_master_node.getUUID():
+            raise PrimaryFailure
+
+        if app.trying_master_node is app.primary_master_node:
+            # If a primary master node timeouts, I should not rely on it.
+            app.primary_master_node = None
+            
+        app.trying_master_node = None
+
+        EventHandler.timeoutExpired(self, conn)
+
+
+    def connectionClosed(self, conn):
+        app = self.app
+
+        if app.primary_master_node and conn.getUUID() == app.primary_master_node.getUUID():
+            raise PrimaryFailure
+
+        if app.trying_master_node is app.primary_master_node:
+            # If a primary master node closes, I should not rely on it.
+            app.primary_master_node = None
+
+        app.trying_master_node = None
+
+        EventHandler.connectionClosed(self, conn)
+
+    def peerBroken(self, conn):
+        app = self.app
+
+        if app.primary_master_node and conn.getUUID() == app.primary_master_node.getUUID():
+            raise PrimaryFailure
+
+        if app.trying_master_node is app.primary_master_node:
+            # If a primary master node gets broken, I should not rely
+            # on it.
+            app.primary_master_node = None
+
+        app.trying_master_node = None
+
+        EventHandler.peerBroken(self, conn)
+
+    def handleNotReady(self, conn, packet, message):
+        app = self.app
+        if app.trying_master_node is not None:
+            app.trying_master_node = None
+
+        conn.close()
+
+    def handleAcceptNodeIdentification(self, conn, packet, node_type,
+                                       uuid, ip_address, port,
+                                       num_partitions, num_replicas, your_uuid):
+        app = self.app
+        node = app.nm.getNodeByServer(conn.getAddress())
+        if node_type != MASTER_NODE_TYPE:
+            # The peer is not a master node!
+            logging.error('%s:%d is not a master node', ip_address, port)
+            app.nm.remove(node)
+            conn.close()
+            return
+        if conn.getAddress() != (ip_address, port):
+            # The server address is different! Then why was
+            # the connection successful?
+            logging.error('%s:%d is waiting for %s:%d',
+                          conn.getAddress()[0], conn.getAddress()[1], 
+                          ip_address, port)
+            app.nm.remove(node)
+            conn.close()
+            return
+
+        if app.num_partitions is None:
+            app.num_partitions = num_partitions
+            app.num_replicas = num_replicas
+            app.pt = PartitionTable(num_partitions, num_replicas)
+        elif app.num_partitions != num_partitions:
+            raise RuntimeError('the number of partitions is inconsistent')
+        elif app.num_replicas != num_replicas:
+            raise RuntimeError('the number of replicas is inconsistent')
+
+        conn.setUUID(uuid)
+        node.setUUID(uuid)
+
+        if your_uuid != INVALID_UUID:
+            # got an uuid from the primary master
+            app.uuid = your_uuid
+
+        # Ask a primary master.
+        msg_id = conn.getNextId()
+        conn.addPacket(Packet().askPrimaryMaster(msg_id))
+        conn.expectMessage(msg_id)
+
+    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
+                                  known_master_list):
+        app = self.app
+        # Register new master nodes.
+        for ip_address, port, uuid in known_master_list:
+            addr = (ip_address, port)
+            n = app.nm.getNodeByServer(addr)
+            if n is None:
+                n = MasterNode(server = addr)
+                app.nm.add(n)
+
+            if uuid != INVALID_UUID:
+                # If I don't know the UUID yet, believe what the peer
+                # told me at the moment.
+                if n.getUUID() is None or n.getUUID() != uuid:
+                    n.setUUID(uuid)
+
+        if primary_uuid != INVALID_UUID:
+            primary_node = app.nm.getNodeByUUID(primary_uuid)
+            if primary_node is None:
+                # I don't know such a node. Probably this information
+                # is old. So ignore it.
+                pass
+            else:
+                app.primary_master_node = primary_node
+                if app.trying_master_node is primary_node:
+                    # I am connected to the right one.
+                    logging.info('connected to a primary master node')
+                    # This is a workaround to prevent handling of
+                    # packets for the verification phase.
+                else:
+                    app.trying_master_node = None
+                    conn.close()
+        else:
+            if app.primary_master_node is not None:
+                # The primary master node is not a primary master node
+                # any longer.
+                app.primary_master_node = None
+
+            app.trying_master_node = None
+            conn.close()
+
+
+    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
+        logging.warning("handleSendPartitionTable")
+
+
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        logging.warning("handleNotifyPartitionChanges")
+
+
+    def handleNotifyNodeInformation(self, conn, packet, node_list):
+        logging.warning("handleNotifyNodeInformation")
+
