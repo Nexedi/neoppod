@@ -18,7 +18,8 @@
 import logging
 
 from neo.protocol import MASTER_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
+        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
+        DOWN_STATE, ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.connection import ClientConnection
 from neo.exception import ElectionFailure
@@ -145,7 +146,7 @@ class ElectionEventHandler(MasterEventHandler):
                     if uuid != INVALID_UUID:
                         # If I don't know the UUID yet, believe what the peer
                         # told me at the moment.
-                        if n.getUUID() is None:
+                        if n.getUUID() is None or n.getUUID() != uuid:
                             n.setUUID(uuid)
                             
             if primary_uuid != INVALID_UUID:

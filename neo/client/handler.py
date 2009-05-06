@@ -383,7 +383,7 @@ class ClientAnswerEventHandler(BaseClientEventHandler):
             if uuid != INVALID_UUID:
                 # If I don't know the UUID yet, believe what the peer
                 # told me at the moment.
-                if n.getUUID() is None:
+                if n.getUUID() is None or n.getUUID() != uuid:
                     n.setUUID(uuid)
 
         if primary_uuid != INVALID_UUID:
