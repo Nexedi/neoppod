@@ -163,7 +163,8 @@ class Connection(BaseConnection):
         """Close the connection."""
         em = self.em
         if self.connector is not None:
-            logging.debug('closing a connector for %s:%d', *(self.addr))
+            logging.debug('closing a connector for %s (%s:%d)', 
+                    dump(self.uuid), *(self.addr))
             em.removeReader(self)
             em.removeWriter(self)
             em.unregister(self)            
@@ -179,7 +180,8 @@ class Connection(BaseConnection):
 
     def abort(self):
         """Abort dealing with this connection."""
-        logging.debug('aborting a connetor for %s:%d', *(self.addr))
+        logging.debug('aborting a connector for %s (%s:%d)', 
+                dump(self.uuid), *(self.addr))
         self.aborted = True
 
     def writable(self):

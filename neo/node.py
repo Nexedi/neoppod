@@ -81,7 +81,7 @@ class Node(object):
         else:
             address, port = server
         uuid = self.getUUID()
-        return '%r:%r (%s)' % (address, port, dump(uuid))
+        return '%s (%s:%s)' % (dump(uuid), address, port)
 
 class MasterNode(Node):
     """This class represents a master node."""

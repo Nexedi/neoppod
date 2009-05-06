@@ -702,7 +702,8 @@ class Application(object):
                 return
 
     def playPrimaryRole(self):
-        logging.info('play the primary role')
+        logging.info('play the primary role with %s (%s:%d)', 
+                dump(self.uuid), *(self.server))
 
         # If I know any storage node, make sure that they are not in the running state,
         # because they are not connected at this stage.
@@ -724,7 +725,8 @@ class Application(object):
 
     def playSecondaryRole(self):
         """I play a secondary role, thus only wait for a primary master to fail."""
-        logging.info('play the secondary role')
+        logging.info('play the secondary role with %s (%s:%d)', 
+                dump(self.uuid), *(self.server))
 
         handler = SecondaryEventHandler(self)
         em = self.em
