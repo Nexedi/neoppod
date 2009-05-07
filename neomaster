@@ -36,10 +36,11 @@ config = options.config or 'neo.conf'
 section = options.section or 'master'
 logfile = options.logfile or None
 
+format='[%(module)12s:%(lineno)3d] %(message)s'
 if options.verbose:
-    logging.basicConfig(filename = logfile, level = logging.DEBUG)
+    logging.basicConfig(filename=logfile, level=logging.DEBUG, format=format)
 else:
-    logging.basicConfig(filename = logfile, level = logging.WARNING)
+    logging.basicConfig(filename=logfile, level=logging.WARNING, format=format)
 
 app = Application(config, section)
 app.run()
