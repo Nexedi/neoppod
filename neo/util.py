@@ -33,9 +33,7 @@ def bin(s):
     """Inverse of dump method."""
     ret = []
     while len(s):
-        print "%d" %int(s[:2], 16)
         ret.append(chr(int(s[:2], 16)))
-        print ret
         s = s[2:]
     return ''.join(ret)
         
