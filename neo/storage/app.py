@@ -85,6 +85,8 @@ class Application(object):
         elif name != self.name:
             raise RuntimeError('name does not match with the database')
         self.ptid = dm.getPTID() # return ptid or INVALID_PTID
+        if self.ptid == INVALID_PTID:
+            dm.setPTID(self.ptid)
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
