@@ -1062,6 +1062,7 @@ class testConnection(unittest.TestCase):
         bc.setUUID(uuid)
         self.assertEqual(bc.getUUID(), uuid)
         # test next id
+        bc._lock = Mock({'_is_owned': True})
         cur_id = bc.cur_id
         next_id = bc.getNextId()
         self.assertEqual(next_id, cur_id)
