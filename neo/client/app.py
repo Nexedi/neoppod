@@ -367,12 +367,12 @@ class Application(object):
                 if noid != oid:
                     # Oops, try with next node
                     logging.error('got wrong oid %s instead of %s from node %s',
-                                  noid, oid, cell.getServer())
+                                  noid, dump(oid), cell.getServer())
                     continue
                 elif checksum != makeChecksum(data):
                     # Check checksum.
                     logging.error('wrong checksum from node %s for oid %s',
-                                  cell.getServer(), oid)
+                                  cell.getServer(), dump(oid))
                     continue
                 else:
                     # Everything looks alright.
