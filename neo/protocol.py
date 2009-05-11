@@ -332,7 +332,11 @@ class Packet(object):
         if len(msg) < MIN_PACKET_SIZE:
             return None
         msg_id, msg_type, msg_len = unpack('!LHL', msg[:PACKET_HEADER_SIZE])
-        msg_type = packet_types[msg_type]
+        try:
+            msg_type = packet_types[msg_type]
+        except KeyError:
+            raise ProtocolError(cls(msg_id, msg_type), 
+                                'Unknown packet type')
         if msg_len > MAX_PACKET_SIZE:
             raise ProtocolError(cls(msg_id, msg_type),
                                 'message too big (%d)' % msg_len)
