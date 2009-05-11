@@ -22,9 +22,9 @@ from neo.node import Node, MasterNode, StorageNode, ClientNode, NodeManager
 from time import time
 from neo.connection import BaseConnection, ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, MTServerConnection
-from neo.connector import getConnectorHandler
+from neo.connector import getConnectorHandler, registerConnectorHandler
 from neo.handler import EventHandler
-from neo.master.tests.connector import DoNothingConnector, SimpleConnector
+from neo.master.tests.connector import DoNothingConnector
 from neo.connector import ConnectorTryAgainException, ConnectorInProgressException
 from neo.protocol import Packet, ProtocolError, PROTOCOL_ERROR_CODE, ERROR,INTERNAL_ERROR_CODE, \
      ANSWER_PRIMARY_MASTER
@@ -64,6 +64,7 @@ class testConnection(unittest.TestCase):
         self.assertEqual(bc.connector_handler, None)
 
         # init with connector but no handler
+        registerConnectorHandler(DoNothingConnector)
         connector = getConnectorHandler("DoNothingConnector")()      
         self.assertNotEqual(connector, None)
         em = Mock()
