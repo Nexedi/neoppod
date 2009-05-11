@@ -29,6 +29,17 @@ def dump(s):
         return repr(s)
 
 
+def bin(s):
+    """Inverse of dump method."""
+    ret = []
+    while len(s):
+        print "%d" %int(s[:2], 16)
+        ret.append(chr(int(s[:2], 16)))
+        print ret
+        s = s[2:]
+    return ''.join(ret)
+        
+
 def makeChecksum(s):
     """Return a 4-byte integer checksum against a string."""
     return adler32(s) & 0xffffffff
