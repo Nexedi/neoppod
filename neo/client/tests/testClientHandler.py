@@ -662,10 +662,29 @@ class ClientEventHandlerTest(unittest.TestCase):
         return app.nm
 
     def test_unknownMasterNotifyNodeInformation(self):
-        raise NotImplementedError
+        # first notify unknown master nodes
+        uuid = self.getUUID()
+        test_node = (MASTER_NODE_TYPE, '127.0.0.1', 10010, uuid,
+                     RUNNING_STATE)
+        nm = self._testNotifyNodeInformation(test_node, getNodeByUUID=None)
+        # Check that two nodes got added (second is with INVALID_UUID)
+        add_call_list = nm.mockGetNamedCalls('add')
+        self.assertEqual(len(add_call_list), 2)
+        added_node = add_call_list[0].getParam(0)
+        self.assertEquals(added_node.getUUID(), uuid)
+        added_node = add_call_list[1].getParam(0)
+        self.assertEquals(added_node.getUUID(), None)
 
     def test_knownMasterNotifyNodeInformation(self):
-        raise NotImplementedError
+        node = Mock({})
+        uuid = self.getUUID()
+        test_node = (MASTER_NODE_TYPE, '127.0.0.1', 10010, uuid,
+                     RUNNING_STATE)
+        nm = self._testNotifyNodeInformation(test_node, getNodeByServer=node,
+                getNodeByUUID=node)
+        # Check that no node got added
+        self.assertEqual(len(nm.mockGetNamedCalls('add')), 0)
+        add_call_list = node.mockGetNamedCalls('add')
 
     def test_unknownStorageNotifyNodeInformation(self):
         test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getUUID(),
