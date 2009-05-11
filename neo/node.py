@@ -162,3 +162,8 @@ class NodeManager(object):
     def getNodeByUUID(self, uuid):
         return self.uuid_dict.get(uuid)
     
+    def clear(self, exclude_node_type=None):
+        for node in self.getNodeList():
+            if exclude_node_type is not None and \
+                   node.getNodeType() != exclude_node_type:
+                self.remove(node)
