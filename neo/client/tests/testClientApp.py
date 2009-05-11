@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import unittest
+import logging
 from mock import Mock, ReturnValues, ReturnIterator
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
 from neo.protocol import INVALID_UUID
@@ -75,6 +76,9 @@ class TestSocketConnector(object):
         raise NotImplementedError
 
 class ClientApplicationTest(unittest.TestCase):
+
+    def setUp(self):
+        logging.basicConfig(level = logging.WARNING)
 
     # some helpers
 

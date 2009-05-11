@@ -54,7 +54,7 @@ from neo.connection import ClientConnection
 class MasterVerificationeTests(unittest.TestCase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.DEBUG)
+        logging.basicConfig(level = logging.WARNING)
         # create an application object
         config_file_text = """# Default parameters.
 [DEFAULT]
