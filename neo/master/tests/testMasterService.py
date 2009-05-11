@@ -332,48 +332,31 @@ server: 127.0.0.1:10023
         uuid = new_uuid
         
         # send message again for the same storage node but different address
-        # must be rejected as SN is considered as running
+        # A new UUID should be send and the node is added to the storage node list
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
         ptid = self.app.lptid
         service.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=STORAGE_NODE_TYPE,
                                                 uuid=uuid,
-                                                ip_address='127.0.0.1',
+                                                ip_address='127.0.0.2',
                                                 port=10022,
                                                 name=self.app.name,)
-        self.checkCalledAbort(conn)
-        self.assertEquals(len(self.app.nm.getStorageNodeList()), 1)
+        self.checkCalledAcceptNodeIdentification(conn)
+        call = conn.mockGetNamedCalls('addPacket')[0]
+        new_uuid = call.getParam(0)._body[-16:]
+        self.assertNotEquals(uuid, new_uuid)
+        self.assertEquals(len(self.app.nm.getStorageNodeList()), 2)
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getServer(), ('127.0.0.1', self.storage_port))
         self.assertEquals(sn.getUUID(), uuid)
         self.assertEquals(sn.getState(), RUNNING_STATE)
-        # No change of partition table
-        self.assertEquals(self.app.lptid, ptid)
-
-        # same test, but set SN as not running before
-        # this new node must replaced the old one
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
-        ptid = self.app.lptid
-        sn = self.app.nm.getStorageNodeList()[0]
-        self.assertEquals(sn.getState(), RUNNING_STATE)
-        sn.setState(TEMPORARILY_DOWN_STATE)
-        self.assertEquals(sn.getState(), TEMPORARILY_DOWN_STATE)        
-        service.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=STORAGE_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=10022,
-                                                name=self.app.name,)
-        self.checkCalledAcceptNodeIdentification(conn)
-        self.assertEquals(len(self.app.nm.getStorageNodeList()), 1)
-        sn = self.app.nm.getStorageNodeList()[0]
-        self.assertEquals(sn.getServer(), ('127.0.0.1', 10022))
+        sn = self.app.nm.getStorageNodeList()[1]
+        self.assertEquals(sn.getServer(), ('127.0.0.2', 10022))
         self.assertEquals(sn.getUUID(), new_uuid)
         self.assertEquals(sn.getState(), RUNNING_STATE)
         # Partition table changed
-        self.failUnless(self.app.lptid > ptid)
+        self.failUnless(self.app.lptid > ptid)        
 
         # mark the node as broken and request identification, this must be forbidden
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
@@ -388,13 +371,13 @@ server: 127.0.0.1:10023
                                                 node_type=STORAGE_NODE_TYPE,
                                                 uuid=uuid,
                                                 ip_address='127.0.0.1',
-                                                port=10022,
+                                                port=self.storage_port,
                                                 name=self.app.name,)
         self.checkCalledAbort(conn)
-        self.assertEquals(len(self.app.nm.getStorageNodeList()), 1)
+        self.assertEquals(len(self.app.nm.getStorageNodeList()), 2)
         sn = self.app.nm.getStorageNodeList()[0]
-        self.assertEquals(sn.getServer(), ('127.0.0.1', 10022))
-        self.assertEquals(sn.getUUID(), new_uuid)
+        self.assertEquals(sn.getServer(), ('127.0.0.1', self.storage_port))
+        self.assertEquals(sn.getUUID(), uuid)
         self.assertEquals(sn.getState(), BROKEN_STATE)
         # No change of partition table
         self.assertEqual(self.app.lptid, ptid)
