@@ -91,7 +91,7 @@ server: 127.0.0.1:10023
     def test_01_getNextPartitionTableID(self):
       # must raise as we don"t have one
       self.assertEqual(self.app.lptid, INVALID_PTID)
-      self.app.lptid = None
+      self.app.lptid = INVALID_PTID
       self.assertRaises(RuntimeError, self.app.getNextPartitionTableID)
       # set one
       self.app.lptid = p64(23)

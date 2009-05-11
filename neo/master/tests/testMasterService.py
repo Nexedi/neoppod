@@ -100,6 +100,7 @@ server: 127.0.0.1:10023
         tmp_file.close()
         self.app = Application(self.tmp_path, "mastertest")        
         self.app.pt.clear()
+        self.app.lptid = pack('!Q', 1)
         self.app.em = Mock({"getConnectionList" : []})
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:

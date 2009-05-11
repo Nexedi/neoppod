@@ -18,7 +18,7 @@
 import logging
 import os
 from time import time
-from struct import unpack
+from struct import unpack, pack
 from collections import deque
 
 from neo.config import ConfigurationManager
@@ -84,13 +84,7 @@ class Application(object):
             dm.setName(self.name)
         elif name != self.name:
             raise RuntimeError('name does not match with the database')
-
-        ptid = dm.getPTID()
-        if ptid is None:
-            self.ptid = INVALID_PTID
-            dm.setPTID(self.ptid)
-        else:
-            self.ptid = ptid
+        self.ptid = dm.getPTID() # return ptid or INVALID_PTID
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""

@@ -28,7 +28,7 @@ from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connection import MTClientConnection
 from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
-        STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
+        INVALID_PTID, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, INVALID_SERIAL
 from neo.client.handler import ClientEventHandler, ClientAnswerEventHandler
@@ -203,7 +203,7 @@ class Application(object):
         self.uuid = INVALID_UUID
         self.mq_cache = MQ()
         self.new_oid_list = []
-        self.ptid = None
+        self.ptid = INVALID_PTID
         self.num_replicas = 0
         self.num_partitions = 0
         self.handler = ClientEventHandler(self, self.dispatcher)

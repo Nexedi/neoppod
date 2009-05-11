@@ -226,9 +226,9 @@ class RecoveryEventHandler(MasterEventHandler):
             p.askLastIDs(msg_id)
             conn.addPacket(p)
             conn.expectMessage(msg_id)
-        elif node.getNodeType() == ADMIN_NODE_TYPE and app.lptid not in (INVALID_PTID, None):
+        elif node.getNodeType() == ADMIN_NODE_TYPE and app.lptid != INVALID_PTID:
             # send partition table if exists
-            logging.info('sending partition table %s to %s' %(app.lptid,
+            logging.info('sending partition table %s to %s' % (app.lptid,
                                                               conn.getAddress()))
             # Split the packet if too huge.
             p = Packet()
@@ -331,7 +331,7 @@ class RecoveryEventHandler(MasterEventHandler):
             app.loid = loid
         if app.ltid < ltid:
             app.ltid = ltid
-        if app.lptid is None or app.lptid < lptid:
+        if app.lptid == INVALID_PTID or app.lptid < lptid:
             app.lptid = lptid
             # I need to use the node which has the max Partition Table ID.
             app.target_uuid = uuid

@@ -220,10 +220,13 @@ class StorageMySQSLdbTests(unittest.TestCase):
             value='TEST_NAME')
 
     def test_15_PTID(self):
-        self.checkConfigEntry(
-            get_call=self.db.getPTID,
-            set_call=self.db.setPTID,
-            value="PTID")
+        test = '\x01' * 8
+        self.db.setup()
+        self.assertEquals(self.db.getPTID(), INVALID_PTID)
+        self.db.setPTID(test)
+        self.assertEquals(self.db.getPTID(), test)
+        self.assertRaises(MySQLdb.IntegrityError, self.db.setPTID, test * 2)
+        self.assertEquals(self.db.getPTID(), test)
 
     def test_16_getPartitionTable(self):
         # insert an entry and check it

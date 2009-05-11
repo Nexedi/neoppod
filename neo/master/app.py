@@ -340,15 +340,14 @@ class Application(object):
         for conn in em.getConnectionList():
             conn.setHandler(handler)
 
-        prev_lptid = None
         self.loid = INVALID_OID
         self.ltid = INVALID_TID
-        self.lptid = None
+        self.lptid = INVALID_PTID
         while 1:
             self.target_uuid = None
             self.pt.clear()
 
-            if self.lptid is not None:
+            if self.lptid != INVALID_PTID:
                 # I need to retrieve last ids again.
                 logging.info('resending Ask Last IDs')
                 for conn in em.getConnectionList():
@@ -391,7 +390,7 @@ class Application(object):
             if self.lptid == INVALID_PTID:
                 # This looks like the first time. So make a fresh table.
                 logging.debug('creating a new partition table')
-                self.getNextPartitionTableID()
+                self.lptid = pack('!Q', 1) # ptid != INVALID_PTID
                 self.pt.make(nm.getStorageNodeList())
             else:
                 # Obtain a partition table. It is necessary to split this
@@ -740,7 +739,7 @@ class Application(object):
             em.poll(1)
 
     def getNextPartitionTableID(self):
-        if self.lptid is None:
+        if self.lptid == INVALID_PTID:
             raise RuntimeError, 'I do not know the last Partition Table ID'
 
         ptid = unpack('!Q', self.lptid)[0]
