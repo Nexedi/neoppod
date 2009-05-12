@@ -500,6 +500,7 @@ server: 127.0.0.1:10020
         self.app.trying_master_node = self.trying_master_node
         self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
         self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
+        self.assertEqual(None, self.app.dm.getNumPartitions())
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
         self.bootstrap.handleAcceptNodeIdentification(
             conn=conn,
@@ -514,6 +515,7 @@ server: 127.0.0.1:10020
         # check PT
         self.assertEquals(self.app.num_partitions, self.num_partitions)
         self.assertEquals(self.app.num_replicas, self.num_replicas)
+        self.assertEqual(self.num_partitions, self.app.dm.getNumPartitions())
         self.assertTrue(isinstance(self.app.pt, PartitionTable))
         self.assertEquals(self.app.ptid, self.app.dm.getPTID())
         # uuid
@@ -536,6 +538,7 @@ server: 127.0.0.1:10020
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
         uuid, your_uuid = self.getNewUUID(), self.getNewUUID()
         self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
+        self.assertEqual(None, self.app.dm.getNumPartitions())
         self.bootstrap.handleAcceptNodeIdentification(
             conn=conn,
             uuid=uuid,
@@ -558,7 +561,8 @@ server: 127.0.0.1:10020
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ASK_PRIMARY_MASTER)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
-
+        self.assertEqual(self.num_partitions, self.app.dm.getNumPartitions())
+        
     def test_10_handleAnswerPrimaryMaster01(self):
         # server connection rejected
         conn = Mock({"isServerConnection": True,
