@@ -491,14 +491,14 @@ server: 127.0.0.1:10020
         self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
 
     def test_09_handleAcceptNodeIdentification5(self):
-        # no PT
+        # no errors
         uuid, your_uuid = self.getNewUUID(), self.getNewUUID()
-        self.app.num_partitions = None
+        self.assertNotEquals(uuid, your_uuid)
+        self.app.num_partitions = None # will create a partition table
         self.app.num_replicas = None
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
-        self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
         self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
         self.assertEqual(None, self.app.dm.getNumPartitions())
         packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
@@ -523,6 +523,8 @@ server: 127.0.0.1:10020
         call = conn.mockGetNamedCalls("setUUID")[0]
         self.assertEquals(call.getParam(0), uuid)
         self.assertEquals(self.app.trying_master_node.getUUID(), uuid)
+        self.assertEquals(self.app.uuid, self.app.dm.getUUID())
+        self.assertEquals(self.app.uuid, your_uuid)
         # packet
         self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
         call = conn.mockGetNamedCalls("addPacket")[0]
@@ -530,38 +532,6 @@ server: 127.0.0.1:10020
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ASK_PRIMARY_MASTER)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
-        
-    def test_09_handleAcceptNodeIdentification6(self):
-        conn = Mock({"isServerConnection": False,
-                    "getAddress" : ("127.0.0.1", self.master_port), })
-        self.app.trying_master_node = self.trying_master_node
-        packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
-        uuid, your_uuid = self.getNewUUID(), self.getNewUUID()
-        self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
-        self.assertEqual(None, self.app.dm.getNumPartitions())
-        self.bootstrap.handleAcceptNodeIdentification(
-            conn=conn,
-            uuid=uuid,
-            packet=packet,
-            port=self.master_port,
-            node_type=MASTER_NODE_TYPE,
-            ip_address='127.0.0.1',
-            num_partitions=self.num_partitions,
-            num_replicas=self.num_replicas,
-            your_uuid=your_uuid)
-        # uuid
-        self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
-        call = conn.mockGetNamedCalls("setUUID")[0]
-        self.assertEquals(call.getParam(0), uuid)
-        self.assertEquals(self.app.trying_master_node.getUUID(), uuid)
-        # packet
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ASK_PRIMARY_MASTER)
-        self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
-        self.assertEqual(self.num_partitions, self.app.dm.getNumPartitions())
         
     def test_10_handleAnswerPrimaryMaster01(self):
         # server connection rejected
