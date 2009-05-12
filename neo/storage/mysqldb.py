@@ -211,6 +211,20 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
+    def getNumReplicas(self):
+        n = self.getConfiguration('replicas')
+        if n is not None:
+            return int(n)
+
+    def setNumReplicas(self, num_replicas):
+        self.begin()
+        try:
+            self.setConfiguration('replicas', num_replicas)
+        except:
+            self.rollback()
+            raise
+        self.commit()
+
     def getName(self):
         return self.getConfiguration('name')
 

@@ -44,6 +44,15 @@ class DatabaseManager(object):
         """Store the number of partitions into a database."""
         raise NotImplementedError('this method must be overridden')
 
+    def getNumReplicas(self):
+        """Load the number of replicas from a database. If not present,
+        return None."""
+        raise NotImplementedError('this method must be overridden')
+
+    def setNumReplicas(self, num_partitions):
+        """Store the number of replicas into a database."""
+        raise NotImplementedError('this method must be overridden')
+
     def getName(self):
         """Load a name from a database. If not present, return None."""
         raise NotImplementedError('this method must be overridden')

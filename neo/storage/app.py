@@ -34,6 +34,7 @@ from neo.storage.verification import VerificationEventHandler
 from neo.storage.operation import OperationEventHandler
 from neo.storage.replicator import Replicator
 from neo.connector import getConnectorHandler
+from neo.pt import PartitionTable
 from neo.util import dump
 
 class Application(object):
@@ -79,7 +80,12 @@ class Application(object):
             self.uuid = INVALID_UUID
 
         self.num_partitions = dm.getNumPartitions()
+        self.num_replicas = dm.getNumReplicas()
 
+        if self.num_partitions is not None and self.num_replicas is not None:
+            # create a partition table
+            self.pt = PartitionTable(self.num_partitions, self.num_replicas)
+        
         name = dm.getName()
         if name is None:
             dm.setName(self.name)
@@ -88,8 +94,8 @@ class Application(object):
         self.ptid = dm.getPTID() # return ptid or INVALID_PTID
         if self.ptid == INVALID_PTID:
             dm.setPTID(self.ptid)
-        logging.info("loaded configuration from db : uuid = %s, ptid = %s, name = %s, np = %s" \
-                     %(dump(self.uuid), dump(self.ptid), name, self.num_partitions))
+        logging.info("loaded configuration from db : uuid = %s, ptid = %s, name = %s, np = %s, nr = %s" \
+                     %(dump(self.uuid), dump(self.ptid), name, self.num_partitions, self.num_replicas))
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
