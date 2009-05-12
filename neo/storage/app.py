@@ -34,6 +34,7 @@ from neo.storage.verification import VerificationEventHandler
 from neo.storage.operation import OperationEventHandler
 from neo.storage.replicator import Replicator
 from neo.connector import getConnectorHandler
+from neo.util import dump
 
 class Application(object):
     """The storage node application."""
@@ -87,6 +88,8 @@ class Application(object):
         self.ptid = dm.getPTID() # return ptid or INVALID_PTID
         if self.ptid == INVALID_PTID:
             dm.setPTID(self.ptid)
+        logging.info("loaded configuration from db : uuid = %s, ptid = %s, name = %s, np = %s" \
+                     %(dump(self.uuid), dump(self.ptid), name, self.num_partitions))
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
