@@ -475,20 +475,29 @@ server: 127.0.0.1:10020
         }
         self.app.num_partitions = 1
         self.app.num_replicas = 1
+        # partition number as changed -> error
         self.assertRaises(
             RuntimeError, 
             self.bootstrap.handleAcceptNodeIdentification,
-            num_partitions=self.app.num_partitions + 1,
-            num_replicas=self.num_replicas,
-            **args)
-        self.assertRaises(
-            RuntimeError, 
-            self.bootstrap.handleAcceptNodeIdentification,
-            num_partitions=self.app.num_partitions,
-            num_replicas=self.num_replicas + 1,
+            num_partitions=self.app.num_partitions + 2,
+            num_replicas=self.app.num_replicas,
             **args)
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
         self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
+        # create a new partition table
+        self.bootstrap.handleAcceptNodeIdentification(
+            num_partitions=self.app.num_partitions,
+            num_replicas=self.num_replicas + 1,
+            **args)
+        #self.assertEquals(self.app.num_partitions, self.num_partitions)
+        self.assertEquals(self.app.num_replicas, self.num_replicas + 1)
+        self.assertEqual(self.app.num_partitions, self.app.dm.getNumPartitions())
+        self.assertTrue(isinstance(self.app.pt, PartitionTable))
+        self.assertEquals(self.app.ptid, self.app.dm.getPTID())
+        self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
 
     def test_09_handleAcceptNodeIdentification5(self):
         # no errors
@@ -515,7 +524,7 @@ server: 127.0.0.1:10020
         # check PT
         self.assertEquals(self.app.num_partitions, self.num_partitions)
         self.assertEquals(self.app.num_replicas, self.num_replicas)
-        self.assertEqual(self.num_partitions, self.app.dm.getNumPartitions())
+        self.assertEqual(self.app.num_partitions, self.app.dm.getNumPartitions())
         self.assertTrue(isinstance(self.app.pt, PartitionTable))
         self.assertEquals(self.app.ptid, self.app.dm.getPTID())
         # uuid
