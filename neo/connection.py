@@ -132,8 +132,8 @@ class Connection(BaseConnection):
     def __init__(self, event_manager, handler,
                  connector = None, addr = None,
                  connector_handler = None):
-        self.read_buf = []
-        self.write_buf = []
+        self.read_buf = ""
+        self.write_buf = ""
         self.cur_id = 0
         self.event_dict = {}
         self.aborted = False
@@ -203,43 +203,35 @@ class Connection(BaseConnection):
 
     def analyse(self):
         """Analyse received data."""
-        if self.read_buf:
-            if len(self.read_buf) == 1:
-                msg = self.read_buf[0]
-            else:
-                msg = ''.join(self.read_buf)
+        while 1:
+            try:
+                packet = Packet.parse(self.read_buf)
+            except ProtocolError, m:
+                self.handler.packetMalformed(self, *m)
+                return
 
-            while 1:
+            if packet is None:
+                break
+
+            # Remove idle events, if appropriate packets were received.
+            for msg_id in (None, packet.getId()):
                 try:
-                    packet = Packet.parse(msg)
-                except ProtocolError, m:
-                    self.handler.packetMalformed(self, *m)
-                    return
+                    event = self.event_dict[msg_id]
+                    del self.event_dict[msg_id]
+                    self.em.removeIdleEvent(event)
+                except KeyError:
+                    pass
 
-                if packet is None:
-                    break
+            logging.debug('#0x%04x %-30s from %s (%s:%d)', packet.getId(), 
+                    packet.getType(), dump(self.uuid), *self.getAddress())
 
-                # Remove idle events, if appropriate packets were received.
-                for msg_id in (None, packet.getId()):
-                    try:
-                        event = self.event_dict[msg_id]
-                        del self.event_dict[msg_id]
-                        self.em.removeIdleEvent(event)
-                    except KeyError:
-                        pass
-
-                logging.debug('#0x%04x %-30s from %s (%s:%d)', packet.getId(), 
-                        packet.getType(), dump(self.uuid), *self.getAddress())
+            try:
                 self.handler.packetReceived(self, packet)
-                msg = msg[len(packet):]
-
-            if msg:
-                self.read_buf = [msg]
-            else:
-                del self.read_buf[:]
+            finally:
+                self.read_buf = self.read_buf[len(packet):]
 
     def pending(self):
-        return self.connector is not None and len(self.write_buf) != 0
+        return self.connector is not None and self.write_buf
 
     def recv(self):
         """Receive data from a connector."""
@@ -250,7 +242,7 @@ class Connection(BaseConnection):
                 self.handler.connectionClosed(self)
                 self.close()
             else:
-                self.read_buf.append(r)
+                self.read_buf += r
         except ConnectorTryAgainException:
             pass
         except:
@@ -262,20 +254,14 @@ class Connection(BaseConnection):
     def send(self):
         """Send data to a connector."""
         if self.write_buf:
-            if len(self.write_buf) == 1:
-                msg = self.write_buf[0]
-            else:
-                msg = ''.join(self.write_buf)
             try:
-                r = self.connector.send(msg)
+                r = self.connector.send(self.write_buf)
                 if not r:
                     logging.error('cannot write')
                     self.handler.connectionClosed(self)
                     self.close()
-                elif r == len(msg):
-                    del self.write_buf[:]
                 else:
-                    self.write_buf = [msg[r:]]
+                    self.write_buf = self.write_buf[r:]
             except ConnectorTryAgainException:
                 return
             except:
@@ -292,13 +278,13 @@ class Connection(BaseConnection):
         logging.debug('#0x%04x %-30s  to  %s (%s:%d)', packet.getId(),
                 packet.getType(), dump(self.uuid), *self.getAddress())
         try:
-            self.write_buf.append(packet.encode())
+            self.write_buf += packet.encode()
         except ProtocolError, m:
             logging.critical('trying to send a too big message')
             return self.addPacket(packet.internalError(packet.getId(), m[0]))
 
         # If this is the first time, enable polling for writing.
-        if len(self.write_buf) == 1:
+        if self.write_buf:
             self.em.addWriter(self)
 
     def expectMessage(self, msg_id = None, timeout = 5, additional_timeout = 30):
