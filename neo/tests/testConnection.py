@@ -157,8 +157,8 @@ class testConnection(unittest.TestCase):
         self.assertEqual(bc.getAddress(), ("127.0.0.7", 93413))
         self.assertEqual(len(em.mockGetNamedCalls("addReader")), 0)
         self.assertEqual(bc.getConnector(), None)
-        self.assertEqual(bc.read_buf, [])
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.read_buf, '')
+        self.assertEqual(bc.write_buf, '')
         self.assertEqual(bc.cur_id, 0)
         self.assertEqual(bc.event_dict, {})
         self.assertEqual(bc.aborted, False)
@@ -190,22 +190,22 @@ class testConnection(unittest.TestCase):
         handler = Mock()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=None, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertEqual(bc.connector, None)
         # no connector and no buffer
         self.assertFalse(bc.pending())
         # no connector but buffer
-        bc.write_buf.append(1)
+        bc.write_buf += '1'
         self.assertFalse(bc.pending())
         # connector with no buffer
         conn = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=conn, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertNotEqual(bc.connector, None)
         self.assertFalse(bc.pending())        
         # connector and buffer
-        bc.write_buf.append(1)
+        bc.write_buf += '1'
         self.assertTrue(bc.pending())
 
 
@@ -219,11 +219,11 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
         self.assertNotEqual(bc.getConnector(), None)
 
         bc.recv()
-        self.assertEqual(bc.read_buf, ["testdata",])
+        self.assertEqual(bc.read_buf, "testdata")
 
         # patch receive method to raise try again
         def receive(self):
@@ -232,10 +232,10 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
         self.assertNotEqual(bc.getConnector(), None)
         bc.recv()
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
         # patch receive method to raise any error
@@ -245,10 +245,10 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
         self.assertNotEqual(bc.getConnector(), None)
         bc.recv()
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 1)
         
@@ -261,7 +261,7 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertNotEqual(bc.getConnector(), None)
         bc.send()
         self.assertEquals(len(connector.mockGetNamedCalls("send")), 0)
@@ -275,15 +275,15 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata",]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata"
         self.assertNotEqual(bc.getConnector(), None)
         bc.send()
         self.assertEquals(len(connector.mockGetNamedCalls("send")), 1)
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdata")
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
 
@@ -294,15 +294,15 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata",]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata"
         self.assertNotEqual(bc.getConnector(), None)
         bc.send()
         self.assertEquals(len(connector.mockGetNamedCalls("send")), 1)
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdata")
-        self.assertEqual(bc.write_buf, ["data"])
+        self.assertEqual(bc.write_buf, "data")
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
 
@@ -313,15 +313,15 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata", "second", "third"]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata" + "second" + "third"
         self.assertNotEqual(bc.getConnector(), None)
         bc.send()
         self.assertEquals(len(connector.mockGetNamedCalls("send")), 1)
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdatasecondthird")
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
         
@@ -332,15 +332,15 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata", "second", "third"]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata" + "second" + "third"
         self.assertNotEqual(bc.getConnector(), None)
         bc.send()
         self.assertEquals(len(connector.mockGetNamedCalls("send")), 1)
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdatasecondthird")
-        self.assertEqual(bc.write_buf, ["econdthird"])
+        self.assertEqual(bc.write_buf, "econdthird")
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
 
@@ -351,15 +351,15 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata", "second", "third"]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata" + "second" + "third"
         self.assertNotEqual(bc.getConnector(), None)
         bc.send()
         self.assertEquals(len(connector.mockGetNamedCalls("send")), 1)
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdatasecondthird")
-        self.assertEqual(bc.write_buf, ["testdata", "second", "third"])
+        self.assertEqual(bc.write_buf, "testdata" + "second" + "third")
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
 
@@ -370,15 +370,15 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata", "second", "third"]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata" + "second" + "third"
         self.assertNotEqual(bc.getConnector(), None)
         bc.send()
         self.assertEquals(len(connector.mockGetNamedCalls("send")), 1)
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdatasecondthird")
-        self.assertEqual(bc.write_buf, ["testdata", "second", "third"])
+        self.assertEqual(bc.write_buf, "testdata" + "second" + "third")
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 1)
 
@@ -391,19 +391,19 @@ class testConnection(unittest.TestCase):
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=None, addr=("127.0.0.7", 93413))
         self.assertEqual(bc.getConnector(), None)
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         bc.addPacket(p)
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 0)
 
         # new packet
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertNotEqual(bc.getConnector(), None)
         bc.addPacket(p)
-        self.assertEqual(bc.write_buf, ["testdata"])
+        self.assertEqual(bc.write_buf, "testdata")
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 1)
 
         # packet witch raise protocol error
@@ -421,14 +421,14 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertNotEqual(bc.getConnector(), None)
         bc.addPacket(p)
-        self.assertNotEqual(bc.write_buf, ["testdata"])
-        self.assertEqual(len(bc.write_buf), 1)
+        self.assertNotEqual(bc.write_buf, "testdata")
+        self.assertEqual(len(bc.write_buf), len(p.encode()))
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 2)
         # check it sends error packet
-        packet = Packet.parse(bc.write_buf[0])
+        packet = Packet.parse(bc.write_buf)
         self.assertEqual(packet.getType(), ERROR)
         code, message = packet.decode()
         self.assertEqual(code, INTERNAL_ERROR_CODE)
@@ -469,12 +469,12 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
         self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
         self.assertEquals(len(em.mockGetNamedCalls("removeIdleEvent")), 0)
         self.assertEquals(len(handler.mockGetNamedCalls("packetReceived")), 0)
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
         self.assertEqual(len(bc.event_dict), 0)
 
         # give some data to analyse
@@ -485,7 +485,7 @@ class testConnection(unittest.TestCase):
                        ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
         p.answerPrimaryMaster(1, getNewUUID(), master_list)
         data = p.encode()
-        bc.read_buf.append(data)
+        bc.read_buf += data
         self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
         # check packet decoded
@@ -497,7 +497,7 @@ class testConnection(unittest.TestCase):
         self.assertEqual(data.getId(), p.getId())
         self.assertEqual(data.decode(), p.decode())        
         self.assertEqual(len(bc.event_dict), 0)
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
 
         # give multiple packet
         em = Mock()
@@ -512,7 +512,7 @@ class testConnection(unittest.TestCase):
                        ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
         p1.answerPrimaryMaster(1, getNewUUID(), master_list)
         data = p1.encode()
-        bc.read_buf.append(data)
+        bc.read_buf += data
         # packet 2
         p2 = Packet()        
         master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
@@ -521,8 +521,8 @@ class testConnection(unittest.TestCase):
                        ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
         p2.answerPrimaryMaster(2, getNewUUID(), master_list)
         data = p2.encode()
-        bc.read_buf.append(data)
-        self.assertEqual(len(bc.read_buf), 2)
+        bc.read_buf += data
+        self.assertEqual(len(bc.read_buf), len(p1.encode()) + len(p2.encode()))
         self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
         # check two packets decoded
@@ -548,11 +548,11 @@ class testConnection(unittest.TestCase):
         handler = Mock()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        bc.read_buf.append("datadatadatadata")
-        self.assertEqual(len(bc.read_buf), 1)
+        bc.read_buf += "datadatadatadata"
+        self.assertEqual(len(bc.read_buf), 16)
         self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
-        self.assertEqual(len(bc.read_buf), 1)
+        self.assertEqual(len(bc.read_buf), 16)
         self.assertEquals(len(handler.mockGetNamedCalls("packetReceived")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("removeIdleEvent")), 0)
 
@@ -569,7 +569,7 @@ class testConnection(unittest.TestCase):
                        ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
         p.answerPrimaryMaster(1, getNewUUID(), master_list)
         data = p.encode()
-        bc.read_buf.append(data)
+        bc.read_buf += data
         self.assertEqual(len(bc.event_dict), 0)
         bc.expectMessage(1)
         self.assertEqual(len(bc.event_dict), 1)
@@ -583,7 +583,7 @@ class testConnection(unittest.TestCase):
         self.assertEqual(data.getId(), p.getId())
         self.assertEqual(data.decode(), p.decode())        
         self.assertEqual(len(bc.event_dict), 0)
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
 
     def test_10_Connection_writable(self):
         # with  pending operation after send
@@ -595,8 +595,8 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata",]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata"
         self.assertNotEqual(bc.getConnector(), None)
         self.assertTrue(bc.pending())
         self.assertFalse(bc.aborted)
@@ -606,7 +606,7 @@ class testConnection(unittest.TestCase):
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdata")
-        self.assertEqual(bc.write_buf, ["data"])
+        self.assertEqual(bc.write_buf, "data")
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
         # pending, so nothing called
@@ -627,8 +627,8 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata",]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata"
         self.assertNotEqual(bc.getConnector(), None)
         self.assertTrue(bc.pending())
         self.assertFalse(bc.aborted)
@@ -638,7 +638,7 @@ class testConnection(unittest.TestCase):
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdata")
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
         # nothing else pending, and aborted is false, so writer has been removed
@@ -658,8 +658,8 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata",]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata"
         self.assertNotEqual(bc.getConnector(), None)
         self.assertTrue(bc.pending())
         bc.abort()
@@ -670,7 +670,7 @@ class testConnection(unittest.TestCase):
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdata")
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 1)
         # nothing else pending, and aborted is false, so writer has been removed
@@ -701,12 +701,12 @@ class testConnection(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
         self.assertNotEqual(bc.getConnector(), None)
         self.assertFalse(bc.aborted)
         bc.readable()
         # check packet decoded
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
         self.assertEquals(len(em.mockGetNamedCalls("removeIdleEvent")), 0)
         self.assertEquals(len(handler.mockGetNamedCalls("packetReceived")), 1)
         call = handler.mockGetNamedCalls("packetReceived")[0]
@@ -714,7 +714,7 @@ class testConnection(unittest.TestCase):
         self.assertEqual(data.getType(), ANSWER_PRIMARY_MASTER)
         self.assertEqual(data.getId(), 1)
         self.assertEqual(len(bc.event_dict), 0)
-        self.assertEqual(bc.read_buf, [])
+        self.assertEqual(bc.read_buf, '')
         # check not aborted
         self.assertFalse(bc.aborted)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
@@ -820,8 +820,8 @@ class testConnection(unittest.TestCase):
         # check connector created and connection initialize
         self.assertFalse(bc.connecting)
         self.assertNotEqual(bc.getConnector(), None)
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata",]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata"
         self.assertTrue(bc.pending())
         self.assertFalse(bc.aborted)
         # call
@@ -836,7 +836,7 @@ class testConnection(unittest.TestCase):
         call = conn.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdata")
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.write_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 1)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 0)
@@ -864,8 +864,8 @@ class testConnection(unittest.TestCase):
         # check connector created and connection initialize
         bc.connecting = True
         self.assertNotEqual(bc.getConnector(), None)
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata",]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata"
         self.assertTrue(bc.pending())
         self.assertFalse(bc.aborted)
         # call
@@ -876,7 +876,7 @@ class testConnection(unittest.TestCase):
         self.assertFalse(bc.connecting)
         self.assertTrue(bc.pending())
         self.assertFalse(bc.aborted)
-        self.assertEqual(bc.write_buf, ["testdata"])
+        self.assertEqual(bc.write_buf, "testdata")
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 2)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 0)
@@ -900,8 +900,8 @@ class testConnection(unittest.TestCase):
         # check connector created and connection initialize
         bc.connecting = True
         self.assertNotEqual(bc.getConnector(), None)
-        self.assertEqual(bc.write_buf, [])
-        bc.write_buf = ["testdata",]
+        self.assertEqual(bc.write_buf, '')
+        bc.write_buf = "testdata"
         self.assertTrue(bc.pending())
         self.assertFalse(bc.aborted)
         # call
@@ -912,7 +912,7 @@ class testConnection(unittest.TestCase):
         self.assertTrue(bc.connecting)
         self.assertFalse(bc.pending())
         self.assertFalse(bc.aborted)
-        self.assertEqual(bc.write_buf, ["testdata"])
+        self.assertEqual(bc.write_buf, "testdata")
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 1)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 1)
@@ -930,8 +930,8 @@ class testConnection(unittest.TestCase):
         self.assertEqual(bc.getAddress(), ("127.0.0.7", 93413))
         self.assertEqual(len(em.mockGetNamedCalls("addReader")), 0)
         self.assertEqual(bc.getConnector(), None)
-        self.assertEqual(bc.read_buf, [])
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.read_buf, '')
+        self.assertEqual(bc.write_buf, '')
         self.assertEqual(bc.cur_id, 0)
         self.assertEqual(bc.event_dict, {})
         self.assertEqual(bc.aborted, False)
@@ -1050,8 +1050,8 @@ class testConnection(unittest.TestCase):
         self.assertEqual(bc.getAddress(), ("127.0.0.7", 93413))
         self.assertEqual(len(em.mockGetNamedCalls("addReader")), 0)
         self.assertEqual(bc.getConnector(), None)
-        self.assertEqual(bc.read_buf, [])
-        self.assertEqual(bc.write_buf, [])
+        self.assertEqual(bc.read_buf, '')
+        self.assertEqual(bc.write_buf, '')
         self.assertEqual(bc.cur_id, 0)
         self.assertEqual(bc.event_dict, {})
         self.assertEqual(bc.aborted, False)
