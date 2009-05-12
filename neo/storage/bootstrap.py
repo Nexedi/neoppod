@@ -179,6 +179,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
             if app.num_partitions is None:
                 app.num_partitions = num_partitions
+                app.dm.setNumPartitions(app.num_partitions)
                 app.num_replicas = num_replicas
                 app.pt = PartitionTable(num_partitions, num_replicas)
                 app.loadPartitionTable()
