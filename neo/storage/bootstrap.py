@@ -25,6 +25,7 @@ from neo.connection import ClientConnection
 from neo.protocol import Packet
 from neo.pt import PartitionTable
 from neo.storage.verification import VerificationEventHandler
+from neo.util import dump
 
 class BootstrapEventHandler(StorageEventHandler):
     """This class deals with events for a bootstrap phase."""
@@ -190,6 +191,8 @@ class BootstrapEventHandler(StorageEventHandler):
             if your_uuid != INVALID_UUID and app.uuid != your_uuid:
                 # got an uuid from the primary master
                 app.uuid = your_uuid
+                app.dm.setUUID(app.uuid)
+                logging.info('Got a new UUID from master : %s' % dump(app.uuid))
 
             conn.setUUID(uuid)
             node.setUUID(uuid)

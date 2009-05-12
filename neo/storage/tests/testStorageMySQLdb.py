@@ -198,8 +198,8 @@ class StorageMySQSLdbTests(unittest.TestCase):
         self.assertEquals(get_call(), None)
         set_call(value)
         self.assertEquals(get_call(), value)
-        self.assertRaises(MySQLdb.IntegrityError, set_call, value * 2)
-        self.assertEquals(get_call(), value)
+        set_call(value * 2)
+        self.assertEquals(get_call(), value * 2)
 
     def test_12_UUID(self):
         self.checkConfigEntry(
@@ -225,8 +225,8 @@ class StorageMySQSLdbTests(unittest.TestCase):
         self.assertEquals(self.db.getPTID(), INVALID_PTID)
         self.db.setPTID(test)
         self.assertEquals(self.db.getPTID(), test)
-        self.assertRaises(MySQLdb.IntegrityError, self.db.setPTID, test * 2)
-        self.assertEquals(self.db.getPTID(), test)
+        self.db.setPTID(test * 2)
+        self.assertEquals(self.db.getPTID(), test * 2)
 
     def test_16_getPartitionTable(self):
         # insert an entry and check it

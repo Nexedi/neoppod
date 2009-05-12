@@ -183,7 +183,7 @@ class MySQLDatabaseManager(DatabaseManager):
         e = self.escape
         key = e(str(key))
         value = e(str(value))
-        q("""INSERT config VALUES ('%s', '%s')""" % (key, value))
+        q("""REPLACE INTO config VALUES ('%s', '%s')""" % (key, value))
 
     def getUUID(self):
         return self.getConfiguration('uuid')
