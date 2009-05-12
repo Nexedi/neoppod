@@ -177,7 +177,9 @@ class BootstrapEventHandler(StorageEventHandler):
                 conn.close()
                 return
 
-            if app.num_partitions is None or app.num_replicas is None:
+            if app.num_partitions is None or app.num_replicas is None or \
+                   app.num_replicas != num_replicas:
+                # changing number of replicas is not an issue
                 app.num_partitions = num_partitions
                 app.dm.setNumPartitions(app.num_partitions)
                 app.num_replicas = num_replicas
@@ -187,6 +189,7 @@ class BootstrapEventHandler(StorageEventHandler):
                 app.ptid = app.dm.getPTID()
             elif app.num_partitions != num_partitions:
                 raise RuntimeError('the number of partitions is inconsistent')
+
 
             if your_uuid != INVALID_UUID and app.uuid != your_uuid:
                 # got an uuid from the primary master
