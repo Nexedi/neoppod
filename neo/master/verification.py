@@ -110,11 +110,12 @@ class VerificationEventHandler(MasterEventHandler):
         # may claim a server address used by another node.
 
         addr = (ip_address, port)
-        # First, get the node by the UUID.
-        node = app.nm.getNodeByUUID(uuid)
-        if node is not None and node.getServer() != addr:
+        if not app.isValidUUID(uuid, addr):
             # Here we have an UUID conflict, assume that's a new node
             node = None
+        else:
+            # First, get the node by the UUID.
+            node = app.nm.getNodeByUUID(uuid)
         if node is None:
             # generate a new uuid for this node
             while not app.isValidUUID(uuid, addr):
