@@ -136,7 +136,7 @@ NEO_CONFIG = '''
 # The list of master nodes.
 master_nodes: %(master_nodes)s
 # The number of replicas.
-replicas: 2
+replicas: 1
 # The number of partitions.
 partitions: 1009
 # The name of this cluster.
