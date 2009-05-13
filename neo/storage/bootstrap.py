@@ -253,41 +253,53 @@ class BootstrapEventHandler(StorageEventHandler):
                 conn.close()
 
     def handleAskLastIDs(self, conn, packet):
-        logging.info('got ask last ids')
+        logging.warning('/!\ handleAskLastIDs')
         pass
 
     def handleAskPartitionTable(self, conn, packet, offset_list):
+        logging.warning('/!\ handleAskPartitionTable')
         pass
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
+        logging.warning('/!\ handleSendPartitionTable')
         pass
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        logging.warning('/!\ handleNotifyPartitionChanges')
         pass
 
     def handleStartOperation(self, conn, packet):
+        logging.warning('/!\ handleStartOperation')
         pass
 
     def handleStopOperation(self, conn, packet):
+        logging.warning('/!\ handleStopOperation')
         pass
 
     def handleAskUnfinishedTransactions(self, conn, packet):
+        logging.warning('/!\ handleAskUnfinishedTransactions')
         pass
 
     def handleAskTransactionInformation(self, conn, packet, tid):
+        logging.warning('/!\ handleAskTransactionInformation')
         pass
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):
+        logging.warning('/!\ handleAskObjectPresent')
         pass
 
     def handleDeleteTransaction(self, conn, packet, tid):
+        logging.warning('/!\ handleDeleteTransaction')
         pass
 
     def handleCommitTransaction(self, conn, packet, tid):
+        logging.warning('/!\ handleCommitTransaction')
         pass
 
     def handleLockInformation(self, conn, packet, tid):
+        logging.warning('/!\ handleLockInformation')
         pass
 
     def handleUnlockInformation(self, conn, packet, tid):
+        logging.warning('/!\ handleUnlockInformation')
         pass
