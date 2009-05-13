@@ -797,7 +797,8 @@ class Application(object):
 
     def isValidUUID(self, uuid, addr):
         for node in self.nm.getNodeList():
-            if addr != node.getServer() and node.getUUID() == uuid:
+            if node.getUUID() == uuid and node.getServer() is not None \
+                    and addr != node.getServer():
                 return False
         return uuid != self.uuid and uuid != INVALID_UUID
 
