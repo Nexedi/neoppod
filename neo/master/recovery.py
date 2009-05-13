@@ -229,7 +229,7 @@ class RecoveryEventHandler(MasterEventHandler):
             conn.expectMessage(msg_id)
         elif node.getNodeType() == ADMIN_NODE_TYPE and app.lptid != INVALID_PTID:
             # send partition table if exists
-            logging.info('sending partition table %s to %s' % (app.lptid,
+            logging.info('sending partition table %s to %s' % (dump(app.lptid),
                                                               conn.getAddress()))
             # Split the packet if too huge.
             p = Packet()
@@ -347,7 +347,7 @@ class RecoveryEventHandler(MasterEventHandler):
 
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() not in (STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
+        if node.getNodeType() != STORAGE_NODE_TYPE:
             self.handleUnexpectedPacket(conn, packet)
             return
         if uuid != app.target_uuid:
