@@ -24,7 +24,7 @@ from neo.master.handler import MasterEventHandler
 from neo.exception import VerificationFailure, ElectionFailure
 from neo.protocol import Packet, INVALID_UUID
 from neo.util import dump
-from neo.node import ClientNode, StorageNode, MasterNode
+from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
 
 class VerificationEventHandler(MasterEventHandler):
     """This class deals with events for a verification phase."""
