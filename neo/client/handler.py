@@ -282,8 +282,10 @@ class ClientEventHandler(BaseClientEventHandler):
                 if uuid != app.uuid:
                     node.setState(TEMPORARILY_DOWN_STATE)
                 nm.add(node)
-
-            pt.setCell(offset, node, state)
+            if state == DISCARDED_STATE:
+                pt.dropNode(node)
+            else:
+                pt.setCell(offset, node, state)
 
     def handleInvalidateObjects(self, conn, packet, oid_list, tid):
         app = self.app
