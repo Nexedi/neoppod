@@ -21,7 +21,7 @@ from copy import copy
 from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, \
-        STORAGE_NODE_TYPE, ADMIN_NODE_TYPE
+        STORAGE_NODE_TYPE, ADMIN_NODE_TYPE, OUT_OF_DATE_STATE
 from neo.master.handler import MasterEventHandler
 from neo.protocol import Packet, INVALID_UUID
 from neo.exception import OperationFailure, ElectionFailure
@@ -661,6 +661,19 @@ class ServiceEventHandler(MasterEventHandler):
                 continue
 
             offset = cell[0]
+            logging.debug("node %s is up for offset %s" %(dump(node.getUUID()), offset))
+
+            # check the storage said it is up to date for a partition it was assigne to
+            for xcell in app.pt.getCellList(offset):
+                if xcell.getNode().getUUID() == node.getUUID() and \
+                       xcell.getState() not in (OUT_OF_DATE_STATE, UP_TO_DATE_STATE):
+                    msg = "node %s telling that it is UP TO DATE for offset \
+                    %s but where %s for that offset" %(dump(node.getUUID()), offset, xcell.getState())
+                    logging.warning(msg)
+                    self.handleError(conn, packet, INTERNAL_ERROR_CODE, msg)
+                    return
+                    
+
             app.pt.setCell(offset, node, UP_TO_DATE_STATE)
             new_cell_list.append(cell)
 
