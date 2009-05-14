@@ -238,8 +238,8 @@ class Replicator(object):
 
     def __init__(self, app):
         self.app = app
-        self.new_partition_list = self._getOutdatedPartitionList()
-        self.partition_list = []
+        self.new_partition_dict = self._getOutdatedPartitionList()
+        self.partition_dict = {}
         self.current_partition = None
         self.current_connection = None
         self.critical_tid_dict = {}
@@ -264,16 +264,16 @@ class Replicator(object):
 
     def _getOutdatedPartitionList(self):
         app = self.app
-        partition_list = []
+        partition_dict = {}
         for offset in xrange(app.num_partitions):
             for uuid, state in app.pt.getRow(offset):
                 if uuid == app.uuid and state == OUT_OF_DATE_STATE:
-                    partition_list.append(Partition(offset))
-        return partition_list
+                    partition_dict[offset] = Partition(offset)
+        return partition_dict
 
     def pending(self):
         """Return whether there is any pending partition."""
-        return len(self.partition_list) or len(self.new_partition_list)
+        return len(self.partition_dict) or len(self.new_partition_dict)
 
     def setCriticalTID(self, packet, tid):
         """This is a callback from OperationEventHandler."""
@@ -282,11 +282,12 @@ class Replicator(object):
             partition_list = self.critical_tid_dict[msg_id]
             logging.debug('setting critical TID %s to %s',
                           dump(tid),
-                          ', '.join([str(p.getRID()) for p in partition_list]))
+                         ', '.join([str(p.getRID()) for p in partition_list]))
             for partition in self.critical_tid_dict[msg_id]:
                 partition.setCriticalTID(tid)
             del self.critical_tid_dict[msg_id]
         except KeyError:
+            logging.infor("setCriticalTID raised KeyError for msg_id %s" %(msg_id,))
             pass
 
     def _askCriticalTID(self):
@@ -294,9 +295,9 @@ class Replicator(object):
         msg_id = conn.getNextId()
         conn.addPacket(Packet().askLastIDs(msg_id))
         conn.expectMessage(msg_id)
-        self.critical_tid_dict[msg_id] = self.new_partition_list
-        self.partition_list.extend(self.new_partition_list)
-        self.new_partition_list = []
+        self.critical_tid_dict[msg_id] = self.new_partition_dict.values()
+        self.partition_dict.update(self.new_partition_dict)
+        self.new_partition_dict = {}
 
     def setUnfinishedTIDList(self, tid_list):
         """This is a callback from OperationEventHandler."""
@@ -321,7 +322,7 @@ class Replicator(object):
             node_list = [cell.getNode() for cell in cell_list
                             if cell.getNodeState() == RUNNING_STATE]
             node = choice(node_list)
-        except:
+        except IndexError:
             # Not operational.
             logging.error('not operational', exc_info = 1)
             self.current_partition = None
@@ -360,7 +361,7 @@ class Replicator(object):
     def _finishReplication(self):
         app = self.app
         try:
-            self.partition_list.remove(self.current_partition)
+            self.partition_dict.pop(self.current_partition.getRID())
             # Notify to a primary master node that my cell is now up-to-date.
             conn = self.primary_master_connection
             p = Packet()
@@ -377,9 +378,9 @@ class Replicator(object):
     def act(self):
         # If the new partition list is not empty, I must ask a critical
         # TID to a primary master node.
-        if self.new_partition_list:
+        if self.new_partition_dict:
             self._askCriticalTID()
-
+        
         if self.current_partition is None:
             # I need to choose something.
             if self.waiting_for_unfinished_tids:
@@ -388,7 +389,7 @@ class Replicator(object):
                 return
             elif self.unfinished_tid_list is not None:
                 # Try to select something.
-                for partition in self.partition_list:
+                for partition in self.partition_dict.values():
                     if partition.safe(self.unfinished_tid_list):
                         self.current_partition = partition
                         self.unfinished_tid_list = None
@@ -406,23 +407,23 @@ class Replicator(object):
                 self._askUnfinishedTIDs()
         else:
             if self.replication_done:
-                logging.info('replication is done')
+                logging.info('replication is done for %s' %(self.current_partition.getRID(),))
                 self._finishReplication()
 
     def removePartition(self, rid):
         """This is a callback from OperationEventHandler."""
         try:
-            self.partition_list.remove(rid)
-        except ValueError:
+            self.partition_dict.pop(rid)
+        except KeyError:
             pass
 
         try:
-            self.new_partition_list.remove(rid)
-        except ValueError:
+            self.new_partition_dict.pop(rid)
+        except KeyError:
             pass
 
     def addPartition(self, rid):
         """This is a callback from OperationEventHandler."""
-        if rid not in self.partition_list \
-                and rid not in self.new_partition_list:
-            self.new_partition_list.append(Partition(rid))
+        if not self.partition_dict.has_key(rid) \
+                and not self.new_partition_dict.has_key(rid):
+            self.new_partition_dict[rid] = Partition(rid)
