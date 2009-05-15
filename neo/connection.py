@@ -24,6 +24,7 @@ from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent
 from neo.connector import ConnectorTryAgainException, ConnectorInProgressException
 from neo.util import dump
+from neo.exception import OperationFailure
 
 def lockCheckWrapper(func):
     """
