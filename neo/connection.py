@@ -243,8 +243,10 @@ class Connection(BaseConnection):
                 self.close()
             else:
                 self.read_buf += r
-        except ConnectorTryAgainException:
+        except ConnectorTryAgainException:        
             pass
+        except OperationFailure:
+            raise
         except:
             traceback.print_exc()
             logging.warning('recv called on %s(%s) failed.'%(self, self.getAddress()))
@@ -264,6 +266,8 @@ class Connection(BaseConnection):
                     self.write_buf = self.write_buf[r:]
             except ConnectorTryAgainException:
                 return
+            except OperationFailure:
+                raise
             except:
                 traceback.print_exc()
                 logging.warning('send called on %s(%s) failed.'%(self, self.getAddress()))
