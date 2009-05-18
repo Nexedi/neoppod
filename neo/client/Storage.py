@@ -33,6 +33,8 @@ class Storage(BaseStorage.BaseStorage,
 
     def __init__(self, master_nodes, name, connector, read_only=False, **kw):
         self._is_read_only = read_only
+        format='[%(module)12s:%(lineno)3d] %(message)s'
+        logging.basicConfig(level=logging.DEBUG, format=format)
         # Transaction must be under protection of lock
         l = Lock()
         self._txn_lock_acquire = l.acquire
