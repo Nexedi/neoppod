@@ -31,7 +31,7 @@ from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
         INVALID_PTID, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, INVALID_SERIAL
-from neo.client.handler import ClientEventHandler, ClientAnswerEventHandler
+from neo.client.handler import *
 from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
      NEOStorageNotFoundError
 from neo.util import makeChecksum, dump
@@ -71,10 +71,11 @@ class ConnectionPool(object):
         app = self.app
 
         # Loop until a connection is obtained.
-        while 1:
+        while True:
             logging.info('trying to connect to %s', node)
             app.setNodeReady()
-            conn = MTClientConnection(app.em, app.handler, addr,
+            handler = StorageBootstrapEventHandler(app, app.dispatcher)
+            conn = MTClientConnection(app.em, handler, addr,
                                       connector_handler=app.connector_handler)
             conn.lock()
             try:
@@ -95,20 +96,21 @@ class ConnectionPool(object):
                 conn.unlock()
 
             try:
-                app._waitMessage(conn, msg_id)
+                app._waitMessage(conn, msg_id, handler=handler)
             except NEOStorageError:
                 logging.error('Connection to storage node %s failed', node)
                 return None
 
             if app.isNodeReady():
                 logging.info('connected to storage node %s', node)
+                # FIXME: remove this assertion
+                assert conn.getUUID() != INVALID_UUID
+                conn.setHandler(self.app.storage_handler)
                 return conn
             else:
                 # Connection failed, notify primary master node
                 logging.info('Storage node %s not ready', node)
                 return None
-
-            sleep(1)
 
     def _dropConnections(self):
         """Drop connections."""
@@ -206,8 +208,10 @@ class Application(object):
         self.ptid = INVALID_PTID
         self.num_replicas = 0
         self.num_partitions = 0
-        self.handler = ClientEventHandler(self, self.dispatcher)
-        self.answer_handler = ClientAnswerEventHandler(self, self.dispatcher)
+        #self.handler = ClientEventHandler(self, self.dispatcher)
+        self.primary_handler = PrimaryEventHandler(self, self.dispatcher)
+        self.storage_handler = StorageEventHandler(self, self.dispatcher)
+        #self.answer_handler = ClientAnswerEventHandler(self, self.dispatcher)
         # Transaction specific variable
         self.tid = None
         self.txn = None
@@ -248,27 +252,30 @@ class Application(object):
             self.local_var.queue = Queue(5)
             return self.local_var.queue
 
-    def _waitMessage(self, target_conn = None, msg_id = None):
+    def _waitStorageMessage(self, target_conn=None, msg_id=None):
+        self._waitMessage(target_conn, msg_id, self.storage_handler)
+
+    def _waitPrimaryMessage(self, target_conn=None, msg_id=None):
+        self._waitMessage(target_conn, msg_id, self.primary_handler)
+
+    def _waitMessage(self, target_conn = None, msg_id = None, handler=None):
         """Wait for a message returned by the dispatcher in queues."""
         local_queue = self.getQueue()
 
         while 1:
-            if msg_id is None:
-                try:
+            try:
+                if msg_id is None:
                     conn, packet = local_queue.get_nowait()
-                except Empty:
-                    break
-            else:
-                conn, packet = local_queue.get()
-
+                else:
+                    conn, packet = local_queue.get()
+            except Empty:
+                break
             if packet is None:
                 if conn is target_conn:
                     raise NEOStorageError('connection closed')
                 else:
                     continue
-
-            self.answer_handler.dispatch(conn, packet)
-
+            handler.dispatch(conn, packet)
             if target_conn is conn and msg_id == packet.getId() \
                     and packet.getType() & 0x8000:
                 break
@@ -300,7 +307,7 @@ class Application(object):
                 finally:
                     conn.unlock()
 
-                self._waitMessage(conn, msg_id)
+                self._waitPrimaryMessage(conn, msg_id)
                 if len(self.new_oid_list) <= 0:
                     raise NEOStorageError('new_oid failed')
             return self.new_oid_list.pop()
@@ -356,7 +363,7 @@ class Application(object):
                 finally:
                     conn.unlock()
 
-                self._waitMessage(conn, msg_id)
+                self._waitStorageMessage(conn, msg_id)
                 if self.local_var.asked_object == -1:
                     # OID not found
                     break
@@ -461,7 +468,7 @@ class Application(object):
             finally:
                 conn.unlock()
             # Wait for answer
-            self._waitMessage(conn, msg_id)
+            self._waitPrimaryMessage(conn, msg_id)
             if self.tid is None:
                 raise NEOStorageError('tpc_begin failed')
         else:
@@ -487,7 +494,7 @@ class Application(object):
         compressed_data = compress(data)
         checksum = makeChecksum(compressed_data)
         for cell in cell_list:
-            logging.info("storing object %s %s" %(cell.getServer(),cell.getState()))
+            #logging.info("storing object %s %s" %(cell.getServer(),cell.getState()))
             conn = self.cp.getConnForNode(cell)
             if conn is None:
                 continue
@@ -505,7 +512,7 @@ class Application(object):
                 conn.unlock()
 
             # Check we don't get any conflict
-            self._waitMessage(conn, msg_id)
+            self._waitStorageMessage(conn, msg_id)
             if self.txn_object_stored[0] == -1:
                 if self.txn_data_dict.has_key(oid):
                     # One storage already accept the object, is it normal ??
@@ -552,7 +559,7 @@ class Application(object):
             finally:
                 conn.unlock()
 
-            self._waitMessage(conn, msg_id)
+            self._waitStorageMessage(conn, msg_id)
             if not self.isTransactionVoted():
                 raise NEOStorageError('tpc_vote failed')
 
@@ -625,7 +632,8 @@ class Application(object):
                 conn.unlock()
 
             # Wait for answer
-            self._waitMessage(conn, msg_id)
+            self._waitPrimaryMessage(conn, msg_id)
+
             if not self.isTransactionFinished():
                 raise NEOStorageError('tpc_finish failed')
 
@@ -642,7 +650,6 @@ class Application(object):
             return self.tid
         finally:
             self._load_lock_release()
-
 
     def undo(self, transaction_id, txn, wrapper):
         if txn is not self.txn:
@@ -669,7 +676,7 @@ class Application(object):
                 conn.unlock()
 
             # Wait for answer
-            self._waitMessage(conn, msg_id)
+            self._waitStorageMessage(conn, msg_id)
             if self.local_var.txn_info == -1:
                 # Tid not found, try with next node
                 continue
@@ -744,7 +751,7 @@ class Application(object):
         # Wait for answers from all storages.
         # FIXME this is a busy loop.
         while True:
-            self._waitMessage()
+            self._waitStorageMessage()
             if len(self.local_var.node_tids.keys()) == len(storage_node_list):
                 break
 
@@ -778,7 +785,7 @@ class Application(object):
                     conn.unlock()
 
                 # Wait for answer
-                self._waitMessage(conn, msg_id)
+                self._waitStorageMessage(conn, msg_id)
                 if self.local_var.txn_info == -1:
                     # TID not found, go on with next node
                     continue
@@ -829,7 +836,7 @@ class Application(object):
             finally:
                 conn.unlock()
 
-            self._waitMessage(conn, msg_id)
+            self._waitStorageMessage(conn, msg_id)
             if self.local_var.history == -1:
                 # Not found, go on with next node
                 continue
@@ -867,7 +874,7 @@ class Application(object):
                     conn.unlock()
 
                 # Wait for answer
-                self._waitMessage(conn, msg_id)
+                self._waitStorageMessage(conn, msg_id)
                 if self.local_var.txn_info == -1:
                     # TID not found
                     continue
@@ -894,82 +901,86 @@ class Application(object):
     close = __del__
 
     def sync(self):
-        self._waitMessage()
+        self._waitStorageMessage()
 
     def connectToPrimaryMasterNode(self):
-        """Connect to a primary master node.
-        This can be called either at bootstrap or when
-        client got disconnected during process"""
-        # Indicate we are trying to connect to avoid multiple try a time
-        acquired = self._connecting_to_master_node_acquire(0)
-        if acquired:
-            try:
-                if self.pt is not None:
-                    self.pt.clear()
-                master_index = 0
-                conn = None
-                # Make application execute remaining message if any
-                self._waitMessage()
-                while 1:
-                    self.setNodeReady()
-                    if self.primary_master_node is None:
-                        # Try with master node defined in config
-                        try:
-                            addr, port = self.master_node_list[master_index].split(':')                        
-                        except IndexError:
-                            master_index = 0
-                            addr, port = self.master_node_list[master_index].split(':')
-                        port = int(port)
-                    else:
-                        addr, port = self.primary_master_node.getServer()
-                    # Request Node Identification
-                    conn = MTClientConnection(self.em, self.handler, (addr, port), connector_handler=self.connector_handler)
-                    if self.nm.getNodeByServer((addr, port)) is None:
-                        n = MasterNode(server = (addr, port))
-                        self.nm.add(n)
-
-                    conn.lock()
+        self.master_conn = None
+        logging.debug('connecting to primary master...')
+        # acquire the lock to allow only one thread to connect to the primary 
+        lock = self._connecting_to_master_node_acquire(1)
+        try:
+            if self.master_conn is not None:
+                # another thread has done the job
+                logging.debug('already connected')
+                return
+            if self.pt is not None:
+                self.pt.clear()
+            master_index = 0
+            conn = None
+            # Make application execute remaining message if any
+            self._waitStorageMessage()
+            while True:
+                self.setNodeReady()
+                if self.primary_master_node is None:
+                    # Try with master node defined in config
                     try:
-                        msg_id = conn.getNextId()
-                        p = Packet()
-                        p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid,
-                                                    '0.0.0.0', 0, self.name)
+                        addr, port = self.master_node_list[master_index].split(':')                        
+                    except IndexError:
+                        master_index = 0
+                        addr, port = self.master_node_list[master_index].split(':')
+                    port = int(port)
+                else:
+                    addr, port = self.primary_master_node.getServer()
+                # Request Node Identification
+                handler = PrimaryBoostrapEventHandler(self, self.dispatcher)
+                conn = MTClientConnection(self.em, handler, (addr, port), 
+                        connector_handler=self.connector_handler)
+                if self.nm.getNodeByServer((addr, port)) is None:
+                    n = MasterNode(server = (addr, port))
+                    self.nm.add(n)
 
-                        # Send message
-                        conn.addPacket(p)
-                        conn.expectMessage(msg_id)
-                        self.dispatcher.register(conn, msg_id, self.getQueue())
-                    finally:
-                        conn.unlock()
+                conn.lock()
+                try:
+                    msg_id = conn.getNextId()
+                    p = Packet()
+                    p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid,
+                                                '0.0.0.0', 0, self.name)
+                    conn.addPacket(p)
+                    conn.expectMessage(msg_id)
+                    self.dispatcher.register(conn, msg_id, self.getQueue())
+                finally:
+                    conn.unlock()
 
-                    # Wait for answer
-                    while 1:
-                        self._waitMessage()
-                        # Now check result
-                        if self.primary_master_node is not None:
-                            if self.primary_master_node == -1:
-                                # Connection failed, try with another master node
-                                self.primary_master_node = None
-                                master_index += 1
-                                break
-                            elif self.primary_master_node.getServer() != (addr, port):
-                                # Master node changed, connect to new one
-                                break
-                            elif not self.isNodeReady():
-                                # Wait a bit and reask again
-                                break
-                            elif self.pt is not None and self.pt.operational():
-                                # Connected to primary master node
-                                break
-                    if self.pt is not None and self.pt.operational():
-                        # Connected to primary master node and got all informations
-                        break
-                    sleep(1)
+                # Wait for answer
+                while 1:
+                    self._waitMessage(handler=handler)
+                    # Now check result
+                    if self.primary_master_node is not None:
+                        if self.primary_master_node == -1:
+                            # Connection failed, try with another master node
+                            self.primary_master_node = None
+                            master_index += 1
+                            break
+                        elif self.primary_master_node.getServer() != (addr, port):
+                            # Master node changed, connect to new one
+                            break
+                        elif not self.isNodeReady():
+                            # Wait a bit and reask again
+                            break
+                        elif self.pt is not None and self.pt.operational():
+                            # Connected to primary master node
+                            break
+                if self.pt is not None and self.pt.operational():
+                    # Connected to primary master node and got all informations
+                    break
+                sleep(1)
 
-                logging.info("connected to primary master node %s" % self.primary_master_node)
-                self.master_conn = conn
-            finally:
-                self._connecting_to_master_node_release()
+            logging.info("connected to primary master node %s" % self.primary_master_node)
+            conn.setHandler(PrimaryEventHandler(self, self.dispatcher))
+            self.master_conn = conn
+
+        finally:
+            self._connecting_to_master_node_release()
 
     def setNodeReady(self):
         self.local_var.node_ready = True
