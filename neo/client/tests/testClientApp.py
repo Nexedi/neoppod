@@ -19,7 +19,7 @@ import unittest
 import logging
 from mock import Mock, ReturnValues, ReturnIterator
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
-from neo.protocol import INVALID_UUID
+from neo.protocol import INVALID_UUID, ERROR
 from neo.client.app import Application
 from neo.protocol import Packet
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError, \
@@ -35,10 +35,11 @@ def connectToPrimaryMasterNode(self):
 Application.connectToPrimaryMasterNode_org = Application.connectToPrimaryMasterNode
 Application.connectToPrimaryMasterNode = connectToPrimaryMasterNode
 
-def _waitMessage(self, conn=None, msg_id=None):
-    if conn is None:
+def _waitMessage(self, conn=None, msg_id=None, handler=None):
+    if conn is not None and handler is not None:
+        handler.dispatch(conn, conn.fakeReceived())
+    else:
         raise NotImplementedError
-    self.answer_handler.dispatch(conn, conn.fakeReceived())
 Application._waitMessage_org = Application._waitMessage
 Application._waitMessage = _waitMessage
 
@@ -509,6 +510,7 @@ class ClientApplicationTest(unittest.TestCase):
         conn = Mock({ 
             'getNextId': 1,
             'fakeReceived': packet,    
+            'getAddress': ('127.0.0.1', 0),
         })
         cell = Mock({
             'getServer': 'FakeServer',
@@ -519,9 +521,15 @@ class ClientApplicationTest(unittest.TestCase):
         app.dispatcher = Mock()
         app.tpc_begin(txn, tid)
         self.assertRaises(NEOStorageError, app.tpc_vote, txn)
-        self.checkPacketSent(conn, 1, ASK_STORE_TRANSACTION)
-        self.checkMessageExpected(conn, 1)
-        self.checkDispatcherRegisterCalled(app, conn, 1)
+        self.assertEquals(len(conn.mockGetNamedCalls('abort')), 1)
+        calls = conn.mockGetNamedCalls('addPacket')
+        self.assertEquals(len(calls), 2)
+        packet = calls[0].getParam(0)
+        self.assertTrue(isinstance(packet, Packet))
+        self.assertEquals(packet._type, ASK_STORE_TRANSACTION)
+        packet = calls[1].getParam(0)
+        self.assertTrue(isinstance(packet, Packet))
+        self.assertEquals(packet._type, ERROR)
 
     def test_tpc_vote3(self):
         app = self.getApp()
@@ -784,7 +792,7 @@ class ClientApplicationTest(unittest.TestCase):
             'getCellList': ReturnValues([cell1], [cell2]),
         })
         app.cp = Mock({ 'getConnForNode': conn})
-        def _waitMessage(self, conn=None, msg_id=None):
+        def _waitMessage(self, conn=None, msg_id=None, handler=None):
             self.local_var.node_tids = {uuid1: (tid1, ), uuid2: (tid2, )}
             Application._waitMessage = _waitMessage_old
         _waitMessage_old = Application._waitMessage
@@ -841,22 +849,22 @@ class ClientApplicationTest(unittest.TestCase):
         # will raise IndexError at the third iteration
         app = self.getApp('127.0.0.1:10010 127.0.0.1:10011')
         # third iteration : node not ready
-        def _waitMessage4(app, conn=None, msg_id=None):
+        def _waitMessage4(app, conn=None, msg_id=None, handler=None):
             app.local_var.node_ready = False 
             self.all_passed = True
         # second iteration : master node changed
-        def _waitMessage3(app, conn=None, msg_id=None):
+        def _waitMessage3(app, conn=None, msg_id=None, handler=None):
             app.primary_master_node = Mock({
                 'getServer': ('192.168.1.1', 10000),
                 '__str__': 'Fake master node',
             })
             Application._waitMessage = _waitMessage4
         # first iteration : connection failed
-        def _waitMessage2(app, conn=None, msg_id=None):
+        def _waitMessage2(app, conn=None, msg_id=None, handler=None):
             app.primary_master_node = -1
             Application._waitMessage = _waitMessage3
         # do nothing for the first call
-        def _waitMessage1(app, conn=None, msg_id=None):
+        def _waitMessage1(app, conn=None, msg_id=None, handler=None):
             Application._waitMessage = _waitMessage2
         _waitMessage_old = Application._waitMessage
         Application._waitMessage = _waitMessage1
