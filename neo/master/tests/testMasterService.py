@@ -21,6 +21,7 @@ import logging
 from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
+from neo import protocol
 from neo.protocol import Packet, INVALID_UUID
 from neo.master.service import ServiceEventHandler
 from neo.master.app import Application
@@ -216,35 +217,25 @@ server: 127.0.0.1:10023
                              port=10021):
         """Do first step of identification to MN
         """
-        packet = Packet(msg_id=1)
         uuid = self.getNewUUID()
+        args = (node_type, uuid, ip, port, self.app.name)
+        packet = protocol.requestNodeIdentification(1, *args)
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
-        self.service.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=node_type,
-                                                uuid=uuid,
-                                                ip_address=ip,
-                                                port=port,
-                                                name=self.app.name,)
+        self.service.handleRequestNodeIdentification(conn, packet, *args)
         self.checkCalledAcceptNodeIdentification(conn)
         return uuid
 
     # Tests
     def test_01_handleRequestNodeIdentification(self):
         service = self.service
-        packet = Packet(msg_id=1)
         uuid = self.getNewUUID()
+        args = (STORAGE_NODE_TYPE, uuid, '127.0.0.1', self.storage_port, 'INVALID_NAME')
+        packet = protocol.requestNodeIdentification(1, *args)
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None})
         ptid = self.app.lptid
-        service.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=STORAGE_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.storage_port,
-                                                name="INVALID_NAME",)
+        service.handleRequestNodeIdentification(conn, packet, *args)
         self.checkCalledAbort(conn)        
         self.assertEquals(len(self.app.nm.getStorageNodeList()), 0)
         self.assertEquals(self.app.lptid, ptid)
@@ -387,7 +378,7 @@ server: 127.0.0.1:10023
     def test_02_handleAskPrimaryMaster(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_id=2)
+        packet = protocol.askPrimaryMaster(msg_id=2)
         # test answer to a storage node
         conn = Mock({"addPacket" : None,
                      "answerPrimaryMaster" : None,
@@ -406,7 +397,7 @@ server: 127.0.0.1:10023
 
         # Same but identify as a client node, must not get start operation message
         uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE, port=11021)
-        packet = Packet(msg_id=2)
+        packet = protocol.askPrimaryMaster(msg_id=2)
         conn = Mock({"addPacket" : None, "abort" : None, "answerPrimaryMaster" : None,
                      "notifyNodeInformation" : None, "sendPartitionTable" : None,
                      "getUUID" : uuid, "getAddress" : ("127.0.0.1", 11021)})

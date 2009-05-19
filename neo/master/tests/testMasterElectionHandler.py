@@ -21,6 +21,7 @@ import logging
 from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
+from neo import protocol
 from neo.protocol import Packet, INVALID_UUID
 from neo.master.election import ElectionEventHandler
 from neo.master.app import Application
@@ -158,8 +159,9 @@ server: 127.0.0.1:10023
                              port=10021):
         """Do first step of identification to MN
         """
-        packet = Packet(msg_id=1)
         uuid = self.getNewUUID()
+        args = (node_type, uuid, ip, port, self.app.name)
+        packet = protocol.requestNodeIdentification(1, *args)
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None,
                      "isServerConnection" : True})
@@ -298,16 +300,9 @@ server: 127.0.0.1:10023
         self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), BROKEN_STATE)
 
     def test_07_packetReceived(self):
-        p = Packet()
         uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
-        p.acceptNodeIdentification(1,
-                                   MASTER_NODE_TYPE,
-                                   uuid,
-                                   "127.0.0.1",
-                                   self.master_port,
-                                   1009,
-                                   2,
-                                   self.app.uuid)
+        p = protocol.acceptNodeIdentification(1, MASTER_NODE_TYPE, uuid,
+                       "127.0.0.1", self.master_port, 1009, 2, self.app.uuid)
 
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
@@ -326,7 +321,9 @@ server: 127.0.0.1:10023
         uuid = self.getNewUUID()
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
-        p = Packet()
+        args = (MASTER_NODE_TYPE, uuid, '127.0.0.1', self.master_port,
+                self.app.num_partitions, self.app.num_replicas, self.app.uuid)
+        p = protocol.acceptNodeIdentification(1, *args)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getUUID(), None)
@@ -347,7 +344,9 @@ server: 127.0.0.1:10023
         uuid = self.getNewUUID()
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
-        p = Packet()
+        args = (MASTER_NODE_TYPE, uuid, '127.0.0.1', self.master_port,
+                self.app.num_partitions, self.app.num_replicas, self.app.uuid)
+        p = protocol.acceptNodeIdentification(1, *args)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getUUID(), None)
@@ -365,7 +364,9 @@ server: 127.0.0.1:10023
         uuid = self.getNewUUID()
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
-        p = Packet()
+        args = (MASTER_NODE_TYPE, uuid, '127.0.0.1', self.master_port,
+                self.app.num_partitions, self.app.num_replicas, self.app.uuid)
+        p = protocol.acceptNodeIdentification(1, *args)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getUUID(), None)
@@ -391,7 +392,7 @@ server: 127.0.0.1:10023
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
-        p = Packet()
+        p = protocol.askPrimaryMaster(0)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("addPacket")),1)
@@ -412,7 +413,7 @@ server: 127.0.0.1:10023
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
-        p = Packet()
+        p = protocol.askPrimaryMaster(0)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("addPacket")),1)
@@ -431,7 +432,7 @@ server: 127.0.0.1:10023
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
-        p = Packet()
+        p = protocol.askPrimaryMaster(0)
         self.app.nm.add(MasterNode(("127.0.0.1", self.master_port), uuid))
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
@@ -453,7 +454,7 @@ server: 127.0.0.1:10023
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
-        p = Packet()
+        p = protocol.askPrimaryMaster(1)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("addPacket")),1)
@@ -474,7 +475,7 @@ server: 127.0.0.1:10023
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
-        p = Packet()
+        p = protocol.askPrimaryMaster(1)
         self.app.nm.add(MasterNode(("127.0.0.1", self.master_port), uuid))
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
@@ -495,8 +496,9 @@ server: 127.0.0.1:10023
         
     def test_10_handleRequestNodeIdentification(self):
         election = self.election
-        packet = Packet(msg_id=1)
         uuid = self.getNewUUID()
+        args = (MASTER_NODE_TYPE, uuid, '127.0.0.1', self.storage_port, 'INVALID_NAME')
+        packet = protocol.requestNodeIdentification(1, *args)
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None,
                      "isServerConnection" : True})
@@ -577,7 +579,7 @@ server: 127.0.0.1:10023
     def test_11_handleAskPrimaryMaster(self):
         election = self.election
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = Packet(msg_id=2)
+        packet = protocol.askPrimaryMaster(0)
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
                      "isServerConnection" : True,
@@ -623,7 +625,7 @@ server: 127.0.0.1:10023
     def test_13_handleReelectPrimaryMaster(self):
         election = self.election
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = Packet()
+        packet = protocol.askPrimaryMaster(0)
         # No uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,

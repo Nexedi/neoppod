@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 import unittest, os
 from mock import Mock
+from neo import protocol
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, INVALID_UUID
 from neo.node import Node, MasterNode, StorageNode, ClientNode, NodeManager
@@ -409,12 +410,11 @@ class testConnection(unittest.TestCase):
         # packet witch raise protocol error
         # change the max packet size and create a to big message
         # be careful not to set the max packet size < error message 
-        p = Packet()        
         master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
                        ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
                        ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
                        ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
-        p.answerPrimaryMaster(1, getNewUUID(), master_list)
+        p = protocol.answerPrimaryMaster(1, getNewUUID(), master_list)
         OLD_MAX_PACKET_SIZE = protocol.MAX_PACKET_SIZE
         protocol.MAX_PACKET_SIZE = 0x55
         
@@ -425,7 +425,7 @@ class testConnection(unittest.TestCase):
         self.assertNotEqual(bc.getConnector(), None)
         bc.addPacket(p)
         self.assertNotEqual(bc.write_buf, "testdata")
-        self.assertEqual(len(bc.write_buf), len(p.encode()))
+        self.assertRaises(ProtocolError, p.encode)
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 2)
         # check it sends error packet
         packet = Packet.parse(bc.write_buf)
@@ -478,12 +478,11 @@ class testConnection(unittest.TestCase):
         self.assertEqual(len(bc.event_dict), 0)
 
         # give some data to analyse
-        p = Packet()        
         master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
                        ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
                        ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
                        ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
-        p.answerPrimaryMaster(1, getNewUUID(), master_list)
+        p = protocol.answerPrimaryMaster(1, getNewUUID(), master_list)
         data = p.encode()
         bc.read_buf += data
         self.assertEqual(len(bc.event_dict), 0)
@@ -505,21 +504,19 @@ class testConnection(unittest.TestCase):
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
         # packet 1
-        p1 = Packet()        
         master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
                        ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
                        ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
                        ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
-        p1.answerPrimaryMaster(1, getNewUUID(), master_list)
+        p1 = protocol.answerPrimaryMaster(1, getNewUUID(), master_list)
         data = p1.encode()
         bc.read_buf += data
         # packet 2
-        p2 = Packet()        
         master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
                        ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
                        ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
                        ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
-        p2.answerPrimaryMaster(2, getNewUUID(), master_list)
+        p2 = protocol.answerPrimaryMaster(2, getNewUUID(), master_list)
         data = p2.encode()
         bc.read_buf += data
         self.assertEqual(len(bc.read_buf), len(p1.encode()) + len(p2.encode()))
@@ -562,12 +559,11 @@ class testConnection(unittest.TestCase):
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
         
-        p = Packet()        
         master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
                        ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
                        ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
                        ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
-        p.answerPrimaryMaster(1, getNewUUID(), master_list)
+        p = protocol.answerPrimaryMaster(1, getNewUUID(), master_list)
         data = p.encode()
         bc.read_buf += data
         self.assertEqual(len(bc.event_dict), 0)
@@ -688,13 +684,12 @@ class testConnection(unittest.TestCase):
         handler = Mock()
         # patch receive method to return data
         def receive(self):
-            p = Packet()        
             master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2136, getNewUUID()),
                            ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
                            ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
                            ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
             uuid = getNewUUID()
-            p.answerPrimaryMaster(1, uuid, master_list)
+            p = protocol.answerPrimaryMaster(1, uuid, master_list)
             data = p.encode()
             return data
         DoNothingConnector.receive = receive

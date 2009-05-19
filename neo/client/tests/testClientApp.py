@@ -19,11 +19,10 @@ import unittest
 import logging
 from mock import Mock, ReturnValues, ReturnIterator
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
-from neo.protocol import INVALID_UUID, ERROR
 from neo.client.app import Application
-from neo.protocol import Packet
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError, \
         NEOStorageConflictError
+from neo import protocol
 from neo.protocol import *
 import neo.connection
 import os
@@ -123,8 +122,7 @@ class ClientApplicationTest(unittest.TestCase):
         if oid is None:
             oid = self.makeOID()
         obj = (oid, tid, 'DATA', '', app.local_var.txn)
-        packet = Packet()
-        packet.answerStoreObject(msg_id=1, conflicting=0, oid=oid, serial=tid)
+        packet = protocol.answerStoreObject(msg_id=1, conflicting=0, oid=oid, serial=tid)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
         cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
         app.cp = Mock({ 'getConnForNode': conn})
@@ -134,8 +132,7 @@ class ClientApplicationTest(unittest.TestCase):
     def voteTransaction(self, app):
         tid = app.local_var.tid
         txn = app.local_var.txn
-        packet = Packet()
-        packet.answerStoreTransaction(msg_id=1, tid=tid)
+        packet = protocol.answerStoreTransaction(msg_id=1, tid=tid)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
         cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
         app.pt = Mock({ 'getCellList': (cell, cell, ) })
@@ -145,8 +142,7 @@ class ClientApplicationTest(unittest.TestCase):
     def finishTransaction(self, app):
         txn = app.local_var.txn
         tid = app.local_var.tid
-        packet = Packet()
-        packet.notifyTransactionFinished(1, tid)
+        packet = protocol.notifyTransactionFinished(1, tid)
         app.master_conn = Mock({ 
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10010),
@@ -201,8 +197,7 @@ class ClientApplicationTest(unittest.TestCase):
         app = self.getApp()
         test_msg_id = 50
         test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
-        response_packet = Packet()
-        response_packet.answerNewOIDs(test_msg_id, test_oid_list[:])
+        response_packet = protocol.answerNewOIDs(test_msg_id, test_oid_list[:])
         app.master_conn = Mock({'getNextId': test_msg_id, 'addPacket': None,
                                 'expectMessage': None, 'lock': None,
                                 'unlock': None,
@@ -242,8 +237,7 @@ class ClientApplicationTest(unittest.TestCase):
         an_object = (1, oid, tid1, tid2, 0, 0, '')
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
-        packet = Packet()
-        packet.oidNotFound(oid, '')
+        packet = protocol.oidNotFound(oid, '')
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
@@ -255,8 +249,7 @@ class ClientApplicationTest(unittest.TestCase):
         self.assertRaises(NEOStorageNotFoundError, app.load, oid)
         self.checkPacketSent(conn, 1, ASK_OBJECT)
         # object found on storage nodes and put in cache
-        packet = Packet()
-        packet.answerObject(*an_object)
+        packet = protocol.answerObject(*an_object)
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
@@ -284,8 +277,7 @@ class ClientApplicationTest(unittest.TestCase):
         tid2 = self.makeTID(2)
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
-        packet = Packet()
-        packet.oidNotFound(oid, '')
+        packet = protocol.oidNotFound(oid, '')
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
@@ -301,9 +293,8 @@ class ClientApplicationTest(unittest.TestCase):
         # now a cached version ewxists but should not be hit 
         mq.store(oid, (tid1, 'WRONG'))
         self.assertTrue(oid in mq)
-        packet = Packet()
         another_object = (1, oid, tid2, INVALID_SERIAL, 0, 0, 'RIGHT')
-        packet.answerObject(*another_object)
+        packet = protocol.answerObject(*another_object)
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
@@ -323,8 +314,7 @@ class ClientApplicationTest(unittest.TestCase):
         tid2 = self.makeTID(2)
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
-        packet = Packet()
-        packet.oidNotFound(oid, '')
+        packet = protocol.oidNotFound(oid, '')
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
@@ -337,8 +327,7 @@ class ClientApplicationTest(unittest.TestCase):
         self.checkPacketSent(conn, 1, ASK_OBJECT)
         # no previous versions -> return None
         an_object = (1, oid, tid2, INVALID_SERIAL, 0, 0, '')
-        packet = Packet()
-        packet.answerObject(*an_object)
+        packet = protocol.answerObject(*an_object)
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
@@ -353,8 +342,7 @@ class ClientApplicationTest(unittest.TestCase):
         mq.store(oid, (tid1, 'WRONG'))
         self.assertTrue(oid in mq)
         another_object = (1, oid, tid1, tid2, 0, 0, 'RIGHT')
-        packet = Packet()
-        packet.answerObject(*another_object)
+        packet = protocol.answerObject(*another_object)
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
@@ -386,8 +374,7 @@ class ClientApplicationTest(unittest.TestCase):
         # no connection -> NEOStorageError
         self.assertRaises(NEOStorageError, app.tpc_begin, transaction=txn, tid=None)
         # ask a tid to pmn
-        packet = Packet()
-        packet.answerNewTID(msg_id=1, tid=tid)
+        packet = protocol.answerNewTID(msg_id=1, tid=tid)
         app.master_conn = Mock({
             'getNextId': 1,
             'expectMessage': None, 
@@ -433,8 +420,7 @@ class ClientApplicationTest(unittest.TestCase):
         # build conflicting state
         app.local_var.txn = txn
         app.local_var.tid = tid
-        packet = Packet()
-        packet.answerStoreObject(msg_id=1, conflicting=1, oid=oid, serial=tid)
+        packet = protocol.answerStoreObject(msg_id=1, conflicting=1, oid=oid, serial=tid)
         conn = Mock({ 
             'getNextId': 1,
             'fakeReceived': packet,    
@@ -464,8 +450,7 @@ class ClientApplicationTest(unittest.TestCase):
         # case with no conflict
         app.local_var.txn = txn
         app.local_var.tid = tid
-        packet = Packet()
-        packet.answerStoreObject(msg_id=1, conflicting=0, oid=oid, serial=tid)
+        packet = protocol.answerStoreObject(msg_id=1, conflicting=0, oid=oid, serial=tid)
         conn = Mock({ 
             'getNextId': 1,
             'fakeReceived': packet,    
@@ -504,9 +489,8 @@ class ClientApplicationTest(unittest.TestCase):
         txn = self.makeTransactionObject()
         app.local_var.txn = txn
         app.local_var.tid = tid
-        packet = Packet()
         # wrong answer -> failure
-        packet.answerNewOIDs(1, ())
+        packet = protocol.answerNewOIDs(1, ())
         conn = Mock({ 
             'getNextId': 1,
             'fakeReceived': packet,    
@@ -537,9 +521,8 @@ class ClientApplicationTest(unittest.TestCase):
         txn = self.makeTransactionObject()
         app.local_var.txn = txn
         app.local_var.tid = tid
-        packet = Packet()
         # response -> OK
-        packet.answerStoreTransaction(msg_id=1, tid=tid)
+        packet = protocol.answerStoreTransaction(msg_id=1, tid=tid)
         conn = Mock({ 
             'getNextId': 1,
             'fakeReceived': packet,    
@@ -636,8 +619,7 @@ class ClientApplicationTest(unittest.TestCase):
         def hook(tid): 
             self.f_called = True
             self.f_called_with_tid = tid
-        packet = Packet()
-        packet.answerNewTID(1, INVALID_TID) 
+        packet = protocol.answerNewTID(1, INVALID_TID) 
         app.master_conn = Mock({ 
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10000),
@@ -662,8 +644,7 @@ class ClientApplicationTest(unittest.TestCase):
         def hook(tid): 
             self.f_called = True
             self.f_called_with_tid = tid
-        packet = Packet()
-        packet.notifyTransactionFinished(1, tid)
+        packet = protocol.notifyTransactionFinished(1, tid)
         app.master_conn = Mock({ 
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10010),
@@ -729,23 +710,19 @@ class ClientApplicationTest(unittest.TestCase):
         self.voteTransaction(app)
         self.finishTransaction(app)
         # undo 1 -> no previous revision
-        u1p1, u1p2 = Packet(), Packet()
-        u1p1.answerTransactionInformation(1, tid1, '', '', '', (oid1, ))
-        u1p2.oidNotFound(1, 'oid not found')
+        u1p1 = protocol.answerTransactionInformation(1, tid1, '', '', '', (oid1, ))
+        u1p2 = protocol.oidNotFound(1, 'oid not found')
         # undo 2 -> not end tid
-        u2p1, u2p2 = Packet(), Packet()
-        u2p1.answerTransactionInformation(1, tid2, '', '', '', (oid2, ))
-        u2p2.answerObject(1, oid2, tid2, tid3, 0, 0, 'O2V1')
+        u2p1 = protocol.answerTransactionInformation(1, tid2, '', '', '', (oid2, ))
+        u2p2 = protocol.answerObject(1, oid2, tid2, tid3, 0, 0, 'O2V1')
         # undo 3 -> conflict
-        u3p1, u3p2, u3p3 = Packet(), Packet(), Packet()
-        u3p1.answerTransactionInformation(1, tid3, '', '', '', (oid2, ))
-        u3p2.answerObject(1, oid2, tid3, tid3, 0, 0, 'O2V2')
-        u3p3.answerStoreObject(msg_id=1, conflicting=1, oid=oid2, serial=tid2)
+        u3p1 = protocol.answerTransactionInformation(1, tid3, '', '', '', (oid2, ))
+        u3p2 = protocol.answerObject(1, oid2, tid3, tid3, 0, 0, 'O2V2')
+        u3p3 = protocol.answerStoreObject(msg_id=1, conflicting=1, oid=oid2, serial=tid2)
         # undo 4 -> ok
-        u4p1, u4p2, u4p3 = Packet(), Packet(), Packet()
-        u4p1.answerTransactionInformation(1, tid3, '', '', '', (oid2, ))
-        u4p2.answerObject(1, oid2, tid3, tid3, 0, 0, 'O2V2')
-        u4p3.answerStoreObject(msg_id=1, conflicting=0, oid=oid2, serial=tid2)
+        u4p1 = protocol.answerTransactionInformation(1, tid3, '', '', '', (oid2, ))
+        u4p2 = protocol.answerObject(1, oid2, tid3, tid3, 0, 0, 'O2V2')
+        u4p3 = protocol.answerStoreObject(msg_id=1, conflicting=0, oid=oid2, serial=tid2)
         # test logic
         packets = (u1p1, u1p2, u2p1, u2p2, u3p1, u3p2, u3p3, u3p1, u4p2, u4p3)
         conn = Mock({ 
@@ -777,9 +754,8 @@ class ClientApplicationTest(unittest.TestCase):
         oid1, oid2 = self.makeOID(1), self.makeOID(2)
         # TIDs packets supplied by _waitMessage hook
         # TXN info packets
-        p3, p4 = Packet(), Packet()
-        p3.answerTransactionInformation(1, tid1, '', '', '', (oid1, ))
-        p4.answerTransactionInformation(1, tid2, '', '', '', (oid2, ))
+        p3 = protocol.answerTransactionInformation(1, tid1, '', '', '', (oid1, ))
+        p4 = protocol.answerTransactionInformation(1, tid2, '', '', '', (oid2, ))
         conn = Mock({
             'getNextId': 1,
             'getUUID': ReturnValues(uuid1, uuid2),
@@ -809,13 +785,11 @@ class ClientApplicationTest(unittest.TestCase):
         tid1, tid2 = self.makeTID(1), self.makeTID(2)
         object_history = ( (tid1, 42), (tid2, 42),)
         # object history, first is a wrong oid, second is valid
-        p1, p2 = Packet(), Packet()
-        p1.answerObjectHistory(1, self.makeOID(2), ())
-        p2.answerObjectHistory(1, oid, object_history)
+        p1 = protocol.answerObjectHistory(1, self.makeOID(2), ())
+        p2 = protocol.answerObjectHistory(1, oid, object_history)
         # transaction history
-        p3, p4 = Packet(), Packet()
-        p3.answerTransactionInformation(1, tid1, 'u', 'd', 'e', (oid, ))
-        p4.answerTransactionInformation(1, tid2, 'u', 'd', 'e', (oid, ))
+        p3 = protocol.answerTransactionInformation(1, tid1, 'u', 'd', 'e', (oid, ))
+        p4 = protocol.answerTransactionInformation(1, tid2, 'u', 'd', 'e', (oid, ))
         # faked environnement
         conn = Mock({
             'getNextId': 1,

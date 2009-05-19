@@ -24,6 +24,7 @@ from struct import pack, unpack
 from neo.protocol import Packet, INVALID_UUID
 from neo.master.verification import VerificationEventHandler
 from neo.master.app import Application
+from neo import protocol
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
      PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
      REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION, START_OPERATION, \
@@ -147,17 +148,12 @@ server: 127.0.0.1:10023
                              port=10021):
         """Do first step of identification to MN
         """
-        packet = Packet(msg_id=1)
         uuid = self.getNewUUID()
+        args = (node_type, uuid, ip, port, self.app.name)
+        packet = protocol.requestNodeIdentification(1, *args)
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
-        self.verification.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=node_type,
-                                                uuid=uuid,
-                                                ip_address=ip,
-                                                port=port,
-                                                name=self.app.name,)
+        self.verification.handleRequestNodeIdentification(conn, packet, *args)
         self.checkCalledAcceptNodeIdentification(conn)
         return uuid
 
@@ -267,12 +263,12 @@ server: 127.0.0.1:10023
 
     def test_04_handleRequestNodeIdentification(self):
         verification = self.verification
-        packet = Packet(msg_id=1)
         uuid = self.getNewUUID()
+        args = ( MASTER_NODE_TYPE, uuid, '127.0.0.1', self.storage_port, "INVALID_NAME")
+        packet = protocol.requestNodeIdentification(1, *args)
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None})
-        verification.handleRequestNodeIdentification(conn,
-                                                packet=packet,
+        verification.handleRequestNodeIdentification(conn, packet=packet, 
                                                 node_type=MASTER_NODE_TYPE,
                                                 uuid=uuid,
                                                 ip_address='127.0.0.1',
@@ -523,7 +519,7 @@ server: 127.0.0.1:10023
     def test_05_handleAskPrimaryMaster(self):
         verification = self.verification
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = Packet(msg_id=2)
+        packet = protocol.askPrimaryMaster(msg_id=2)
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
@@ -536,7 +532,7 @@ server: 127.0.0.1:10023
         self.checkCalledNotifyNodeInformation(conn, 1)
         # if storage node, expect messages
         uuid = self.identifyToMasterNode(STORAGE_NODE_TYPE, port=self.storage_port)
-        packet = Packet(msg_id=2)
+        packet = protocol.askPrimaryMaster(msg_id=2)
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
@@ -571,7 +567,7 @@ server: 127.0.0.1:10023
     def test_07_handleReelectPrimaryMaster(self):
         verification = self.verification
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = Packet()
+        packet = protocol.askPrimaryMaster(0)
         # No uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,

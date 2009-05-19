@@ -20,6 +20,7 @@ import unittest
 import logging
 import threading
 from mock import Mock, ReturnValues
+from neo import protocol
 from neo.protocol import Packet, INVALID_UUID
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
      PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
@@ -100,7 +101,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         dispatcher = self.getDispatcher()
         client_handler = BaseClientEventHandler(None, dispatcher)
         conn = self.getConnection()
-        client_handler.packetReceived(conn, Packet().ping(1))
+        client_handler.packetReceived(conn, protocol.ping(1))
         pong = conn.mockGetNamedCalls('addPacket')[0].getParam(0)
         self.assertTrue(isinstance(pong, Packet))
         self.assertEquals(pong.getType(), PONG)
