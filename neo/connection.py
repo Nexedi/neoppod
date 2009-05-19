@@ -287,7 +287,7 @@ class Connection(BaseConnection):
             self.write_buf += packet.encode()
         except ProtocolError, m:
             logging.critical('trying to send a too big message')
-            return self.addPacket(protocol.internalError(packet.getId(), m[0]))
+            return self.addPacket(protocol.internalError(m[0]))
 
         # If this is the first time, enable polling for writing.
         if self.write_buf:
@@ -319,6 +319,24 @@ class Connection(BaseConnection):
         event = IdleEvent(self, msg_id, timeout, additional_timeout)
         self.event_dict[msg_id] = event
         self.em.addIdleEvent(event)
+
+    def notify(self, packet):
+        msg_id = self.getNextId()
+        packet.setId(msg_id)
+        self.addPacket(packet)
+        return msg_id
+
+    def ask(self, packet, timeout=5, additional_timeout=30):
+        msg_id = self.getNextId()
+        packet.setId(msg_id)
+        self.expectMessage(msg_id)
+        self.addPacket(packet)
+        return msg_id
+
+    def answer(self, packet, answer_to):
+        msg_id = answer_to.getId()
+        packet.setId(msg_id)
+        self.addPacket(packet)
 
     def isServerConnection(self):
         raise NotImplementedError

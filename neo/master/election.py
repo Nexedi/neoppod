@@ -40,11 +40,9 @@ class ElectionEventHandler(MasterEventHandler):
     def connectionCompleted(self, conn):
         app = self.app
         # Request a node idenfitication.
-        msg_id = conn.getNextId()
-        p = protocol.requestNodeIdentification(msg_id, MASTER_NODE_TYPE, app.uuid,
+        p = protocol.requestNodeIdentification(MASTER_NODE_TYPE, app.uuid,
                                     app.server[0], app.server[1], app.name)
-        conn.addPacket(p)
-        conn.expectMessage(msg_id)
+        conn.ask(p)
         MasterEventHandler.connectionCompleted(self, conn)
 
     def connectionFailed(self, conn):
@@ -121,9 +119,7 @@ class ElectionEventHandler(MasterEventHandler):
             node.setUUID(uuid)
 
             # Ask a primary master.
-            msg_id = conn.getNextId()
-            conn.addPacket(protocol.askPrimaryMaster(msg_id))
-            conn.expectMessage(msg_id)
+            conn.ask(protocol.askPrimaryMaster())
         else:
             self.handleUnexpectedPacket(conn, packet)
 
@@ -183,13 +179,12 @@ class ElectionEventHandler(MasterEventHandler):
             app = self.app
             if node_type != MASTER_NODE_TYPE:
                 logging.info('reject a connection from a non-master')
-                conn.addPacket(protocol.notReady(packet.getId(), 'retry later'))
+                conn.answer(protocol.notReady('retry later'), packet)
                 conn.abort()
                 return
             if name != app.name:
                 logging.error('reject an alien cluster')
-                conn.addPacket(protocol.protocolError(packet.getId(),
-                                                      'invalid cluster name'))
+                conn.answer(protocol.protocolError('invalid cluster name'), packet)
                 conn.abort()
                 return
 
@@ -203,8 +198,8 @@ class ElectionEventHandler(MasterEventHandler):
                 # If this node is broken, reject it.
                 if node.getUUID() == uuid:
                     if node.getState() == BROKEN_STATE:
-                        p = protocol.brokenNodeDisallowedError(packet.getId(), 'go away')
-                        conn.addPacket(p)
+                        conn.answer(protocol.brokenNodeDisallowedError(
+                                'go away'), packet)
                         conn.abort()
                         return
 
@@ -215,11 +210,11 @@ class ElectionEventHandler(MasterEventHandler):
             node.setUUID(uuid)
             conn.setUUID(uuid)
 
-            p = protocol.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
+            p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
                                        app.uuid, app.server[0], app.server[1],
                                        app.num_partitions, app.num_replicas,
                                        uuid)
-            conn.addPacket(p)
+            conn.answer(p, packet)
             # Next, the peer should ask a primary master node.
             conn.expectMessage()
 
@@ -246,8 +241,8 @@ class ElectionEventHandler(MasterEventHandler):
                     continue
                 info = n.getServer() + (n.getUUID() or INVALID_UUID,)
                 known_master_list.append(info)
-            p = protocol.answerPrimaryMaster(packet.getId(), primary_uuid, known_master_list)
-            conn.addPacket(p)
+            p = protocol.answerPrimaryMaster(primary_uuid, known_master_list)
+            conn.answer(p, packet)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         if not conn.isServerConnection():

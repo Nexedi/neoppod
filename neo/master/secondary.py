@@ -63,8 +63,7 @@ class SecondaryEventHandler(MasterEventHandler):
             app = self.app
             if name != app.name:
                 logging.error('reject an alien cluster')
-                conn.addPacket(protocol.protocolError(packet.getId(),
-                                                      'invalid cluster name'))
+                conn.answer(protocol.protocolError('invalid cluster name'), packet)
                 conn.abort()
                 return
 
@@ -81,11 +80,11 @@ class SecondaryEventHandler(MasterEventHandler):
 
             conn.setUUID(uuid)
 
-            p = protocol.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
+            p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
                                        app.uuid, app.server[0], app.server[1],
                                        app.num_partitions, app.num_replicas,
                                        uuid)
-            conn.addPacket(p)
+            conn.answer(p, packet)
             # Next, the peer should ask a primary master node.
             conn.expectMessage()
 
@@ -108,8 +107,8 @@ class SecondaryEventHandler(MasterEventHandler):
                 info = n.getServer() + (n.getUUID() or INVALID_UUID,)
                 known_master_list.append(info)
 
-            p = protocol.answerPrimaryMaster(packet.getId(), primary_uuid, known_master_list)
-            conn.addPacket(p)
+            p = protocol.answerPrimaryMaster(primary_uuid, known_master_list)
+            conn.answer(p, packet)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         self.handleUnexpectedPacket(conn, packet)

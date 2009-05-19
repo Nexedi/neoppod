@@ -57,10 +57,9 @@ class MonitoringEventHandler(BaseEventHandler):
             # Should not happen.
             raise RuntimeError('connection completed while not trying to connect')
 
-        p = protocol.requestNodeIdentification(conn.getNextId(), ADMIN_NODE_TYPE, 
+        p = protocol.requestNodeIdentification(ADMIN_NODE_TYPE, 
                 app.uuid, app.server[0], app.server[1], app.name)
-        conn.addPacket(p)
-        conn.expectMessage(msg_id)
+        conn.ask(p)
         EventHandler.connectionCompleted(self, conn)
 
     def connectionFailed(self, conn):
@@ -172,9 +171,7 @@ class MonitoringEventHandler(BaseEventHandler):
             app.uuid = your_uuid
 
         # Ask a primary master.
-        p = protocol.askPrimaryMaster(conn.getNextId())
-        conn.addPacket(p)
-        conn.expectMessage(msg_id)
+        conn.ask(protocol.askPrimaryMaster())
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):

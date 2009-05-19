@@ -82,8 +82,7 @@ class BaseClientEventHandler(EventHandler):
                 ip_address, port = node.getServer()
                 node_list = [(STORAGE_NODE_TYPE, ip_address, port, 
                               node.getUUID(), state)]
-                p = protocol.notifyNodeInformation(conn.getNextId(), node_list)
-                conn.addPacket(p)
+                conn.notify(protocol.notifyNodeInformation(node_list))
             finally:
                 conn.unlock()
 
@@ -149,10 +148,7 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
         # Ask a primary master.
         conn.lock()
         try:
-            msg_id = conn.getNextId()
-            p = protocol.askPrimaryMaster(msg_id)
-            conn.addPacket(p)
-            conn.expectMessage(msg_id)
+            msg_id = conn.ask(protocol.askPrimaryMaster())
             self.dispatcher.register(conn, msg_id, app.getQueue())
         finally:
             conn.unlock()

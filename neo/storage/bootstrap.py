@@ -37,11 +37,9 @@ class BootstrapEventHandler(StorageEventHandler):
             # Should not happen.
             raise RuntimeError('connection completed while not trying to connect')
 
-        msg_id = conn.getNextId()
-        p = protocol.requestNodeIdentification(msg_id, STORAGE_NODE_TYPE, app.uuid,
+        p = protocol.requestNodeIdentification(STORAGE_NODE_TYPE, app.uuid,
                                     app.server[0], app.server[1], app.name)
-        conn.addPacket(p)
-        conn.expectMessage(msg_id)
+        conn.ask(p)
         StorageEventHandler.connectionCompleted(self, conn)
 
     def connectionFailed(self, conn):
@@ -115,13 +113,12 @@ class BootstrapEventHandler(StorageEventHandler):
             app = self.app
             if node_type != MASTER_NODE_TYPE:
                 logging.info('reject a connection from a non-master')
-                conn.addPacket(protocol.notReady(packet.getId(), 'retry later'))
+                conn.answer(protocol.notReady('retry later'), packet)
                 conn.abort()
                 return
             if name != app.name:
                 logging.error('reject an alien cluster')
-                conn.addPacket(protocol.protocolError(packet.getId(),
-                                                      'invalid cluster name'))
+                conn.answer(protocol.protocolError('invalid cluster name'), packet)
                 conn.abort()
                 return
 
@@ -134,8 +131,8 @@ class BootstrapEventHandler(StorageEventHandler):
                 # If this node is broken, reject it.
                 if node.getUUID() == uuid:
                     if node.getState() == BROKEN_STATE:
-                        p = protocol.brokenNodeDisallowedError(packet.getId(), 'go away')
-                        conn.addPacket(p)
+                        p = protocol.brokenNodeDisallowedError('go away')
+                        conn.answer(p, packet)
                         conn.abort()
                         return
 
@@ -143,10 +140,9 @@ class BootstrapEventHandler(StorageEventHandler):
             node.setUUID(uuid)
             conn.setUUID(uuid)
 
-            p = protocol.acceptNodeIdentification(packet.getId(), STORAGE_NODE_TYPE,
-                                       app.uuid, app.server[0], app.server[1],
-                                       0, 0, uuid)
-            conn.addPacket(p)
+            p = protocol.acceptNodeIdentification(STORAGE_NODE_TYPE, app.uuid, 
+                        app.server[0], app.server[1], 0, 0, uuid)
+            conn.answer(p, packet)
 
             # Now the master node should know that I am not the right one.
             conn.abort()
@@ -199,9 +195,7 @@ class BootstrapEventHandler(StorageEventHandler):
             node.setUUID(uuid)
 
             # Ask a primary master.
-            msg_id = conn.getNextId()
-            conn.addPacket(protocol.askPrimaryMaster(msg_id))
-            conn.expectMessage(msg_id)
+            conn.ask(protocol.askPrimaryMaster())
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):

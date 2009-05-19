@@ -189,8 +189,7 @@ class Application(object):
                     logging.info('I am the primary, so sending an announcement')
                     for conn in em.getConnectionList():
                         if isinstance(conn, ClientConnection):
-                            p = protocol.announcePrimaryMaster(conn.getNextId())
-                            conn.addPacket(p)
+                            conn.notify(protocol.announcePrimaryMaster())
                             conn.abort()
                     closed = False
                     t = time()
@@ -239,7 +238,7 @@ class Application(object):
                 # Ask all connected nodes to reelect a single primary master.
                 for conn in em.getConnectionList():
                     if isinstance(conn, ClientConnection):
-                        conn.addPacket(protocol.reelectPrimaryMaster(conn.getNextId()))
+                        conn.notify(protocol.reelectPrimaryMaster())
                         conn.abort()
 
                 # Wait until the connections are closed.
@@ -295,14 +294,12 @@ class Application(object):
                     n = self.nm.getNodeByUUID(c.getUUID())
                     if n.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
                         node_list = [(node_type, ip_address, port, uuid, state)]
-                        p = protocol.notifyNodeInformation(c.getNextId(), node_list)
-                        c.addPacket(p)
+                        c.notify(protocol.notifyNodeInformation(node_list))
         elif node.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
             for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
                     node_list = [(node_type, ip_address, port, uuid, state)]
-                    p = protocol.notifyNodeInformation(c.getNextId(), node_list)
-                    c.addPacket(p)
+                    c.notify(protocol.notifyNodeInformation(node_list))
         elif node.getNodeType() != ADMIN_NODE_TYPE:
             raise RuntimeError('unknown node type')
 
@@ -318,9 +315,9 @@ class Application(object):
                     start = 0
                     while size:
                         amt = min(10000, size)
-                        p = protocol.notifyPartitionChanges(c.getNextId(), ptid,
+                        p = protocol.notifyPartitionChanges(ptid,
                                                  cell_list[start:start+amt])
-                        c.addPacket(p)
+                        c.notify(p)
                         size -= amt
                         start += amt
 
@@ -354,10 +351,7 @@ class Application(object):
                         node = nm.getNodeByUUID(uuid)
                         if node.getNodeType() == STORAGE_NODE_TYPE \
                                 and node.getState() == RUNNING_STATE:
-                            msg_id = conn.getNextId()
-                            p = protocol.askLastIDs(msg_id)
-                            conn.addPacket(p)
-                            conn.expectMessage(msg_id)
+                            conn.ask(protocol.askLastIDs())
 
             # Wait for at least one storage node to appear.
             while self.target_uuid is None:
@@ -397,10 +391,7 @@ class Application(object):
                 size = self.num_partitions
                 while size:
                     amt = min(1000, size)
-                    msg_id = conn.getNextId()
-                    p = protocol.askPartitionTable(msg_id, range(start, start + amt))
-                    conn.addPacket(p)
-                    conn.expectMessage(msg_id)
+                    conn.ask(protocol.askPartitionTable(range(start, start + amt)))
                     size -= amt
                     start += amt
 
@@ -455,10 +446,7 @@ class Application(object):
             uuid = conn.getUUID()
             if uuid in transaction_uuid_list:
                 self.asking_uuid_dict[uuid] = False
-                msg_id = conn.getNextId()
-                p = protocol.askTransactionInformation(msg_id, tid)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
+                conn.ask(protocol.askTransactionInformation(tid))
         if len(self.asking_uuid_dict) == 0:
             raise VerificationFailure
 
@@ -488,10 +476,7 @@ class Application(object):
                     uuid = conn.getUUID()
                     if uuid in object_uuid_list:
                         self.asking_uuid_dict[uuid] = False
-                        msg_id = conn.getNextId()
-                        p = protocol.askObjectPresent(msg_id, oid, tid)
-                        conn.addPacket(p)
-                        conn.expectMessage(msg_id)
+                        conn.ask(protocol.askObjectPresent(oid, tid))
 
                 while 1:
                     em.poll(1)
@@ -534,14 +519,12 @@ class Application(object):
                     for offset in xrange(self.num_partitions):
                         row_list.append((offset, self.pt.getRow(offset)))
                         if len(row_list) == 1000:
-                            p = protocol.sendPartitionTable(conn.getNextId(),
-                                                 self.lptid, row_list)
-                            conn.addPacket(p)
+                            p = protocol.sendPartitionTable( self.lptid, row_list)
+                            conn.notify(p)
                             del row_list[:]
                     if len(row_list) != 0:
-                        p = protocol.sendPartitionTable(conn.getNextId(),
-                                             self.lptid, row_list)
-                        conn.addPacket(p)
+                        p = protocol.sendPartitionTable(self.lptid, row_list)
+                        conn.notify(p)
 
         # Gather all unfinished transactions.
         #
@@ -567,10 +550,7 @@ class Application(object):
                 node = nm.getNodeByUUID(uuid)
                 if node.getNodeType() == STORAGE_NODE_TYPE:
                     self.asking_uuid_dict[uuid] = False
-                    msg_id = conn.getNextId()
-                    p = protocol.askUnfinishedTransactions(msg_id)
-                    conn.addPacket(p)
-                    conn.expectMessage(msg_id)
+                    conn.ask(protocol.askUnfinishedTransactions())
 
         while 1:
             em.poll(1)
@@ -591,14 +571,12 @@ class Application(object):
                     if uuid is not None:
                         node = nm.getNodeByUUID(uuid)
                         if node.getNodeType() == STORAGE_NODE_TYPE:
-                            p = protocol.deleteTransaction(conn.getNextId(), tid)
-                            conn.addPacket(p)
+                            conn.notify(protocol.deleteTransaction(tid))
             else:
                 for conn in em.getConnectionList():
                     uuid = conn.getUUID()
                     if uuid in uuid_set:
-                        p = protocol.commitTransaction(conn.getNextId(), tid)
-                        conn.addPacket(p)
+                        conn.ask(protocol.commitTransaction(tid))
 
             # If possible, send the packets now.
             em.poll(0)
@@ -644,7 +622,7 @@ class Application(object):
             if uuid is not None:
                 node = nm.getNodeByUUID(uuid)
                 if node.getNodeType() == STORAGE_NODE_TYPE:
-                    conn.addPacket(protocol.startOperation(conn.getNextId()))
+                    conn.notify(protocol.startOperation())
 
         # Now everything is passive.
         expiration = 10
@@ -682,7 +660,7 @@ class Application(object):
                     if uuid is not None:
                         node = nm.getNodeByUUID(uuid)
                         if node.getNodeType() in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE):
-                            conn.addPacket(protocol.stopOperation(conn.getNextId()))
+                            conn.notify(protocol.stopOperation())
                             if node.getNodeType() == CLIENT_NODE_TYPE:
                                 conn.abort()
 

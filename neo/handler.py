@@ -83,7 +83,7 @@ class EventHandler(object):
         logging.info('malformed packet %x from %s:%d: %s',
                      packet.getType(), conn.getAddress()[0], 
                      conn.getAddress()[1], error_message)
-        conn.addPacket(protocol.protocolError(packet.getId(), error_message))
+        conn.send(protocol.protocolError(error_message))
         conn.abort()
         self.peerBroken(conn)
 
@@ -110,7 +110,7 @@ class EventHandler(object):
         else:
             message = 'unexpected packet: ' + message
         logging.info('%s', message)
-        conn.addPacket(protocol.protocolError(packet.getId(), message))
+        conn.send(protocol.protocolError(message))
         conn.abort()
         self.peerBroken(conn)
 
@@ -134,7 +134,7 @@ class EventHandler(object):
 
     def handlePing(self, conn, packet):
         logging.info('got a ping packet; am I overloaded?')
-        conn.addPacket(protocol.pong(packet.getId()))
+        conn.answer(protocol.pong(), packet)
 
     def handlePong(self, conn, packet):
         pass

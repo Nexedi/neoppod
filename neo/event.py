@@ -63,11 +63,8 @@ class IdleEvent(object):
                     self._additional_timeout -= 5
                     conn.expectMessage(self._id, 5, self._additional_timeout)
                     # Start a keep-alive packet.
-                    logging.info('sending a ping to %s:%d', 
-                                 *(conn.getAddress()))
-                    msg_id = conn.getNextId()
-                    conn.addPacket(protocol.ping(msg_id))
-                    conn.expectMessage(msg_id, 5, 0)
+                    logging.info('sending a ping to %s:%d', *(conn.getAddress()))
+                    conn.ask(protocol.ping(), 5, 0)
                 else:
                     conn.expectMessage(self._id, self._additional_timeout, 0)
                 return True

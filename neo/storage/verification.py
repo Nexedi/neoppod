@@ -69,13 +69,13 @@ class VerificationEventHandler(StorageEventHandler):
             app = self.app
             if node_type != MASTER_NODE_TYPE:
                 logging.info('reject a connection from a non-master')
-                conn.addPacket(protocol.notReady(packet.getId(), 'retry later'))
+                conn.answer(protocol.notReady('retry later'), packet)
                 conn.abort()
                 return
             if name != app.name:
                 logging.error('reject an alien cluster')
-                conn.addPacket(protocol.protocolError(packet.getId(),
-                                                      'invalid cluster name'))
+                conn.answer(protocol.protocolError(
+                          'invalid cluster name'), packet)
                 conn.abort()
                 return
 
@@ -88,8 +88,8 @@ class VerificationEventHandler(StorageEventHandler):
                 # If this node is broken, reject it.
                 if node.getUUID() == uuid:
                     if node.getState() == BROKEN_STATE:
-                        p = protocol.brokenNodeDisallowedError(packet.getId(), 'go away')
-                        conn.addPacket(p)
+                        p = protocol.brokenNodeDisallowedError('go away')
+                        conn.answer(p, packet)
                         conn.abort()
                         return
 
@@ -97,11 +97,10 @@ class VerificationEventHandler(StorageEventHandler):
             node.setUUID(uuid)
             conn.setUUID(uuid)
 
-            p = protocol.acceptNodeIdentification(packet.getId(), STORAGE_NODE_TYPE,
-                                       app.uuid, app.server[0], app.server[1],
-                                       app.num_partitions, app.num_replicas,
-                                       uuid)
-            conn.addPacket(p)
+            p = protocol.acceptNodeIdentification(STORAGE_NODE_TYPE, app.uuid, 
+                    app.server[0], app.server[1], app.num_partitions, 
+                    app.num_replicas, uuid)
+            conn.answer(p, packet)
 
             # Now the master node should know that I am not the right one.
             conn.abort()
@@ -128,8 +127,8 @@ class VerificationEventHandler(StorageEventHandler):
             app = self.app
             oid = app.dm.getLastOID() or INVALID_OID
             tid = app.dm.getLastTID() or INVALID_TID
-            p = protocol.answerLastIDs(packet.getId(), oid, tid, app.ptid)
-            conn.addPacket(p)
+            p = protocol.answerLastIDs(oid, tid, app.ptid)
+            conn.answer(p, packet)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
@@ -147,13 +146,12 @@ class VerificationEventHandler(StorageEventHandler):
                         pass
                     row_list.append((offset, row))
             except IndexError:
-                p = protocol.protocolError(packet.getId(), 
-                                'invalid partition table offset')
-                conn.addPacket(p)
+                p = protocol.protocolError( 'invalid partition table offset')
+                conn.answer(p, packer)
                 return
 
-            p = protocol.answerPartitionTable(packet.getId(), app.ptid, row_list)
-            conn.addPacket(p)
+            p = protocol.answerPartitionTable(app.ptid, row_list)
+            conn.answer(p, packet)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
@@ -236,8 +234,8 @@ class VerificationEventHandler(StorageEventHandler):
         if not conn.isServerConnection():
             app = self.app
             tid_list = app.dm.getUnfinishedTIDList()
-            p = protocol.answerUnfinishedTransactions(packet.getId(), tid_list)
-            conn.addPacket(p)
+            p = protocol.answerUnfinishedTransactions(tid_list)
+            conn.answer(p, packet)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
@@ -252,21 +250,20 @@ class VerificationEventHandler(StorageEventHandler):
             t = app.dm.getTransaction(tid)
 
         if t is None:
-            p = protocol.tidNotFound(packet.getId(), '%s does not exist' % dump(tid))
+            p = protocol.tidNotFound('%s does not exist' % dump(tid))
         else:
-            p = protocol.answerTransactionInformation(packet.getId(), tid, 
-                                           t[1], t[2], t[3], t[0])
-        conn.addPacket(p)
+            p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
+        conn.answer(p, packet)
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):
         if not conn.isServerConnection():
             app = self.app
             if app.dm.objectPresent(oid, tid):
-                p = protocol.answerObjectPresent(packet.getId(), oid, tid)
+                p = protocol.answerObjectPresent(oid, tid)
             else:
-                p = protocol.oidNotFound(packet.getId(), 
+                p = protocol.oidNotFound(
                               '%s:%s do not exist' % (dump(oid), dump(tid)))
-            conn.addPacket(p)
+            conn.answer(p, packet)
         else:
             self.handleUnexpectedPacket(conn, packet)
 

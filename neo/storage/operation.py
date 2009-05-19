@@ -139,8 +139,8 @@ class OperationEventHandler(StorageEventHandler):
             app = self.app
             if name != app.name:
                 logging.error('reject an alien cluster')
-                conn.addPacket(protocol.protocolError(packet.getId(),
-                                                      'invalid cluster name'))
+                p = protocol.protocolError('invalid cluster name')
+                conn.answer(p, packet)
                 conn.abort()
                 return
 
@@ -156,16 +156,15 @@ class OperationEventHandler(StorageEventHandler):
                     # If I do not know such a node, and it is not even a master
                     # node, simply reject it.
                     logging.error('reject an unknown node %s', dump(uuid))
-                    conn.addPacket(protocol.notReady(packet.getId(),
-                                                     'unknown node'))
+                    conn.answer(protocol.notReady('unknown node'), packet)
                     conn.abort()
                     return
             else:
                 # If this node is broken, reject it.
                 if node.getUUID() == uuid:
                     if node.getState() == BROKEN_STATE:
-                        p = protocol.brokenNodeDisallowedError(packet.getId(), 'go away')
-                        conn.addPacket(p)
+                        p = protocol.brokenNodeDisallowedError('go away')
+                        conn.answer(p, packet)
                         conn.abort()
                         return
 
@@ -173,11 +172,10 @@ class OperationEventHandler(StorageEventHandler):
             node.setUUID(uuid)
             conn.setUUID(uuid)
 
-            p = protocol.acceptNodeIdentification(packet.getId(), STORAGE_NODE_TYPE,
-                                       app.uuid, app.server[0], app.server[1],
-                                       app.num_partitions, app.num_replicas,
-                                       uuid)
-            conn.addPacket(p)
+            p = protocol.acceptNodeIdentification(STORAGE_NODE_TYPE, app.uuid, 
+                        app.server[0], app.server[1], app.num_partitions, 
+                        app.num_replicas, uuid)
+            conn.answer(p, packet)
 
             if node_type == MASTER_NODE_TYPE:
                 conn.abort()
@@ -256,11 +254,10 @@ class OperationEventHandler(StorageEventHandler):
         t = app.dm.getTransaction(tid)
 
         if t is None:
-            p = protocol.tidNotFound(packet.getId(), '%s does not exist' % dump(tid))
+            p = protocol.tidNotFound('%s does not exist' % dump(tid))
         else:
-            p = protocol.answerTransactionInformation(packet.getId(), tid,
-                                           t[1], t[2], t[3], t[0])
-        conn.addPacket(p)
+            p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
+        conn.answer(p, packet)
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):
         self.handleUnexpectedPacket(conn, packet)
@@ -284,7 +281,7 @@ class OperationEventHandler(StorageEventHandler):
             except KeyError:
                 pass
 
-            conn.addPacket(protocol.notifyInformationLocked(packet.getId(), tid))
+            conn.answer(protocol.notifyInformationLocked(tid), packet)
         else:
             self.handleUnexpectedPacket(conn, packet)
 
@@ -328,19 +325,18 @@ class OperationEventHandler(StorageEventHandler):
                 next_serial = INVALID_SERIAL
             logging.debug('oid = %s, serial = %s, next_serial = %s',
                           dump(oid), dump(serial), dump(next_serial))
-            p = protocol.answerObject(packet.getId(), oid, serial, next_serial,
+            p = protocol.answerObject(oid, serial, next_serial,
                            compression, checksum, data)
         else:
             logging.debug('oid = %s not found', dump(oid))
-            p = protocol.oidNotFound(packet.getId(), '%s does not exist' % dump(oid))
-        conn.addPacket(p)
+            p = protocol.oidNotFound('%s does not exist' % dump(oid))
+        conn.answer(p, packet)
 
     def handleAskTIDs(self, conn, packet, first, last, partition):
         # This method is complicated, because I must return TIDs only
         # about usable partitions assigned to me.
         if first >= last:
-            conn.addPacket(protocol.protocolError(packet.getId(),
-                                                  'invalid offsets'))
+            conn.answer(protocol.protocolError( 'invalid offsets'), packet)
             return
 
         app = self.app
@@ -359,20 +355,19 @@ class OperationEventHandler(StorageEventHandler):
 
         tid_list = app.dm.getTIDList(first, last - first,
                                      app.num_partitions, partition_list)
-        conn.addPacket(protocol.answerTIDs(packet.getId(), tid_list))
+        conn.answer(protocol.answerTIDs(tid_list), packet)
 
     def handleAskObjectHistory(self, conn, packet, oid, first, last):
         if first >= last:
-            conn.addPacket(protocol.protocolError(packet.getId(),
-                                                  'invalid offsets'))
+            conn.answer(protocol.protocolError( 'invalid offsets'), packet)
             return
 
         app = self.app
         history_list = app.dm.getObjectHistory(oid, first, last - first)
         if history_list is None:
             history_list = []
-        conn.addPacket(protocol.answerObjectHistory(packet.getId(), oid,
-                                                    history_list))
+        p = protocol.answerObjectHistory(oid, history_list)
+        conn.answer(p, packet)
 
     def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
                                   ext, oid_list):
@@ -385,7 +380,7 @@ class OperationEventHandler(StorageEventHandler):
 
         t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
         t.addTransaction(oid_list, user, desc, ext)
-        conn.addPacket(protocol.answerStoreTransaction(packet.getId(), tid))
+        conn.answer(protocol.answerStoreTransaction(tid), packet)
 
     def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
@@ -406,8 +401,8 @@ class OperationEventHandler(StorageEventHandler):
                 # If a newer transaction already locks this object,
                 # do not try to resolve a conflict, so return immediately.
                 logging.info('unresolvable conflict in %s', dump(oid))
-                conn.addPacket(protocol.answerStoreObject(packet.getId(), 1,
-                                                          oid, locking_tid))
+                p = protocol.answerStoreObject(1, oid, locking_tid)
+                conn.answer(p, packet)
             return
 
         # Next, check if this is generated from the latest revision.
@@ -416,14 +411,14 @@ class OperationEventHandler(StorageEventHandler):
             last_serial = history_list[0][0]
             if last_serial != serial:
                 logging.info('resolvable conflict in %s', dump(oid))
-                conn.addPacket(protocol.answerStoreObject(packet.getId(), 1,
-                                                          oid, last_serial))
+                p = protocol.answerStoreObject(1, oid, last_serial)
+                conn.answer(p, packet)
                 return
         # Now store the object.
         t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
         t.addObject(oid, compression, checksum, data)
-        conn.addPacket(protocol.answerStoreObject(packet.getId(), 0,
-                                                  oid, serial))
+        p = protocol.answerStoreObject(0, oid, serial)
+        conn.answer(p, packet)
         app.store_lock_dict[oid] = tid
 
     def handleAbortTransaction(self, conn, packet, tid):
@@ -467,8 +462,7 @@ class OperationEventHandler(StorageEventHandler):
         # This method is complicated, because I must return OIDs only
         # about usable partitions assigned to me.
         if first >= last:
-            conn.addPacket(protocol.protocolError(packet.getId(),
-                                                  'invalid offsets'))
+            conn.answer(protocol.protocolError( 'invalid offsets'), packet)
             return
 
         app = self.app
@@ -487,4 +481,4 @@ class OperationEventHandler(StorageEventHandler):
 
         oid_list = app.dm.getOIDList(first, last - first,
                                      app.num_partitions, partition_list)
-        conn.addPacket(protocol.answerOIDs(packet.getId(), oid_list))
+        conn.answer(protocol.answerOIDs(oid_list), packet)

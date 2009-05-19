@@ -85,11 +85,9 @@ class ConnectionPool(object):
                     logging.error('Connection to storage node %s failed', node)
                     return None
 
-                msg_id = conn.getNextId()
-                p = protocol.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE,
-                                    app.uuid, addr[0], addr[1], app.name)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
+                p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
+                            app.uuid, addr[0], addr[1], app.name)
+                msg_id = conn.ask(p)
                 app.dispatcher.register(conn, msg_id, app.getQueue())
             finally:
                 conn.unlock()
@@ -303,10 +301,7 @@ class Application(object):
                 conn = self.master_conn
                 conn.lock()
                 try:
-                    msg_id = conn.getNextId()
-                    p = protocol.askNewOIDs(msg_id, 25)
-                    conn.addPacket(p)
-                    conn.expectMessage(msg_id)
+                    msg_id = conn.ask(protocol.askNewOIDs(25))
                     self.dispatcher.register(conn, msg_id, self.getQueue())
                 finally:
                     conn.unlock()
@@ -362,10 +357,7 @@ class Application(object):
                     continue
 
                 try:
-                    msg_id = conn.getNextId()
-                    p = protocol.askObject(msg_id, oid, serial, tid)
-                    conn.addPacket(p)
-                    conn.expectMessage(msg_id)
+                    msg_id = conn.ask(protocol.askObject(oid, serial, tid))
                     self.dispatcher.register(conn, msg_id, self.getQueue())
                     self.local_var.asked_object = 0
                 finally:
@@ -467,10 +459,7 @@ class Application(object):
                 raise NEOStorageError("Connection to master node failed")
             conn.lock()
             try:
-                msg_id = conn.getNextId()
-                p = protocol.askNewTID(msg_id)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
+                msg_id = conn.ask(protocol.askNewTID())
                 self.dispatcher.register(conn, msg_id, self.getQueue())
             finally:
                 conn.unlock()
@@ -511,11 +500,9 @@ class Application(object):
                 continue
 
             try:
-                msg_id = conn.getNextId()
-                p = protocol.askStoreObject(msg_id, oid, serial, 1,
+                p = protocol.askStoreObject(oid, serial, 1,
                              checksum, compressed_data, self.local_var.tid)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
+                msg_id = conn.ask(p)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
                 self.local_var.object_stored = 0
             finally:
@@ -562,11 +549,9 @@ class Application(object):
                 continue
 
             try:
-                msg_id = conn.getNextId()
-                p = protocol.askStoreTransaction(msg_id, self.local_var.tid, 
+                p = protocol.askStoreTransaction(self.local_var.tid, 
                         user, desc, ext, oid_list)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
+                msg_id = msg = conn.ask(p)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
                 self.local_var.txn_voted = False
             finally:
@@ -610,7 +595,7 @@ class Application(object):
             if conn is None:
                 continue
             try:
-                conn.addPacket(protocol.abortTransaction(conn.getNextId(), self.local_var.tid))
+                conn.notify(protocol.abortTransaction(self.local_var.tid))
             finally:
                 conn.unlock()
 
@@ -618,7 +603,7 @@ class Application(object):
         conn = self.master_conn
         conn.lock()
         try:
-            conn.addPacket(protocol.abortTransaction(conn.getNextId(), self.local_var.tid))
+            conn.notify(protocol.abortTransaction(self.local_var.tid))
         finally:
             conn.unlock()
 
@@ -639,10 +624,8 @@ class Application(object):
             conn = self.master_conn
             conn.lock()
             try:
-                msg_id = conn.getNextId()
-                p = protocol.finishTransaction(msg_id, oid_list, self.local_var.tid)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id, additional_timeout = 300)
+                p = protocol.finishTransaction(oid_list, self.local_var.tid)
+                msg_id = conn.ask(p)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
             finally:
                 conn.unlock()
@@ -685,10 +668,8 @@ class Application(object):
                 continue
 
             try:
-                msg_id = conn.getNextId()
-                p = protocol.askTransactionInformation(msg_id, transaction_id)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
+                p = protocol.askTransactionInformation(transaction_id)
+                msg_id = conn.ask(p)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
                 self.local_var.txn_info = 0
             finally:
@@ -761,10 +742,8 @@ class Application(object):
                 continue
 
             try:
-                msg_id = conn.getNextId()
-                p = protocol.askTIDs(msg_id, first, last, INVALID_PARTITION)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
+                p = protocol.askTIDs(first, last, INVALID_PARTITION)
+                msg_id = conn.ask(p)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
             finally:
                 conn.unlock()
@@ -799,10 +778,8 @@ class Application(object):
                     continue
 
                 try:
-                    msg_id = conn.getNextId()
-                    p = protocol.askTransactionInformation(msg_id, tid)
-                    conn.addPacket(p)
-                    conn.expectMessage(msg_id)
+                    p = protocol.askTransactionInformation(tid)
+                    msg_id = conn.ask(p)
                     self.dispatcher.register(conn, msg_id, self.getQueue())
                     self.local_var.txn_info = 0
                 finally:
@@ -854,10 +831,8 @@ class Application(object):
                 continue
 
             try:
-                msg_id = conn.getNextId()
-                p = protocol.askObjectHistory(msg_id, oid, 0, length)
-                conn.addPacket(p)
-                conn.expectMessage(msg_id)
+                p = protocol.askObjectHistory(oid, 0, length)
+                msg_id = conn.ask(p)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
                 self.local_var.history = None
             finally:
@@ -894,10 +869,8 @@ class Application(object):
                     continue
 
                 try:
-                    msg_id = conn.getNextId()
-                    p = protocol.askTransactionInformation(msg_id, serial)
-                    conn.addPacket(p)
-                    conn.expectMessage(msg_id)
+                    p = protocol.askTransactionInformation(serial)
+                    msg_id = conn.ask(p)
                     self.dispatcher.register(conn, msg_id, self.getQueue())
                     self.local_var.txn_info = None
                 finally:
@@ -976,11 +949,9 @@ class Application(object):
 
                 conn.lock()
                 try:
-                    msg_id = conn.getNextId()
-                    p = protocol.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, 
+                    p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE, 
                             self.uuid, '0.0.0.0', 0, self.name)
-                    conn.addPacket(p)
-                    conn.expectMessage(msg_id)
+                    msg_id = conn.ask(p)
                     self.dispatcher.register(conn, msg_id, self.getQueue())
                 finally:
                     conn.unlock()
