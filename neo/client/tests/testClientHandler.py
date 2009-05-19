@@ -18,6 +18,7 @@
 import os
 import unittest
 import logging
+import threading
 from mock import Mock, ReturnValues
 from neo.protocol import Packet, INVALID_UUID
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -996,21 +997,23 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     def test_conflictingAnswerStoreObject(self):
         class App:
-            txn_object_stored = (0, 0)
+            local_var = threading.local()
         app = App()
+        app.local_var.object_stored = (0, 0)
         test_oid = '\x00\x00\x00\x00\x00\x00\x00\x01'
         test_serial = 1
         self._testAnswerStoreObject(app, 1, test_oid, test_serial)
-        self.assertEqual(app.txn_object_stored, (-1, test_serial))
+        self.assertEqual(app.local_var.object_stored, (-1, test_serial))
 
     def test_AnswerStoreObject(self):
         class App:
-            txn_object_stored = (0, 0)
+            local_var = threading.local()
         app = App()
+        app.local_var.object_stored = (0, 0)
         test_oid = '\x00\x00\x00\x00\x00\x00\x00\x01'
         test_serial = 1
         self._testAnswerStoreObject(app, 0, test_oid, test_serial)
-        self.assertEqual(app.txn_object_stored, (test_oid, test_serial))
+        self.assertEqual(app.local_var.object_stored, (test_oid, test_serial))
 
     def test_AnswerStoreTransaction(self):
         test_tid = 10

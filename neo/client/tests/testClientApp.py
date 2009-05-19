@@ -119,10 +119,10 @@ class ClientApplicationTest(unittest.TestCase):
         return txn
 
     def storeObject(self, app, oid=None, data='DATA'):
-        tid = app.tid
+        tid = app.local_var.tid
         if oid is None:
             oid = self.makeOID()
-        obj = (oid, tid, 'DATA', '', app.txn)
+        obj = (oid, tid, 'DATA', '', app.local_var.txn)
         packet = Packet()
         packet.answerStoreObject(msg_id=1, conflicting=0, oid=oid, serial=tid)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
@@ -132,8 +132,8 @@ class ClientApplicationTest(unittest.TestCase):
         return oid
 
     def voteTransaction(self, app):
-        tid = app.tid
-        txn = app.txn
+        tid = app.local_var.tid
+        txn = app.local_var.txn
         packet = Packet()
         packet.answerStoreTransaction(msg_id=1, tid=tid)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
@@ -143,8 +143,8 @@ class ClientApplicationTest(unittest.TestCase):
         app.tpc_vote(txn)
 
     def finishTransaction(self, app):
-        txn = app.txn
-        tid = app.tid
+        txn = app.local_var.txn
+        tid = app.local_var.tid
         packet = Packet()
         packet.notifyTransactionFinished(1, tid)
         app.master_conn = Mock({ 
@@ -374,15 +374,15 @@ class ClientApplicationTest(unittest.TestCase):
         self.assertNotEquals(getattr(app, 'tid', None), tid)
         self.assertNotEquals(getattr(app, 'txn', None), txn)
         app.tpc_begin(transaction=txn, tid=tid)
-        self.assertTrue(app.txn is txn)
-        self.assertEquals(app.tid, tid)
+        self.assertTrue(app.local_var.txn is txn)
+        self.assertEquals(app.local_var.tid, tid)
         # next, the transaction already begin -> do nothing
         app.tpc_begin(transaction=txn, tid=None)
-        self.assertTrue(app.txn is txn)
-        self.assertEquals(app.tid, tid)
+        self.assertTrue(app.local_var.txn is txn)
+        self.assertEquals(app.local_var.tid, tid)
         # cancel and start a transaction without tid
-        app.txn = None
-        app.tid = None
+        app.local_var.txn = None
+        app.local_var.tid = None
         # no connection -> NEOStorageError
         self.assertRaises(NEOStorageError, app.tpc_begin, transaction=txn, tid=None)
         # ask a tid to pmn
@@ -402,8 +402,8 @@ class ClientApplicationTest(unittest.TestCase):
         self.checkMessageExpected(app.master_conn, 1)
         self.checkDispatcherRegisterCalled(app, app.master_conn, 1)
         # check attributes
-        self.assertTrue(app.txn is txn)
-        self.assertEquals(app.tid, tid)
+        self.assertTrue(app.local_var.txn is txn)
+        self.assertEquals(app.local_var.tid, tid)
 
     def test_store1(self):
         app = self.getApp()
@@ -411,13 +411,13 @@ class ClientApplicationTest(unittest.TestCase):
         tid = self.makeTID()
         txn = self.makeTransactionObject()
         # invalid transaction > StorageTransactionError
-        app.txn = old_txn = object()
-        self.assertTrue(app.txn is not txn)
+        app.local_var.txn = old_txn = object()
+        self.assertTrue(app.local_var.txn is not txn)
         self.assertRaises(StorageTransactionError, app.store, oid, tid, '', None, txn)
-        self.assertEquals(app.txn, old_txn)
+        self.assertEquals(app.local_var.txn, old_txn)
         # check partition_id and an empty cell list -> NEOStorageError
-        app.txn = txn
-        app.tid = tid
+        app.local_var.txn = txn
+        app.local_var.tid = tid
         app.pt = Mock({ 'getCellList': (), })
         app.num_partitions = 2 
         self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None, txn)
@@ -431,8 +431,8 @@ class ClientApplicationTest(unittest.TestCase):
         tid = self.makeTID()
         txn = self.makeTransactionObject()
         # build conflicting state
-        app.txn = txn
-        app.tid = tid
+        app.local_var.txn = txn
+        app.local_var.tid = tid
         packet = Packet()
         packet.answerStoreObject(msg_id=1, conflicting=1, oid=oid, serial=tid)
         conn = Mock({ 
@@ -446,12 +446,12 @@ class ClientApplicationTest(unittest.TestCase):
         app.pt = Mock({ 'getCellList': (cell, cell, )})
         app.cp = Mock({ 'getConnForNode': ReturnValues(None, conn)})
         app.dispatcher = Mock({})
-        app.txn_object_stored = (oid, tid)
-        app.txn_data_dict[oid] = 'BEFORE'
+        app.local_var.object_stored = (oid, tid)
+        app.local_var.data_dict[oid] = 'BEFORE'
         self.assertRaises(NEOStorageConflictError, app.store, oid, tid, '', None, txn)
-        self.assertTrue(oid not in app.txn_data_dict)
+        self.assertTrue(oid not in app.local_var.data_dict)
         self.assertEquals(app.conflict_serial, tid)
-        self.assertEquals(app.txn_object_stored, (-1, tid))
+        self.assertEquals(app.local_var.object_stored, (-1, tid))
         self.checkPacketSent(conn, 1, ASK_STORE_OBJECT)
         self.checkMessageExpected(conn, 1)
         self.checkDispatcherRegisterCalled(app, conn, 1)
@@ -462,8 +462,8 @@ class ClientApplicationTest(unittest.TestCase):
         tid = self.makeTID()
         txn = self.makeTransactionObject()
         # case with no conflict
-        app.txn = txn
-        app.tid = tid
+        app.local_var.txn = txn
+        app.local_var.tid = tid
         packet = Packet()
         packet.answerStoreObject(msg_id=1, conflicting=0, oid=oid, serial=tid)
         conn = Mock({ 
@@ -478,10 +478,10 @@ class ClientApplicationTest(unittest.TestCase):
         app.pt = Mock({ 'getCellList': (cell, cell, ) })
         app.dispatcher = Mock({})
         app.conflict_serial = None # reset by hand
-        app.txn_object_stored = ()
+        app.local_var.object_stored = ()
         app.store(oid, tid, 'DATA', None, txn)
-        self.assertEquals(app.txn_object_stored, (oid, tid))
-        self.assertEquals(app.txn_data_dict.get(oid, None), 'DATA')
+        self.assertEquals(app.local_var.object_stored, (oid, tid))
+        self.assertEquals(app.local_var.data_dict.get(oid, None), 'DATA')
         self.assertNotEquals(app.conflict_serial, tid)
         self.checkPacketSent(conn, 1, ASK_STORE_OBJECT)
         self.checkMessageExpected(conn, 1)
@@ -492,18 +492,18 @@ class ClientApplicationTest(unittest.TestCase):
         oid = self.makeOID(11)
         txn = self.makeTransactionObject()
         # invalid transaction > StorageTransactionError
-        app.txn = old_txn = object()
-        self.assertTrue(app.txn is not txn)
+        app.local_var.txn = old_txn = object()
+        self.assertTrue(app.local_var.txn is not txn)
         self.assertRaises(StorageTransactionError, app.tpc_vote, txn)
-        self.assertEquals(app.txn, old_txn)
+        self.assertEquals(app.local_var.txn, old_txn)
 
     def test_tpc_vote2(self):
         # fake transaction object
         app = self.getApp()
         tid = self.makeTID()
         txn = self.makeTransactionObject()
-        app.txn = txn
-        app.tid = tid
+        app.local_var.txn = txn
+        app.local_var.tid = tid
         packet = Packet()
         # wrong answer -> failure
         packet.answerNewOIDs(1, ())
@@ -535,8 +535,8 @@ class ClientApplicationTest(unittest.TestCase):
         app = self.getApp()
         tid = self.makeTID()
         txn = self.makeTransactionObject()
-        app.txn = txn
-        app.tid = tid
+        app.local_var.txn = txn
+        app.local_var.tid = tid
         packet = Packet()
         # response -> OK
         packet.answerStoreTransaction(msg_id=1, tid=tid)
@@ -562,10 +562,10 @@ class ClientApplicationTest(unittest.TestCase):
         app = self.getApp()
         tid = self.makeTID()
         txn = self.makeTransactionObject()
-        app.txn = old_txn = object()
+        app.local_var.txn = old_txn = object()
         app.master_conn = Mock()
-        app.tid = tid
-        self.assertFalse(app.txn is txn)
+        app.local_var.tid = tid
+        self.assertFalse(app.local_var.txn is txn)
         conn = Mock()
         cell = Mock()
         app.pt = Mock({'getCellList': (cell, cell)})
@@ -574,8 +574,8 @@ class ClientApplicationTest(unittest.TestCase):
         # no packet sent
         self.checkNoPacketSent(conn)
         self.checkNoPacketSent(app.master_conn)
-        self.assertEquals(app.txn, old_txn)
-        self.assertEquals(app.tid, tid)
+        self.assertEquals(app.local_var.txn, old_txn)
+        self.assertEquals(app.local_var.tid, tid)
 
     def test_tpc_abort2(self):
         # 2 nodes : 1 transaction in the first, 2 objects in the second
@@ -585,7 +585,7 @@ class ClientApplicationTest(unittest.TestCase):
         oid1, oid2 = self.makeOID(2), self.makeOID(4) # on partition 0
         app, tid = self.getApp(), self.makeTID(1)     # on partition 1
         txn = self.makeTransactionObject()
-        app.txn, app.tid = txn, tid
+        app.local_var.txn, app.local_var.tid = txn, tid
         app.master_conn = Mock({'__hash__': 0})
         app.num_partitions = 2
         cell1 = Mock({ 'getNode': 'NODE1', '__hash__': 1 })
@@ -594,26 +594,26 @@ class ClientApplicationTest(unittest.TestCase):
         app.pt = Mock({ 'getCellList': ReturnValues((cell1, ), (cell1, ), (cell1, cell2)), })
         app.cp = Mock({ 'getConnForNode': ReturnValues(conn1, conn2), })
         # fake data
-        app.txn_data_dict = {oid1: '', oid2: ''}
+        app.local_var.data_dict = {oid1: '', oid2: ''}
         app.tpc_abort(txn)
         # will check if there was just one call/packet :
         self.checkPacketSent(conn1, 1, ABORT_TRANSACTION)
         self.checkPacketSent(conn2, 2, ABORT_TRANSACTION)
         self.checkPacketSent(app.master_conn, app.master_conn.getNextId(), ABORT_TRANSACTION)
-        self.assertEquals(app.tid, None)
-        self.assertEquals(app.txn, None)
-        self.assertEquals(app.txn_data_dict, {})
-        self.assertEquals(app.txn_voted, False)
-        self.assertEquals(app.txn_finished, False)
+        self.assertEquals(app.local_var.tid, None)
+        self.assertEquals(app.local_var.txn, None)
+        self.assertEquals(app.local_var.data_dict, {})
+        self.assertEquals(app.local_var.txn_voted, False)
+        self.assertEquals(app.local_var.txn_finished, False)
 
     def test_tpc_finish1(self):
         # ignore mismatch transaction
         app = self.getApp()
         tid = self.makeTID()
         txn = self.makeTransactionObject()
-        app.txn = old_txn = object()
+        app.local_var.txn = old_txn = object()
         app.master_conn = Mock()
-        self.assertFalse(app.txn is txn)
+        self.assertFalse(app.local_var.txn is txn)
         conn = Mock()
         cell = Mock()
         app.pt = Mock({'getCellList': (cell, cell)})
@@ -622,14 +622,14 @@ class ClientApplicationTest(unittest.TestCase):
         # no packet sent
         self.checkNoPacketSent(conn)
         self.checkNoPacketSent(app.master_conn)
-        self.assertEquals(app.txn, old_txn)
+        self.assertEquals(app.local_var.txn, old_txn)
 
     def test_tpc_finish2(self):
         # bad answer -> NEOStorageError
         app = self.getApp()
         tid = self.makeTID()
         txn = self.makeTransactionObject()
-        app.txn, app.tid = txn, tid
+        app.local_var.txn, app.local_var.tid = txn, tid
         # test callable passed to tpc_finish
         self.f_called = False
         self.f_called_with_tid = None
@@ -644,7 +644,7 @@ class ClientApplicationTest(unittest.TestCase):
             'fakeReceived': packet,    
         })
         app.dispatcher = Mock({})
-        app.txn_finished = False
+        app.local_var.txn_finished = False
         self.assertRaises(NEOStorageError, app.tpc_finish, txn, hook)
         self.assertTrue(self.f_called)
         self.assertEquals(self.f_called_with_tid, tid)
@@ -656,7 +656,7 @@ class ClientApplicationTest(unittest.TestCase):
         app = self.getApp()
         tid = self.makeTID()
         txn = self.makeTransactionObject()
-        app.txn, app.tid = txn, tid
+        app.local_var.txn, app.local_var.tid = txn, tid
         self.f_called = False
         self.f_called_with_tid = None
         def hook(tid): 
@@ -670,17 +670,17 @@ class ClientApplicationTest(unittest.TestCase):
             'fakeReceived': packet,    
         })
         app.dispatcher = Mock({})
-        app.txn_finished = True
+        app.local_var.txn_finished = True
         app.tpc_finish(txn, hook)
         self.assertTrue(self.f_called)
         self.assertEquals(self.f_called_with_tid, tid)
         self.checkPacketSent(app.master_conn, 1, FINISH_TRANSACTION)
         self.checkDispatcherRegisterCalled(app, app.master_conn, 1)
-        self.assertEquals(app.tid, None)
-        self.assertEquals(app.txn, None)
-        self.assertEquals(app.txn_data_dict, {})
-        self.assertEquals(app.txn_voted, False)
-        self.assertEquals(app.txn_finished, False)
+        self.assertEquals(app.local_var.tid, None)
+        self.assertEquals(app.local_var.txn, None)
+        self.assertEquals(app.local_var.data_dict, {})
+        self.assertEquals(app.local_var.txn_voted, False)
+        self.assertEquals(app.local_var.txn_finished, False)
 
     def test_undo1(self):
         # invalid transaction
@@ -688,9 +688,9 @@ class ClientApplicationTest(unittest.TestCase):
         tid = self.makeTID()
         txn = self.makeTransactionObject()
         wrapper = Mock()
-        app.txn = old_txn = object()
+        app.local_var.txn = old_txn = object()
         app.master_conn = Mock()
-        self.assertFalse(app.txn is txn)
+        self.assertFalse(app.local_var.txn is txn)
         conn = Mock()
         cell = Mock()
         self.assertRaises(StorageTransactionError, app.undo, tid, txn, wrapper)
@@ -699,7 +699,7 @@ class ClientApplicationTest(unittest.TestCase):
         self.checkNoPacketSent(app.master_conn)
         # nothing done
         self.assertEquals(len(wrapper.mockGetNamedCalls('tryToResolveConflict')), 0)
-        self.assertEquals(app.txn, old_txn)
+        self.assertEquals(app.local_var.txn, old_txn)
 
     def test_undo2(self):
         # Four tests here :
