@@ -478,9 +478,9 @@ class StorageEventHandler(BaseClientEventHandler):
     def handleAnswerStoreObject(self, conn, packet, conflicting, oid, serial):
         app = self.app
         if conflicting:
-            app.txn_object_stored = -1, serial
+            app.local_var.object_stored = -1, serial
         else:
-            app.txn_object_stored = oid, serial
+            app.local_var.object_stored = oid, serial
 
     def handleAnswerStoreTransaction(self, conn, packet, tid):
         app = self.app

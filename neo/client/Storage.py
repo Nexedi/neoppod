@@ -37,8 +37,6 @@ class Storage(BaseStorage.BaseStorage,
         logging.basicConfig(level=logging.DEBUG, format=format)
         # Transaction must be under protection of lock
         l = Lock()
-        self._txn_lock_acquire = l.acquire
-        self._txn_lock_release = l.release
         self.app = Application(master_nodes, name, connector)
 
     def load(self, oid, version=None):
@@ -71,7 +69,6 @@ class Storage(BaseStorage.BaseStorage,
     def tpc_begin(self, transaction, tid=None, status=' '):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        self._txn_lock_acquire()
         return self.app.tpc_begin(transaction=transaction, tid=tid, status=status)
 
     def tpc_vote(self, transaction):
@@ -82,16 +79,10 @@ class Storage(BaseStorage.BaseStorage,
     def tpc_abort(self, transaction):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        try:
-            return self.app.tpc_abort(transaction=transaction)
-        finally:
-            self._txn_lock_release()
+        return self.app.tpc_abort(transaction=transaction)
 
     def tpc_finish(self, transaction, f=None):
-        try:
-            return self.app.tpc_finish(transaction=transaction, f=f)
-        finally:
-            self._txn_lock_release()
+        return self.app.tpc_finish(transaction=transaction, f=f)
 
     def store(self, oid, serial, data, version, transaction):
         app = self.app
