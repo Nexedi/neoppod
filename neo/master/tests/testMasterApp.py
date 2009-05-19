@@ -161,13 +161,13 @@ server: 127.0.0.1:10023
       self.app.broadcastNodeInformation(c_node)
       # check conn
       self.assertEquals(len(client_conn.mockGetNamedCalls("addPacket")), 0)
-      self.assertEquals(len(master_conn.mockGetNamedCalls("addPacket")), 1)
-      call = master_conn.mockGetNamedCalls("addPacket")[0]
+      self.assertEquals(len(master_conn.mockGetNamedCalls("notify")), 1)
+      call = master_conn.mockGetNamedCalls("notify")[0]
       packet = call.getParam(0)
       self.assertTrue(isinstance(packet, Packet))
       self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
-      self.assertEquals(len(storage_conn.mockGetNamedCalls("addPacket")), 1)
-      call = storage_conn.mockGetNamedCalls("addPacket")[0]
+      self.assertEquals(len(storage_conn.mockGetNamedCalls("notify")), 1)
+      call = storage_conn.mockGetNamedCalls("notify")[0]
       packet = call.getParam(0)
       self.assertTrue(isinstance(packet, Packet))
       self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
@@ -181,13 +181,13 @@ server: 127.0.0.1:10023
       self.app.broadcastNodeInformation(c_node)
       # check conn
       self.assertEquals(len(client_conn.mockGetNamedCalls("addPacket")), 0)
-      self.assertEquals(len(master_conn.mockGetNamedCalls("addPacket")), 1)
-      call = master_conn.mockGetNamedCalls("addPacket")[0]
+      self.assertEquals(len(master_conn.mockGetNamedCalls("notify")), 1)
+      call = master_conn.mockGetNamedCalls("notify")[0]
       packet = call.getParam(0)
       self.assertTrue(isinstance(packet, Packet))
       self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
-      self.assertEquals(len(storage_conn.mockGetNamedCalls("addPacket")), 1)
-      call = storage_conn.mockGetNamedCalls("addPacket")[0]
+      self.assertEquals(len(storage_conn.mockGetNamedCalls("notify")), 1)
+      call = storage_conn.mockGetNamedCalls("notify")[0]
       packet = call.getParam(0)
       self.assertTrue(isinstance(packet, Packet))
       self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
@@ -200,18 +200,18 @@ server: 127.0.0.1:10023
       s_node = StorageNode(uuid = self.getNewUUID(), server=("127.0.0.1", 1351))
       self.app.broadcastNodeInformation(s_node)
       # check conn
-      self.assertEquals(len(client_conn.mockGetNamedCalls("addPacket")), 1)
-      call = client_conn.mockGetNamedCalls("addPacket")[0]
+      self.assertEquals(len(client_conn.mockGetNamedCalls("notify")), 1)
+      call = client_conn.mockGetNamedCalls("notify")[0]
       packet = call.getParam(0)
       self.assertTrue(isinstance(packet, Packet))
       self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
-      self.assertEquals(len(master_conn.mockGetNamedCalls("addPacket")), 1)
-      call = master_conn.mockGetNamedCalls("addPacket")[0]
+      self.assertEquals(len(master_conn.mockGetNamedCalls("notify")), 1)
+      call = master_conn.mockGetNamedCalls("notify")[0]
       packet = call.getParam(0)
       self.assertTrue(isinstance(packet, Packet))
       self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
-      self.assertEquals(len(storage_conn.mockGetNamedCalls("addPacket")), 1)
-      call = storage_conn.mockGetNamedCalls("addPacket")[0]
+      self.assertEquals(len(storage_conn.mockGetNamedCalls("notify")), 1)
+      call = storage_conn.mockGetNamedCalls("notify")[0]
       packet = call.getParam(0)
       self.assertTrue(isinstance(packet, Packet))
       self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)

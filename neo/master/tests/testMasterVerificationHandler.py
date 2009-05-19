@@ -125,10 +125,9 @@ server: 127.0.0.1:10023
 
     def checkCalledAcceptNodeIdentification(self, conn, packet_number=0):
         """ Check Accept Node Identification has been send"""
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("answer")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
@@ -150,7 +149,7 @@ server: 127.0.0.1:10023
         """
         uuid = self.getNewUUID()
         args = (node_type, uuid, ip, port, self.app.name)
-        packet = protocol.requestNodeIdentification(1, *args)
+        packet = protocol.requestNodeIdentification(*args)
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
         self.verification.handleRequestNodeIdentification(conn, packet, *args)
@@ -178,31 +177,36 @@ server: 127.0.0.1:10023
 
     def checkCalledAbort(self, conn, packet_number=0):
         """Check the abort method has been called and an error packet has been sent"""
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1) # XXX required here ????
+        # sometimes we answer an error, sometimes we just send it
+        send_calls_len = len(conn.mockGetNamedCalls("send"))
+        answer_calls_len = len(conn.mockGetNamedCalls('answer'))
+        self.assertEquals(send_calls_len + answer_calls_len, 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        if send_calls_len == 1:
+            call = conn.mockGetNamedCalls("send")[packet_number]
+        else:
+            call = conn.mockGetNamedCalls("answer")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
 
     def checkCalledNotifyNodeInformation(self, conn, packet_number=0):
         """ Check Notify Node Information message has been send"""
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("notify")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), NOTIFY_NODE_INFORMATION)
 
     def checkCalledAnswerPrimaryMaster(self, conn, packet_number=0):
         """ Check Answer primaty master message has been send"""
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("answer")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_PRIMARY_MASTER)
 
     def checkCalledAnswerLastIDs(self, conn, packet_number=0):
         """ Check start operation message has been send"""
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("answer")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_LAST_IDS)
@@ -210,7 +214,7 @@ server: 127.0.0.1:10023
 
     def checkCalledSendPartitionTable(self, conn, packet_number=0):
         """ Check partition table has been send"""
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("notify")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), SEND_PARTITION_TABLE)
@@ -265,7 +269,7 @@ server: 127.0.0.1:10023
         verification = self.verification
         uuid = self.getNewUUID()
         args = ( MASTER_NODE_TYPE, uuid, '127.0.0.1', self.storage_port, "INVALID_NAME")
-        packet = protocol.requestNodeIdentification(1, *args)
+        packet = protocol.requestNodeIdentification(*args)
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None})
         verification.handleRequestNodeIdentification(conn, packet=packet, 
@@ -411,7 +415,7 @@ server: 127.0.0.1:10023
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
         self.checkCalledAcceptNodeIdentification(conn)
         # a new uuid is sent
-        call = conn.mockGetNamedCalls('addPacket')[0]
+        call = conn.mockGetNamedCalls('answer')[0]
         body = call.getParam(0)._body
         new_uuid = body[:-16]
         self.assertNotEquals(new_uuid, uuid)
@@ -519,36 +523,37 @@ server: 127.0.0.1:10023
     def test_05_handleAskPrimaryMaster(self):
         verification = self.verification
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = protocol.askPrimaryMaster(msg_id=2)
+        packet = protocol.askPrimaryMaster()
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         verification.handleAskPrimaryMaster(conn, packet)        
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 2)
+        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("notify")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
         self.checkCalledAnswerPrimaryMaster(conn, 0)
-        self.checkCalledNotifyNodeInformation(conn, 1)
+        self.checkCalledNotifyNodeInformation(conn, 0)
         # if storage node, expect messages
         uuid = self.identifyToMasterNode(STORAGE_NODE_TYPE, port=self.storage_port)
-        packet = protocol.askPrimaryMaster(msg_id=2)
+        packet = protocol.askPrimaryMaster()
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         verification.handleAskPrimaryMaster(conn, packet)        
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 4)
+        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("notify")), 3)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
         self.checkCalledAnswerPrimaryMaster(conn, 0)
-        self.checkCalledNotifyNodeInformation(conn, 1)
+        self.checkCalledNotifyNodeInformation(conn, 0)
+        self.checkCalledSendPartitionTable(conn, 1)
         self.checkCalledSendPartitionTable(conn, 2)
-        self.checkCalledSendPartitionTable(conn, 3)
 
     def test_06_handleAnnouncePrimaryMaster(self):
         verification = self.verification
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = Packet(msg_id=3, msg_type=ANNOUNCE_PRIMARY_MASTER)
+        packet = Packet(msg_type=ANNOUNCE_PRIMARY_MASTER)
         # No uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
@@ -567,7 +572,7 @@ server: 127.0.0.1:10023
     def test_07_handleReelectPrimaryMaster(self):
         verification = self.verification
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = protocol.askPrimaryMaster(0)
+        packet = protocol.askPrimaryMaster()
         # No uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
@@ -577,7 +582,7 @@ server: 127.0.0.1:10023
     def test_08_handleNotifyNodeInformation(self):
         verification = self.verification
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = Packet(msg_id=5, msg_type=NOTIFY_NODE_INFORMATION)
+        packet = Packet(msg_type=NOTIFY_NODE_INFORMATION)
         # do not answer if no uuid
         conn = Mock({"getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
@@ -640,7 +645,7 @@ server: 127.0.0.1:10023
     def test_09_handleAnswerLastIDs(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_id=5, msg_type=ANSWER_LAST_IDS)
+        packet = Packet(msg_type=ANSWER_LAST_IDS)
         loid = self.app.loid
         ltid = self.app.ltid
         lptid = self.app.lptid
@@ -684,7 +689,7 @@ server: 127.0.0.1:10023
     def test_10_handleAnswerPartitionTable(self):
         verification = self.verification
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = Packet(msg_type=ANSWER_PARTITION_TABLE, msg_id=10)
+        packet = Packet(msg_type=ANSWER_PARTITION_TABLE, )
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
@@ -694,7 +699,7 @@ server: 127.0.0.1:10023
     def test_11_handleAnswerUnfinishedTransactions(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ANSWER_UNFINISHED_TRANSACTIONS, msg_id=11)
+        packet = Packet(msg_type=ANSWER_UNFINISHED_TRANSACTIONS)
         # reject when no uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
@@ -738,7 +743,7 @@ server: 127.0.0.1:10023
     def test_12_handleAnswerTransactionInformation(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ANSWER_TRANSACTION_INFORMATION, msg_id=12)
+        packet = Packet(msg_type=ANSWER_TRANSACTION_INFORMATION)
         # reject when no uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
@@ -810,7 +815,7 @@ server: 127.0.0.1:10023
     def test_13_handleTidNotFound(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=TID_NOT_FOUND_CODE, msg_id=13)
+        packet = Packet(msg_type=TID_NOT_FOUND_CODE)
         # reject when no uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
@@ -848,7 +853,7 @@ server: 127.0.0.1:10023
     def test_14_handleAnswerObjectPresent(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ANSWER_OBJECT_PRESENT, msg_id=14)
+        packet = Packet(msg_type=ANSWER_OBJECT_PRESENT)
         # reject when no uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
@@ -887,7 +892,7 @@ server: 127.0.0.1:10023
     def test_15_handleOidNotFound(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=OID_NOT_FOUND_CODE, msg_id=15)
+        packet = Packet(msg_type=OID_NOT_FOUND_CODE)
         # reject when no uuid
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,

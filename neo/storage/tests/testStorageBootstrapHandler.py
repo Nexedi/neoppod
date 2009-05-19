@@ -112,20 +112,25 @@ server: 127.0.0.1:10020
     # Method to test the kind of packet returned in answer
     def checkCalledRequestNodeIdentification(self, conn, packet_number=0):
         """ Check Request Node Identification has been send"""
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("ask")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("ask")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), REQUEST_NODE_IDENTIFICATION)
 
     def checkCalledAbort(self, conn, packet_number=0):
         """Check the abort method has been called and an error packet has been sent"""
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1) # XXX required here ????
+        # sometimes we answer an error, sometimes we just send it
+        send_calls_len = len(conn.mockGetNamedCalls("send"))
+        answer_calls_len = len(conn.mockGetNamedCalls('answer'))
+        self.assertEquals(send_calls_len + answer_calls_len, 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        if send_calls_len == 1:
+            call = conn.mockGetNamedCalls("send")[packet_number]
+        else:
+            call = conn.mockGetNamedCalls("answer")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
@@ -267,7 +272,7 @@ server: 127.0.0.1:10020
 
     def test_08_handleRequestNodeIdentification1(self):
         # client socket connection -> rejected
-        packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
@@ -284,7 +289,7 @@ server: 127.0.0.1:10020
 
     def test_08_handleRequestNodeIdentification2(self):
         # not a master node -> rejected
-        packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isServerConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
         self.bootstrap.handleRequestNodeIdentification(
@@ -300,7 +305,7 @@ server: 127.0.0.1:10020
 
     def test_08_handleRequestNodeIdentification3(self):
         # bad app name -> rejected
-        packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isServerConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
         self.bootstrap.handleRequestNodeIdentification(
@@ -316,7 +321,7 @@ server: 127.0.0.1:10020
 
     def test_08_handleRequestNodeIdentification4(self):
         # new master
-        packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isServerConnection": True,
             "getAddress" : ("192.168.1.1", self.master_port), })
         # master not known
@@ -334,8 +339,8 @@ server: 127.0.0.1:10020
             name=self.app.name,)
         self.assertEquals(len(self.app.nm.getNodeList()), count + 1)
         # check packet
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
@@ -346,7 +351,7 @@ server: 127.0.0.1:10020
 
     def test_08_handleRequestNodeIdentification5(self):
         # broken node -> rejected
-        packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isServerConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
         master = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
@@ -366,7 +371,7 @@ server: 127.0.0.1:10020
 
     def test_08_handleRequestNodeIdentification6(self):
         # master node is already known
-        packet = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isServerConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
         # master known
@@ -386,8 +391,8 @@ server: 127.0.0.1:10020
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
         # packet
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
@@ -400,7 +405,7 @@ server: 127.0.0.1:10020
         # server socket connection -> rejected
         conn = Mock({"isServerConnection": True,
                     "getAddress" : ("127.0.0.1", self.master_port), })
-        packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
         self.app.trying_master_node = self.trying_master_node
         self.bootstrap.handleAcceptNodeIdentification(
             conn=conn,
@@ -419,7 +424,7 @@ server: 127.0.0.1:10020
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.storage_port), })
         self.app.trying_master_node = self.trying_master_node
-        packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
         # non-master node to be removed
         server = ('127.0.0.1', self.storage_port)
         self.app.nm.add((StorageNode(server=server)))
@@ -442,7 +447,7 @@ server: 127.0.0.1:10020
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
-        packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
         self.bootstrap.handleAcceptNodeIdentification(
             conn=conn,
             uuid=self.getNewUUID(),
@@ -462,7 +467,7 @@ server: 127.0.0.1:10020
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
-        packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
         uuid = self.getNewUUID()
         args =  {
             'conn':conn,
@@ -496,8 +501,7 @@ server: 127.0.0.1:10020
         self.assertTrue(isinstance(self.app.pt, PartitionTable))
         self.assertEquals(self.app.ptid, self.app.dm.getPTID())
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("ask")), 1)
 
     def test_09_handleAcceptNodeIdentification5(self):
         # no errors
@@ -510,7 +514,7 @@ server: 127.0.0.1:10020
         self.app.trying_master_node = self.trying_master_node
         self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
         self.assertEqual(None, self.app.dm.getNumPartitions())
-        packet = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
+        packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
         self.bootstrap.handleAcceptNodeIdentification(
             conn=conn,
             uuid=uuid,
@@ -535,18 +539,17 @@ server: 127.0.0.1:10020
         self.assertEquals(self.app.uuid, self.app.dm.getUUID())
         self.assertEquals(self.app.uuid, your_uuid)
         # packet
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        self.assertEquals(len(conn.mockGetNamedCalls("ask")), 1)
+        call = conn.mockGetNamedCalls("ask")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ASK_PRIMARY_MASTER)
-        self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
         
     def test_10_handleAnswerPrimaryMaster01(self):
         # server connection rejected
         conn = Mock({"isServerConnection": True,
                     "getAddress" : ("127.0.0.1", self.master_port), })
-        packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
+        packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         self.app.trying_master_node = self.trying_master_node
         self.app.primary_master_node = None
         self.bootstrap.handleAnswerPrimaryMaster(
@@ -566,7 +569,7 @@ server: 127.0.0.1:10020
         known_masters = (existing_master, new_master, )
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
-        packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
+        packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         self.assertTrue(existing_master[:2] in self.app.nm.server_dict)
         self.assertTrue(new_master[:2] not in self.app.nm.server_dict)
         self.bootstrap.handleAnswerPrimaryMaster(
@@ -590,7 +593,7 @@ server: 127.0.0.1:10020
         # invalid primary master uuid -> close connection
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
-        packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
+        packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
         self.app.primary_master_node = pmn
         self.app.trying_master_node = pmn
@@ -610,7 +613,7 @@ server: 127.0.0.1:10020
         # trying_master_node is not pmn -> close connection
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
-        packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
+        packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
         pmn.setUUID(self.getNewUUID())
         self.app.primary_master_node = None
@@ -632,7 +635,7 @@ server: 127.0.0.1:10020
         # trying_master_node is pmn -> set verification handler
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
-        packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
+        packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
         pmn.setUUID(self.getNewUUID())
         self.app.primary_master_node = None
@@ -656,7 +659,7 @@ server: 127.0.0.1:10020
         # primary_uuid not known -> nothing happen
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
-        packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
+        packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         self.app.primary_master_node = None
         self.app.trying_master_node = None
         new_uuid = self.getNewUUID()

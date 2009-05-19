@@ -47,6 +47,7 @@ from neo.exception import ElectionFailure
 from neo.client.handler import BaseClientEventHandler, PrimaryBoostrapEventHandler, \
         PrimaryEventHandler, StorageBootstrapEventHandler, StorageEventHandler
 from neo.node import StorageNode
+from neo.util import dump
 
 MARKER = []
 
@@ -101,8 +102,8 @@ class ClientEventHandlerTest(unittest.TestCase):
         dispatcher = self.getDispatcher()
         client_handler = BaseClientEventHandler(None, dispatcher)
         conn = self.getConnection()
-        client_handler.packetReceived(conn, protocol.ping(1))
-        pong = conn.mockGetNamedCalls('addPacket')[0].getParam(0)
+        client_handler.packetReceived(conn, protocol.ping())
+        pong = conn.mockGetNamedCalls('answer')[0].getParam(0)
         self.assertTrue(isinstance(pong, Packet))
         self.assertEquals(pong.getType(), PONG)
 
@@ -136,7 +137,14 @@ class ClientEventHandlerTest(unittest.TestCase):
             primary_master_node = Mock({'getUUID': self.getUUID()})
             nm = Mock({'getNodeByServer': fake_storage_node})
             cp = Mock({'removeConnection': None})
-            master_conn = self.getConnection(next_id=ReturnValues(master_node_next_packet_id))
+            master_conn = Mock({
+                'addPacket': None,
+                'getUUID': self.getUUID(),
+                'getAddress': ('127.0.0.1', 10010),
+                'getNextId': master_node_next_packet_id,
+                'lock': None,
+                'unlock': None
+            })
         app = App()
         conn = self.getConnection(port=storage_port, ip=storage_ip)
         key_1 = (id(conn), 0)
@@ -150,13 +158,14 @@ class ClientEventHandlerTest(unittest.TestCase):
         dispatcher = Dispatcher()
         method(dispatcher, app, handler_class, conn=conn)
         # Check that master was notified of the failure
-        addPacket_call_list = app.master_conn.mockGetNamedCalls('addPacket')
+        addPacket_call_list = app.master_conn.mockGetNamedCalls('notify')
           # Test sanity check
         self.assertEqual(len(addPacket_call_list), 1)
         node_status_packet = addPacket_call_list[0].getParam(0)
         self.assertTrue(isinstance(node_status_packet, Packet))
           # Test sanity check
-        self.assertEquals(node_status_packet.getId(), master_node_next_packet_id)
+        # the test below is disabled because the msg_id is now set by the connection
+        #self.assertEquals(node_status_packet.getId(), master_node_next_packet_id)
         self.assertEquals(node_status_packet.getType(), NOTIFY_NODE_INFORMATION)
         self.assertEquals(node_status_packet.decode()[0],
                           [(STORAGE_NODE_TYPE, storage_ip, storage_port,

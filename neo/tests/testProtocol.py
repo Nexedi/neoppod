@@ -61,63 +61,62 @@ class testProtocol(unittest.TestCase):
         return uuid
 
     def test_01_Packet_init(self):
-        p = Packet(msg_id=1, msg_type=ASK_PRIMARY_MASTER, body=None)
-        self.assertEqual(p.getId(), 1)
+        p = Packet(msg_type=ASK_PRIMARY_MASTER, body=None)
         self.assertEqual(p.getType(), ASK_PRIMARY_MASTER)
         self.assertEqual(len(p), PACKET_HEADER_SIZE)
 
     def test_02_error(self):
-        p = protocol._error(1, 10, "error message")
+        p = protocol._error(10, "error message")
         code, msg = p._decodeError()
         self.assertEqual(code, 10)
         self.assertEqual(msg, "error message")
 
     def test_03_protocolError(self):
-        p = protocol.protocolError(1, "bad protocol")
+        p = protocol.protocolError("bad protocol")
         error_code, error_msg = p.decode()
         self.assertEqual(error_code, PROTOCOL_ERROR_CODE)
         self.assertEqual(error_msg, "protocol error: bad protocol")
 
     def test_04_internalError(self):
-        p = protocol.internalError(1, "bad internal")
+        p = protocol.internalError("bad internal")
         error_code, error_msg = p.decode()
         self.assertEqual(error_code, INTERNAL_ERROR_CODE)
         self.assertEqual(error_msg, "internal error: bad internal")
 
     def test_05_notReady(self):
-        p = protocol.notReady(1, "wait")
+        p = protocol.notReady("wait")
         error_code, error_msg = p.decode()
         self.assertEqual(error_code, NOT_READY_CODE)
         self.assertEqual(error_msg, "not ready: wait")
 
     def test_06_brokenNodeDisallowedError(self):
-        p = protocol.brokenNodeDisallowedError(1, "broken")
+        p = protocol.brokenNodeDisallowedError("broken")
         error_code, error_msg = p.decode()
         self.assertEqual(error_code, BROKEN_NODE_DISALLOWED_CODE)
         self.assertEqual(error_msg, "broken node disallowed error: broken")
 
     def test_07_oidNotFound(self):
-        p = protocol.oidNotFound(1, "no oid")
+        p = protocol.oidNotFound("no oid")
         error_code, error_msg = p.decode()
         self.assertEqual(error_msg, "oid not found: no oid")
 
     def test_08_oidNotFound(self):
-        p = protocol.tidNotFound(1, "no tid")
+        p = protocol.tidNotFound("no tid")
         error_code, error_msg = p.decode()
         self.assertEqual(error_code, TID_NOT_FOUND_CODE)
         self.assertEqual(error_msg, "tid not found: no tid")
 
     def test_09_ping(self):
-        p = protocol.ping(1)
+        p = protocol.ping()
         self.assertEqual(None, p.decode())
 
     def test_10_pong(self):
-        p = protocol.pong(1)
+        p = protocol.pong()
         self.assertEqual(None, p.decode())
 
     def test_11_requestNodeIdentification(self):
         uuid = self.getNewUUID()
-        p = protocol.requestNodeIdentification(1, CLIENT_NODE_TYPE, uuid,
+        p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE, uuid,
                                     "127.0.0.1", 9080, "unittest")
         node, p_uuid, ip, port, name  = p.decode()
         self.assertEqual(node, CLIENT_NODE_TYPE)
@@ -128,7 +127,7 @@ class testProtocol(unittest.TestCase):
 
     def test_12_acceptNodeIdentification(self):
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
-        p = protocol.acceptNodeIdentification(1, CLIENT_NODE_TYPE, uuid1,
+        p = protocol.acceptNodeIdentification(CLIENT_NODE_TYPE, uuid1,
                                    "127.0.0.1", 9080, 10, 20, uuid2)
         node, p_uuid, ip, port, nb_partitions, nb_replicas, your_uuid  = p.decode()
         self.assertEqual(node, CLIENT_NODE_TYPE)
@@ -140,7 +139,7 @@ class testProtocol(unittest.TestCase):
         self.assertEqual(your_uuid, uuid2)
 
     def test_13_askPrimaryMaster(self):
-        p = protocol.askPrimaryMaster(1)
+        p = protocol.askPrimaryMaster()
         self.assertEqual(None, p.decode())
 
     def test_14_answerPrimaryMaster(self):
@@ -151,17 +150,17 @@ class testProtocol(unittest.TestCase):
         master_list = [("127.0.0.1", 1, uuid1),
                        ("127.0.0.2", 2, uuid2),
                        ("127.0.0.3", 3, uuid3)]
-        p = protocol.answerPrimaryMaster(1, uuid, master_list)
+        p = protocol.answerPrimaryMaster(uuid, master_list)
         primary_uuid, p_master_list  = p.decode()
         self.assertEqual(primary_uuid, uuid)
         self.assertEqual(master_list, p_master_list)
 
     def test_15_announcePrimaryMaster(self):
-        p = protocol.announcePrimaryMaster(1)
+        p = protocol.announcePrimaryMaster()
         self.assertEqual(p.decode(), None)
 
     def test_16_reelectPrimaryMaster(self):
-        p = protocol.reelectPrimaryMaster(1)
+        p = protocol.reelectPrimaryMaster()
         self.assertEqual(p.decode(), None)
 
     def test_17_notifyNodeInformation(self):
@@ -172,19 +171,19 @@ class testProtocol(unittest.TestCase):
         node_list = [(CLIENT_NODE_TYPE, "127.0.0.1", 1, uuid1, RUNNING_STATE),
                        (CLIENT_NODE_TYPE, "127.0.0.2", 2, uuid2, DOWN_STATE),
                        (CLIENT_NODE_TYPE, "127.0.0.3", 3, uuid3, BROKEN_STATE)]
-        p = protocol.notifyNodeInformation(1, node_list)
+        p = protocol.notifyNodeInformation(node_list)
         p_node_list = p.decode()[0]
         self.assertEqual(node_list, p_node_list)
 
     def test_18_askLastIDs(self):
-        p = protocol.askLastIDs(1)
+        p = protocol.askLastIDs()
         self.assertEqual(p.decode(), None)
 
     def test_19_answerLastIDs(self):
         oid = self.getNextTID()
         tid = self.getNextTID()
         ptid = self.getNextTID()
-        p = protocol.answerLastIDs(1, oid, tid, ptid)
+        p = protocol.answerLastIDs(oid, tid, ptid)
         loid, ltid, lptid = p.decode()
         self.assertEqual(loid, oid)
         self.assertEqual(ltid, tid)
@@ -192,7 +191,7 @@ class testProtocol(unittest.TestCase):
 
     def test_20_askPartitionTable(self):
         offset_list = [1, 523, 6, 124]
-        p = protocol.askPartitionTable(1, offset_list)
+        p = protocol.askPartitionTable(offset_list)
         p_offset_list  = p.decode()[0]
         self.assertEqual(offset_list, p_offset_list)
 
@@ -204,7 +203,7 @@ class testProtocol(unittest.TestCase):
         cell_list = [(0, ((uuid1, UP_TO_DATE_STATE), (uuid2, OUT_OF_DATE_STATE))),
                      (43, ((uuid2, OUT_OF_DATE_STATE),(uuid3, DISCARDED_STATE))),
                      (124, ((uuid1, DISCARDED_STATE), (uuid3, UP_TO_DATE_STATE)))]
-        p = protocol.answerPartitionTable(1, ptid, cell_list)
+        p = protocol.answerPartitionTable(ptid, cell_list)
         pptid, p_cell_list  = p.decode()
         self.assertEqual(pptid, ptid)
         self.assertEqual(p_cell_list, cell_list)
@@ -217,7 +216,7 @@ class testProtocol(unittest.TestCase):
         cell_list = [(0, ((uuid1, UP_TO_DATE_STATE), (uuid2, OUT_OF_DATE_STATE))),
                      (43, ((uuid2, OUT_OF_DATE_STATE),(uuid3, DISCARDED_STATE))),
                      (124, ((uuid1, DISCARDED_STATE), (uuid3, UP_TO_DATE_STATE)))]
-        p = protocol.answerPartitionTable(1, ptid, cell_list)
+        p = protocol.answerPartitionTable(ptid, cell_list)
         pptid, p_cell_list  = p.decode()
         self.assertEqual(pptid, ptid)
         self.assertEqual(p_cell_list, cell_list)
@@ -230,22 +229,22 @@ class testProtocol(unittest.TestCase):
         cell_list = [(0, uuid1, UP_TO_DATE_STATE),
                      (43, uuid2, OUT_OF_DATE_STATE),
                      (124, uuid1, DISCARDED_STATE)]
-        p = protocol.notifyPartitionChanges(1, ptid,
+        p = protocol.notifyPartitionChanges(ptid,
                                  cell_list)
         pptid, p_cell_list  = p.decode()
         self.assertEqual(pptid, ptid)
         self.assertEqual(p_cell_list, cell_list)
 
     def test_24_startOperation(self):
-        p = protocol.startOperation(1)
+        p = protocol.startOperation()
         self.assertEqual(p.decode(), None)
 
     def test_25_stopOperation(self):
-        p = protocol.stopOperation(1)
+        p = protocol.stopOperation()
         self.assertEqual(p.decode(), None)
 
     def test_26_askUnfinishedTransaction(self):
-        p = protocol.askUnfinishedTransactions(1)
+        p = protocol.askUnfinishedTransactions()
         self.assertEqual(p.decode(), None)
 
     def test_27_answerUnfinishedTransaction(self):
@@ -254,14 +253,14 @@ class testProtocol(unittest.TestCase):
         tid3 = self.getNextTID()
         tid4 = self.getNextTID()
         tid_list = [tid1, tid2, tid3, tid4]
-        p = protocol.answerUnfinishedTransactions(1,tid_list)
+        p = protocol.answerUnfinishedTransactions(tid_list)
         p_tid_list  = p.decode()[0]
         self.assertEqual(p_tid_list, tid_list)
 
     def test_28_askObjectPresent(self):
         oid = self.getNextTID()
         tid = self.getNextTID()
-        p = protocol.askObjectPresent(1, oid, tid)
+        p = protocol.askObjectPresent(oid, tid)
         loid, ltid = p.decode()
         self.assertEqual(loid, oid)
         self.assertEqual(ltid, tid)
@@ -269,38 +268,37 @@ class testProtocol(unittest.TestCase):
     def test_29_answerObjectPresent(self):
         oid = self.getNextTID()
         tid = self.getNextTID()
-        p = protocol.answerObjectPresent(1, oid, tid)
+        p = protocol.answerObjectPresent(oid, tid)
         loid, ltid = p.decode()
         self.assertEqual(loid, oid)
         self.assertEqual(ltid, tid)
 
     def test_30_deleteTransaction(self):
         tid = self.getNextTID()
-        p = protocol.deleteTransaction(1, tid)
-        self.assertEqual(p.getId(), 1)
+        p = protocol.deleteTransaction(tid)
         self.assertEqual(p.getType(), DELETE_TRANSACTION)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
     def test_31_commitTransaction(self):
         tid = self.getNextTID()
-        p = protocol.commitTransaction(1, tid)
+        p = protocol.commitTransaction(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
 
     def test_32_askNewTID(self):
-        p = protocol.askNewTID(1)
+        p = protocol.askNewTID()
         self.assertEqual(p.decode(), None)
 
     def test_33_answerNewTID(self):
         tid = self.getNextTID()
-        p = protocol.answerNewTID(1, tid)
+        p = protocol.answerNewTID(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
     def test_34_askNewOIDs(self):
-        p = protocol.askNewOIDs(1, 10)
+        p = protocol.askNewOIDs(10)
         nb = p.decode()
         self.assertEqual(nb, (10,))
 
@@ -310,7 +308,7 @@ class testProtocol(unittest.TestCase):
         oid3 = self.getNextTID()
         oid4 = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = protocol.answerNewOIDs(1,oid_list)
+        p = protocol.answerNewOIDs(oid_list)
         p_oid_list  = p.decode()[0]
         self.assertEqual(p_oid_list, oid_list)
 
@@ -321,26 +319,26 @@ class testProtocol(unittest.TestCase):
         oid4 = self.getNextTID()
         tid = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = protocol.finishTransaction(1,oid_list, tid)
+        p = protocol.finishTransaction(oid_list, tid)
         p_oid_list, ptid  = p.decode()
         self.assertEqual(ptid, tid)
         self.assertEqual(p_oid_list, oid_list)
 
     def test_37_notifyTransactionFinished(self):
         tid = self.getNextTID()
-        p = protocol.notifyTransactionFinished(1, tid)
+        p = protocol.notifyTransactionFinished(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
     def test_38_lockInformation(self):
         tid = self.getNextTID()
-        p = protocol.lockInformation(1, tid)
+        p = protocol.lockInformation(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
     def test_39_notifyInformationLocked(self):
         tid = self.getNextTID()
-        p = protocol.notifyInformationLocked(1, tid)
+        p = protocol.notifyInformationLocked(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
@@ -351,20 +349,20 @@ class testProtocol(unittest.TestCase):
         oid4 = self.getNextTID()
         tid = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = protocol.invalidateObjects(1,oid_list, tid)
+        p = protocol.invalidateObjects(oid_list, tid)
         p_oid_list, ptid  = p.decode()
         self.assertEqual(ptid, tid)
         self.assertEqual(p_oid_list, oid_list)
 
     def test_41_unlockInformation(self):
         tid = self.getNextTID()
-        p = protocol.unlockInformation(1, tid)
+        p = protocol.unlockInformation(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
     def test_42_abortTransaction(self):
         tid = self.getNextTID()
-        p = protocol.abortTransaction(1, tid)
+        p = protocol.abortTransaction(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
@@ -375,7 +373,7 @@ class testProtocol(unittest.TestCase):
         oid3 = self.getNextTID()
         oid4 = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = protocol.askStoreTransaction(1, tid, "moi", "transaction", "exti", oid_list)
+        p = protocol.askStoreTransaction(tid, "moi", "transaction", "exti", oid_list)
         ptid, user, desc, ext, p_oid_list = p.decode()
         self.assertEqual(ptid, tid)
         self.assertEqual(p_oid_list, oid_list)
@@ -385,7 +383,7 @@ class testProtocol(unittest.TestCase):
 
     def test_44_answerStoreTransaction(self):
         tid = self.getNextTID()
-        p = protocol.answerStoreTransaction(1, tid)
+        p = protocol.answerStoreTransaction(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
@@ -393,7 +391,7 @@ class testProtocol(unittest.TestCase):
         oid = self.getNextTID()
         serial = self.getNextTID()
         tid = self.getNextTID()
-        p = protocol.askStoreObject(1, oid, serial, 1, 55, "to", tid)
+        p = protocol.askStoreObject(oid, serial, 1, 55, "to", tid)
         poid, pserial, compression, checksum, data, ptid = p.decode()
         self.assertEqual(oid, poid)
         self.assertEqual(serial, pserial)
@@ -405,7 +403,7 @@ class testProtocol(unittest.TestCase):
     def test_46_answerStoreObject(self):
         oid = self.getNextTID()
         serial = self.getNextTID()
-        p = protocol.answerStoreObject(1, 1, oid, serial)
+        p = protocol.answerStoreObject(1, oid, serial)
         conflicting, poid, pserial = p.decode()
         self.assertEqual(oid, poid)
         self.assertEqual(serial, pserial)
@@ -415,7 +413,7 @@ class testProtocol(unittest.TestCase):
         oid = self.getNextTID()
         serial = self.getNextTID()
         tid = self.getNextTID()
-        p = protocol.askObject(1, oid, serial, tid)
+        p = protocol.askObject(oid, serial, tid)
         poid, pserial, ptid = p.decode()
         self.assertEqual(oid, poid)
         self.assertEqual(serial, pserial)
@@ -425,7 +423,7 @@ class testProtocol(unittest.TestCase):
         oid = self.getNextTID()
         serial_start = self.getNextTID()
         serial_end = self.getNextTID()
-        p = protocol.answerObject(1, oid, serial_start, serial_end, 1, 55, "to",)
+        p = protocol.answerObject(oid, serial_start, serial_end, 1, 55, "to",)
         poid, pserial_start, pserial_end, compression, checksum, data= p.decode()
         self.assertEqual(oid, poid)
         self.assertEqual(serial_start, pserial_start)
@@ -435,7 +433,7 @@ class testProtocol(unittest.TestCase):
         self.assertEqual(data, "to")
 
     def test_49_askTIDs(self):
-        p = protocol.askTIDs(1, 1, 10, 5)
+        p = protocol.askTIDs(1, 10, 5)
         first, last, partition = p.decode()
         self.assertEqual(first, 1)
         self.assertEqual(last, 10)
@@ -447,13 +445,13 @@ class testProtocol(unittest.TestCase):
         tid3 = self.getNextTID()
         tid4 = self.getNextTID()
         tid_list = [tid1, tid2, tid3, tid4]
-        p = protocol.answerTIDs(1,tid_list)
+        p = protocol.answerTIDs(tid_list)
         p_tid_list  = p.decode()[0]
         self.assertEqual(p_tid_list, tid_list)
 
     def test_51_askTransactionInfomation(self):
         tid = self.getNextTID()
-        p = protocol.askTransactionInformation(1, tid)
+        p = protocol.askTransactionInformation(tid)
         ptid = p.decode()[0]
         self.assertEqual(tid, ptid)
 
@@ -464,7 +462,7 @@ class testProtocol(unittest.TestCase):
         oid3 = self.getNextTID()
         oid4 = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = protocol.answerTransactionInformation(1, tid, "moi", 
+        p = protocol.answerTransactionInformation(tid, "moi", 
                 "transaction", "exti", oid_list)
         ptid, user, desc, ext, p_oid_list = p.decode()
         self.assertEqual(ptid, tid)
@@ -475,7 +473,7 @@ class testProtocol(unittest.TestCase):
 
     def test_53_askObjectHistory(self):
         oid = self.getNextTID()
-        p = protocol.askObjectHistory(1, oid, 1, 10,)
+        p = protocol.askObjectHistory(oid, 1, 10,)
         poid, first, last = p.decode()
         self.assertEqual(first, 1)
         self.assertEqual(last, 10)
@@ -488,13 +486,13 @@ class testProtocol(unittest.TestCase):
         hist3 = (self.getNextTID(), 326)
         hist4 = (self.getNextTID(), 652)
         hist_list = [hist1, hist2, hist3, hist4]
-        p = protocol.answerObjectHistory(1, oid, hist_list)
+        p = protocol.answerObjectHistory(oid, hist_list)
         poid, p_hist_list  = p.decode()
         self.assertEqual(p_hist_list, hist_list)
         self.assertEqual(oid, poid)
 
     def test_55_askOIDs(self):
-        p = protocol.askOIDs(1, 1, 10, 5)
+        p = protocol.askOIDs(1, 10, 5)
         first, last, partition = p.decode()
         self.assertEqual(first, 1)
         self.assertEqual(last, 10)
@@ -506,7 +504,7 @@ class testProtocol(unittest.TestCase):
         oid3 = self.getNextTID()
         oid4 = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = protocol.answerOIDs(1,oid_list)
+        p = protocol.answerOIDs(oid_list)
         p_oid_list  = p.decode()[0]
         self.assertEqual(p_oid_list, oid_list)
 

@@ -21,6 +21,7 @@ import logging
 import MySQLdb
 from tempfile import mkstemp
 from mock import Mock
+from neo import protocol
 from neo.node import MasterNode
 from neo.pt import PartitionTable
 from neo.storage.app import Application, StorageNode
@@ -128,10 +129,16 @@ server: 127.0.0.1:10020
 
     def checkCalledAbort(self, conn, packet_number=0):
         """Check the abort method has been called and an error packet has been sent"""
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1) # XXX required here ????
+        # sometimes we answer an error, sometimes we just send it
+        send_calls_len = len(conn.mockGetNamedCalls("send"))
+        answer_calls_len = len(conn.mockGetNamedCalls('answer'))
+        self.assertEquals(send_calls_len + answer_calls_len, 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        if send_calls_len == 1:
+            call = conn.mockGetNamedCalls("send")[packet_number]
+        else:
+            call = conn.mockGetNamedCalls("answer")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
@@ -210,9 +217,9 @@ server: 127.0.0.1:10020
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
-        p = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
+        p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         self.verification.handleRequestNodeIdentification(conn, p, CLIENT_NODE_TYPE,
-                                                          uuid, "127.0.0.1", self.client_port, "zatt")
+                                      uuid, "127.0.0.1", self.client_port, "zatt")
         self.checkCalledAbort(conn)
 
         # not a master node
@@ -220,9 +227,9 @@ server: 127.0.0.1:10020
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
-        p = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
+        p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         self.verification.handleRequestNodeIdentification(conn, p, CLIENT_NODE_TYPE,
-                                                          uuid, "127.0.0.1", self.client_port, "zatt")
+                                      uuid, "127.0.0.1", self.client_port, "zatt")
         self.checkCalledAbort(conn)
 
         # bad name
@@ -230,9 +237,9 @@ server: 127.0.0.1:10020
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port),
                      "isServerConnection" : True})
-        p = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
+        p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         self.verification.handleRequestNodeIdentification(conn, p, MASTER_NODE_TYPE,
-                                                          uuid, "127.0.0.1", self.client_port, "zatt")
+                                      uuid, "127.0.0.1", self.client_port, "zatt")
         self.checkCalledAbort(conn)
 
         # new node
@@ -240,7 +247,7 @@ server: 127.0.0.1:10020
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port),
                      "isServerConnection" : True})
-        p = Packet(msg_id=1, msg_type=REQUEST_NODE_IDENTIFICATION)
+        p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
         self.verification.handleRequestNodeIdentification(conn, p, MASTER_NODE_TYPE,
                                                           uuid, "127.0.0.1", self.master_port, "main")
@@ -248,8 +255,8 @@ server: 127.0.0.1:10020
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
@@ -264,8 +271,8 @@ server: 127.0.0.1:10020
         self.assertEqual(node.getUUID(), uuid)
         self.verification.handleRequestNodeIdentification(conn, p, MASTER_NODE_TYPE,
                                                           uuid, "127.0.0.1", self.master_port, "main")
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
@@ -285,8 +292,8 @@ server: 127.0.0.1:10020
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
@@ -298,15 +305,14 @@ server: 127.0.0.1:10020
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
-        p = Packet(msg_id=1, msg_type=ACCEPT_NODE_IDENTIFICATION)
+        p = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
         self.verification.handleAcceptNodeIdentification(conn, p, CLIENT_NODE_TYPE,
-                                                         self.getNewUUID(),"127.0.0.1", self.client_port,
-                                                         1009, 2, uuid)
+                 self.getNewUUID(),"127.0.0.1", self.client_port, 1009, 2, uuid)
         self.checkCalledAbort(conn)    
 
     def test_07_handleAnswerPrimaryMaster(self):
         # reject server connection 
-        packet = Packet(msg_id=1, msg_type=ANSWER_PRIMARY_MASTER)
+        packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
@@ -332,7 +338,7 @@ server: 127.0.0.1:10020
         
     def test_07_handleAskLastIDs(self):
         # reject server connection 
-        packet = Packet(msg_id=1, msg_type=ASK_LAST_IDS)
+        packet = Packet(msg_type=ASK_LAST_IDS)
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
@@ -345,7 +351,7 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : False})
         self.verification.handleAskLastIDs(conn, packet)
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_LAST_IDS)
@@ -380,7 +386,7 @@ server: 127.0.0.1:10020
                 checksum, value) values (0, 4, 0, 0, '')""")
         self.app.dm.commit()
         self.verification.handleAskLastIDs(conn, packet)
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_LAST_IDS)
@@ -391,7 +397,7 @@ server: 127.0.0.1:10020
         
     def test_08_handleAskPartitionTable(self):
         # reject server connection 
-        packet = Packet(msg_id=1, msg_type=ASK_PARTITION_TABLE)
+        packet = Packet(msg_type=ASK_PARTITION_TABLE)
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
@@ -407,7 +413,7 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : False})
         self.verification.handleAskPartitionTable(conn, packet, [1,])
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_PARTITION_TABLE)
@@ -425,7 +431,7 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : False})
         self.verification.handleAskPartitionTable(conn, packet, [1,])
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_PARTITION_TABLE)
@@ -437,7 +443,7 @@ server: 127.0.0.1:10020
 
     def test_09_handleSendPartitionTable(self):
         # reject server connection 
-        packet = Packet(msg_id=1, msg_type=SEND_PARTITION_TABLE)
+        packet = Packet(msg_type=SEND_PARTITION_TABLE)
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
@@ -484,7 +490,7 @@ server: 127.0.0.1:10020
 
     def test_10_handleNotifyPartitionChanges(self):
         # reject server connection 
-        packet = Packet(msg_id=1, msg_type=NOTIFY_PARTITION_CHANGES)
+        packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
@@ -499,7 +505,7 @@ server: 127.0.0.1:10020
             "isServerConnection": False,
             "getAddress" : ("127.0.0.1", self.master_port), 
         })
-        packet = Packet(msg_id=1, msg_type=NOTIFY_PARTITION_CHANGES)
+        packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
         self.app.ptid = 1
         self.verification.handleNotifyPartitionChanges(conn, packet, 0, ())
         self.assertEquals(self.app.ptid, 1)
@@ -509,7 +515,7 @@ server: 127.0.0.1:10020
             "isServerConnection": False,
             "getAddress" : ("127.0.0.1", self.master_port), 
         })
-        packet = Packet(msg_id=1, msg_type=NOTIFY_PARTITION_CHANGES)
+        packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
         cell = (0, self.getNewUUID(), UP_TO_DATE_STATE)
         count = len(self.app.nm.getNodeList())
         self.app.pt = PartitionTable(1, 1)
@@ -527,40 +533,40 @@ server: 127.0.0.1:10020
     def test_11_handleStartOperation(self):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
-        packet = Packet(msg_id=1, msg_type=STOP_OPERATION)
+        packet = Packet(msg_type=STOP_OPERATION)
         self.verification.handleStartOperation(conn, packet)
         self.checkCalledAbort(conn)        
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
         self.assertFalse(self.app.operational)
-        packet = Packet(msg_id=1, msg_type=STOP_OPERATION)
+        packet = Packet(msg_type=STOP_OPERATION)
         self.verification.handleStartOperation(conn, packet)
         self.assertTrue(self.app.operational)
 
     def test_12_handleStopOperation(self):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
-        packet = Packet(msg_id=1, msg_type=STOP_OPERATION)
+        packet = Packet(msg_type=STOP_OPERATION)
         self.verification.handleStopOperation(conn, packet)
         self.checkCalledAbort(conn)        
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
-        packet = Packet(msg_id=1, msg_type=STOP_OPERATION)
+        packet = Packet(msg_type=STOP_OPERATION)
         self.assertRaises(OperationFailure, self.verification.handleStopOperation, conn, packet)
 
     def test_13_handleAskUnfinishedTransactions(self):
         # server connection
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
-        packet = Packet(msg_id=1, msg_type=ASK_UNFINISHED_TRANSACTIONS)
+        packet = Packet(msg_type=ASK_UNFINISHED_TRANSACTIONS)
         self.verification.handleAskUnfinishedTransactions(conn, packet)
         self.checkCalledAbort(conn)
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
-        packet = Packet(msg_id=1, msg_type=ASK_UNFINISHED_TRANSACTIONS)
+        packet = Packet(msg_type=ASK_UNFINISHED_TRANSACTIONS)
         self.verification.handleAskUnfinishedTransactions(conn, packet)
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_UNFINISHED_TRANSACTIONS)
@@ -574,9 +580,9 @@ server: 127.0.0.1:10020
         self.app.dm.commit()
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
-        packet = Packet(msg_id=1, msg_type=ASK_UNFINISHED_TRANSACTIONS)
+        packet = Packet(msg_type=ASK_UNFINISHED_TRANSACTIONS)
         self.verification.handleAskUnfinishedTransactions(conn, packet)
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_UNFINISHED_TRANSACTIONS)
@@ -588,9 +594,9 @@ server: 127.0.0.1:10020
         # ask from server with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
-        packet = Packet(msg_id=1, msg_type=ASK_TRANSACTION_INFORMATION)
+        packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(1))
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
@@ -599,9 +605,9 @@ server: 127.0.0.1:10020
         # ask from client conn with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
-        packet = Packet(msg_id=1, msg_type=ASK_TRANSACTION_INFORMATION)
+        packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(1))
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
@@ -618,9 +624,9 @@ server: 127.0.0.1:10020
         # object from trans
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
-        packet = Packet(msg_id=1, msg_type=ASK_TRANSACTION_INFORMATION)
+        packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(1))
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_TRANSACTION_INFORMATION)
@@ -634,9 +640,9 @@ server: 127.0.0.1:10020
         # object from ttrans
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
-        packet = Packet(msg_id=1, msg_type=ASK_TRANSACTION_INFORMATION)
+        packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(3))
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_TRANSACTION_INFORMATION)
@@ -652,9 +658,9 @@ server: 127.0.0.1:10020
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
         # find the one in trans
-        packet = Packet(msg_id=1, msg_type=ASK_TRANSACTION_INFORMATION)
+        packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(1))
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_TRANSACTION_INFORMATION)
@@ -668,9 +674,9 @@ server: 127.0.0.1:10020
         # do not find the one in ttrans
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
-        packet = Packet(msg_id=1, msg_type=ASK_TRANSACTION_INFORMATION)
+        packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(3))
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
@@ -681,15 +687,15 @@ server: 127.0.0.1:10020
         # server connection
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
-        packet = Packet(msg_id=1, msg_type=ASK_OBJECT_PRESENT)
+        packet = Packet(msg_type=ASK_OBJECT_PRESENT)
         self.verification.handleAskObjectPresent(conn, packet, p64(1), p64(2))
         self.checkCalledAbort(conn)
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
-        packet = Packet(msg_id=1, msg_type=ASK_OBJECT_PRESENT)
+        packet = Packet(msg_type=ASK_OBJECT_PRESENT)
         self.verification.handleAskObjectPresent(conn, packet, p64(1), p64(2))
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
@@ -703,9 +709,9 @@ server: 127.0.0.1:10020
         self.app.dm.commit()
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
-        packet = Packet(msg_id=1, msg_type=ASK_OBJECT_PRESENT)
+        packet = Packet(msg_type=ASK_OBJECT_PRESENT)
         self.verification.handleAskObjectPresent(conn, packet, p64(1), p64(2))
-        call = conn.mockGetNamedCalls("addPacket")[0]
+        call = conn.mockGetNamedCalls("answer")[0]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_OBJECT_PRESENT)
@@ -717,13 +723,13 @@ server: 127.0.0.1:10020
         # server connection
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
-        packet = Packet(msg_id=1, msg_type=ASK_OBJECT_PRESENT)
+        packet = Packet(msg_type=ASK_OBJECT_PRESENT)
         self.verification.handleDeleteTransaction(conn, packet, p64(1))
         self.checkCalledAbort(conn)
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
-        packet = Packet(msg_id=1, msg_type=ASK_OBJECT_PRESENT)
+        packet = Packet(msg_type=ASK_OBJECT_PRESENT)
         self.verification.handleDeleteTransaction(conn, packet, p64(1))
         # client connection with data
         self.app.dm.begin()
@@ -740,7 +746,7 @@ server: 127.0.0.1:10020
                       'isServerConnection': True })
         dm = Mock()
         self.app.dm = dm
-        packet = Packet(msg_id=1, msg_type=COMMIT_TRANSACTION)
+        packet = Packet(msg_type=COMMIT_TRANSACTION)
         self.verification.handleCommitTransaction(conn, packet, p64(1))
         self.checkCalledAbort(conn)
         self.assertEqual(len(dm.mockGetNamedCalls("finishTransaction")), 0)
@@ -749,7 +755,7 @@ server: 127.0.0.1:10020
                       'isServerConnection': False })
         dm = Mock()
         self.app.dm = dm
-        packet = Packet(msg_id=1, msg_type=COMMIT_TRANSACTION)
+        packet = Packet(msg_type=COMMIT_TRANSACTION)
         self.verification.handleCommitTransaction(conn, packet, p64(1))
         self.assertEqual(len(dm.mockGetNamedCalls("finishTransaction")), 1)
         call = dm.mockGetNamedCalls("finishTransaction")[0]
@@ -759,7 +765,7 @@ server: 127.0.0.1:10020
     def test_18_handleLockInformation(self):
         conn = Mock({"getAddress" : ("127.0.0.1", self.master_port),
                      'isServerConnection': False})
-        packet = Packet(msg_id=1, msg_type=LOCK_INFORMATION)
+        packet = Packet(msg_type=LOCK_INFORMATION)
         self.assertEquals(len(self.app.load_lock_dict), 0)
         self.verification.handleLockInformation(conn, packet, p64(1))
         self.assertEquals(len(self.app.load_lock_dict), 0)
@@ -768,7 +774,7 @@ server: 127.0.0.1:10020
         conn = Mock({"getAddress" : ("127.0.0.1", self.master_port),
                      'isServerConnection': False})
         self.app.load_lock_dict[p64(1)] = Mock()
-        packet = Packet(msg_id=1, msg_type=UNLOCK_INFORMATION)
+        packet = Packet(msg_type=UNLOCK_INFORMATION)
         self.verification.handleUnlockInformation(conn, packet, p64(1))
         self.assertEquals(len(self.app.load_lock_dict), 1)
     

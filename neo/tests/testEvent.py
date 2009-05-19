@@ -160,11 +160,11 @@ class testEvent(unittest.TestCase):
       self.assertEquals(len(conn.mockGetNamedCalls("getHandler")), 0)
       self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
       self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 1)
-      self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 2)
-      self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
+      self.assertEquals(len(conn.mockGetNamedCalls("ask")), 1)
+      self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
       self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
       # check ping packet sent
-      call = conn.mockGetNamedCalls("addPacket")[0]
+      call = conn.mockGetNamedCalls("ask")[0]
       packet = call.getParam(0)
       self.failUnless(isinstance(packet, Packet))
       self.assertEqual(packet.getType(), PING)
@@ -178,8 +178,8 @@ class testEvent(unittest.TestCase):
       self.assertEquals(len(conn.mockGetNamedCalls("getHandler")), 1)
       self.assertEquals(len(conn.mockGetNamedCalls("close")), 1)
       self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 2)
-      self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 2)
-      self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
+      self.assertEquals(len(conn.mockGetNamedCalls("ask")), 1)
+      self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
       self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 1)
 
       # same test with additional time < 5

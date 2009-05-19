@@ -122,7 +122,7 @@ class ClientApplicationTest(unittest.TestCase):
         if oid is None:
             oid = self.makeOID()
         obj = (oid, tid, 'DATA', '', app.local_var.txn)
-        packet = protocol.answerStoreObject(msg_id=1, conflicting=0, oid=oid, serial=tid)
+        packet = protocol.answerStoreObject(conflicting=0, oid=oid, serial=tid)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
         cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
         app.cp = Mock({ 'getConnForNode': conn})
@@ -132,7 +132,7 @@ class ClientApplicationTest(unittest.TestCase):
     def voteTransaction(self, app):
         tid = app.local_var.tid
         txn = app.local_var.txn
-        packet = protocol.answerStoreTransaction(msg_id=1, tid=tid)
+        packet = protocol.answerStoreTransaction(tid=tid)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
         cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
         app.pt = Mock({ 'getCellList': (cell, cell, ) })
@@ -142,7 +142,7 @@ class ClientApplicationTest(unittest.TestCase):
     def finishTransaction(self, app):
         txn = app.local_var.txn
         tid = app.local_var.tid
-        packet = protocol.notifyTransactionFinished(1, tid)
+        packet = protocol.notifyTransactionFinished(tid)
         app.master_conn = Mock({ 
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10010),
@@ -152,24 +152,27 @@ class ClientApplicationTest(unittest.TestCase):
 
     # common checks
 
-    def checkDispatcherRegisterCalled(self, app, conn, msg_id):
+    def checkDispatcherRegisterCalled(self, app, conn):
         calls = app.dispatcher.mockGetNamedCalls('register')
         self.assertEquals(len(calls), 1)
         self.assertTrue(calls[0].getParam(0) is conn)
-        self.assertEquals(calls[0].getParam(1), msg_id)
         self.assertEquals(calls[0].getParam(2), app.local_var.queue)
 
-    def checkPacketSent(self, conn, msg_id, packet_type):
-        calls = conn.mockGetNamedCalls('addPacket')
+    def checkPacketSent(self, conn, packet_type, method='addPacket'):
+        calls = conn.mockGetNamedCalls(method)
         self.assertEquals(len(calls), 1)
         packet = calls[0].getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet._type, packet_type)
 
-    def checkMessageExpected(self, conn, msg_id):
-        calls = conn.mockGetNamedCalls('expectMessage')
-        self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), msg_id)
+    def checkAnswer(self, conn, packet_type):
+        self.checkPacketSent(conn, packet_type, 'answer')
+
+    def checkAsk(self, conn, packet_type):
+        self.checkPacketSent(conn, packet_type, 'ask')
+
+    def checkNotify(self, conn, packet_type):
+        self.checkPacketSent(conn, packet_type, 'notify')
 
     def checkNoPacketSent(self, conn):
         self.assertEquals(len(conn.mockGetNamedCalls('addPacket')), 0)
@@ -197,7 +200,7 @@ class ClientApplicationTest(unittest.TestCase):
         app = self.getApp()
         test_msg_id = 50
         test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
-        response_packet = protocol.answerNewOIDs(test_msg_id, test_oid_list[:])
+        response_packet = protocol.answerNewOIDs(test_oid_list[:])
         app.master_conn = Mock({'getNextId': test_msg_id, 'addPacket': None,
                                 'expectMessage': None, 'lock': None,
                                 'unlock': None,
@@ -237,7 +240,7 @@ class ClientApplicationTest(unittest.TestCase):
         an_object = (1, oid, tid1, tid2, 0, 0, '')
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
-        packet = protocol.oidNotFound(oid, '')
+        packet = protocol.oidNotFound('')
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
@@ -247,9 +250,9 @@ class ClientApplicationTest(unittest.TestCase):
         app.cp = Mock({ 'getConnForNode' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.load, oid)
-        self.checkPacketSent(conn, 1, ASK_OBJECT)
+        self.checkAsk(conn, ASK_OBJECT)
         # object found on storage nodes and put in cache
-        packet = protocol.answerObject(*an_object)
+        packet = protocol.answerObject(*an_object[1:])
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
@@ -258,7 +261,7 @@ class ClientApplicationTest(unittest.TestCase):
         app.local_var.asked_object = an_object
         result = app.load(oid)
         self.assertEquals(result, ('', tid1))
-        self.checkPacketSent(conn, 1, ASK_OBJECT)
+        self.checkAsk(conn, ASK_OBJECT)
         self.assertTrue(oid in mq)
         # object is now cached, try to reload it 
         conn = Mock({ 
@@ -277,7 +280,7 @@ class ClientApplicationTest(unittest.TestCase):
         tid2 = self.makeTID(2)
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
-        packet = protocol.oidNotFound(oid, '')
+        packet = protocol.oidNotFound('')
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
@@ -287,14 +290,14 @@ class ClientApplicationTest(unittest.TestCase):
         app.cp = Mock({ 'getConnForNode' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.loadSerial, oid, tid2)
-        self.checkPacketSent(conn, 1, ASK_OBJECT)
+        self.checkAsk(conn, ASK_OBJECT)
         # object should not have been cached
         self.assertFalse(oid in mq)
         # now a cached version ewxists but should not be hit 
         mq.store(oid, (tid1, 'WRONG'))
         self.assertTrue(oid in mq)
         another_object = (1, oid, tid2, INVALID_SERIAL, 0, 0, 'RIGHT')
-        packet = protocol.answerObject(*another_object)
+        packet = protocol.answerObject(*another_object[1:])
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
@@ -303,7 +306,7 @@ class ClientApplicationTest(unittest.TestCase):
         app.local_var.asked_object = another_object
         result = app.loadSerial(oid, tid1)
         self.assertEquals(result, 'RIGHT')
-        self.checkPacketSent(conn, 1, ASK_OBJECT)
+        self.checkAsk(conn, ASK_OBJECT)
         self.assertTrue(oid in mq)
 
     def test_loadBefore(self):
@@ -314,7 +317,7 @@ class ClientApplicationTest(unittest.TestCase):
         tid2 = self.makeTID(2)
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
-        packet = protocol.oidNotFound(oid, '')
+        packet = protocol.oidNotFound('')
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
@@ -324,10 +327,10 @@ class ClientApplicationTest(unittest.TestCase):
         app.cp = Mock({ 'getConnForNode' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.loadBefore, oid, tid2)
-        self.checkPacketSent(conn, 1, ASK_OBJECT)
+        self.checkAsk(conn, ASK_OBJECT)
         # no previous versions -> return None
         an_object = (1, oid, tid2, INVALID_SERIAL, 0, 0, '')
-        packet = protocol.answerObject(*an_object)
+        packet = protocol.answerObject(*an_object[1:])
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
@@ -342,7 +345,7 @@ class ClientApplicationTest(unittest.TestCase):
         mq.store(oid, (tid1, 'WRONG'))
         self.assertTrue(oid in mq)
         another_object = (1, oid, tid1, tid2, 0, 0, 'RIGHT')
-        packet = protocol.answerObject(*another_object)
+        packet = protocol.answerObject(*another_object[1:])
         conn = Mock({ 
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
@@ -351,7 +354,7 @@ class ClientApplicationTest(unittest.TestCase):
         app.local_var.asked_object = another_object
         result = app.loadBefore(oid, tid1)
         self.assertEquals(result, ('RIGHT', tid1, tid2))
-        self.checkPacketSent(conn, 1, ASK_OBJECT)
+        self.checkAsk(conn, ASK_OBJECT)
         self.assertTrue(oid in mq)
 
     def test_tpc_begin(self):
@@ -374,7 +377,7 @@ class ClientApplicationTest(unittest.TestCase):
         # no connection -> NEOStorageError
         self.assertRaises(NEOStorageError, app.tpc_begin, transaction=txn, tid=None)
         # ask a tid to pmn
-        packet = protocol.answerNewTID(msg_id=1, tid=tid)
+        packet = protocol.answerNewTID(tid=tid)
         app.master_conn = Mock({
             'getNextId': 1,
             'expectMessage': None, 
@@ -385,9 +388,8 @@ class ClientApplicationTest(unittest.TestCase):
         app.dispatcher = Mock({
         })
         app.tpc_begin(transaction=txn, tid=None)
-        self.checkPacketSent(app.master_conn, 1, ASK_NEW_TID)
-        self.checkMessageExpected(app.master_conn, 1)
-        self.checkDispatcherRegisterCalled(app, app.master_conn, 1)
+        self.checkAsk(app.master_conn, ASK_NEW_TID)
+        self.checkDispatcherRegisterCalled(app, app.master_conn)
         # check attributes
         self.assertTrue(app.local_var.txn is txn)
         self.assertEquals(app.local_var.tid, tid)
@@ -420,7 +422,7 @@ class ClientApplicationTest(unittest.TestCase):
         # build conflicting state
         app.local_var.txn = txn
         app.local_var.tid = tid
-        packet = protocol.answerStoreObject(msg_id=1, conflicting=1, oid=oid, serial=tid)
+        packet = protocol.answerStoreObject(conflicting=1, oid=oid, serial=tid)
         conn = Mock({ 
             'getNextId': 1,
             'fakeReceived': packet,    
@@ -438,9 +440,8 @@ class ClientApplicationTest(unittest.TestCase):
         self.assertTrue(oid not in app.local_var.data_dict)
         self.assertEquals(app.conflict_serial, tid)
         self.assertEquals(app.local_var.object_stored, (-1, tid))
-        self.checkPacketSent(conn, 1, ASK_STORE_OBJECT)
-        self.checkMessageExpected(conn, 1)
-        self.checkDispatcherRegisterCalled(app, conn, 1)
+        self.checkAsk(conn, ASK_STORE_OBJECT)
+        self.checkDispatcherRegisterCalled(app, conn)
 
     def test_store3(self):
         app = self.getApp()
@@ -450,7 +451,7 @@ class ClientApplicationTest(unittest.TestCase):
         # case with no conflict
         app.local_var.txn = txn
         app.local_var.tid = tid
-        packet = protocol.answerStoreObject(msg_id=1, conflicting=0, oid=oid, serial=tid)
+        packet = protocol.answerStoreObject(conflicting=0, oid=oid, serial=tid)
         conn = Mock({ 
             'getNextId': 1,
             'fakeReceived': packet,    
@@ -468,9 +469,8 @@ class ClientApplicationTest(unittest.TestCase):
         self.assertEquals(app.local_var.object_stored, (oid, tid))
         self.assertEquals(app.local_var.data_dict.get(oid, None), 'DATA')
         self.assertNotEquals(app.conflict_serial, tid)
-        self.checkPacketSent(conn, 1, ASK_STORE_OBJECT)
-        self.checkMessageExpected(conn, 1)
-        self.checkDispatcherRegisterCalled(app, conn, 1)
+        self.checkAsk(conn, ASK_STORE_OBJECT)
+        self.checkDispatcherRegisterCalled(app, conn)
 
     def test_tpc_vote1(self):
         app = self.getApp()
@@ -490,7 +490,7 @@ class ClientApplicationTest(unittest.TestCase):
         app.local_var.txn = txn
         app.local_var.tid = tid
         # wrong answer -> failure
-        packet = protocol.answerNewOIDs(1, ())
+        packet = protocol.answerNewOIDs(())
         conn = Mock({ 
             'getNextId': 1,
             'fakeReceived': packet,    
@@ -506,14 +506,11 @@ class ClientApplicationTest(unittest.TestCase):
         app.tpc_begin(txn, tid)
         self.assertRaises(NEOStorageError, app.tpc_vote, txn)
         self.assertEquals(len(conn.mockGetNamedCalls('abort')), 1)
-        calls = conn.mockGetNamedCalls('addPacket')
-        self.assertEquals(len(calls), 2)
+        calls = conn.mockGetNamedCalls('ask')
+        self.assertEquals(len(calls), 1)
         packet = calls[0].getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet._type, ASK_STORE_TRANSACTION)
-        packet = calls[1].getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet._type, ERROR)
 
     def test_tpc_vote3(self):
         app = self.getApp()
@@ -522,7 +519,7 @@ class ClientApplicationTest(unittest.TestCase):
         app.local_var.txn = txn
         app.local_var.tid = tid
         # response -> OK
-        packet = protocol.answerStoreTransaction(msg_id=1, tid=tid)
+        packet = protocol.answerStoreTransaction(tid=tid)
         conn = Mock({ 
             'getNextId': 1,
             'fakeReceived': packet,    
@@ -536,9 +533,8 @@ class ClientApplicationTest(unittest.TestCase):
         app.dispatcher = Mock()
         app.tpc_begin(txn, tid)
         app.tpc_vote(txn)
-        self.checkPacketSent(conn, 1, ASK_STORE_TRANSACTION)
-        self.checkMessageExpected(conn, 1)
-        self.checkDispatcherRegisterCalled(app, conn, 1)
+        self.checkAsk(conn, ASK_STORE_TRANSACTION)
+        self.checkDispatcherRegisterCalled(app, conn)
 
     def test_tpc_abort1(self):
         # ignore mismatch transaction
@@ -580,9 +576,9 @@ class ClientApplicationTest(unittest.TestCase):
         app.local_var.data_dict = {oid1: '', oid2: ''}
         app.tpc_abort(txn)
         # will check if there was just one call/packet :
-        self.checkPacketSent(conn1, 1, ABORT_TRANSACTION)
-        self.checkPacketSent(conn2, 2, ABORT_TRANSACTION)
-        self.checkPacketSent(app.master_conn, app.master_conn.getNextId(), ABORT_TRANSACTION)
+        self.checkNotify(conn1, ABORT_TRANSACTION)
+        self.checkNotify(conn2, ABORT_TRANSACTION)
+        self.checkNotify(app.master_conn, ABORT_TRANSACTION)
         self.assertEquals(app.local_var.tid, None)
         self.assertEquals(app.local_var.txn, None)
         self.assertEquals(app.local_var.data_dict, {})
@@ -619,7 +615,7 @@ class ClientApplicationTest(unittest.TestCase):
         def hook(tid): 
             self.f_called = True
             self.f_called_with_tid = tid
-        packet = protocol.answerNewTID(1, INVALID_TID) 
+        packet = protocol.answerNewTID(INVALID_TID) 
         app.master_conn = Mock({ 
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10000),
@@ -630,8 +626,8 @@ class ClientApplicationTest(unittest.TestCase):
         self.assertRaises(NEOStorageError, app.tpc_finish, txn, hook)
         self.assertTrue(self.f_called)
         self.assertEquals(self.f_called_with_tid, tid)
-        self.checkPacketSent(app.master_conn, 1, FINISH_TRANSACTION)
-        self.checkDispatcherRegisterCalled(app, app.master_conn, 1)
+        self.checkAsk(app.master_conn, FINISH_TRANSACTION)
+        self.checkDispatcherRegisterCalled(app, app.master_conn)
 
     def test_tpc_finish3(self):
         # transaction is finished
@@ -644,7 +640,7 @@ class ClientApplicationTest(unittest.TestCase):
         def hook(tid): 
             self.f_called = True
             self.f_called_with_tid = tid
-        packet = protocol.notifyTransactionFinished(1, tid)
+        packet = protocol.notifyTransactionFinished(tid)
         app.master_conn = Mock({ 
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10010),
@@ -655,8 +651,8 @@ class ClientApplicationTest(unittest.TestCase):
         app.tpc_finish(txn, hook)
         self.assertTrue(self.f_called)
         self.assertEquals(self.f_called_with_tid, tid)
-        self.checkPacketSent(app.master_conn, 1, FINISH_TRANSACTION)
-        self.checkDispatcherRegisterCalled(app, app.master_conn, 1)
+        self.checkAsk(app.master_conn, FINISH_TRANSACTION)
+        self.checkDispatcherRegisterCalled(app, app.master_conn)
         self.assertEquals(app.local_var.tid, None)
         self.assertEquals(app.local_var.txn, None)
         self.assertEquals(app.local_var.data_dict, {})
@@ -710,19 +706,19 @@ class ClientApplicationTest(unittest.TestCase):
         self.voteTransaction(app)
         self.finishTransaction(app)
         # undo 1 -> no previous revision
-        u1p1 = protocol.answerTransactionInformation(1, tid1, '', '', '', (oid1, ))
-        u1p2 = protocol.oidNotFound(1, 'oid not found')
+        u1p1 = protocol.answerTransactionInformation(tid1, '', '', '', (oid1, ))
+        u1p2 = protocol.oidNotFound('oid not found')
         # undo 2 -> not end tid
-        u2p1 = protocol.answerTransactionInformation(1, tid2, '', '', '', (oid2, ))
-        u2p2 = protocol.answerObject(1, oid2, tid2, tid3, 0, 0, 'O2V1')
+        u2p1 = protocol.answerTransactionInformation(tid2, '', '', '', (oid2, ))
+        u2p2 = protocol.answerObject(oid2, tid2, tid3, 0, 0, 'O2V1')
         # undo 3 -> conflict
-        u3p1 = protocol.answerTransactionInformation(1, tid3, '', '', '', (oid2, ))
-        u3p2 = protocol.answerObject(1, oid2, tid3, tid3, 0, 0, 'O2V2')
-        u3p3 = protocol.answerStoreObject(msg_id=1, conflicting=1, oid=oid2, serial=tid2)
+        u3p1 = protocol.answerTransactionInformation(tid3, '', '', '', (oid2, ))
+        u3p2 = protocol.answerObject(oid2, tid3, tid3, 0, 0, 'O2V2')
+        u3p3 = protocol.answerStoreObject(conflicting=1, oid=oid2, serial=tid2)
         # undo 4 -> ok
-        u4p1 = protocol.answerTransactionInformation(1, tid3, '', '', '', (oid2, ))
-        u4p2 = protocol.answerObject(1, oid2, tid3, tid3, 0, 0, 'O2V2')
-        u4p3 = protocol.answerStoreObject(msg_id=1, conflicting=0, oid=oid2, serial=tid2)
+        u4p1 = protocol.answerTransactionInformation(tid3, '', '', '', (oid2, ))
+        u4p2 = protocol.answerObject(oid2, tid3, tid3, 0, 0, 'O2V2')
+        u4p3 = protocol.answerStoreObject(conflicting=0, oid=oid2, serial=tid2)
         # test logic
         packets = (u1p1, u1p2, u2p1, u2p2, u3p1, u3p2, u3p3, u3p1, u4p2, u4p3)
         conn = Mock({ 
@@ -754,8 +750,8 @@ class ClientApplicationTest(unittest.TestCase):
         oid1, oid2 = self.makeOID(1), self.makeOID(2)
         # TIDs packets supplied by _waitMessage hook
         # TXN info packets
-        p3 = protocol.answerTransactionInformation(1, tid1, '', '', '', (oid1, ))
-        p4 = protocol.answerTransactionInformation(1, tid2, '', '', '', (oid2, ))
+        p3 = protocol.answerTransactionInformation(tid1, '', '', '', (oid1, ))
+        p4 = protocol.answerTransactionInformation(tid2, '', '', '', (oid2, ))
         conn = Mock({
             'getNextId': 1,
             'getUUID': ReturnValues(uuid1, uuid2),
@@ -785,11 +781,11 @@ class ClientApplicationTest(unittest.TestCase):
         tid1, tid2 = self.makeTID(1), self.makeTID(2)
         object_history = ( (tid1, 42), (tid2, 42),)
         # object history, first is a wrong oid, second is valid
-        p1 = protocol.answerObjectHistory(1, self.makeOID(2), ())
-        p2 = protocol.answerObjectHistory(1, oid, object_history)
+        p1 = protocol.answerObjectHistory(self.makeOID(2), ())
+        p2 = protocol.answerObjectHistory(oid, object_history)
         # transaction history
-        p3 = protocol.answerTransactionInformation(1, tid1, 'u', 'd', 'e', (oid, ))
-        p4 = protocol.answerTransactionInformation(1, tid2, 'u', 'd', 'e', (oid, ))
+        p3 = protocol.answerTransactionInformation(tid1, 'u', 'd', 'e', (oid, ))
+        p4 = protocol.answerTransactionInformation(tid2, 'u', 'd', 'e', (oid, ))
         # faked environnement
         conn = Mock({
             'getNextId': 1,
