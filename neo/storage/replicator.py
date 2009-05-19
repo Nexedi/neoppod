@@ -90,8 +90,7 @@ class ReplicationEventHandler(StorageEventHandler):
             tid_set = set(tid_list) - set(present_tid_list)
             for tid in tid_set:
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.askTransactionInformation(msg_id, tid)
+                p = protocol.askTransactionInformation(msg_id, tid)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id, timeout = 300)
 
@@ -99,8 +98,7 @@ class ReplicationEventHandler(StorageEventHandler):
             app.replicator.tid_offset += 1000
             offset = app.replicator.tid_offset
             msg_id = conn.getNextId()
-            p = Packet()
-            p.askTIDs(msg_id, offset, offset + 1000, 
+            p = protocol.askTIDs(msg_id, offset, offset + 1000, 
                       app.replicator.current_partition.getRID())
             conn.addPacket(p)
             conn.expectMessage(msg_id, timeout = 300)
@@ -108,8 +106,7 @@ class ReplicationEventHandler(StorageEventHandler):
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
             msg_id = conn.getNextId()
-            p = Packet()
-            p.askOIDs(msg_id, 0, 1000, 
+            p = protocol.askOIDs(msg_id, 0, 1000, 
                       app.replicator.current_partition.getRID())
             conn.addPacket(p)
             conn.expectMessage(msg_id, timeout = 300)
@@ -133,8 +130,7 @@ class ReplicationEventHandler(StorageEventHandler):
             # Pick one up, and ask the history.
             oid = oid_list.pop()
             msg_id = conn.getNextId()
-            p = Packet()
-            p.askObjectHistory(msg_id, oid, 0, 1000)
+            p = protocol.askObjectHistory(msg_id, oid, 0, 1000)
             conn.addPacket(p)
             conn.expectMessage(msg_id, timeout = 300)
             app.replicator.serial_offset = 0
@@ -156,8 +152,7 @@ class ReplicationEventHandler(StorageEventHandler):
             serial_set = set(serial_list) - set(present_serial_list)
             for serial in serial_set:
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.askObject(msg_id, oid, serial, INVALID_TID)
+                p = protocol.askObject(msg_id, oid, serial, INVALID_TID)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id, timeout = 300)
 
@@ -165,8 +160,7 @@ class ReplicationEventHandler(StorageEventHandler):
             app.replicator.serial_offset += 1000
             offset = app.replicator.serial_offset
             msg_id = conn.getNextId()
-            p = Packet()
-            p.askObjectHistory(msg_id, oid, offset, offset + 1000)
+            p = protocol.askObjectHistory(msg_id, oid, offset, offset + 1000)
             conn.addPacket(p)
             conn.expectMessage(msg_id, timeout = 300)
         else:
@@ -176,8 +170,7 @@ class ReplicationEventHandler(StorageEventHandler):
                 # If I have more pending OIDs, pick one up.
                 oid = oid_list.pop()
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.askObjectHistory(msg_id, oid, 0, 1000)
+                p = protocol.askObjectHistory(msg_id, oid, 0, 1000)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id, timeout = 300)
                 app.replicator.serial_offset = 0
@@ -186,8 +179,7 @@ class ReplicationEventHandler(StorageEventHandler):
                 app.replicator.oid_offset += 1000
                 offset = app.replicator.oid_offset
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.askOIDs(msg_id, offset, offset + 1000, 
+                p = protocol.askOIDs(msg_id, offset, offset + 1000, 
                           app.replicator.current_partition.getRID())
                 conn.addPacket(p)
                 conn.expectMessage(msg_id, timeout = 300)
@@ -293,7 +285,7 @@ class Replicator(object):
     def _askCriticalTID(self):
         conn = self.primary_master_connection
         msg_id = conn.getNextId()
-        conn.addPacket(Packet().askLastIDs(msg_id))
+        conn.addPacket(protocol.askLastIDs(msg_id))
         conn.expectMessage(msg_id)
         self.critical_tid_dict[msg_id] = self.new_partition_dict.values()
         self.partition_dict.update(self.new_partition_dict)
@@ -309,7 +301,7 @@ class Replicator(object):
     def _askUnfinishedTIDs(self):
         conn = self.primary_master_connection
         msg_id = conn.getNextId()
-        conn.addPacket(Packet().askUnfinishedTransactions(msg_id))
+        conn.addPacket(protocol.askUnfinishedTransactions(msg_id))
         conn.expectMessage(msg_id)
         self.waiting_for_unfinished_tids = True
 
@@ -343,16 +335,14 @@ class Replicator(object):
                                                        addr = addr,
                                                        connector_handler = app.connector_handler)
             msg_id = self.current_connection.getNextId()
-            p = Packet()
-            p.requestNodeIdentification(msg_id, STORAGE_NODE_TYPE, app.uuid,
+            p = protocol.requestNodeIdentification(msg_id, STORAGE_NODE_TYPE, app.uuid,
                                         app.server[0], app.server[1], app.name)
             self.current_connection.addPacket(p)
             self.current_connection.expectMessage(msg_id)
 
         self.tid_offset = 0
         msg_id = self.current_connection.getNextId()
-        p = Packet()
-        p.askTIDs(msg_id, 0, 1000, self.current_partition.getRID())
+        p = protocol.askTIDs(msg_id, 0, 1000, self.current_partition.getRID())
         self.current_connection.addPacket(p)
         self.current_connection.expectMessage(msg_id, timeout = 300)
 
@@ -364,8 +354,7 @@ class Replicator(object):
             self.partition_dict.pop(self.current_partition.getRID())
             # Notify to a primary master node that my cell is now up-to-date.
             conn = self.primary_master_connection
-            p = Packet()
-            p.notifyPartitionChanges(conn.getNextId(), 
+            p = protocol.notifyPartitionChanges(conn.getNextId(), 
                                      app.ptid, 
                                      [(self.current_partition.getRID(), 
                                        app.uuid, 

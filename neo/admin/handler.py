@@ -23,6 +23,7 @@ from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         ADMIN_NODE_TYPE
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
+from neo import protocol
 from neo.protocol import Packet
 from neo.pt import PartitionTable
 from neo.exception import PrimaryFailure
@@ -56,10 +57,8 @@ class MonitoringEventHandler(BaseEventHandler):
             # Should not happen.
             raise RuntimeError('connection completed while not trying to connect')
 
-        p = Packet()
-        msg_id = conn.getNextId()
-        p.requestNodeIdentification(msg_id, ADMIN_NODE_TYPE, app.uuid,
-                                    app.server[0], app.server[1], app.name)
+        p = protocol.requestNodeIdentification(conn.getNextId(), ADMIN_NODE_TYPE, 
+                app.uuid, app.server[0], app.server[1], app.name)
         conn.addPacket(p)
         conn.expectMessage(msg_id)
         EventHandler.connectionCompleted(self, conn)
@@ -173,8 +172,8 @@ class MonitoringEventHandler(BaseEventHandler):
             app.uuid = your_uuid
 
         # Ask a primary master.
-        msg_id = conn.getNextId()
-        conn.addPacket(Packet().askPrimaryMaster(msg_id))
+        p = protocol.askPrimaryMaster(conn.getNextId())
+        conn.addPacket(p)
         conn.expectMessage(msg_id)
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,

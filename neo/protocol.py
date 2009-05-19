@@ -348,7 +348,7 @@ class Packet(object):
             return None
         return cls(msg_id, msg_type, msg[PACKET_HEADER_SIZE:msg_len])
 
-    def __init__(self, msg_id = None, msg_type = None, body = None):
+    def __init__(self, msg_id, msg_type, body=''):
         self._id = msg_id
         self._type = msg_type
         self._body = body
@@ -374,381 +374,6 @@ class Packet(object):
 
     __str__ = encode
 
-    def error(self, msg_id, error_code, error_message):
-        self._id = msg_id
-        self._type = ERROR
-        self._body = pack('!HL', error_code, len(error_message)) + error_message
-        return self
-
-    def protocolError(self, msg_id, error_message):
-        return self.error(msg_id, PROTOCOL_ERROR_CODE, 'protocol error: ' + error_message)
-
-    def internalError(self, msg_id, error_message):
-        return self.error(msg_id, INTERNAL_ERROR_CODE, 'internal error: ' + error_message)
-
-    def notReady(self, msg_id, error_message):
-        return self.error(msg_id, NOT_READY_CODE, 'not ready: ' + error_message)
-
-    def brokenNodeDisallowedError(self, msg_id, error_message):
-        return self.error(msg_id, BROKEN_NODE_DISALLOWED_CODE,
-                          'broken node disallowed error: ' + error_message)
-
-    def oidNotFound(self, msg_id, error_message):
-        return self.error(msg_id, OID_NOT_FOUND_CODE,
-                          'oid not found: ' + error_message)
-
-    def tidNotFound(self, msg_id, error_message):
-        return self.error(msg_id, TID_NOT_FOUND_CODE,
-                          'tid not found: ' + error_message)
-
-    def ping(self, msg_id):
-        self._id = msg_id
-        self._type = PING
-        self._body = ''
-        return self
-
-    def pong(self, msg_id):
-        self._id = msg_id
-        self._type = PONG
-        self._body = ''
-        return self
-
-    def requestNodeIdentification(self, msg_id, node_type, uuid, ip_address, port, name):
-        self._id = msg_id
-        self._type = REQUEST_NODE_IDENTIFICATION
-        self._body = pack('!LLH16s4sHL', PROTOCOL_VERSION[0], PROTOCOL_VERSION[1],
-                          node_type, uuid, inet_aton(ip_address), port, len(name)) + name
-        return self
-
-    def acceptNodeIdentification(self, msg_id, node_type, uuid, ip_address,
-             port, num_partitions, num_replicas, your_uuid):
-        self._id = msg_id
-        self._type = ACCEPT_NODE_IDENTIFICATION
-        self._body = pack('!H16s4sHLL16s', node_type, uuid, 
-                          inet_aton(ip_address), port,
-                          num_partitions, num_replicas, your_uuid)
-        return self
-
-    def askPrimaryMaster(self, msg_id):
-        self._id = msg_id
-        self._type = ASK_PRIMARY_MASTER
-        self._body = ''
-        return self
-
-    def answerPrimaryMaster(self, msg_id, primary_uuid, known_master_list):
-        self._id = msg_id
-        self._type = ANSWER_PRIMARY_MASTER
-        body = [primary_uuid, pack('!L', len(known_master_list))]
-        for master in known_master_list:
-            body.append(pack('!4sH16s', inet_aton(master[0]), master[1], master[2]))
-        self._body = ''.join(body)
-        return self
-
-    def announcePrimaryMaster(self, msg_id):
-        self._id = msg_id
-        self._type = ANNOUNCE_PRIMARY_MASTER
-        self._body = ''
-        return self
-
-    def reelectPrimaryMaster(self, msg_id):
-        self._id = msg_id
-        self._type = REELECT_PRIMARY_MASTER
-        self._body = ''
-        return self
-
-    def notifyNodeInformation(self, msg_id, node_list):
-        self._id = msg_id
-        self._type = NOTIFY_NODE_INFORMATION
-        body = [pack('!L', len(node_list))]
-        for node_type, ip_address, port, uuid, state in node_list:
-            body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
-                             uuid, state))
-        self._body = ''.join(body)
-        return self
-
-    def askLastIDs(self, msg_id):
-        self._id = msg_id
-        self._type = ASK_LAST_IDS
-        self._body = ''
-        return self
-
-    def answerLastIDs(self, msg_id, loid, ltid, lptid):
-        self._id = msg_id
-        self._type = ANSWER_LAST_IDS
-        self._body = loid + ltid + lptid
-        return self
-
-    def askPartitionTable(self, msg_id, offset_list):
-        self._id = msg_id
-        self._type = ASK_PARTITION_TABLE
-        body = [pack('!L', len(offset_list))]
-        for offset in offset_list:
-            body.append(pack('!L', offset))
-        self._body = ''.join(body)
-        return self
-
-    def answerPartitionTable(self, msg_id, ptid, row_list):
-        self._id = msg_id
-        self._type = ANSWER_PARTITION_TABLE
-        body = [pack('!8sL', ptid, len(row_list))]
-        for offset, cell_list in row_list:
-            body.append(pack('!LL', offset, len(cell_list)))
-            for uuid, state in cell_list:
-                body.append(pack('!16sH', uuid, state))
-        self._body = ''.join(body)
-        return self
-
-    def sendPartitionTable(self, msg_id, ptid, row_list):
-        self._id = msg_id
-        self._type = SEND_PARTITION_TABLE
-        body = [pack('!8sL', ptid, len(row_list))]
-        for offset, cell_list in row_list:
-            body.append(pack('!LL', offset, len(cell_list)))
-            for uuid, state in cell_list:
-                body.append(pack('!16sH', uuid, state))
-        self._body = ''.join(body)
-        return self
-
-    def notifyPartitionChanges(self, msg_id, ptid, cell_list):
-        self._id = msg_id
-        self._type = NOTIFY_PARTITION_CHANGES
-        body = [pack('!8sL', ptid, len(cell_list))]
-        for offset, uuid, state in cell_list:
-            body.append(pack('!L16sH', offset, uuid, state))
-        self._body = ''.join(body)
-        return self
-
-    def startOperation(self, msg_id):
-        self._id = msg_id
-        self._type = START_OPERATION
-        self._body = ''
-        return self
-
-    def stopOperation(self, msg_id):
-        self._id = msg_id
-        self._type = STOP_OPERATION
-        self._body = ''
-        return self
-
-    def askUnfinishedTransactions(self, msg_id):
-        self._id = msg_id
-        self._type = ASK_UNFINISHED_TRANSACTIONS
-        self._body = ''
-        return self
-
-    def answerUnfinishedTransactions(self, msg_id, tid_list):
-        self._id = msg_id
-        self._type = ANSWER_UNFINISHED_TRANSACTIONS
-        body = [pack('!L', len(tid_list))]
-        body.extend(tid_list)
-        self._body = ''.join(body)
-        return self
-
-    def askObjectPresent(self, msg_id, oid, tid):
-        self._id = msg_id
-        self._type = ASK_OBJECT_PRESENT
-        self._body = oid + tid
-        return self
-
-    def answerObjectPresent(self, msg_id, oid, tid):
-        self._id = msg_id
-        self._type = ANSWER_OBJECT_PRESENT
-        self._body = oid + tid
-        return self
-
-    def deleteTransaction(self, msg_id, tid):
-        self._id = msg_id
-        self._type = DELETE_TRANSACTION
-        self._body = tid
-        return self
-
-    def commitTransaction(self, msg_id, tid):
-        self._id = msg_id
-        self._type = COMMIT_TRANSACTION
-        self._body = tid
-        return self
-
-    def askNewTID(self, msg_id):
-        self._id = msg_id
-        self._type = ASK_NEW_TID
-        self._body = ''
-        return self
-
-    def answerNewTID(self, msg_id, tid):
-        self._id = msg_id
-        self._type = ANSWER_NEW_TID
-        self._body = tid
-        return self
-
-    def askNewOIDs(self, msg_id, num_oids):
-        self._id = msg_id
-        self._type = ASK_NEW_OIDS
-        self._body = pack('!H', num_oids)
-        return self
-
-    def answerNewOIDs(self, msg_id, oid_list):
-        self._id = msg_id
-        self._type = ANSWER_NEW_OIDS
-        body = [pack('!H', len(oid_list))]
-        body.extend(oid_list)
-        self._body = ''.join(body)
-        return self
-
-    def finishTransaction(self, msg_id, oid_list, tid):
-        self._id = msg_id
-        self._type = FINISH_TRANSACTION
-        body = [pack('!8sL', tid, len(oid_list))]
-        body.extend(oid_list)
-        self._body = ''.join(body)
-        return self
-
-    def notifyTransactionFinished(self, msg_id, tid):
-        self._id = msg_id
-        self._type = NOTIFY_TRANSACTION_FINISHED
-        self._body = tid
-        return self
-
-    def lockInformation(self, msg_id, tid):
-        self._id = msg_id
-        self._type = LOCK_INFORMATION
-        self._body = tid
-        return self
-
-    def notifyInformationLocked(self, msg_id, tid):
-        self._id = msg_id
-        self._type = NOTIFY_INFORMATION_LOCKED
-        self._body = tid
-        return self
-
-    def invalidateObjects(self, msg_id, oid_list, tid):
-        self._id = msg_id
-        self._type = INVALIDATE_OBJECTS
-        body = [pack('!8sL', tid, len(oid_list))]
-        body.extend(oid_list)
-        self._body = ''.join(body)
-        return self
-
-    def unlockInformation(self, msg_id, tid):
-        self._id = msg_id
-        self._type = UNLOCK_INFORMATION
-        self._body = tid
-        return self
-
-    def abortTransaction(self, msg_id, tid):
-        self._id = msg_id
-        self._type = ABORT_TRANSACTION
-        self._body = tid
-        return self
-
-    def askStoreTransaction(self, msg_id, tid, user, desc, ext, oid_list):
-        self._id = msg_id
-        self._type = ASK_STORE_TRANSACTION
-        user_len = len(user)
-        desc_len = len(desc)
-        ext_len = len(ext)
-        body = [pack('!8sLHHH', tid, len(oid_list), user_len, desc_len, ext_len)]
-        body.append(user)
-        body.append(desc)
-        body.append(ext)
-        body.extend(oid_list)
-        self._body = ''.join(body)
-        return self
-
-    def answerStoreTransaction(self, msg_id, tid):
-        self._id = msg_id
-        self._type = ANSWER_STORE_TRANSACTION
-        self._body = tid
-        return self
-
-    def askStoreObject(self, msg_id, oid, serial, compression, checksum, data, tid):
-        self._id = msg_id
-        self._type = ASK_STORE_OBJECT
-        self._body = pack('!8s8s8sBLL', oid, serial, tid, compression,
-                          checksum, len(data)) + data
-        return self
-
-    def answerStoreObject(self, msg_id, conflicting, oid, serial):
-        self._id = msg_id
-        self._type = ANSWER_STORE_OBJECT
-        self._body = pack('!B8s8s', conflicting, oid, serial)
-        return self
-
-    def askObject(self, msg_id, oid, serial, tid):
-        self._id = msg_id
-        self._type = ASK_OBJECT
-        self._body = pack('!8s8s8s', oid, serial, tid)
-        return self
-
-    def answerObject(self, msg_id, oid, serial_start, serial_end, compression,
-                     checksum, data):
-        self._id = msg_id
-        self._type = ANSWER_OBJECT
-        self._body = pack('!8s8s8sBLL', oid, serial_start, serial_end,
-                          compression, checksum, len(data)) + data
-        return self
-
-    def askTIDs(self, msg_id, first, last, partition):
-        self._id = msg_id
-        self._type = ASK_TIDS
-        self._body = pack('!QQL', first, last, partition)
-        return self
-
-    def answerTIDs(self, msg_id, tid_list):
-        self._id = msg_id
-        self._type = ANSWER_TIDS
-        body = [pack('!L', len(tid_list))]
-        body.extend(tid_list)
-        self._body = ''.join(body)
-        return self
-
-    def askTransactionInformation(self, msg_id, tid):
-        self._id = msg_id
-        self._type = ASK_TRANSACTION_INFORMATION
-        self._body = pack('!8s', tid)
-        return self
-
-    def answerTransactionInformation(self, msg_id, tid, user, desc, ext,
-                                     oid_list):
-        self._id = msg_id
-        self._type = ANSWER_TRANSACTION_INFORMATION
-        body = [pack('!8sHHHL', tid, len(user), len(desc), len(ext),
-                     len(oid_list))]
-        body.append(user)
-        body.append(desc)
-        body.append(ext)
-        body.extend(oid_list)
-        self._body = ''.join(body)
-        return self
-
-    def askObjectHistory(self, msg_id, oid, first, last):
-        self._id = msg_id
-        self._type = ASK_OBJECT_HISTORY
-        self._body = pack('!8sQQ', oid, first, last)
-        return self
-
-    def answerObjectHistory(self, msg_id, oid, history_list):
-        self._id = msg_id
-        self._type = ANSWER_OBJECT_HISTORY
-        body = [pack('!8sL', oid, len(history_list))]
-        # history_list is a list of tuple (serial, size)
-        for history_tuple in history_list:
-            body.append(pack('!8sL', history_tuple[0], history_tuple[1]))
-        self._body = ''.join(body)
-        return self
-
-    def askOIDs(self, msg_id, first, last, partition):
-        self._id = msg_id
-        self._type = ASK_OIDS
-        self._body = pack('!QQL', first, last, partition)
-        return self
-
-    def answerOIDs(self, msg_id, oid_list):
-        self._id = msg_id
-        self._type = ANSWER_OIDS
-        body = [pack('!L', len(oid_list))]
-        body.extend(oid_list)
-        self._body = ''.join(body)
-        return self
 
     # Decoders.
     def decode(self):
@@ -1244,3 +869,250 @@ class Packet(object):
         return (oid_list,)
     decode_table[ANSWER_OIDS] = _decodeAnswerOIDs
 
+# Packet constructors
+
+def _error(msg_id, error_code, error_message):
+    body = pack('!HL', error_code, len(error_message)) + error_message
+    return Packet(msg_id, ERROR, body)
+
+def protocolError(msg_id, error_message):
+    return _error(msg_id, PROTOCOL_ERROR_CODE, 'protocol error: ' + error_message)
+
+def internalError(msg_id, error_message):
+    return _error(msg_id, INTERNAL_ERROR_CODE, 'internal error: ' + error_message)
+
+def notReady(msg_id, error_message):
+    return _error(msg_id, NOT_READY_CODE, 'not ready: ' + error_message)
+
+def brokenNodeDisallowedError(msg_id, error_message):
+    return _error(msg_id, BROKEN_NODE_DISALLOWED_CODE,
+                      'broken node disallowed error: ' + error_message)
+
+def oidNotFound(msg_id, error_message):
+    return _error(msg_id, OID_NOT_FOUND_CODE, 'oid not found: ' + error_message)
+
+def tidNotFound(msg_id, error_message):
+    return _error(msg_id, TID_NOT_FOUND_CODE, 'tid not found: ' + error_message)
+
+def ping(msg_id):
+    return Packet(msg_id, PING)
+
+def pong(msg_id):
+    return Packet(msg_id, PONG)
+
+def requestNodeIdentification(msg_id, node_type, uuid, ip_address, port, name):
+    body = pack('!LLH16s4sHL', PROTOCOL_VERSION[0], PROTOCOL_VERSION[1],
+                      node_type, uuid, inet_aton(ip_address), port, len(name)) + name
+    return Packet(msg_id, REQUEST_NODE_IDENTIFICATION, body)
+
+def acceptNodeIdentification(msg_id, node_type, uuid, ip_address,
+         port, num_partitions, num_replicas, your_uuid):
+    body = pack('!H16s4sHLL16s', node_type, uuid, 
+                      inet_aton(ip_address), port,
+                      num_partitions, num_replicas, your_uuid)
+    return Packet(msg_id, ACCEPT_NODE_IDENTIFICATION, body)
+
+def askPrimaryMaster(msg_id):
+    return Packet(msg_id, ASK_PRIMARY_MASTER)
+
+def answerPrimaryMaster(msg_id, primary_uuid, known_master_list):
+    body = [primary_uuid, pack('!L', len(known_master_list))]
+    for master in known_master_list:
+        body.append(pack('!4sH16s', inet_aton(master[0]), master[1], master[2]))
+    body = ''.join(body)
+    return Packet(msg_id, ANSWER_PRIMARY_MASTER, body)
+
+def announcePrimaryMaster(msg_id):
+    return Packet(msg_id, ANNOUNCE_PRIMARY_MASTER)
+
+def reelectPrimaryMaster(msg_id):
+    return Packet(msg_id, REELECT_PRIMARY_MASTER)
+
+def notifyNodeInformation(msg_id, node_list):
+    body = [pack('!L', len(node_list))]
+    for node_type, ip_address, port, uuid, state in node_list:
+        body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
+                         uuid, state))
+    body = ''.join(body)
+    return Packet(msg_id, NOTIFY_NODE_INFORMATION, body)
+
+def askLastIDs(msg_id):
+    return Packet(msg_id, ASK_LAST_IDS)
+
+def answerLastIDs(msg_id, loid, ltid, lptid):
+    return Packet(msg_id, ANSWER_LAST_IDS, loid + ltid + lptid)
+
+def askPartitionTable(msg_id, offset_list):
+    body = [pack('!L', len(offset_list))]
+    for offset in offset_list:
+        body.append(pack('!L', offset))
+    body = ''.join(body)
+    return Packet(msg_id, ASK_PARTITION_TABLE, body)
+
+def answerPartitionTable(msg_id, ptid, row_list):
+    body = [pack('!8sL', ptid, len(row_list))]
+    for offset, cell_list in row_list:
+        body.append(pack('!LL', offset, len(cell_list)))
+        for uuid, state in cell_list:
+            body.append(pack('!16sH', uuid, state))
+    body = ''.join(body)
+    return Packet(msg_id, ANSWER_PARTITION_TABLE, body)
+
+def sendPartitionTable(msg_id, ptid, row_list):
+    body = [pack('!8sL', ptid, len(row_list))]
+    for offset, cell_list in row_list:
+        body.append(pack('!LL', offset, len(cell_list)))
+        for uuid, state in cell_list:
+            body.append(pack('!16sH', uuid, state))
+    body = ''.join(body)
+    return Packet(msg_id, SEND_PARTITION_TABLE, body)
+
+def notifyPartitionChanges(msg_id, ptid, cell_list):
+    body = [pack('!8sL', ptid, len(cell_list))]
+    for offset, uuid, state in cell_list:
+        body.append(pack('!L16sH', offset, uuid, state))
+    body = ''.join(body)
+    return Packet(msg_id, NOTIFY_PARTITION_CHANGES, body)
+
+def startOperation(msg_id):
+    return Packet(msg_id, START_OPERATION)
+
+def stopOperation(msg_id):
+    return Packet(msg_id, STOP_OPERATION)
+
+def askUnfinishedTransactions(msg_id):
+    return Packet(msg_id, ASK_UNFINISHED_TRANSACTIONS)
+
+def answerUnfinishedTransactions(msg_id, tid_list):
+    body = [pack('!L', len(tid_list))]
+    body.extend(tid_list)
+    body = ''.join(body)
+    return Packet(msg_id, ANSWER_UNFINISHED_TRANSACTIONS, body)
+
+def askObjectPresent(msg_id, oid, tid):
+    return Packet(msg_id, ASK_OBJECT_PRESENT, oid + tid)
+
+def answerObjectPresent(msg_id, oid, tid):
+    return Packet(msg_id, ANSWER_OBJECT_PRESENT, oid + tid)
+
+def deleteTransaction(msg_id, tid):
+    return Packet(msg_id, DELETE_TRANSACTION, tid)
+
+def commitTransaction(msg_id, tid):
+    return Packet(msg_id, COMMIT_TRANSACTION, tid)
+
+def askNewTID(msg_id):
+    return Packet(msg_id, ASK_NEW_TID)
+
+def answerNewTID(msg_id, tid):
+    return Packet(msg_id, ANSWER_NEW_TID, tid)
+
+def askNewOIDs(msg_id, num_oids):
+    return Packet(msg_id, ASK_NEW_OIDS, pack('!H', num_oids))
+
+def answerNewOIDs(msg_id, oid_list):
+    body = [pack('!H', len(oid_list))]
+    body.extend(oid_list)
+    body = ''.join(body)
+    return Packet(msg_id, ANSWER_NEW_OIDS, body)
+
+def finishTransaction(msg_id, oid_list, tid):
+    body = [pack('!8sL', tid, len(oid_list))]
+    body.extend(oid_list)
+    body = ''.join(body)
+    return Packet(msg_id, FINISH_TRANSACTION, body)
+
+def notifyTransactionFinished(msg_id, tid):
+    return Packet(msg_id, NOTIFY_TRANSACTION_FINISHED, tid)
+
+def lockInformation(msg_id, tid):
+    return Packet(msg_id, LOCK_INFORMATION, tid)
+
+def notifyInformationLocked(msg_id, tid):
+    return Packet(msg_id, NOTIFY_INFORMATION_LOCKED, tid)
+
+def invalidateObjects(msg_id, oid_list, tid):
+    body = [pack('!8sL', tid, len(oid_list))]
+    body.extend(oid_list)
+    body = ''.join(body)
+    return Packet(msg_id, INVALIDATE_OBJECTS, body)
+
+def unlockInformation(msg_id, tid):
+    return Packet(msg_id, UNLOCK_INFORMATION, tid)
+
+def abortTransaction(msg_id, tid):
+    return Packet(msg_id, ABORT_TRANSACTION, tid)
+
+def askStoreTransaction(msg_id, tid, user, desc, ext, oid_list):
+    user_len = len(user)
+    desc_len = len(desc)
+    ext_len = len(ext)
+    body = [pack('!8sLHHH', tid, len(oid_list), len(user), len(desc), len(ext))]
+    body.append(user)
+    body.append(desc)
+    body.append(ext)
+    body.extend(oid_list)
+    body = ''.join(body)
+    return Packet(msg_id, ASK_STORE_TRANSACTION, body)
+
+def answerStoreTransaction(msg_id, tid):
+    return Packet(msg_id, ANSWER_STORE_TRANSACTION, tid)
+
+def askStoreObject(msg_id, oid, serial, compression, checksum, data, tid):
+    body = pack('!8s8s8sBLL', oid, serial, tid, compression,
+                      checksum, len(data)) + data
+    return Packet(msg_id, ASK_STORE_OBJECT, body)
+
+def answerStoreObject(msg_id, conflicting, oid, serial):
+    body = pack('!B8s8s', conflicting, oid, serial)
+    return Packet(msg_id, ANSWER_STORE_OBJECT, body)
+
+def askObject(msg_id, oid, serial, tid):
+    return Packet(msg_id, ASK_OBJECT, pack('!8s8s8s', oid, serial, tid))
+
+def answerObject(msg_id, oid, serial_start, serial_end, compression,
+                 checksum, data):
+    body = pack('!8s8s8sBLL', oid, serial_start, serial_end,
+                      compression, checksum, len(data)) + data
+    return Packet(msg_id, ANSWER_OBJECT, body)
+
+def askTIDs(msg_id, first, last, partition):
+    return Packet(msg_id, ASK_TIDS, pack('!QQL', first, last, partition))
+
+def answerTIDs(msg_id, tid_list):
+    body = [pack('!L', len(tid_list))]
+    body.extend(tid_list)
+    body = ''.join(body)
+    return Packet(msg_id, ANSWER_TIDS, body)
+
+def askTransactionInformation(msg_id, tid):
+    return Packet(msg_id, ASK_TRANSACTION_INFORMATION, pack('!8s', tid))
+
+def answerTransactionInformation(msg_id, tid, user, desc, ext, oid_list):
+    body = [pack('!8sHHHL', tid, len(user), len(desc), len(ext), len(oid_list))]
+    body.append(user)
+    body.append(desc)
+    body.append(ext)
+    body.extend(oid_list)
+    body = ''.join(body)
+    return Packet(msg_id, ANSWER_TRANSACTION_INFORMATION, body)
+
+def askObjectHistory(msg_id, oid, first, last):
+    return Packet(msg_id, ASK_OBJECT_HISTORY, pack('!8sQQ', oid, first, last))
+
+def answerObjectHistory(msg_id, oid, history_list):
+    body = [pack('!8sL', oid, len(history_list))]
+    # history_list is a list of tuple (serial, size)
+    for history_tuple in history_list:
+        body.append(pack('!8sL', history_tuple[0], history_tuple[1]))
+    body = ''.join(body)
+    return Packet(msg_id, ANSWER_OBJECT_HISTORY, body)
+
+def askOIDs(msg_id, first, last, partition):
+    return Packet(msg_id, ASK_OIDS, pack('!QQL', first, last, partition))
+
+def answerOIDs(msg_id, oid_list):
+    body = [pack('!L', len(oid_list))]
+    body.extend(oid_list)
+    body = ''.join(body)
+    return Packet(msg_id, ANSWER_OIDS, body)

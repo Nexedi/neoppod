@@ -27,6 +27,7 @@ from time import sleep
 from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connection import MTClientConnection
+from neo import protocol
 from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
         INVALID_PTID, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
@@ -85,10 +86,8 @@ class ConnectionPool(object):
                     return None
 
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE,
-                                            app.uuid, addr[0],
-                                            addr[1], app.name)
+                p = protocol.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE,
+                                    app.uuid, addr[0], addr[1], app.name)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
                 app.dispatcher.register(conn, msg_id, app.getQueue())
@@ -305,8 +304,7 @@ class Application(object):
                 conn.lock()
                 try:
                     msg_id = conn.getNextId()
-                    p = Packet()
-                    p.askNewOIDs(msg_id, 25)
+                    p = protocol.askNewOIDs(msg_id, 25)
                     conn.addPacket(p)
                     conn.expectMessage(msg_id)
                     self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -365,8 +363,7 @@ class Application(object):
 
                 try:
                     msg_id = conn.getNextId()
-                    p = Packet()
-                    p.askObject(msg_id, oid, serial, tid)
+                    p = protocol.askObject(msg_id, oid, serial, tid)
                     conn.addPacket(p)
                     conn.expectMessage(msg_id)
                     self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -471,8 +468,7 @@ class Application(object):
             conn.lock()
             try:
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.askNewTID(msg_id)
+                p = protocol.askNewTID(msg_id)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -516,9 +512,8 @@ class Application(object):
 
             try:
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.askStoreObject(msg_id, oid, serial, 1,
-                                 checksum, compressed_data, self.local_var.tid)
+                p = protocol.askStoreObject(msg_id, oid, serial, 1,
+                             checksum, compressed_data, self.local_var.tid)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -568,9 +563,8 @@ class Application(object):
 
             try:
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.askStoreTransaction(msg_id, self.local_var.tid, user, desc, ext,
-                                      oid_list)
+                p = protocol.askStoreTransaction(msg_id, self.local_var.tid, 
+                        user, desc, ext, oid_list)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -616,7 +610,7 @@ class Application(object):
             if conn is None:
                 continue
             try:
-                conn.addPacket(Packet().abortTransaction(conn.getNextId(), self.local_var.tid))
+                conn.addPacket(protocol.abortTransaction(conn.getNextId(), self.local_var.tid))
             finally:
                 conn.unlock()
 
@@ -624,7 +618,7 @@ class Application(object):
         conn = self.master_conn
         conn.lock()
         try:
-            conn.addPacket(Packet().abortTransaction(conn.getNextId(), self.local_var.tid))
+            conn.addPacket(protocol.abortTransaction(conn.getNextId(), self.local_var.tid))
         finally:
             conn.unlock()
 
@@ -646,8 +640,7 @@ class Application(object):
             conn.lock()
             try:
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.finishTransaction(msg_id, oid_list, self.local_var.tid)
+                p = protocol.finishTransaction(msg_id, oid_list, self.local_var.tid)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id, additional_timeout = 300)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -693,8 +686,7 @@ class Application(object):
 
             try:
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.askTransactionInformation(msg_id, transaction_id)
+                p = protocol.askTransactionInformation(msg_id, transaction_id)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -770,8 +762,7 @@ class Application(object):
 
             try:
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.askTIDs(msg_id, first, last, INVALID_PARTITION)
+                p = protocol.askTIDs(msg_id, first, last, INVALID_PARTITION)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -809,8 +800,7 @@ class Application(object):
 
                 try:
                     msg_id = conn.getNextId()
-                    p = Packet()
-                    p.askTransactionInformation(msg_id, tid)
+                    p = protocol.askTransactionInformation(msg_id, tid)
                     conn.addPacket(p)
                     conn.expectMessage(msg_id)
                     self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -865,8 +855,7 @@ class Application(object):
 
             try:
                 msg_id = conn.getNextId()
-                p = Packet()
-                p.askObjectHistory(msg_id, oid, 0, length)
+                p = protocol.askObjectHistory(msg_id, oid, 0, length)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
                 self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -906,8 +895,7 @@ class Application(object):
 
                 try:
                     msg_id = conn.getNextId()
-                    p = Packet()
-                    p.askTransactionInformation(msg_id, serial)
+                    p = protocol.askTransactionInformation(msg_id, serial)
                     conn.addPacket(p)
                     conn.expectMessage(msg_id)
                     self.dispatcher.register(conn, msg_id, self.getQueue())
@@ -989,9 +977,8 @@ class Application(object):
                 conn.lock()
                 try:
                     msg_id = conn.getNextId()
-                    p = Packet()
-                    p.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, self.uuid,
-                                                '0.0.0.0', 0, self.name)
+                    p = protocol.requestNodeIdentification(msg_id, CLIENT_NODE_TYPE, 
+                            self.uuid, '0.0.0.0', 0, self.name)
                     conn.addPacket(p)
                     conn.expectMessage(msg_id)
                     self.dispatcher.register(conn, msg_id, self.getQueue())

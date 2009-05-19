@@ -20,6 +20,7 @@ from neo.locking import RLock
 import sys
 import traceback
 
+from neo import protocol
 from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent
 from neo.connector import ConnectorTryAgainException, ConnectorInProgressException
@@ -286,7 +287,7 @@ class Connection(BaseConnection):
             self.write_buf += packet.encode()
         except ProtocolError, m:
             logging.critical('trying to send a too big message')
-            return self.addPacket(packet.internalError(packet.getId(), m[0]))
+            return self.addPacket(protocol.internalError(packet.getId(), m[0]))
 
         # If this is the first time, enable polling for writing.
         if self.write_buf:

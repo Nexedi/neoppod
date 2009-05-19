@@ -19,6 +19,7 @@ import logging
 from select import select
 from time import time
 
+from neo import protocol
 from neo.protocol import Packet
 from neo.epoll import Epoll
 
@@ -65,7 +66,7 @@ class IdleEvent(object):
                     logging.info('sending a ping to %s:%d', 
                                  *(conn.getAddress()))
                     msg_id = conn.getNextId()
-                    conn.addPacket(Packet().ping(msg_id))
+                    conn.addPacket(protocol.ping(msg_id))
                     conn.expectMessage(msg_id, 5, 0)
                 else:
                     conn.expectMessage(self._id, self._additional_timeout, 0)

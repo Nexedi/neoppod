@@ -18,6 +18,7 @@
 import logging
 from copy import copy
 
+from neo import protocol
 from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, \
@@ -152,7 +153,7 @@ class ServiceEventHandler(MasterEventHandler):
         app = self.app
         if name != app.name:
             logging.error('reject an alien cluster')
-            conn.addPacket(Packet().protocolError(packet.getId(),
+            conn.addPacket(protocol.protocolError(packet.getId(),
                                                   'invalid cluster name'))
             conn.abort()
             return
@@ -201,8 +202,7 @@ class ServiceEventHandler(MasterEventHandler):
                             or node_type != MASTER_NODE_TYPE:
                         # Error. This node uses the same server address as
                         # a master node.
-                        p = Packet()
-                        p.protocolError(packet.getId(), 
+                        p = protocol.protocolError(packet.getId(), 
                                         'invalid server address') 
                         conn.addPacket(p)
                         conn.abort()
@@ -217,8 +217,7 @@ class ServiceEventHandler(MasterEventHandler):
                     # This node has a different UUID.
                     if node.getState() == RUNNING_STATE:
                         # If it is still running, reject this node.
-                        p = Packet()
-                        p.protocolError(packet.getId(), 
+                        p = protocol.protocolError(packet.getId(), 
                                         'invalid server address') 
                         conn.addPacket(p)
                         conn.abort()
@@ -247,8 +246,7 @@ class ServiceEventHandler(MasterEventHandler):
                 # This node has a different server address.
                 if node.getState() == RUNNING_STATE:
                     # If it is still running, reject this node.
-                    p = Packet()
-                    p.protocolError(packet.getId(), 
+                    p = protocol.protocolError(packet.getId(), 
                                     'invalid server address') 
                     conn.addPacket(p)
                     conn.abort()
@@ -271,8 +269,7 @@ class ServiceEventHandler(MasterEventHandler):
                 # If this node is broken, reject it. Otherwise, assume that
                 # it is working again.
                 if node.getState() == BROKEN_STATE:
-                    p = Packet()
-                    p.brokenNodeDisallowedError(packet.getId(), 'go away')
+                    p = protocol.brokenNodeDisallowedError(packet.getId(), 'go away')
                     conn.addPacket(p)
                     conn.abort()
                     return
@@ -300,8 +297,7 @@ class ServiceEventHandler(MasterEventHandler):
                 ptid = app.getNextPartitionTableID()
                 app.broadcastPartitionChanges(ptid, cell_list)
 
-        p = Packet()
-        p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
+        p = protocol.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
                                    app.uuid, app.server[0], app.server[1],
                                    app.num_partitions, app.num_replicas, uuid)
         conn.addPacket(p)
@@ -319,8 +315,7 @@ class ServiceEventHandler(MasterEventHandler):
         # Merely tell the peer that I am the primary master node.
         # It is not necessary to send known master nodes, because
         # I must send all node information immediately.
-        p = Packet()
-        p.answerPrimaryMaster(packet.getId(), app.uuid, [])
+        p = protocol.answerPrimaryMaster(packet.getId(), app.uuid, [])
         conn.addPacket(p)
 
         # Send the information.
@@ -336,12 +331,10 @@ class ServiceEventHandler(MasterEventHandler):
                               n.getUUID() or INVALID_UUID, n.getState()))
             if len(node_list) == 10000:
                 # Ugly, but it is necessary to split a packet, if it is too big.
-                p = Packet()
-                p.notifyNodeInformation(conn.getNextId(), node_list)
+                p = protocol.notifyNodeInformation(conn.getNextId(), node_list)
                 conn.addPacket(p)
                 del node_list[:]
-        p = Packet()
-        p.notifyNodeInformation(conn.getNextId(), node_list)
+        p = protocol.notifyNodeInformation(conn.getNextId(), node_list)
         conn.addPacket(p)
 
         # If this is a storage node or a client node or an admin node, send the partition table.
@@ -350,21 +343,20 @@ class ServiceEventHandler(MasterEventHandler):
             logging.info('sending partition table to %s:%d',
                           *(conn.getAddress()))
             # Split the packet if too huge.
-            p = Packet()
             row_list = []
             for offset in xrange(app.num_partitions):
                 row_list.append((offset, app.pt.getRow(offset)))
                 if len(row_list) == 1000:
-                    p.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
+                    p = protocol.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
                     conn.addPacket(p)
                     del row_list[:]
             if len(row_list) != 0:
-                p.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
+                p = protocol.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
                 conn.addPacket(p)
 
         # If this is a storage node, ask it to start.
         if node.getNodeType() == STORAGE_NODE_TYPE:
-            conn.addPacket(Packet().startOperation(conn.getNextId()))
+            conn.addPacket(protocol.startOperation(conn.getNextId()))
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
@@ -474,7 +466,7 @@ class ServiceEventHandler(MasterEventHandler):
             return
         tid = app.getNextTID()
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
-        conn.addPacket(Packet().answerNewTID(packet.getId(), tid))
+        conn.addPacket(protocol.answerNewTID(packet.getId(), tid))
 
     def handleAskNewOIDs(self, conn, packet, num_oids):
         uuid = conn.getUUID()
@@ -490,7 +482,7 @@ class ServiceEventHandler(MasterEventHandler):
             return
 
         oid_list = app.getNewOIDList(num_oids)
-        conn.addPacket(Packet().answerNewOIDs(packet.getId(), oid_list))
+        conn.addPacket(protocol.answerNewOIDs(packet.getId(), oid_list))
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
         uuid = conn.getUUID()
@@ -527,7 +519,7 @@ class ServiceEventHandler(MasterEventHandler):
         for c in app.em.getConnectionList():
             if c.getUUID() in uuid_set:
                 msg_id = c.getNextId()
-                c.addPacket(Packet().lockInformation(msg_id, tid))
+                c.addPacket(protocol.lockInformation(msg_id, tid))
                 c.expectMessage(msg_id, timeout = 60)
 
         try:
@@ -569,20 +561,19 @@ class ServiceEventHandler(MasterEventHandler):
                 for c in app.em.getConnectionList():
                     uuid = c.getUUID()
                     if uuid is not None:
-                        p = Packet()
                         node = app.nm.getNodeByUUID(uuid)
                         if node.getNodeType() == CLIENT_NODE_TYPE:
                             if c is t.getConnection():
-                                p.notifyTransactionFinished(t.getMessageId(), 
-                                                            tid)
+                                p = protocol.notifyTransactionFinished(
+                                        t.getMessageId(), tid)
                                 c.addPacket(p)
                             else:
-                                p.invalidateObjects(c.getNextId(), 
+                                p = protocol.invalidateObjects(c.getNextId(), 
                                                     t.getOIDList(), tid)
                                 c.addPacket(p)
                         elif node.getNodeType() == STORAGE_NODE_TYPE:
                             if uuid in t.getUUIDSet():
-                                p.unlockInformation(c.getNextId(), tid)
+                                p = protocol.unlockInformation(c.getNextId(), tid)
                                 c.addPacket(p)
                 del app.finishing_transaction_dict[tid]
         except KeyError:
@@ -615,8 +606,7 @@ class ServiceEventHandler(MasterEventHandler):
             return
 
         app = self.app
-        p = Packet()
-        p.answerLastIDs(packet.getId(), app.loid, app.ltid, app.lptid)
+        p = protocol.answerLastIDs(packet.getId(), app.loid, app.ltid, app.lptid)
         conn.addPacket(p)
 
     def handleAskUnfinishedTransactions(self, conn, packet):
@@ -626,8 +616,7 @@ class ServiceEventHandler(MasterEventHandler):
             return
 
         app = self.app
-        p = Packet()
-        p.answerUnfinishedTransactions(packet.getId(), 
+        p = protocol.answerUnfinishedTransactions(packet.getId(), 
                                        app.finishing_transaction_dict.keys())
         conn.addPacket(p)
 

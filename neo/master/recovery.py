@@ -17,6 +17,7 @@
 
 import logging
 
+from neo import protocol
 from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE
@@ -67,12 +68,12 @@ class RecoveryEventHandler(MasterEventHandler):
         app = self.app
         if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
             logging.info('reject a connection from a client')
-            conn.addPacket(Packet().notReady(packet.getId(), 'retry later'))
+            conn.addPacket(protocol.notReady(packet.getId(), 'retry later'))
             conn.abort()
             return
         if name != app.name:
             logging.error('reject an alien cluster')
-            conn.addPacket(Packet().protocolError(packet.getId(),
+            conn.addPacket(protocol.protocolError(packet.getId(),
                                                   'invalid cluster name'))
             conn.abort()
             return
@@ -117,7 +118,7 @@ class RecoveryEventHandler(MasterEventHandler):
                     if node.getNodeType() != MASTER_NODE_TYPE or node_type != MASTER_NODE_TYPE:
                         # Error. This node uses the same server address as a master
                         # node.
-                        conn.addPacket(Packet().protocolError(packet.getId(),
+                        conn.addPacket(protocol.protocolError(packet.getId(),
                                                               'invalid server address'))
                         conn.abort()
                         return
@@ -130,7 +131,7 @@ class RecoveryEventHandler(MasterEventHandler):
                     # This node has a different UUID.
                     if node.getState() == RUNNING_STATE:
                         # If it is still running, reject this node.
-                        conn.addPacket(Packet().protocolError(packet.getId(),
+                        conn.addPacket(protocol.protocolError(packet.getId(),
                                                               'invalid server address'))
                         conn.abort()
                         return
@@ -149,7 +150,7 @@ class RecoveryEventHandler(MasterEventHandler):
                 if node.getState() == RUNNING_STATE:
 
                     # If it is still running, reject this node.
-                    conn.addPacket(Packet().protocolError(packet.getId(),
+                    conn.addPacket(protocol.protocolError(packet.getId(),
                                                           'invalid server address'))
                     conn.abort()
                     return
@@ -165,8 +166,7 @@ class RecoveryEventHandler(MasterEventHandler):
                 # If this node is broken, reject it. Otherwise, assume that it is
                 # working again.
                 if node.getState() == BROKEN_STATE:
-                    p = Packet()
-                    p.brokenNodeDisallowedError(packet.getId(), 'go away')
+                    p = protocol.brokenNodeDisallowedError(packet.getId(), 'go away')
                     conn.addPacket(p)
                     conn.abort()
                     return
@@ -177,8 +177,7 @@ class RecoveryEventHandler(MasterEventHandler):
 
         conn.setUUID(uuid)
 
-        p = Packet()
-        p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
+        p = protocol.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
                                    app.uuid, app.server[0], app.server[1],
                                    app.num_partitions, app.num_replicas, uuid)
         conn.addPacket(p)
@@ -196,8 +195,7 @@ class RecoveryEventHandler(MasterEventHandler):
         # Merely tell the peer that I am the primary master node.
         # It is not necessary to send known master nodes, because
         # I must send all node information immediately.
-        p = Packet()
-        p.answerPrimaryMaster(packet.getId(), app.uuid, [])
+        p = protocol.answerPrimaryMaster(packet.getId(), app.uuid, [])
         conn.addPacket(p)
 
         # Send the information.
@@ -211,20 +209,17 @@ class RecoveryEventHandler(MasterEventHandler):
                               n.getUUID() or INVALID_UUID, n.getState()))
             if len(node_list) == 10000:
                 # Ugly, but it is necessary to split a packet, if it is too big.
-                p = Packet()
-                p.notifyNodeInformation(conn.getNextId(), node_list)
+                p = protocol.notifyNodeInformation(conn.getNextId(), node_list)
                 conn.addPacket(p)
                 del node_list[:]
-        p = Packet()
-        p.notifyNodeInformation(conn.getNextId(), node_list)
+        p = protocol.notifyNodeInformation(conn.getNextId(), node_list)
         conn.addPacket(p)
 
         # If this is a storage node, ask the last IDs.
         node = app.nm.getNodeByUUID(uuid)
         if node.getNodeType() == STORAGE_NODE_TYPE:
-            p = Packet()
             msg_id = conn.getNextId()
-            p.askLastIDs(msg_id)
+            p = protocol.askLastIDs(msg_id)
             conn.addPacket(p)
             conn.expectMessage(msg_id)
         elif node.getNodeType() == ADMIN_NODE_TYPE and app.lptid != INVALID_PTID:
@@ -232,16 +227,15 @@ class RecoveryEventHandler(MasterEventHandler):
             logging.info('sending partition table %s to %s' % (dump(app.lptid),
                                                               conn.getAddress()))
             # Split the packet if too huge.
-            p = Packet()
             row_list = []
             for offset in xrange(app.num_partitions):
                 row_list.append((offset, app.pt.getRow(offset)))
                 if len(row_list) == 1000:
-                    p.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
+                    p = protocol.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
                     conn.addPacket(p)
                     del row_list[:]
             if len(row_list) != 0:
-                p.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
+                p = protocol.sendPartitionTable(conn.getNextId(), app.lptid, row_list)
                 conn.addPacket(p)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):

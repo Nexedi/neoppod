@@ -17,6 +17,7 @@
 
 import logging
 
+from neo import protocol
 from neo.protocol import Packet, ProtocolError
 from neo.connection import ServerConnection
 
@@ -82,7 +83,7 @@ class EventHandler(object):
         logging.info('malformed packet %x from %s:%d: %s',
                      packet.getType(), conn.getAddress()[0], 
                      conn.getAddress()[1], error_message)
-        conn.addPacket(Packet().protocolError(packet.getId(), error_message))
+        conn.addPacket(protocol.protocolError(packet.getId(), error_message))
         conn.abort()
         self.peerBroken(conn)
 
@@ -109,7 +110,7 @@ class EventHandler(object):
         else:
             message = 'unexpected packet: ' + message
         logging.info('%s', message)
-        conn.addPacket(Packet().protocolError(packet.getId(), message))
+        conn.addPacket(protocol.protocolError(packet.getId(), message))
         conn.abort()
         self.peerBroken(conn)
 
@@ -133,7 +134,7 @@ class EventHandler(object):
 
     def handlePing(self, conn, packet):
         logging.info('got a ping packet; am I overloaded?')
-        conn.addPacket(Packet().pong(packet.getId()))
+        conn.addPacket(protocol.pong(packet.getId()))
 
     def handlePong(self, conn, packet):
         pass

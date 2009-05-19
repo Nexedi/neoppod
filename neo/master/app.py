@@ -21,6 +21,7 @@ from time import time, gmtime
 from struct import pack, unpack
 
 from neo.config import ConfigurationManager
+from neo import protocol
 from neo.protocol import Packet, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, \
@@ -188,7 +189,7 @@ class Application(object):
                     logging.info('I am the primary, so sending an announcement')
                     for conn in em.getConnectionList():
                         if isinstance(conn, ClientConnection):
-                            p = Packet().announcePrimaryMaster(conn.getNextId())
+                            p = protocol.announcePrimaryMaster(conn.getNextId())
                             conn.addPacket(p)
                             conn.abort()
                     closed = False
@@ -238,7 +239,7 @@ class Application(object):
                 # Ask all connected nodes to reelect a single primary master.
                 for conn in em.getConnectionList():
                     if isinstance(conn, ClientConnection):
-                        conn.addPacket(Packet().reelectPrimaryMaster(conn.getNextId()))
+                        conn.addPacket(protocol.reelectPrimaryMaster(conn.getNextId()))
                         conn.abort()
 
                 # Wait until the connections are closed.
@@ -293,16 +294,14 @@ class Application(object):
                 if c.getUUID() is not None:
                     n = self.nm.getNodeByUUID(c.getUUID())
                     if n.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
-                        p = Packet()
                         node_list = [(node_type, ip_address, port, uuid, state)]
-                        p.notifyNodeInformation(c.getNextId(), node_list)
+                        p = protocol.notifyNodeInformation(c.getNextId(), node_list)
                         c.addPacket(p)
         elif node.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
             for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
-                    p = Packet()
                     node_list = [(node_type, ip_address, port, uuid, state)]
-                    p.notifyNodeInformation(c.getNextId(), node_list)
+                    p = protocol.notifyNodeInformation(c.getNextId(), node_list)
                     c.addPacket(p)
         elif node.getNodeType() != ADMIN_NODE_TYPE:
             raise RuntimeError('unknown node type')
@@ -319,8 +318,7 @@ class Application(object):
                     start = 0
                     while size:
                         amt = min(10000, size)
-                        p = Packet()
-                        p.notifyPartitionChanges(c.getNextId(), ptid,
+                        p = protocol.notifyPartitionChanges(c.getNextId(), ptid,
                                                  cell_list[start:start+amt])
                         c.addPacket(p)
                         size -= amt
@@ -356,9 +354,8 @@ class Application(object):
                         node = nm.getNodeByUUID(uuid)
                         if node.getNodeType() == STORAGE_NODE_TYPE \
                                 and node.getState() == RUNNING_STATE:
-                            p = Packet()
                             msg_id = conn.getNextId()
-                            p.askLastIDs(msg_id)
+                            p = protocol.askLastIDs(msg_id)
                             conn.addPacket(p)
                             conn.expectMessage(msg_id)
 
@@ -401,8 +398,7 @@ class Application(object):
                 while size:
                     amt = min(1000, size)
                     msg_id = conn.getNextId()
-                    p = Packet()
-                    p.askPartitionTable(msg_id, range(start, start + amt))
+                    p = protocol.askPartitionTable(msg_id, range(start, start + amt))
                     conn.addPacket(p)
                     conn.expectMessage(msg_id)
                     size -= amt
@@ -459,9 +455,8 @@ class Application(object):
             uuid = conn.getUUID()
             if uuid in transaction_uuid_list:
                 self.asking_uuid_dict[uuid] = False
-                p = Packet()
                 msg_id = conn.getNextId()
-                p.askTransactionInformation(msg_id, tid)
+                p = protocol.askTransactionInformation(msg_id, tid)
                 conn.addPacket(p)
                 conn.expectMessage(msg_id)
         if len(self.asking_uuid_dict) == 0:
@@ -493,9 +488,8 @@ class Application(object):
                     uuid = conn.getUUID()
                     if uuid in object_uuid_list:
                         self.asking_uuid_dict[uuid] = False
-                        p = Packet()
                         msg_id = conn.getNextId()
-                        p.askObjectPresent(msg_id, oid, tid)
+                        p = protocol.askObjectPresent(msg_id, oid, tid)
                         conn.addPacket(p)
                         conn.expectMessage(msg_id)
 
@@ -540,14 +534,12 @@ class Application(object):
                     for offset in xrange(self.num_partitions):
                         row_list.append((offset, self.pt.getRow(offset)))
                         if len(row_list) == 1000:
-                            p = Packet()
-                            p.sendPartitionTable(conn.getNextId(),
+                            p = protocol.sendPartitionTable(conn.getNextId(),
                                                  self.lptid, row_list)
                             conn.addPacket(p)
                             del row_list[:]
                     if len(row_list) != 0:
-                        p = Packet()
-                        p.sendPartitionTable(conn.getNextId(),
+                        p = protocol.sendPartitionTable(conn.getNextId(),
                                              self.lptid, row_list)
                         conn.addPacket(p)
 
@@ -575,9 +567,8 @@ class Application(object):
                 node = nm.getNodeByUUID(uuid)
                 if node.getNodeType() == STORAGE_NODE_TYPE:
                     self.asking_uuid_dict[uuid] = False
-                    p = Packet()
                     msg_id = conn.getNextId()
-                    p.askUnfinishedTransactions(msg_id)
+                    p = protocol.askUnfinishedTransactions(msg_id)
                     conn.addPacket(p)
                     conn.expectMessage(msg_id)
 
@@ -600,15 +591,13 @@ class Application(object):
                     if uuid is not None:
                         node = nm.getNodeByUUID(uuid)
                         if node.getNodeType() == STORAGE_NODE_TYPE:
-                            p = Packet()
-                            p.deleteTransaction(conn.getNextId(), tid)
+                            p = protocol.deleteTransaction(conn.getNextId(), tid)
                             conn.addPacket(p)
             else:
                 for conn in em.getConnectionList():
                     uuid = conn.getUUID()
                     if uuid in uuid_set:
-                        p = Packet()
-                        p.commitTransaction(conn.getNextId(), tid)
+                        p = protocol.commitTransaction(conn.getNextId(), tid)
                         conn.addPacket(p)
 
             # If possible, send the packets now.
@@ -655,7 +644,7 @@ class Application(object):
             if uuid is not None:
                 node = nm.getNodeByUUID(uuid)
                 if node.getNodeType() == STORAGE_NODE_TYPE:
-                    conn.addPacket(Packet().startOperation(conn.getNextId()))
+                    conn.addPacket(protocol.startOperation(conn.getNextId()))
 
         # Now everything is passive.
         expiration = 10
@@ -693,7 +682,7 @@ class Application(object):
                     if uuid is not None:
                         node = nm.getNodeByUUID(uuid)
                         if node.getNodeType() in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE):
-                            conn.addPacket(Packet().stopOperation(conn.getNextId()))
+                            conn.addPacket(protocol.stopOperation(conn.getNextId()))
                             if node.getNodeType() == CLIENT_NODE_TYPE:
                                 conn.abort()
 

@@ -17,6 +17,7 @@
 
 import logging
 
+from neo import protocol
 from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
         DOWN_STATE, ADMIN_NODE_TYPE
@@ -62,7 +63,7 @@ class SecondaryEventHandler(MasterEventHandler):
             app = self.app
             if name != app.name:
                 logging.error('reject an alien cluster')
-                conn.addPacket(Packet().protocolError(packet.getId(),
+                conn.addPacket(protocol.protocolError(packet.getId(),
                                                       'invalid cluster name'))
                 conn.abort()
                 return
@@ -80,8 +81,7 @@ class SecondaryEventHandler(MasterEventHandler):
 
             conn.setUUID(uuid)
 
-            p = Packet()
-            p.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
+            p = protocol.acceptNodeIdentification(packet.getId(), MASTER_NODE_TYPE,
                                        app.uuid, app.server[0], app.server[1],
                                        app.num_partitions, app.num_replicas,
                                        uuid)
@@ -108,8 +108,7 @@ class SecondaryEventHandler(MasterEventHandler):
                 info = n.getServer() + (n.getUUID() or INVALID_UUID,)
                 known_master_list.append(info)
 
-            p = Packet()
-            p.answerPrimaryMaster(packet.getId(), primary_uuid, known_master_list)
+            p = protocol.answerPrimaryMaster(packet.getId(), primary_uuid, known_master_list)
             conn.addPacket(p)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):

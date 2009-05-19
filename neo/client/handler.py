@@ -19,6 +19,7 @@ import logging
 
 from neo.handler import EventHandler
 from neo.connection import MTClientConnection
+from neo import protocol
 from neo.protocol import Packet, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
@@ -78,12 +79,10 @@ class BaseClientEventHandler(EventHandler):
         if conn is not None:
             conn.lock()
             try:
-                msg_id = conn.getNextId()
-                p = Packet()
                 ip_address, port = node.getServer()
                 node_list = [(STORAGE_NODE_TYPE, ip_address, port, 
                               node.getUUID(), state)]
-                p.notifyNodeInformation(msg_id, node_list)
+                p = protocol.notifyNodeInformation(conn.getNextId(), node_list)
                 conn.addPacket(p)
             finally:
                 conn.unlock()
@@ -151,8 +150,7 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
         conn.lock()
         try:
             msg_id = conn.getNextId()
-            p = Packet()
-            p.askPrimaryMaster(msg_id)
+            p = protocol.askPrimaryMaster(msg_id)
             conn.addPacket(p)
             conn.expectMessage(msg_id)
             self.dispatcher.register(conn, msg_id, app.getQueue())
