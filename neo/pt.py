@@ -178,7 +178,7 @@ class PartitionTable(object):
 
         Here, there are 4 nodes in RUNNING_STATE.
         The first partition has 2 replicas in UP_TO_DATE_STATE, on nodes 1 and
-        2 (nodes 0 and 4 are displayed as unused for that partition by
+        2 (nodes 0 and 3 are displayed as unused for that partition by
         displaying a dot).
         The 8-digits number on the left represents the number of the first
         partition on the line (here, line length is 9 to keep the docstring
