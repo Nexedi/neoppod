@@ -214,7 +214,7 @@ server: 127.0.0.1:10023
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ASK_LAST_IDS)
-        return packet._decodeAskLastIDs()
+        return protocol._decodeAskLastIDs(packet._body)
 
     # Tests
     def test_01_connectionClosed(self):

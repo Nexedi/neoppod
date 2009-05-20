@@ -205,7 +205,7 @@ server: 127.0.0.1:10023
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_LAST_IDS)
-        return packet._decodeAnswerLastIDs()
+        return protocol._decodeAnswerLastIDs(packet._body)
 
     def checkCalledAnswerUnfinishedTransactions(self, conn, packet_number=0):
         """ Check answerUnfinishedTransactions message has been send"""
@@ -213,7 +213,7 @@ server: 127.0.0.1:10023
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_UNFINISHED_TRANSACTIONS)
-        return packet._decodeAnswerUnfinishedTransactions()
+        return protocol._decodeAnswerUnfinishedTransactions(packet._body)
 
     # Common methods
     def getNewUUID(self):
