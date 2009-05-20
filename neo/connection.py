@@ -21,7 +21,7 @@ import sys
 import traceback
 
 from neo import protocol
-from neo.protocol import Packet, ProtocolError
+from neo.protocol import Packet, PacketMalformedError
 from neo.event import IdleEvent
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException
@@ -209,8 +209,8 @@ class Connection(BaseConnection):
         while 1:
             try:
                 packet = Packet.parse(self.read_buf)
-            except ProtocolError, m:
-                self.handler.packetMalformed(self, *m)
+            except PacketMalformedError, (packet, msg):
+                self.handler.packetMalformed(self, packet, msg)
                 return
 
             if packet is None:
@@ -286,9 +286,11 @@ class Connection(BaseConnection):
                 packet.getType(), dump(self.uuid), *self.getAddress())
         try:
             self.write_buf += packet.encode()
-        except ProtocolError, m:
+        except PacketMalformedError, m:
             logging.critical('trying to send a too big message')
-            return self.addPacket(protocol.internalError(m[0]))
+            # XXX: we should assert that the internalError packet has a size
+            # lower than MAX_PACKET_SIZE
+            return self.notify(protocol.internalError(m))
 
         # If this is the first time, enable polling for writing.
         if self.write_buf:

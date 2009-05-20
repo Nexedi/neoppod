@@ -18,7 +18,7 @@
 import logging
 
 from neo import protocol
-from neo.protocol import Packet, ProtocolError
+from neo.protocol import Packet, PacketMalformedError
 from neo.connection import ServerConnection
 
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -100,7 +100,7 @@ class EventHandler(object):
             method(conn, packet, *args)
         except (KeyError, ValueError):
             self.handleUnexpectedPacket(conn, packet)
-        except ProtocolError, m:
+        except PacketMalformedError, m:
             self.packetMalformed(conn, packet, m[1])
 
     def handleUnexpectedPacket(self, conn, packet, message = None):
