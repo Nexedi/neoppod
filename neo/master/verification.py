@@ -220,19 +220,7 @@ class VerificationEventHandler(MasterEventHandler):
         conn.answer(protocol.answerPrimaryMaster(app.uuid, []), packet)
 
         # Send the information.
-        node_list = []
-        for n in app.nm.getNodeList():
-            try:
-                ip_address, port = n.getServer()
-            except TypeError:
-                ip_address, port = '0.0.0.0', 0
-            node_list.append((n.getNodeType(), ip_address, port, 
-                              n.getUUID() or INVALID_UUID, n.getState()))
-            if len(node_list) == 10000:
-                # Ugly, but it is necessary to split a packet, if it is too big.
-                conn.notify(protocol.notifyNodeInformation(node_list))
-                del node_list[:]
-        conn.notify(protocol.notifyNodeInformation(node_list))
+        app.sendNodesInformations(conn)
 
         # If this is a storage node or an admin node, send the partition table.
         node = app.nm.getNodeByUUID(uuid)

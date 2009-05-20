@@ -333,6 +333,23 @@ class Application(object):
         if row_list:
             conn.notify(protocol.sendPartitionTable(self.lptid, row_list))
 
+    def sendNodesInformations(self, conn):
+        """ Send informations on all nodes through the given connection """
+        node_list = []
+        for n in self.nm.getNodeList():
+            try:
+                ip_address, port = n.getServer()
+            except TypeError:
+                ip_address, port = '0.0.0.0', 0
+            node_list.append((n.getNodeType(), ip_address, port, 
+                              n.getUUID() or INVALID_UUID, n.getState()))
+            # Split the packet if too huge.
+            if len(node_list) == 10000:
+                conn.notify(protocol.notifyNodeInformation(node_list))
+                del node_list[:]
+        if node_list:
+            conn.notify(protocol.notifyNodeInformation(node_list))
+
     def recoverStatus(self):
         """Recover the status about the cluster. Obtain the last OID, the last TID,
         and the last Partition Table ID from storage nodes, then get back the latest

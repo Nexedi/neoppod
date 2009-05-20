@@ -309,27 +309,13 @@ class ServiceEventHandler(MasterEventHandler):
         conn.answer(protocol.answerPrimaryMaster(app.uuid, []), packet)
 
         # Send the information.
-        logging.info('sending notify node information to %s:%d',
-                      *(conn.getAddress()))
-        node_list = []
-        for n in app.nm.getNodeList():
-            try:
-                ip_address, port = n.getServer()
-            except TypeError:
-                ip_address, port = '0.0.0.0', 0
-            node_list.append((n.getNodeType(), ip_address, port,
-                              n.getUUID() or INVALID_UUID, n.getState()))
-            if len(node_list) == 10000:
-                # Ugly, but it is necessary to split a packet, if it is too big.
-                conn.notify(protocol.notifyNodeInformation(node_list))
-                del node_list[:]
-        conn.notify(protocol.notifyNodeInformation(node_list))
+        logging.info('sending notify node information to %s:%d', *(conn.getAddress()))
+        app.sendNodesInformations(conn)
 
         # If this is a storage node or a client node or an admin node, send the partition table.
         node = app.nm.getNodeByUUID(uuid)
         if node.getNodeType() in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
-            logging.info('sending partition table to %s:%d',
-                          *(conn.getAddress()))
+            logging.info('sending partition table to %s:%d', *(conn.getAddress()))
             app.sendPartitionTable(conn)
 
         # If this is a storage node, ask it to start.
