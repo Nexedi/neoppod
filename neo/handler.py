@@ -83,7 +83,7 @@ class EventHandler(object):
         logging.info('malformed packet %x from %s:%d: %s',
                      packet.getType(), conn.getAddress()[0], 
                      conn.getAddress()[1], error_message)
-        conn.send(protocol.protocolError(error_message))
+        conn.notify(protocol.protocolError(error_message))
         conn.abort()
         self.peerBroken(conn)
 
@@ -110,7 +110,7 @@ class EventHandler(object):
         else:
             message = 'unexpected packet: ' + message
         logging.info('%s', message)
-        conn.send(protocol.protocolError(message))
+        conn.notify(protocol.protocolError(message))
         conn.abort()
         self.peerBroken(conn)
 
