@@ -26,7 +26,8 @@ from neo.connection import BaseConnection, ListeningConnection, Connection, \
 from neo.connector import getConnectorHandler, registerConnectorHandler
 from neo.handler import EventHandler
 from neo.master.tests.connector import DoNothingConnector
-from neo.connector import ConnectorTryAgainException, ConnectorInProgressException
+from neo.connector import ConnectorException, ConnectorTryAgainException, \
+     ConnectorInProgressException, ConnectorConnectionRefusedException
 from neo.protocol import Packet, ProtocolError, PROTOCOL_ERROR_CODE, ERROR,INTERNAL_ERROR_CODE, \
      ANSWER_PRIMARY_MASTER
 from neo import protocol
@@ -239,19 +240,34 @@ class testConnection(unittest.TestCase):
         self.assertEqual(bc.read_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
-        # patch receive method to raise any error
+        # patch receive method to raise ConnectorConnectionRefusedException
         def receive(self):
-            raise ValueError
+            raise ConnectorConnectionRefusedException
         DoNothingConnector.receive = receive
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
         self.assertEqual(bc.read_buf, '')
         self.assertNotEqual(bc.getConnector(), None)
+        # fake client connection instance with connecting attribute
+        bc.connecting = True
         bc.recv()
         self.assertEqual(bc.read_buf, '')
-        self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 1)
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 1)
+        # patch receive method to raise any other connector error
+        def receive(self):
+            raise ConnectorException
+        DoNothingConnector.receive = receive
+        connector = DoNothingConnector()
+        bc = Connection(em, handler, connector_handler=DoNothingConnector,
+                        connector=connector, addr=("127.0.0.7", 93413))
+        self.assertEqual(bc.read_buf, '')
+        self.assertNotEqual(bc.getConnector(), None)
+        self.assertRaises(ConnectorException, bc.recv)
+        self.assertEqual(bc.read_buf, '')
+        self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("unregister")), 2)
         
 
     def test_06_Connection_send(self):
@@ -366,7 +382,7 @@ class testConnection(unittest.TestCase):
 
         # raise other error
         def send(self, data):
-            raise ValueError
+            raise ConnectorException
         DoNothingConnector.send = send
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
@@ -374,13 +390,14 @@ class testConnection(unittest.TestCase):
         self.assertEqual(bc.write_buf, '')
         bc.write_buf = "testdata" + "second" + "third"
         self.assertNotEqual(bc.getConnector(), None)
-        bc.send()
+        self.assertRaises(ConnectorException, bc.send)
         self.assertEquals(len(connector.mockGetNamedCalls("send")), 1)
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdatasecondthird")
         self.assertEqual(bc.write_buf, "testdata" + "second" + "third")
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 1)
+        self.assertEquals(len(em.mockGetNamedCalls("removeReader")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 1)
 
 
@@ -785,20 +802,14 @@ class testConnection(unittest.TestCase):
 
         # raise another error, connection must fail
         def makeClientConnection(self, *args, **kw):
-            raise ValueError
+            raise ConnectorException
         DoNothingConnector.makeClientConnection = makeClientConnection
         em = Mock()
         handler = Mock()
         connector = DoNothingConnector()
-        bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
-                              addr=("127.0.0.7", 93413))
-        # check connector created and connection initialize
-        self.assertTrue(bc.connecting)
-        self.assertFalse(bc.isServerConnection())
-        self.assertEqual(bc.getConnector(), None)
-        call = conn.mockGetNamedCalls("makeClientConnection")[0]
-        data = call.getParam(0)
-        self.assertEqual(data, ("127.0.0.7", 93413))
+        self.assertRaises(ConnectorException, ClientConnection, em, handler, 
+                connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413))
+        # since the exception was raised, the connection is not created
         # check call to handler
         self.assertNotEqual(bc.getHandler(), None)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionStarted")), 1)
@@ -1020,20 +1031,14 @@ class testConnection(unittest.TestCase):
 
         # raise another error, connection must fail
         def makeClientConnection(self, *args, **kw):
-            raise ValueError
+            raise ConnectorException
         DoNothingConnector.makeClientConnection = makeClientConnection
         em = Mock()
         handler = Mock()
         connector = DoNothingConnector()
-        bc = MTClientConnection(em, handler, connector_handler=DoNothingConnector,
-                              addr=("127.0.0.7", 93413))
-        # check connector created and connection initialize
-        self.assertTrue(bc.connecting)
-        self.assertFalse(bc.isServerConnection())
-        self.assertEqual(bc.getConnector(), None)
-        call = conn.mockGetNamedCalls("makeClientConnection")[0]
-        data = call.getParam(0)
-        self.assertEqual(data, ("127.0.0.7", 93413))
+        self.assertRaises(ConnectorException, MTClientConnection, em, handler, 
+                connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413))
+        # the connection is not created
         # check call to handler
         self.assertNotEqual(bc.getHandler(), None)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionStarted")), 1)
