@@ -49,12 +49,12 @@ class SocketConnector:
     try:
       self.socket.setblocking(0)
       self.socket.connect(addr)
-    except socket.error, m:
-      if m[0] == errno.EINPROGRESS:
+    except socket.error, (err, errmsg):
+      if err == errno.EINPROGRESS:
         raise ConnectorInProgressException
-      else:
-        logging.error('makeClientConnection: %s', m[1])        
-        raise
+      if err == errno.ECONNREFUSED:
+        raise ConnectorConnectionRefusedException
+      raise ConnectorException, 'makeClientConnection failed: %s:%s' %  (err, errmsg)
 
   def makeListeningConnection(self, addr):
     try:
@@ -62,9 +62,9 @@ class SocketConnector:
       self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
       self.socket.bind(addr)
       self.socket.listen(5)
-    except:
+    except socket.error, (err, errmsg):
       self.socket.close()
-      raise
+      raise ConnectorException, 'makeListeningConnection failed: %s:%s' % (err, errmsg)
 
   def getError(self):
     return self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
@@ -80,9 +80,7 @@ class SocketConnector:
     except socket.error, m:
       if m[0] == errno.EAGAIN:
         raise ConnectorTryAgainException
-      else:
-        logging.error('getNewConnection: %s', m[1])        
-        raise
+      raise ConnectorException, 'getNewConnection failed: %s:%s' % (err, errmsg)
 
   def shutdown(self):
     # This may fail if the socket is not connected.
@@ -94,41 +92,28 @@ class SocketConnector:
   def receive(self):
     try:
       return self.socket.recv(4096)
-    except socket.error, m:
-      if m[0] == errno.EAGAIN:
+    except socket.error, (err, errmsg):
+      if err == errno.EAGAIN:
         raise ConnectorTryAgainException
-      else:
-        logging.error('receive: %s', m[1])                    
-        raise
+      if err == errno.ECONNREFUSED:
+        raise ConnectorConnectionRefusedException
+      raise ConnectorException, 'receive failed: %s:%s' % (err, errmsg)
 
   def send(self, msg):
     try:
       return self.socket.send(msg)
-    except socket.error, m:
-      if m[0] == errno.EAGAIN:
+    except socket.error, (err, errmsg):
+      if err == errno.EAGAIN:
         raise ConnectorTryAgainException
-      else:
-        logging.error('send: %s', m[1])        
-        raise
+      raise ConnectorException, 'send failed: %s:%s' % (err, errmsg) 
 
   def close(self):
     return self.socket.close()
 
 registerConnectorHandler(SocketConnector)
 
-class ConnectorTryAgainException(Exception): pass
-class ConnectorInProgressException(Exception): pass  
-
-
-
-
-
-
-
-
-
-
-
-
-
+class ConnectorException(Exception): pass
+class ConnectorTryAgainException(ConnectorException): pass
+class ConnectorInProgressException(ConnectorException): pass  
+class ConnectorConnectionRefusedException(ConnectorException): pass
 

@@ -23,7 +23,8 @@ import traceback
 from neo import protocol
 from neo.protocol import Packet, ProtocolError
 from neo.event import IdleEvent
-from neo.connector import ConnectorTryAgainException, ConnectorInProgressException
+from neo.connector import ConnectorException, ConnectorTryAgainException, \
+        ConnectorInProgressException, ConnectorConnectionRefusedException
 from neo.util import dump
 from neo.exception import OperationFailure
 
@@ -238,43 +239,43 @@ class Connection(BaseConnection):
     def recv(self):
         """Receive data from a connector."""
         try:
-            r = self.connector.receive()
-            if not r:
-                logging.error('cannot read')
+            data = self.connector.receive()
+            if not data:
                 self.handler.connectionClosed(self)
                 self.close()
-            else:
-                self.read_buf += r
+                return
+            self.read_buf += data
         except ConnectorTryAgainException:        
             pass
-        except OperationFailure:
-            raise
-        except:
-            traceback.print_exc()
-            logging.warning('recv called on %s(%s) failed.'%(self, self.getAddress()))
+        except ConnectorConnectionRefusedException:
+            # should only occur while connecting
+            assert self.connecting
+            self.handler.connectionFailed(self)
+            self.close()
+        except ConnectorException:
             self.handler.connectionClosed(self)
             self.close()
+            # unhandled connector exception
+            raise
 
     def send(self):
         """Send data to a connector."""
-        if self.write_buf:
-            try:
-                r = self.connector.send(self.write_buf)
-                if not r:
-                    logging.error('cannot write')
-                    self.handler.connectionClosed(self)
-                    self.close()
-                else:
-                    self.write_buf = self.write_buf[r:]
-            except ConnectorTryAgainException:
-                return
-            except OperationFailure:
-                raise
-            except:
-                traceback.print_exc()
-                logging.warning('send called on %s(%s) failed.'%(self, self.getAddress()))
+        if not self.write_buf:
+            return
+        try:
+            n = self.connector.send(self.write_buf)
+            if not n:
                 self.handler.connectionClosed(self)
                 self.close()
+                return
+            self.write_buf = self.write_buf[n:]
+        except ConnectorTryAgainException:
+            pass
+        except ConnectorException:
+            self.handler.connectionClosed(self)
+            self.close()
+            # unhandled connector exception
+            raise 
 
     def addPacket(self, packet):
         """Add a packet into the write buffer."""
@@ -363,11 +364,14 @@ class ClientConnection(Connection):
                 self.connecting = False
                 self.handler.connectionCompleted(self)
                 event_manager.addReader(self)
-        except:
-            traceback.print_exc()
-            logging.warning('init called on %s(%s) failed.'%(self, self.getAddress()))
+        except ConnectorConnectionRefusedException:
             handler.connectionFailed(self)
             self.close()
+        except ConnectorException, msg:
+            # unhandled connector exception
+            handler.connectionFailed(self)
+            self.close()
+            raise
 
     def writable(self):
         """Called when self is writable."""
