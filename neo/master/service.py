@@ -330,15 +330,7 @@ class ServiceEventHandler(MasterEventHandler):
         if node.getNodeType() in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
             logging.info('sending partition table to %s:%d',
                           *(conn.getAddress()))
-            # Split the packet if too huge.
-            row_list = []
-            for offset in xrange(app.num_partitions):
-                row_list.append((offset, app.pt.getRow(offset)))
-                if len(row_list) == 1000:
-                    conn.notify(protocol.sendPartitionTable(app.lptid, row_list))
-                    del row_list[:]
-            if len(row_list) != 0:
-                conn.notify(protocol.sendPartitionTable(app.lptid, row_list))
+            app.sendPartitionTable(conn)
 
         # If this is a storage node, ask it to start.
         if node.getNodeType() == STORAGE_NODE_TYPE:

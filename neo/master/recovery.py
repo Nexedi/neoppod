@@ -219,15 +219,7 @@ class RecoveryEventHandler(MasterEventHandler):
             # send partition table if exists
             logging.info('sending partition table %s to %s' % (dump(app.lptid),
                                                               conn.getAddress()))
-            # Split the packet if too huge.
-            row_list = []
-            for offset in xrange(app.num_partitions):
-                row_list.append((offset, app.pt.getRow(offset)))
-                if len(row_list) == 1000:
-                    conn.notify(protocol.sendPartitionTable(app.lptid, row_list))
-                    del row_list[:]
-            if len(row_list) != 0:
-                conn.notify(protocol.sendPartitionTable(app.lptid, row_list))
+            app.sendPartitionTable(conn)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()

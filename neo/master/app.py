@@ -321,6 +321,18 @@ class Application(object):
                         size -= amt
                         start += amt
 
+    def sendPartitionTable(self, conn):
+        """ Send the partition table through the given connection """
+        row_list = []
+        for offset in xrange(self.num_partitions):
+            row_list.append((offset, self.pt.getRow(offset)))
+            # Split the packet if too huge.
+            if len(row_list) == 1000:
+                conn.notify(protocol.sendPartitionTable( self.lptid, row_list))
+                del row_list[:]
+        if row_list:
+            conn.notify(protocol.sendPartitionTable(self.lptid, row_list))
+
     def recoverStatus(self):
         """Recover the status about the cluster. Obtain the last OID, the last TID,
         and the last Partition Table ID from storage nodes, then get back the latest
@@ -514,17 +526,7 @@ class Application(object):
             if uuid is not None:
                 node = nm.getNodeByUUID(uuid)
                 if node.getNodeType() == STORAGE_NODE_TYPE:
-                    # Split the packet if too huge.
-                    row_list = []
-                    for offset in xrange(self.num_partitions):
-                        row_list.append((offset, self.pt.getRow(offset)))
-                        if len(row_list) == 1000:
-                            p = protocol.sendPartitionTable( self.lptid, row_list)
-                            conn.notify(p)
-                            del row_list[:]
-                    if len(row_list) != 0:
-                        p = protocol.sendPartitionTable(self.lptid, row_list)
-                        conn.notify(p)
+                    self.sendPartitionTable(conn)
 
         # Gather all unfinished transactions.
         #

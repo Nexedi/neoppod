@@ -237,15 +237,7 @@ class VerificationEventHandler(MasterEventHandler):
         # If this is a storage node or an admin node, send the partition table.
         node = app.nm.getNodeByUUID(uuid)
         if node.getNodeType() in (STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
-            # Split the packet if too huge.
-            row_list = []
-            for offset in xrange(app.num_partitions):
-                row_list.append((offset, app.pt.getRow(offset)))
-                if len(row_list) == 1000:
-                    conn.notify(protocol.sendPartitionTable(app.lptid, row_list))
-                    del row_list[:]
-            if len(row_list) != 0:
-                conn.notify(protocol.sendPartitionTable(app.lptid, row_list))
+            app.sendPartitionTable(conn)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
