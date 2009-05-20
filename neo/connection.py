@@ -209,7 +209,7 @@ class Connection(BaseConnection):
         while 1:
             packet = None
             try:
-                packet = Packet.parse(self.read_buf)
+                packet = protocol.parse(self.read_buf)
             except PacketMalformedError, msg:
                 self.handler.packetMalformed(self, packet, msg)
                 return
