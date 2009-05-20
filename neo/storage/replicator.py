@@ -24,6 +24,7 @@ from neo.protocol import Packet, STORAGE_NODE_TYPE, \
 from neo.connection import ClientConnection
 from neo.storage.handler import StorageEventHandler
 from neo.util import dump
+from neo import protocol
 
 class Partition(object):
     """This class abstracts the state of a partition."""
