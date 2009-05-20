@@ -853,6 +853,57 @@ class ClientApplicationTest(unittest.TestCase):
         self.assertTrue(app.pt.operational())
         self.assertEquals(len(app.nm.getNodeList()), 3)
 
+    def test_askStorage(self):
+        """ _askStorage is private but test it anyway """
+        app = self.getApp('')
+        app.dispatcher = Mock()
+        conn = Mock()
+        self.test_ok = False
+        def _waitMessage_hook(app, conn=None, msg_id=None, handler=None):
+            self.test_ok = True
+        _waitMessage_old = Application._waitMessage
+        Application._waitMessage = _waitMessage_hook
+        packet = protocol.askNewOIDs(10)
+        try:
+            app._askStorage(conn, packet)
+        finally:
+            Application._waitMessage = _waitMessage_old
+        # check packet sent, connection unlocked and dispatcher updated
+        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls('unlock')), 1)
+        self.assertEquals(len(app.dispatcher.mockGetNamedCalls('register')), 1)
+        # and _waitMessage called
+        self.assertTrue(self.test_ok)
+
+    def test_askPrimary(self):
+        """ _askPrimary is private but test it anyway """
+        app = self.getApp('')
+        app.dispatcher = Mock()
+        conn = Mock()
+        app.master_conn = conn
+        app.primary_handler = object()
+        self.test_ok = False
+        def _waitMessage_hook(app, conn=None, msg_id=None, handler=None):
+            self.assertEquals(handler, app.primary_handler)
+            self.test_ok = True
+        _waitMessage_old = Application._waitMessage
+        Application._waitMessage = _waitMessage_hook
+        packet = protocol.askNewOIDs(10)
+        try:
+            app._askPrimary(packet)
+        finally:
+            Application._waitMessage = _waitMessage_old
+        # check packet sent, connection locked during process and dispatcher updated
+        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls('lock')), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls('unlock')), 1)
+        self.assertEquals(len(app.dispatcher.mockGetNamedCalls('register')), 1)
+        # and _waitMessage called
+        self.assertTrue(self.test_ok)
+        # check NEOStorageError is raised when the primary connection is lost
+        app.master_conn = None
+        self.assertRaises(NEOStorageError, app._askPrimary, packet)
+
 
 if __name__ == '__main__':
     unittest.main()

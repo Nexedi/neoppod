@@ -29,9 +29,7 @@ from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connection import MTClientConnection
 from neo import protocol
 from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
-        INVALID_PTID, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
-        UP_TO_DATE_STATE, FEEDING_STATE, INVALID_SERIAL
+        INVALID_PTID, CLIENT_NODE_TYPE, UP_TO_DATE_STATE, INVALID_SERIAL
 from neo.client.handler import *
 from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
      NEOStorageNotFoundError
@@ -100,8 +98,6 @@ class ConnectionPool(object):
 
             if app.isNodeReady():
                 logging.info('connected to storage node %s', node)
-                # FIXME: remove this assertion
-                assert conn.getUUID() != INVALID_UUID
                 conn.setHandler(self.app.storage_handler)
                 return conn
             else:
@@ -255,12 +251,6 @@ class Application(object):
             self.local_var.queue = Queue(5)
             return self.local_var.queue
 
-    def _waitStorageMessage(self, target_conn=None, msg_id=None):
-        self._waitMessage(target_conn, msg_id, self.storage_handler)
-
-    def _waitPrimaryMessage(self, target_conn=None, msg_id=None):
-        self._waitMessage(target_conn, msg_id, self.primary_handler)
-
     def _waitMessage(self, target_conn = None, msg_id = None, handler=None):
         """Wait for a message returned by the dispatcher in queues."""
         local_queue = self.getQueue()
@@ -283,6 +273,29 @@ class Application(object):
                     and packet.getType() & 0x8000:
                 break
 
+    def _askStorage(self, conn, packet, timeout=5, additional_timeout=30):
+        """ Send a request to a storage node and process it's answer """
+        try:
+            msg_id = conn.ask(packet, timeout, additional_timeout)
+            self.dispatcher.register(conn, msg_id, self.getQueue())
+        finally:
+            # assume that the connection was already locked
+            conn.unlock()
+        self._waitMessage(conn, msg_id, self.storage_handler)
+
+    def _askPrimary(self, packet, timeout=5, additional_timeout=30):
+        """ Send a request to the primary master and process it's answer """
+        if self.master_conn is None:
+            raise NEOStorageError("Connection to master node failed")
+        conn = self.master_conn
+        conn.lock()
+        try:
+            msg_id = conn.ask(packet, timeout, additional_timeout)
+            self.dispatcher.register(conn, msg_id, self.getQueue())
+        finally:
+            conn.unlock()
+        self._waitMessage(conn, msg_id, self.primary_handler)
+
     def registerDB(self, db, limit):
         self._db = db
 
@@ -298,15 +311,7 @@ class Application(object):
                 # we manage a list of oid here to prevent
                 # from asking too many time new oid one by one
                 # from master node
-                conn = self.master_conn
-                conn.lock()
-                try:
-                    msg_id = conn.ask(protocol.askNewOIDs(25))
-                    self.dispatcher.register(conn, msg_id, self.getQueue())
-                finally:
-                    conn.unlock()
-
-                self._waitPrimaryMessage(conn, msg_id)
+                self._askPrimary(protocol.askNewOIDs(25))
                 if len(self.new_oid_list) <= 0:
                     raise NEOStorageError('new_oid failed')
             return self.new_oid_list.pop()
@@ -356,14 +361,9 @@ class Application(object):
                 if conn is None:
                     continue
 
-                try:
-                    msg_id = conn.ask(protocol.askObject(oid, serial, tid))
-                    self.dispatcher.register(conn, msg_id, self.getQueue())
-                    self.local_var.asked_object = 0
-                finally:
-                    conn.unlock()
+                self.local_var.asked_object = 0
+                self._askStorage(conn, protocol.askObject(oid, serial, tid))
 
-                self._waitStorageMessage(conn, msg_id)
                 if self.local_var.asked_object == -1:
                     # OID not found
                     break
@@ -454,17 +454,7 @@ class Application(object):
         # Get a new transaction id if necessary
         if tid is None:
             self.local_var.tid = None
-            conn = self.master_conn
-            if conn is None:
-                raise NEOStorageError("Connection to master node failed")
-            conn.lock()
-            try:
-                msg_id = conn.ask(protocol.askNewTID())
-                self.dispatcher.register(conn, msg_id, self.getQueue())
-            finally:
-                conn.unlock()
-            # Wait for answer
-            self._waitPrimaryMessage(conn, msg_id)
+            self._askPrimary(protocol.askNewTID())
             if self.local_var.tid is None:
                 raise NEOStorageError('tpc_begin failed')
         else:
@@ -499,17 +489,12 @@ class Application(object):
             if conn is None:
                 continue
 
-            try:
-                p = protocol.askStoreObject(oid, serial, 1,
-                             checksum, compressed_data, self.local_var.tid)
-                msg_id = conn.ask(p)
-                self.dispatcher.register(conn, msg_id, self.getQueue())
-                self.local_var.object_stored = 0
-            finally:
-                conn.unlock()
+            self.local_var.object_stored = 0
+            p = protocol.askStoreObject(oid, serial, 1,
+                     checksum, compressed_data, self.local_var.tid)
+            self._askStorage(conn, p)
 
             # Check we don't get any conflict
-            self._waitStorageMessage(conn, msg_id)
             if self.local_var.object_stored[0] == -1:
                 if self.local_var.data_dict.has_key(oid):
                     # One storage already accept the object, is it normal ??
@@ -548,16 +533,11 @@ class Application(object):
             if conn is None:
                 continue
 
-            try:
-                p = protocol.askStoreTransaction(self.local_var.tid, 
-                        user, desc, ext, oid_list)
-                msg_id = msg = conn.ask(p)
-                self.dispatcher.register(conn, msg_id, self.getQueue())
-                self.local_var.txn_voted = False
-            finally:
-                conn.unlock()
+            self.local_var.txn_voted = False
+            p = protocol.askStoreTransaction(self.local_var.tid, 
+                    user, desc, ext, oid_list)
+            self._askStorage(conn, p)
 
-            self._waitStorageMessage(conn, msg_id)
             if not self.isTransactionVoted():
                 raise NEOStorageError('tpc_vote failed')
 
@@ -621,17 +601,8 @@ class Application(object):
 
             # Call finish on master
             oid_list = self.local_var.data_dict.keys()
-            conn = self.master_conn
-            conn.lock()
-            try:
-                p = protocol.finishTransaction(oid_list, self.local_var.tid)
-                msg_id = conn.ask(p)
-                self.dispatcher.register(conn, msg_id, self.getQueue())
-            finally:
-                conn.unlock()
-
-            # Wait for answer
-            self._waitPrimaryMessage(conn, msg_id)
+            p = protocol.finishTransaction(oid_list, self.local_var.tid)
+            self._askPrimary(p)
 
             if not self.isTransactionFinished():
                 raise NEOStorageError('tpc_finish failed')
@@ -667,16 +638,9 @@ class Application(object):
             if conn is None:
                 continue
 
-            try:
-                p = protocol.askTransactionInformation(transaction_id)
-                msg_id = conn.ask(p)
-                self.dispatcher.register(conn, msg_id, self.getQueue())
-                self.local_var.txn_info = 0
-            finally:
-                conn.unlock()
+            self.local_var.txn_info = 0
+            self._askStorage(conn, protocol.askTransactionInformation(transaction_id))
 
-            # Wait for answer
-            self._waitStorageMessage(conn, msg_id)
             if self.local_var.txn_info == -1:
                 # Tid not found, try with next node
                 continue
@@ -751,7 +715,7 @@ class Application(object):
         # Wait for answers from all storages.
         # FIXME this is a busy loop.
         while True:
-            self._waitStorageMessage()
+            self._waitMessage(handler=self.storage_handler)
             if len(self.local_var.node_tids.keys()) == len(storage_node_list):
                 break
 
@@ -777,16 +741,9 @@ class Application(object):
                 if conn is None:
                     continue
 
-                try:
-                    p = protocol.askTransactionInformation(tid)
-                    msg_id = conn.ask(p)
-                    self.dispatcher.register(conn, msg_id, self.getQueue())
-                    self.local_var.txn_info = 0
-                finally:
-                    conn.unlock()
+                self.local_var.txn_info = 0
+                self._askStorage(conn, protocol.askTransactionInformation(tid))
 
-                # Wait for answer
-                self._waitStorageMessage(conn, msg_id)
                 if self.local_var.txn_info == -1:
                     # TID not found, go on with next node
                     continue
@@ -830,15 +787,9 @@ class Application(object):
             if conn is None:
                 continue
 
-            try:
-                p = protocol.askObjectHistory(oid, 0, length)
-                msg_id = conn.ask(p)
-                self.dispatcher.register(conn, msg_id, self.getQueue())
-                self.local_var.history = None
-            finally:
-                conn.unlock()
+            self.local_var.history = None
+            self._askStorage(conn, protocol.askObjectHistory(oid, 0, length))
 
-            self._waitStorageMessage(conn, msg_id)
             if self.local_var.history == -1:
                 # Not found, go on with next node
                 continue
@@ -868,16 +819,10 @@ class Application(object):
                 if conn is None:
                     continue
 
-                try:
-                    p = protocol.askTransactionInformation(serial)
-                    msg_id = conn.ask(p)
-                    self.dispatcher.register(conn, msg_id, self.getQueue())
-                    self.local_var.txn_info = None
-                finally:
-                    conn.unlock()
+                # ask transaction information
+                self.local_var.txn_info = None
+                self._askStorage(conn, protocol.askTransactionInformation(serial))
 
-                # Wait for answer
-                self._waitStorageMessage(conn, msg_id)
                 if self.local_var.txn_info == -1:
                     # TID not found
                     continue
@@ -904,7 +849,7 @@ class Application(object):
     close = __del__
 
     def sync(self):
-        self._waitStorageMessage()
+        self._waitMessage(handler=self.storage_handler)
 
     def connectToPrimaryMasterNode(self):
         self.master_conn = None
@@ -922,7 +867,7 @@ class Application(object):
             master_index = 0
             conn = None
             # Make application execute remaining message if any
-            self._waitStorageMessage()
+            self._waitMessage(handler=self.storage_handler)
             while True:
                 self.setNodeReady()
                 if self.primary_master_node is None:
