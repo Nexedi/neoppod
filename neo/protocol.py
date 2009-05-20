@@ -320,6 +320,7 @@ UUID_NAMESPACES = {
 
 class ProtocolError(Exception): pass
 class PacketMalformedError(ProtocolError): pass
+class UnexpectedPacketError(ProtocolError): pass
 
 decode_table = {}
 

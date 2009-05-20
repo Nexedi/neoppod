@@ -67,7 +67,7 @@ class testProtocol(unittest.TestCase):
 
     def test_02_error(self):
         p = protocol._error(10, "error message")
-        code, msg = p._decodeError()
+        code, msg = protocol._decodeError(p._body)
         self.assertEqual(code, 10)
         self.assertEqual(msg, "error message")
 

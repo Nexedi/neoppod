@@ -18,7 +18,7 @@
 import logging
 
 from neo import protocol
-from neo.protocol import Packet, PacketMalformedError
+from neo.protocol import Packet, PacketMalformedError, UnexpectedPacketError
 from neo.connection import ServerConnection
 
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -78,6 +78,10 @@ class EventHandler(object):
         """Called when a packet is received."""
         self.dispatch(conn, packet)
 
+    def peerBroken(self, conn):
+        """Called when a peer is broken."""
+        logging.error('%s:%d is broken', *(conn.getAddress()))
+
     def packetMalformed(self, conn, packet, error_message):
         """Called when a packet is malformed."""
         args = (conn.getAddress()[0], conn.getAddress()[1], error_message)
@@ -90,9 +94,18 @@ class EventHandler(object):
         conn.abort()
         self.peerBroken(conn)
 
-    def peerBroken(self, conn):
-        """Called when a peer is broken."""
-        logging.error('%s:%d is broken', *(conn.getAddress()))
+    def unexpectedPacket(self, conn, packet, message = None):
+        """Handle an unexpected packet."""
+        if message is None:
+            message = 'unexpected packet type %s' % packet.getType()
+        else:
+            message = 'unexpected packet: %s' % message
+        logging.info('%s', message)
+        conn.notify(protocol.protocolError(message))
+        conn.abort()
+        self.peerBroken(conn)
+    # TODO: remove this old method name
+    handleUnexpectedPacket = unexpectedPacket
 
     def dispatch(self, conn, packet):
         """This is a helper method to handle various packet types."""
@@ -102,20 +115,11 @@ class EventHandler(object):
             args = packet.decode() or ()
             method(conn, packet, *args)
         except (KeyError, ValueError):
-            self.handleUnexpectedPacket(conn, packet)
+            self.unexpectedPacket(conn, packet)
+        except UnexpectedPacketError, msg:
+            self.unexpectedPacket(conn, packet, msg)
         except PacketMalformedError, msg:
             self.packetMalformed(conn, packet, msg)
-
-    def handleUnexpectedPacket(self, conn, packet, message = None):
-        """Handle an unexpected packet."""
-        if message is None:
-            message = 'unexpected packet type %s' % packet.getType()
-        else:
-            message = 'unexpected packet: ' + message
-        logging.info('%s', message)
-        conn.notify(protocol.protocolError(message))
-        conn.abort()
-        self.peerBroken(conn)
 
     # Packet handlers.
 
@@ -124,16 +128,16 @@ class EventHandler(object):
             method = self.error_dispatch_table[code]
             method(conn, packet, message)
         except ValueError:
-            self.handleUnexpectedPacket(conn, packet, message)
+            raise UnexpectedPacketError(message)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas, your_uuid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handlePing(self, conn, packet):
         logging.info('got a ping packet; am I overloaded?')
@@ -143,148 +147,148 @@ class EventHandler(object):
         pass
 
     def handleAskPrimaryMaster(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleReelectPrimaryMaster(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskLastIDs(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskPartitionTable(self, conn, packet, offset_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleStartOperation(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleStopOperation(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskUnfinishedTransactions(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerObjectPresent(self, conn, packet, oid, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleDeleteTransaction(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleCommitTransaction(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskNewTID(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerNewTID(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskNewOIDs(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerNewOIDs(self, conn, packet, oid_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleNotifyTransactionFinished(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleLockInformation(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleNotifyInformationLocked(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleInvalidateObjects(self, conn, packet, oid_list, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleUnlockInformation(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerStoreObject(self, conn, packet, status, oid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAbortTransaction(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
                                   ext, oid_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerStoreTransaction(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskObject(self, conn, packet, oid, serial, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerObject(self, conn, packet, oid, serial_start,
                            serial_end, compression, checksum, data):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskTIDs(self, conn, packet, first, last, partition):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerTIDs(self, conn, packet, tid_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskTransactionInformation(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerTransactionInformation(self, conn, packet, tid, 
                                            user, desc, ext, oid_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskObjectHistory(self, conn, packet, oid, first, last):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerObjectHistory(self, conn, packet, oid, history_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskOIDs(self, conn, packet, first, last, partition):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerOIDs(self, conn, packet, oid_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     # Error packet handlers.
 
-    handleNotReady = handleUnexpectedPacket
-    handleOidNotFound = handleUnexpectedPacket
-    handleSerialNotFound = handleUnexpectedPacket
-    handleTidNotFound = handleUnexpectedPacket
+    handleNotReady = unexpectedPacket
+    handleOidNotFound = unexpectedPacket
+    handleSerialNotFound = unexpectedPacket
+    handleTidNotFound = unexpectedPacket
 
     def handleProtocolError(self, conn, packet, message):
         raise RuntimeError, 'protocol error: %s' % (message,)

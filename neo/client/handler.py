@@ -20,10 +20,10 @@ import logging
 from neo.handler import EventHandler
 from neo.connection import MTClientConnection
 from neo import protocol
-from neo.protocol import Packet, \
+from neo.protocol import Packet, UnexpectedPacketError, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
-        BROKEN_STATE, FEEDING_STATE, DISCARDED_STATE
+        BROKEN_STATE, FEEDING_STATE, DISCARDED_STATE 
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.pt import PartitionTable
 from neo.client.exception import NEOStorageError
@@ -156,8 +156,7 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
         uuid = conn.getUUID()
         if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
+            raise UnexpectedPacketError
 
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
@@ -199,8 +198,7 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
         if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
+            raise UnexpectedPacketError
 
         app = self.app
         nm = app.nm
@@ -256,8 +254,7 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
         # sendPartitionTable is only triggered after askPrimaryMaster.
         uuid = conn.getUUID()
         if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
+            raise UnexpectedPacketError
 
         app = self.app
         nm = app.nm

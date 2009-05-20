@@ -24,7 +24,7 @@ from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo import protocol
-from neo.protocol import Packet
+from neo.protocol import Packet, UnexpectedPacketError
 from neo.pt import PartitionTable
 from neo.exception import PrimaryFailure
 from neo.util import dump
@@ -49,7 +49,7 @@ class MonitoringEventHandler(BaseEventHandler):
 
     def connectionAccepted(self, conn, s, addr):
         """Called when a connection is accepted."""
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def connectionCompleted(self, conn):
         app = self.app
@@ -220,8 +220,7 @@ class MonitoringEventHandler(BaseEventHandler):
         logging.warning("handleSendPartitionTable")
         uuid = conn.getUUID()
         if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
+            raise UnexpectedPacketError
 
         app = self.app
         nm = app.nm
@@ -251,8 +250,7 @@ class MonitoringEventHandler(BaseEventHandler):
         pt = app.pt
         uuid = conn.getUUID()
         if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
+            raise UnexpectedPacketError
 
         node = app.nm.getNodeByUUID(uuid)
         # This must be sent only by primary master node
@@ -281,8 +279,7 @@ class MonitoringEventHandler(BaseEventHandler):
         logging.warning("handleNotifyNodeInformation")
         uuid = conn.getUUID()
         if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
+            raise UnexpectedPacketError
 
         app = self.app
         nm = app.nm

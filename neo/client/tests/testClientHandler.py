@@ -21,7 +21,7 @@ import logging
 import threading
 from mock import Mock, ReturnValues
 from neo import protocol
-from neo.protocol import Packet, INVALID_UUID
+from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
      PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
      REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION, START_OPERATION, \
@@ -342,25 +342,18 @@ class ClientEventHandlerTest(unittest.TestCase):
         original_handleUnexpectedPacket = client_handler.__class__.handleUnexpectedPacket
         client_handler.__class__.handleUnexpectedPacket = ClientHandler_handleUnexpectedPacket
         try:
-            method(*args, **dict(kw))
+            self.assertRaises(UnexpectedPacketError, method, *args, **dict(kw))
         finally:
             # Restore original method
             client_handler.__class__.handleUnexpectedPacket = original_handleUnexpectedPacket
-        # Check that packet was notified as unexpected.
-        self.assertEquals(len(call_list), 1)
-        # Return call_list in case caller wants to do extra checks on it.
-        return call_list
 
     # Master node handler
     def test_initialAnswerPrimaryMaster(self):
         client_handler = PrimaryBoostrapEventHandler(None, self.getDispatcher())
         conn = Mock({'getUUID': None})
-        call_list = self._testHandleUnexpectedPacketCalledWithMedhod(
+        self._testHandleUnexpectedPacketCalledWithMedhod(
             client_handler, client_handler.handleAnswerPrimaryMaster,
             args=(conn, None, 0, []))
-        # Nothing else happened, or a raise would have happened (app is None,
-        # and it's where things would happen)
-        self.assertEquals(call_list[0], (conn, None))
         
     def test_nonMasterAnswerPrimaryMaster(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
@@ -553,10 +546,9 @@ class ClientEventHandlerTest(unittest.TestCase):
     def test_initialSendPartitionTable(self):
         client_handler = PrimaryBoostrapEventHandler(None, self.getDispatcher())
         conn = Mock({'getUUID': None})
-        call_list = self._testHandleUnexpectedPacketCalledWithMedhod(
+        self._testHandleUnexpectedPacketCalledWithMedhod(
             client_handler, client_handler.handleSendPartitionTable,
             args=(conn, None, None, None))
-        self.assertEquals(call_list[0], (conn, None))
 
     def test_nonMasterSendPartitionTable(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
@@ -644,10 +636,9 @@ class ClientEventHandlerTest(unittest.TestCase):
     def test_initialNotifyNodeInformation(self):
         client_handler = PrimaryBoostrapEventHandler(None, self.getDispatcher())
         conn = Mock({'getUUID': None})
-        call_list = self._testHandleUnexpectedPacketCalledWithMedhod(
+        self._testHandleUnexpectedPacketCalledWithMedhod(
             client_handler, client_handler.handleNotifyNodeInformation,
             args=(conn, None, None))
-        self.assertEquals(call_list[0], (conn, None))
 
     def test_nonMasterNotifyNodeInformation(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
@@ -760,10 +751,9 @@ class ClientEventHandlerTest(unittest.TestCase):
         app = App()
         client_handler = PrimaryBoostrapEventHandler(app, self.getDispatcher())
         conn = Mock({'getUUID': None})
-        call_list = self._testHandleUnexpectedPacketCalledWithMedhod(
+        self._testHandleUnexpectedPacketCalledWithMedhod(
             client_handler, client_handler.handleNotifyPartitionChanges,
             args=(conn, None, None, None))
-        self.assertEquals(call_list[0], (conn, None))
 
     def test_nonMasterNotifyPartitionChanges(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
