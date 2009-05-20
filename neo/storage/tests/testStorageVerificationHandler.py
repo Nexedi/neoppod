@@ -129,14 +129,14 @@ server: 127.0.0.1:10020
 
     def checkCalledAbort(self, conn, packet_number=0):
         """Check the abort method has been called and an error packet has been sent"""
-        # sometimes we answer an error, sometimes we just send it
-        send_calls_len = len(conn.mockGetNamedCalls("send"))
+        # sometimes we answer an error, sometimes we just notify it
+        notify_calls_len = len(conn.mockGetNamedCalls("notify"))
         answer_calls_len = len(conn.mockGetNamedCalls('answer'))
-        self.assertEquals(send_calls_len + answer_calls_len, 1)
+        self.assertEquals(notify_calls_len + answer_calls_len, 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
-        if send_calls_len == 1:
-            call = conn.mockGetNamedCalls("send")[packet_number]
+        if notify_calls_len == 1:
+            call = conn.mockGetNamedCalls("notify")[packet_number]
         else:
             call = conn.mockGetNamedCalls("answer")[packet_number]
         packet = call.getParam(0)
