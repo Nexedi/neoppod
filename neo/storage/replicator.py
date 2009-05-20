@@ -18,6 +18,7 @@
 import logging
 from random import choice
 
+from neo import protocol
 from neo.protocol import Packet, STORAGE_NODE_TYPE, \
         UP_TO_DATE_STATE, OUT_OF_DATE_STATE, \
         INVALID_OID, INVALID_TID, RUNNING_STATE
@@ -161,7 +162,7 @@ class ReplicationEventHandler(StorageEventHandler):
                 # Otherwise, acquire more OIDs.
                 app.replicator.oid_offset += 1000
                 offset = app.replicator.oid_offset
-                p = protocol.askOIDs(msg_id, offset, offset + 1000, 
+                p = protocol.askOIDs(offset, offset + 1000, 
                           app.replicator.current_partition.getRID())
                 conn.ask(p, timeout=300)
 
@@ -265,7 +266,7 @@ class Replicator(object):
 
     def _askCriticalTID(self):
         conn = self.primary_master_connection
-        conn.ask(protocol.askLastIDs())
+        msg_id = conn.ask(protocol.askLastIDs())
         self.critical_tid_dict[msg_id] = self.new_partition_dict.values()
         self.partition_dict.update(self.new_partition_dict)
         self.new_partition_dict = {}
@@ -329,7 +330,7 @@ class Replicator(object):
             conn = self.primary_master_connection
             p = protocol.notifyPartitionChanges( app.ptid, 
                  [(self.current_partition.getRID(), app.uuid, UP_TO_DATE_STATE)])
-            conn.send(p)
+            conn.notify(p)
         except ValueError:
             pass
         self.current_partition = None
