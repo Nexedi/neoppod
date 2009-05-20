@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import struct
 from struct import pack, unpack
 from socket import inet_ntoa, inet_aton
 import logging
@@ -395,7 +396,7 @@ class Packet(object):
             body = self._body
             code, size = unpack('!HL', body[:6])
             message = body[6:]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid error message')
         if len(message) != size:
             raise ProtocolError(self, 'invalid error message size')
@@ -417,7 +418,7 @@ class Packet(object):
                     = unpack('!LLH16s4sHL', body[:36])
             ip_address = inet_ntoa(ip_address)
             name = body[36:]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid request node identification')
         if size != len(name):
             raise ProtocolError(self, 'invalid name size')
@@ -433,7 +434,7 @@ class Packet(object):
             node_type, uuid, ip_address, port, num_partitions, num_replicas, your_uuid \
                     = unpack('!H16s4sHLL16s', self._body)
             ip_address = inet_ntoa(ip_address)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid accept node identification')
         if node_type not in VALID_NODE_TYPE_LIST:
             raise ProtocolError(self, 'invalid node type %d' % node_type)
@@ -452,7 +453,7 @@ class Packet(object):
                 ip_address, port, uuid = unpack('!4sH16s', self._body[20+i*22:42+i*22])
                 ip_address = inet_ntoa(ip_address)
                 known_master_list.append((ip_address, port, uuid))
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer primary master')
         return primary_uuid, known_master_list
     decode_table[ANSWER_PRIMARY_MASTER] = _decodeAnswerPrimaryMaster
@@ -481,7 +482,7 @@ class Packet(object):
                 node_list.append((node_type, ip_address, port, uuid, state))
         except ProtocolError:
             raise
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer node information')
         return (node_list,)
     decode_table[NOTIFY_NODE_INFORMATION] = _decodeNotifyNodeInformation
@@ -493,7 +494,7 @@ class Packet(object):
     def _decodeAnswerLastIDs(self):
         try:
             loid, ltid, lptid = unpack('!8s8s8s', self._body)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer last ids')
         return loid, ltid, lptid
     decode_table[ANSWER_LAST_IDS] = _decodeAnswerLastIDs
@@ -505,7 +506,7 @@ class Packet(object):
             for i in xrange(n):
                 offset = unpack('!L', self._body[4+i*4:8+i*4])[0]
                 offset_list.append(offset)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid ask partition table')
         return (offset_list,)
     decode_table[ASK_PARTITION_TABLE] = _decodeAskPartitionTable
@@ -526,7 +527,7 @@ class Packet(object):
                     cell_list.append((uuid, state))
                 row_list.append((offset, tuple(cell_list)))
                 del cell_list[:]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer partition table')
         return ptid, row_list
     decode_table[ANSWER_PARTITION_TABLE] = _decodeAnswerPartitionTable
@@ -547,7 +548,7 @@ class Packet(object):
                     cell_list.append((uuid, state))
                 row_list.append((offset, tuple(cell_list)))
                 del cell_list[:]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid send partition table')
         return ptid, row_list
     decode_table[SEND_PARTITION_TABLE] = _decodeSendPartitionTable
@@ -560,7 +561,7 @@ class Packet(object):
                 offset, uuid, state = unpack('!L16sH', self._body[12+i*22:34+i*22])
                 state = partition_cell_states.get(state)
                 cell_list.append((offset, uuid, state))
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid notify partition changes')
         return ptid, cell_list
     decode_table[NOTIFY_PARTITION_CHANGES] = _decodeNotifyPartitionChanges
@@ -584,7 +585,7 @@ class Packet(object):
             for i in xrange(n):
                 tid = unpack('8s', self._body[4+i*8:12+i*8])[0]
                 tid_list.append(tid)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer unfinished transactions')
         return (tid_list,)
     decode_table[ANSWER_UNFINISHED_TRANSACTIONS] = _decodeAnswerUnfinishedTransactions
@@ -592,7 +593,7 @@ class Packet(object):
     def _decodeAskObjectPresent(self):
         try:
             oid, tid = unpack('8s8s', self._body)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid ask object present')
         return oid, tid
     decode_table[ASK_OBJECT_PRESENT] = _decodeAskObjectPresent
@@ -600,7 +601,7 @@ class Packet(object):
     def _decodeAnswerObjectPresent(self):
         try:
             oid, tid = unpack('8s8s', self._body)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer object present')
         return oid, tid
     decode_table[ANSWER_OBJECT_PRESENT] = _decodeAnswerObjectPresent
@@ -608,7 +609,7 @@ class Packet(object):
     def _decodeDeleteTransaction(self):
         try:
             tid = unpack('8s', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid delete transaction')
         return (tid,)
     decode_table[DELETE_TRANSACTION] = _decodeDeleteTransaction
@@ -616,7 +617,7 @@ class Packet(object):
     def _decodeCommitTransaction(self):
         try:
             tid = unpack('8s', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid commit transaction')
         return (tid,)
     decode_table[COMMIT_TRANSACTION] = _decodeCommitTransaction
@@ -628,7 +629,7 @@ class Packet(object):
     def _decodeAnswerNewTID(self):
         try:
             tid = unpack('8s', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer new tid')
         return (tid,)
     decode_table[ANSWER_NEW_TID] = _decodeAnswerNewTID
@@ -636,7 +637,7 @@ class Packet(object):
     def _decodeAskNewOIDs(self):
         try:
             num_oids = unpack('!H', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid ask new oids')
         return (num_oids,)
     decode_table[ASK_NEW_OIDS] = _decodeAskNewOIDs
@@ -648,7 +649,7 @@ class Packet(object):
             for i in xrange(n):
                 oid = unpack('8s', self._body[2+i*8:10+i*8])[0]
                 oid_list.append(oid)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer new oids')
         return (oid_list,)
     decode_table[ANSWER_NEW_OIDS] = _decodeAnswerNewOIDs
@@ -660,7 +661,7 @@ class Packet(object):
             for i in xrange(n):
                 oid = unpack('8s', self._body[12+i*8:20+i*8])[0]
                 oid_list.append(oid)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid finish transaction')
         return oid_list, tid
     decode_table[FINISH_TRANSACTION] = _decodeFinishTransaction
@@ -668,7 +669,7 @@ class Packet(object):
     def _decodeNotifyTransactionFinished(self):
         try:
             tid = unpack('8s', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid notify transactin finished')
         return (tid,)
     decode_table[NOTIFY_TRANSACTION_FINISHED] = _decodeNotifyTransactionFinished
@@ -676,7 +677,7 @@ class Packet(object):
     def _decodeLockInformation(self):
         try:
             tid = unpack('8s', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid lock information')
         return (tid,)
     decode_table[LOCK_INFORMATION] = _decodeLockInformation
@@ -684,7 +685,7 @@ class Packet(object):
     def _decodeNotifyInformationLocked(self):
         try:
             tid = unpack('8s', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid notify information locked')
         return (tid,)
     decode_table[NOTIFY_INFORMATION_LOCKED] = _decodeNotifyInformationLocked
@@ -696,7 +697,7 @@ class Packet(object):
             for i in xrange(12, 12 + n * 8, 8):
                 oid = unpack('8s', self._body[i:i+8])[0]
                 oid_list.append(oid)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid finish transaction')
         return oid_list, tid
     decode_table[INVALIDATE_OBJECTS] = _decodeInvalidateObjects
@@ -704,7 +705,7 @@ class Packet(object):
     def _decodeUnlockInformation(self):
         try:
             tid = unpack('8s', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid unlock information')
         return (tid,)
     decode_table[UNLOCK_INFORMATION] = _decodeUnlockInformation
@@ -712,7 +713,7 @@ class Packet(object):
     def _decodeAbortTransaction(self):
         try:
             tid = unpack('8s', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid abort transaction')
         return (tid,)
     decode_table[ABORT_TRANSACTION] = _decodeAbortTransaction
@@ -722,7 +723,7 @@ class Packet(object):
             oid, serial, tid, compression, checksum, data_len \
                  = unpack('!8s8s8sBLL', self._body[:33])
             data = self._body[33:]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid ask store object')
         if data_len != len(data):
             raise ProtocolError(self, 'invalid data size')
@@ -732,7 +733,7 @@ class Packet(object):
     def _decodeAnswerStoreObject(self):
         try:
             conflicting, oid, serial = unpack('!B8s8s', self._body)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer store object')
         return conflicting, oid, serial
     decode_table[ANSWER_STORE_OBJECT] = _decodeAnswerStoreObject
@@ -753,7 +754,7 @@ class Packet(object):
                 oid = unpack('8s', self._body[offset:offset+8])[0]
                 offset += 8
                 oid_list.append(oid)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid ask store transaction')
         return tid, user, desc, ext, oid_list
     decode_table[ASK_STORE_TRANSACTION] = _decodeAskStoreTransaction
@@ -761,7 +762,7 @@ class Packet(object):
     def _decodeAnswerStoreTransaction(self):
         try:
             tid = unpack('8s', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer store transaction')
         return (tid,)
     decode_table[ANSWER_STORE_TRANSACTION] = _decodeAnswerStoreTransaction
@@ -769,7 +770,7 @@ class Packet(object):
     def _decodeAskObject(self):
         try:
             oid, serial, tid = unpack('8s8s8s', self._body)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid ask object')
         return oid, serial, tid
     decode_table[ASK_OBJECT] = _decodeAskObject
@@ -779,7 +780,7 @@ class Packet(object):
             oid, serial_start, serial_end, compression, checksum, data_len \
                  = unpack('!8s8s8sBLL', self._body[:33])
             data = self._body[33:]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer object')
         if len(data) != data_len:
             raise ProtocolError(self, 'invalid data size')
@@ -789,7 +790,7 @@ class Packet(object):
     def _decodeAskTIDs(self):
         try:
             first, last, partition = unpack('!QQL', self._body)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid ask tids')
         return first, last, partition
     decode_table[ASK_TIDS] = _decodeAskTIDs
@@ -801,7 +802,7 @@ class Packet(object):
             for i in xrange(n):
                 tid = unpack('8s', self._body[4+i*8:12+i*8])[0]
                 tid_list.append(tid)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer tids')
         return (tid_list,)
     decode_table[ANSWER_TIDS] = _decodeAnswerTIDs
@@ -809,7 +810,7 @@ class Packet(object):
     def _decodeAskTransactionInformation(self):
         try:
             tid = unpack('8s', self._body)[0]
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid ask transaction information')
         return (tid,)
     decode_table[ASK_TRANSACTION_INFORMATION] = _decodeAskTransactionInformation
@@ -829,7 +830,7 @@ class Packet(object):
             for i in xrange(oid_len):
                 oid = unpack('8s', self._body[offset+i*8:offset+8+i*8])[0]
                 oid_list.append(oid)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer transaction information')
         return tid, user, desc, ext, oid_list
     decode_table[ANSWER_TRANSACTION_INFORMATION] = _decodeAnswerTransactionInformation
@@ -837,7 +838,7 @@ class Packet(object):
     def _decodeAskObjectHistory(self):
         try:
             oid, first, last = unpack('!8sQQ', self._body)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid ask object history')
         return oid, first, last
     decode_table[ASK_OBJECT_HISTORY] = _decodeAskObjectHistory
@@ -849,7 +850,7 @@ class Packet(object):
             for i in xrange(12, 12 + length * 12, 12):
                 serial, size = unpack('!8sL', self._body[i:i+12])
                 history_list.append((serial, size))
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer object history')
         return oid, history_list
     decode_table[ANSWER_OBJECT_HISTORY] = _decodeAnswerObjectHistory
@@ -857,7 +858,7 @@ class Packet(object):
     def _decodeAskOIDs(self):
         try:
             first, last, partition = unpack('!QQL', self._body)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid ask oids')
         return first, last, partition
     decode_table[ASK_OIDS] = _decodeAskOIDs
@@ -869,7 +870,7 @@ class Packet(object):
             for i in xrange(n):
                 oid = unpack('8s', self._body[4+i*8:12+i*8])[0]
                 oid_list.append(oid)
-        except:
+        except struct.error, msg:
             raise ProtocolError(self, 'invalid answer oids')
         return (oid_list,)
     decode_table[ANSWER_OIDS] = _decodeAnswerOIDs
