@@ -337,13 +337,11 @@ class Packet(object):
         try:
             msg_type = packet_types[msg_type]
         except KeyError:
-            raise PacketMalformedError(cls(msg_id, msg_type), 'Unknown packet type')
+            raise PacketMalformedError('Unknown packet type')
         if msg_len > MAX_PACKET_SIZE:
-            raise PacketMalformedError(cls(msg_id, msg_type),
-                                'message too big (%d)' % msg_len)
+            raise PacketMalformedError('message too big (%d)' % msg_len)
         if msg_len < MIN_PACKET_SIZE:
-            raise PacketMalformedError(cls(msg_id, msg_type),
-                                'message too small (%d)' % msg_len)
+            raise PacketMalformedError('message too small (%d)' % msg_len)
         if len(msg) < msg_len:
             # Not enough.
             return None
@@ -375,7 +373,7 @@ class Packet(object):
     def encode(self):
         msg = pack('!LHL', self._id, self._type, PACKET_HEADER_SIZE + len(self._body)) + self._body
         if len(msg) > MAX_PACKET_SIZE:
-            raise PacketMalformedError(self, 'message too big (%d)' % len(msg))
+            raise PacketMalformedError('message too big (%d)' % len(msg))
         return msg
     __str__ = encode
 
@@ -385,7 +383,7 @@ class Packet(object):
         try:
             method = self.decode_table[self._type]
         except KeyError:
-            raise PacketMalformedError(self, 'unknown message type 0x%x' % self._type)
+            raise PacketMalformedError('unknown message type 0x%x' % self._type)
         return method(self)
 
     decode_table = {}
@@ -396,9 +394,9 @@ class Packet(object):
             code, size = unpack('!HL', body[:6])
             message = body[6:]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid error message')
+            raise PacketMalformedError('invalid error message')
         if len(message) != size:
-            raise PacketMalformedError(self, 'invalid error message size')
+            raise PacketMalformedError('invalid error message size')
         return code, message
     decode_table[ERROR] = _decodeError
 
@@ -418,13 +416,13 @@ class Packet(object):
             ip_address = inet_ntoa(ip_address)
             name = body[36:]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid request node identification')
+            raise PacketMalformedError('invalid request node identification')
         if size != len(name):
-            raise PacketMalformedError(self, 'invalid name size')
+            raise PacketMalformedError('invalid name size')
         if node_type not in VALID_NODE_TYPE_LIST:
-            raise PacketMalformedError(self, 'invalid node type %d' % node_type)
+            raise PacketMalformedError('invalid node type %d' % node_type)
         if (major, minor) != PROTOCOL_VERSION:
-            raise PacketMalformedError(self, 'protocol version mismatch')
+            raise PacketMalformedError('protocol version mismatch')
         return node_type, uuid, ip_address, port, name
     decode_table[REQUEST_NODE_IDENTIFICATION] = _decodeRequestNodeIdentification
 
@@ -434,9 +432,9 @@ class Packet(object):
                     = unpack('!H16s4sHLL16s', self._body)
             ip_address = inet_ntoa(ip_address)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid accept node identification')
+            raise PacketMalformedError('invalid accept node identification')
         if node_type not in VALID_NODE_TYPE_LIST:
-            raise PacketMalformedError(self, 'invalid node type %d' % node_type)
+            raise PacketMalformedError('invalid node type %d' % node_type)
         return node_type, uuid, ip_address, port, num_partitions, num_replicas, your_uuid
     decode_table[ACCEPT_NODE_IDENTIFICATION] = _decodeAcceptNodeIdentification
 
@@ -453,7 +451,7 @@ class Packet(object):
                 ip_address = inet_ntoa(ip_address)
                 known_master_list.append((ip_address, port, uuid))
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer primary master')
+            raise PacketMalformedError('invalid answer primary master')
         return primary_uuid, known_master_list
     decode_table[ANSWER_PRIMARY_MASTER] = _decodeAnswerPrimaryMaster
 
@@ -474,15 +472,15 @@ class Packet(object):
                 node_type, ip_address, port, uuid, state = r
                 ip_address = inet_ntoa(ip_address)
                 if node_type not in VALID_NODE_TYPE_LIST:
-                    raise PacketMalformedError(self, 'invalid node type %d' % node_type)
+                    raise PacketMalformedError('invalid node type %d' % node_type)
                 state = node_states.get(state)
                 if state not in VALID_NODE_STATE_LIST:
-                    raise PacketMalformedError(self, 'invalid node state %d' % state)
+                    raise PacketMalformedError('invalid node state %d' % state)
                 node_list.append((node_type, ip_address, port, uuid, state))
         except PacketMalformedError:
             raise
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer node information')
+            raise PacketMalformedError('invalid answer node information')
         return (node_list,)
     decode_table[NOTIFY_NODE_INFORMATION] = _decodeNotifyNodeInformation
 
@@ -494,7 +492,7 @@ class Packet(object):
         try:
             loid, ltid, lptid = unpack('!8s8s8s', self._body)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer last ids')
+            raise PacketMalformedError('invalid answer last ids')
         return loid, ltid, lptid
     decode_table[ANSWER_LAST_IDS] = _decodeAnswerLastIDs
 
@@ -506,7 +504,7 @@ class Packet(object):
                 offset = unpack('!L', self._body[4+i*4:8+i*4])[0]
                 offset_list.append(offset)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid ask partition table')
+            raise PacketMalformedError('invalid ask partition table')
         return (offset_list,)
     decode_table[ASK_PARTITION_TABLE] = _decodeAskPartitionTable
 
@@ -527,7 +525,7 @@ class Packet(object):
                 row_list.append((offset, tuple(cell_list)))
                 del cell_list[:]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer partition table')
+            raise PacketMalformedError('invalid answer partition table')
         return ptid, row_list
     decode_table[ANSWER_PARTITION_TABLE] = _decodeAnswerPartitionTable
 
@@ -548,7 +546,7 @@ class Packet(object):
                 row_list.append((offset, tuple(cell_list)))
                 del cell_list[:]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid send partition table')
+            raise PacketMalformedError('invalid send partition table')
         return ptid, row_list
     decode_table[SEND_PARTITION_TABLE] = _decodeSendPartitionTable
 
@@ -561,7 +559,7 @@ class Packet(object):
                 state = partition_cell_states.get(state)
                 cell_list.append((offset, uuid, state))
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid notify partition changes')
+            raise PacketMalformedError('invalid notify partition changes')
         return ptid, cell_list
     decode_table[NOTIFY_PARTITION_CHANGES] = _decodeNotifyPartitionChanges
 
@@ -585,7 +583,7 @@ class Packet(object):
                 tid = unpack('8s', self._body[4+i*8:12+i*8])[0]
                 tid_list.append(tid)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer unfinished transactions')
+            raise PacketMalformedError('invalid answer unfinished transactions')
         return (tid_list,)
     decode_table[ANSWER_UNFINISHED_TRANSACTIONS] = _decodeAnswerUnfinishedTransactions
 
@@ -593,7 +591,7 @@ class Packet(object):
         try:
             oid, tid = unpack('8s8s', self._body)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid ask object present')
+            raise PacketMalformedError('invalid ask object present')
         return oid, tid
     decode_table[ASK_OBJECT_PRESENT] = _decodeAskObjectPresent
 
@@ -601,7 +599,7 @@ class Packet(object):
         try:
             oid, tid = unpack('8s8s', self._body)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer object present')
+            raise PacketMalformedError('invalid answer object present')
         return oid, tid
     decode_table[ANSWER_OBJECT_PRESENT] = _decodeAnswerObjectPresent
 
@@ -609,7 +607,7 @@ class Packet(object):
         try:
             tid = unpack('8s', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid delete transaction')
+            raise PacketMalformedError('invalid delete transaction')
         return (tid,)
     decode_table[DELETE_TRANSACTION] = _decodeDeleteTransaction
 
@@ -617,7 +615,7 @@ class Packet(object):
         try:
             tid = unpack('8s', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid commit transaction')
+            raise PacketMalformedError('invalid commit transaction')
         return (tid,)
     decode_table[COMMIT_TRANSACTION] = _decodeCommitTransaction
 
@@ -629,7 +627,7 @@ class Packet(object):
         try:
             tid = unpack('8s', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer new tid')
+            raise PacketMalformedError('invalid answer new tid')
         return (tid,)
     decode_table[ANSWER_NEW_TID] = _decodeAnswerNewTID
 
@@ -637,7 +635,7 @@ class Packet(object):
         try:
             num_oids = unpack('!H', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid ask new oids')
+            raise PacketMalformedError('invalid ask new oids')
         return (num_oids,)
     decode_table[ASK_NEW_OIDS] = _decodeAskNewOIDs
 
@@ -649,7 +647,7 @@ class Packet(object):
                 oid = unpack('8s', self._body[2+i*8:10+i*8])[0]
                 oid_list.append(oid)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer new oids')
+            raise PacketMalformedError('invalid answer new oids')
         return (oid_list,)
     decode_table[ANSWER_NEW_OIDS] = _decodeAnswerNewOIDs
 
@@ -661,7 +659,7 @@ class Packet(object):
                 oid = unpack('8s', self._body[12+i*8:20+i*8])[0]
                 oid_list.append(oid)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid finish transaction')
+            raise PacketMalformedError('invalid finish transaction')
         return oid_list, tid
     decode_table[FINISH_TRANSACTION] = _decodeFinishTransaction
 
@@ -669,7 +667,7 @@ class Packet(object):
         try:
             tid = unpack('8s', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid notify transactin finished')
+            raise PacketMalformedError('invalid notify transactin finished')
         return (tid,)
     decode_table[NOTIFY_TRANSACTION_FINISHED] = _decodeNotifyTransactionFinished
 
@@ -677,7 +675,7 @@ class Packet(object):
         try:
             tid = unpack('8s', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid lock information')
+            raise PacketMalformedError('invalid lock information')
         return (tid,)
     decode_table[LOCK_INFORMATION] = _decodeLockInformation
 
@@ -685,7 +683,7 @@ class Packet(object):
         try:
             tid = unpack('8s', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid notify information locked')
+            raise PacketMalformedError('invalid notify information locked')
         return (tid,)
     decode_table[NOTIFY_INFORMATION_LOCKED] = _decodeNotifyInformationLocked
 
@@ -697,7 +695,7 @@ class Packet(object):
                 oid = unpack('8s', self._body[i:i+8])[0]
                 oid_list.append(oid)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid finish transaction')
+            raise PacketMalformedError('invalid finish transaction')
         return oid_list, tid
     decode_table[INVALIDATE_OBJECTS] = _decodeInvalidateObjects
 
@@ -705,7 +703,7 @@ class Packet(object):
         try:
             tid = unpack('8s', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid unlock information')
+            raise PacketMalformedError('invalid unlock information')
         return (tid,)
     decode_table[UNLOCK_INFORMATION] = _decodeUnlockInformation
 
@@ -713,7 +711,7 @@ class Packet(object):
         try:
             tid = unpack('8s', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid abort transaction')
+            raise PacketMalformedError('invalid abort transaction')
         return (tid,)
     decode_table[ABORT_TRANSACTION] = _decodeAbortTransaction
 
@@ -723,9 +721,9 @@ class Packet(object):
                  = unpack('!8s8s8sBLL', self._body[:33])
             data = self._body[33:]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid ask store object')
+            raise PacketMalformedError('invalid ask store object')
         if data_len != len(data):
-            raise PacketMalformedError(self, 'invalid data size')
+            raise PacketMalformedError('invalid data size')
         return oid, serial, compression, checksum, data, tid
     decode_table[ASK_STORE_OBJECT] = _decodeAskStoreObject
 
@@ -733,7 +731,7 @@ class Packet(object):
         try:
             conflicting, oid, serial = unpack('!B8s8s', self._body)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer store object')
+            raise PacketMalformedError('invalid answer store object')
         return conflicting, oid, serial
     decode_table[ANSWER_STORE_OBJECT] = _decodeAnswerStoreObject
 
@@ -754,7 +752,7 @@ class Packet(object):
                 offset += 8
                 oid_list.append(oid)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid ask store transaction')
+            raise PacketMalformedError('invalid ask store transaction')
         return tid, user, desc, ext, oid_list
     decode_table[ASK_STORE_TRANSACTION] = _decodeAskStoreTransaction
 
@@ -762,7 +760,7 @@ class Packet(object):
         try:
             tid = unpack('8s', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer store transaction')
+            raise PacketMalformedError('invalid answer store transaction')
         return (tid,)
     decode_table[ANSWER_STORE_TRANSACTION] = _decodeAnswerStoreTransaction
 
@@ -770,7 +768,7 @@ class Packet(object):
         try:
             oid, serial, tid = unpack('8s8s8s', self._body)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid ask object')
+            raise PacketMalformedError('invalid ask object')
         return oid, serial, tid
     decode_table[ASK_OBJECT] = _decodeAskObject
 
@@ -780,9 +778,9 @@ class Packet(object):
                  = unpack('!8s8s8sBLL', self._body[:33])
             data = self._body[33:]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer object')
+            raise PacketMalformedError('invalid answer object')
         if len(data) != data_len:
-            raise PacketMalformedError(self, 'invalid data size')
+            raise PacketMalformedError('invalid data size')
         return oid, serial_start, serial_end, compression, checksum, data
     decode_table[ANSWER_OBJECT] = _decodeAnswerObject
 
@@ -790,7 +788,7 @@ class Packet(object):
         try:
             first, last, partition = unpack('!QQL', self._body)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid ask tids')
+            raise PacketMalformedError('invalid ask tids')
         return first, last, partition
     decode_table[ASK_TIDS] = _decodeAskTIDs
 
@@ -802,7 +800,7 @@ class Packet(object):
                 tid = unpack('8s', self._body[4+i*8:12+i*8])[0]
                 tid_list.append(tid)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer tids')
+            raise PacketMalformedError('invalid answer tids')
         return (tid_list,)
     decode_table[ANSWER_TIDS] = _decodeAnswerTIDs
 
@@ -810,7 +808,7 @@ class Packet(object):
         try:
             tid = unpack('8s', self._body)[0]
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid ask transaction information')
+            raise PacketMalformedError('invalid ask transaction information')
         return (tid,)
     decode_table[ASK_TRANSACTION_INFORMATION] = _decodeAskTransactionInformation
 
@@ -830,7 +828,7 @@ class Packet(object):
                 oid = unpack('8s', self._body[offset+i*8:offset+8+i*8])[0]
                 oid_list.append(oid)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer transaction information')
+            raise PacketMalformedError('invalid answer transaction information')
         return tid, user, desc, ext, oid_list
     decode_table[ANSWER_TRANSACTION_INFORMATION] = _decodeAnswerTransactionInformation
 
@@ -838,7 +836,7 @@ class Packet(object):
         try:
             oid, first, last = unpack('!8sQQ', self._body)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid ask object history')
+            raise PacketMalformedError('invalid ask object history')
         return oid, first, last
     decode_table[ASK_OBJECT_HISTORY] = _decodeAskObjectHistory
 
@@ -850,7 +848,7 @@ class Packet(object):
                 serial, size = unpack('!8sL', self._body[i:i+12])
                 history_list.append((serial, size))
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer object history')
+            raise PacketMalformedError('invalid answer object history')
         return oid, history_list
     decode_table[ANSWER_OBJECT_HISTORY] = _decodeAnswerObjectHistory
 
@@ -858,7 +856,7 @@ class Packet(object):
         try:
             first, last, partition = unpack('!QQL', self._body)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid ask oids')
+            raise PacketMalformedError('invalid ask oids')
         return first, last, partition
     decode_table[ASK_OIDS] = _decodeAskOIDs
 
@@ -870,7 +868,7 @@ class Packet(object):
                 oid = unpack('8s', self._body[4+i*8:12+i*8])[0]
                 oid_list.append(oid)
         except struct.error, msg:
-            raise PacketMalformedError(self, 'invalid answer oids')
+            raise PacketMalformedError('invalid answer oids')
         return (oid_list,)
     decode_table[ANSWER_OIDS] = _decodeAnswerOIDs
 

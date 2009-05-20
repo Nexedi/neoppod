@@ -207,9 +207,10 @@ class Connection(BaseConnection):
     def analyse(self):
         """Analyse received data."""
         while 1:
+            packet = None
             try:
                 packet = Packet.parse(self.read_buf)
-            except PacketMalformedError, (packet, msg):
+            except PacketMalformedError, msg:
                 self.handler.packetMalformed(self, packet, msg)
                 return
 

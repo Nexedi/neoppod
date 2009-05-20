@@ -80,9 +80,12 @@ class EventHandler(object):
 
     def packetMalformed(self, conn, packet, error_message):
         """Called when a packet is malformed."""
-        logging.info('malformed packet %x from %s:%d: %s',
-                     packet.getType(), conn.getAddress()[0], 
-                     conn.getAddress()[1], error_message)
+        args = (conn.getAddress()[0], conn.getAddress()[1], error_message)
+        if packet is None:
+            # if decoding fail, there's no packet instance 
+            logging.info('malformed packet from %s:%d: %s', *args)
+        else:
+            logging.info('malformed packet %s from %s:%d: %s', packet.getType(), *args)
         conn.notify(protocol.protocolError(error_message))
         conn.abort()
         self.peerBroken(conn)
@@ -100,8 +103,8 @@ class EventHandler(object):
             method(conn, packet, *args)
         except (KeyError, ValueError):
             self.handleUnexpectedPacket(conn, packet)
-        except PacketMalformedError, m:
-            self.packetMalformed(conn, packet, m[1])
+        except PacketMalformedError, msg:
+            self.packetMalformed(conn, packet, msg)
 
     def handleUnexpectedPacket(self, conn, packet, message = None):
         """Handle an unexpected packet."""
