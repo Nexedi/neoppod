@@ -23,9 +23,10 @@ from neo.protocol import MASTER_NODE_TYPE, \
         STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.exception import ElectionFailure
-from neo.protocol import Packet, INVALID_UUID, INVALID_PTID
+from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID, INVALID_PTID
 from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
 from neo.util import dump
+from neo.handler import identification_required, restrict_node_types
 
 class RecoveryEventHandler(MasterEventHandler):
     """This class deals with events for a recovery phase."""
@@ -182,12 +183,9 @@ class RecoveryEventHandler(MasterEventHandler):
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
+    @identification_required
     def handleAskPrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
 
         # Merely tell the peer that I am the primary master node.
@@ -209,24 +207,18 @@ class RecoveryEventHandler(MasterEventHandler):
                                                               conn.getAddress()))
             app.sendPartitionTable(conn)
 
+    @identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         # I am also the primary... So restart the election.
         raise ElectionFailure, 'another primary arises'
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
+    @identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
             if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
@@ -275,19 +267,12 @@ class RecoveryEventHandler(MasterEventHandler):
             node.setState(state)
             app.broadcastNodeInformation(node)
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
-
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         # If the target is still unknown, set it to this node for now.
         if app.target_uuid is None:
             app.target_uuid = uuid
@@ -304,17 +289,12 @@ class RecoveryEventHandler(MasterEventHandler):
         elif app.lptid == lptid and app.target_uuid is None:
             app.target_uuid = uuid
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
         if uuid != app.target_uuid:
             # If this is not from a target node, ignore it.
             logging.warn('got answer partition table from %s while waiting for %s',
@@ -324,8 +304,7 @@ class RecoveryEventHandler(MasterEventHandler):
         for offset, cell_list in row_list:
             if offset >= app.num_partitions or app.pt.hasOffset(offset):
                 # There must be something wrong.
-                self.handleUnexpectedPacket(conn, packet)
-                return
+                raise UnexpectedPacketError
 
             for uuid, state in cell_list:
                 n = app.nm.getNodeByUUID(uuid)

@@ -23,9 +23,10 @@ from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, 
         ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.exception import VerificationFailure, ElectionFailure
-from neo.protocol import Packet, INVALID_UUID
+from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.util import dump
 from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
+from neo.handler import identification_required, restrict_node_types
 
 class VerificationEventHandler(MasterEventHandler):
     """This class deals with events for a verification phase."""
@@ -205,12 +206,9 @@ class VerificationEventHandler(MasterEventHandler):
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
+    @identification_required
     def handleAskPrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
 
         # Merely tell the peer that I am the primary master node.
@@ -226,24 +224,18 @@ class VerificationEventHandler(MasterEventHandler):
         if node.getNodeType() in (STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
             app.sendPartitionTable(conn)
 
+    @identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         # I am also the primary... So restart the election.
         raise ElectionFailure, 'another primary arises'
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
+    @identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
             if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
@@ -292,19 +284,12 @@ class VerificationEventHandler(MasterEventHandler):
             node.setState(state)
             app.broadcastNodeInformation(node)
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
-
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         # If I get a bigger value here, it is dangerous.
         if app.loid < loid or app.ltid < ltid or app.lptid < lptid:
             logging.critical('got later information in verification')
@@ -314,46 +299,32 @@ class VerificationEventHandler(MasterEventHandler):
         # Ignore this packet.
         pass
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         logging.info('got unfinished transactions %s from %s:%d', 
                 tid_list, *(conn.getAddress()))
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
-
         app.unfinished_tid_set.update(tid_list)
         app.asking_uuid_dict[uuid] = True
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         logging.info('got OIDs %s for %s from %s:%d', 
                 oid_list, tid, *(conn.getAddress()))
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
-
         oid_set = set(oid_list)
         if app.unfinished_oid_set is None:
             # Someone does not agree.
@@ -365,61 +336,40 @@ class VerificationEventHandler(MasterEventHandler):
             app.unfinished_oid_set = None
         app.asking_uuid_dict[uuid] = True
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleTidNotFound(self, conn, packet, message):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         logging.info('TID not found: %s', message)
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
-
         app.unfinished_oid_set = None
         app.asking_uuid_dict[uuid] = True
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerObjectPresent(self, conn, packet, oid, tid):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         logging.info('object %s:%s found', dump(oid), dump(tid))
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
-
         app.asking_uuid_dict[uuid] = True
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleOidNotFound(self, conn, packet, message):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         logging.info('OID not found: %s', message)
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
-
         app.object_present = False
         app.asking_uuid_dict[uuid] = True

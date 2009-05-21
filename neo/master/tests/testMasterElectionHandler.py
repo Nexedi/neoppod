@@ -22,7 +22,7 @@ from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
 from neo import protocol
-from neo.protocol import Packet, INVALID_UUID
+from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.master.election import ElectionEventHandler
 from neo.master.app import Application
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -133,6 +133,14 @@ server: 127.0.0.1:10023
     def tearDown(self):
         # Delete tmp file
         os.remove(self.tmp_path)
+
+    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
+        """ Check if the UnexpectedPacketError exception wxas raised """
+        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+
+    def checkIdenficationRequired(self, method, *args, **kwargs):
+        """ Check is the identification_required decorator is applied """
+        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
 
     def checkCalledAcceptNodeIdentification(self, conn, packet_number=0):
         """ Check Accept Node Identification has been send"""
@@ -603,8 +611,7 @@ server: 127.0.0.1:10023
                      "isServerConnection" : True,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        election.handleAnnouncePrimaryMaster(conn, packet)
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(election.handleAnnouncePrimaryMaster, conn, packet)
         # announce
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
@@ -644,8 +651,7 @@ server: 127.0.0.1:10023
         conn = Mock({"getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         node_list = []
-        election.handleNotifyNodeInformation(conn, packet, node_list)
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(election.handleNotifyNodeInformation, conn, packet, node_list)
         # tell the master node about itself, must do nothing
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})                

@@ -22,7 +22,7 @@ from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
 from neo import protocol
-from neo.protocol import Packet, INVALID_UUID
+from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.master.recovery import RecoveryEventHandler
 from neo.master.app import Application
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -153,6 +153,14 @@ server: 127.0.0.1:10023
         self.checkCalledAcceptNodeIdentification(conn)
         return uuid
 
+    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
+        """ Check if the UnexpectedPacketError exception wxas raised """
+        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+
+    def checkIdenficationRequired(self, method, *args, **kwargs):
+        """ Check is the identification_required decorator is applied """
+        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
+
     # Method to test the kind of packet returned in answer
     def checkCalledRequestNodeIdentification(self, conn, packet_number=0):
         """ Check Request Node Identification has been send"""
@@ -164,7 +172,6 @@ server: 127.0.0.1:10023
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), REQUEST_NODE_IDENTIFICATION)
 
-        
     def checkCalledAskPrimaryMaster(self, conn, packet_number=0):
         """ Check ask primary master has been send"""
         call = conn.mockGetNamedCalls("addPacket")[packet_number]
@@ -540,8 +547,7 @@ server: 127.0.0.1:10023
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        recovery.handleAnnouncePrimaryMaster(conn, packet)
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(recovery.handleAnnouncePrimaryMaster, conn, packet)
         # announce
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
@@ -570,8 +576,7 @@ server: 127.0.0.1:10023
         conn = Mock({"getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         node_list = []
-        recovery.handleNotifyNodeInformation(conn, packet, node_list)
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(recovery.handleNotifyNodeInformation, conn, packet, node_list)
         # tell about a client node, do nothing
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})                
@@ -637,8 +642,7 @@ server: 127.0.0.1:10023
         conn = Mock({"getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         node_list = []
-        recovery.handleAnswerLastIDs(conn, packet, None, None, None)
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(recovery.handleAnswerLastIDs, conn, packet, None, None, None)
         self.assertEquals(loid, self.app.loid)
         self.assertEquals(ltid, self.app.ltid)
         self.assertEquals(lptid, self.app.lptid)
@@ -647,8 +651,7 @@ server: 127.0.0.1:10023
         conn = Mock({"getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         node_list = []
-        recovery.handleAnswerLastIDs(conn, packet, None, None, None)
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(recovery.handleAnswerLastIDs, conn, packet, None, None, None)
         self.assertEquals(loid, self.app.loid)
         self.assertEquals(ltid, self.app.ltid)
         self.assertEquals(lptid, self.app.lptid)
@@ -681,14 +684,12 @@ server: 127.0.0.1:10023
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
-        recovery.handleAnswerPartitionTable(conn, packet, None, [])
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(recovery.handleAnswerPartitionTable, conn, packet, None, [])
         # not a storage node
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
-        recovery.handleAnswerPartitionTable(conn, packet, None, [])
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(recovery.handleAnswerPartitionTable, conn, packet, None, [])
         # not from target node, ignore
         uuid = self.identifyToMasterNode(STORAGE_NODE_TYPE, port=self.storage_port)
         conn = Mock({"addPacket" : None,
@@ -728,8 +729,7 @@ server: 127.0.0.1:10023
         offset = 1000000
         self.assertFalse(self.app.pt.hasOffset(offset))
         cell_list = [(offset, ((uuid, DOWN_STATE,),),)]
-        recovery.handleAnswerPartitionTable(conn, packet, None, cell_list)
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(recovery.handleAnswerPartitionTable, conn, packet, None, cell_list)
         
     
 if __name__ == '__main__':

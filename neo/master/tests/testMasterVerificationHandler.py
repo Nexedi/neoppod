@@ -21,7 +21,7 @@ import logging
 from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
-from neo.protocol import Packet, INVALID_UUID
+from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.master.verification import VerificationEventHandler
 from neo.master.app import Application
 from neo import protocol
@@ -122,6 +122,14 @@ server: 127.0.0.1:10023
     def tearDown(self):
         # Delete tmp file
         os.remove(self.tmp_path)
+
+    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
+        """ Check if the UnexpectedPacketError exception wxas raised """
+        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+
+    def checkIdenficationRequired(self, method, *args, **kwargs):
+        """ Check is the identification_required decorator is applied """
+        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
 
     def checkCalledAcceptNodeIdentification(self, conn, packet_number=0):
         """ Check Accept Node Identification has been send"""
@@ -559,8 +567,7 @@ server: 127.0.0.1:10023
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        verification.handleAnnouncePrimaryMaster(conn, packet)
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(verification.handleAnnouncePrimaryMaster, conn, packet)
         # announce
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
@@ -587,8 +594,7 @@ server: 127.0.0.1:10023
         conn = Mock({"getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         node_list = []
-        verification.handleNotifyNodeInformation(conn, packet, node_list)
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(verification.handleNotifyNodeInformation, conn, packet, node_list)
         # tell about a client node, do nothing
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})                
@@ -653,8 +659,7 @@ server: 127.0.0.1:10023
         conn = Mock({"getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         node_list = []
-        verification.handleAnswerLastIDs(conn, packet, None, None, None)
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(verification.handleAnswerLastIDs, conn, packet, None, None, None)
         self.assertEquals(loid, self.app.loid)
         self.assertEquals(ltid, self.app.ltid)
         self.assertEquals(lptid, self.app.lptid)
@@ -663,8 +668,7 @@ server: 127.0.0.1:10023
         conn = Mock({"getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         node_list = []
-        verification.handleAnswerLastIDs(conn, packet, None, None, None)
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(verification.handleAnswerLastIDs, conn, packet, None, None, None)
         self.assertEquals(loid, self.app.loid)
         self.assertEquals(ltid, self.app.ltid)
         self.assertEquals(lptid, self.app.lptid)
@@ -704,15 +708,13 @@ server: 127.0.0.1:10023
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
-        verification.handleAnswerUnfinishedTransactions(conn, packet, [])
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(verification.handleAnswerUnfinishedTransactions, conn, packet, [])
         # reject master node
         master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         conn = Mock({"addPacket" : None,
                      "getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
-        verification.handleAnswerUnfinishedTransactions(conn, packet, [])
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(verification.handleAnswerUnfinishedTransactions, conn, packet, [])
         # do nothing
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
@@ -748,15 +750,13 @@ server: 127.0.0.1:10023
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
-        verification.handleAnswerTransactionInformation(conn, packet, None, None, None, None, None)
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(verification.handleAnswerTransactionInformation, conn, packet, None, None, None, None, None)
         # reject master node
         master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         conn = Mock({"addPacket" : None,
                      "getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
-        verification.handleAnswerTransactionInformation(conn, packet, None, None, None, None, None)
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(verification.handleAnswerTransactionInformation, conn, packet, None, None, None, None, None)
         # do nothing, as unfinished_oid_set is None
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
@@ -820,16 +820,14 @@ server: 127.0.0.1:10023
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
-        verification.handleTidNotFound(conn, packet, [])
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(verification.handleTidNotFound, conn, packet, [])
         # reject master node
         master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         conn = Mock({"addPacket" : None,
                      "getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
-        verification.handleTidNotFound(conn, packet, [])
-        self.checkCalledAbort(conn)
-        # do nothinf as asking_uuid_dict is True
+        self.checkUnexpectedPacketRaised(verification.handleTidNotFound, conn, packet, [])
+        # do nothing as asking_uuid_dict is True
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
@@ -858,15 +856,13 @@ server: 127.0.0.1:10023
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
-        verification.handleAnswerObjectPresent(conn, packet, None, None)
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(verification.handleAnswerObjectPresent, conn, packet, None, None)
         # reject master node
         master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         conn = Mock({"addPacket" : None,
                      "getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
-        verification.handleAnswerObjectPresent(conn, packet, None, None)
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(verification.handleAnswerObjectPresent, conn, packet, None, None)
         # do nothing as asking_uuid_dict is True
         upper, lower = unpack('!LL', self.app.ltid)
         new_tid = pack('!LL', upper, lower + 10)
@@ -897,15 +893,13 @@ server: 127.0.0.1:10023
         conn = Mock({"addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
-        verification.handleOidNotFound(conn, packet, [])
-        self.checkCalledAbort(conn)
+        self.checkIdenficationRequired(verification.handleOidNotFound, conn, packet, [])
         # reject master node
         master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         conn = Mock({"addPacket" : None,
                      "getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
-        verification.handleOidNotFound(conn, packet, [])
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(verification.handleOidNotFound, conn, packet, [])
         # do nothinf as asking_uuid_dict is True
         conn = Mock({"addPacket" : None,
                      "getUUID" : uuid,

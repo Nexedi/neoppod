@@ -24,8 +24,10 @@ from neo.protocol import MASTER_NODE_TYPE, \
 from neo.master.handler import MasterEventHandler
 from neo.connection import ClientConnection
 from neo.exception import ElectionFailure, PrimaryFailure
-from neo.protocol import Packet, INVALID_UUID
+from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.node import MasterNode
+from neo.handler import identification_required, restrict_node_types, \
+        client_connection_required, server_connection_required
 
 class SecondaryEventHandler(MasterEventHandler):
     """This class deals with events for a secondary master."""
@@ -55,63 +57,55 @@ class SecondaryEventHandler(MasterEventHandler):
                 node.setState(RUNNING_STATE)
         MasterEventHandler.packetReceived(self, conn, packet)
 
+    @server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
-        if isinstance(conn, ClientConnection):
-            self.handleUnexpectedPacket(conn, packet)
-        else:
-            app = self.app
-            if name != app.name:
-                logging.error('reject an alien cluster')
-                conn.answer(protocol.protocolError('invalid cluster name'), packet)
-                conn.abort()
-                return
+        app = self.app
+        if name != app.name:
+            logging.error('reject an alien cluster')
+            conn.answer(protocol.protocolError('invalid cluster name'), packet)
+            conn.abort()
+            return
 
-            # Add a node only if it is a master node and I do not know it yet.
-            if node_type == MASTER_NODE_TYPE and uuid != INVALID_UUID:
-                addr = (ip_address, port)
-                node = app.nm.getNodeByServer(addr)
-                if node is None:
-                    node = MasterNode(server = addr, uuid = uuid)
-                    app.nm.add(node)
+        # Add a node only if it is a master node and I do not know it yet.
+        if node_type == MASTER_NODE_TYPE and uuid != INVALID_UUID:
+            addr = (ip_address, port)
+            node = app.nm.getNodeByServer(addr)
+            if node is None:
+                node = MasterNode(server = addr, uuid = uuid)
+                app.nm.add(node)
 
-                # Trust the UUID sent by the peer.
-                node.setUUID(uuid)
+            # Trust the UUID sent by the peer.
+            node.setUUID(uuid)
 
-            conn.setUUID(uuid)
+        conn.setUUID(uuid)
 
-            p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
-                                       app.uuid, app.server[0], app.server[1],
-                                       app.num_partitions, app.num_replicas,
-                                       uuid)
-            conn.answer(p, packet)
-            # Next, the peer should ask a primary master node.
-            conn.expectMessage()
+        p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
+                                   app.uuid, app.server[0], app.server[1],
+                                   app.num_partitions, app.num_replicas,
+                                   uuid)
+        # Next, the peer should ask a primary master node.
+        conn.answer(p, packet)
 
+    @identification_required
+    @server_connection_required
     def handleAskPrimaryMaster(self, conn, packet):
-        if isinstance(conn, ClientConnection):
-            self.handleUnexpectedPacket(conn, packet)
-        else:
-            uuid = conn.getUUID()
-            if uuid is None:
-                self.handleUnexpectedPacket(conn, packet)
-                return
+        uuid = conn.getUUID()
+        app = self.app
+        primary_uuid = app.primary_master_node.getUUID()
 
-            app = self.app
-            primary_uuid = app.primary_master_node.getUUID()
+        known_master_list = []
+        for n in app.nm.getMasterNodeList():
+            if n.getState() == BROKEN_STATE:
+                continue
+            info = n.getServer() + (n.getUUID() or INVALID_UUID,)
+            known_master_list.append(info)
 
-            known_master_list = []
-            for n in app.nm.getMasterNodeList():
-                if n.getState() == BROKEN_STATE:
-                    continue
-                info = n.getServer() + (n.getUUID() or INVALID_UUID,)
-                known_master_list.append(info)
-
-            p = protocol.answerPrimaryMaster(primary_uuid, known_master_list)
-            conn.answer(p, packet)
+        p = protocol.answerPrimaryMaster(primary_uuid, known_master_list)
+        conn.answer(p, packet)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'

@@ -24,9 +24,10 @@ from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
         UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, \
         STORAGE_NODE_TYPE, ADMIN_NODE_TYPE, OUT_OF_DATE_STATE
 from neo.master.handler import MasterEventHandler
-from neo.protocol import Packet, INVALID_UUID
+from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.exception import OperationFailure, ElectionFailure
 from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
+from neo.handler import identification_required, restrict_node_types
 from neo.util import dump
 
 class FinishingTransaction(object):
@@ -196,7 +197,7 @@ class ServiceEventHandler(MasterEventHandler):
                 # Otherwise, I know it only by the server address or the same
                 # server address but with a different UUID.
                 if node.getUUID() is None:
-                    # This must be a master node. XXX Why ??
+                    # This must be a master node loaded from configuration
                     if node.getNodeType() != MASTER_NODE_TYPE \
                             or node_type != MASTER_NODE_TYPE:
                         # Error. This node uses the same server address as
@@ -295,12 +296,9 @@ class ServiceEventHandler(MasterEventHandler):
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
+    @identification_required
     def handleAskPrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
 
         # Merely tell the peer that I am the primary master node.
@@ -322,24 +320,16 @@ class ServiceEventHandler(MasterEventHandler):
         if node.getNodeType() == STORAGE_NODE_TYPE:
             conn.notify(protocol.startOperation())
 
+    @identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
-        uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         # I am also the primary... So restart the election.
         raise ElectionFailure, 'another primary arises'
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
+    @identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
             if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
@@ -398,72 +388,46 @@ class ServiceEventHandler(MasterEventHandler):
                     ptid = app.getNextPartitionTableID()
                     app.broadcastPartitionChanges(ptid, cell_list)
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
-
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         # If I get a bigger value here, it is dangerous.
         if app.loid < loid or app.ltid < ltid or app.lptid < lptid:
             logging.critical('got later information in service')
             raise OperationFailure
 
+    @identification_required
+    @restrict_node_types(CLIENT_NODE_TYPE)
     def handleAskNewTID(self, conn, packet):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
-
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != CLIENT_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
         tid = app.getNextTID()
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
         conn.answer(protocol.answerNewTID(tid), packet)
 
+    @identification_required
+    @restrict_node_types(CLIENT_NODE_TYPE)
     def handleAskNewOIDs(self, conn, packet, num_oids):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != CLIENT_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
         oid_list = app.getNewOIDList(num_oids)
         conn.answer(protocol.answerNewOIDs(oid_list), packet)
 
+    @identification_required
+    @restrict_node_types(CLIENT_NODE_TYPE)
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
-
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != CLIENT_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
         if app.ltid < tid:
-            self.handleUnexpectedPacket(conn, packet)
-            return
+            raise UnexpectedPacketError
 
         # Collect partitions related to this transaction.
         getPartition = app.getPartition
@@ -474,8 +438,7 @@ class ServiceEventHandler(MasterEventHandler):
         # Collect the UUIDs of nodes related to this transaction.
         uuid_set = set()
         for part in partition_set:
-            uuid_set.update((cell.getUUID() for cell \
-                                in app.pt.getCellList(part)))
+            uuid_set.update((cell.getUUID() for cell in app.pt.getCellList(part)))
 
         # Request locking data.
         for c in app.em.getConnectionList():
@@ -491,24 +454,17 @@ class ServiceEventHandler(MasterEventHandler):
             logging.warn('finishing transaction %s does not exist', dump(tid))
             pass
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleNotifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
-
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
 
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
         if app.ltid < tid:
-            self.handleUnexpectedPacket(conn, packet)
-            return
+            raise UnexpectedPacketError
 
         try:
             t = app.finishing_transaction_dict[tid]
@@ -540,62 +496,39 @@ class ServiceEventHandler(MasterEventHandler):
             # What is this?
             pass
 
+    @identification_required
+    @restrict_node_types(CLIENT_NODE_TYPE)
     def handleAbortTransaction(self, conn, packet, tid):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
-
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != CLIENT_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         try:
             del app.finishing_transaction_dict[tid]
         except KeyError:
             logging.warn('aborting transaction %s does not exist', dump(tid))
             pass
 
+    @identification_required
     def handleAskLastIDs(self, conn, packet):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.lptid), packet)
 
+    @identification_required
     def handleAskUnfinishedTransactions(self, conn, packet):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
         conn.answer(p, packet)
 
+    @identification_required
+    @restrict_node_types(STORAGE_NODE_TYPE)
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         # This should be sent when a cell becomes up-to-date because
         # a replication has finished.
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
-        if node.getNodeType() != STORAGE_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
 
         new_cell_list = []
         for cell in cell_list:
