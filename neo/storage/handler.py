@@ -18,13 +18,14 @@
 import logging
 
 from neo.handler import EventHandler
-from neo.protocol import Packet, \
+from neo.protocol import Packet, UnexpectedPacketError, \
         INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo.exception import PrimaryFailure
+from neo.handler import identification_required, restrict_node_types
 
 class StorageEventHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -69,24 +70,17 @@ class StorageEventHandler(EventHandler):
                                   known_master_list):
         raise NotImplementedError('this method must be overridden')
 
+    @identification_required
+    @restrict_node_types(MASTER_NODE_TYPE)
     def handleAnnouncePrimaryMaster(self, conn, packet):
         """Theoretically speaking, I should not get this message,
         because the primary master election must happen when I am
         not connected to any master node."""
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
         if node is None:
             raise RuntimeError('I do not know the uuid %r' % dump(uuid))
-
-        if node.getNodeType() != MASTER_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         if app.primary_master_node is None:
             # Hmm... I am somehow connected to the primary master already.
             app.primary_master_node = node
@@ -106,19 +100,16 @@ class StorageEventHandler(EventHandler):
     def handleReelectPrimaryMaster(self, conn, packet):
         raise PrimaryFailure('re-election occurs')
 
+    @identification_required
+    @restrict_node_types(MASTER_NODE_TYPE)
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
         # XXX it might be better to implement this callback in each handler.
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != MASTER_NODE_TYPE \
-                or app.primary_master_node is None \
+        if app.primary_master_node is None \
                 or app.primary_master_node.getUUID() != uuid:
             return
 
@@ -209,21 +200,21 @@ class StorageEventHandler(EventHandler):
         raise NotImplementedError('this method must be overridden')
 
     def handleAskObject(self, conn, packet, oid, serial, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskTIDs(self, conn, packet, first, last, partition):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskObjectHistory(self, conn, packet, oid, first, last):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
                                   ext, oid_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAbortTransaction(self, conn, packet, tid):
         logging.info('ignoring abort transaction')

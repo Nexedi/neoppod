@@ -109,6 +109,14 @@ server: 127.0.0.1:10020
     def getLastUUID(self):
         return self.uuid
 
+    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
+        """ Check if the UnexpectedPacketError exception wxas raised """
+        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+
+    def checkIdenficationRequired(self, method, *args, **kwargs):
+        """ Check is the identification_required decorator is applied """
+        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
+
     # Method to test the kind of packet returned in answer
     def checkCalledRequestNodeIdentification(self, conn, packet_number=0):
         """ Check Request Node Identification has been send"""

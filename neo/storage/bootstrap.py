@@ -23,10 +23,12 @@ from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
-from neo.protocol import Packet
+from neo.protocol import Packet, UnexpectedPacketError
 from neo.pt import PartitionTable
 from neo.storage.verification import VerificationEventHandler
 from neo.util import dump
+from neo.handler import identification_required, restrict_node_types, \
+        server_connection_required, client_connection_required
 
 class BootstrapEventHandler(StorageEventHandler):
     """This class deals with events for a bootstrap phase."""
@@ -105,144 +107,138 @@ class BootstrapEventHandler(StorageEventHandler):
 
         conn.close()
 
+    @server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
-        if not conn.isServerConnection():
-            self.handleUnexpectedPacket(conn, packet)
-        else:
-            app = self.app
-            if node_type != MASTER_NODE_TYPE:
-                logging.info('reject a connection from a non-master')
-                conn.answer(protocol.notReady('retry later'), packet)
-                conn.abort()
-                return
-            if name != app.name:
-                logging.error('reject an alien cluster')
-                conn.answer(protocol.protocolError('invalid cluster name'), packet)
-                conn.abort()
-                return
-
-            addr = (ip_address, port)
-            node = app.nm.getNodeByServer(addr)
-            if node is None:
-                node = MasterNode(server = addr, uuid = uuid)
-                app.nm.add(node)
-            else:
-                # If this node is broken, reject it.
-                if node.getUUID() == uuid:
-                    if node.getState() == BROKEN_STATE:
-                        p = protocol.brokenNodeDisallowedError('go away')
-                        conn.answer(p, packet)
-                        conn.abort()
-                        return
-
-            # Trust the UUID sent by the peer.
-            node.setUUID(uuid)
-            conn.setUUID(uuid)
-
-            p = protocol.acceptNodeIdentification(STORAGE_NODE_TYPE, app.uuid, 
-                        app.server[0], app.server[1], 0, 0, uuid)
-            conn.answer(p, packet)
-
-            # Now the master node should know that I am not the right one.
+        app = self.app
+        if node_type != MASTER_NODE_TYPE:
+            logging.info('reject a connection from a non-master')
+            conn.answer(protocol.notReady('retry later'), packet)
             conn.abort()
+            return
+        if name != app.name:
+            logging.error('reject an alien cluster')
+            conn.answer(protocol.protocolError('invalid cluster name'), packet)
+            conn.abort()
+            return
 
+        addr = (ip_address, port)
+        node = app.nm.getNodeByServer(addr)
+        if node is None:
+            node = MasterNode(server = addr, uuid = uuid)
+            app.nm.add(node)
+        else:
+            # If this node is broken, reject it.
+            if node.getUUID() == uuid:
+                if node.getState() == BROKEN_STATE:
+                    p = protocol.brokenNodeDisallowedError('go away')
+                    conn.answer(p, packet)
+                    conn.abort()
+                    return
+
+        # Trust the UUID sent by the peer.
+        node.setUUID(uuid)
+        conn.setUUID(uuid)
+
+        p = protocol.acceptNodeIdentification(STORAGE_NODE_TYPE, app.uuid, 
+                    app.server[0], app.server[1], 0, 0, uuid)
+        conn.answer(p, packet)
+
+        # Now the master node should know that I am not the right one.
+        conn.abort()
+
+    @client_connection_required
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas, your_uuid):
-        if conn.isServerConnection():
-            self.handleUnexpectedPacket(conn, packet)
-        else:
-            app = self.app
-            node = app.nm.getNodeByServer(conn.getAddress())
-            if node_type != MASTER_NODE_TYPE:
-                # The peer is not a master node!
-                logging.error('%s:%d is not a master node', ip_address, port)
-                app.nm.remove(node)
-                conn.close()
-                return
-            if conn.getAddress() != (ip_address, port):
-                # The server address is different! Then why was
-                # the connection successful?
-                logging.error('%s:%d is waiting for %s:%d',
-                              conn.getAddress()[0], conn.getAddress()[1], 
-                              ip_address, port)
-                app.nm.remove(node)
-                conn.close()
-                return
+        app = self.app
+        node = app.nm.getNodeByServer(conn.getAddress())
+        if node_type != MASTER_NODE_TYPE:
+            # The peer is not a master node!
+            logging.error('%s:%d is not a master node', ip_address, port)
+            app.nm.remove(node)
+            conn.close()
+            return
+        if conn.getAddress() != (ip_address, port):
+            # The server address is different! Then why was
+            # the connection successful?
+            logging.error('%s:%d is waiting for %s:%d',
+                          conn.getAddress()[0], conn.getAddress()[1], 
+                          ip_address, port)
+            app.nm.remove(node)
+            conn.close()
+            return
 
-            if app.num_partitions is None or app.num_replicas is None or \
-                   app.num_replicas != num_replicas:
-                # changing number of replicas is not an issue
-                app.num_partitions = num_partitions
-                app.dm.setNumPartitions(app.num_partitions)
-                app.num_replicas = num_replicas
-                app.dm.setNumReplicas(app.num_replicas)
-                app.pt = PartitionTable(num_partitions, num_replicas)
-                app.loadPartitionTable()
-                app.ptid = app.dm.getPTID()
-            elif app.num_partitions != num_partitions:
-                raise RuntimeError('the number of partitions is inconsistent')
+        if app.num_partitions is None or app.num_replicas is None or \
+               app.num_replicas != num_replicas:
+            # changing number of replicas is not an issue
+            app.num_partitions = num_partitions
+            app.dm.setNumPartitions(app.num_partitions)
+            app.num_replicas = num_replicas
+            app.dm.setNumReplicas(app.num_replicas)
+            app.pt = PartitionTable(num_partitions, num_replicas)
+            app.loadPartitionTable()
+            app.ptid = app.dm.getPTID()
+        elif app.num_partitions != num_partitions:
+            raise RuntimeError('the number of partitions is inconsistent')
 
 
-            if your_uuid != INVALID_UUID and app.uuid != your_uuid:
-                # got an uuid from the primary master
-                app.uuid = your_uuid
-                app.dm.setUUID(app.uuid)
-                logging.info('Got a new UUID from master : %s' % dump(app.uuid))
+        if your_uuid != INVALID_UUID and app.uuid != your_uuid:
+            # got an uuid from the primary master
+            app.uuid = your_uuid
+            app.dm.setUUID(app.uuid)
+            logging.info('Got a new UUID from master : %s' % dump(app.uuid))
 
-            conn.setUUID(uuid)
-            node.setUUID(uuid)
+        conn.setUUID(uuid)
+        node.setUUID(uuid)
 
-            # Ask a primary master.
-            conn.ask(protocol.askPrimaryMaster())
+        # Ask a primary master.
+        conn.ask(protocol.askPrimaryMaster())
 
+    @client_connection_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
-        if conn.isServerConnection():
-            self.handleUnexpectedPacket(conn, packet)
-        else:
-            app = self.app
-            # Register new master nodes.
-            for ip_address, port, uuid in known_master_list:
-                addr = (ip_address, port)
-                n = app.nm.getNodeByServer(addr)
-                if n is None:
-                    n = MasterNode(server = addr)
-                    app.nm.add(n)
+        app = self.app
+        # Register new master nodes.
+        for ip_address, port, uuid in known_master_list:
+            addr = (ip_address, port)
+            n = app.nm.getNodeByServer(addr)
+            if n is None:
+                n = MasterNode(server = addr)
+                app.nm.add(n)
 
-                if uuid != INVALID_UUID:
-                    # If I don't know the UUID yet, believe what the peer
-                    # told me at the moment.
-                    if n.getUUID() is None or n.getUUID() != uuid:
-                        n.setUUID(uuid)
+            if uuid != INVALID_UUID:
+                # If I don't know the UUID yet, believe what the peer
+                # told me at the moment.
+                if n.getUUID() is None or n.getUUID() != uuid:
+                    n.setUUID(uuid)
 
-            if primary_uuid != INVALID_UUID:
-                primary_node = app.nm.getNodeByUUID(primary_uuid)
-                if primary_node is None:
-                    # I don't know such a node. Probably this information
-                    # is old. So ignore it.
-                    pass
-                else:
-                    app.primary_master_node = primary_node
-                    if app.trying_master_node is primary_node:
-                        # I am connected to the right one.
-                        logging.info('connected to a primary master node')
-                        # This is a workaround to prevent handling of
-                        # packets for the verification phase.
-                        handler = VerificationEventHandler(app)
-                        conn.setHandler(handler)
-                    else:
-                        app.trying_master_node = None
-                        conn.close()
+        if primary_uuid != INVALID_UUID:
+            primary_node = app.nm.getNodeByUUID(primary_uuid)
+            if primary_node is None:
+                # I don't know such a node. Probably this information
+                # is old. So ignore it.
+                pass
             else:
-                if app.primary_master_node is not None:
-                    # The primary master node is not a primary master node
-                    # any longer.
-                    app.primary_master_node = None
+                app.primary_master_node = primary_node
+                if app.trying_master_node is primary_node:
+                    # I am connected to the right one.
+                    logging.info('connected to a primary master node')
+                    # This is a workaround to prevent handling of
+                    # packets for the verification phase.
+                    handler = VerificationEventHandler(app)
+                    conn.setHandler(handler)
+                else:
+                    app.trying_master_node = None
+                    conn.close()
+        else:
+            if app.primary_master_node is not None:
+                # The primary master node is not a primary master node
+                # any longer.
+                app.primary_master_node = None
 
-                app.trying_master_node = None
-                conn.close()
+            app.trying_master_node = None
+            conn.close()
 
     def handleAskLastIDs(self, conn, packet):
         logging.warning('/!\ handleAskLastIDs')

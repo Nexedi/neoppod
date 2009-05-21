@@ -50,6 +50,14 @@ class StorageOperationTests(unittest.TestCase):
         return min(ptids), max(ptids)
         ptid = min(ptids)
 
+    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
+        """ Check if the UnexpectedPacketError exception wxas raised """
+        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+
+    def checkIdenficationRequired(self, method, *args, **kwargs):
+        """ Check is the identification_required decorator is applied """
+        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
+
     def checkCalledAbort(self, conn, packet_number=0):
         """Check the abort method has been called and an error packet has been sent"""
         # sometimes we answer an error, sometimes we just send it
@@ -81,9 +89,7 @@ class StorageOperationTests(unittest.TestCase):
         packet = Packet(msg_type=_msg_type)
         # hook
         self.operation.peerBroken = lambda c: c.peerBrokendCalled()
-        _call(conn=conn, packet=packet, **kwargs)
-        self.checkCalledAbort(conn)
-        self.assertEquals(len(conn.mockGetNamedCalls("peerBrokendCalled")), 1)
+        self.checkUnexpectedPacketRaised(_call, conn=conn, packet=packet, **kwargs)
 
     def checkNoPacketSent(self, conn):
         # no packet should be sent

@@ -19,16 +19,18 @@ import logging
 
 from neo import protocol
 from neo.storage.handler import StorageEventHandler
-from neo.protocol import INVALID_UUID, INVALID_SERIAL, INVALID_TID, \
+from neo.protocol import INVALID_SERIAL, INVALID_TID, \
         INVALID_PARTITION, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
+        BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         DISCARDED_STATE, OUT_OF_DATE_STATE
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
-from neo.protocol import Packet
+from neo.protocol import Packet, UnexpectedPacketError
 from neo.exception import PrimaryFailure, OperationFailure
+from neo.handler import identification_required, restrict_node_types, \
+        server_connection_required, client_connection_required
 
 class TransactionInformation(object):
     """This class represents information on a transaction."""
@@ -131,123 +133,115 @@ class OperationEventHandler(StorageEventHandler):
 
         StorageEventHandler.peerBroken(self, conn)
 
+    @server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
-        if not conn.isServerConnection():
-            self.handleUnexpectedPacket(conn, packet)
-        else:
-            app = self.app
-            if name != app.name:
-                logging.error('reject an alien cluster')
-                p = protocol.protocolError('invalid cluster name')
-                conn.answer(p, packet)
+        app = self.app
+        if name != app.name:
+            logging.error('reject an alien cluster')
+            p = protocol.protocolError('invalid cluster name')
+            conn.answer(p, packet)
+            conn.abort()
+            return
+
+        addr = (ip_address, port)
+        node = app.nm.getNodeByUUID(uuid)
+        if node is None:
+            if node_type == MASTER_NODE_TYPE:
+                node = app.nm.getNodeByServer(addr)
+                if node is None:
+                    node = MasterNode(server = addr, uuid = uuid)
+                    app.nm.add(node)
+            else:
+                # If I do not know such a node, and it is not even a master
+                # node, simply reject it.
+                logging.error('reject an unknown node %s', dump(uuid))
+                conn.answer(protocol.notReady('unknown node'), packet)
                 conn.abort()
                 return
-
-            addr = (ip_address, port)
-            node = app.nm.getNodeByUUID(uuid)
-            if node is None:
-                if node_type == MASTER_NODE_TYPE:
-                    node = app.nm.getNodeByServer(addr)
-                    if node is None:
-                        node = MasterNode(server = addr, uuid = uuid)
-                        app.nm.add(node)
-                else:
-                    # If I do not know such a node, and it is not even a master
-                    # node, simply reject it.
-                    logging.error('reject an unknown node %s', dump(uuid))
-                    conn.answer(protocol.notReady('unknown node'), packet)
+        else:
+            # If this node is broken, reject it.
+            if node.getUUID() == uuid:
+                if node.getState() == BROKEN_STATE:
+                    p = protocol.brokenNodeDisallowedError('go away')
+                    conn.answer(p, packet)
                     conn.abort()
                     return
-            else:
-                # If this node is broken, reject it.
-                if node.getUUID() == uuid:
-                    if node.getState() == BROKEN_STATE:
-                        p = protocol.brokenNodeDisallowedError('go away')
-                        conn.answer(p, packet)
-                        conn.abort()
-                        return
 
-            # Trust the UUID sent by the peer.
-            node.setUUID(uuid)
-            conn.setUUID(uuid)
+        # Trust the UUID sent by the peer.
+        node.setUUID(uuid)
+        conn.setUUID(uuid)
 
-            p = protocol.acceptNodeIdentification(STORAGE_NODE_TYPE, app.uuid, 
-                        app.server[0], app.server[1], app.num_partitions, 
-                        app.num_replicas, uuid)
-            conn.answer(p, packet)
+        p = protocol.acceptNodeIdentification(STORAGE_NODE_TYPE, app.uuid, 
+                    app.server[0], app.server[1], app.num_partitions, 
+                    app.num_replicas, uuid)
+        conn.answer(p, packet)
 
-            if node_type == MASTER_NODE_TYPE:
-                conn.abort()
+        if node_type == MASTER_NODE_TYPE:
+            conn.abort()
 
+    @client_connection_required
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas, your_uuid):
-        if not conn.isServerConnection():
-            raise NotImplementedError
-        else:
-            self.handleUnexpectedPacket(conn, packet)
+        raise NotImplementedError
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskLastIDs(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskPartitionTable(self, conn, packet, offset_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
+    @client_connection_required
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
-        if not conn.isServerConnection():
-            app = self.app
-            nm = app.nm
-            pt = app.pt
-            if app.ptid >= ptid:
-                # Ignore this packet.
-                logging.info('ignoring older partition changes')
-                return
+        app = self.app
+        nm = app.nm
+        pt = app.pt
+        if app.ptid >= ptid:
+            # Ignore this packet.
+            logging.info('ignoring older partition changes')
+            return
 
-            # First, change the table on memory.
-            app.ptid = ptid
-            for offset, uuid, state in cell_list:
-                node = nm.getNodeByUUID(uuid)
-                if node is None:
-                    node = StorageNode(uuid = uuid)
-                    if uuid != app.uuid:
-                        node.setState(TEMPORARILY_DOWN_STATE)
-                    nm.add(node)
+        # First, change the table on memory.
+        app.ptid = ptid
+        for offset, uuid, state in cell_list:
+            node = nm.getNodeByUUID(uuid)
+            if node is None:
+                node = StorageNode(uuid = uuid)
+                if uuid != app.uuid:
+                    node.setState(TEMPORARILY_DOWN_STATE)
+                nm.add(node)
 
-                pt.setCell(offset, node, state)
+            pt.setCell(offset, node, state)
 
-                if uuid == app.uuid:
-                    # If this is for myself, this can affect replications.
-                    if state == DISCARDED_STATE:
-                        app.replicator.removePartition(offset)
-                    elif state == OUT_OF_DATE_STATE:
-                        app.replicator.addPartition(offset)
+            if uuid == app.uuid:
+                # If this is for myself, this can affect replications.
+                if state == DISCARDED_STATE:
+                    app.replicator.removePartition(offset)
+                elif state == OUT_OF_DATE_STATE:
+                    app.replicator.addPartition(offset)
 
-            # Then, the database.
-            app.dm.changePartitionTable(ptid, cell_list)
-        else:
-            self.handleUnexpectedPacket(conn, packet)
+        # Then, the database.
+        app.dm.changePartitionTable(ptid, cell_list)
 
     def handleStartOperation(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
+    @client_connection_required
     def handleStopOperation(self, conn, packet):
-        if not conn.isServerConnection():
-            raise OperationFailure('operation stopped')
-        else:
-            self.handleUnexpectedPacket(conn, packet)
+        raise OperationFailure('operation stopped')
 
     def handleAskUnfinishedTransactions(self, conn, packet):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskTransactionInformation(self, conn, packet, tid):
         app = self.app
@@ -260,51 +254,46 @@ class OperationEventHandler(StorageEventHandler):
         conn.answer(p, packet)
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleDeleteTransaction(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleCommitTransaction(self, conn, packet, tid):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
+    @client_connection_required
     def handleLockInformation(self, conn, packet, tid):
-        if not conn.isServerConnection():
-            app = self.app
-            try:
-                t = app.transaction_dict[tid]
-                object_list = t.getObjectList()
-                for o in object_list:
-                    app.load_lock_dict[o[0]] = tid
+        app = self.app
+        try:
+            t = app.transaction_dict[tid]
+            object_list = t.getObjectList()
+            for o in object_list:
+                app.load_lock_dict[o[0]] = tid
 
-                app.dm.storeTransaction(tid, object_list, t.getTransaction())
-            except KeyError:
-                pass
+            app.dm.storeTransaction(tid, object_list, t.getTransaction())
+        except KeyError:
+            pass
+        conn.answer(protocol.notifyInformationLocked(tid), packet)
 
-            conn.answer(protocol.notifyInformationLocked(tid), packet)
-        else:
-            self.handleUnexpectedPacket(conn, packet)
-
+    @client_connection_required
     def handleUnlockInformation(self, conn, packet, tid):
-        if not conn.isServerConnection():
-            app = self.app
-            try:
-                t = app.transaction_dict[tid]
-                object_list = t.getObjectList()
-                for o in object_list:
-                    oid = o[0]
-                    del app.load_lock_dict[oid]
-                    del app.store_lock_dict[oid]
+        app = self.app
+        try:
+            t = app.transaction_dict[tid]
+            object_list = t.getObjectList()
+            for o in object_list:
+                oid = o[0]
+                del app.load_lock_dict[oid]
+                del app.store_lock_dict[oid]
 
-                app.dm.finishTransaction(tid)
-                del app.transaction_dict[tid]
+            app.dm.finishTransaction(tid)
+            del app.transaction_dict[tid]
 
-                # Now it may be possible to execute some events.
-                app.executeQueuedEvents()
-            except KeyError:
-                pass
-        else:
-            self.handleUnexpectedPacket(conn, packet)
+            # Now it may be possible to execute some events.
+            app.executeQueuedEvents()
+        except KeyError:
+            pass
 
     def handleAskObject(self, conn, packet, oid, serial, tid):
         app = self.app
@@ -369,25 +358,19 @@ class OperationEventHandler(StorageEventHandler):
         p = protocol.answerObjectHistory(oid, history_list)
         conn.answer(p, packet)
 
+    @identification_required
     def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
                                   ext, oid_list):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
-
         t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
         t.addTransaction(oid_list, user, desc, ext)
         conn.answer(protocol.answerStoreTransaction(tid), packet)
 
+    @identification_required
     def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
         # First, check for the locking state.
         app = self.app
         locking_tid = app.store_lock_dict.get(oid)
@@ -421,12 +404,9 @@ class OperationEventHandler(StorageEventHandler):
         conn.answer(p, packet)
         app.store_lock_dict[oid] = tid
 
+    @identification_required
     def handleAbortTransaction(self, conn, packet, tid):
         uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
         app = self.app
         try:
             t = app.transaction_dict[tid]
@@ -446,17 +426,13 @@ class OperationEventHandler(StorageEventHandler):
         except KeyError:
             pass
 
+    @client_connection_required
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        if not conn.isServerConnection():
-            self.app.replicator.setCriticalTID(packet, ltid)
-        else:
-            self.handleUnexpectedPacket(conn, packet)
+        self.app.replicator.setCriticalTID(packet, ltid)
 
+    @client_connection_required
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
-        if not conn.isServerConnection():
-            self.app.replicator.setUnfinishedTIDList(tid_list)
-        else:
-            self.handleUnexpectedPacket(conn, packet)
+        self.app.replicator.setUnfinishedTIDList(tid_list)
 
     def handleAskOIDs(self, conn, packet, first, last, partition):
         # This method is complicated, because I must return OIDs only

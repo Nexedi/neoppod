@@ -36,7 +36,7 @@ from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION
      UNLOCK_INFORMATION, TID_NOT_FOUND_CODE, ASK_TRANSACTION_INFORMATION, ANSWER_TRANSACTION_INFORMATION, \
      ANSWER_PARTITION_TABLE,SEND_PARTITION_TABLE, COMMIT_TRANSACTION
 from neo.protocol import ERROR, BROKEN_NODE_DISALLOWED_CODE, ASK_PRIMARY_MASTER
-from neo.protocol import ANSWER_PRIMARY_MASTER
+from neo.protocol import ANSWER_PRIMARY_MASTER, UnexpectedPacketError
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 
@@ -126,6 +126,14 @@ server: 127.0.0.1:10020
         ptids = self.getNewUUID(), self.getNewUUID()
         return min(ptids), max(ptids)
         ptid = min(ptids)
+
+    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
+        """ Check if the UnexpectedPacketError exception wxas raised """
+        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+
+    def checkIdenficationRequired(self, method, *args, **kwargs):
+        """ Check is the identification_required decorator is applied """
+        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
 
     def checkCalledAbort(self, conn, packet_number=0):
         """Check the abort method has been called and an error packet has been sent"""
@@ -306,9 +314,8 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
         p = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
-        self.verification.handleAcceptNodeIdentification(conn, p, CLIENT_NODE_TYPE,
-                 self.getNewUUID(),"127.0.0.1", self.client_port, 1009, 2, uuid)
-        self.checkCalledAbort(conn)    
+        self.checkUnexpectedPacketRaised(self.verification.handleAcceptNodeIdentification, 
+                conn, p, CLIENT_NODE_TYPE, self.getNewUUID(),"127.0.0.1", self.client_port, 1009, 2, uuid)
 
     def test_07_handleAnswerPrimaryMaster(self):
         # reject server connection 
@@ -317,8 +324,7 @@ server: 127.0.0.1:10020
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
-        self.verification.handleAnswerPrimaryMaster(conn, packet,self.getNewUUID(), ())
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(self.verification.handleAnswerPrimaryMaster, conn, packet,self.getNewUUID(), ())
 
         # raise id uuid is different
         conn = Mock({"getUUID" : uuid,
@@ -343,8 +349,7 @@ server: 127.0.0.1:10020
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
-        self.verification.handleAskLastIDs(conn, packet)
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(self.verification.handleAskLastIDs, conn, packet)
 
         # return invalid if db store nothing
         conn = Mock({"getUUID" : uuid,
@@ -402,8 +407,7 @@ server: 127.0.0.1:10020
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
-        self.verification.handleAskPartitionTable(conn, packet, [1,])
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(self.verification.handleAskPartitionTable, conn, packet, [1,])
 
         # try to get unknown offset
         self.assertEqual(len(self.app.pt.getNodeList()), 0)
@@ -449,9 +453,8 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
         self.app.ptid = 1
-        self.verification.handleSendPartitionTable(conn, packet, 0, ())
+        self.checkUnexpectedPacketRaised(self.verification.handleSendPartitionTable, conn, packet, 0, ())
         self.assertEquals(self.app.ptid, 1)
-        self.checkCalledAbort(conn)
 
         # send a table
         conn = Mock({"getUUID" : uuid,
@@ -496,9 +499,8 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
         self.app.ptid = 1
-        self.verification.handleNotifyPartitionChanges(conn, packet, 0, ())
+        self.checkUnexpectedPacketRaised(self.verification.handleNotifyPartitionChanges, conn, packet, 0, ())
         self.assertEquals(self.app.ptid, 1)
-        self.checkCalledAbort(conn)
         
         # old partition change
         conn = Mock({
@@ -534,8 +536,7 @@ server: 127.0.0.1:10020
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
         packet = Packet(msg_type=STOP_OPERATION)
-        self.verification.handleStartOperation(conn, packet)
-        self.checkCalledAbort(conn)        
+        self.checkUnexpectedPacketRaised(self.verification.handleStartOperation, conn, packet)
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
         self.assertFalse(self.app.operational)
@@ -547,8 +548,7 @@ server: 127.0.0.1:10020
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
         packet = Packet(msg_type=STOP_OPERATION)
-        self.verification.handleStopOperation(conn, packet)
-        self.checkCalledAbort(conn)        
+        self.checkUnexpectedPacketRaised(self.verification.handleStopOperation, conn, packet)
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
         packet = Packet(msg_type=STOP_OPERATION)
@@ -559,8 +559,7 @@ server: 127.0.0.1:10020
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
         packet = Packet(msg_type=ASK_UNFINISHED_TRANSACTIONS)
-        self.verification.handleAskUnfinishedTransactions(conn, packet)
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(self.verification.handleAskUnfinishedTransactions, conn, packet)
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
@@ -688,8 +687,7 @@ server: 127.0.0.1:10020
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
         packet = Packet(msg_type=ASK_OBJECT_PRESENT)
-        self.verification.handleAskObjectPresent(conn, packet, p64(1), p64(2))
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(self.verification.handleAskObjectPresent, conn, packet, p64(1), p64(2))
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
@@ -724,8 +722,7 @@ server: 127.0.0.1:10020
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': True })
         packet = Packet(msg_type=ASK_OBJECT_PRESENT)
-        self.verification.handleDeleteTransaction(conn, packet, p64(1))
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(self.verification.handleDeleteTransaction, conn, packet, p64(1))
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
@@ -747,8 +744,7 @@ server: 127.0.0.1:10020
         dm = Mock()
         self.app.dm = dm
         packet = Packet(msg_type=COMMIT_TRANSACTION)
-        self.verification.handleCommitTransaction(conn, packet, p64(1))
-        self.checkCalledAbort(conn)
+        self.checkUnexpectedPacketRaised(self.verification.handleCommitTransaction, conn, packet, p64(1))
         self.assertEqual(len(dm.mockGetNamedCalls("finishTransaction")), 0)
         # commit a transaction
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
