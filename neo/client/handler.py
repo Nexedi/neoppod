@@ -20,7 +20,7 @@ import logging
 from neo.handler import EventHandler
 from neo.connection import MTClientConnection
 from neo import protocol
-from neo.protocol import Packet, UnexpectedPacketError, \
+from neo.protocol import Packet, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
         BROKEN_STATE, FEEDING_STATE, DISCARDED_STATE 
@@ -29,6 +29,7 @@ from neo.pt import PartitionTable
 from neo.client.exception import NEOStorageError
 from neo.exception import ElectionFailure
 from neo.util import dump
+from neo.handler import identification_required, restrict_node_types
 
 from ZODB.TimeStamp import TimeStamp
 from ZODB.utils import p64
@@ -153,11 +154,9 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
         finally:
             conn.unlock()
 
+    @identification_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
         uuid = conn.getUUID()
-        if uuid is None:
-            raise UnexpectedPacketError
-
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
         # This must be sent only by master node
@@ -195,11 +194,9 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
                     # Whatever the situation is, I trust this master.
                     app.primary_master_node = primary_node
 
+    @identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
-        if uuid is None:
-            raise UnexpectedPacketError
-
         app = self.app
         nm = app.nm
         node = nm.getNodeByUUID(uuid)
@@ -239,6 +236,7 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
 
             n.setState(state)
 
+    @identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         # This handler is in PrimaryBoostrapEventHandler, since this
         # basicaly is an answer to askPrimaryMaster.
@@ -253,9 +251,6 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
         # notifyNodeInformation is valid as asynchrounous event, but
         # sendPartitionTable is only triggered after askPrimaryMaster.
         uuid = conn.getUUID()
-        if uuid is None:
-            raise UnexpectedPacketError
-
         app = self.app
         nm = app.nm
         pt = app.pt

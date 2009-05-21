@@ -40,6 +40,58 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
         INTERNAL_ERROR_CODE
 
+
+# Some decorators useful to avoid duplication of patterns in handlers
+# FIXME: they may be applied on generic handler
+def identification_required(handler):
+    """ Raise UnexpectedPacketError if the identification has not succeed """
+    def wrapper(self, conn, packet, *args, **kwargs):
+        # check if node identification succeed
+        if conn.getUUID() is None:
+            raise UnexpectedPacketError
+        # identified, call the handler
+        handler(self, conn, packet, *args, **kwargs)
+    return wrapper
+
+def restrict_node_types(*node_types):
+    """ Raise UnexpectedPacketError if the node type is node in the supplied
+    list, if the uuid is None or if the node is not known. This decorator
+    should be applied after identification_required """
+    def inner(handler):
+        def wrapper(self, conn, packet, *args, **kwargs):
+            # check if node type is allowed
+            uuid = conn.getUUID()
+            if uuid is None:
+                raise UnexpectedPacketError
+            node = self.app.nm.getNodeByUUID(uuid)
+            if node is None:
+                raise UnexpectedPacketError
+            if node.getNodeType() not in node_types:
+                raise UnexpectedPacketError
+            # all is ok, call the handler
+            handler(self, conn, packet, *args, **kwargs)
+        return wrapper
+    return inner
+
+def client_connection_required(handler):
+    """ Raise UnexpectedPacketError if the packet comes from a client connection """
+    def wrapper(self, conn, packet, *args, **kwargs):
+        if conn.isServerConnection():
+            raise UnexpectedPacketError
+        # it's a client connection, call the handler
+        handler(self, conn, packet, *args, **kwargs)
+    return wrapper
+
+def server_connection_required(handler):
+    """ Raise UnexpectedPacketError if the packet comes from a server connection """
+    def wrapper(self, conn, packet, *args, **kwargs):
+        if not conn.isServerConnection():
+            raise UnexpectedPacketError
+        # it's a server connection, call the handler
+        handler(self, conn, packet, *args, **kwargs)
+    return wrapper
+
+
 class EventHandler(object):
     """This class handles events."""
     def __init__(self):
