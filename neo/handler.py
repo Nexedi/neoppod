@@ -18,7 +18,8 @@
 import logging
 
 from neo import protocol
-from neo.protocol import Packet, PacketMalformedError, UnexpectedPacketError
+from neo.protocol import Packet, PacketMalformedError, UnexpectedPacketError, \
+        BrokenNotDisallowedError, NotReadyError
 from neo.connection import ServerConnection
 
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -156,8 +157,11 @@ class EventHandler(object):
         conn.notify(protocol.protocolError(message))
         conn.abort()
         self.peerBroken(conn)
-    # TODO: remove this old method name
-    handleUnexpectedPacket = unexpectedPacket
+
+    def brokenNodeDisallowedError(conn, packet, message=None):
+        """ Called when a broken node send packets """
+        conn.notify(protocol.brokenNodeDisallowedError('go away'))
+        conn.abort()
 
     def dispatch(self, conn, packet):
         """This is a helper method to handle various packet types."""
@@ -172,6 +176,9 @@ class EventHandler(object):
             self.unexpectedPacket(conn, packet, msg)
         except PacketMalformedError, msg:
             self.packetMalformed(conn, packet, msg)
+        except BrokenNotDisallowedError, msg:
+            self.brokenNodeDisallowedError(conn, packet, msg)
+
 
     # Packet handlers.
 

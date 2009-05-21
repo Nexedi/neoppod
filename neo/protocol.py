@@ -318,9 +318,26 @@ UUID_NAMESPACES = {
     ADMIN_NODE_TYPE: ADMIN_NS,
 }
 
-class ProtocolError(Exception): pass
-class PacketMalformedError(ProtocolError): pass
-class UnexpectedPacketError(ProtocolError): pass
+class ProtocolError(Exception): 
+    """ Base class for protocol errors, close the connection """
+    pass
+
+class PacketMalformedError(ProtocolError):
+    """ Close the connection and set the node as broken"""
+    pass
+
+class UnexpectedPacketError(ProtocolError): 
+    """ Close the connection and set the node as broken"""
+    pass
+
+class NotReadyError(ProtocolError): 
+    """ Just close the connection """
+    pass
+
+class BrokenNotDisallowedError(ProtocolError): 
+    """ Just close the connection """
+    pass 
+
 
 decode_table = {}
 

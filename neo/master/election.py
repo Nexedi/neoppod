@@ -29,10 +29,6 @@ from neo.node import MasterNode, StorageNode, ClientNode
 from neo.handler import identification_required, restrict_node_types, \
         client_connection_required, server_connection_required
 
-# TODO: finalize decorators integration (identification, restriction, client...)
-# TODO: here use specific decorator such as restrict_node_types which do custom
-# operations such as send retryLater instead of unexpectedPacket
-
 class ElectionEventHandler(MasterEventHandler):
     """This class deals with events for a primary master election."""
 
@@ -198,10 +194,7 @@ class ElectionEventHandler(MasterEventHandler):
             # If this node is broken, reject it.
             if node.getUUID() == uuid:
                 if node.getState() == BROKEN_STATE:
-                    conn.answer(protocol.brokenNodeDisallowedError(
-                            'go away'), packet)
-                    conn.abort()
-                    return
+                    raise protocol.BrokenNotDisallowedError
 
         # supplied another uuid in case of conflict
         while not app.isValidUUID(uuid, addr):

@@ -36,7 +36,7 @@ from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION
      UNLOCK_INFORMATION, TID_NOT_FOUND_CODE, ASK_TRANSACTION_INFORMATION, ANSWER_TRANSACTION_INFORMATION, \
      ANSWER_PARTITION_TABLE,SEND_PARTITION_TABLE, COMMIT_TRANSACTION
 from neo.protocol import ERROR, BROKEN_NODE_DISALLOWED_CODE, ASK_PRIMARY_MASTER
-from neo.protocol import ANSWER_PRIMARY_MASTER, UnexpectedPacketError
+from neo.protocol import ANSWER_PRIMARY_MASTER
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 
@@ -129,11 +129,15 @@ server: 127.0.0.1:10020
 
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
-        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
 
     def checkIdenficationRequired(self, method, *args, **kwargs):
         """ Check is the identification_required decorator is applied """
         self.checkUnexpectedPacketRaised(method, *args, **kwargs)
+
+    def checkBrokenNotDisallowedErrorRaised(self, method, *args, **kwargs):
+        """ Check if the BrokenNotDisallowedError exception wxas raised """
+        self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
 
     def checkCalledAbort(self, conn, packet_number=0):
         """Check the abort method has been called and an error packet has been sent"""
@@ -277,14 +281,10 @@ server: 127.0.0.1:10020
         node = self.app.nm.getNodeByServer(conn.getAddress())
         node.setState(BROKEN_STATE)
         self.assertEqual(node.getUUID(), uuid)
-        self.verification.handleRequestNodeIdentification(conn, p, MASTER_NODE_TYPE,
-                                                          uuid, "127.0.0.1", self.master_port, "main")
-        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ERROR)
-        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
+        self.checkBrokenNotDisallowedErrorRaised(
+            self.verification.handleRequestNodeIdentification,
+            conn, p, MASTER_NODE_TYPE,
+            uuid, "127.0.0.1", self.master_port, "main")
 
         # change uuid of a known node
         uuid = self.getNewUUID()

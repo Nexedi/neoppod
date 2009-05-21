@@ -263,14 +263,11 @@ class ServiceEventHandler(MasterEventHandler):
                 # If this node is broken, reject it. Otherwise, assume that
                 # it is working again.
                 if node.getState() == BROKEN_STATE:
-                    conn.notify(protocol.brokenNodeDisallowedError('go away'))
-                    conn.abort()
-                    return
-                else:
-                    node.setUUID(uuid)
-                    node.setState(RUNNING_STATE)
-                    logging.debug('broadcasting node information')
-                    app.broadcastNodeInformation(node)
+                    raise protocol.BrokenNotDisallowedError
+                node.setUUID(uuid)
+                node.setState(RUNNING_STATE)
+                logging.debug('broadcasting node information')
+                app.broadcastNodeInformation(node)
 
         conn.setUUID(uuid)
 

@@ -88,10 +88,7 @@ class VerificationEventHandler(StorageEventHandler):
             # If this node is broken, reject it.
             if node.getUUID() == uuid:
                 if node.getState() == BROKEN_STATE:
-                    p = protocol.brokenNodeDisallowedError('go away')
-                    conn.answer(p, packet)
-                    conn.abort()
-                    return
+                    raise protocol.BrokenNotDisallowedError
 
         # Trust the UUID sent by the peer.
         node.setUUID(uuid)

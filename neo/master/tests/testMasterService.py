@@ -22,7 +22,7 @@ from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
 from neo import protocol
-from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
+from neo.protocol import Packet, INVALID_UUID
 from neo.master.service import ServiceEventHandler
 from neo.master.app import Application
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -118,11 +118,15 @@ server: 127.0.0.1:10023
 
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
-        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
 
     def checkIdenficationRequired(self, method, *args, **kwargs):
         """ Check is the identification_required decorator is applied """
         self.checkUnexpectedPacketRaised(method, *args, **kwargs)
+
+    def checkBrokenNotDisallowedErrorRaised(self, method, *args, **kwargs):
+        """ Check if the BrokenNotDisallowedError exception wxas raised """
+        self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
 
     # Method to test the kind of packet returned in answer
     def checkCalledAbort(self, conn, packet_number=0):
@@ -379,14 +383,15 @@ server: 127.0.0.1:10023
         sn.setState(BROKEN_STATE)
         self.assertEquals(sn.getState(), BROKEN_STATE)
         
-        service.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=STORAGE_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.storage_port,
-                                                name=self.app.name,)
-        self.checkCalledNotifyAbort(conn)
+        self.checkBrokenNotDisallowedErrorRaised(
+                service.handleRequestNodeIdentification,
+                conn,
+                packet=packet,
+                node_type=STORAGE_NODE_TYPE,
+                uuid=uuid,
+                ip_address='127.0.0.1',
+                port=self.storage_port,
+                name=self.app.name,)
         self.assertEquals(len(self.app.nm.getStorageNodeList()), 2)
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getServer(), ('127.0.0.1', self.storage_port))

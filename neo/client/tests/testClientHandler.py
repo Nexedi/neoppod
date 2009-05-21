@@ -335,17 +335,8 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertEquals(app.uuid, 'C' * 16)
 
     def _testHandleUnexpectedPacketCalledWithMedhod(self, client_handler, method, args=(), kw=()):
-        # Monkey-patch handleUnexpectedPacket to check if it is called
         call_list = []
-        def ClientHandler_handleUnexpectedPacket(self, conn, packet):
-            call_list.append((conn, packet))
-        original_handleUnexpectedPacket = client_handler.__class__.handleUnexpectedPacket
-        client_handler.__class__.handleUnexpectedPacket = ClientHandler_handleUnexpectedPacket
-        try:
-            self.assertRaises(UnexpectedPacketError, method, *args, **dict(kw))
-        finally:
-            # Restore original method
-            client_handler.__class__.handleUnexpectedPacket = original_handleUnexpectedPacket
+        self.assertRaises(UnexpectedPacketError, method, *args, **dict(kw))
 
     # Master node handler
     def test_initialAnswerPrimaryMaster(self):

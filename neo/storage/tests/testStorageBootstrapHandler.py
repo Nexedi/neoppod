@@ -26,6 +26,7 @@ from neo.pt import PartitionTable
 from neo.storage.app import Application, StorageNode
 from neo.storage.bootstrap import BootstrapEventHandler
 from neo.storage.verification import VerificationEventHandler
+from neo import protocol
 from neo.protocol import STORAGE_NODE_TYPE, MASTER_NODE_TYPE
 from neo.protocol import BROKEN_STATE, RUNNING_STATE, Packet, INVALID_UUID
 from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION
@@ -111,11 +112,15 @@ server: 127.0.0.1:10020
 
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
-        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
 
     def checkIdenficationRequired(self, method, *args, **kwargs):
         """ Check is the identification_required decorator is applied """
         self.checkUnexpectedPacketRaised(method, *args, **kwargs)
+
+    def checkBrokenNotDisallowedErrorRaised(self, method, *args, **kwargs):
+        """ Check if the BrokenNotDisallowedError exception wxas raised """
+        self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
 
     # Method to test the kind of packet returned in answer
     def checkCalledRequestNodeIdentification(self, conn, packet_number=0):
@@ -284,7 +289,8 @@ server: 127.0.0.1:10020
         conn = Mock({"isServerConnection": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
-        self.bootstrap.handleRequestNodeIdentification(
+        self.checkUnexpectedPacketRaised(
+            self.bootstrap.handleRequestNodeIdentification,
             conn=conn,
             uuid=self.getNewUUID(),
             packet=packet, 
@@ -292,7 +298,6 @@ server: 127.0.0.1:10020
             node_type=MASTER_NODE_TYPE,
             ip_address='127.0.0.1',
             name='',)
-        self.checkCalledAbort(conn)
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
 
     def test_08_handleRequestNodeIdentification2(self):
@@ -366,7 +371,8 @@ server: 127.0.0.1:10020
         uuid=self.getNewUUID()
         master.setState(BROKEN_STATE)
         master.setUUID(uuid)
-        self.bootstrap.handleRequestNodeIdentification(
+        self.checkBrokenNotDisallowedErrorRaised(
+            self.bootstrap.handleRequestNodeIdentification,
             conn=conn,
             uuid=uuid,
             packet=packet, 
@@ -374,7 +380,6 @@ server: 127.0.0.1:10020
             node_type=MASTER_NODE_TYPE,
             ip_address='127.0.0.1',
             name=self.app.name,)
-        self.checkCalledAbort(conn)
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
 
     def test_08_handleRequestNodeIdentification6(self):
@@ -415,7 +420,8 @@ server: 127.0.0.1:10020
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
         self.app.trying_master_node = self.trying_master_node
-        self.bootstrap.handleAcceptNodeIdentification(
+        self.checkUnexpectedPacketRaised(
+            self.bootstrap.handleAcceptNodeIdentification,
             conn=conn,
             packet=packet,
             node_type=MASTER_NODE_TYPE,
@@ -425,7 +431,6 @@ server: 127.0.0.1:10020
             num_partitions=self.app.num_partitions,
             num_replicas=self.app.num_replicas,
             your_uuid=self.getNewUUID())
-        self.checkCalledAbort(conn)
 
     def test_09_handleAcceptNodeIdentification2(self):
         # not a master node -> rejected
@@ -560,13 +565,13 @@ server: 127.0.0.1:10020
         packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         self.app.trying_master_node = self.trying_master_node
         self.app.primary_master_node = None
-        self.bootstrap.handleAnswerPrimaryMaster(
+        self.checkUnexpectedPacketRaised(
+            self.bootstrap.handleAnswerPrimaryMaster,
             conn=conn,
             packet=packet,
             primary_uuid=self.getNewUUID(),
             known_master_list=()
         )
-        self.checkCalledAbort(conn)
         self.assertEquals(self.app.trying_master_node, self.trying_master_node)
         self.assertEquals(self.app.primary_master_node, None)
 

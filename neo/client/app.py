@@ -841,11 +841,12 @@ class Application(object):
 
     def __del__(self):
         """Clear all connection."""
-        # TODO: Stop polling thread here.
         # Due to bug in ZODB, close is not always called when shutting
         # down zope, so use __del__ to close connections
         for conn in self.em.getConnectionList():
             conn.close()
+        # Stop polling thread
+        self.poll_thread.stop()
     close = __del__
 
     def sync(self):

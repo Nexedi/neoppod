@@ -22,7 +22,7 @@ from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
 from neo import protocol
-from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
+from neo.protocol import Packet, INVALID_UUID
 from neo.master.election import ElectionEventHandler
 from neo.master.app import Application
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -136,11 +136,15 @@ server: 127.0.0.1:10023
 
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
-        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
 
     def checkIdenficationRequired(self, method, *args, **kwargs):
         """ Check is the identification_required decorator is applied """
         self.checkUnexpectedPacketRaised(method, *args, **kwargs)
+
+    def checkBrokenNotDisallowedErrorRaised(self, method, *args, **kwargs):
+        """ Check if the BrokenNotDisallowedError exception wxas raised """
+        self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
 
     def checkCalledAcceptNodeIdentification(self, conn, packet_number=0):
         """ Check Accept Node Identification has been send"""
@@ -577,14 +581,15 @@ server: 127.0.0.1:10023
         self.assertEqual(node.getState(), RUNNING_STATE)
         node.setState(BROKEN_STATE)
         self.assertEqual(node.getState(), BROKEN_STATE)
-        election.handleRequestNodeIdentification(conn,
-                                                 packet=packet,
-                                                 node_type=MASTER_NODE_TYPE,
-                                                 uuid=new_uuid,
-                                                 ip_address='127.0.0.1',
-                                                 port=self.master_port+1,
-                                                 name=self.app.name,)        
-        self.checkCalledAbort(conn)        
+        self.checkBrokenNotDisallowedErrorRaised(
+                election.handleRequestNodeIdentification,
+                conn,
+                packet=packet,
+                node_type=MASTER_NODE_TYPE,
+                uuid=new_uuid,
+                ip_address='127.0.0.1',
+                port=self.master_port+1,
+                name=self.app.name,)        
 
 
     def test_11_handleAskPrimaryMaster(self):

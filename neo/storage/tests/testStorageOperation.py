@@ -28,6 +28,7 @@ from neo.storage.app import Application, StorageNode
 from neo.storage.operation import TransactionInformation, OperationEventHandler
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.pt import PartitionTable
+from neo import protocol
 from neo.protocol import *
 
 SQL_ADMIN_USER = 'root'
@@ -52,11 +53,15 @@ class StorageOperationTests(unittest.TestCase):
 
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
-        self.assertRaises(UnexpectedPacketError, method, *args, **kwargs)
+        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
 
     def checkIdenficationRequired(self, method, *args, **kwargs):
         """ Check is the identification_required decorator is applied """
         self.checkUnexpectedPacketRaised(method, *args, **kwargs)
+
+    def checkBrokenNotDisallowedErrorRaised(self, method, *args, **kwargs):
+        """ Check if the BrokenNotDisallowedError exception wxas raised """
+        self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
 
     def checkCalledAbort(self, conn, packet_number=0):
         """Check the abort method has been called and an error packet has been sent"""
@@ -373,7 +378,8 @@ server: 127.0.0.1:10020
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         count = len(self.app.nm.getNodeList())
-        self.operation.handleRequestNodeIdentification(
+        self.checkBrokenNotDisallowedErrorRaised(
+            self.operation.handleRequestNodeIdentification,
             conn=conn,
             packet=packet, 
             node_type=MASTER_NODE_TYPE, 
@@ -381,7 +387,6 @@ server: 127.0.0.1:10020
             ip_address='127.0.0.1',
             port=self.master_port, 
             name=self.app.name)
-        self.checkPacket(conn, packet_type=ERROR)
         self.assertEquals(len(self.app.nm.getNodeList()), count)
 
     def test_09_handleRequestNodeIdentification4(self):

@@ -166,14 +166,10 @@ class RecoveryEventHandler(MasterEventHandler):
                 # If this node is broken, reject it. Otherwise, assume that it is
                 # working again.
                 if node.getState() == BROKEN_STATE:
-                    p = protocol.brokenNodeDisallowedError('go away')
-                    conn.answer(p, packet)
-                    conn.abort()
-                    return
-                else:
-                    node.setUUID(uuid)
-                    node.setState(RUNNING_STATE)
-                    app.broadcastNodeInformation(node)
+                    raise protocol.BrokenNotDisallowedError
+                node.setUUID(uuid)
+                node.setState(RUNNING_STATE)
+                app.broadcastNodeInformation(node)
 
         conn.setUUID(uuid)
 
