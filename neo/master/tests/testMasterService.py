@@ -116,6 +116,10 @@ server: 127.0.0.1:10023
         # Delete tmp file
         os.remove(self.tmp_path)
 
+    def checkProtocolErrorRaised(self, method, *args, **kwargs):
+        """ Check if the ProtocolError exception was raised """
+        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
+
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
         self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
@@ -139,16 +143,6 @@ server: 127.0.0.1:10023
             call = conn.mockGetNamedCalls("notify")[packet_number]
         else:
             call = conn.mockGetNamedCalls("answer")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ERROR)
-
-    def checkCalledNotifyAbort(self, conn, packet_number=0):
-        """Check the abort method has been called and an error packet has been sent"""
-        # sometimes we answer an error, sometimes we just send it
-        self.assertEquals(len(conn.mockGetNamedCalls("notify")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
-        call = conn.mockGetNamedCalls("notify")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ERROR)
@@ -260,8 +254,7 @@ server: 127.0.0.1:10023
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None})
         ptid = self.app.lptid
-        service.handleRequestNodeIdentification(conn, packet, *args)
-        self.checkCalledNotifyAbort(conn)
+        self.checkProtocolErrorRaised(service.handleRequestNodeIdentification, conn, packet, *args)
         self.assertEquals(len(self.app.nm.getStorageNodeList()), 0)
         self.assertEquals(self.app.lptid, ptid)
         
@@ -307,14 +300,15 @@ server: 127.0.0.1:10023
         ptid = self.app.lptid
         new_uuid = self.getNewUUID()
 
-        service.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=STORAGE_NODE_TYPE,
-                                                uuid=new_uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.storage_port,
-                                                name=self.app.name,)
-        self.checkCalledNotifyAbort(conn)
+        self.checkProtocolErrorRaised(
+                service.handleRequestNodeIdentification,
+                conn,
+                packet=packet,
+                node_type=STORAGE_NODE_TYPE,
+                uuid=new_uuid,
+                ip_address='127.0.0.1',
+                port=self.storage_port,
+                name=self.app.name,)
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getServer(), ('127.0.0.1', self.storage_port))
         self.assertEquals(sn.getUUID(), uuid)

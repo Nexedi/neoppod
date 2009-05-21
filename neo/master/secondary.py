@@ -63,9 +63,7 @@ class SecondaryEventHandler(MasterEventHandler):
         app = self.app
         if name != app.name:
             logging.error('reject an alien cluster')
-            conn.answer(protocol.protocolError('invalid cluster name'), packet)
-            conn.abort()
-            return
+            raise protocol.ProtocolError('invalid cluster name')
 
         # Add a node only if it is a master node and I do not know it yet.
         if node_type == MASTER_NODE_TYPE and uuid != INVALID_UUID:

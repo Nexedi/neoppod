@@ -154,9 +154,7 @@ class ServiceEventHandler(MasterEventHandler):
         app = self.app
         if name != app.name:
             logging.error('reject an alien cluster')
-            conn.notify(protocol.protocolError('invalid cluster name'))
-            conn.abort()
-            return
+            raise protocol.ProtocolError('invalid cluster name')
 
         # Here are many situations. In principle, a node should be identified
         # by an UUID, since an UUID never change when moving a storage node
@@ -202,9 +200,7 @@ class ServiceEventHandler(MasterEventHandler):
                             or node_type != MASTER_NODE_TYPE:
                         # Error. This node uses the same server address as
                         # a master node.
-                        conn.notify(protocol.protocolError( 'invalid server address'))
-                        conn.abort()
-                        return
+                        raise protocol.ProtocolError('invalid server address')
 
                     node.setUUID(uuid)
                     if node.getState() != RUNNING_STATE:
@@ -215,23 +211,20 @@ class ServiceEventHandler(MasterEventHandler):
                     # This node has a different UUID.
                     if node.getState() == RUNNING_STATE:
                         # If it is still running, reject this node.
-                        conn.notify(protocol.protocolError('invalid server address'))
-                        conn.abort()
-                        return
-                    else:
-                        # Otherwise, forget the old one.
-                        node.setState(DOWN_STATE)
-                        logging.debug('broadcasting node information')
-                        app.broadcastNodeInformation(node)
-                        app.nm.remove(node)
-                        old_node = node
-                        node = copy(node)
-                        # And insert a new one.
-                        node.setUUID(uuid)
-                        node.setState(RUNNING_STATE)
-                        logging.debug('broadcasting node information')
-                        app.broadcastNodeInformation(node)
-                        app.nm.add(node)
+                        raise protocol.ProtocolError('invalid server address')
+                    # Otherwise, forget the old one.
+                    node.setState(DOWN_STATE)
+                    logging.debug('broadcasting node information')
+                    app.broadcastNodeInformation(node)
+                    app.nm.remove(node)
+                    old_node = node
+                    node = copy(node)
+                    # And insert a new one.
+                    node.setUUID(uuid)
+                    node.setState(RUNNING_STATE)
+                    logging.debug('broadcasting node information')
+                    app.broadcastNodeInformation(node)
+                    app.nm.add(node)
         else:
             # I know this node by the UUID.
             try:
@@ -242,23 +235,20 @@ class ServiceEventHandler(MasterEventHandler):
                 # This node has a different server address.
                 if node.getState() == RUNNING_STATE:
                     # If it is still running, reject this node.
-                    conn.notify(protocol.protocolError('invalid server address')) 
-                    conn.abort()
-                    return
-                else:
-                    # Otherwise, forget the old one.
-                    node.setState(DOWN_STATE)
-                    logging.debug('broadcasting node information')
-                    app.broadcastNodeInformation(node)
-                    app.nm.remove(node)
-                    old_node = node
-                    node = copy(node)
-                    # And insert a new one.
-                    node.setServer(addr)
-                    node.setState(RUNNING_STATE)
-                    logging.debug('broadcasting node information')
-                    app.broadcastNodeInformation(node)
-                    app.nm.add(node)
+                    raise protocol.ProtocolError('invalid server address')
+                # Otherwise, forget the old one.
+                node.setState(DOWN_STATE)
+                logging.debug('broadcasting node information')
+                app.broadcastNodeInformation(node)
+                app.nm.remove(node)
+                old_node = node
+                node = copy(node)
+                # And insert a new one.
+                node.setServer(addr)
+                node.setState(RUNNING_STATE)
+                logging.debug('broadcasting node information')
+                app.broadcastNodeInformation(node)
+                app.nm.add(node)
             else:
                 # If this node is broken, reject it. Otherwise, assume that
                 # it is working again.

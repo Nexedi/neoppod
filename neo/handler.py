@@ -172,6 +172,11 @@ class EventHandler(object):
         conn.answer(protocol.notReady('retry later'), packet)
         conn.abort()
 
+    def protocolError(self, conn, packet, message):
+        """ Called for any other protocol error """
+        conn.answer(protocol.protocolError(message), packet)
+        conn.abort()
+
     def dispatch(self, conn, packet):
         """This is a helper method to handle various packet types."""
         t = packet.getType()
@@ -189,6 +194,8 @@ class EventHandler(object):
             self.brokenNodeDisallowedError(conn, packet, msg)
         except NotReadyError, msg:
             self.notReadyError(conn, packet, msg)
+        except ProtocolError, msg:
+            self.protocolError(self, conn, packet, msg)
 
 
     # Packet handlers.

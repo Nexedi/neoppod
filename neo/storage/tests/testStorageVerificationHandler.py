@@ -127,6 +127,10 @@ server: 127.0.0.1:10020
         return min(ptids), max(ptids)
         ptid = min(ptids)
 
+    def checkProtocolErrorRaised(self, method, *args, **kwargs):
+        """ Check if the ProtocolError exception was raised """
+        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
+
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
         self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
@@ -256,9 +260,9 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.master_port),
                      "isServerConnection" : True})
         p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        self.verification.handleRequestNodeIdentification(conn, p, MASTER_NODE_TYPE,
-                                      uuid, "127.0.0.1", self.client_port, "zatt")
-        self.checkCalledAbort(conn)
+        self.checkProtocolErrorRaised(
+            self.verification.handleRequestNodeIdentification,
+            conn, p, MASTER_NODE_TYPE, uuid, "127.0.0.1", self.client_port, "zatt")
 
         # new node
         uuid = self.getNewUUID()

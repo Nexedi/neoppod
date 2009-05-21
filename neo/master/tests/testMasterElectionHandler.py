@@ -134,6 +134,10 @@ server: 127.0.0.1:10023
         # Delete tmp file
         os.remove(self.tmp_path)
 
+    def checkProtocolErrorRaised(self, method, *args, **kwargs):
+        """ Check if the ProtocolError exception was raised """
+        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
+
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
         self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
@@ -521,14 +525,15 @@ server: 127.0.0.1:10023
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None,
                      "isServerConnection" : True})
-        election.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=MASTER_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.storage_port,
-                                                name="INVALID_NAME",)
-        self.checkCalledAbort(conn)        
+        self.checkProtocolErrorRaised(
+                election.handleRequestNodeIdentification,
+                conn,
+                packet=packet,
+                node_type=MASTER_NODE_TYPE,
+                uuid=uuid,
+                ip_address='127.0.0.1',
+                port=self.storage_port,
+                name="INVALID_NAME",)
         # test connection of a storage node
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None,
                     "isServerConnection" : True})

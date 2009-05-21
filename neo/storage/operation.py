@@ -139,10 +139,7 @@ class OperationEventHandler(StorageEventHandler):
         app = self.app
         if name != app.name:
             logging.error('reject an alien cluster')
-            p = protocol.protocolError('invalid cluster name')
-            conn.answer(p, packet)
-            conn.abort()
-            return
+            raise protocol.ProtocolError('invalid cluster name')
 
         addr = (ip_address, port)
         node = app.nm.getNodeByUUID(uuid)
@@ -319,8 +316,7 @@ class OperationEventHandler(StorageEventHandler):
         # This method is complicated, because I must return TIDs only
         # about usable partitions assigned to me.
         if first >= last:
-            conn.answer(protocol.protocolError( 'invalid offsets'), packet)
-            return
+            raise protocol.ProtocolError('invalid offsets')
 
         app = self.app
 
@@ -342,8 +338,7 @@ class OperationEventHandler(StorageEventHandler):
 
     def handleAskObjectHistory(self, conn, packet, oid, first, last):
         if first >= last:
-            conn.answer(protocol.protocolError( 'invalid offsets'), packet)
-            return
+            raise protocol.ProtocolError( 'invalid offsets')
 
         app = self.app
         history_list = app.dm.getObjectHistory(oid, first, last - first)
@@ -432,8 +427,7 @@ class OperationEventHandler(StorageEventHandler):
         # This method is complicated, because I must return OIDs only
         # about usable partitions assigned to me.
         if first >= last:
-            conn.answer(protocol.protocolError( 'invalid offsets'), packet)
-            return
+            raise protocol.ProtocolError('invalid offsets')
 
         app = self.app
 

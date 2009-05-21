@@ -51,6 +51,10 @@ class StorageOperationTests(unittest.TestCase):
         return min(ptids), max(ptids)
         ptid = min(ptids)
 
+    def checkProtocolErrorRaised(self, method, *args, **kwargs):
+        """ Check if the ProtocolError exception was raised """
+        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
+
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
         self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
@@ -360,7 +364,8 @@ server: 127.0.0.1:10020
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         count = len(self.app.nm.getNodeList())
-        self.operation.handleRequestNodeIdentification(
+        self.checkProtocolErrorRaised(
+            self.operation.handleRequestNodeIdentification,
             conn=conn,
             packet=packet, 
             node_type=MASTER_NODE_TYPE, 
@@ -368,7 +373,6 @@ server: 127.0.0.1:10020
             ip_address='127.0.0.1',
             port=self.master_port, 
             name='INVALID_NAME')
-        self.checkCalledAbort(conn)
         self.assertEquals(len(self.app.nm.getNodeList()), count)
 
     def test_09_handleRequestNodeIdentification3(self):
@@ -803,11 +807,9 @@ server: 127.0.0.1:10020
         app.dm = Mock()
         conn = Mock({})
         packet = Packet(msg_type=ASK_TIDS)
-        self.operation.handleAskTIDs(conn, packet, 1, 1, None)
-        self.checkPacket(conn, packet_type=ERROR)
+        self.checkProtocolErrorRaised(self.operation.handleAskTIDs, conn, packet, 1, 1, None)
         self.assertEquals(len(app.pt.mockGetNamedCalls('getCellList')), 0)
         self.assertEquals(len(app.dm.mockGetNamedCalls('getTIDList')), 0)
-        
 
     def test_25_handleAskTIDs2(self):
         # well case => answer
@@ -848,8 +850,7 @@ server: 127.0.0.1:10020
         app.dm = Mock()
         conn = Mock({})
         packet = Packet(msg_type=ASK_OBJECT_HISTORY)
-        self.operation.handleAskObjectHistory(conn, packet, 1, 1, None)
-        self.checkPacket(conn, packet_type=ERROR)
+        self.checkProtocolErrorRaised(self.operation.handleAskObjectHistory, conn, packet, 1, 1, None)
         self.assertEquals(len(app.dm.mockGetNamedCalls('getObjectHistory')), 0)
 
     def test_26_handleAskObjectHistory2(self):
@@ -1059,8 +1060,7 @@ server: 127.0.0.1:10020
         app.dm = Mock()
         conn = Mock({})
         packet = Packet(msg_type=ASK_OIDS)
-        self.operation.handleAskOIDs(conn, packet, 1, 1, None)
-        self.checkPacket(conn, packet_type=ERROR)
+        self.checkProtocolErrorRaised(self.operation.handleAskOIDs, conn, packet, 1, 1, None)
         self.assertEquals(len(app.pt.mockGetNamedCalls('getCellList')), 0)
         self.assertEquals(len(app.dm.mockGetNamedCalls('getOIDList')), 0)
 

@@ -144,6 +144,10 @@ server: 127.0.0.1:10023
         self.checkCalledAcceptNodeIdentification(conn)
         return uuid
 
+    def checkProtocolErrorRaised(self, method, *args, **kwargs):
+        """ Check if the ProtocolError exception was raised """
+        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
+
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
         self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
@@ -264,14 +268,15 @@ server: 127.0.0.1:10023
         packet = protocol.requestNodeIdentification(*args)
         # test alien cluster
         conn = Mock({"addPacket" : None, "abort" : None})
-        recovery.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=MASTER_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.storage_port,
-                                                name="INVALID_NAME",)
-        self.checkCalledAbort(conn)        
+        self.checkProtocolErrorRaised(
+                recovery.handleRequestNodeIdentification,
+                conn,
+                packet=packet,
+                node_type=MASTER_NODE_TYPE,
+                uuid=uuid,
+                ip_address='127.0.0.1',
+                port=self.storage_port,
+                name="INVALID_NAME",)
         # test connection from a client node, rejectet
         uuid = self.getNewUUID()
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
@@ -295,18 +300,19 @@ server: 127.0.0.1:10023
         self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
         self.assertEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        recovery.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=STORAGE_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.master_port,
-                                                name=self.app.name,)
+        self.checkProtocolErrorRaised(
+                recovery.handleRequestNodeIdentification,
+                conn,
+                packet=packet,
+                node_type=STORAGE_NODE_TYPE,
+                uuid=uuid,
+                ip_address='127.0.0.1',
+                port=self.master_port,
+                name=self.app.name,)
 
         self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
         self.assertEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        self.checkCalledAbort(conn)
 
         # 2. unknown master node with known address, will be accepted
         uuid = self.getNewUUID()
@@ -346,14 +352,15 @@ server: 127.0.0.1:10023
         self.assertEqual(node.getState(), RUNNING_STATE)
         self.assertEqual(node.getUUID(), old_uuid)
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        recovery.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=MASTER_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.master_port,
-                                                name=self.app.name,)
-        self.checkCalledAbort(conn)
+        self.checkProtocolErrorRaised(
+                recovery.handleRequestNodeIdentification,
+                conn,
+                packet=packet,
+                node_type=MASTER_NODE_TYPE,
+                uuid=uuid,
+                ip_address='127.0.0.1',
+                port=self.master_port,
+                name=self.app.name,)
 
         # 4. unknown master node with known address but different uuid and broken state, will be accepted
         uuid = self.getNewUUID()
@@ -429,14 +436,15 @@ server: 127.0.0.1:10023
         self.assertEqual(node.getState(), DOWN_STATE)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
-        recovery.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=MASTER_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.2',
-                                                port=self.master_port,
-                                                name=self.app.name,)
-        self.checkCalledAbort(conn)
+        self.checkProtocolErrorRaised(
+                recovery.handleRequestNodeIdentification,
+                conn,
+                packet=packet,
+                node_type=MASTER_NODE_TYPE,
+                uuid=uuid,
+                ip_address='127.0.0.2',
+                port=self.master_port,
+                name=self.app.name,)
 
         # 7. known node but broken
         conn = Mock({"addPacket" : None,

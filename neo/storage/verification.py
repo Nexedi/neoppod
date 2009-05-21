@@ -72,10 +72,7 @@ class VerificationEventHandler(StorageEventHandler):
             raise protocol.NotReadyError
         if name != app.name:
             logging.error('reject an alien cluster')
-            conn.answer(protocol.protocolError(
-                      'invalid cluster name'), packet)
-            conn.abort()
-            return
+            raise protocol.ProtocolError('invalid cluster name')
 
         addr = (ip_address, port)
         node = app.nm.getNodeByServer(addr)
@@ -137,9 +134,7 @@ class VerificationEventHandler(StorageEventHandler):
                     pass
                 row_list.append((offset, row))
         except IndexError:
-            p = protocol.protocolError( 'invalid partition table offset')
-            conn.answer(p, packer)
-            return
+            raise protocol.ProtocolError('invalid partition table offset')
 
         p = protocol.answerPartitionTable(app.ptid, row_list)
         conn.answer(p, packet)
