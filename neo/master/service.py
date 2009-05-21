@@ -467,10 +467,8 @@ class ServiceEventHandler(MasterEventHandler):
                         node = app.nm.getNodeByUUID(uuid)
                         if node.getNodeType() == CLIENT_NODE_TYPE:
                             if c is t.getConnection():
-                                # TODO: use connection.notify if possible
                                 p = protocol.notifyTransactionFinished(tid)
-                                p.setId(t.getMessageId())
-                                c.addPacket(p)
+                                c.notify(p, t.getMessageId())
                             else:
                                 p = protocol.invalidateObjects(t.getOIDList(), tid)
                                 c.notify(p)

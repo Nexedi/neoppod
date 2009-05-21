@@ -200,7 +200,7 @@ server: 127.0.0.1:10023
 
     def checkCalledNotifyTransactionFinished(self, conn, packet_number=0):
         """ Check notifyTransactionFinished message has been send"""
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("notify")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), NOTIFY_TRANSACTION_FINISHED)
@@ -240,7 +240,7 @@ server: 127.0.0.1:10023
         args = (node_type, uuid, ip, port, self.app.name)
         packet = protocol.requestNodeIdentification(*args)
         # test alien cluster
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         self.service.handleRequestNodeIdentification(conn, packet, *args)
         self.checkCalledAcceptNodeIdentification(conn)
         return uuid
@@ -252,14 +252,14 @@ server: 127.0.0.1:10023
         args = (STORAGE_NODE_TYPE, uuid, '127.0.0.1', self.storage_port, 'INVALID_NAME')
         packet = protocol.requestNodeIdentification(*args)
         # test alien cluster
-        conn = Mock({"addPacket" : None, "abort" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None})
         ptid = self.app.lptid
         self.checkProtocolErrorRaised(service.handleRequestNodeIdentification, conn, packet, *args)
         self.assertEquals(len(self.app.nm.getStorageNodeList()), 0)
         self.assertEquals(self.app.lptid, ptid)
         
         # test connection of a storage node
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         ptid = self.app.lptid
         service.handleRequestNodeIdentification(conn,
                                                 packet=packet,
@@ -277,7 +277,7 @@ server: 127.0.0.1:10023
         self.failUnless(self.app.lptid > ptid)
 
         # send message again for the same storage node, MN must recognize it
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         ptid = self.app.lptid
         service.handleRequestNodeIdentification(conn,
                                                 packet=packet,
@@ -296,7 +296,7 @@ server: 127.0.0.1:10023
         
         # send message again for the same storage node but different uuid
         # must be rejected as SN is considered as running
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         ptid = self.app.lptid
         new_uuid = self.getNewUUID()
 
@@ -318,7 +318,7 @@ server: 127.0.0.1:10023
 
         # same test, but set SN as not running before
         # this new node must replaced the old one
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         ptid = self.app.lptid
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getState(), RUNNING_STATE)
@@ -344,7 +344,7 @@ server: 127.0.0.1:10023
         
         # send message again for the same storage node but different address
         # A new UUID should be send and the node is added to the storage node list
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         ptid = self.app.lptid
         service.handleRequestNodeIdentification(conn,
                                                 packet=packet,
@@ -370,7 +370,7 @@ server: 127.0.0.1:10023
         self.failUnless(self.app.lptid > ptid)        
 
         # mark the node as broken and request identification, this must be forbidden
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         ptid = self.app.lptid
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getState(), RUNNING_STATE)
@@ -400,7 +400,7 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode()
         packet = protocol.askPrimaryMaster()
         # test answer to a storage node
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "answerPrimaryMaster" : None,
                      "notifyNodeInformation" : None,
                      "sendPartitionTable" : None,
@@ -417,7 +417,7 @@ server: 127.0.0.1:10023
         # Same but identify as a client node, must not get start operation message
         uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE, port=11021)
         packet = protocol.askPrimaryMaster()
-        conn = Mock({"addPacket" : None, "abort" : None, "answerPrimaryMaster" : None,
+        conn = Mock({"_addPacket" : None, "abort" : None, "answerPrimaryMaster" : None,
                      "notifyNodeInformation" : None, "sendPartitionTable" : None,
                      "getUUID" : uuid, "getAddress" : ("127.0.0.1", 11021)})
         service.handleAskPrimaryMaster(conn, packet)
@@ -736,7 +736,6 @@ server: 127.0.0.1:10023
         self.assertEquals(len(storage_conn_1.mockGetNamedCalls("notify")), 1)
         self.assertEquals(len(storage_conn_2.mockGetNamedCalls("ask")), 1)
         self.assertEquals(len(storage_conn_2.mockGetNamedCalls("notify")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
         self.checkCalledLockInformation(storage_conn_1)
         self.checkCalledLockInformation(storage_conn_2)
         

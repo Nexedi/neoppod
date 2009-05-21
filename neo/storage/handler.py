@@ -63,8 +63,8 @@ class StorageEventHandler(EventHandler):
             info = n.getServer() + (n.getUUID() or INVALID_UUID,)
             known_master_list.append(info)
 
-        p = protocol.answerPrimaryMaster(packet.getId(), primary_uuid, known_master_list)
-        conn.addPacket(p)
+        p = protocol.answerPrimaryMaster(primary_uuid, known_master_list)
+        conn.answer(p, packet)
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):

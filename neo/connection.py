@@ -153,7 +153,7 @@ class Connection(BaseConnection):
     def setUUID(self, uuid):
         self.uuid = uuid
 
-    def getNextId(self):
+    def _getNextId(self):
         next_id = self.cur_id
         # Deal with an overflow.
         if self.cur_id == 0xffffffff:
@@ -189,7 +189,7 @@ class Connection(BaseConnection):
 
     def writable(self):
         """Called when self is writable."""
-        self.send()
+        self._send()
         if not self.pending():
             if self.aborted:
                 self.close()
@@ -198,7 +198,7 @@ class Connection(BaseConnection):
 
     def readable(self):
         """Called when self is readable."""
-        self.recv()
+        self._recv()
         self.analyse()
 
         if self.aborted:
@@ -237,7 +237,7 @@ class Connection(BaseConnection):
     def pending(self):
         return self.connector is not None and self.write_buf
 
-    def recv(self):
+    def _recv(self):
         """Receive data from a connector."""
         try:
             data = self.connector.receive()
@@ -259,7 +259,7 @@ class Connection(BaseConnection):
             # unhandled connector exception
             raise
 
-    def send(self):
+    def _send(self):
         """Send data to a connector."""
         if not self.write_buf:
             return
@@ -278,7 +278,7 @@ class Connection(BaseConnection):
             # unhandled connector exception
             raise 
 
-    def addPacket(self, packet):
+    def _addPacket(self, packet):
         """Add a packet into the write buffer."""
         if self.connector is None:
             return
@@ -324,23 +324,27 @@ class Connection(BaseConnection):
         self.event_dict[msg_id] = event
         self.em.addIdleEvent(event)
 
-    def notify(self, packet):
-        msg_id = self.getNextId()
+    def notify(self, packet, msg_id=None):
+        """ Then a packet with a new ID """
+        if msg_id is None:
+            msg_id = self._getNextId()
         packet.setId(msg_id)
-        self.addPacket(packet)
+        self._addPacket(packet)
         return msg_id
 
     def ask(self, packet, timeout=5, additional_timeout=30):
-        msg_id = self.getNextId()
+        """ Send a packet with a new ID and register the expectation of an answer """
+        msg_id = self._getNextId()
         packet.setId(msg_id)
         self.expectMessage(msg_id)
-        self.addPacket(packet)
+        self._addPacket(packet)
         return msg_id
 
-    def answer(self, packet, answer_to):
-        msg_id = answer_to.getId()
+    def answer(self, packet, answered_packet):
+        """ Answer to a packet by re-using its ID for the packet answer """
+        msg_id = answered_packet.getId()
         packet.setId(msg_id)
-        self.addPacket(packet)
+        self._addPacket(packet)
 
     def isServerConnection(self):
         raise NotImplementedError
@@ -419,14 +423,6 @@ class MTClientConnection(ClientConnection):
         self.release()
 
     @lockCheckWrapper
-    def recv(self, *args, **kw):
-        return super(MTClientConnection, self).recv(*args, **kw)
-
-    @lockCheckWrapper
-    def send(self, *args, **kw):
-        return super(MTClientConnection, self).send(*args, **kw)
-
-    @lockCheckWrapper
     def writable(self, *args, **kw):
         return super(MTClientConnection, self).writable(*args, **kw)
 
@@ -439,16 +435,20 @@ class MTClientConnection(ClientConnection):
         return super(MTClientConnection, self).analyse(*args, **kw)
 
     @lockCheckWrapper
-    def addPacket(self, *args, **kw):
-        return super(MTClientConnection, self).addPacket(*args, **kw)
-
-    @lockCheckWrapper
-    def getNextId(self, *args, **kw):
-        return super(MTClientConnection, self).getNextId(*args, **kw)
-
-    @lockCheckWrapper
     def expectMessage(self, *args, **kw):
         return super(MTClientConnection, self).expectMessage(*args, **kw)
+
+    @lockCheckWrapper
+    def notify(self, *args, **kw):
+        return super(MTClientConnection, self).notify(*args, **kw)
+
+    @lockCheckWrapper
+    def ask(self, *args, **kw):
+        return super(MTClientConnection, self).ask(*args, **kw)
+
+    @lockCheckWrapper
+    def answer(self, *args, **kw):
+        return super(MTClientConnection, self).answer(*args, **kw)
 
 class MTServerConnection(ServerConnection):
     """A Multithread-safe version of ServerConnection."""
@@ -470,14 +470,6 @@ class MTServerConnection(ServerConnection):
         self.release()
 
     @lockCheckWrapper
-    def recv(self, *args, **kw):
-        return super(MTServerConnection, self).recv(*args, **kw)
-
-    @lockCheckWrapper
-    def send(self, *args, **kw):
-        return super(MTServerConnection, self).send(*args, **kw)
-
-    @lockCheckWrapper
     def writable(self, *args, **kw):
         return super(MTServerConnection, self).writable(*args, **kw)
 
@@ -490,14 +482,18 @@ class MTServerConnection(ServerConnection):
         return super(MTServerConnection, self).analyse(*args, **kw)
 
     @lockCheckWrapper
-    def addPacket(self, *args, **kw):
-        return super(MTServerConnection, self).addPacket(*args, **kw)
-
-    @lockCheckWrapper
-    def getNextId(self, *args, **kw):
-        return super(MTServerConnection, self).getNextId(*args, **kw)
-
-    @lockCheckWrapper
     def expectMessage(self, *args, **kw):
         return super(MTServerConnection, self).expectMessage(*args, **kw)
+
+    @lockCheckWrapper
+    def notify(self, *args, **kw):
+        return super(MTClientConnection, self).notify(*args, **kw)
+
+    @lockCheckWrapper
+    def ask(self, *args, **kw):
+        return super(MTClientConnection, self).ask(*args, **kw)
+
+    @lockCheckWrapper
+    def answer(self, *args, **kw):
+        return super(MTClientConnection, self).answer(*args, **kw)
 
