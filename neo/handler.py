@@ -19,7 +19,7 @@ import logging
 
 from neo import protocol
 from neo.protocol import Packet, PacketMalformedError, UnexpectedPacketError, \
-        BrokenNotDisallowedError, NotReadyError
+        BrokenNotDisallowedError, NotReadyError, ProtocolError
 from neo.connection import ServerConnection
 
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -362,6 +362,7 @@ class EventHandler(object):
 
     # Error packet handlers.
 
+    # XXX: why answer a protocolError to another protocolError ?
     handleNotReady = unexpectedPacket
     handleOidNotFound = unexpectedPacket
     handleSerialNotFound = unexpectedPacket

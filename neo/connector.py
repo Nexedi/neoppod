@@ -105,6 +105,8 @@ class SocketConnector:
     except socket.error, (err, errmsg):
       if err == errno.EAGAIN:
         raise ConnectorTryAgainException
+      if err == errno.ECONNRESET:
+          raise ConnectorConnectionClosedException
       raise ConnectorException, 'send failed: %s:%s' % (err, errmsg) 
 
   def close(self):
@@ -115,5 +117,6 @@ registerConnectorHandler(SocketConnector)
 class ConnectorException(Exception): pass
 class ConnectorTryAgainException(ConnectorException): pass
 class ConnectorInProgressException(ConnectorException): pass  
+class ConnectorConnectionClosedException(ConnectorException): pass
 class ConnectorConnectionRefusedException(ConnectorException): pass
 

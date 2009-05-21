@@ -24,7 +24,8 @@ from neo import protocol
 from neo.protocol import Packet, PacketMalformedError
 from neo.event import IdleEvent
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
-        ConnectorInProgressException, ConnectorConnectionRefusedException
+        ConnectorInProgressException, ConnectorConnectionRefusedException, \
+        ConnectorConnectionClosedException
 from neo.util import dump
 from neo.exception import OperationFailure
 
@@ -272,10 +273,14 @@ class Connection(BaseConnection):
             self.write_buf = self.write_buf[n:]
         except ConnectorTryAgainException:
             pass
-        except ConnectorException:
+        except ConnectorConnectionClosedException:
+            # connection resetted by peer
             self.handler.connectionClosed(self)
             self.close()
+        except ConnectorException:
             # unhandled connector exception
+            self.handler.connectionClosed(self)
+            self.close()
             raise 
 
     def _addPacket(self, packet):
