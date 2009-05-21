@@ -34,7 +34,7 @@ from neo.protocol import *
 SQL_ADMIN_USER = 'root'
 SQL_ADMIN_PASSWORD = None
 NEO_SQL_USER = 'test'
-NEO_SQL_DATABASE = 'test_neo1'
+NEO_SQL_DATABASE = 'test_storage_neo1'
 
 class StorageOperationTests(unittest.TestCase):
 
