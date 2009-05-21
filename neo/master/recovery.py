@@ -69,9 +69,7 @@ class RecoveryEventHandler(MasterEventHandler):
         app = self.app
         if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
             logging.info('reject a connection from a client')
-            conn.answer(protocol.notReady('retry later'), packet)
-            conn.abort()
-            return
+            raise protocol.NotReadyError
         if name != app.name:
             logging.error('reject an alien cluster')
             conn.answer(protocol.protocolError('invalid cluster name'), packet)

@@ -63,6 +63,10 @@ class StorageOperationTests(unittest.TestCase):
         """ Check if the BrokenNotDisallowedError exception wxas raised """
         self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
 
+    def checkNotReadyErrorRaised(self, method, *args, **kwargs):
+        """ Check if the NotReadyError exception wxas raised """
+        self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
+
     def checkCalledAbort(self, conn, packet_number=0):
         """Check the abort method has been called and an error packet has been sent"""
         # sometimes we answer an error, sometimes we just send it
@@ -397,7 +401,8 @@ server: 127.0.0.1:10020
             "getAddress" : ("127.0.0.1", self.master_port), 
         })
         count = len(self.app.nm.getNodeList())
-        self.operation.handleRequestNodeIdentification(
+        self.checkNotReadyErrorRaised(
+            self.operation.handleRequestNodeIdentification,
             conn=conn,
             uuid=self.getNewUUID(),
             packet=packet, 
@@ -405,7 +410,6 @@ server: 127.0.0.1:10020
             node_type=STORAGE_NODE_TYPE,
             ip_address='192.168.1.1',
             name=self.app.name,)
-        self.checkCalledAbort(conn)
         self.assertEquals(len(self.app.nm.getNodeList()), count)
 
     def test_09_handleRequestNodeIdentification5(self):

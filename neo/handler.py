@@ -143,7 +143,11 @@ class EventHandler(object):
             logging.info('malformed packet from %s:%d: %s', *args)
         else:
             logging.info('malformed packet %s from %s:%d: %s', packet.getType(), *args)
-        conn.notify(protocol.protocolError(error_message))
+        response = protocol.protocolError(error_message)
+        if packet is not None:
+            conn.answer(response, packet)
+        else:
+            conn.notify(response)
         conn.abort()
         self.peerBroken(conn)
 
@@ -154,13 +158,18 @@ class EventHandler(object):
         else:
             message = 'unexpected packet: %s' % message
         logging.info('%s', message)
-        conn.notify(protocol.protocolError(message))
+        conn.answer(protocol.protocolError(message), packet)
         conn.abort()
         self.peerBroken(conn)
 
     def brokenNodeDisallowedError(conn, packet, message=None):
         """ Called when a broken node send packets """
-        conn.notify(protocol.brokenNodeDisallowedError('go away'))
+        conn.answer(protocol.brokenNodeDisallowedError('go away'), packet)
+        conn.abort()
+
+    def notReadyError(self, conn, packet, message=None):
+        """ Called when the node is not ready """
+        conn.answer(protocol.notReady('retry later'), packet)
         conn.abort()
 
     def dispatch(self, conn, packet):
@@ -178,6 +187,8 @@ class EventHandler(object):
             self.packetMalformed(conn, packet, msg)
         except BrokenNotDisallowedError, msg:
             self.brokenNodeDisallowedError(conn, packet, msg)
+        except NotReadyError, msg:
+            self.notReadyError(conn, packet, msg)
 
 
     # Packet handlers.

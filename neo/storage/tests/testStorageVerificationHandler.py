@@ -139,6 +139,10 @@ server: 127.0.0.1:10020
         """ Check if the BrokenNotDisallowedError exception wxas raised """
         self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
 
+    def checkNotReadyErrorRaised(self, method, *args, **kwargs):
+        """ Check if the NotReadyError exception wxas raised """
+        self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
+
     def checkCalledAbort(self, conn, packet_number=0):
         """Check the abort method has been called and an error packet has been sent"""
         # sometimes we answer an error, sometimes we just notify it
@@ -230,9 +234,10 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
         p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        self.verification.handleRequestNodeIdentification(conn, p, CLIENT_NODE_TYPE,
-                                      uuid, "127.0.0.1", self.client_port, "zatt")
-        self.checkCalledAbort(conn)
+        self.checkNotReadyErrorRaised(
+                self.verification.handleRequestNodeIdentification,
+                conn, p, CLIENT_NODE_TYPE,
+                uuid, "127.0.0.1", self.client_port, "zatt")
 
         # not a master node
         uuid = self.getNewUUID()
@@ -240,9 +245,10 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : True})
         p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        self.verification.handleRequestNodeIdentification(conn, p, CLIENT_NODE_TYPE,
-                                      uuid, "127.0.0.1", self.client_port, "zatt")
-        self.checkCalledAbort(conn)
+        self.checkNotReadyErrorRaised(
+                self.verification.handleRequestNodeIdentification,
+                conn, p, CLIENT_NODE_TYPE,
+                uuid, "127.0.0.1", self.client_port, "zatt")
 
         # bad name
         uuid = self.getNewUUID()

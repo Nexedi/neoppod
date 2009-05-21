@@ -147,18 +147,15 @@ class OperationEventHandler(StorageEventHandler):
         addr = (ip_address, port)
         node = app.nm.getNodeByUUID(uuid)
         if node is None:
-            if node_type == MASTER_NODE_TYPE:
-                node = app.nm.getNodeByServer(addr)
-                if node is None:
-                    node = MasterNode(server = addr, uuid = uuid)
-                    app.nm.add(node)
-            else:
+            if node_type != MASTER_NODE_TYPE:
                 # If I do not know such a node, and it is not even a master
                 # node, simply reject it.
                 logging.error('reject an unknown node %s', dump(uuid))
-                conn.answer(protocol.notReady('unknown node'), packet)
-                conn.abort()
-                return
+                raise protocol.NotReadyError
+            node = app.nm.getNodeByServer(addr)
+            if node is None:
+                node = MasterNode(server = addr, uuid = uuid)
+                app.nm.add(node)
         else:
             # If this node is broken, reject it.
             if node.getUUID() == uuid:

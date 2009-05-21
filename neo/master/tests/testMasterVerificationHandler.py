@@ -135,6 +135,10 @@ server: 127.0.0.1:10023
         """ Check if the BrokenNotDisallowedError exception wxas raised """
         self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
 
+    def checkNotReadyErrorRaised(self, method, *args, **kwargs):
+        """ Check if the NotReadyError exception wxas raised """
+        self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
+
     def checkCalledAcceptNodeIdentification(self, conn, packet_number=0):
         """ Check Accept Node Identification has been send"""
         self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
@@ -294,14 +298,15 @@ server: 127.0.0.1:10023
         # test connection from a client node, rejectet
         uuid = self.getNewUUID()
         conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
-        verification.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=CLIENT_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.client_port,
-                                                name=self.app.name,)
-        self.checkCalledAbort(conn)
+        self.checkNotReadyErrorRaised(
+                verification.handleRequestNodeIdentification,
+                conn,
+                packet=packet,
+                node_type=CLIENT_NODE_TYPE,
+                uuid=uuid,
+                ip_address='127.0.0.1',
+                port=self.client_port,
+                name=self.app.name,)
 
         # 1. unknown storage node with known address, must be rejected
         uuid = self.getNewUUID()

@@ -175,9 +175,7 @@ class ElectionEventHandler(MasterEventHandler):
         app = self.app
         if node_type != MASTER_NODE_TYPE:
             logging.info('reject a connection from a non-master')
-            conn.answer(protocol.notReady('retry later'), packet)
-            conn.abort()
-            return
+            raise protocol.NotReadyError
         if name != app.name:
             logging.error('reject an alien cluster')
             conn.answer(protocol.protocolError('invalid cluster name'), packet)

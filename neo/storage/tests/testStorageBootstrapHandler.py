@@ -122,6 +122,10 @@ server: 127.0.0.1:10020
         """ Check if the BrokenNotDisallowedError exception wxas raised """
         self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
 
+    def checkNotReadyErrorRaised(self, method, *args, **kwargs):
+        """ Check if the NotReadyError exception wxas raised """
+        self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
+
     # Method to test the kind of packet returned in answer
     def checkCalledRequestNodeIdentification(self, conn, packet_number=0):
         """ Check Request Node Identification has been send"""
@@ -305,7 +309,8 @@ server: 127.0.0.1:10020
         packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isServerConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
-        self.bootstrap.handleRequestNodeIdentification(
+        self.checkNotReadyErrorRaised(
+            self.bootstrap.handleRequestNodeIdentification,
             conn=conn,
             uuid=self.getNewUUID(),
             packet=packet, 
@@ -313,7 +318,6 @@ server: 127.0.0.1:10020
             node_type=STORAGE_NODE_TYPE,
             ip_address='127.0.0.1',
             name=self.app.name,)
-        self.checkCalledAbort(conn)
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
 
     def test_08_handleRequestNodeIdentification3(self):
