@@ -163,7 +163,7 @@ server: 127.0.0.1:10023
                                                 ip_address=ip,
                                                 port=port,
                                                 name=self.app.name,)
-        self.checkAcceptNodeIdentification(conn, packet)
+        self.checkAcceptNodeIdentification(conn, answered_packet=packet)
         return uuid
 
     # Method to test the kind of packet returned in answer
@@ -521,7 +521,7 @@ server: 127.0.0.1:10023
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkAcceptNodeIdentification(conn, packet)
+        self.checkAcceptNodeIdentification(conn, answered_packet=packet)
         # unknown node
         conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None,
                     "isServerConnection" : True})
@@ -537,7 +537,7 @@ server: 127.0.0.1:10023
                                                 port=self.master_port+1,
                                                 name=self.app.name,)
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
-        self.checkAcceptNodeIdentification(conn, packet)
+        self.checkAcceptNodeIdentification(conn, answered_packet=packet)
         self.assertEqual(len(self.app.unconnected_master_node_set), 2)
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
         # broken node

@@ -18,13 +18,14 @@
 import unittest, logging, os
 from tempfile import mkstemp
 from mock import Mock
+from neo.tests.base import NeoTestBase
 from neo.master.app import Application
 from neo.protocol import INVALID_PTID, INVALID_OID, INVALID_TID, \
      INVALID_UUID, Packet, NOTIFY_NODE_INFORMATION
 from neo.node import MasterNode, ClientNode, StorageNode
 from neo.storage.mysqldb import p64, u64
 
-class MasterAppTests(unittest.TestCase):
+class MasterAppTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.WARNING)
@@ -80,18 +81,6 @@ server: 127.0.0.1:10023
     def tearDown(self):
         # Delete tmp file
         os.remove(self.tmp_path)
-
-    def getNewUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
-
-    def checkNoPacketSent(self, conn):
-        self.assertEquals(len(conn.mockGetNamedCalls('notify')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('answer')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 0)
 
     def test_01_getNextPartitionTableID(self):
       # must raise as we don"t have one
@@ -166,16 +155,8 @@ server: 127.0.0.1:10023
       self.app.broadcastNodeInformation(c_node)
       # check conn
       self.checkNoPacketSent(client_conn)
-      self.assertEquals(len(master_conn.mockGetNamedCalls("notify")), 1)
-      call = master_conn.mockGetNamedCalls("notify")[0]
-      packet = call.getParam(0)
-      self.assertTrue(isinstance(packet, Packet))
-      self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
-      self.assertEquals(len(storage_conn.mockGetNamedCalls("notify")), 1)
-      call = storage_conn.mockGetNamedCalls("notify")[0]
-      packet = call.getParam(0)
-      self.assertTrue(isinstance(packet, Packet))
-      self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
+      self.checkNotifyNodeInformation(master_conn)
+      self.checkNotifyNodeInformation(storage_conn)
 
       # address defined and client type
       master_conn = Mock({"getUUID" : master_uuid})
@@ -186,16 +167,8 @@ server: 127.0.0.1:10023
       self.app.broadcastNodeInformation(c_node)
       # check conn
       self.checkNoPacketSent(client_conn)
-      self.assertEquals(len(master_conn.mockGetNamedCalls("notify")), 1)
-      call = master_conn.mockGetNamedCalls("notify")[0]
-      packet = call.getParam(0)
-      self.assertTrue(isinstance(packet, Packet))
-      self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
-      self.assertEquals(len(storage_conn.mockGetNamedCalls("notify")), 1)
-      call = storage_conn.mockGetNamedCalls("notify")[0]
-      packet = call.getParam(0)
-      self.assertTrue(isinstance(packet, Packet))
-      self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
+      self.checkNotifyNodeInformation(master_conn)
+      self.checkNotifyNodeInformation(storage_conn)
       
       # address defined and storage type
       master_conn = Mock({"getUUID" : master_uuid})
@@ -205,21 +178,9 @@ server: 127.0.0.1:10023
       s_node = StorageNode(uuid = self.getNewUUID(), server=("127.0.0.1", 1351))
       self.app.broadcastNodeInformation(s_node)
       # check conn
-      self.assertEquals(len(client_conn.mockGetNamedCalls("notify")), 1)
-      call = client_conn.mockGetNamedCalls("notify")[0]
-      packet = call.getParam(0)
-      self.assertTrue(isinstance(packet, Packet))
-      self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
-      self.assertEquals(len(master_conn.mockGetNamedCalls("notify")), 1)
-      call = master_conn.mockGetNamedCalls("notify")[0]
-      packet = call.getParam(0)
-      self.assertTrue(isinstance(packet, Packet))
-      self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
-      self.assertEquals(len(storage_conn.mockGetNamedCalls("notify")), 1)
-      call = storage_conn.mockGetNamedCalls("notify")[0]
-      packet = call.getParam(0)
-      self.assertTrue(isinstance(packet, Packet))
-      self.assertEqual(packet.getType(), NOTIFY_NODE_INFORMATION)
+      self.checkNotifyNodeInformation(client_conn)
+      self.checkNotifyNodeInformation(master_conn)
+      self.checkNotifyNodeInformation(storage_conn)
 
 
 if __name__ == '__main__':

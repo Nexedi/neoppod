@@ -39,14 +39,6 @@ NEO_SQL_DATABASE = 'test_storage_neo1'
 
 class StorageOperationTests(NeoTestBase):
 
-    # TODO: move this check to base class and rename as checkAnswerPacket
-    def checkPacket(self, conn, packet_type=ERROR):
-        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), packet_type)
-
     def checkHandleUnexpectedPacket(self, _call, _msg_type, _listening=True, **kwargs):
         conn = Mock({ 
             "getAddress" : ("127.0.0.1", self.master_port), 
@@ -387,13 +379,9 @@ server: 127.0.0.1:10020
         n = self.app.nm.getNodeByServer(('192.168.1.1', self.master_port))
         self.assertNotEquals(n, None)
         self.assertEquals(n.getUUID(), uuid)
-        self.checkPacket(conn, packet_type=ACCEPT_NODE_IDENTIFICATION)
-        # uuid
-        self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
-        call = conn.mockGetNamedCalls("setUUID")[0]
-        self.assertEquals(call.getParam(0), uuid)
-        # abort
-        self.assertEquals(len(conn.mockGetNamedCalls('abort')), 1)
+        self.checkAcceptNodeIdentification(conn)
+        self.checkUUIDSet(conn, uuid)
+        self.checkAborted(conn)
 
     def test_09_handleRequestNodeIdentification6(self):
         # not new & accepted
@@ -416,14 +404,10 @@ server: 127.0.0.1:10020
             name=self.app.name,)
         # no new node
         self.assertEquals(len(self.app.nm.getNodeList()), count)
-        self.checkPacket(conn, packet_type=ACCEPT_NODE_IDENTIFICATION)
-        # uuid
-        self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
-        call = conn.mockGetNamedCalls("setUUID")[0]
-        self.assertEquals(call.getParam(0), self.uuid)
         self.assertEquals(mn.getUUID(), self.uuid)
-        # abort
-        self.assertEquals(len(conn.mockGetNamedCalls('abort')), 0)
+        self.checkAcceptNodeIdentification(conn)
+        self.checkUUIDSet(conn, uuid)
+        self.checkNotAborted(conn)
 
     def test_10_handleAcceptNodeIdentification1(self):
         # client connection not implemented
@@ -605,7 +589,7 @@ server: 127.0.0.1:10020
         conn = Mock({ })
         packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.operation.handleAskTransactionInformation(conn, packet, INVALID_TID)
-        self.checkPacket(conn, packet_type=ERROR)
+        self.checkErrorPacket(conn)
 
     def test_18_handleAskTransactionInformation2(self):
         # answer
@@ -614,7 +598,7 @@ server: 127.0.0.1:10020
         dm = Mock({ "getTransaction": (INVALID_TID, 'user', 'desc', '', ), })
         self.app.dm = dm
         self.operation.handleAskTransactionInformation(conn, packet, INVALID_TID)
-        self.checkPacket(conn, packet_type=ANSWER_TRANSACTION_INFORMATION)
+        self.checkAnswerTransactionInformation(conn)
 
     def test_19_handleAskObjectPresent(self):
         # unexpected packet
@@ -663,12 +647,12 @@ server: 127.0.0.1:10020
         self.assertEquals(self.app.load_lock_dict[0], INVALID_TID)
         calls = self.app.dm.mockGetNamedCalls('storeTransaction')
         self.assertEquals(len(calls), 1)
-        self.checkPacket(conn, packet_type=NOTIFY_INFORMATION_LOCKED)
+        self.checkNotifyInformationLocked(conn, answered_packet=packet)
         # transaction not in transaction_dict -> KeyError
         transaction = Mock({ 'getObjectList': ((0, ), ), })
         conn = Mock({ 'isServerConnection': False, })
         self.operation.handleLockInformation(conn, packet, '\x01' * 8)
-        self.checkPacket(conn, packet_type=NOTIFY_INFORMATION_LOCKED)
+        self.checkNotifyInformationLocked(conn, answered_packet=packet)
 
     def test_23_handleUnlockInformation1(self):
         # reject server connection
@@ -701,7 +685,7 @@ server: 127.0.0.1:10020
         transaction = Mock({ 'getObjectList': ((0, ), ), })
         conn = Mock({ 'isServerConnection': False, })
         self.operation.handleLockInformation(conn, packet, '\x01' * 8)
-        self.checkPacket(conn, packet_type=NOTIFY_INFORMATION_LOCKED)
+        self.checkNotifyInformationLocked(conn, answered_packet=packet)
 
     def test_24_handleAskObject1(self):
         # delayed response
@@ -734,7 +718,7 @@ server: 127.0.0.1:10020
         self.assertEquals(calls[0].getParam(0), INVALID_OID)
         self.assertEquals(calls[0].getParam(1), None)
         self.assertEquals(calls[0].getParam(2), None)
-        self.checkPacket(conn, packet_type=ERROR)
+        self.checkErrorPacket(conn)
 
     def test_24_handleAskObject3(self):
         # object found => answer
@@ -747,7 +731,7 @@ server: 127.0.0.1:10020
             serial=INVALID_SERIAL, 
             tid=INVALID_TID)
         self.assertEquals(len(self.app.event_queue), 0)
-        self.checkPacket(conn, packet_type=ANSWER_OBJECT)
+        self.checkAnswerObject(conn)
 
     def test_25_handleAskTIDs1(self):
         # invalid offsets => error
@@ -773,7 +757,7 @@ server: 127.0.0.1:10020
         self.assertEquals(calls[0].getParam(1), 1)
         self.assertEquals(calls[0].getParam(2), 1)
         self.assertEquals(calls[0].getParam(3), [1, ])
-        self.checkPacket(conn, packet_type=ANSWER_TIDS)
+        self.checkAnswerTids(conn)
 
     def test_25_handleAskTIDs3(self):
         # invalid partition => answer usable partitions
@@ -791,7 +775,7 @@ server: 127.0.0.1:10020
         self.assertEquals(calls[0].getParam(1), 1)
         self.assertEquals(calls[0].getParam(2), 1)
         self.assertEquals(calls[0].getParam(3), [0, ])
-        self.checkPacket(conn, packet_type=ANSWER_TIDS)
+        self.checkAnswerTids(conn)
 
     def test_26_handleAskObjectHistory1(self):
         # invalid offsets => error
@@ -808,12 +792,12 @@ server: 127.0.0.1:10020
         conn = Mock({})
         self.app.dm = Mock({'getObjectHistory': None})
         self.operation.handleAskObjectHistory(conn, packet, INVALID_OID, 1, 2)
-        self.checkPacket(conn, packet_type=ANSWER_OBJECT_HISTORY)
+        self.checkAnswerObjectHistory(conn)
         # second case: not empty history
         conn = Mock({})
         self.app.dm = Mock({'getObjectHistory': [('', 0, ), ]})
         self.operation.handleAskObjectHistory(conn, packet, INVALID_OID, 1, 2)
-        self.checkPacket(conn, packet_type=ANSWER_OBJECT_HISTORY)
+        self.checkAnswerObjectHistory(conn)
 
     def test_27_handleAskStoreTransaction1(self):
         # no uuid => abort
@@ -840,7 +824,7 @@ server: 127.0.0.1:10020
         self.assertNotEquals(t, None)
         self.assertTrue(isinstance(t, TransactionInformation))
         self.assertEquals(t.getTransaction(), ((), '', '', ''))
-        self.checkPacket(conn, packet_type=ANSWER_STORE_TRANSACTION)
+        self.checkAnswerStoreTransaction(conn)
 
     def test_28_handleAskStoreObject1(self):
         # no uuid => abort
@@ -892,7 +876,7 @@ server: 127.0.0.1:10020
         self.app.store_lock_dict[INVALID_OID] = tid2
         self.operation.handleAskStoreObject(conn, packet, INVALID_OID, 
             INVALID_SERIAL, 0, 0, '', tid1)
-        self.checkPacket(conn, packet_type=ANSWER_STORE_OBJECT)
+        self.checkAnswerStoreObject(conn)
         self.assertEquals(self.app.store_lock_dict[INVALID_OID], tid2)
         # conflicting
         packet = conn.mockGetNamedCalls('answer')[0].getParam(0)
@@ -906,7 +890,7 @@ server: 127.0.0.1:10020
         self.assertEquals(self.app.store_lock_dict.get(INVALID_OID, None), None)
         self.operation.handleAskStoreObject(conn, packet, INVALID_OID, 
             INVALID_SERIAL, 0, 0, '', INVALID_TID)
-        self.checkPacket(conn, packet_type=ANSWER_STORE_OBJECT)
+        self.checkAnswerStoreObject(conn)
         self.assertEquals(self.app.store_lock_dict.get(INVALID_OID, None), None)
         # conflicting
         packet = conn.mockGetNamedCalls('answer')[0].getParam(0)
@@ -923,9 +907,8 @@ server: 127.0.0.1:10020
         self.assertEquals(len(t.getObjectList()), 1)
         object = t.getObjectList()[0]
         self.assertEquals(object, (INVALID_OID, 0, 0, ''))
-        self.checkPacket(conn, packet_type=ANSWER_STORE_OBJECT)
         # no conflict
-        packet = conn.mockGetNamedCalls('answer')[0].getParam(0)
+        packet = self.checkAnswerStoreObject(conn)
         self.assertFalse(unpack('!B8s8s', packet._body)[0])
 
     def test_29_handleAbortTransaction(self):
@@ -1026,7 +1009,7 @@ server: 127.0.0.1:10020
         self.assertEquals(calls[0].getParam(1), 1)
         self.assertEquals(calls[0].getParam(2), 1)
         self.assertEquals(calls[0].getParam(3), [1, ])
-        self.checkPacket(conn, packet_type=ANSWER_OIDS)
+        self.checkAnswerOids(conn)
 
     def test_25_handleAskOIDs3(self):
         # invalid partition => answer usable partitions
@@ -1044,7 +1027,7 @@ server: 127.0.0.1:10020
         self.assertEquals(calls[0].getParam(1), 1)
         self.assertEquals(calls[0].getParam(2), 1)
         self.assertEquals(calls[0].getParam(3), [0, ])
-        self.checkPacket(conn, packet_type=ANSWER_OIDS)
+        self.checkAnswerOids(conn)
 
 
 if __name__ == "__main__":

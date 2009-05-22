@@ -229,12 +229,8 @@ server: 127.0.0.1:10020
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
-        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
-        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
+        self.checkAcceptNodeIdentification(conn)
+        self.checkAborted(conn)
         
         # notify a node declared as broken
         conn = Mock({"getUUID" : uuid,
@@ -262,13 +258,8 @@ server: 127.0.0.1:10020
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
-        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
-        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
-
+        self.checkAcceptNodeIdentification(conn)
+        self.checkAborted(conn)
 
     def test_06_handleAcceptNodeIdentification(self):
         uuid = self.getNewUUID()
@@ -318,11 +309,7 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : False})
         self.verification.handleAskLastIDs(conn, packet)
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_LAST_IDS)
-        oid, tid, ptid = packet.decode()
+        oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
         self.assertEqual(oid, INVALID_OID)
         self.assertEqual(tid, INVALID_TID)
         self.assertEqual(ptid, self.app.ptid)
@@ -353,11 +340,8 @@ server: 127.0.0.1:10020
                 checksum, value) values (0, 4, 0, 0, '')""")
         self.app.dm.commit()
         self.verification.handleAskLastIDs(conn, packet)
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_LAST_IDS)
-        oid, tid, ptid = packet.decode()
+        self.checkAnswerLastIDs(conn)
+        oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
         self.assertEqual(u64(oid), 5)
         self.assertEqual(u64(tid), 4)
         self.assertEqual(ptid, self.app.ptid)
@@ -379,11 +363,7 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : False})
         self.verification.handleAskPartitionTable(conn, packet, [1,])
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_PARTITION_TABLE)
-        ptid, row_list = packet.decode()
+        ptid, row_list = self.checkAnswerPartitionTable(conn, decode=True)
         self.assertEqual(len(row_list), 1)
         offset, rows = row_list[0]
         self.assertEqual(offset, 1)
@@ -397,11 +377,7 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServerConnection" : False})
         self.verification.handleAskPartitionTable(conn, packet, [1,])
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_PARTITION_TABLE)
-        ptid, row_list = packet.decode()
+        ptid, row_list = self.checkAnswerPartitionTable(conn, decode=True)
         self.assertEqual(len(row_list), 1)
         offset, rows = row_list[0]
         self.assertEqual(offset, 1)
@@ -527,11 +503,7 @@ server: 127.0.0.1:10020
                       'isServerConnection': False})
         packet = Packet(msg_type=ASK_UNFINISHED_TRANSACTIONS)
         self.verification.handleAskUnfinishedTransactions(conn, packet)
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_UNFINISHED_TRANSACTIONS)
-        tid_list = packet.decode()[0]        
+        (tid_list, ) = self.checkAnswerUnfinishedTransactions(conn, decode=True)
         self.assertEqual(len(tid_list), 0)
 
         # client connection with some data
@@ -543,11 +515,7 @@ server: 127.0.0.1:10020
                       'isServerConnection': False})
         packet = Packet(msg_type=ASK_UNFINISHED_TRANSACTIONS)
         self.verification.handleAskUnfinishedTransactions(conn, packet)
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_UNFINISHED_TRANSACTIONS)
-        tid_list = packet.decode()[0]        
+        (tid_list, ) = self.checkAnswerUnfinishedTransactions(conn, decode=True)
         self.assertEqual(len(tid_list), 1)
         self.assertEqual(u64(tid_list[0]), 4)
 
@@ -557,22 +525,14 @@ server: 127.0.0.1:10020
                       'isServerConnection': True })
         packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(1))
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ERROR)
-        code, message = packet.decode()     
+        code, message = self.checkErrorPacket(conn, decode=True)
         self.assertEqual(code, TID_NOT_FOUND_CODE)
         # ask from client conn with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
         packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(1))
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ERROR)
-        code, message = packet.decode()     
+        code, message = self.checkErrorPacket(conn, decode=True)
         self.assertEqual(code, TID_NOT_FOUND_CODE)
 
         # input some tmp data and ask from client, must find both transaction
@@ -587,11 +547,7 @@ server: 127.0.0.1:10020
                       'isServerConnection': False })
         packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(1))
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_TRANSACTION_INFORMATION)
-        tid, user, desc, ext, oid_list = packet.decode()
+        tid, user, desc, ext, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
         self.assertEqual(u64(tid), 1)
         self.assertEqual(user, 'u2')
         self.assertEqual(desc, 'd2')
@@ -603,11 +559,7 @@ server: 127.0.0.1:10020
                       'isServerConnection': False })
         packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(3))
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_TRANSACTION_INFORMATION)
-        tid, user, desc, ext, oid_list = packet.decode()
+        tid, user, desc, ext, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
         self.assertEqual(u64(tid), 3)
         self.assertEqual(user, 'u1')
         self.assertEqual(desc, 'd1')
@@ -621,11 +573,7 @@ server: 127.0.0.1:10020
         # find the one in trans
         packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(1))
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_TRANSACTION_INFORMATION)
-        tid, user, desc, ext, oid_list = packet.decode()
+        tid, user, desc, ext, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
         self.assertEqual(u64(tid), 1)
         self.assertEqual(user, 'u2')
         self.assertEqual(desc, 'd2')
@@ -637,11 +585,7 @@ server: 127.0.0.1:10020
                       'isServerConnection': True })
         packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(3))
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ERROR)
-        code, message = packet.decode()     
+        code, message = self.checkErrorPacket(conn, decode=True)     
         self.assertEqual(code, TID_NOT_FOUND_CODE)
 
     def test_15_handleAskObjectPresent(self):
@@ -655,11 +599,7 @@ server: 127.0.0.1:10020
                       'isServerConnection': False})
         packet = Packet(msg_type=ASK_OBJECT_PRESENT)
         self.verification.handleAskObjectPresent(conn, packet, p64(1), p64(2))
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ERROR)
-        code, message = packet.decode()     
+        code, message = self.checkErrorPacket(conn, decode=True)
         self.assertEqual(code, OID_NOT_FOUND_CODE)
 
         # client connection with some data
@@ -671,11 +611,7 @@ server: 127.0.0.1:10020
                       'isServerConnection': False})
         packet = Packet(msg_type=ASK_OBJECT_PRESENT)
         self.verification.handleAskObjectPresent(conn, packet, p64(1), p64(2))
-        call = conn.mockGetNamedCalls("answer")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_OBJECT_PRESENT)
-        oid, tid = packet.decode()
+        oid, tid = self.checkAnswerObjectPresent(conn, decode=True)
         self.assertEqual(u64(tid), 2)
         self.assertEqual(u64(oid), 1)
 
