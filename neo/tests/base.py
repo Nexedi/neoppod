@@ -179,6 +179,21 @@ class NeoTestBase(unittest.TestCase):
     def checkAskObjectPresent(self, conn, **kw):
         return self.checkAskPacket(conn, protocol.ASK_OBJECT_PRESENT, **kw)
 
+    def checkAskObject(self, conn, **kw):
+        return self.checkAskPacket(conn, protocol.ASK_OBJECT, **kw)
+
+    def checkAskStoreObject(self, conn, **kw):
+        return self.checkAskPacket(conn, protocol.ASK_STORE_OBJECT, **kw)
+
+    def checkAskStoreTransaction(self, conn, **kw):
+        return self.checkAskPacket(conn, protocol.ASK_STORE_TRANSACTION, **kw)
+
+    def checkFinishTransaction(self, conn, **kw):
+        return self.checkAskPacket(conn, protocol.FINISH_TRANSACTION, **kw)
+
+    def checkAskNewTid(self, conn, **kw):
+        return self.checkAskPacket(conn, protocol.ASK_NEW_TID, **kw)
+
     def checkAcceptNodeIdentification(self, conn, **kw):
         return self.checkAnswerPacket(conn, protocol.ACCEPT_NODE_IDENTIFICATION, **kw)
 

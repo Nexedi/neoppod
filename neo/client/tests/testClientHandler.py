@@ -20,6 +20,7 @@ import unittest
 import logging
 import threading
 from mock import Mock, ReturnValues
+from neo.tests.base import NeoTestBase
 from neo import protocol
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -51,7 +52,7 @@ from neo.util import dump
 
 MARKER = []
 
-class BaseClientEventHandlerTest(unittest.TestCase):
+class BaseClientEventHandlerTest(NeoTestBase):
 
     def setUp(self):
         dispatcher = Mock({'getQueue': queue, 'connectToPrimaryMasterNode': None})
@@ -59,7 +60,7 @@ class BaseClientEventHandlerTest(unittest.TestCase):
 
     def getConnection(self, uuid=None, port=10010, next_id=None, ip='127.0.0.1'):
         if uuid is None:
-            uuid = self.getUUID()
+            uuid = self.getNewUUID()
         return Mock({'_addPacket': None,
                      'getUUID': uuid,
                      'getAddress': (ip, port),
@@ -68,7 +69,7 @@ class BaseClientEventHandlerTest(unittest.TestCase):
                      'unlock': None})
 
 
-class ClientEventHandlerTest(unittest.TestCase):
+class ClientEventHandlerTest(NeoTestBase):
 
     def setUp(self):
         # Silence all log messages
@@ -76,20 +77,13 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     def getConnection(self, uuid=None, port=10010, next_id=None, ip='127.0.0.1'):
         if uuid is None:
-            uuid = self.getUUID()
+            uuid = self.getNewUUID()
         return Mock({'_addPacket': None,
                      'getUUID': uuid,
                      'getAddress': (ip, port),
                      'getNextId': next_id,
                      'lock': None,
                      'unlock': None})
-
-    def getUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
 
     def getDispatcher(self, queue=None):
       return Mock({'getQueue': queue, 'connectToPrimaryMasterNode': None})
@@ -103,9 +97,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         client_handler = BaseClientEventHandler(None, dispatcher)
         conn = self.getConnection()
         client_handler.packetReceived(conn, protocol.ping())
-        pong = conn.mockGetNamedCalls('answer')[0].getParam(0)
-        self.assertTrue(isinstance(pong, Packet))
-        self.assertEquals(pong.getType(), PONG)
+        self.checkAnswerPacket(conn, protocol.PONG)
 
     def _testInitialMasterWithMethod(self, method):
         class App:
@@ -115,7 +107,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertEqual(app.primary_master_node, -1)
 
     def _testMasterWithMethod(self, method, handler_class):
-        uuid = self.getUUID()
+        uuid = self.getNewUUID()
         app = Mock({'connectToPrimaryMasterNode': None})
         app.primary_master_node = Mock({'getUUID': uuid})
         app.master_conn = Mock({'close': None, 'getUUID': uuid})
@@ -130,16 +122,16 @@ class ClientEventHandlerTest(unittest.TestCase):
     def _testStorageWithMethod(self, method, handler_class, state=TEMPORARILY_DOWN_STATE):
         storage_ip = '127.0.0.1'
         storage_port = 10011
-        fake_storage_node_uuid = self.getUUID()
+        fake_storage_node_uuid = self.getNewUUID()
         fake_storage_node = Mock({'getUUID': fake_storage_node_uuid, 'getServer': (storage_ip, storage_port), 'getNodeType': STORAGE_NODE_TYPE})
         master_node_next_packet_id = 1
         class App:
-            primary_master_node = Mock({'getUUID': self.getUUID()})
+            primary_master_node = Mock({'getUUID': self.getNewUUID()})
             nm = Mock({'getNodeByServer': fake_storage_node})
             cp = Mock({'removeConnection': None})
             master_conn = Mock({
                 '_addPacket': None,
-                'getUUID': self.getUUID(),
+                'getUUID': self.getNewUUID(),
                 'getAddress': ('127.0.0.1', 10010),
                 'getNextId': master_node_next_packet_id,
                 'lock': None,
@@ -158,19 +150,11 @@ class ClientEventHandlerTest(unittest.TestCase):
         dispatcher = Dispatcher()
         method(dispatcher, app, handler_class, conn=conn)
         # Check that master was notified of the failure
-        addPacket_call_list = app.master_conn.mockGetNamedCalls('notify')
-          # Test sanity check
-        self.assertEqual(len(addPacket_call_list), 1)
-        node_status_packet = addPacket_call_list[0].getParam(0)
-        self.assertTrue(isinstance(node_status_packet, Packet))
+        (node_list, ) = self.checkNotifyNodeInformation(app.master_conn, decode=True)
           # Test sanity check
         # the test below is disabled because the msg_id is now set by the connection
-        #self.assertEquals(node_status_packet.getId(), master_node_next_packet_id)
-        self.assertEquals(node_status_packet.getType(), NOTIFY_NODE_INFORMATION)
-        self.assertEquals(node_status_packet.decode()[0],
-                          [(STORAGE_NODE_TYPE, storage_ip, storage_port,
-                            fake_storage_node_uuid, state), ]
-        )
+        expected_node_list = [(STORAGE_NODE_TYPE, storage_ip, storage_port, fake_storage_node_uuid, state), ]
+        self.assertEquals(node_list, expected_node_list)
         # Check that failed connection got removed from connection pool
         removeConnection_call_list = app.cp.mockGetNamedCalls('removeConnection')
           # Test sanity check
@@ -270,12 +254,12 @@ class ClientEventHandlerTest(unittest.TestCase):
         dispatcher = self.getDispatcher()
         client_handler = PrimaryBoostrapEventHandler(app, dispatcher)
         conn = self.getConnection()
-        uuid = self.getUUID()
+        uuid = self.getNewUUID()
         app.uuid = 'C' * 16
         client_handler.handleAcceptNodeIdentification(conn, None, CLIENT_NODE_TYPE,
                                                       uuid, '127.0.0.1', 10010,
                                                       0, 0, INVALID_UUID)
-        self.assertEquals(len(conn.mockGetNamedCalls('close')), 1)
+        self.checkClosed(conn)
         self.assertEquals(app.storage_node, None)
         self.assertEquals(app.pt, None)
         self.assertEquals(app.uuid, 'C' * 16)
@@ -293,17 +277,14 @@ class ClientEventHandlerTest(unittest.TestCase):
         dispatcher = self.getDispatcher()
         client_handler = PrimaryBoostrapEventHandler(app, dispatcher)
         conn = self.getConnection()
-        uuid = self.getUUID()
+        uuid = self.getNewUUID()
         your_uuid = 'C' * 16
         app.uuid = INVALID_UUID
         client_handler.handleAcceptNodeIdentification(conn, None, MASTER_NODE_TYPE,
                                                       uuid, '127.0.0.1', 10010,
                                                       10, 2, your_uuid)
-        self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('setUUID')), 1)
-        setUUID_call_list = node.mockGetNamedCalls('setUUID')
-        self.assertEquals(len(setUUID_call_list), 1)
-        self.assertEquals(setUUID_call_list[0].getParam(0), uuid)
+        self.checkNotClosed(conn)
+        self.checkUUIDSet(conn, uuid)
         self.assertEquals(app.storage_node, None)
         self.assertTrue(app.pt is not None)
         self.assertEquals(app.uuid, your_uuid)
@@ -321,16 +302,13 @@ class ClientEventHandlerTest(unittest.TestCase):
         dispatcher = self.getDispatcher()
         client_handler = StorageBootstrapEventHandler(app, dispatcher)
         conn = self.getConnection()
-        uuid = self.getUUID()
+        uuid = self.getNewUUID()
         app.uuid = 'C' * 16
         client_handler.handleAcceptNodeIdentification(conn, None, STORAGE_NODE_TYPE,
                                                       uuid, '127.0.0.1', 10010,
                                                       0, 0, INVALID_UUID)
-        self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('setUUID')), 1)
-        setUUID_call_list = node.mockGetNamedCalls('setUUID')
-        self.assertEquals(len(setUUID_call_list), 1)
-        self.assertEquals(setUUID_call_list[0].getParam(0), uuid)
+        self.checkNotClosed(conn)
+        self.checkUUIDSet(conn, uuid)
         self.assertEquals(app.pt,  None)
         self.assertEquals(app.uuid, 'C' * 16)
 
@@ -367,7 +345,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         app = App()
         client_handler = PrimaryBoostrapEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
-        test_master_list = [('127.0.0.1', 10010, self.getUUID())]
+        test_master_list = [('127.0.0.1', 10010, self.getNewUUID())]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
         # Test sanity check
         getNodeByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
@@ -396,7 +374,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         app = App()
         client_handler = PrimaryBoostrapEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
-        test_node_uuid = self.getUUID()
+        test_node_uuid = self.getNewUUID()
         test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
         # Test sanity checks
@@ -412,15 +390,13 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertEqual(len(getNodeByServer_call_list), 1)
         self.assertEqual(len(add_call_list), 0)
         # Check that node UUID got updated
-        setUUID_call_list = node.mockGetNamedCalls('setUUID')
-        self.assertEqual(len(setUUID_call_list), 1)
-        self.assertEqual(setUUID_call_list[0].getParam(0), test_node_uuid)
+        self.checkUUIDSet(node, test_node_uuid)
         # Check that primary master was not updated (it is not known yet,
         # hence INVALID_UUID in call).
         self.assertEquals(app.primary_master_node, None)
 
     def test_knownNodeKnownUUIDNodeAnswerPrimaryMaster(self):
-        test_node_uuid = self.getUUID()
+        test_node_uuid = self.getNewUUID()
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': node, 'add': None})
@@ -444,8 +420,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         # XXX: should we just check that there was either no call or a call
         # with same uuid, or enforce no call ? Here we enforce no call just
         # because it's what implementation does.
-        setUUID_call_list = node.mockGetNamedCalls('setUUID')
-        self.assertEqual(len(setUUID_call_list), 0)
+        self.checkNoUUIDSet(node)
         # Check that primary master was not updated (it is not known yet,
         # hence INVALID_UUID in call).
         self.assertEquals(app.primary_master_node, None)
@@ -454,10 +429,10 @@ class ClientEventHandlerTest(unittest.TestCase):
     # desired behaviour unknown)
 
     def test_alreadyDifferentPrimaryAnswerPrimaryMaster(self):
-        test_node_uuid = self.getUUID()
+        test_node_uuid = self.getNewUUID()
         test_primary_node_uuid = test_node_uuid
         while test_primary_node_uuid == test_node_uuid:
-            test_primary_node_uuid = self.getUUID()
+            test_primary_node_uuid = self.getNewUUID()
         test_primary_master_node = Mock({'getUUID': test_primary_node_uuid})
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
@@ -479,7 +454,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertEqual(len(getNodeByServer_call_list), 0)
 
     def test_alreadySamePrimaryAnswerPrimaryMaster(self):
-        test_node_uuid = self.getUUID()
+        test_node_uuid = self.getNewUUID()
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': node, 'add': None})
@@ -492,10 +467,10 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertTrue(app.primary_master_node is node)
 
     def test_unknownNewPrimaryAnswerPrimaryMaster(self):
-        test_node_uuid = self.getUUID()
+        test_node_uuid = self.getNewUUID()
         test_primary_node_uuid = test_node_uuid
         while test_primary_node_uuid == test_node_uuid:
-            test_primary_node_uuid = self.getUUID()
+            test_primary_node_uuid = self.getNewUUID()
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': ReturnValues(node, None), 'getNodeByServer': node, 'add': None})
@@ -513,7 +488,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertTrue(app.primary_master_node is None)
 
     def test_AnswerPrimaryMaster(self):
-        test_node_uuid = self.getUUID()
+        test_node_uuid = self.getNewUUID()
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': node, 'add': None})
@@ -576,7 +551,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             nm = Mock({'getNodeByUUID': ReturnValues(test_node, None), 'add': None})
             pt = Mock({'setCell': None})
             ptid = test_ptid
-        test_storage_uuid = self.getUUID()
+        test_storage_uuid = self.getNewUUID()
         app = App()
         client_handler = PrimaryBoostrapEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
@@ -605,7 +580,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             nm = Mock({'getNodeByUUID': test_node, 'add': None})
             pt = Mock({'setCell': None})
             ptid = test_ptid
-        test_storage_uuid = self.getUUID()
+        test_storage_uuid = self.getNewUUID()
         app = App()
         client_handler = PrimaryBoostrapEventHandler(app, self.getDispatcher())
         conn = self.getConnection()
@@ -633,7 +608,7 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     def test_nonMasterNotifyNodeInformation(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
-            test_master_uuid = self.getUUID()
+            test_master_uuid = self.getNewUUID()
             node = Mock({'getNodeType': node_type})
             class App:
                 nm = Mock({'getNodeByUUID': node})
@@ -647,7 +622,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         # assumption described in test_nonMasterNotifyNodeInformation
         # by making a valid call with a non-iterable parameter given as
         # node_list value.
-        test_master_uuid = self.getUUID()
+        test_master_uuid = self.getNewUUID()
         node = Mock({'getNodeType': MASTER_NODE_TYPE})
         class App:
             nm = Mock({'getNodeByUUID': node})
@@ -661,7 +636,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         invalid_uid_test_node = (test_node[0], test_node[1], test_node[2] + 1,
                                  INVALID_UUID, test_node[4])
         test_node_list = [test_node, invalid_uid_test_node]
-        test_master_uuid = self.getUUID()
+        test_master_uuid = self.getNewUUID()
         node = Mock({'getNodeType': MASTER_NODE_TYPE})
         if getNodeByUUID is not MARKER:
             getNodeByUUID = ReturnValues(node, getNodeByUUID)
@@ -680,7 +655,7 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     def test_unknownMasterNotifyNodeInformation(self):
         # first notify unknown master nodes
-        uuid = self.getUUID()
+        uuid = self.getNewUUID()
         test_node = (MASTER_NODE_TYPE, '127.0.0.1', 10010, uuid,
                      RUNNING_STATE)
         nm = self._testNotifyNodeInformation(test_node, getNodeByUUID=None)
@@ -694,7 +669,7 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     def test_knownMasterNotifyNodeInformation(self):
         node = Mock({})
-        uuid = self.getUUID()
+        uuid = self.getNewUUID()
         test_node = (MASTER_NODE_TYPE, '127.0.0.1', 10010, uuid,
                      RUNNING_STATE)
         nm = self._testNotifyNodeInformation(test_node, getNodeByServer=node,
@@ -704,7 +679,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         add_call_list = node.mockGetNamedCalls('add')
 
     def test_unknownStorageNotifyNodeInformation(self):
-        test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getUUID(),
+        test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getNewUUID(),
                      RUNNING_STATE)
         nm = self._testNotifyNodeInformation(test_node, getNodeByUUID=None)
         # Check that node got added
@@ -719,7 +694,7 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     def test_knownStorageNotifyNodeInformation(self):
         node = Mock({'setState': None, 'setServer': None})
-        test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getUUID(),
+        test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getNewUUID(),
                      RUNNING_STATE)
         nm = self._testNotifyNodeInformation(test_node, getNodeByUUID=node)
         # Check that no node got added
@@ -748,7 +723,7 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     def test_nonMasterNotifyPartitionChanges(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
-            test_master_uuid = self.getUUID()
+            test_master_uuid = self.getNewUUID()
             node = Mock({'getNodeType': node_type, 'getUUID': test_master_uuid})
             class App:
                 nm = Mock({'getNodeByUUID': node})
@@ -777,10 +752,10 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertTrue(app.pt is None)
 
     def test_nonPrimaryMasterNotifyPartitionChanges(self):
-        test_master_uuid = self.getUUID()
+        test_master_uuid = self.getNewUUID()
         test_sender_uuid = test_master_uuid
         while test_sender_uuid == test_master_uuid:
-            test_sender_uuid = self.getUUID()
+            test_sender_uuid = self.getNewUUID()
         node = Mock({'getNodeType': MASTER_NODE_TYPE})
         test_master_node = Mock({'getUUID': test_master_uuid})
         class App:
@@ -796,7 +771,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertTrue(app.pt is None)
 
     def test_ignoreOutdatedPTIDNotifyPartitionChanges(self):
-        test_master_uuid = self.getUUID()
+        test_master_uuid = self.getNewUUID()
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_master_uuid})
         test_ptid = 1
         class App:
@@ -813,7 +788,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         self.assertEquals(app.ptid, test_ptid)
 
     def test_unknownNodeNotifyPartitionChanges(self):
-        test_master_uuid = self.getUUID()
+        test_master_uuid = self.getNewUUID()
         test_node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_master_uuid})
         test_ptid = 1
         class App:
@@ -825,7 +800,7 @@ class ClientEventHandlerTest(unittest.TestCase):
         app = App()
         client_handler = PrimaryEventHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=test_master_uuid)
-        test_storage_uuid = self.getUUID()
+        test_storage_uuid = self.getNewUUID()
         # TODO: use realistic values
         test_cell_list = [(0, test_storage_uuid, UP_TO_DATE_STATE)]
         client_handler.handleNotifyPartitionChanges(conn, None, test_ptid + 1, test_cell_list)
@@ -848,8 +823,8 @@ class ClientEventHandlerTest(unittest.TestCase):
 
     def test_knownNodeNotifyPartitionChanges(self):
         test_ptid = 1
-        uuid1, uuid2 = self.getUUID(), self.getUUID()
-        uuid3, uuid4 = self.getUUID(), self.getUUID()
+        uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
+        uuid3, uuid4 = self.getNewUUID(), self.getNewUUID()
         test_node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': uuid1})
         class App:
             nm = Mock({'getNodeByUUID': ReturnValues(test_node, None, None, None), 'add': None})
