@@ -90,7 +90,9 @@ class StorageOperationTests(unittest.TestCase):
 
     def checkNoPacketSent(self, conn):
         # no packet should be sent
-        self.assertEquals(len(conn.mockGetNamedCalls('addPacket')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('notify')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('answer')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 0)
 
     def setUp(self):
         logging.basicConfig(level = logging.ERROR)

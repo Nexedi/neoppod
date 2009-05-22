@@ -175,8 +175,9 @@ class ClientApplicationTest(unittest.TestCase):
         self.checkPacketSent(conn, packet_type, 'notify')
 
     def checkNoPacketSent(self, conn):
-        self.assertEquals(len(conn.mockGetNamedCalls('addPacket')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('expectMessage')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('notify')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('answer')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 0)
 
     # tests
 

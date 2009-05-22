@@ -142,7 +142,9 @@ server: 127.0.0.1:10020
 
     def checkNoPacketSent(self, conn):
         # no packet should be sent
-        self.assertEquals(len(conn.mockGetNamedCalls('addPacket')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('notify')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('answer')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 0)
 
     # Tests
     def test_01_connectionCompleted(self):
