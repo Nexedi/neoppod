@@ -116,9 +116,7 @@ class BootstrapEventHandler(StorageEventHandler):
             raise protocol.NotReadyError
         if name != app.name:
             logging.error('reject an alien cluster')
-            conn.answer(protocol.protocolError('invalid cluster name'), packet)
-            conn.abort()
-            return
+            raise protocol.ProtocolError( 'invalid cluster name')
 
         addr = (ip_address, port)
         node = app.nm.getNodeByServer(addr)

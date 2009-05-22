@@ -110,6 +110,10 @@ server: 127.0.0.1:10020
     def getLastUUID(self):
         return self.uuid
 
+    def checkProtocolErrorRaised(self, method, *args, **kwargs):
+        """ Check if the ProtocolError exception was raised """
+        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
+
     def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
         """ Check if the UnexpectedPacketError exception wxas raised """
         self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
@@ -325,7 +329,8 @@ server: 127.0.0.1:10020
         packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
         conn = Mock({"isServerConnection": True,
             "getAddress" : ("127.0.0.1", self.master_port), })
-        self.bootstrap.handleRequestNodeIdentification(
+        self.checkProtocolErrorRaised(
+            self.bootstrap.handleRequestNodeIdentification, 
             conn=conn,
             uuid=self.getNewUUID(),
             packet=packet, 
@@ -333,7 +338,6 @@ server: 127.0.0.1:10020
             node_type=MASTER_NODE_TYPE,
             ip_address='127.0.0.1',
             name='INVALID_NAME',)
-        self.checkCalledAbort(conn)
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
 
     def test_08_handleRequestNodeIdentification4(self):
