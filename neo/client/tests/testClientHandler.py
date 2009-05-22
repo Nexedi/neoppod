@@ -60,7 +60,7 @@ class BaseClientEventHandlerTest(unittest.TestCase):
     def getConnection(self, uuid=None, port=10010, next_id=None, ip='127.0.0.1'):
         if uuid is None:
             uuid = self.getUUID()
-        return Mock({'addPacket': None,
+        return Mock({'_addPacket': None,
                      'getUUID': uuid,
                      'getAddress': (ip, port),
                      'getNextId': next_id,
@@ -77,7 +77,7 @@ class ClientEventHandlerTest(unittest.TestCase):
     def getConnection(self, uuid=None, port=10010, next_id=None, ip='127.0.0.1'):
         if uuid is None:
             uuid = self.getUUID()
-        return Mock({'addPacket': None,
+        return Mock({'_addPacket': None,
                      'getUUID': uuid,
                      'getAddress': (ip, port),
                      'getNextId': next_id,
@@ -138,7 +138,7 @@ class ClientEventHandlerTest(unittest.TestCase):
             nm = Mock({'getNodeByServer': fake_storage_node})
             cp = Mock({'removeConnection': None})
             master_conn = Mock({
-                'addPacket': None,
+                '_addPacket': None,
                 'getUUID': self.getUUID(),
                 'getAddress': ('127.0.0.1', 10010),
                 'getNextId': master_node_next_packet_id,

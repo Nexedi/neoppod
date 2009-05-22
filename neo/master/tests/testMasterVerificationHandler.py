@@ -171,7 +171,7 @@ server: 127.0.0.1:10023
         args = (node_type, uuid, ip, port, self.app.name)
         packet = protocol.requestNodeIdentification(*args)
         # test alien cluster
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         self.verification.handleRequestNodeIdentification(conn, packet, *args)
         self.checkCalledAcceptNodeIdentification(conn)
         return uuid
@@ -179,10 +179,10 @@ server: 127.0.0.1:10023
     # Method to test the kind of packet returned in answer
     def checkCalledRequestNodeIdentification(self, conn, packet_number=0):
         """ Check Request Node Identification has been send"""
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("_addPacket")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), REQUEST_NODE_IDENTIFICATION)
@@ -190,7 +190,7 @@ server: 127.0.0.1:10023
         
     def checkCalledAskPrimaryMaster(self, conn, packet_number=0):
         """ Check ask primary master has been send"""
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("_addPacket")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(),ASK_PRIMARY_MASTER)
@@ -276,7 +276,7 @@ server: 127.0.0.1:10023
         args = ( MASTER_NODE_TYPE, uuid, '127.0.0.1', self.storage_port, "INVALID_NAME")
         packet = protocol.requestNodeIdentification(*args)
         # test alien cluster
-        conn = Mock({"addPacket" : None, "abort" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None})
         self.checkProtocolErrorRaised(
                 verification.handleRequestNodeIdentification,
                 conn, packet=packet, 
@@ -287,7 +287,7 @@ server: 127.0.0.1:10023
                 name="INVALID_NAME",)
         # test connection from a client node, rejectet
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         self.checkNotReadyErrorRaised(
                 verification.handleRequestNodeIdentification,
                 conn,
@@ -300,7 +300,7 @@ server: 127.0.0.1:10023
 
         # 1. unknown storage node with known address, must be rejected
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -324,7 +324,7 @@ server: 127.0.0.1:10023
 
         # 2. unknown master node with known address, will be accepted
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -349,7 +349,7 @@ server: 127.0.0.1:10023
         # 3. unknown master node with known address but different uuid, will be replaced
         old_uuid = uuid
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -372,7 +372,7 @@ server: 127.0.0.1:10023
 
         # 4. unknown master node with known address but different uuid and broken state, will be accepted
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -400,7 +400,7 @@ server: 127.0.0.1:10023
         self.checkCalledAcceptNodeIdentification(conn)
 
         # 5. known by uuid, but different address
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -430,7 +430,7 @@ server: 127.0.0.1:10023
         self.assertNotEquals(new_uuid, uuid)
 
         # 6.known by uuid, but different address and non running state
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -454,7 +454,7 @@ server: 127.0.0.1:10023
                 name=self.app.name,)
 
         # 7. known node but broken
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -478,7 +478,7 @@ server: 127.0.0.1:10023
                 name=self.app.name,)
 
         # 8. known node but down
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -507,7 +507,7 @@ server: 127.0.0.1:10023
 
         # 9. New node
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -534,7 +534,7 @@ server: 127.0.0.1:10023
         verification = self.verification
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         packet = protocol.askPrimaryMaster()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
@@ -547,7 +547,7 @@ server: 127.0.0.1:10023
         # if storage node, expect messages
         uuid = self.identifyToMasterNode(STORAGE_NODE_TYPE, port=self.storage_port)
         packet = protocol.askPrimaryMaster()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
@@ -565,13 +565,13 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         packet = Packet(msg_type=ANNOUNCE_PRIMARY_MASTER)
         # No uuid
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         self.checkIdenficationRequired(verification.handleAnnouncePrimaryMaster, conn, packet)
         # announce
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(self.app.primary, None)
@@ -583,7 +583,7 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         packet = protocol.askPrimaryMaster()
         # No uuid
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertRaises(ElectionFailure, verification.handleReelectPrimaryMaster, conn, packet)
@@ -696,7 +696,7 @@ server: 127.0.0.1:10023
         verification = self.verification
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         packet = Packet(msg_type=ANSWER_PARTITION_TABLE, )
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         verification.handleAnswerPartitionTable(conn, packet, None, [])
@@ -707,18 +707,18 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=ANSWER_UNFINISHED_TRANSACTIONS)
         # reject when no uuid
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.checkIdenficationRequired(verification.handleAnswerUnfinishedTransactions, conn, packet, [])
         # reject master node
         master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.checkUnexpectedPacketRaised(verification.handleAnswerUnfinishedTransactions, conn, packet, [])
         # do nothing
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -730,7 +730,7 @@ server: 127.0.0.1:10023
         verification.handleAnswerUnfinishedTransactions(conn, packet, [new_tid])
         self.assertEquals(len(self.app.unfinished_tid_set), 0)        
         # update dict
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.app.asking_uuid_dict[uuid]  = False
@@ -749,18 +749,18 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=ANSWER_TRANSACTION_INFORMATION)
         # reject when no uuid
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.checkIdenficationRequired(verification.handleAnswerTransactionInformation, conn, packet, None, None, None, None, None)
         # reject master node
         master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.checkUnexpectedPacketRaised(verification.handleAnswerTransactionInformation, conn, packet, None, None, None, None, None)
         # do nothing, as unfinished_oid_set is None
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -775,7 +775,7 @@ server: 127.0.0.1:10023
                                                         "user", "desc", "ext", [new_oid,])
         self.assertEquals(self.app.unfinished_oid_set, None)        
         # do nothing as asking_uuid_dict is True
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 1)
@@ -787,7 +787,7 @@ server: 127.0.0.1:10023
                                                         "user", "desc", "ext", [new_oid,])
         self.assertEquals(len(self.app.unfinished_oid_set), 0)
         # do work
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 1)
@@ -799,7 +799,7 @@ server: 127.0.0.1:10023
         self.assertEquals(len(self.app.unfinished_oid_set), 1)
         self.assertTrue(new_oid in self.app.unfinished_oid_set)
         # do not work as oid is diff
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 1)
@@ -819,18 +819,18 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=TID_NOT_FOUND_CODE)
         # reject when no uuid
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.checkIdenficationRequired(verification.handleTidNotFound, conn, packet, [])
         # reject master node
         master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.checkUnexpectedPacketRaised(verification.handleTidNotFound, conn, packet, [])
         # do nothing as asking_uuid_dict is True
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -840,7 +840,7 @@ server: 127.0.0.1:10023
         verification.handleTidNotFound(conn, packet, "msg")
         self.assertNotEqual(self.app.unfinished_oid_set, None)
         # do work as asking_uuid_dict is False
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 1)
@@ -855,13 +855,13 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=ANSWER_OBJECT_PRESENT)
         # reject when no uuid
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.checkIdenficationRequired(verification.handleAnswerObjectPresent, conn, packet, None, None)
         # reject master node
         master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.checkUnexpectedPacketRaised(verification.handleAnswerObjectPresent, conn, packet, None, None)
@@ -870,7 +870,7 @@ server: 127.0.0.1:10023
         new_tid = pack('!LL', upper, lower + 10)
         oid = unpack('!Q', self.app.loid)[0]
         new_oid = pack('!Q', oid + 1)
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -878,7 +878,7 @@ server: 127.0.0.1:10023
         self.assertTrue(self.app.asking_uuid_dict.has_key(uuid))
         verification.handleAnswerObjectPresent(conn, packet, new_oid, new_tid)
         # do work
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 1)
@@ -892,18 +892,18 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=OID_NOT_FOUND_CODE)
         # reject when no uuid
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.checkIdenficationRequired(verification.handleOidNotFound, conn, packet, [])
         # reject master node
         master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : master_uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.checkUnexpectedPacketRaised(verification.handleOidNotFound, conn, packet, [])
         # do nothinf as asking_uuid_dict is True
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -913,7 +913,7 @@ server: 127.0.0.1:10023
         verification.handleOidNotFound(conn, packet, "msg")
         self.assertTrue(self.app.object_present)
         # do work as asking_uuid_dict is False
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(len(self.app.asking_uuid_dict), 1)

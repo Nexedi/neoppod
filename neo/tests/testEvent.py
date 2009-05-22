@@ -148,7 +148,7 @@ class testEvent(unittest.TestCase):
       self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
       self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 0)
       self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
-      self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+      self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
       self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
       
       # call with time < t < critical_time
@@ -204,7 +204,7 @@ class testEvent(unittest.TestCase):
       self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
       self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 0)
       self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
-      self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+      self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
       self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
       
       # call with time < t < critical_time
@@ -217,7 +217,7 @@ class testEvent(unittest.TestCase):
       self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
       self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 1)
       self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
-      self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+      self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
       self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
       
       # call with time < critical_time < t
@@ -230,7 +230,7 @@ class testEvent(unittest.TestCase):
       self.assertEquals(len(conn.mockGetNamedCalls("close")), 1)
       self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 2)
       self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
-      self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+      self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
       self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 1)
       
       

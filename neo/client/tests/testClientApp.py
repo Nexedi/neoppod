@@ -158,7 +158,7 @@ class ClientApplicationTest(unittest.TestCase):
         self.assertTrue(calls[0].getParam(0) is conn)
         self.assertEquals(calls[0].getParam(2), app.local_var.queue)
 
-    def checkPacketSent(self, conn, packet_type, method='addPacket'):
+    def checkPacketSent(self, conn, packet_type, method='_addPacket'):
         calls = conn.mockGetNamedCalls(method)
         self.assertEquals(len(calls), 1)
         packet = calls[0].getParam(0)
@@ -202,7 +202,7 @@ class ClientApplicationTest(unittest.TestCase):
         test_msg_id = 50
         test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
         response_packet = protocol.answerNewOIDs(test_oid_list[:])
-        app.master_conn = Mock({'getNextId': test_msg_id, 'addPacket': None,
+        app.master_conn = Mock({'getNextId': test_msg_id, '_addPacket': None,
                                 'expectMessage': None, 'lock': None,
                                 'unlock': None,
                                 # Test-specific method
@@ -271,7 +271,7 @@ class ClientApplicationTest(unittest.TestCase):
         app.cp = Mock({ 'getConnForNode' : conn})
         result = app.load(oid)
         self.assertEquals(result, ('', tid1))
-        self.assertEquals(len(conn.mockGetNamedCalls('addPacket')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('_addPacket')), 0)
         
     def test_loadSerial(self):
         app = self.getApp()

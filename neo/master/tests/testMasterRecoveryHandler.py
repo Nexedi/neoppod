@@ -139,7 +139,7 @@ server: 127.0.0.1:10023
         args = (node_type, uuid, ip, port,self.app.name)
         packet = protocol.requestNodeIdentification(*args)
         # test alien cluster
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         self.recovery.handleRequestNodeIdentification(conn, packet, *args)
         self.checkCalledAcceptNodeIdentification(conn)
         return uuid
@@ -176,17 +176,17 @@ server: 127.0.0.1:10023
     # Method to test the kind of packet returned in answer
     def checkCalledRequestNodeIdentification(self, conn, packet_number=0):
         """ Check Request Node Identification has been send"""
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 1)
+        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("_addPacket")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), REQUEST_NODE_IDENTIFICATION)
 
     def checkCalledAskPrimaryMaster(self, conn, packet_number=0):
         """ Check ask primary master has been send"""
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("_addPacket")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(),ASK_PRIMARY_MASTER)
@@ -207,7 +207,7 @@ server: 127.0.0.1:10023
 
     def checkCalledAnswerLastIDs(self, conn, packet_number=0):
         """ Check start operation message has been send"""
-        call = conn.mockGetNamedCalls("addPacket")[packet_number]
+        call = conn.mockGetNamedCalls("_addPacket")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), ANSWER_LAST_IDS)
@@ -253,7 +253,7 @@ server: 127.0.0.1:10023
         args = (MASTER_NODE_TYPE, uuid, '127.0.0.1', self.storage_port, "INVALID_NAME")
         packet = protocol.requestNodeIdentification(*args)
         # test alien cluster
-        conn = Mock({"addPacket" : None, "abort" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None})
         self.checkProtocolErrorRaised(
                 recovery.handleRequestNodeIdentification,
                 conn,
@@ -265,7 +265,7 @@ server: 127.0.0.1:10023
                 name="INVALID_NAME",)
         # test connection from a client node, rejectet
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None, "abort" : None, "expectMessage" : None})
+        conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         self.checkNotReadyErrorRaised(
                 recovery.handleRequestNodeIdentification,
                 conn,
@@ -278,7 +278,7 @@ server: 127.0.0.1:10023
 
         # 1. unknown storage node with known address, must be rejected
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -302,7 +302,7 @@ server: 127.0.0.1:10023
 
         # 2. unknown master node with known address, will be accepted
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -327,7 +327,7 @@ server: 127.0.0.1:10023
         # 3. unknown master node with known address but different uuid, will be replaced
         old_uuid = uuid
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -350,7 +350,7 @@ server: 127.0.0.1:10023
 
         # 4. unknown master node with known address but different uuid and broken state, will be accepted
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -379,7 +379,7 @@ server: 127.0.0.1:10023
         known_uuid = uuid
 
         # 5. known by uuid, but different address -> conflict / new master
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -409,7 +409,7 @@ server: 127.0.0.1:10023
         self.assertNotEquals(new_uuid, uuid)
 
         # 6.known by uuid, but different address and non running state -> conflict
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -433,7 +433,7 @@ server: 127.0.0.1:10023
                 name=self.app.name,)
 
         # 7. known node but broken
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -457,7 +457,7 @@ server: 127.0.0.1:10023
                 name=self.app.name,)
 
         # 8. known node but down
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -486,7 +486,7 @@ server: 127.0.0.1:10023
 
         # 9. New node
         uuid = self.getNewUUID()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "abort" : None,
                      "expectMessage" : None,
                      "getUUID" : uuid,
@@ -513,7 +513,7 @@ server: 127.0.0.1:10023
         recovery = self.recovery
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         packet = protocol.askPrimaryMaster()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
@@ -527,7 +527,7 @@ server: 127.0.0.1:10023
 
         uuid = self.identifyToMasterNode(STORAGE_NODE_TYPE, port=self.storage_port)
         packet = protocol.askPrimaryMaster()
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
@@ -546,13 +546,13 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         packet = Packet(msg_type=ANNOUNCE_PRIMARY_MASTER)
         # No uuid
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         self.checkIdenficationRequired(recovery.handleAnnouncePrimaryMaster, conn, packet)
         # announce
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(self.app.primary, None)
@@ -565,7 +565,7 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         packet = protocol.askPrimaryMaster()
         # No uuid
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertRaises(ElectionFailure, recovery.handleReelectPrimaryMaster, conn, packet)
@@ -684,18 +684,18 @@ server: 127.0.0.1:10023
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         packet = Packet(msg_type=ANSWER_PARTITION_TABLE)
         # No uuid
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.checkIdenficationRequired(recovery.handleAnswerPartitionTable, conn, packet, None, [])
         # not a storage node
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.checkUnexpectedPacketRaised(recovery.handleAnswerPartitionTable, conn, packet, None, [])
         # not from target node, ignore
         uuid = self.identifyToMasterNode(STORAGE_NODE_TYPE, port=self.storage_port)
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertNotEquals(self.app.target_uuid, uuid)
@@ -709,7 +709,7 @@ server: 127.0.0.1:10023
         for cell, state in cells:
             self.assertEquals(state, OUT_OF_DATE_STATE)
         # from target node, taken into account
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertNotEquals(self.app.target_uuid, uuid)
@@ -725,7 +725,7 @@ server: 127.0.0.1:10023
         for cell, state in cells:
             self.assertEquals(state, UP_TO_DATE_STATE)
         # give a bad offset, must send error
-        conn = Mock({"addPacket" : None,
+        conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         self.assertEquals(self.app.target_uuid, uuid)

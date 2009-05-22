@@ -445,7 +445,7 @@ class testConnection(unittest.TestCase):
 #        self.assertNotEqual(bc.getConnector(), None)
 #        import pdb
 #        pdb.set_trace()
-#        bc.addPacket(p)
+#        bc._addPacket(p)
 #        self.assertNotEqual(bc.write_buf, "testdata")
 #        self.assertRaises(ProtocolError, p.encode)
 #        self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 2)

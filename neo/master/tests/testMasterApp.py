@@ -160,7 +160,7 @@ server: 127.0.0.1:10023
       c_node = ClientNode(uuid = self.getNewUUID())
       self.app.broadcastNodeInformation(c_node)
       # check conn
-      self.assertEquals(len(client_conn.mockGetNamedCalls("addPacket")), 0)
+      self.assertEquals(len(client_conn.mockGetNamedCalls("_addPacket")), 0)
       self.assertEquals(len(master_conn.mockGetNamedCalls("notify")), 1)
       call = master_conn.mockGetNamedCalls("notify")[0]
       packet = call.getParam(0)
@@ -180,7 +180,7 @@ server: 127.0.0.1:10023
       s_node = ClientNode(uuid = self.getNewUUID(), server=("127.1.0.1", 3361))
       self.app.broadcastNodeInformation(c_node)
       # check conn
-      self.assertEquals(len(client_conn.mockGetNamedCalls("addPacket")), 0)
+      self.assertEquals(len(client_conn.mockGetNamedCalls("_addPacket")), 0)
       self.assertEquals(len(master_conn.mockGetNamedCalls("notify")), 1)
       call = master_conn.mockGetNamedCalls("notify")[0]
       packet = call.getParam(0)

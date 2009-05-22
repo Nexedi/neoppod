@@ -154,7 +154,7 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port)})
         self.verification.connectionAccepted(conn, None, ("127.0.0.1", self.client_port))
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
         
     def test_02_timeoutExpired(self):
         # listening connection
@@ -164,7 +164,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : True})
         self.verification.timeoutExpired(conn)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
         
         # client connection
         uuid = self.getNewUUID()
@@ -173,7 +173,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : False})
         self.assertRaises(PrimaryFailure, self.verification.timeoutExpired, conn,)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
 
     def test_03_connectionClosed(self):
         # listening connection
@@ -183,7 +183,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : True})
         self.verification.connectionClosed(conn)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
         
         # client connection
         uuid = self.getNewUUID()
@@ -192,7 +192,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : False})
         self.assertRaises(PrimaryFailure, self.verification.connectionClosed, conn,)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
 
 
     def test_04_peerBroken(self):
@@ -203,7 +203,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : True})
         self.verification.peerBroken(conn)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
         
         # client connection
         uuid = self.getNewUUID()
@@ -212,7 +212,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : False})
         self.assertRaises(PrimaryFailure, self.verification.peerBroken, conn,)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("addPacket")), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
 
 
     def test_05_handleRequestNodeIdentification(self):
