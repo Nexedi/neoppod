@@ -130,15 +130,19 @@ server: 127.0.0.1:10020
         """ Check if the NotReadyError exception wxas raised """
         self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
 
+    def checkAskPacket(self, conn, packet_type):
+        """ Check if an ask-packet with the right type is send """
+        calls = conn.mockGetNamedCalls('ask')
+        self.assertEquals(len(calls), 1)
+        packet = calls[0].getParam(0)
+        self.assertTrue(isinstance(packet, Packet))
+        self.assertEquals(packet.getType(), packet_type)
+
     # Method to test the kind of packet returned in answer
     def checkCalledRequestNodeIdentification(self, conn, packet_number=0):
         """ Check Request Node Identification has been send"""
-        self.assertEquals(len(conn.mockGetNamedCalls("ask")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        call = conn.mockGetNamedCalls("ask")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), REQUEST_NODE_IDENTIFICATION)
+        self.checkAskPacket(conn, protocol.REQUEST_NODE_IDENTIFICATION)
 
     def checkNoPacketSent(self, conn):
         # no packet should be sent
@@ -509,7 +513,7 @@ server: 127.0.0.1:10020
         self.assertTrue(isinstance(self.app.pt, PartitionTable))
         self.assertEquals(self.app.ptid, self.app.dm.getPTID())
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("ask")), 1)
+        self.checkAskPacket(conn, protocol.ASK_PRIMARY_MASTER)
 
     def test_09_handleAcceptNodeIdentification5(self):
         # no errors
@@ -547,11 +551,7 @@ server: 127.0.0.1:10020
         self.assertEquals(self.app.uuid, self.app.dm.getUUID())
         self.assertEquals(self.app.uuid, your_uuid)
         # packet
-        self.assertEquals(len(conn.mockGetNamedCalls("ask")), 1)
-        call = conn.mockGetNamedCalls("ask")[0]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ASK_PRIMARY_MASTER)
+        self.checkAskPacket(conn, ASK_PRIMARY_MASTER)
         
     def test_10_handleAnswerPrimaryMaster01(self):
         # server connection rejected
