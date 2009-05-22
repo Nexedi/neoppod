@@ -173,7 +173,7 @@ class VerificationEventHandler(MasterEventHandler):
                 # If this node is broken, reject it. Otherwise, assume that it is
                 # working again.
                 if node.getState() == BROKEN_STATE:
-                    raise protocol.BrokenNotDisallowedError
+                    raise protocol.BrokenNodeDisallowedError
                 node.setUUID(uuid)
                 node.setState(RUNNING_STATE)
                 app.broadcastNodeInformation(node)

@@ -146,9 +146,9 @@ server: 127.0.0.1:10023
         """ Check is the identification_required decorator is applied """
         self.checkUnexpectedPacketRaised(method, *args, **kwargs)
 
-    def checkBrokenNotDisallowedErrorRaised(self, method, *args, **kwargs):
-        """ Check if the BrokenNotDisallowedError exception wxas raised """
-        self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
+    def checkBrokenNodeDisallowedErrorRaised(self, method, *args, **kwargs):
+        """ Check if the BrokenNodeDisallowedError exception wxas raised """
+        self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
 
     def checkNotReadyErrorRaised(self, method, *args, **kwargs):
         """ Check if the NotReadyError exception wxas raised """
@@ -591,7 +591,7 @@ server: 127.0.0.1:10023
         self.assertEqual(node.getState(), RUNNING_STATE)
         node.setState(BROKEN_STATE)
         self.assertEqual(node.getState(), BROKEN_STATE)
-        self.checkBrokenNotDisallowedErrorRaised(
+        self.checkBrokenNodeDisallowedErrorRaised(
                 election.handleRequestNodeIdentification,
                 conn,
                 packet=packet,

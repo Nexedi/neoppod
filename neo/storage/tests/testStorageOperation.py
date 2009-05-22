@@ -63,9 +63,9 @@ class StorageOperationTests(unittest.TestCase):
         """ Check is the identification_required decorator is applied """
         self.checkUnexpectedPacketRaised(method, *args, **kwargs)
 
-    def checkBrokenNotDisallowedErrorRaised(self, method, *args, **kwargs):
-        """ Check if the BrokenNotDisallowedError exception wxas raised """
-        self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
+    def checkBrokenNodeDisallowedErrorRaised(self, method, *args, **kwargs):
+        """ Check if the BrokenNodeDisallowedError exception wxas raised """
+        self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
 
     def checkNotReadyErrorRaised(self, method, *args, **kwargs):
         """ Check if the NotReadyError exception wxas raised """
@@ -386,7 +386,7 @@ server: 127.0.0.1:10020
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         count = len(self.app.nm.getNodeList())
-        self.checkBrokenNotDisallowedErrorRaised(
+        self.checkBrokenNodeDisallowedErrorRaised(
             self.operation.handleRequestNodeIdentification,
             conn=conn,
             packet=packet, 

@@ -19,7 +19,7 @@ import logging
 
 from neo import protocol
 from neo.protocol import Packet, PacketMalformedError, UnexpectedPacketError, \
-        BrokenNotDisallowedError, NotReadyError, ProtocolError
+        BrokenNodeDisallowedError, NotReadyError, ProtocolError
 from neo.connection import ServerConnection
 
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -190,7 +190,7 @@ class EventHandler(object):
             self.unexpectedPacket(conn, packet, msg)
         except PacketMalformedError, msg:
             self.packetMalformed(conn, packet, msg)
-        except BrokenNotDisallowedError, msg:
+        except BrokenNodeDisallowedError, msg:
             self.brokenNodeDisallowedError(conn, packet, msg)
         except NotReadyError, msg:
             self.notReadyError(conn, packet, msg)

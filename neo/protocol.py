@@ -334,7 +334,7 @@ class NotReadyError(ProtocolError):
     """ Just close the connection """
     pass
 
-class BrokenNotDisallowedError(ProtocolError): 
+class BrokenNodeDisallowedError(ProtocolError): 
     """ Just close the connection """
     pass 
 

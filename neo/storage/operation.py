@@ -157,7 +157,7 @@ class OperationEventHandler(StorageEventHandler):
             # If this node is broken, reject it.
             if node.getUUID() == uuid:
                 if node.getState() == BROKEN_STATE:
-                    raise protocol.BrokenNotDisallowedError
+                    raise protocol.BrokenNodeDisallowedError
 
         # Trust the UUID sent by the peer.
         node.setUUID(uuid)

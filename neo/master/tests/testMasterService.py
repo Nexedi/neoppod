@@ -128,9 +128,9 @@ server: 127.0.0.1:10023
         """ Check is the identification_required decorator is applied """
         self.checkUnexpectedPacketRaised(method, *args, **kwargs)
 
-    def checkBrokenNotDisallowedErrorRaised(self, method, *args, **kwargs):
-        """ Check if the BrokenNotDisallowedError exception wxas raised """
-        self.assertRaises(protocol.BrokenNotDisallowedError, method, *args, **kwargs)
+    def checkBrokenNodeDisallowedErrorRaised(self, method, *args, **kwargs):
+        """ Check if the BrokenNodeDisallowedError exception wxas raised """
+        self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
 
     # Method to test the kind of packet returned in answer
     def checkCalledAbort(self, conn, packet_number=0):
@@ -377,7 +377,7 @@ server: 127.0.0.1:10023
         sn.setState(BROKEN_STATE)
         self.assertEquals(sn.getState(), BROKEN_STATE)
         
-        self.checkBrokenNotDisallowedErrorRaised(
+        self.checkBrokenNodeDisallowedErrorRaised(
                 service.handleRequestNodeIdentification,
                 conn,
                 packet=packet,

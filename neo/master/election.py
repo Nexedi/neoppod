@@ -190,7 +190,7 @@ class ElectionEventHandler(MasterEventHandler):
             # If this node is broken, reject it.
             if node.getUUID() == uuid:
                 if node.getState() == BROKEN_STATE:
-                    raise protocol.BrokenNotDisallowedError
+                    raise protocol.BrokenNodeDisallowedError
 
         # supplied another uuid in case of conflict
         while not app.isValidUUID(uuid, addr):
