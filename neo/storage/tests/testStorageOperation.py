@@ -752,7 +752,7 @@ server: 127.0.0.1:10020
             serial=INVALID_SERIAL, 
             tid=INVALID_TID)
         self.assertEquals(len(self.app.event_queue), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls('_addPacket')), 0)
+        self.checkNoPacketSent(conn)
         self.assertEquals(len(self.app.dm.mockGetNamedCalls('getObject')), 0)
 
     def test_24_handleAskObject2(self):
@@ -918,7 +918,7 @@ server: 127.0.0.1:10020
         self.assertEquals(len(self.app.event_queue), 1)
         t_after = self.app.transaction_dict.items()[:]
         self.assertEquals(t_before, t_after)
-        self.assertEquals(len(conn.mockGetNamedCalls('_addPacket')), 0)
+        self.checkNoPacketSent(conn)
         self.assertTrue(oid in self.app.store_lock_dict)
 
     def test_28_handleAskStoreObject3(self):

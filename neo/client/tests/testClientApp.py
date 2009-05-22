@@ -271,7 +271,7 @@ class ClientApplicationTest(unittest.TestCase):
         app.cp = Mock({ 'getConnForNode' : conn})
         result = app.load(oid)
         self.assertEquals(result, ('', tid1))
-        self.assertEquals(len(conn.mockGetNamedCalls('_addPacket')), 0)
+        self.checkNoPacketSent(conn)
         
     def test_loadSerial(self):
         app = self.getApp()

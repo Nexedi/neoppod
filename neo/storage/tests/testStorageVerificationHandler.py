@@ -147,6 +147,12 @@ server: 127.0.0.1:10020
         """ Check if the NotReadyError exception wxas raised """
         self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
 
+    def checkNoPacketSent(self, conn):
+        # no packet should be sent
+        self.assertEquals(len(conn.mockGetNamedCalls('notify')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('answer')), 0)
+        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 0)
+
     # Tests
     def test_01_connectionAccepted(self):
         uuid = self.getNewUUID()
@@ -154,7 +160,7 @@ server: 127.0.0.1:10020
                      "getAddress" : ("127.0.0.1", self.client_port)})
         self.verification.connectionAccepted(conn, None, ("127.0.0.1", self.client_port))
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
         
     def test_02_timeoutExpired(self):
         # listening connection
@@ -164,7 +170,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : True})
         self.verification.timeoutExpired(conn)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
         
         # client connection
         uuid = self.getNewUUID()
@@ -173,7 +179,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : False})
         self.assertRaises(PrimaryFailure, self.verification.timeoutExpired, conn,)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
 
     def test_03_connectionClosed(self):
         # listening connection
@@ -183,7 +189,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : True})
         self.verification.connectionClosed(conn)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
         
         # client connection
         uuid = self.getNewUUID()
@@ -192,7 +198,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : False})
         self.assertRaises(PrimaryFailure, self.verification.connectionClosed, conn,)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
 
 
     def test_04_peerBroken(self):
@@ -203,7 +209,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : True})
         self.verification.peerBroken(conn)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
         
         # client connection
         uuid = self.getNewUUID()
@@ -212,7 +218,7 @@ server: 127.0.0.1:10020
                      "isServerConnection" : False})
         self.assertRaises(PrimaryFailure, self.verification.peerBroken, conn,)
         # nothing happens
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
 
 
     def test_05_handleRequestNodeIdentification(self):

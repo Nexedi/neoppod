@@ -496,7 +496,7 @@ server: 127.0.0.1:10020
             num_replicas=self.app.num_replicas,
             **args)
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
         # create a new partition table
         self.bootstrap.handleAcceptNodeIdentification(
@@ -595,7 +595,7 @@ server: 127.0.0.1:10020
         self.assertEquals(n.getUUID(), new_master[2])
         self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 0)
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
         
     def test_10_handleAnswerPrimaryMaster03(self):
         # invalid primary master uuid -> close connection
@@ -615,7 +615,7 @@ server: 127.0.0.1:10020
         self.assertEquals(self.app.trying_master_node, None)
         self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 0)
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
 
     def test_10_handleAnswerPrimaryMaster04(self):
         # trying_master_node is not pmn -> close connection
@@ -637,7 +637,7 @@ server: 127.0.0.1:10020
         self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 0)
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 1)
         self.assertEquals(self.app.trying_master_node, None)
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
 
     def test_10_handleAnswerPrimaryMaster05(self):
         # trying_master_node is pmn -> set verification handler
@@ -661,7 +661,7 @@ server: 127.0.0.1:10020
         self.assertTrue(isinstance(call.getParam(0), VerificationEventHandler))
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
         self.assertEquals(self.app.trying_master_node, pmn)
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
 
     def test_10_handleAnswerPrimaryMaster06(self):
         # primary_uuid not known -> nothing happen
@@ -681,7 +681,7 @@ server: 127.0.0.1:10020
         self.assertEquals(self.app.trying_master_node, None)
         self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 0)
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("_addPacket")), 0)
+        self.checkNoPacketSent(conn)
     
 if __name__ == "__main__":
     unittest.main()
