@@ -140,22 +140,6 @@ server: 127.0.0.1:10020
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), REQUEST_NODE_IDENTIFICATION)
 
-    def checkCalledAbort(self, conn, packet_number=0):
-        """Check the abort method has been called and an error packet has been sent"""
-        # sometimes we answer an error, sometimes we just notify it
-        notify_calls_len = len(conn.mockGetNamedCalls("notify"))
-        answer_calls_len = len(conn.mockGetNamedCalls('answer'))
-        self.assertEquals(notify_calls_len + answer_calls_len, 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
-        if notify_calls_len == 1:
-            call = conn.mockGetNamedCalls("notify")[packet_number]
-        else:
-            call = conn.mockGetNamedCalls("answer")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ERROR)
-
     def checkNoPacketSent(self, conn):
         # no packet should be sent
         self.assertEquals(len(conn.mockGetNamedCalls('addPacket')), 0)
@@ -369,6 +353,7 @@ server: 127.0.0.1:10020
         self.assertEquals(len(conn.mockGetNamedCalls("setUUID")), 1)
         call = conn.mockGetNamedCalls("setUUID")[0]
         self.assertEquals(call.getParam(0), uuid)
+        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
 
     def test_08_handleRequestNodeIdentification5(self):
         # broken node -> rejected

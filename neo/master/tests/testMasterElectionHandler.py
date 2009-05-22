@@ -212,21 +212,6 @@ server: 127.0.0.1:10023
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(),ASK_PRIMARY_MASTER)
 
-    def checkCalledAbort(self, conn, packet_number=0):
-        """Check the abort method has been called and an error packet has been sent"""
-        # sometimes we answer an error, sometimes we just notify it
-        notify_calls_len = len(conn.mockGetNamedCalls("notify"))
-        answer_calls_len = len(conn.mockGetNamedCalls('answer'))
-        self.assertEquals(notify_calls_len + answer_calls_len, 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
-        if notify_calls_len == 1:
-            call = conn.mockGetNamedCalls("notify")[packet_number]
-        else:
-            call = conn.mockGetNamedCalls("answer")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ERROR)
-
     def checkCalledAnswerPrimaryMaster(self, conn, packet_number=0):
         """ Check Answer primaty master message has been send"""
         call = conn.mockGetNamedCalls("answer")[packet_number]

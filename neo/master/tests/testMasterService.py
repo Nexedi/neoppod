@@ -133,20 +133,6 @@ server: 127.0.0.1:10023
         self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
 
     # Method to test the kind of packet returned in answer
-    def checkCalledAbort(self, conn, packet_number=0):
-        """Check the abort method has been called and an error packet has been sent"""
-        # sometimes we answer an error, sometimes we just notify it
-        notify_calls_len = len(conn.mockGetNamedCalls("notify"))
-        answer_calls_len = len(conn.mockGetNamedCalls('answer'))
-        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 1)
-        if notify_calls_len == 1:
-            call = conn.mockGetNamedCalls("notify")[packet_number]
-        else:
-            call = conn.mockGetNamedCalls("answer")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ERROR)
-
     def checkCalledAcceptNodeIdentification(self, conn, packet_number=0):
         """ Check Accept Node Identification has been send"""
         self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
