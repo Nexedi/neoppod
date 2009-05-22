@@ -21,6 +21,7 @@ import logging
 from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
+from neo.tests.base import NeoTestBase
 from neo import protocol
 from neo.protocol import Packet, INVALID_UUID
 from neo.master.recovery import RecoveryEventHandler
@@ -51,7 +52,7 @@ from neo.node import MasterNode, StorageNode
 from neo.master.tests.connector import DoNothingConnector
 from neo.connection import ClientConnection
 
-class MasterRecoveryTests(unittest.TestCase):
+class MasterRecoveryTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.WARNING)
@@ -121,13 +122,6 @@ server: 127.0.0.1:10023
         os.remove(self.tmp_path)
 
     # Common methods
-    def getNewUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
-
     def getLastUUID(self):
         return self.uuid
 
@@ -141,37 +135,8 @@ server: 127.0.0.1:10023
         # test alien cluster
         conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         self.recovery.handleRequestNodeIdentification(conn, packet, *args)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn)
         return uuid
-
-    def checkProtocolErrorRaised(self, method, *args, **kwargs):
-        """ Check if the ProtocolError exception was raised """
-        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
-
-    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
-        """ Check if the UnexpectedPacketError exception wxas raised """
-        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
-
-    def checkIdenficationRequired(self, method, *args, **kwargs):
-        """ Check is the identification_required decorator is applied """
-        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
-
-    def checkBrokenNodeDisallowedErrorRaised(self, method, *args, **kwargs):
-        """ Check if the BrokenNodeDisallowedError exception wxas raised """
-        self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
-
-    def checkNotReadyErrorRaised(self, method, *args, **kwargs):
-        """ Check if the NotReadyError exception wxas raised """
-        self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
-
-    def checkCalledAcceptNodeIdentification(self, conn, packet_number=0):
-        """ Check Accept Node Identification has been send"""
-        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        call = conn.mockGetNamedCalls("answer")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
 
     # Method to test the kind of packet returned in answer
     def checkCalledRequestNodeIdentification(self, conn, packet_number=0):
@@ -322,7 +287,7 @@ server: 127.0.0.1:10023
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn)
 
         # 3. unknown master node with known address but different uuid, will be replaced
         old_uuid = uuid
@@ -375,7 +340,7 @@ server: 127.0.0.1:10023
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn)
         known_uuid = uuid
 
         # 5. known by uuid, but different address -> conflict / new master
@@ -401,7 +366,7 @@ server: 127.0.0.1:10023
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn)
         # a new uuid is sent
         call = conn.mockGetNamedCalls('answer')[0]
         body = call.getParam(0)._body
@@ -482,7 +447,7 @@ server: 127.0.0.1:10023
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn)
 
         # 9. New node
         uuid = self.getNewUUID()
@@ -506,7 +471,7 @@ server: 127.0.0.1:10023
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 3)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn)
         
 
     def test_05_handleAskPrimaryMaster(self):

@@ -21,6 +21,7 @@ import logging
 from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
+from neo.tests.base import NeoTestBase
 from neo import protocol
 from neo.protocol import Packet, INVALID_UUID
 from neo.master.service import ServiceEventHandler
@@ -49,7 +50,7 @@ from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIF
 from neo.exception import OperationFailure, ElectionFailure     
 from neo.node import MasterNode, StorageNode
 
-class MasterServiceTests(unittest.TestCase):
+class MasterServiceTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.WARNING)
@@ -116,105 +117,6 @@ server: 127.0.0.1:10023
         # Delete tmp file
         os.remove(self.tmp_path)
 
-    def checkProtocolErrorRaised(self, method, *args, **kwargs):
-        """ Check if the ProtocolError exception was raised """
-        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
-
-    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
-        """ Check if the UnexpectedPacketError exception wxas raised """
-        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
-
-    def checkIdenficationRequired(self, method, *args, **kwargs):
-        """ Check is the identification_required decorator is applied """
-        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
-
-    def checkBrokenNodeDisallowedErrorRaised(self, method, *args, **kwargs):
-        """ Check if the BrokenNodeDisallowedError exception wxas raised """
-        self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
-
-    # Method to test the kind of packet returned in answer
-    def checkCalledAcceptNodeIdentification(self, conn, packet_number=0):
-        """ Check Accept Node Identification has been send"""
-        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        call = conn.mockGetNamedCalls("answer")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
-
-    def checkCalledNotifyNodeInformation(self, conn, packet_number=0):
-        """ Check Notify Node Information message has been send"""
-        call = conn.mockGetNamedCalls("notify")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), NOTIFY_NODE_INFORMATION)
-
-    def checkCalledAnswerPrimaryMaster(self, conn, packet_number=0):
-        """ Check Answer primaty master message has been send"""
-        call = conn.mockGetNamedCalls("answer")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_PRIMARY_MASTER)
-
-    def checkCalledSendPartitionTable(self, conn, packet_number=0):
-        """ Check partition table has been send"""
-        call = conn.mockGetNamedCalls("notify")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), SEND_PARTITION_TABLE)
-
-    def checkCalledStartOperation(self, conn, packet_number=0):
-        """ Check start operation message has been send"""
-        call = conn.mockGetNamedCalls("notify")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), START_OPERATION)
-
-    def checkCalledLockInformation(self, conn, packet_number=0):
-        """ Check lockInformation message has been send"""
-        call = conn.mockGetNamedCalls("ask")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), LOCK_INFORMATION)
-
-    def checkCalledUnlockInformation(self, conn, packet_number=0):
-        """ Check unlockInformation message has been send"""
-        call = conn.mockGetNamedCalls("ask")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), UNLOCK_INFORMATION)
-
-    def checkCalledNotifyTransactionFinished(self, conn, packet_number=0):
-        """ Check notifyTransactionFinished message has been send"""
-        call = conn.mockGetNamedCalls("notify")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), NOTIFY_TRANSACTION_FINISHED)
-
-    def checkCalledAnswerLastIDs(self, conn, packet_number=0):
-        """ Check answerLastIDs message has been send"""
-        call = conn.mockGetNamedCalls("answer")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_LAST_IDS)
-        return protocol._decodeAnswerLastIDs(packet._body)
-
-    def checkCalledAnswerUnfinishedTransactions(self, conn, packet_number=0):
-        """ Check answerUnfinishedTransactions message has been send"""
-        call = conn.mockGetNamedCalls("answer")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ANSWER_UNFINISHED_TRANSACTIONS)
-        return protocol._decodeAnswerUnfinishedTransactions(packet._body)
-
-    # Common methods
-    def getNewUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
-
     def getLastUUID(self):
         return self.uuid
 
@@ -228,7 +130,7 @@ server: 127.0.0.1:10023
         # test alien cluster
         conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None})
         self.service.handleRequestNodeIdentification(conn, packet, *args)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn, packet)
         return uuid
 
     # Tests
@@ -254,7 +156,7 @@ server: 127.0.0.1:10023
                                                 ip_address='127.0.0.1',
                                                 port=self.storage_port,
                                                 name=self.app.name,)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn, packet)
         self.assertEquals(len(self.app.nm.getStorageNodeList()), 1)
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getServer(), ('127.0.0.1', self.storage_port))
@@ -272,7 +174,7 @@ server: 127.0.0.1:10023
                                                 ip_address='127.0.0.1',
                                                 port=self.storage_port,
                                                 name=self.app.name,)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn, packet)
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getServer(), ('127.0.0.1', self.storage_port))
         self.assertEquals(sn.getUUID(), uuid)
@@ -318,7 +220,7 @@ server: 127.0.0.1:10023
                                                 ip_address='127.0.0.1',
                                                 port=self.storage_port,
                                                 name=self.app.name,)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn, packet)
         self.assertEquals(len(self.app.nm.getStorageNodeList()), 1)
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getServer(), ('127.0.0.1', self.storage_port))
@@ -339,7 +241,7 @@ server: 127.0.0.1:10023
                                                 ip_address='127.0.0.2',
                                                 port=10022,
                                                 name=self.app.name,)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn, packet)
         call = conn.mockGetNamedCalls('answer')[0]
         new_uuid = call.getParam(0)._body[-16:]
         self.assertNotEquals(uuid, new_uuid)
@@ -394,11 +296,11 @@ server: 127.0.0.1:10023
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         service.handleAskPrimaryMaster(conn, packet)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        self.checkCalledAnswerPrimaryMaster(conn, 0)
-        self.checkCalledNotifyNodeInformation(conn, 0)
-        self.checkCalledSendPartitionTable(conn, 1)
-        self.checkCalledSendPartitionTable(conn, 2)
-        self.checkCalledStartOperation(conn, 3)
+        self.checkAnswerPrimaryMaster(conn, packet)
+        self.checkNotifyNodeInformation(conn, 0)
+        self.checkSendPartitionTable(conn, 1)
+        self.checkSendPartitionTable(conn, 2)
+        self.checkStartOperation(conn, 3)
 
         # Same but identify as a client node, must not get start operation message
         uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE, port=11021)
@@ -408,10 +310,10 @@ server: 127.0.0.1:10023
                      "getUUID" : uuid, "getAddress" : ("127.0.0.1", 11021)})
         service.handleAskPrimaryMaster(conn, packet)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        self.checkCalledAnswerPrimaryMaster(conn, 0)
-        self.checkCalledNotifyNodeInformation(conn, 0)
-        self.checkCalledSendPartitionTable(conn, 1)
-        self.checkCalledSendPartitionTable(conn, 2)
+        self.checkAnswerPrimaryMaster(conn, packet)
+        self.checkNotifyNodeInformation(conn, 0)
+        self.checkSendPartitionTable(conn, 1)
+        self.checkSendPartitionTable(conn, 2)
 
     def test_03_handleAnnouncePrimaryMaster(self):
         service = self.service
@@ -644,7 +546,7 @@ server: 127.0.0.1:10023
                      "getAddress" : ("127.0.0.1", self.client_port)})
         self.app.em = Mock({"getConnectionList" : [conn, storage_conn]})
         service.handleFinishTransaction(conn, packet, oid_list, tid)
-        self.checkCalledLockInformation(storage_conn)
+        self.checkLockInformation(storage_conn)
         self.assertEquals(len(storage_conn.mockGetNamedCalls("ask")), 1)
         self.assertEquals(len(self.app.finishing_transaction_dict), 1)
         apptid = self.app.finishing_transaction_dict.keys()[0]
@@ -705,8 +607,8 @@ server: 127.0.0.1:10023
         oid_list = []
         tid = self.app.ltid
         service.handleFinishTransaction(conn, packet, oid_list, tid)
-        self.checkCalledLockInformation(storage_conn_1)
-        self.checkCalledLockInformation(storage_conn_2)
+        self.checkLockInformation(storage_conn_1)
+        self.checkLockInformation(storage_conn_2)
         self.assertFalse(self.app.finishing_transaction_dict.values()[0].allLocked())
         self.assertEquals(len(storage_conn_1.mockGetNamedCalls("ask")), 1)
         self.assertEquals(len(storage_conn_2.mockGetNamedCalls("ask")), 1)
@@ -717,13 +619,13 @@ server: 127.0.0.1:10023
         self.assertFalse(self.app.finishing_transaction_dict.values()[0].allLocked())
         service.handleNotifyInformationLocked(storage_conn_2, packet, tid)
 
-        self.checkCalledNotifyTransactionFinished(conn)
+        self.checkNotifyTransactionFinished(conn)
         self.assertEquals(len(storage_conn_1.mockGetNamedCalls("ask")), 1)
         self.assertEquals(len(storage_conn_1.mockGetNamedCalls("notify")), 1)
         self.assertEquals(len(storage_conn_2.mockGetNamedCalls("ask")), 1)
         self.assertEquals(len(storage_conn_2.mockGetNamedCalls("notify")), 1)
-        self.checkCalledLockInformation(storage_conn_1)
-        self.checkCalledLockInformation(storage_conn_2)
+        self.checkLockInformation(storage_conn_1)
+        self.checkLockInformation(storage_conn_2)
         
 
     def test_11_handleAbortTransaction(self):
@@ -773,7 +675,8 @@ server: 127.0.0.1:10023
         tid = self.app.ltid
         oid = self.app.loid
         service.handleAskLastIDs(conn, packet)
-        loid, ltid, lptid = self.checkCalledAnswerLastIDs(conn)
+        packet = self.checkAnswerLastIDs(conn, packet)
+        loid, ltid, lptid = protocol._decodeAnswerLastIDs(packet._body)
         self.assertEqual(loid, oid)
         self.assertEqual(ltid, tid)
         self.assertEqual(lptid, ptid)
@@ -792,7 +695,8 @@ server: 127.0.0.1:10023
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         service.handleAskUnfinishedTransactions(conn, packet)
-        tid_list = self.checkCalledAnswerUnfinishedTransactions(conn)[0]
+        packet = self.checkAnswerUnfinishedTransactions(conn, packet)
+        tid_list = protocol._decodeAnswerUnfinishedTransactions(packet._body)[0]
         self.assertEqual(len(tid_list), 0)
         # create some transaction
         client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
@@ -805,7 +709,8 @@ server: 127.0.0.1:10023
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.storage_port)})
         service.handleAskUnfinishedTransactions(conn, packet)
-        tid_list = self.checkCalledAnswerUnfinishedTransactions(conn)[0]
+        packet = self.checkAnswerUnfinishedTransactions(conn, packet)
+        tid_list = protocol._decodeAnswerUnfinishedTransactions(packet._body)[0]
         self.assertEqual(len(tid_list), 3)
         
 

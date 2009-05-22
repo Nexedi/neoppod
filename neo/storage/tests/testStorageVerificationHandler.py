@@ -21,6 +21,7 @@ import logging
 import MySQLdb
 from tempfile import mkstemp
 from mock import Mock
+from neo.tests.base import NeoTestBase
 from neo import protocol
 from neo.node import MasterNode
 from neo.pt import PartitionTable
@@ -45,7 +46,7 @@ SQL_ADMIN_PASSWORD = None
 NEO_SQL_USER = 'test'
 NEO_SQL_DATABASE = 'test_storage_neo1'
 
-class StorageVerificationTests(unittest.TestCase):
+class StorageVerificationTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.ERROR)
@@ -111,47 +112,8 @@ server: 127.0.0.1:10020
         os.remove(self.tmp_path)
 
     # Common methods
-    def getNewUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
-
     def getLastUUID(self):
         return self.uuid
-
-    def getTwoIDs(self):
-        # generate two ptid, first is lower
-        ptids = self.getNewUUID(), self.getNewUUID()
-        return min(ptids), max(ptids)
-        ptid = min(ptids)
-
-    def checkProtocolErrorRaised(self, method, *args, **kwargs):
-        """ Check if the ProtocolError exception was raised """
-        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
-
-    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
-        """ Check if the UnexpectedPacketError exception wxas raised """
-        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
-
-    def checkIdenficationRequired(self, method, *args, **kwargs):
-        """ Check is the identification_required decorator is applied """
-        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
-
-    def checkBrokenNodeDisallowedErrorRaised(self, method, *args, **kwargs):
-        """ Check if the BrokenNodeDisallowedError exception wxas raised """
-        self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
-
-    def checkNotReadyErrorRaised(self, method, *args, **kwargs):
-        """ Check if the NotReadyError exception wxas raised """
-        self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
-
-    def checkNoPacketSent(self, conn):
-        # no packet should be sent
-        self.assertEquals(len(conn.mockGetNamedCalls('notify')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('answer')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 0)
 
     # Tests
     def test_01_connectionAccepted(self):

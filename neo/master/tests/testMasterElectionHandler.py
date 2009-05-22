@@ -21,6 +21,7 @@ import logging
 from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
+from neo.tests.base import NeoTestBase
 from neo import protocol
 from neo.protocol import Packet, INVALID_UUID
 from neo.master.election import ElectionEventHandler
@@ -64,7 +65,7 @@ ClientConnection._addPacket = _addPacket
 ClientConnection.expectMessage = expectMessage
 
 
-class MasterElectionTests(unittest.TestCase):
+class MasterElectionTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.WARNING)
@@ -134,35 +135,6 @@ server: 127.0.0.1:10023
         # Delete tmp file
         os.remove(self.tmp_path)
 
-    def checkProtocolErrorRaised(self, method, *args, **kwargs):
-        """ Check if the ProtocolError exception was raised """
-        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
-
-    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
-        """ Check if the UnexpectedPacketError exception wxas raised """
-        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
-
-    def checkIdenficationRequired(self, method, *args, **kwargs):
-        """ Check is the identification_required decorator is applied """
-        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
-
-    def checkBrokenNodeDisallowedErrorRaised(self, method, *args, **kwargs):
-        """ Check if the BrokenNodeDisallowedError exception wxas raised """
-        self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
-
-    def checkNotReadyErrorRaised(self, method, *args, **kwargs):
-        """ Check if the NotReadyError exception wxas raised """
-        self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
-
-    def checkCalledAcceptNodeIdentification(self, conn, packet_number=0):
-        """ Check Accept Node Identification has been send"""
-        self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        call = conn.mockGetNamedCalls("answer")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), ACCEPT_NODE_IDENTIFICATION)
-
     # Common methods
     def getNewUUID(self):
         uuid = INVALID_UUID
@@ -191,7 +163,7 @@ server: 127.0.0.1:10023
                                                 ip_address=ip,
                                                 port=port,
                                                 name=self.app.name,)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn, packet)
         return uuid
 
     # Method to test the kind of packet returned in answer
@@ -549,7 +521,7 @@ server: 127.0.0.1:10023
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn, packet)
         # unknown node
         conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None,
                     "isServerConnection" : True})
@@ -565,7 +537,7 @@ server: 127.0.0.1:10023
                                                 port=self.master_port+1,
                                                 name=self.app.name,)
         self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
-        self.checkCalledAcceptNodeIdentification(conn)
+        self.checkAcceptNodeIdentification(conn, packet)
         self.assertEqual(len(self.app.unconnected_master_node_set), 2)
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
         # broken node

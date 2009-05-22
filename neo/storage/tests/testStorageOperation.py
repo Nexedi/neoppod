@@ -23,6 +23,7 @@ from tempfile import mkstemp
 from struct import pack, unpack
 from mock import Mock
 from collections import deque
+from neo.tests.base import NeoTestBase
 from neo.master.app import MasterNode
 from neo.storage.app import Application, StorageNode
 from neo.storage.operation import TransactionInformation, OperationEventHandler
@@ -36,41 +37,9 @@ SQL_ADMIN_PASSWORD = None
 NEO_SQL_USER = 'test'
 NEO_SQL_DATABASE = 'test_storage_neo1'
 
-class StorageOperationTests(unittest.TestCase):
+class StorageOperationTests(NeoTestBase):
 
-    def getNewUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
-
-    def getTwoIDs(self):
-        # generate two ptid, first is lower
-        ptids = self.getNewUUID(), self.getNewUUID()
-        return min(ptids), max(ptids)
-        ptid = min(ptids)
-
-    def checkProtocolErrorRaised(self, method, *args, **kwargs):
-        """ Check if the ProtocolError exception was raised """
-        self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
-
-    def checkUnexpectedPacketRaised(self, method, *args, **kwargs):
-        """ Check if the UnexpectedPacketError exception wxas raised """
-        self.assertRaises(protocol.UnexpectedPacketError, method, *args, **kwargs)
-
-    def checkIdenficationRequired(self, method, *args, **kwargs):
-        """ Check is the identification_required decorator is applied """
-        self.checkUnexpectedPacketRaised(method, *args, **kwargs)
-
-    def checkBrokenNodeDisallowedErrorRaised(self, method, *args, **kwargs):
-        """ Check if the BrokenNodeDisallowedError exception wxas raised """
-        self.assertRaises(protocol.BrokenNodeDisallowedError, method, *args, **kwargs)
-
-    def checkNotReadyErrorRaised(self, method, *args, **kwargs):
-        """ Check if the NotReadyError exception wxas raised """
-        self.assertRaises(protocol.NotReadyError, method, *args, **kwargs)
-
+    # TODO: move this check to base class and rename as checkAnswerPacket
     def checkPacket(self, conn, packet_type=ERROR):
         self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
         call = conn.mockGetNamedCalls("answer")[0]
@@ -87,12 +56,6 @@ class StorageOperationTests(unittest.TestCase):
         # hook
         self.operation.peerBroken = lambda c: c.peerBrokendCalled()
         self.checkUnexpectedPacketRaised(_call, conn=conn, packet=packet, **kwargs)
-
-    def checkNoPacketSent(self, conn):
-        # no packet should be sent
-        self.assertEquals(len(conn.mockGetNamedCalls('notify')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('answer')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 0)
 
     def setUp(self):
         logging.basicConfig(level = logging.ERROR)
