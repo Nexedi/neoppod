@@ -396,7 +396,6 @@ class Packet(object):
             return PACKET_HEADER_SIZE
 
     def encode(self):
-        print "encode", self._id, self._type
         msg = pack('!LHL', self._id, self._type, PACKET_HEADER_SIZE + len(self._body)) + self._body
         if len(msg) > MAX_PACKET_SIZE:
             raise PacketMalformedError('message too big (%d)' % len(msg))
@@ -465,6 +464,7 @@ def _decodeRequestNodeIdentification(body):
         raise PacketMalformedError('invalid request node identification')
     if size != len(name):
         raise PacketMalformedError('invalid name size')
+    node_type = node_types.get(node_type)
     if node_type not in VALID_NODE_TYPE_LIST:
         raise PacketMalformedError('invalid node type %d' % node_type)
     if (major, minor) != PROTOCOL_VERSION:
@@ -479,6 +479,7 @@ def _decodeAcceptNodeIdentification(body):
         ip_address = inet_ntoa(ip_address)
     except struct.error, msg:
         raise PacketMalformedError('invalid accept node identification')
+    node_type = node_types.get(node_type)
     if node_type not in VALID_NODE_TYPE_LIST:
         raise PacketMalformedError('invalid node type %d' % node_type)
     return node_type, uuid, ip_address, port, num_partitions, num_replicas, your_uuid
@@ -517,6 +518,7 @@ def _decodeNotifyNodeInformation(body):
             r = unpack('!H4sH16sH', body[4+i*26:30+i*26])
             node_type, ip_address, port, uuid, state = r
             ip_address = inet_ntoa(ip_address)
+            node_type = node_types.get(node_type)
             if node_type not in VALID_NODE_TYPE_LIST:
                 raise PacketMalformedError('invalid node type %d' % node_type)
             state = node_states.get(state)
