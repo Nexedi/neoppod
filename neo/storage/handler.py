@@ -20,11 +20,13 @@ import logging
 from neo.handler import EventHandler
 from neo.protocol import Packet, UnexpectedPacketError, \
         INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
+        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
+        DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE
+
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
-from neo.exception import PrimaryFailure
+from neo.exception import PrimaryFailure, OperationFailure
 from neo.handler import identification_required, restrict_node_types
 
 class StorageEventHandler(EventHandler):
@@ -132,14 +134,27 @@ class StorageEventHandler(EventHandler):
                     # No interest.
                     continue
 
+                if uuid == self.app.uuid:
+                    # This is me, do what the master tell me
+                    logging.info("I was told I'm %s" %(state))
+                    if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE):
+                        conn.close()
+                        self.app.shutdown()
+                    elif state == HIDDEN_STATE:
+                        n = app.nm.getNodeByUUID(uuid)
+                        n.setState(state)                
+                        raise OperationFailure
+                    else:
+                        # I know I'm running
+                        continue
+                
                 n = app.nm.getNodeByUUID(uuid)
                 if n is None:
                     n = StorageNode(server = addr, uuid = uuid)
                     app.nm.add(n)
                 else:
                     n.setServer(addr)
-
-                n.setState(state)
+                n.setState(state)                
 
             elif node_type == CLIENT_NODE_TYPE:
                 if uuid == INVALID_UUID:

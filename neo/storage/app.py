@@ -16,14 +16,14 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import logging
-import os
+import os, sys
 from time import time
 from struct import unpack, pack
 from collections import deque
 
 from neo.config import ConfigurationManager
 from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        INVALID_UUID, INVALID_PTID, partition_cell_states
+        INVALID_UUID, INVALID_PTID, partition_cell_states, HIDDEN_STATE
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
@@ -32,6 +32,7 @@ from neo.exception import OperationFailure, PrimaryFailure
 from neo.storage.bootstrap import BootstrapEventHandler
 from neo.storage.verification import VerificationEventHandler
 from neo.storage.operation import OperationEventHandler
+from neo.storage.hidden import HiddenEventHandler
 from neo.storage.replicator import Replicator
 from neo.connector import getConnectorHandler
 from neo.pt import PartitionTable
@@ -141,11 +142,16 @@ class Application(object):
             try:
                 while 1:
                     try:
+                        # check my state
+                        node = self.nm.getNodeByUUID(self.uuid)
+                        if node is not None and node.getState() == HIDDEN_STATE:
+                            self.wait()
                         self.verifyData()
                         self.doOperation()
                     except OperationFailure:
                         logging.error('operation stopped')
-                        self.operational = False
+                        self.operational = False                            
+                                
             except PrimaryFailure:
                 logging.error('primary master is down')
 
@@ -270,6 +276,19 @@ class Application(object):
             if self.replicator.pending():
                 self.replicator.act()
 
+    def wait(self):
+        # change handler
+        handler = HiddenEventHandler(self)
+        for conn in self.em.getConnectionList():
+            conn.setHandler(handler)
+
+        node = self.nm.getNodeByUUID(self.uuid)
+        while 1:
+            self.em.poll(1)
+            if node.getState() != HIDDEN_STATE:
+                return
+
+
     def queueEvent(self, callable, *args, **kwargs):
         self.event_queue.append((callable, args, kwargs))
 
@@ -282,3 +301,11 @@ class Application(object):
 
     def getPartition(self, oid_or_tid):
         return unpack('!Q', oid_or_tid)[0] % self.num_partitions
+
+
+    def shutdown(self):
+        """Close all connections and exit"""
+        for c in self.em.getConnectionList():
+            if not c.isListeningConnection():
+                c.close()
+        sys.exit("Application has been asked to shut down")
