@@ -23,6 +23,8 @@ from neo.handler import identification_required, restrict_node_types, \
         client_connection_required, server_connection_required
 from neo.protocol import UnexpectedPacketError, MASTER_NODE_TYPE, \
         CLIENT_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE
+from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
+        BrokenNodeDisallowedError, NotReadyError, ProtocolError
 
 class HandlerDecoratorsTest(NeoTestBase):
 
@@ -137,6 +139,79 @@ class HandlerDecoratorsTest(NeoTestBase):
         conn = Mock({ 'isServerConnection': True, })
         wrapped(self, conn, packet)
         self.checkHandlerCalled(handler)
+
+
+class HandlerTest(NeoTestBase):
+
+    def setUp(self):
+        self.handler = EventHandler()
+        self.fake_type = 'FAKE_PACKET_TYPE'
+
+    def setFakeMethod(self, method):
+        self.handler.packet_dispatch_table[self.fake_type] = method
+
+    def getFakePacket(self):
+        return Mock({'getType': self.fake_type, 'decode': ()})
+
+    def checkFakeCalled(self):
+        method = self.handler.packet_dispatch_table[self.fake_type]
+        calls = method.getNamedCalls('__call__')
+        self.assertEquals(len(calls), 1)
+
+    def test_dispatch(self):
+        conn = Mock({'getAddress': ('127.0.0.1', 10000)})
+        packet = self.getFakePacket()
+        # all is ok
+        self.setFakeMethod(lambda c, p: None)
+        self.handler.dispatch(conn, packet)
+        # raise KeyError and ValueError
+        conn.mockCalledMethods = {} 
+        def fake(c, p): raise KeyError
+        self.setFakeMethod(fake)
+        self.handler.dispatch(conn, packet)
+        self.checkErrorPacket(conn)
+        conn.mockCalledMethods = {} 
+        def fake(c, p): raise ValueError
+        self.setFakeMethod(fake)
+        self.handler.dispatch(conn, packet)
+        self.checkErrorPacket(conn)
+        # raise UnexpectedPacketError 
+        conn.mockCalledMethods = {} 
+        def fake(c, p): raise UnexpectedPacketError('fake packet')
+        self.setFakeMethod(fake)
+        self.handler.dispatch(conn, packet)
+        self.checkErrorPacket(conn)
+        self.checkAborted(conn)
+        # raise PacketMalformedError
+        conn.mockCalledMethods = {} 
+        def fake(c, p): raise PacketMalformedError('message')
+        self.setFakeMethod(fake)
+        self.handler.dispatch(conn, packet)
+        self.checkErrorPacket(conn)
+        self.checkAborted(conn)
+        # raise BrokenNodeDisallowedError
+        conn.mockCalledMethods = {} 
+        def fake(c, p): raise BrokenNodeDisallowedError
+        self.setFakeMethod(fake)
+        self.handler.dispatch(conn, packet)
+        self.checkErrorPacket(conn)
+        self.checkAborted(conn)
+        # raise NotReadyError
+        conn.mockCalledMethods = {} 
+        def fake(c, p): raise NotReadyError
+        self.setFakeMethod(fake)
+        self.handler.dispatch(conn, packet)
+        self.checkErrorPacket(conn)
+        self.checkAborted(conn)
+        # raise ProtocolError
+        conn.mockCalledMethods = {} 
+        def fake(c, p): raise ProtocolError
+        self.setFakeMethod(fake)
+        self.handler.dispatch(conn, packet)
+        self.checkErrorPacket(conn)
+        self.checkAborted(conn)
+
+
 
 if __name__ == '__main__':
     unittest.main()
