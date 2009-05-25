@@ -28,6 +28,7 @@ from neo.protocol import Packet, UnexpectedPacketError
 from neo.pt import PartitionTable
 from neo.exception import PrimaryFailure
 from neo.util import dump
+from neo.handler import identification_required, restrict_node_types
 
 class BaseEventHandler(EventHandler):
     """ Base handler for admin node """
@@ -215,13 +216,11 @@ class MonitoringEventHandler(BaseEventHandler):
             app.trying_master_node = None
             conn.close()
 
-
+    
+    @identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         logging.warning("handleSendPartitionTable")
         uuid = conn.getUUID()
-        if uuid is None:
-            raise UnexpectedPacketError
-
         app = self.app
         nm = app.nm
         pt = app.pt
@@ -243,15 +242,13 @@ class MonitoringEventHandler(BaseEventHandler):
                 pt.setCell(offset, node, state)
 
 
+    @identification_required
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         logging.warning("handleNotifyPartitionChanges")
         app = self.app
         nm = app.nm
         pt = app.pt
         uuid = conn.getUUID()
-        if uuid is None:
-            raise UnexpectedPacketError
-
         node = app.nm.getNodeByUUID(uuid)
         # This must be sent only by primary master node
         if node.getNodeType() != MASTER_NODE_TYPE \
@@ -275,12 +272,10 @@ class MonitoringEventHandler(BaseEventHandler):
             pt.setCell(offset, node, state)
 
 
+    @identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         logging.warning("handleNotifyNodeInformation")
         uuid = conn.getUUID()
-        if uuid is None:
-            raise UnexpectedPacketError
-
         app = self.app
         nm = app.nm
         node = nm.getNodeByUUID(uuid)
