@@ -301,6 +301,7 @@ class ServiceEventHandler(MasterEventHandler):
     @identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
+        uuid = conn.getUUID()
         conn_node = app.nm.getNodeByUUID(uuid)
         if conn_node is None:
             raise RuntimeError('I do not know the uuid %r' % dump(uuid))
