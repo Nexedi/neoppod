@@ -71,52 +71,36 @@ class FinishingTransaction(object):
 class ServiceEventHandler(MasterEventHandler):
     """This class deals with events for a service phase."""
 
-    def connectionClosed(self, conn):
+    def _dealWithNodeFailure(self, conn, new_state):
         uuid = conn.getUUID()
-        if uuid is not None:
-            app = self.app
-            node = app.nm.getNodeByUUID(uuid)
-            if node is not None and node.getState() == RUNNING_STATE:
-                node.setState(TEMPORARILY_DOWN_STATE)
-                logging.debug('broadcasting node information')
-                app.broadcastNodeInformation(node)
-                if node.getNodeType() == CLIENT_NODE_TYPE:
-                    # If this node is a client, just forget it.
-                    app.nm.remove(node)
-                    for tid, t in app.finishing_transaction_dict.items():
-                        if t.getConnection() is conn:
-                            del app.finishing_transaction_dict[tid]
-                elif node.getNodeType() == ADMIN_NODE_TYPE:
-                    # If this node is an admin , just forget it.
-                    app.nm.remove(node)
-                elif node.getNodeType() == STORAGE_NODE_TYPE:
-                    if not app.pt.operational():
-                        # Catastrophic.
-                        raise OperationFailure, 'cannot continue operation'
+        if uuid is None:
+            return
+        app = self.app
+        node = app.nm.getNodeByUUID(uuid)
+        if node is not None and node.getState() == RUNNING_STATE:
+            node.setState(new_state)
+            logging.debug('broadcasting node information')
+            app.broadcastNodeInformation(node)
+            if node.getNodeType() == CLIENT_NODE_TYPE:
+                # If this node is a client, just forget it.
+                app.nm.remove(node)
+                for tid, t in app.finishing_transaction_dict.items():
+                    if t.getConnection() is conn:
+                        del app.finishing_transaction_dict[tid]
+            elif node.getNodeType() == ADMIN_NODE_TYPE:
+                # If this node is an admin , just forget it.
+                app.nm.remove(node)
+            elif node.getNodeType() == STORAGE_NODE_TYPE:
+                if not app.pt.operational():
+                    # Catastrophic.
+                    raise OperationFailure, 'cannot continue operation'
+
+    def connectionClosed(self, conn):
+        self._dealWithNodeFailure(conn, TEMPORARILY_DOWN_STATE)
         MasterEventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
-        uuid = conn.getUUID()
-        if uuid is not None:
-            app = self.app
-            node = app.nm.getNodeByUUID(uuid)
-            if node is not None and node.getState() == RUNNING_STATE:
-                node.setState(TEMPORARILY_DOWN_STATE)
-                logging.debug('broadcasting node information')
-                app.broadcastNodeInformation(node)
-                if node.getNodeType() == CLIENT_NODE_TYPE:
-                    # If this node is a client, just forget it.
-                    app.nm.remove(node)
-                    for tid, t in app.finishing_transaction_dict.items():
-                        if t.getConnection() is conn:
-                            del app.finishing_transaction_dict[tid]
-                elif node.getNodeType() == ADMIN_NODE_TYPE:
-                    # If this node is an admin , just forget it.
-                    app.nm.remove(node)
-                elif node.getNodeType() == STORAGE_NODE_TYPE:
-                    if not app.pt.operational():
-                        # Catastrophic.
-                        raise OperationFailure, 'cannot continue operation'
+        self._dealWithNodeFailure(conn, TEMPORARILY_DOWN_STATE)
         MasterEventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
@@ -145,9 +129,6 @@ class ServiceEventHandler(MasterEventHandler):
                         # Catastrophic.
                         raise OperationFailure, 'cannot continue operation'
         MasterEventHandler.peerBroken(self, conn)
-
-    def packetReceived(self, conn, packet):
-        MasterEventHandler.packetReceived(self, conn, packet)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
@@ -485,23 +466,20 @@ class ServiceEventHandler(MasterEventHandler):
     @restrict_node_types(CLIENT_NODE_TYPE)
     def handleAbortTransaction(self, conn, packet, tid):
         uuid = conn.getUUID()
-        app = self.app
-        node = app.nm.getNodeByUUID(uuid)
+        node = self.app.nm.getNodeByUUID(uuid)
         try:
-            del app.finishing_transaction_dict[tid]
+            del self.app.finishing_transaction_dict[tid]
         except KeyError:
             logging.warn('aborting transaction %s does not exist', dump(tid))
             pass
 
     @identification_required
     def handleAskLastIDs(self, conn, packet):
-        uuid = conn.getUUID()
         app = self.app
         conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.lptid), packet)
 
     @identification_required
     def handleAskUnfinishedTransactions(self, conn, packet):
-        uuid = conn.getUUID()
         app = self.app
         p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
         conn.answer(p, packet)
@@ -553,3 +531,4 @@ class ServiceEventHandler(MasterEventHandler):
         if new_cell_list:
             ptid = app.getNextPartitionTableID()
             app.broadcastPartitionChanges(ptid, new_cell_list)
+
