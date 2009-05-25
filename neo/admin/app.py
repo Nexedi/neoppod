@@ -23,7 +23,7 @@ from collections import deque
 
 from neo.config import ConfigurationManager
 from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        INVALID_UUID, INVALID_PTID, partition_cell_states
+        INVALID_UUID, INVALID_PTID, partition_cell_states, MASTER_NODE_TYPE
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection 
@@ -85,6 +85,10 @@ class Application(object):
                     self.em.poll(1)
             except PrimaryFailure:
                 logging.error('primary master is down')
+                # do not trust any longer our informations
+                self.pt.clear()
+                self.nm.clear(filter = lambda node: node.getNodeType() != MASTER_NODE_TYPE)
+                
 
     def connectToPrimaryMaster(self):
         """Find a primary master node, and connect to it.
@@ -108,6 +112,7 @@ class Application(object):
         index = 0
         self.trying_master_node = None
         self.primary_master_node = None
+        self.master_conn = None
         t = 0
         while 1:
             em.poll(1)
@@ -121,6 +126,7 @@ class Application(object):
                             node = nm.getNodeByUUID(uuid)
                             if node is self.primary_master_node:
                                 logging.info("connected to primary master node %s:%d" % node.getServer())
+                                self.master_conn = conn
                                 # Yes, I have.
                                 return
 
