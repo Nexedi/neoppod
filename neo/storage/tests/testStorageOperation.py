@@ -536,26 +536,18 @@ server: 127.0.0.1:10020
         # pt calls
         calls = self.app.pt.mockGetNamedCalls('setCell')
         self.assertEquals(len(calls), 3)
-        self.assertEquals(calls[0].getParam(0), 0)
-        self.assertEquals(calls[1].getParam(0), 1)
-        self.assertEquals(calls[2].getParam(0), 2)
-        self.assertEquals(calls[0].getParam(1), app.nm.getNodeByUUID(uuid))
-        self.assertEquals(calls[1].getParam(1), app.nm.getNodeByUUID(app.uuid))
-        self.assertEquals(calls[2].getParam(1), app.nm.getNodeByUUID(app.uuid))
-        self.assertEquals(calls[0].getParam(2), UP_TO_DATE_STATE)
-        self.assertEquals(calls[1].getParam(2), DISCARDED_STATE)
-        self.assertEquals(calls[2].getParam(2), OUT_OF_DATE_STATE)
+        calls[0].checkArgs(0, app.nm.getNodeByUUID(uuid), UP_TO_DATE_STATE)
+        calls[1].checkArgs(1, app.nm.getNodeByUUID(app.uuid), DISCARDED_STATE)
+        calls[2].checkArgs(2, app.nm.getNodeByUUID(app.uuid), OUT_OF_DATE_STATE)
         # replicator calls
         calls = self.app.replicator.mockGetNamedCalls('removePartition')
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), 1)
+        calls[0].checkArgs(1)
         calls = self.app.replicator.mockGetNamedCalls('addPartition')
         # dm call
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), ptid2)
-        self.assertEquals(calls[0].getParam(1), cells)
-        self.assertEquals(len(calls), 1)
+        calls[0].checkArgs(ptid2, cells)
 
     def test_15_handleStartOperation(self):
         # unexpected packet
@@ -680,7 +672,7 @@ server: 127.0.0.1:10020
         self.assertEquals(len(self.app.store_lock_dict), 0)
         calls = self.app.dm.mockGetNamedCalls('finishTransaction')
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), INVALID_TID)
+        calls[0].checkArgs(INVALID_TID)
         # transaction not in transaction_dict -> KeyError
         transaction = Mock({ 'getObjectList': ((0, ), ), })
         conn = Mock({ 'isServerConnection': False, })
@@ -715,9 +707,7 @@ server: 127.0.0.1:10020
         calls = self.app.dm.mockGetNamedCalls('getObject')
         self.assertEquals(len(self.app.event_queue), 0)
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), INVALID_OID)
-        self.assertEquals(calls[0].getParam(1), None)
-        self.assertEquals(calls[0].getParam(2), None)
+        calls[0].checkArgs(INVALID_OID, None, None)
         self.checkErrorPacket(conn)
 
     def test_24_handleAskObject3(self):
@@ -753,10 +743,7 @@ server: 127.0.0.1:10020
         self.operation.handleAskTIDs(conn, packet, 1, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), 1)
-        self.assertEquals(calls[0].getParam(1), 1)
-        self.assertEquals(calls[0].getParam(2), 1)
-        self.assertEquals(calls[0].getParam(3), [1, ])
+        calls[0].checkArgs(1, 1, 1, [1, ])
         self.checkAnswerTids(conn)
 
     def test_25_handleAskTIDs3(self):
@@ -771,10 +758,7 @@ server: 127.0.0.1:10020
         self.assertEquals(len(self.app.pt.mockGetNamedCalls('getCellList')), 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), 1)
-        self.assertEquals(calls[0].getParam(1), 1)
-        self.assertEquals(calls[0].getParam(2), 1)
-        self.assertEquals(calls[0].getParam(3), [0, ])
+        calls[0].checkArgs(1, 1, 1, [0, ])
         self.checkAnswerTids(conn)
 
     def test_26_handleAskObjectHistory1(self):
@@ -961,8 +945,7 @@ server: 127.0.0.1:10020
         )
         calls = self.app.replicator.mockGetNamedCalls('setCriticalTID')
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), packet)
-        self.assertEquals(calls[0].getParam(1), INVALID_TID)
+        calls[0].checkArgs(packet, INVALID_TID)
 
     def test_31_handleAnswerUnfinishedTransactions(self):
         # unexpected packet
@@ -983,7 +966,7 @@ server: 127.0.0.1:10020
         )
         calls = self.app.replicator.mockGetNamedCalls('setUnfinishedTIDList')
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), (INVALID_TID, ))
+        calls[0].checkArgs((INVALID_TID, ))
 
     def test_25_handleAskOIDs1(self):
         # invalid offsets => error
@@ -1005,10 +988,7 @@ server: 127.0.0.1:10020
         self.operation.handleAskOIDs(conn, packet, 1, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getOIDList')
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), 1)
-        self.assertEquals(calls[0].getParam(1), 1)
-        self.assertEquals(calls[0].getParam(2), 1)
-        self.assertEquals(calls[0].getParam(3), [1, ])
+        calls[0].checkArgs(1, 1, 1, [1, ])
         self.checkAnswerOids(conn)
 
     def test_25_handleAskOIDs3(self):
@@ -1023,10 +1003,7 @@ server: 127.0.0.1:10020
         self.assertEquals(len(self.app.pt.mockGetNamedCalls('getCellList')), 1)
         calls = self.app.dm.mockGetNamedCalls('getOIDList')
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), 1)
-        self.assertEquals(calls[0].getParam(1), 1)
-        self.assertEquals(calls[0].getParam(2), 1)
-        self.assertEquals(calls[0].getParam(3), [0, ])
+        calls[0].checkArgs(1, 1, 1, [0, ])
         self.checkAnswerOids(conn)
 
 
