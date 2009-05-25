@@ -131,19 +131,20 @@ class EventHandler(object):
         """Called when a packet is received."""
         self.dispatch(conn, packet)
 
+    # XXX: what's the purpose of this method ?
     def peerBroken(self, conn):
         """Called when a peer is broken."""
         logging.error('%s:%d is broken', *(conn.getAddress()))
 
-    def packetMalformed(self, conn, packet, error_message):
+    def packetMalformed(self, conn, packet, message='', *args):
         """Called when a packet is malformed."""
-        args = (conn.getAddress()[0], conn.getAddress()[1], error_message)
+        args = (conn.getAddress()[0], conn.getAddress()[1], message)
         if packet is None:
             # if decoding fail, there's no packet instance 
             logging.info('malformed packet from %s:%d: %s', *args)
         else:
             logging.info('malformed packet %s from %s:%d: %s', packet.getType(), *args)
-        response = protocol.protocolError(error_message)
+        response = protocol.protocolError(message)
         if packet is not None:
             conn.answer(response, packet)
         else:
@@ -151,7 +152,7 @@ class EventHandler(object):
         conn.abort()
         self.peerBroken(conn)
 
-    def unexpectedPacket(self, conn, packet, message = None):
+    def unexpectedPacket(self, conn, packet, message=None, *args):
         """Handle an unexpected packet."""
         if message is None:
             message = 'unexpected packet type %s' % packet.getType()
@@ -162,17 +163,17 @@ class EventHandler(object):
         conn.abort()
         self.peerBroken(conn)
 
-    def brokenNodeDisallowedError(conn, packet, message=None):
+    def brokenNodeDisallowedError(self, conn, packet, *args):
         """ Called when a broken node send packets """
         conn.answer(protocol.brokenNodeDisallowedError('go away'), packet)
         conn.abort()
 
-    def notReadyError(self, conn, packet, message=None):
+    def notReadyError(self, conn, packet, *args):
         """ Called when the node is not ready """
         conn.answer(protocol.notReady('retry later'), packet)
         conn.abort()
 
-    def protocolError(self, conn, packet, message):
+    def protocolError(self, conn, packet, message='', *args):
         """ Called for any other protocol error """
         conn.answer(protocol.protocolError(message), packet)
         conn.abort()
@@ -186,16 +187,16 @@ class EventHandler(object):
             method(conn, packet, *args)
         except (KeyError, ValueError):
             self.unexpectedPacket(conn, packet)
-        except UnexpectedPacketError, msg:
-            self.unexpectedPacket(conn, packet, msg)
-        except PacketMalformedError, msg:
-            self.packetMalformed(conn, packet, msg)
-        except BrokenNodeDisallowedError, msg:
-            self.brokenNodeDisallowedError(conn, packet, msg)
-        except NotReadyError, msg:
-            self.notReadyError(conn, packet, msg)
-        except ProtocolError, msg:
-            self.protocolError(self, conn, packet, msg)
+        except UnexpectedPacketError, e:
+            self.unexpectedPacket(conn, packet, *e.args)
+        except PacketMalformedError, e:
+            self.packetMalformed(conn, packet, *e.args)
+        except BrokenNodeDisallowedError, e:
+            self.brokenNodeDisallowedError(conn, packet, *e.args)
+        except NotReadyError, e:
+            self.notReadyError(conn, packet, *e.args)
+        except ProtocolError, e:
+            self.protocolError(conn, packet, *e.args)
 
 
     # Packet handlers.
