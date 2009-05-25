@@ -17,22 +17,18 @@
 import unittest, os
 from mock import Mock
 from time import time
+from neo.tests.base import NeoTestBase
 from neo.epoll import Epoll
 from neo.event import EpollEventManager, IdleEvent
 from neo.protocol import Packet, PING
 
-class testEvent(unittest.TestCase):
+class testEvent(NeoTestBase):
 
     def setUp(self):
         pass
 
     def tearDown(self):
         pass
-
-    def checkNoPacketSent(self, conn):
-        self.assertEquals(len(conn.mockGetNamedCalls('notify')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('answer')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 0)
 
     def test_01_EpollEventManager(self):
       # init one
@@ -169,10 +165,7 @@ class testEvent(unittest.TestCase):
       self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
       self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
       # check ping packet sent
-      call = conn.mockGetNamedCalls("ask")[0]
-      packet = call.getParam(0)
-      self.failUnless(isinstance(packet, Packet))
-      self.assertEqual(packet.getType(), PING)
+      self.checkAskPacket(conn, PING)
       
       # call with time < critical_time < t
       t = critical_time + 5
