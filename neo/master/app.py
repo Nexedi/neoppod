@@ -388,7 +388,7 @@ class Application(object):
 
             # Wait a bit.
             t = time()
-            while time() < t + 5:
+            while time() < t + 1:
                 em.poll(1)
 
             # Now I have at least one to ask.
@@ -527,6 +527,12 @@ class Application(object):
         handler = VerificationEventHandler(self)
         em = self.em
         nm = self.nm
+
+        # Wait ask/request primary master exchange with the last storage node
+        # because it have to be in the verification state
+        t = time()
+        while time() < t + 1:
+            em.poll(1)
 
         # Make sure that every connection has the data verification event handler.
         for conn in em.getConnectionList():
