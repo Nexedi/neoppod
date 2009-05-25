@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import logging
+import logging, traceback
 
 from neo import protocol
 from neo.protocol import Packet, PacketMalformedError, UnexpectedPacketError, \
@@ -39,7 +39,8 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         ASK_OIDS, ANSWER_OIDS, \
         NOT_READY_CODE, OID_NOT_FOUND_CODE, SERIAL_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
-        INTERNAL_ERROR_CODE
+        INTERNAL_ERROR_CODE, ASK_PARTITION_LIST, ANSWER_PARTITION_LIST, ASK_NODE_LIST, \
+        ANSWER_NODE_LIST, SET_NODE_STATE, ANSWER_NODE_STATE
 
 
 # Some decorators useful to avoid duplication of patterns in handlers
@@ -197,7 +198,6 @@ class EventHandler(object):
             self.notReadyError(conn, packet, *e.args)
         except ProtocolError, e:
             self.protocolError(conn, packet, *e.args)
-
 
     # Packet handlers.
 
@@ -361,6 +361,24 @@ class EventHandler(object):
     def handleAnswerOIDs(self, conn, packet, oid_list):
         raise UnexpectedPacketError
 
+    def handleAskPartitionList(self, conn, packet, offset_list):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerPartitionList(self, conn, packet, ptid, row_list):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAskNodeList(self, conn, packet, offset_list):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerNodeList(self, conn, packet, ptid, row_list):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleSetNodeState(self, conn, packet, uuid, state):
+        self.handleUnexpectedPacket(conn, packet)
+
+    def handleAnswerNodeState(self, conn, packet, uuid, state):
+        self.handleUnexpectedPacket(conn, packet)
+
     # Error packet handlers.
 
     # XXX: why answer a protocolError to another protocolError ?
@@ -434,6 +452,12 @@ class EventHandler(object):
         d[ANSWER_OBJECT_HISTORY] = self.handleAnswerObjectHistory
         d[ASK_OIDS] = self.handleAskOIDs
         d[ANSWER_OIDS] = self.handleAnswerOIDs
+        d[ASK_PARTITION_LIST] = self.handleAskPartitionList
+        d[ANSWER_PARTITION_LIST] = self.handleAnswerPartitionList
+        d[ASK_NODE_LIST] = self.handleAskNodeList
+        d[ANSWER_NODE_LIST] = self.handleAnswerNodeList
+        d[SET_NODE_STATE] = self.handleSetNodeState
+        d[ANSWER_NODE_STATE] = self.handleAnswerNodeState
 
         self.packet_dispatch_table = d
 
