@@ -192,20 +192,21 @@ class ServiceEventHandler(MasterEventHandler):
                     # This node has a different UUID.
                     if node.getState() == RUNNING_STATE:
                         # If it is still running, reject this node.
-                        raise protocol.ProtocolError('invalid server address')
-                    # Otherwise, forget the old one.
-                    node.setState(DOWN_STATE)
-                    logging.debug('broadcasting node information')
-                    app.broadcastNodeInformation(node)
-                    app.nm.remove(node)
-                    old_node = node
-                    node = copy(node)
-                    # And insert a new one.
-                    node.setUUID(uuid)
-                    node.setState(RUNNING_STATE)
-                    logging.debug('broadcasting node information')
-                    app.broadcastNodeInformation(node)
-                    app.nm.add(node)
+                        raise protocol.ProtocolError('invalid uuid')
+                    else:
+                        # Otherwise, forget the old one.
+                        node.setState(DOWN_STATE)
+                        logging.debug('broadcasting node information')
+                        app.broadcastNodeInformation(node)
+                        app.nm.remove(node)
+                        old_node = node
+                        node = copy(node)
+                        # And insert a new one.
+                        node.setUUID(uuid)
+                        node.setState(RUNNING_STATE)
+                        logging.debug('broadcasting node information')
+                        app.broadcastNodeInformation(node)
+                        app.nm.add(node)
         else:
             # I know this node by the UUID.
             try:
@@ -235,10 +236,11 @@ class ServiceEventHandler(MasterEventHandler):
                 # it is working again.
                 if node.getState() == BROKEN_STATE:
                     raise protocol.BrokenNodeDisallowedError
-                node.setUUID(uuid)
-                node.setState(RUNNING_STATE)
-                logging.debug('broadcasting node information')
-                app.broadcastNodeInformation(node)
+                else:
+                    node.setUUID(uuid)
+                    node.setState(RUNNING_STATE)
+                    logging.info('broadcasting node information as running')
+                    app.broadcastNodeInformation(node)
 
         conn.setUUID(uuid)
 
@@ -299,6 +301,10 @@ class ServiceEventHandler(MasterEventHandler):
     @identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
+        conn_node = app.nm.getNodeByUUID(uuid)
+        if conn_node is None:
+            raise RuntimeError('I do not know the uuid %r' % dump(uuid))
+
         for node_type, ip_address, port, uuid, state in node_list:
             if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                 # No interest.
@@ -342,10 +348,17 @@ class ServiceEventHandler(MasterEventHandler):
             # Something wrong happened possibly. Cut the connection to
             # this node, if any, and notify the information to others.
             # XXX this can be very slow.
-            for c in app.em.getConnectionList():
-                if c.getUUID() == uuid:
-                    c.close()
             node.setState(state)
+            if conn_node.getNodeType() == ADMIN_NODE_TYPE:
+                # reply to it
+                ip, port = node.getServer()
+                node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
+                conn.answer(protocol.notifyNodeInformation(node_list), packet)
+            else:                
+                for c in app.em.getConnectionList():
+                    if c.getUUID() == uuid:
+                        c.close()
+
             logging.debug('broadcasting node information')
             app.broadcastNodeInformation(node)
 
