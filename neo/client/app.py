@@ -205,13 +205,7 @@ class Application(object):
         self.storage_handler = StorageEventHandler(self, self.dispatcher)
         # Internal attribute distinct between thread
         self.local_var = local()
-        self.local_var.txn = None
-        # Transaction specific variable
-        self.local_var.data_dict = {}
-        self.local_var.object_stored = 0
-        self.local_var.txn_voted = False
-        self.local_var.txn_finished = False
-        self.local_var.tid = None
+        self._clear_txn()
         # Lock definition :
         # _load_lock is used to make loading and storing atomic
         lock = Lock()
@@ -545,7 +539,8 @@ class Application(object):
         """Clear some transaction parameters."""
         self.local_var.tid = None
         self.local_var.txn = None
-        self.local_var.data_dict.clear()
+        self.local_var.data_dict = {}
+        self.local_var.object_stored = 0
         self.local_var.txn_voted = False
         self.local_var.txn_finished = False
 
