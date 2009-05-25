@@ -22,102 +22,131 @@ from struct import unpack
 from collections import deque
 
 from neo.config import ConfigurationManager
-from neo.protocol import Packet, ProtocolError, node_types, node_states
 from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         INVALID_UUID, INVALID_PTID, partition_cell_states, MASTER_NODE_TYPE
-from neo.event import EventManager
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
-from neo.connection import ClientConnection 
+from neo.event import EventManager
+from neo.connection import ListeningConnection, ClientConnection 
 from neo.exception import OperationFailure, PrimaryFailure
-from neo.neoctl.handler import CommandEventHandler
+from neo.admin.handler import MonitoringEventHandler, AdminEventHandler
 from neo.connector import getConnectorHandler
-from neo.util import bin, dump
-from neo import protocol
 
 class Application(object):
     """The storage node application."""
 
-    def __init__(self, ip, port, handler):
+    def __init__(self, file, section):
+        config = ConfigurationManager(file, section)
 
-        self.connector_handler = getConnectorHandler(handler)
-        self.server = (ip, port)
+        self.num_partitions = None
+        self.num_replicas = None
+        self.name = config.getName()
+        logging.debug('the name is %s', self.name)
+        self.connector_handler = getConnectorHandler(config.getConnector())
+
+        self.server = config.getServer()
+        logging.debug('IP address is %s, port is %d', *(self.server))
+
+        self.master_node_list = config.getMasterNodeList()
+        logging.debug('master nodes are %s', self.master_node_list)
+
+        # Internal attributes.
         self.em = EventManager()
+        self.nm = NodeManager()
+        # The partition table is initialized after getting the number of
+        # partitions.
+        self.pt = None
+        self.uuid = INVALID_UUID
+        self.primary_master_node = None
         self.ptid = INVALID_PTID
 
 
-    def execute(self, args):        
-        """Execute the command given."""
-        handler = CommandEventHandler(self)
-        # connect to admin node
-        conn = None
-        self.trying_admin_node = False
-        try:
-            while 1:
-                self.em.poll(1)                
-                if conn is None:
-                    self.trying_admin_node = True
-                    logging.info('connecting to address %s:%d', *(self.server))
-                    conn = ClientConnection(self.em, handler, \
-                                            addr = self.server,
-                                            connector_handler = self.connector_handler)
-                if self.trying_admin_node is False:
-                    break
-                
-        except OperationFailure, msg:
-            return "FAIL : %s" %(msg,)
+    def run(self):
+        """Make sure that the status is sane and start a loop."""
+        if self.num_partitions is not None and self.num_partitions <= 0:
+            raise RuntimeError, 'partitions must be more than zero'
+        if len(self.name) == 0:
+            raise RuntimeError, 'cluster name must be non-empty'
 
+        for server in self.master_node_list:
+            self.nm.add(MasterNode(server = server))
 
-        # here are the possible commands
-        # print pt 1-10 [uuid] : print the partition table for row from 1 to 10 [containing node with uuid]
-        # print pt all [uuid] : print the partition table for all rows [containing node with uuid]
-        # print pt 10-0 [uuid] : print the partition table for row 10 to the end [containing node with uuid]
-        # print node type : print list of node of the given type (STORAGE_NODE_TYPE, MASTER_NODE_TYPE...)
-        # set node uuid state : set the node for the given uuid to the state (RUNNING_STATE, DOWN_STATE...)
-        command = args[0]
-        options = args[1:]
-        if command == "print":
-            print_type = options.pop(0)
-            if print_type == "pt":
-                offset = options.pop(0)
-                if offset == "all":
-                    min_offset = 0
-                    max_offset = 0
-                else:
-                    min_offset = int(offset)
-                    max_offset = int(options.pop(0))
-                if len(options):
-                    uuid = bin(options.pop(0))
-                else:
-                    uuid = INVALID_UUID
-                p = protocol.askPartitionList(min_offset, max_offset, uuid)
-            elif print_type == "node":
-                node_type = options.pop(0)
-                node_type = node_types.getFromStr(node_type)
-                if node_type is None:
-                    return 'unknown node type'
-                p = protocol.askNodeList(node_type)
-            else:
-                return "unknown command options"
-        elif command == "set":
-            set_type = options.pop(0)
-            if set_type == "node":
-                uuid = bin(options.pop(0))
-                state = options.pop(0)
-                state = node_states.getFromStr(state)
-                if state is None:
-                    return "unknown state type"
-                p = protocol.setNodeState(uuid, state)
-            else:
-                return "unknown command options"                                
-        else:
-            return "unknown command"
-        
-        conn.ask(p)
-        self.result = ""
+        # Make a listening port.
+        handler = AdminEventHandler(self)
+        ListeningConnection(self.em, handler, addr = self.server,
+                            connector_handler = self.connector_handler)
+
+        # Connect to a primary master node, verify data, and
+        # start the operation. This cycle will be executed permentnly,
+        # until the user explicitly requests a shutdown.
         while 1:
-            self.em.poll(1)
-            if len(self.result):
-                break
-        # close connection
-        conn.close()
-        return self.result
+            self.connectToPrimaryMaster()
+            try:
+                while 1:
+                    self.em.poll(1)
+            except PrimaryFailure:
+                logging.error('primary master is down')
+                # do not trust any longer our informations
+                self.pt.clear()
+                self.nm.clear(filter = lambda node: node.getNodeType() != MASTER_NODE_TYPE)
+                
+
+    def connectToPrimaryMaster(self):
+        """Find a primary master node, and connect to it.
+
+        If a primary master node is not elected or ready, repeat
+        the attempt of a connection periodically.
+        
+        Note that I do not accept any connection from non-master nodes
+        at this stage."""
+        logging.info('connecting to a primary master node')
+
+        handler = MonitoringEventHandler(self)
+        em = self.em
+        nm = self.nm
+
+        # First of all, make sure that I have no connection.
+        for conn in em.getConnectionList():
+            if not conn.isListeningConnection():
+                conn.close()
+
+        index = 0
+        self.trying_master_node = None
+        self.primary_master_node = None
+        self.master_conn = None
+        t = 0
+        while 1:
+            em.poll(1)
+            if self.primary_master_node is not None:
+                # If I know which is a primary master node, check if
+                # I have a connection to it already.
+                for conn in em.getConnectionList():
+                    if not conn.isListeningConnection() and not conn.isServerConnection():
+                        uuid = conn.getUUID()
+                        if uuid is not None:
+                            node = nm.getNodeByUUID(uuid)
+                            if node is self.primary_master_node:
+                                logging.info("connected to primary master node %s:%d" % node.getServer())
+                                self.master_conn = conn
+                                # Yes, I have.
+                                return
+
+            if self.trying_master_node is None and t + 1 < time():
+                # Choose a master node to connect to.
+                if self.primary_master_node is not None:
+                    # If I know a primary master node, pinpoint it.
+                    self.trying_master_node = self.primary_master_node
+                else:
+                    # Otherwise, check one by one.
+                    master_list = nm.getMasterNodeList()
+                    try:
+                        self.trying_master_node = master_list[index]
+                    except IndexError:
+                        index = 0
+                        self.trying_master_node = master_list[0]
+                    index += 1
+                print "connecting to %s:%d" % self.trying_master_node.getServer()
+                ClientConnection(em, handler, \
+                                 addr = self.trying_master_node.getServer(),
+                                 connector_handler = self.connector_handler)
+                t = time()
+
