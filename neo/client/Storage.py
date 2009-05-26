@@ -36,7 +36,6 @@ class Storage(BaseStorage.BaseStorage,
         format='[%(module)12s:%(lineno)3d] %(message)s'
         logging.basicConfig(level=logging.DEBUG, format=format)
         # Transaction must be under protection of lock
-        l = Lock()
         self.app = Application(master_nodes, name, connector)
 
     def load(self, oid, version=None):

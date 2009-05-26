@@ -441,6 +441,9 @@ class Application(object):
 
     def tpc_begin(self, transaction, tid=None, status=' '):
         """Begin a new transaction."""
+        # dirty, but we need an initialization point for each thread
+        if getattr(self.local_var, 'txn', None) is None:
+            self._clear_txn()
         # First get a transaction, only one is allowed at a time
         if self.local_var.txn is transaction:
             # We already begin the same transaction
