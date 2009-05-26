@@ -566,12 +566,8 @@ class ClientEventHandlerTest(NeoTestBase):
         # Check that partition table cell got added
         setCell_call_list = app.pt.mockGetNamedCalls('setCell')
         self.assertEquals(len(setCell_call_list), 1)
-        offset = setCell_call_list[0].getParam(0)
-        node = setCell_call_list[0].getParam(1)
-        state = setCell_call_list[0].getParam(2)
-        self.assertEqual(offset, test_row_list[0][0])
-        self.assertTrue(node is created_node)
-        self.assertEqual(state, test_row_list[0][1][0][1])
+        setCell_call_list[0].checkArgs(test_row_list[0][0], created_node,
+                test_row_list[0][1][0][1])
 
     def test_knownNodeSendPartitionTable(self):
         test_node = Mock({'getNodeType': MASTER_NODE_TYPE})
@@ -592,12 +588,8 @@ class ClientEventHandlerTest(NeoTestBase):
         # Check that partition table cell got added
         setCell_call_list = app.pt.mockGetNamedCalls('setCell')
         self.assertEquals(len(setCell_call_list), 1)
-        offset = setCell_call_list[0].getParam(0)
-        node = setCell_call_list[0].getParam(1)
-        state = setCell_call_list[0].getParam(2)
-        self.assertEqual(offset, test_row_list[0][0])
-        self.assertTrue(node is test_node)
-        self.assertEqual(state, test_row_list[0][1][0][1])
+        setCell_call_list[0].checkArgs(test_row_list[0][0], test_node,
+                test_row_list[0][1][0][1])
 
     def test_initialNotifyNodeInformation(self):
         client_handler = PrimaryBoostrapEventHandler(None, self.getDispatcher())
@@ -811,13 +803,8 @@ class ClientEventHandlerTest(NeoTestBase):
         # Check that partition got updated
         self.assertEqual(app.ptid, test_ptid + 1)
         setCell_call_list = app.pt.mockGetNamedCalls('setCell')
-        self.assertEqual(len(setCell_call_list), 1)
-        offset = setCell_call_list[0].getParam(0)
-        node = setCell_call_list[0].getParam(1)
-        state = setCell_call_list[0].getParam(2)
-        self.assertEqual(offset, test_cell_list[0][0])
-        self.assertTrue(node is added_node)
-        self.assertEqual(state, test_cell_list[0][2])
+        setCell_call_list[0].checkArgs(test_cell_list[0][0], added_node,
+                test_cell_list[0][2])
 
     # TODO: confirm condition under which an unknown node should be added with a TEMPORARILY_DOWN_STATE (implementation is unclear)
 

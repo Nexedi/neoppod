@@ -39,6 +39,12 @@ class NeoTestBase(unittest.TestCase):
         return min(ptids), max(ptids)
         ptid = min(ptids)
 
+    def getFakeConnection(self, uuid=None, address=('127.0.0.1', 10000)):
+        return Mock({
+            'getUUID': uuid,
+            'getAddress': address,
+        })
+
     def checkProtocolErrorRaised(self, method, *args, **kwargs):
         """ Check if the ProtocolError exception was raised """
         self.assertRaises(protocol.ProtocolError, method, *args, **kwargs)
@@ -193,6 +199,9 @@ class NeoTestBase(unittest.TestCase):
 
     def checkAskNewTid(self, conn, **kw):
         return self.checkAskPacket(conn, protocol.ASK_NEW_TID, **kw)
+
+    def checkAskLastIDs(self, conn, **kw):
+        return self.checkAskPacket(conn, protocol.ASK_LAST_IDS, **kw)
 
     def checkAcceptNodeIdentification(self, conn, **kw):
         return self.checkAnswerPacket(conn, protocol.ACCEPT_NODE_IDENTIFICATION, **kw)

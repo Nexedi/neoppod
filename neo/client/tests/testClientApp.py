@@ -149,28 +149,7 @@ class ClientApplicationTest(NeoTestBase):
     def checkDispatcherRegisterCalled(self, app, conn):
         calls = app.dispatcher.mockGetNamedCalls('register')
         self.assertEquals(len(calls), 1)
-        self.assertTrue(calls[0].getParam(0) is conn)
-        self.assertEquals(calls[0].getParam(2), app.local_var.queue)
-
-    def checkPacketSent(self, conn, packet_type, method='_addPacket'):
-        calls = conn.mockGetNamedCalls(method)
-        self.assertEquals(len(calls), 1)
-        packet = calls[0].getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet._type, packet_type)
-
-    def checkAsk(self, conn, packet_type):
-        self.checkPacketSent(conn, packet_type, 'ask')
-
-    def checkNotify(self, conn, packet_type):
-        self.checkPacketSent(conn, packet_type, 'notify')
-
-    def checkNoPacketSent(self, conn):
-        self.assertEquals(len(conn.mockGetNamedCalls('notify')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('answer')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 0)
-
-    # tests
+        calls[0].checkArgs(conn, None, app.local_var.queue)
 
     def test_getQueue(self):
         app = self.getApp()
@@ -568,9 +547,9 @@ class ClientApplicationTest(NeoTestBase):
         app.local_var.data_dict = {oid1: '', oid2: ''}
         app.tpc_abort(txn)
         # will check if there was just one call/packet :
-        self.checkNotify(conn1, ABORT_TRANSACTION)
-        self.checkNotify(conn2, ABORT_TRANSACTION)
-        self.checkNotify(app.master_conn, ABORT_TRANSACTION)
+        self.checkNotifyPacket(conn1, ABORT_TRANSACTION)
+        self.checkNotifyPacket(conn2, ABORT_TRANSACTION)
+        self.checkNotifyPacket(app.master_conn, ABORT_TRANSACTION)
         self.assertEquals(app.local_var.tid, None)
         self.assertEquals(app.local_var.txn, None)
         self.assertEquals(app.local_var.data_dict, {})
