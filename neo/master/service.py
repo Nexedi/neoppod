@@ -340,15 +340,11 @@ class ServiceEventHandler(MasterEventHandler):
                 # No change. Don't care.
                 continue
 
-            if state == RUNNING_STATE:
+            if state == node.getState():
                 # No problem.
-                # XXX means that if a node is known as broken and is notified as
-                # running, it will not be taken into account, is it OK ?
                 continue
 
-            # Something wrong happened possibly. Cut the connection to
-            # this node, if any, and notify the information to others.
-            # XXX this can be very slow.
+
             node.setState(state)
             if conn_node.getNodeType() == ADMIN_NODE_TYPE:
                 # reply to it
@@ -356,13 +352,16 @@ class ServiceEventHandler(MasterEventHandler):
                 node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
                 conn.answer(protocol.notifyNodeInformation(node_list), packet)
             else:                
+                # Something wrong happened possibly. Cut the connection to
+                # this node, if any, and notify the information to others.
+                # XXX this can be very slow.
+                # XXX does this need to be closed in all cases ?
                 for c in app.em.getConnectionList():
                     if c.getUUID() == uuid:
                         c.close()
 
             logging.debug('broadcasting node information')
             app.broadcastNodeInformation(node)
-
             if node.getNodeType() == STORAGE_NODE_TYPE \
                     and state in (DOWN_STATE, BROKEN_STATE):
                 cell_list = app.pt.dropNode(node)
