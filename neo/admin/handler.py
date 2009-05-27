@@ -52,7 +52,7 @@ class AdminEventHandler(BaseEventHandler):
         app.pt.log()
         row_list = []
         if max_offset == 0:
-            max_offset = app.num_partitions 
+            max_offset = app.num_partitions
         try:
             for offset in xrange(min_offset, max_offset):
                 row = []
@@ -92,6 +92,11 @@ class AdminEventHandler(BaseEventHandler):
         if node is None:
             p = protocol.protocolError('invalid uuid')
             conn.notify(p)
+        if node.getState() == state:
+            # no change
+            p = protocol.answerNodeState(node.getUUID(), node.getState())
+            conn.answer(p, packet)
+            return
         # send information to master node
         master_conn = self.app.master_conn
         ip, port = node.getServer()
