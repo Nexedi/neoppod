@@ -147,19 +147,18 @@ class ClientApplicationTest(NeoTestBase):
     # common checks
 
     def checkDispatcherRegisterCalled(self, app, conn):
+        from Queue import Queue
         calls = app.dispatcher.mockGetNamedCalls('register')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(conn, None, app.local_var.queue)
+        #self.assertEquals(calls[0].getParam(0), conn)
+        self.assertTrue(isinstance(calls[0].getParam(2), Queue))
 
     def test_getQueue(self):
         app = self.getApp()
         # Test sanity check
         self.assertTrue(getattr(app, 'local_var', None) is not None)
-        # Test that queue is created if it does not exist in local_var
-        self.assertTrue(getattr(app.local_var, 'queue', None) is None)
-        queue = app.getQueue()
-        # Test sanity check
-        self.assertTrue(getattr(app.local_var, 'queue', None) is queue)
+        # Test that queue is created 
+        self.assertTrue(getattr(app.local_var, 'queue', None) is not None)
 
     def test_registerDB(self):
         app = self.getApp()

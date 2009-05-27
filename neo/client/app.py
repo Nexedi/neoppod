@@ -86,7 +86,7 @@ class ConnectionPool(object):
                 p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
                             app.uuid, addr[0], addr[1], app.name)
                 msg_id = conn.ask(p)
-                app.dispatcher.register(conn, msg_id, app.getQueue())
+                app.dispatcher.register(conn, msg_id, app.local_var.queue)
             finally:
                 conn.unlock()
 
@@ -208,6 +208,7 @@ class ThreadContext(object):
             'object_stored': 0,
             'txn_voted': False,
             'txn_finished': False,
+            'queue': Queue(5),
         }
 
 
@@ -274,16 +275,9 @@ class Application(object):
         if self.uuid == INVALID_UUID:
             raise NEOStorageError('No UUID given from the primary master')
 
-    def getQueue(self):
-        try:
-            return self.local_var.queue
-        except AttributeError:
-            self.local_var.queue = Queue(5)
-            return self.local_var.queue
-
     def _waitMessage(self, target_conn = None, msg_id = None, handler=None):
         """Wait for a message returned by the dispatcher in queues."""
-        local_queue = self.getQueue()
+        local_queue = self.local_var.queue
 
         while 1:
             try:
@@ -307,7 +301,7 @@ class Application(object):
         """ Send a request to a storage node and process it's answer """
         try:
             msg_id = conn.ask(packet, timeout, additional_timeout)
-            self.dispatcher.register(conn, msg_id, self.getQueue())
+            self.dispatcher.register(conn, msg_id, self.local_var.queue)
         finally:
             # assume that the connection was already locked
             conn.unlock()
@@ -321,7 +315,7 @@ class Application(object):
         conn.lock()
         try:
             msg_id = conn.ask(packet, timeout, additional_timeout)
-            self.dispatcher.register(conn, msg_id, self.getQueue())
+            self.dispatcher.register(conn, msg_id, self.local_var.queue)
         finally:
             conn.unlock()
         self._waitMessage(conn, msg_id, self.primary_handler)
@@ -729,7 +723,7 @@ class Application(object):
             try:
                 p = protocol.askTIDs(first, last, INVALID_PARTITION)
                 msg_id = conn.ask(p)
-                self.dispatcher.register(conn, msg_id, self.getQueue())
+                self.dispatcher.register(conn, msg_id, self.local_var.queue)
             finally:
                 conn.unlock()
 
@@ -919,7 +913,7 @@ class Application(object):
                     p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE, 
                             self.uuid, '0.0.0.0', 0, self.name)
                     msg_id = conn.ask(p)
-                    self.dispatcher.register(conn, msg_id, self.getQueue())
+                    self.dispatcher.register(conn, msg_id, self.local_var.queue)
                 finally:
                     conn.unlock()
 
