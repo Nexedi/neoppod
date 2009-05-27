@@ -94,7 +94,6 @@ class AdminEventHandler(BaseEventHandler):
             conn.notify(p)
         # send information to master node
         master_conn = self.app.master_conn
-        msg_id = master_conn.getNextId()
         ip, port = node.getServer()
         node_list = [(node.getNodeType(), ip, port, uuid, state),]
         p = protocol.notifyNodeInformation(node_list)
