@@ -19,7 +19,7 @@ import logging
 
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        BROKEN_STATE, VALID_CELL_STATE_LIST
+        BROKEN_STATE, VALID_CELL_STATE_LIST, HIDDEN_STATE
 from neo.util import dump
 
 class Cell(object):
@@ -187,7 +187,8 @@ class PartitionTable(object):
         node_state_dict = { RUNNING_STATE: 'R',
                             TEMPORARILY_DOWN_STATE: 'T',
                             DOWN_STATE: 'D',
-                            BROKEN_STATE: 'B' }
+                            BROKEN_STATE: 'B',
+                            HIDDEN_STATE: 'H'}
         cell_state_dict = { UP_TO_DATE_STATE: 'U', 
                             OUT_OF_DATE_STATE: 'O', 
                             FEEDING_STATE: 'F' }
