@@ -337,16 +337,17 @@ class Application(object):
         """ Send informations on all nodes through the given connection """
         node_list = []
         for n in self.nm.getNodeList():
-            try:
-                ip_address, port = n.getServer()
-            except TypeError:
-                ip_address, port = '0.0.0.0', 0
-            node_list.append((n.getNodeType(), ip_address, port, 
-                              n.getUUID() or INVALID_UUID, n.getState()))
-            # Split the packet if too huge.
-            if len(node_list) == 10000:
-                conn.notify(protocol.notifyNodeInformation(node_list))
-                del node_list[:]
+            if n.getNodeType() != ADMIN_NODE_TYPE:
+                try:
+                    ip_address, port = n.getServer()
+                except TypeError:
+                    ip_address, port = '0.0.0.0', 0
+                node_list.append((n.getNodeType(), ip_address, port, 
+                                  n.getUUID() or INVALID_UUID, n.getState()))
+                # Split the packet if too huge.
+                if len(node_list) == 10000:
+                    conn.notify(protocol.notifyNodeInformation(node_list))
+                    del node_list[:]
         if node_list:
             conn.notify(protocol.notifyNodeInformation(node_list))
 
