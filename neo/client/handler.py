@@ -150,7 +150,7 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
         conn.lock()
         try:
             msg_id = conn.ask(protocol.askPrimaryMaster())
-            self.dispatcher.register(conn, msg_id, app.getQueue())
+            self.dispatcher.register(conn, msg_id, app.local_var.queue)
         finally:
             conn.unlock()
 
