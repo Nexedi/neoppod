@@ -369,17 +369,22 @@ class MonitoringEventHandler(BaseEventHandler):
                     # told me at the moment.
                     if n.getUUID() is None:
                         n.setUUID(uuid)
-            elif node_type == STORAGE_NODE_TYPE:
+            elif node_type in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                 if uuid == INVALID_UUID:
                     # No interest.
                     continue
                 n = nm.getNodeByUUID(uuid)
                 if n is None:
-                    n = StorageNode(server = addr, uuid = uuid)
+                    if node_type == STORAGE_NODE_TYPE:                        
+                        n = StorageNode(server = addr, uuid = uuid)
+                    elif node_type == CLIENT_NODE_TYPE:
+                        n = ClientNode(server = addr, uuid = uuid)
+                    elif node_type == ADMIN_NODE_TYPE:
+                        n = AdminNode(server = addr, uuid = uuid)
                     nm.add(n)
                 else:
                     n.setServer(addr)
-            elif node_type == CLIENT_NODE_TYPE:
+            else:
                 continue
 
             n.setState(state)
