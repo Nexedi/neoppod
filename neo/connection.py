@@ -227,7 +227,7 @@ class Connection(BaseConnection):
                 except KeyError:
                     pass
 
-            logging.debug('#0x%04x %-30s from %s (%s:%d)', packet.getId(), 
+            logging.debug('analyse #0x%04x %-30s from %s (%s:%d)', packet.getId(), 
                     packet.getType(), dump(self.uuid), *self.getAddress())
 
             try:
@@ -288,7 +288,7 @@ class Connection(BaseConnection):
         if self.connector is None:
             return
 
-        logging.debug('#0x%04x %-30s  to  %s (%s:%d)', packet.getId(),
+        logging.debug('adding #0x%04x %-30s  to  %s (%s:%d)', packet.getId(),
                 packet.getType(), dump(self.uuid), *self.getAddress())
         try:
             self.write_buf += packet.encode()
