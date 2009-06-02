@@ -387,9 +387,10 @@ class Application(object):
             while self.target_uuid is None:
                 em.poll(1)
 
-            # Wait a bit.
+            # Wait a bit, 1 second is too short for the ZODB test running on a
+            # dedibox
             t = time()
-            while time() < t + 1:
+            while time() < t + 5:
                 em.poll(1)
 
             # Now I have at least one to ask.
