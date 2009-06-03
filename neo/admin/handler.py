@@ -20,7 +20,7 @@ import logging
 from neo.handler import EventHandler
 from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        ADMIN_NODE_TYPE, DISCARDED_STATE
+        ADMIN_NODE_TYPE, DISCARDED_STATE, TEMPORARILY_DOWN_STATE
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo import protocol
