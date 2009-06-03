@@ -49,6 +49,15 @@ class AdminEventHandler(BaseEventHandler):
     def handleAskPartitionList(self, conn, packet, min_offset, max_offset, uuid):
         logging.info("ask partition list from %s to %s for %s" %(min_offset, max_offset, dump(uuid)))
         app = self.app
+        # check we have one pt otherwise ask it to PMN
+        if len(app.pt.getNodeList()) == 0:
+            master_conn = self.app.master_conn
+            p = protocol.askPartitionTable([x for x in xrange(app.num_partitions)])
+            master_conn.ask(p)
+            self.app.pt = None        
+            while self.app.pt is None:
+                self.app.em.poll(1)
+        # we have a pt
         app.pt.log()
         row_list = []
         if max_offset == 0:
@@ -334,10 +343,10 @@ class MonitoringEventHandler(BaseEventHandler):
                 if uuid != app.uuid:
                     node.setState(TEMPORARILY_DOWN_STATE)
                 nm.add(node)
-#             if state == DISCARDED_STATE:
-#                 pt.dropNode(node)
-#             else:
-            pt.setCell(offset, node, state)
+            if state == DISCARDED_STATE:
+                pt.removeCell(offset, node)
+            else:
+                pt.setCell(offset, node, state)
         pt.log()                
 
 
