@@ -335,7 +335,6 @@ class PrimaryEventHandler(BaseClientEventHandler):
         if app.ptid >= ptid:
             # Ignore this packet.
             return
-
         app.ptid = ptid
         for offset, uuid, state in cell_list:
             node = nm.getNodeByUUID(uuid)
@@ -344,8 +343,8 @@ class PrimaryEventHandler(BaseClientEventHandler):
                 if uuid != app.uuid:
                     node.setState(TEMPORARILY_DOWN_STATE)
                 nm.add(node)
-            if state in (DISCARDED_STATE, FEEDING_STATE):
-                pt.dropNode(node)
+            if state == DISCARDED_STATE:
+                pt.removeCell(offset, node)
             else:
                 pt.setCell(offset, node, state)
 
