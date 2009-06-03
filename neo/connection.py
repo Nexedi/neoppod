@@ -254,6 +254,11 @@ class Connection(BaseConnection):
             assert self.connecting
             self.handler.connectionFailed(self)
             self.close()
+        except ConnectorConnectionClosedException:
+            # connection resetted by peer, according to the man, this error 
+            # should not occurs but it seems it's false
+            self.handler.connectionClosed(self)
+            self.close()
         except ConnectorException:
             self.handler.connectionClosed(self)
             self.close()

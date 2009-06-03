@@ -97,6 +97,8 @@ class SocketConnector:
         raise ConnectorTryAgainException
       if err == errno.ECONNREFUSED:
         raise ConnectorConnectionRefusedException
+      if err == errno.ECONNRESET:
+          raise ConnectorConnectionClosedException
       raise ConnectorException, 'receive failed: %s:%s' % (err, errmsg)
 
   def send(self, msg):
