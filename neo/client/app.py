@@ -64,9 +64,6 @@ class ConnectionPool(object):
         if addr is None:
             return None
 
-        if cell.getState() != UP_TO_DATE_STATE:
-            return None
-
         app = self.app
 
         # Loop until a connection is obtained.
