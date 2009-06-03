@@ -178,6 +178,8 @@ class Connection(BaseConnection):
             for event in self.event_dict.itervalues():
                 em.removeIdleEvent(event)
             self.event_dict.clear()
+        self.write_buf = ""
+        self.read_buf = ""
 
     def __del__(self):
         self.close()
