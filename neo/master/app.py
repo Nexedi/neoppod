@@ -544,13 +544,13 @@ class Application(object):
         # be very huge. Thus it would be better to flush the buffers from time
         # to time _without_ reading packets.
 
-        # Send the current partition table to storage nodes, so that
+        # Send the current partition table to storage and admin nodes, so that
         # all nodes share the same view.
         for conn in em.getConnectionList():
             uuid = conn.getUUID()
             if uuid is not None:
                 node = nm.getNodeByUUID(uuid)
-                if node.getNodeType() == STORAGE_NODE_TYPE:
+                if node.getNodeType() in (STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
                     self.sendPartitionTable(conn)
 
         # Gather all unfinished transactions.
