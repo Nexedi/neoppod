@@ -266,13 +266,14 @@ class ClientEventHandlerTest(NeoTestBase):
 
     def test_masterAcceptNodeIdentification(self):
         node = Mock({'setUUID': None})
+        class FakeLocal:
+            from Queue import Queue
+            queue = Queue()
         class App:
             nm = Mock({'getNodeByServer': node})
             storage_node = None
             pt = None
-
-            def getQueue(self):
-                return None
+            local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
         client_handler = PrimaryBoostrapEventHandler(app, dispatcher)
@@ -295,9 +296,6 @@ class ClientEventHandlerTest(NeoTestBase):
             nm = Mock({'getNodeByServer': node})
             storage_node = None
             pt = None
-
-            def getQueue(self):
-                return None
         app = App()
         dispatcher = self.getDispatcher()
         client_handler = StorageBootstrapEventHandler(app, dispatcher)
