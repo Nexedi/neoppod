@@ -535,10 +535,9 @@ server: 127.0.0.1:10020
         self.assertEquals(app.nm.getNodeByUUID(uuid).getState(), TEMPORARILY_DOWN_STATE)
         # pt calls
         calls = self.app.pt.mockGetNamedCalls('setCell')
-        self.assertEquals(len(calls), 3)
+        self.assertEquals(len(calls), 2)
         calls[0].checkArgs(0, app.nm.getNodeByUUID(uuid), UP_TO_DATE_STATE)
-        calls[1].checkArgs(1, app.nm.getNodeByUUID(app.uuid), DISCARDED_STATE)
-        calls[2].checkArgs(2, app.nm.getNodeByUUID(app.uuid), OUT_OF_DATE_STATE)
+        calls[1].checkArgs(2, app.nm.getNodeByUUID(app.uuid), OUT_OF_DATE_STATE)
         # replicator calls
         calls = self.app.replicator.mockGetNamedCalls('removePartition')
         self.assertEquals(len(calls), 1)

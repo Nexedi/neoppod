@@ -835,17 +835,17 @@ class ClientEventHandlerTest(NeoTestBase):
         self.assertEquals(calls[2].getParam(0).getUUID(), uuid4)
         self.assertEquals(calls[0].getParam(0).getState(), TEMPORARILY_DOWN_STATE)
         self.assertEquals(calls[1].getParam(0).getState(), TEMPORARILY_DOWN_STATE)
-        # check two are dropped from the pt
-        calls = app.pt.mockGetNamedCalls('dropNode')
-        self.assertEquals(len(calls), 2)
-        self.assertEquals(calls[0].getParam(0).getUUID(), uuid2)
-        self.assertEquals(calls[1].getParam(0).getUUID(), uuid3)
+        # check the discarded cell is removed from the pt
+        calls = app.pt.mockGetNamedCalls('removeCell')
+        self.assertEquals(len(calls), 1)
+        self.assertEquals(calls[0].getParam(1).getUUID(), uuid2)
         # and the others are updated
         self.assertEqual(app.ptid, test_ptid + 1)
         calls = app.pt.mockGetNamedCalls('setCell')
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(calls), 3)
         self.assertEquals(calls[0].getParam(1).getUUID(), uuid1)
-        self.assertEquals(calls[1].getParam(1).getUUID(), uuid4)
+        self.assertEquals(calls[1].getParam(1).getUUID(), uuid3)
+        self.assertEquals(calls[2].getParam(1).getUUID(), uuid4)
 
     def test_AnswerNewTID(self):
         app = Mock({'setTID': None})

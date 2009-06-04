@@ -395,7 +395,8 @@ class testConnection(unittest.TestCase):
         call = connector.mockGetNamedCalls("send")[0]
         data = call.getParam(0)
         self.assertEquals(data, "testdatasecondthird")
-        self.assertEqual(bc.write_buf, "testdata" + "second" + "third")
+        # connection closed -> buffers flushed
+        self.assertEqual(bc.write_buf, "")
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("removeReader")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 1)
@@ -928,7 +929,7 @@ class testConnection(unittest.TestCase):
         self.assertTrue(bc.connecting)
         self.assertFalse(bc.pending())
         self.assertFalse(bc.aborted)
-        self.assertEqual(bc.write_buf, "testdata")
+        self.assertEqual(bc.write_buf, "") # buffer flushed at closure
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 1)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 1)

@@ -343,6 +343,7 @@ class PrimaryEventHandler(BaseClientEventHandler):
                 if uuid != app.uuid:
                     node.setState(TEMPORARILY_DOWN_STATE)
                 nm.add(node)
+            # FIXME: Why FEEDING_STATE cells are kept in the PT ?
             if state == DISCARDED_STATE:
                 pt.removeCell(offset, node)
             else:
