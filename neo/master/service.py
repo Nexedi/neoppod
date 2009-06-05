@@ -94,6 +94,7 @@ class ServiceEventHandler(MasterEventHandler):
                 if not app.pt.operational():
                     # Catastrophic.
                     raise OperationFailure, 'cannot continue operation'
+                
 
     def connectionClosed(self, conn):
         self._dealWithNodeFailure(conn, TEMPORARILY_DOWN_STATE)
@@ -422,14 +423,18 @@ class ServiceEventHandler(MasterEventHandler):
             uuid_set.update((cell.getUUID() for cell in app.pt.getCellList(part)))
 
         # Request locking data.
+        # build a new set as we may not send the message to all nodes as some
+        # might be not reachable at that time
+        used_uuid_set = set()
         for c in app.em.getConnectionList():
             if c.getUUID() in uuid_set:
                 c.ask(protocol.lockInformation(tid), timeout=60)
+                used_uuid_set.add(c.getUUID())
 
         try:
             t = app.finishing_transaction_dict[tid]
             t.setOIDList(oid_list)
-            t.setUUIDSet(uuid_set)
+            t.setUUIDSet(used_uuid_set)
             t.setMessageId(packet.getId())
         except KeyError:
             logging.warn('finishing transaction %s does not exist', dump(tid))
