@@ -331,7 +331,7 @@ class Replicator(object):
             p = protocol.notifyPartitionChanges( app.ptid, 
                  [(self.current_partition.getRID(), app.uuid, UP_TO_DATE_STATE)])
             conn.notify(p)
-        except ValueError:
+        except KeyError:
             pass
         self.current_partition = None
 
