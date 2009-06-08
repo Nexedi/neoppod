@@ -94,7 +94,7 @@ class AdminEventHandler(BaseEventHandler):
                 ip, port = node.getServer()
             except TypeError:
                 ip = "0.0.0.0"
-                port = 0                
+                port = 0
             node_information_list.append((node.getNodeType(), ip, port, node.getUUID(), node.getState()))
         p = protocol.answerNodeList(node_information_list)
         conn.ask(p)
@@ -268,6 +268,8 @@ class MonitoringEventHandler(BaseEventHandler):
                 # told me at the moment.
                 if n.getUUID() is None or n.getUUID() != uuid:
                     n.setUUID(uuid)
+            else:
+                n.setUUID(INVALID_UUID)
 
         if primary_uuid != INVALID_UUID:
             primary_node = app.nm.getNodeByUUID(primary_uuid)
@@ -366,14 +368,15 @@ class MonitoringEventHandler(BaseEventHandler):
                          dump(uuid))
             return
         for node_type, ip_address, port, uuid, state in node_list:
-            logging.info("got node info %s %s %s" %(ip_address, port, state))
             # Register/update  nodes.
             addr = (ip_address, port)
             # Try to retrieve it from nm
-            n = nm.getNodeByUUID(uuid)
+            n = None
+            if uuid != INVALID_UUID:
+                n = nm.getNodeByUUID(uuid)
             if n is None:
                 n = nm.getNodeByServer(addr)
-                if n is not None:
+                if n is not None and uuid != INVALID_UUID:
                     # node only exists by address, remove it
                     nm.remove(n)
                     n = None
@@ -391,6 +394,8 @@ class MonitoringEventHandler(BaseEventHandler):
                     # told me at the moment.
                     if n.getUUID() is None:
                         n.setUUID(uuid)
+                else:
+                    n.setUUID(INVALID_UUID)
             elif node_type in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                 if uuid == INVALID_UUID:
                     # No interest.
