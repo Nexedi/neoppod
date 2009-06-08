@@ -286,5 +286,3 @@ class ElectionEventHandler(MasterEventHandler):
                     if c.getUUID() == uuid:
                         c.close()
                 node.setState(state)
-                logging.debug('broadcasting node information')
-                app.broadcastNodeInformation(node)
