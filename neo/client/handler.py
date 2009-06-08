@@ -344,10 +344,7 @@ class PrimaryEventHandler(BaseClientEventHandler):
                     node.setState(TEMPORARILY_DOWN_STATE)
                 nm.add(node)
             # FIXME: Why FEEDING_STATE cells are kept in the PT ?
-            if state == DISCARDED_STATE:
-                pt.removeCell(offset, node)
-            else:
-                pt.setCell(offset, node, state)
+            pt.setCell(offset, node, state)
 
     def handleAnswerNewTID(self, conn, packet, tid):
         app = self.app
