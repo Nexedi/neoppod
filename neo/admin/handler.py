@@ -20,7 +20,7 @@ import logging
 from neo.handler import EventHandler
 from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        ADMIN_NODE_TYPE, DISCARDED_STATE, TEMPORARILY_DOWN_STATE
+        ADMIN_NODE_TYPE, DISCARDED_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo import protocol
@@ -90,7 +90,11 @@ class AdminEventHandler(BaseEventHandler):
         node_list = self.app.nm.getNodeList(node_filter)
         node_information_list = []
         for node in node_list:
-            ip, port = node.getServer()
+            try:
+                ip, port = node.getServer()
+            except TypeError:
+                ip = "0.0.0.0"
+                port = 0                
             node_information_list.append((node.getNodeType(), ip, port, node.getUUID(), node.getState()))
         p = protocol.answerNodeList(node_information_list)
         conn.ask(p)
@@ -343,16 +347,13 @@ class MonitoringEventHandler(BaseEventHandler):
                 if uuid != app.uuid:
                     node.setState(TEMPORARILY_DOWN_STATE)
                 nm.add(node)
-            if state == DISCARDED_STATE:
-                pt.removeCell(offset, node)
-            else:
-                pt.setCell(offset, node, state)
+            pt.setCell(offset, node, state)
         pt.log()                
 
 
     @identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        logging.warning("handleNotifyNodeInformation")
+        logging.info("handleNotifyNodeInformation")
         uuid = conn.getUUID()
         app = self.app
         nm = app.nm
@@ -365,11 +366,23 @@ class MonitoringEventHandler(BaseEventHandler):
                          dump(uuid))
             return
         for node_type, ip_address, port, uuid, state in node_list:
-            # Register new nodes.
+            logging.info("got node info %s %s %s" %(ip_address, port, state))
+            # Register/update  nodes.
             addr = (ip_address, port)
-
-            if node_type == MASTER_NODE_TYPE:
+            # Try to retrieve it from nm
+            n = nm.getNodeByUUID(uuid)
+            if n is None:
                 n = nm.getNodeByServer(addr)
+                if n is not None:
+                    # node only exists by address, remove it
+                    nm.remove(n)
+                    n = None
+            elif n.getServer() != addr:
+                # same uuid but different address, remove it
+                nm.remove(n)
+                n = None
+                 
+            if node_type == MASTER_NODE_TYPE:
                 if n is None:
                     n = MasterNode(server = addr)
                     nm.add(n)
@@ -382,7 +395,6 @@ class MonitoringEventHandler(BaseEventHandler):
                 if uuid == INVALID_UUID:
                     # No interest.
                     continue
-                n = nm.getNodeByUUID(uuid)
                 if n is None:
                     if node_type == STORAGE_NODE_TYPE:                        
                         n = StorageNode(server = addr, uuid = uuid)
@@ -391,11 +403,11 @@ class MonitoringEventHandler(BaseEventHandler):
                     elif node_type == ADMIN_NODE_TYPE:
                         n = AdminNode(server = addr, uuid = uuid)
                     nm.add(n)
-                else:
-                    n.setServer(addr)
             else:
+                logging.warning("unknown node type %s" %(node_type))
                 continue
-
+            
             n.setState(state)
+            
         self.app.notified = True
 
