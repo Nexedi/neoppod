@@ -184,9 +184,22 @@ class PrimaryBootstrapHandler(BaseHandler):
         for node_type, ip_address, port, uuid, state in node_list:
             # Register new nodes.
             addr = (ip_address, port)
-
-            if node_type == MASTER_NODE_TYPE:
+            # Try to retrieve it from nm
+            n = None
+            if uuid != INVALID_UUID:
+                n = nm.getNodeByUUID(uuid)
+            if n is None:
                 n = nm.getNodeByServer(addr)
+                if n is not None and uuid != INVALID_UUID:
+                    # node only exists by address, remove it
+                    nm.remove(n)
+                    n = None
+            elif n.getServer() != addr:
+                # same uuid but different address, remove it
+                nm.remove(n)
+                n = None
+                 
+            if node_type == MASTER_NODE_TYPE:
                 if n is None:
                     n = MasterNode(server = addr)
                     nm.add(n)
@@ -199,12 +212,9 @@ class PrimaryBootstrapHandler(BaseHandler):
                 if uuid == INVALID_UUID:
                     # No interest.
                     continue
-                n = nm.getNodeByUUID(uuid)
                 if n is None:
                     n = StorageNode(server = addr, uuid = uuid)
                     nm.add(n)
-                else:
-                    n.setServer(addr)
             elif node_type == CLIENT_NODE_TYPE:
                 continue
 
