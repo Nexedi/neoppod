@@ -238,7 +238,7 @@ class Application(object):
         self.num_partitions = 0
         self.storage_handler = StorageAnswersHandler(self, self.dispatcher)
         self.primary_handler = PrimaryAnswersHandler(self, self.dispatcher)
-        self.notifications_handler = PrimaryNotificationsHandler(self)
+        self.notifications_handler = PrimaryNotificationsHandler(self, self.dispatcher)
         # Internal attribute distinct between thread
         self.local_var = ThreadContext()
         # Lock definition :
@@ -943,7 +943,7 @@ class Application(object):
                 sleep(1)
 
             logging.info("connected to primary master node %s" % self.primary_master_node)
-            conn.setHandler(PrimaryAnswersHandler(self, self.dispatcher))
+            conn.setHandler(PrimaryNotificationsHandler(self, self.dispatcher))
             self.master_conn = conn
 
         finally:

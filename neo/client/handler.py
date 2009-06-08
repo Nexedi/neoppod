@@ -63,7 +63,7 @@ class BaseHandler(EventHandler):
 
 
 class PrimaryBootstrapHandler(BaseHandler):
-    # Bootstrap handler used when looking for the primary master
+    """ Bootstrap handler used when looking for the primary master """
 
     def connectionFailed(self, conn):
         if self.app.primary_master_node is None:
@@ -256,14 +256,8 @@ class PrimaryBootstrapHandler(BaseHandler):
                 pt.setCell(offset, node, state)
 
 
-
-class PrimaryNotificationsHandler(EventHandler):
+class PrimaryNotificationsHandler(BaseHandler):
     """ Handler that process the notifications from the primary master """
-
-    # For notifications we do not need a dispatcher
-    def __init__(self, app):
-        self.app = app
-        EventHandler.__init__(self)
 
     def connectionClosed(self, conn):
         logging.critical("connection to primary master node closed")
@@ -273,17 +267,17 @@ class PrimaryNotificationsHandler(EventHandler):
         app.master_conn = None
         app.primary_master_node = None
         app.connectToPrimaryMasterNode()
-        EventHandler.connectionClosed(self, conn)
+        BaseHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
         logging.critical("connection timeout to primary master node expired")
         self.app.connectToPrimaryMasterNode()
-        EventHandler.timeoutExpired(self, conn)
+        BaseHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
         logging.critical("primary master node is broken")
         self.app.connectToPrimaryMasterNode()
-        EventHandler.peerBroken(self, conn)
+        BaseHandler.peerBroken(self, conn)
 
     def handleStopOperation(self, conn, packet):
         logging.critical("master node ask to stop operation")
