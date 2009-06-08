@@ -70,7 +70,7 @@ class ConnectionPool(object):
         while True:
             logging.info('trying to connect to %s', node)
             app.setNodeReady()
-            handler = StorageBootstrapEventHandler(app, app.dispatcher)
+            handler = StorageBootstrapHandler(app, app.dispatcher)
             conn = MTClientConnection(app.em, handler, addr,
                                       connector_handler=app.connector_handler)
             conn.lock()
@@ -236,8 +236,9 @@ class Application(object):
         self.ptid = INVALID_PTID
         self.num_replicas = 0
         self.num_partitions = 0
-        self.primary_handler = PrimaryEventHandler(self, self.dispatcher)
-        self.storage_handler = StorageEventHandler(self, self.dispatcher)
+        self.storage_handler = StorageAnswersHandler(self, self.dispatcher)
+        self.primary_handler = PrimaryAnswersHandler(self, self.dispatcher)
+        self.notifications_handler = PrimaryNotificationsHandler(self)
         # Internal attribute distinct between thread
         self.local_var = ThreadContext()
         # Lock definition :
@@ -275,6 +276,9 @@ class Application(object):
     def _waitMessage(self, target_conn = None, msg_id = None, handler=None):
         """Wait for a message returned by the dispatcher in queues."""
         local_queue = self.local_var.queue
+
+        if handler is None:
+            handler = self.notifications_handler
 
         while 1:
             try:
@@ -862,7 +866,7 @@ class Application(object):
     close = __del__
 
     def sync(self):
-        self._waitMessage(handler=self.storage_handler)
+        self._waitMessage()
 
     def connectToPrimaryMasterNode(self):
         self.master_conn = None
@@ -880,7 +884,7 @@ class Application(object):
             master_index = 0
             conn = None
             # Make application execute remaining message if any
-            self._waitMessage(handler=self.storage_handler)
+            self._waitMessage()
             while True:
                 self.setNodeReady()
                 if self.primary_master_node is None:
@@ -894,7 +898,7 @@ class Application(object):
                 else:
                     addr, port = self.primary_master_node.getServer()
                 # Request Node Identification
-                handler = PrimaryBoostrapEventHandler(self, self.dispatcher)
+                handler = PrimaryBootstrapHandler(self, self.dispatcher)
                 conn = MTClientConnection(self.em, handler, (addr, port), 
                      connector_handler=self.connector_handler)
                 self._nm_acquire()
@@ -939,7 +943,7 @@ class Application(object):
                 sleep(1)
 
             logging.info("connected to primary master node %s" % self.primary_master_node)
-            conn.setHandler(PrimaryEventHandler(self, self.dispatcher))
+            conn.setHandler(PrimaryAnswersHandler(self, self.dispatcher))
             self.master_conn = conn
 
         finally:

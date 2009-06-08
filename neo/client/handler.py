@@ -34,13 +34,14 @@ from neo.handler import identification_required, restrict_node_types
 from ZODB.TimeStamp import TimeStamp
 from ZODB.utils import p64
 
-class BaseClientEventHandler(EventHandler):
+
+class BaseHandler(EventHandler):
     """Base class for client-side EventHandler implementations."""
 
     def __init__(self, app, dispatcher):
         self.app = app
         self.dispatcher = dispatcher
-        super(BaseClientEventHandler, self).__init__()
+        super(BaseHandler, self).__init__()
 
     def dispatch(self, conn, packet):
         # Before calling superclass's dispatch method, lock the connection.
@@ -48,7 +49,7 @@ class BaseClientEventHandler(EventHandler):
         # packet.
         conn.lock()
         try:
-            super(BaseClientEventHandler, self).dispatch(conn, packet)
+            super(BaseHandler, self).dispatch(conn, packet)
         finally:
             conn.release()
 
@@ -60,56 +61,29 @@ class BaseClientEventHandler(EventHandler):
         else:
             queue.put((conn, packet))
 
-    def _dealWithStorageFailure(self, conn, node, state):
-        app = self.app
 
-        # Remove from pool connection
-        app.cp.removeConnection(node)
-
-        # Put fake packets to task queues.
-        queue_set = set()
-        for key in self.dispatcher.message_table.keys():
-            if id(conn) == key[0]:
-                queue = self.dispatcher.message_table.pop(key)
-                queue_set.add(queue)
-        for queue in queue_set:
-            queue.put((conn, None))
-
-        # Notify the primary master node of the failure.
-        conn = app.master_conn
-        if conn is not None:
-            conn.lock()
-            try:
-                ip_address, port = node.getServer()
-                node_list = [(STORAGE_NODE_TYPE, ip_address, port, 
-                              node.getUUID(), state)]
-                conn.notify(protocol.notifyNodeInformation(node_list))
-            finally:
-                conn.unlock()
-
-
-class PrimaryBoostrapEventHandler(BaseClientEventHandler):
+class PrimaryBootstrapHandler(BaseHandler):
     # Bootstrap handler used when looking for the primary master
 
     def connectionFailed(self, conn):
         if self.app.primary_master_node is None:
             self.app.primary_master_node = -1
-        super(PrimaryBoostrapEventHandler, self).connectionFailed(conn)
+        super(PrimaryBootstrapHandler, self).connectionFailed(conn)
     
     def connectionClosed(self, conn):
         if self.app.primary_master_node is None:
             self.app.primary_master_node = -1
-        super(PrimaryBoostrapEventHandler, self).connectionClosed(conn)
+        super(PrimaryBootstrapHandler, self).connectionClosed(conn)
 
     def peerBroken(self, conn):
         if self.app.primary_master_node is None:
             self.app.primary_master_node = -1
-        super(PrimaryBoostrapEventHandler, self).peerBroken(conn)
+        super(PrimaryBootstrapHandler, self).peerBroken(conn)
 
     def timeoutExpired(self, conn):
         if self.app.primary_master_node is None:
             self.app.primary_master_node = -1
-        super(PrimaryBoostrapEventHandler, self).timeoutExpired(conn)
+        super(PrimaryBootstrapHandler, self).timeoutExpired(conn)
 
     def handleNotReady(self, conn, packet, message):
         self.app.setNodeNotReady()
@@ -238,7 +212,7 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
 
     @identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        # This handler is in PrimaryBoostrapEventHandler, since this
+        # This handler is in PrimaryBootstrapHandler, since this
         # basicaly is an answer to askPrimaryMaster.
         # Extract from P-NEO-Protocol.Description:
         #  Connection to primary master node (PMN in service state)
@@ -272,8 +246,14 @@ class PrimaryBoostrapEventHandler(BaseClientEventHandler):
                 pt.setCell(offset, node, state)
 
 
-class PrimaryEventHandler(BaseClientEventHandler):
-    # Handler used to communicate with the primary master
+
+class PrimaryNotificationsHandler(EventHandler):
+    """ Handler that process the notifications from the primary master """
+
+    # For notifications we do not need a dispatcher
+    def __init__(self, app):
+        self.app = app
+        EventHandler.__init__(self)
 
     def connectionClosed(self, conn):
         logging.critical("connection to primary master node closed")
@@ -283,17 +263,38 @@ class PrimaryEventHandler(BaseClientEventHandler):
         app.master_conn = None
         app.primary_master_node = None
         app.connectToPrimaryMasterNode()
-        super(PrimaryEventHandler, self).peerBroken(conn)
+        EventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
         logging.critical("connection timeout to primary master node expired")
         self.app.connectToPrimaryMasterNode()
-        super(PrimaryEventHandler, self).timeoutExpired(conn)
+        EventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
         logging.critical("primary master node is broken")
         self.app.connectToPrimaryMasterNode()
-        super(PrimaryEventHandler, self).peerBroken(conn)
+        EventHandler.peerBroken(self, conn)
+
+    def handleStopOperation(self, conn, packet):
+        logging.critical("master node ask to stop operation")
+
+    def handleInvalidateObjects(self, conn, packet, oid_list, tid):
+        app = self.app
+        app._cache_lock_acquire()
+        try:
+            # ZODB required a dict with oid as key, so create it
+            oids = {}
+            for oid in oid_list:
+                oids[oid] = tid
+                try:
+                    del app.mq_cache[oid]
+                except KeyError:
+                    pass
+            db = app.getDB()
+            if db is not None:
+                db.invalidate(tid, oids)
+        finally:
+            app._cache_lock_release()
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
@@ -327,6 +328,7 @@ class PrimaryEventHandler(BaseClientEventHandler):
 
             n.setState(state)
 
+
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         app = self.app
         nm = app.nm
@@ -343,8 +345,31 @@ class PrimaryEventHandler(BaseClientEventHandler):
                 if uuid != app.uuid:
                     node.setState(TEMPORARILY_DOWN_STATE)
                 nm.add(node)
-            # FIXME: Why FEEDING_STATE cells are kept in the PT ?
             pt.setCell(offset, node, state)
+
+
+class PrimaryAnswersHandler(BaseHandler):
+    """ Handle that process expected packets from the primary master """
+
+    def connectionClosed(self, conn):
+        logging.critical("connection to primary master node closed")
+        # Close connection
+        app = self.app
+        app.master_conn.close()
+        app.master_conn = None
+        app.primary_master_node = None
+        app.connectToPrimaryMasterNode()
+        super(PrimaryAnswersHandler, self).connectionClosed(conn)
+
+    def timeoutExpired(self, conn):
+        logging.critical("connection timeout to primary master node expired")
+        self.app.connectToPrimaryMasterNode()
+        super(PrimaryAnswersHandler, self).timeoutExpired(conn)
+
+    def peerBroken(self, conn):
+        logging.critical("primary master node is broken")
+        self.app.connectToPrimaryMasterNode()
+        super(PrimaryAnswersHandler, self).peerBroken(conn)
 
     def handleAnswerNewTID(self, conn, packet, tid):
         app = self.app
@@ -361,38 +386,68 @@ class PrimaryEventHandler(BaseClientEventHandler):
             app.setTransactionFinished()
 
 
-class StorageBootstrapEventHandler(BaseClientEventHandler):
-    # Handler used when connecting to a storage node
+class StorageBaseHandler(BaseHandler):
 
-    def connectionFailed(self, conn):
-        # Connection to a storage node failed
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
-        super(StorageBootstrapEventHandler, self).connectionFailed(conn)
+
+    def _dealWithStorageFailure(self, conn, node, state):
+        app = self.app
+
+        # Remove from pool connection
+        app.cp.removeConnection(node)
+
+        # Put fake packets to task queues.
+        queue_set = set()
+        for key in self.dispatcher.message_table.keys():
+            if id(conn) == key[0]:
+                queue = self.dispatcher.message_table.pop(key)
+                queue_set.add(queue)
+        for queue in queue_set:
+            queue.put((conn, None))
+
+        # Notify the primary master node of the failure.
+        conn = app.master_conn
+        if conn is not None:
+            conn.lock()
+            try:
+                ip_address, port = node.getServer()
+                node_list = [(STORAGE_NODE_TYPE, ip_address, port, 
+                              node.getUUID(), state)]
+                conn.notify(protocol.notifyNodeInformation(node_list))
+            finally:
+                conn.unlock()
 
     def connectionClosed(self, conn):
         node = self.app.nm.getNodeByServer(conn.getAddress())
         logging.info("connection to storage node %s closed", node.getServer())
         self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
-        super(StorageBootstrapEventHandler, self).connectionClosed(conn)
+        super(StorageBaseHandler, self).connectionClosed(conn)
 
     def timeoutExpired(self, conn):
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
-        super(StorageBootstrapEventHandler, self).timeoutExpired(conn)
+        super(StorageBaseHandler, self).timeoutExpired(conn)
 
     def peerBroken(self, conn):
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self._dealWithStorageFailure(conn, node, BROKEN_STATE)
-        super(StorageBootstrapEventHandler, self).peerBroken(conn)
+        super(StorageBaseHandler, self).peerBroken(conn)
+
+
+class StorageBootstrapHandler(StorageBaseHandler):
+    """ Handler used when connecting to a storage node """
+
+    def connectionFailed(self, conn):
+        # Connection to a storage node failed
+        node = self.app.nm.getNodeByServer(conn.getAddress())
+        self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
+        super(StorageBootstrapHandler, self).connectionFailed(conn)
 
     def handleNotReady(self, conn, packet, message):
         app = self.app
         app.setNodeNotReady()
         
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port,
-                                       num_partitions, num_replicas, your_uuid):
+           uuid, ip_address, port, num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getNodeByServer(conn.getAddress())
         # It can be eiter a master node or a storage node
@@ -412,48 +467,11 @@ class StorageBootstrapEventHandler(BaseClientEventHandler):
         node.setUUID(uuid)
 
 
-class StorageEventHandler(BaseClientEventHandler):
-    # Handle all messages related to ZODB operations
-
-    def connectionClosed(self, conn):
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        logging.info("connection to storage node %s closed", node.getServer())
-        self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
-        super(StorageEventHandler, self).connectionClosed(conn)
-
-    def timeoutExpired(self, conn):
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
-        super(StorageEventHandler, self).timeoutExpired(conn)
-
-    def peerBroken(self, conn):
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self._dealWithStorageFailure(conn, node, BROKEN_STATE)
-        super(StorageEventHandler, self).peerBroken(conn)
-
-    def handleInvalidateObjects(self, conn, packet, oid_list, tid):
-        app = self.app
-        app._cache_lock_acquire()
-        try:
-            # ZODB required a dict with oid as key, so create it
-            oids = {}
-            for oid in oid_list:
-                oids[oid] = tid
-                try:
-                    del app.mq_cache[oid]
-                except KeyError:
-                    pass
-            db = app.getDB()
-            if db is not None:
-                db.invalidate(tid, oids)
-        finally:
-            app._cache_lock_release()
-
-    def handleStopOperation(self, conn, packet):
-        logging.critical("master node ask to stop operation")
+class StorageAnswersHandler(StorageBaseHandler):
+    """ Handle all messages related to ZODB operations """
         
-    def handleAnswerObject(self, conn, packet, oid, start_serial, end_serial, compression,
-                           checksum, data):
+    def handleAnswerObject(self, conn, packet, oid, start_serial, end_serial, 
+            compression, checksum, data):
         app = self.app
         app.local_var.asked_object = (oid, start_serial, end_serial, compression,
                                       checksum, data)
@@ -502,4 +520,5 @@ class StorageEventHandler(BaseClientEventHandler):
     def handleAnswerTIDs(self, conn, packet, tid_list):
         app = self.app
         app.local_var.node_tids[conn.getUUID()] = tid_list
+
 
