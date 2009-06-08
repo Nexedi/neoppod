@@ -117,9 +117,22 @@ class StorageEventHandler(EventHandler):
 
         for node_type, ip_address, port, uuid, state in node_list:
             addr = (ip_address, port)
+            # Try to retrieve it from nm
+            n = None
+            if uuid != INVALID_UUID:
+                n = app.nm.getNodeByUUID(uuid)
+            if n is None:
+                n = app.nm.getNodeByServer(addr)
+                if n is not None and uuid != INVALID_UUID:
+                    # node only exists by address, remove it
+                    app.nm.remove(n)
+                    n = None
+            elif n.getServer() != addr:
+                # same uuid but different address, remove it
+                app.nm.remove(n)
+                n = None
 
             if node_type == MASTER_NODE_TYPE:
-                n = app.nm.getNodeByServer(addr)
                 if n is None:
                     n = MasterNode(server = addr)
                     app.nm.add(n)
@@ -148,12 +161,15 @@ class StorageEventHandler(EventHandler):
                         # I know I'm running
                         continue
                 
-                n = app.nm.getNodeByUUID(uuid)
                 if n is None:
+                    # try by address
+                    n = app.nm.getNodeByServer(addr)
+                    if n is not None:
+                        # remove the node
+                        app.nm.remode(n)
                     n = StorageNode(server = addr, uuid = uuid)
                     app.nm.add(n)
-                else:
-                    n.setServer(addr)
+
                 n.setState(state)                
 
             elif node_type == CLIENT_NODE_TYPE:
@@ -162,15 +178,11 @@ class StorageEventHandler(EventHandler):
                     continue
 
                 if state == RUNNING_STATE:
-                    n = app.nm.getNodeByUUID(uuid)
                     if n is None:
-                        logging.debug('adding client node %s', dump(uuid))
                         n = ClientNode(uuid = uuid)
                         app.nm.add(n)
-                        assert app.nm.getNodeByUUID(uuid) is n
                 else:
                     self.dealWithClientFailure(uuid)
-                    n = app.nm.getNodeByUUID(uuid)
                     if n is not None:
                         logging.debug('removing client node %s', dump(uuid))
                         app.nm.remove(n)
