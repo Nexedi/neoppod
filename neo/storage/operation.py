@@ -211,10 +211,7 @@ class OperationEventHandler(StorageEventHandler):
                 if uuid != app.uuid:
                     node.setState(TEMPORARILY_DOWN_STATE)
                 nm.add(node)
-            if state == DISCARDED_STATE:
-                pt.removeCell(offset, node)
-            else:
-                pt.setCell(offset, node, state)
+            pt.setCell(offset, node, state)
 
             if uuid == app.uuid:
                 # If this is for myself, this can affect replications.
