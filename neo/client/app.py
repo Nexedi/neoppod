@@ -336,7 +336,7 @@ class Application(object):
                 # we manage a list of oid here to prevent
                 # from asking too many time new oid one by one
                 # from master node
-                self._askPrimary(protocol.askNewOIDs(25))
+                self._askPrimary(protocol.askNewOIDs(100))
                 if len(self.new_oid_list) <= 0:
                     raise NEOStorageError('new_oid failed')
             return self.new_oid_list.pop()
