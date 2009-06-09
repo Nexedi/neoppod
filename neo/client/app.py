@@ -763,7 +763,10 @@ class Application(object):
         # Wait for answers from all storages.
         # FIXME this is a busy loop.
         while True:
-            self._waitMessage(handler=self.storage_handler)
+            try:
+                self._waitMessage(handler=self.storage_handler)
+            except NEOStorageConnectionFailure:
+                continue
             if len(self.local_var.node_tids.keys()) == len(storage_node_list):
                 break
 
@@ -790,7 +793,10 @@ class Application(object):
                     continue
 
                 self.local_var.txn_info = 0
-                self._askStorage(conn, protocol.askTransactionInformation(tid))
+                try:
+                    self._askStorage(conn, protocol.askTransactionInformation(tid))
+                except NEOStorageConnectionFailure:
+                    continue
 
                 if self.local_var.txn_info == -1:
                     # TID not found, go on with next node
@@ -798,7 +804,7 @@ class Application(object):
                 elif isinstance(self.local_var.txn_info, dict):
                     break
 
-            if self.local_var.txn_info == -1:
+            if self.local_var.txn_info in (-1, 0):
                 # TID not found at all
                 continue
 
