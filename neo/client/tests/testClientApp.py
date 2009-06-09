@@ -208,6 +208,22 @@ class ClientApplicationTest(NeoTestBase):
         tid1 = self.makeTID(1)
         tid2 = self.makeTID(2)
         an_object = (1, oid, tid1, tid2, 0, 0, '')
+        # connection to SN close
+        self.assertTrue(oid not in mq)
+        packet = protocol.oidNotFound('')
+        cell = Mock({ 'getUUID': '\x00' * 16})
+        conn = Mock({'getUUID': '\x10' * 16,
+                     'getServer': ('127.0.0.1', 0),
+                     'fakeReceived': packet,    
+                     })
+        app.local_var.queue = Mock({'get_nowait' : (conn, None)})
+        app.pt = Mock({ 'getCellList': (cell, ), })
+        app.cp = Mock({ 'getConnForNode' : conn})
+        app.local_var.asked_object = -1
+        Application._waitMessage = Application._waitMessage_org
+        self.assertRaises(NEOStorageNotFoundError, app.load, oid)
+        self.checkAskObject(conn)
+        Application._waitMessage = _waitMessage
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
         packet = protocol.oidNotFound('')
