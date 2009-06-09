@@ -842,7 +842,10 @@ class Application(object):
                 continue
 
             self.local_var.history = None
-            self._askStorage(conn, protocol.askObjectHistory(oid, 0, length))
+            try:
+                self._askStorage(conn, protocol.askObjectHistory(oid, 0, length))
+            except NEOStorageConnectionFailure:
+                continue
 
             if self.local_var.history == -1:
                 # Not found, go on with next node
@@ -875,7 +878,10 @@ class Application(object):
 
                 # ask transaction information
                 self.local_var.txn_info = None
-                self._askStorage(conn, protocol.askTransactionInformation(serial))
+                try:
+                    self._askStorage(conn, protocol.askTransactionInformation(serial))
+                except NEOStorageConnectionFailure:
+                    continue
 
                 if self.local_var.txn_info == -1:
                     # TID not found
