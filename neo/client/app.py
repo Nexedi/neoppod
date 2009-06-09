@@ -572,6 +572,7 @@ class Application(object):
             cell_list = self.pt.getCellList(partition_id, writable=True)
         finally:
             self._pt_release()
+        self.local_var.voted_counter = 0
         for cell in cell_list:
             logging.info("voting object %s %s" %(cell.getServer(), cell.getState()))
             conn = self.cp.getConnForNode(cell)
@@ -581,10 +582,18 @@ class Application(object):
             self.local_var.txn_voted = False
             p = protocol.askStoreTransaction(self.local_var.tid, 
                     user, desc, ext, oid_list)
-            self._askStorage(conn, p)
+            try:
+                self._askStorage(conn, p)
+            except NEOStorageConnectionFailure:
+                continue
 
             if not self.isTransactionVoted():
                 raise NEOStorageError('tpc_vote failed')
+            self.local_var.voted_counter += 1
+
+        # check at least one storage node accepted
+        if self.local_var.voted_counter == 0:
+            raise NEOStorageError('tpc_vote failed')
 
     def tpc_abort(self, transaction):
         """Abort current transaction."""
