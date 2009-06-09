@@ -366,53 +366,63 @@ class Application(object):
         partition_id = u64(oid) % self.num_partitions
 
         self.local_var.asked_object = None
-        while self.local_var.asked_object is None:
-            self._pt_acquire()
-            try:
-                cell_list = self.pt.getCellList(partition_id, readable=True)
-            finally:
-                self._pt_release()
 
-            if len(cell_list) == 0:
-                sleep(1)
+        self._pt_acquire()
+        try:
+            cell_list = self.pt.getCellList(partition_id, readable=True)
+        finally:
+            self._pt_release()
+
+        if len(cell_list) == 0:
+            # No cells available, so why are we running ?
+            logging.error('oid %s not found because no storage is available for it', dump(oid))
+            raise NEOStorageNotFoundError()
+
+        shuffle(cell_list)
+        self.local_var.asked_object = 0
+        for cell in cell_list:
+            logging.debug('trying to load %s from %s',
+                          dump(oid), dump(cell.getUUID()))
+            conn = self.cp.getConnForNode(cell)
+            if conn is None:
                 continue
 
-            shuffle(cell_list)
-            self.local_var.asked_object = None
-            for cell in cell_list:
-                logging.debug('trying to load %s from %s',
-                              dump(oid), dump(cell.getUUID()))
-                conn = self.cp.getConnForNode(cell)
-                if conn is None:
-                    continue
-
-                self.local_var.asked_object = 0
+            try:
                 self._askStorage(conn, protocol.askObject(oid, serial, tid))
+            except NEOStorageConnectionFailure:
+                continue
 
-                if self.local_var.asked_object == -1:
-                    # OID not found
-                    break
+            if self.local_var.asked_object == -1:
+                # OID not found
+                break
 
-                # Check data
-                noid, start_serial, end_serial, compression, checksum, data \
-                    = self.local_var.asked_object
-                if noid != oid:
-                    # Oops, try with next node
-                    logging.error('got wrong oid %s instead of %s from node %s',
-                                  noid, dump(oid), cell.getServer())
-                    continue
-                elif checksum != makeChecksum(data):
-                    # Check checksum.
-                    logging.error('wrong checksum from node %s for oid %s',
-                                  cell.getServer(), dump(oid))
-                    continue
-                else:
-                    # Everything looks alright.
-                    break
+            # Check data
+            noid, start_serial, end_serial, compression, checksum, data \
+                = self.local_var.asked_object
+            if noid != oid:
+                # Oops, try with next node
+                logging.error('got wrong oid %s instead of %s from node %s',
+                              noid, dump(oid), cell.getServer())
+                self.local_var.asked_object = -1
+                continue
+            elif checksum != makeChecksum(data):
+                # Check checksum.
+                logging.error('wrong checksum from node %s for oid %s',
+                              cell.getServer(), dump(oid))
+                self.local_var.asked_object = -1
+                continue
+            else:
+                # Everything looks alright.
+                break
+
+        if self.local_var.asked_object == 0:
+            # We didn't got any object from all storage node because of connection error
+            logging.warning('oid %s not found because of connection failure', dump(oid))
+            raise NEOStorageNotFoundError()
 
         if self.local_var.asked_object == -1:
             # We didn't got any object from all storage node
-            logging.debug('oid %s not found', dump(oid))
+            logging.info('oid %s not found', dump(oid))
             raise NEOStorageNotFoundError()
 
         # Uncompress data
