@@ -89,12 +89,6 @@ class ClientHandlerTest(NeoTestBase):
     def getDispatcher(self, queue=None):
       return Mock({'getQueue': queue, 'connectToPrimaryMasterNode': None})
 
-    def instanciateHandler(self, handler_class, app, dispatcher):
-        if handler_class is PrimaryNotificationsHandler:
-            return handler_class(app)
-        else:
-            return handler_class(app, dispatcher)
-
     def test_ping(self):
         """
         Simplest test: check that a PING packet is answered by a PONG
@@ -124,7 +118,6 @@ class ClientHandlerTest(NeoTestBase):
         #self.assertEquals(len(App.master_conn.mockGetNamedCalls('close')), 1)
         #self.assertEquals(app.master_conn, None)
         #self.assertEquals(app.primary_master_node, None)
-        self.assertEquals(len(app.mockGetNamedCalls('connectToPrimaryMasterNode')), 1)
 
     def _testStorageWithMethod(self, method, handler_class, state=TEMPORARILY_DOWN_STATE):
         storage_ip = '127.0.0.1'
@@ -174,7 +167,7 @@ class ClientHandlerTest(NeoTestBase):
         self.assertEqual(len(queue_2.mockGetNamedCalls('put')), 0)
 
     def _testConnectionFailed(self, dispatcher, app, handler_class, uuid=None, conn=None):
-        client_handler = self.instanciateHandler(handler_class, app, dispatcher)
+        client_handler = handler_class(app, dispatcher)
         if conn is None:
             conn = self.getConnection(uuid=uuid)
         client_handler.connectionFailed(conn)
@@ -187,7 +180,7 @@ class ClientHandlerTest(NeoTestBase):
                 StorageBootstrapHandler)
 
     def _testConnectionClosed(self, dispatcher, app, handler_class, uuid=None, conn=None):
-        client_handler = self.instanciateHandler(handler_class, app, dispatcher)
+        client_handler = handler_class(app, dispatcher)
         if conn is None:
             conn = self.getConnection(uuid=uuid)
         client_handler.connectionClosed(conn)
@@ -206,7 +199,7 @@ class ClientHandlerTest(NeoTestBase):
                 StorageAnswersHandler)
 
     def _testTimeoutExpired(self, dispatcher, app, handler_class, uuid=None, conn=None):
-        client_handler = self.instanciateHandler(handler_class, app, dispatcher)
+        client_handler = handler_class(app, dispatcher)
         if conn is None:
             conn = self.getConnection(uuid=uuid)
         client_handler.timeoutExpired(conn)
@@ -224,7 +217,7 @@ class ClientHandlerTest(NeoTestBase):
                 StorageBootstrapHandler)
 
     def _testPeerBroken(self, dispatcher, app, handler_class, uuid=None, conn=None):
-        client_handler = self.instanciateHandler(handler_class, app, dispatcher)
+        client_handler = handler_class(app, dispatcher)
         if conn is None:
             conn = self.getConnection(uuid=uuid)
         client_handler.peerBroken(conn)
@@ -610,7 +603,7 @@ class ClientHandlerTest(NeoTestBase):
             class App:
                 nm = Mock({'getNodeByUUID': node})
             app = App()
-            client_handler = PrimaryNotificationsHandler(app)
+            client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
             conn = self.getConnection(uuid=test_master_uuid)
             client_handler.handleNotifyNodeInformation(conn, None, ())
 
@@ -624,7 +617,7 @@ class ClientHandlerTest(NeoTestBase):
         class App:
             nm = Mock({'getNodeByUUID': node})
         app = App()
-        client_handler = PrimaryNotificationsHandler(app)
+        client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=test_master_uuid)
         self.assertRaises(TypeError, client_handler.handleNotifyNodeInformation,
             conn, None, None)
@@ -643,7 +636,6 @@ class ClientHandlerTest(NeoTestBase):
                        'add': None,
                        'remove': None})
         app = App()
-        #client_handler = ClientHandler(app, selClientHandlerf.getDispatcher())
         client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=test_master_uuid)
         client_handler.handleNotifyNodeInformation(conn, None, test_node_list)
@@ -690,6 +682,8 @@ class ClientHandlerTest(NeoTestBase):
         # Likewise for server address and node uuid.
 
     def test_knownStorageNotifyNodeInformation(self):
+        import pdb
+        pdb.set_trace()
         node = Mock({'setState': None, 'setServer': None})
         test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getNewUUID(),
                      RUNNING_STATE)
@@ -728,7 +722,7 @@ class ClientHandlerTest(NeoTestBase):
                 ptid = INVALID_PTID
                 primary_master_node = node
             app = App()
-            client_handler = PrimaryNotificationsHandler(app)
+            client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
             conn = self.getConnection(uuid=test_master_uuid)
             client_handler.handleNotifyPartitionChanges(conn, None, 0, [])
             # Check that nothing happened
@@ -742,7 +736,7 @@ class ClientHandlerTest(NeoTestBase):
             ptid = INVALID_PTID
             primary_master_node = None
         app = App()
-        client_handler = PrimaryNotificationsHandler(app)
+        client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection()
         client_handler.handleNotifyPartitionChanges(conn, None, 0, [])
         # Check that nothing happened
@@ -761,7 +755,7 @@ class ClientHandlerTest(NeoTestBase):
             ptid = INVALID_PTID
             primary_master_node = test_master_node
         app = App()
-        client_handler = PrimaryNotificationsHandler(app)
+        client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=test_sender_uuid)
         client_handler.handleNotifyPartitionChanges(conn, None, 0, [])
         # Check that nothing happened
@@ -777,7 +771,7 @@ class ClientHandlerTest(NeoTestBase):
             primary_master_node = node
             ptid = test_ptid
         app = App()
-        client_handler = PrimaryNotificationsHandler(app)
+        client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=test_master_uuid)
         client_handler.handleNotifyPartitionChanges(conn, None, test_ptid, [])
         # Check that nothing happened
@@ -795,7 +789,7 @@ class ClientHandlerTest(NeoTestBase):
             ptid = test_ptid
             uuid = None # XXX: Is it really needed ?
         app = App()
-        client_handler = PrimaryNotificationsHandler(app)
+        client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=test_master_uuid)
         test_storage_uuid = self.getNewUUID()
         # TODO: use realistic values
@@ -825,7 +819,7 @@ class ClientHandlerTest(NeoTestBase):
             ptid = test_ptid
             uuid = uuid4
         app = App()
-        client_handler = PrimaryNotificationsHandler(app)
+        client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=uuid1)
         test_cell_list = [
             (0, uuid1, UP_TO_DATE_STATE),
@@ -889,7 +883,7 @@ class ClientHandlerTest(NeoTestBase):
             mq_cache = Mock({'__delitem__': None})
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = PrimaryNotificationsHandler(app )
+        client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection()
         test_tid = 1
         test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
