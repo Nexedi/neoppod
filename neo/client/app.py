@@ -518,16 +518,20 @@ class Application(object):
         # Store data on each node
         compressed_data = compress(data)
         checksum = makeChecksum(compressed_data)
+        self.local_var.object_stored_counter = 0
         for cell in cell_list:
             #logging.info("storing object %s %s" %(cell.getServer(),cell.getState()))
             conn = self.cp.getConnForNode(cell)
-            if conn is None:
+            if conn is None:                
                 continue
 
             self.local_var.object_stored = 0
             p = protocol.askStoreObject(oid, serial, 1,
                      checksum, compressed_data, self.local_var.tid)
-            self._askStorage(conn, p)
+            try:
+                self._askStorage(conn, p)
+            except NEOStorageConnectionFailure:
+                continue
 
             # Check we don't get any conflict
             if self.local_var.object_stored[0] == -1:
@@ -539,7 +543,13 @@ class Application(object):
                     del self.local_var.data_dict[oid]
                 self.conflict_serial = self.local_var.object_stored[1]
                 raise NEOStorageConflictError
+            # increase counter so that we know if a node has stored the object or not
+            self.local_var.object_stored_counter += 1
 
+        if self.local_var.object_stored_counter == 0:
+            # no storage nodes were available
+            raise NEOStorageError('tpc_store failed')
+        
         # Store object in tmp cache
         noid, nserial = self.local_var.object_stored
         self.local_var.data_dict[oid] = data
