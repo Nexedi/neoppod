@@ -289,7 +289,7 @@ class Application(object):
             except Empty:
                 break
             if packet is None:
-                if conn is target_conn:
+                if conn.getUUID() == target_conn.getUUID():
                     raise NEOStorageConnectionFailure('connection closed')
                 else:
                     continue
