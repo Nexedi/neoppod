@@ -684,7 +684,10 @@ class Application(object):
                 continue
 
             self.local_var.txn_info = 0
-            self._askStorage(conn, protocol.askTransactionInformation(transaction_id))
+            try:
+                self._askStorage(conn, protocol.askTransactionInformation(transaction_id))
+            except NEOStorageConnectionFailure:
+                continue
 
             if self.local_var.txn_info == -1:
                 # Tid not found, try with next node
@@ -694,7 +697,7 @@ class Application(object):
             else:
                 raise NEOStorageError('undo failed')
 
-        if self.local_var.txn_info == -1:
+        if self.local_var.txn_info in (-1, 0):
             raise NEOStorageError('undo failed')
 
         oid_list = self.local_var.txn_info['oids']
