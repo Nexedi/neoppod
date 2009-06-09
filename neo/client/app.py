@@ -32,7 +32,7 @@ from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
         INVALID_PTID, CLIENT_NODE_TYPE, UP_TO_DATE_STATE, INVALID_SERIAL
 from neo.client.handler import *
 from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
-     NEOStorageNotFoundError
+     NEOStorageNotFoundError, NEOStorageConnectionFailure
 from neo.util import makeChecksum, dump
 from neo.connector import getConnectorHandler
 from neo.client.dispatcher import Dispatcher
@@ -290,7 +290,7 @@ class Application(object):
                 break
             if packet is None:
                 if conn is target_conn:
-                    raise NEOStorageError('connection closed')
+                    raise NEOStorageConnectionFailure('connection closed')
                 else:
                     continue
             handler.dispatch(conn, packet)

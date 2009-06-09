@@ -19,4 +19,4 @@ from ZODB import POSException
 class NEOStorageError(POSException.StorageError): pass
 class NEOStorageConflictError(NEOStorageError): pass
 class NEOStorageNotFoundError(NEOStorageError): pass
-
+class NEOStorageConnectionFailure(NEOStorageError): pass
