@@ -266,17 +266,14 @@ class PrimaryNotificationsHandler(BaseHandler):
         app.master_conn.close()
         app.master_conn = None
         app.primary_master_node = None
-        app.connectToPrimaryMasterNode()
         BaseHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
         logging.critical("connection timeout to primary master node expired")
-        self.app.connectToPrimaryMasterNode()
         BaseHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
         logging.critical("primary master node is broken")
-        self.app.connectToPrimaryMasterNode()
         BaseHandler.peerBroken(self, conn)
 
     def handleStopOperation(self, conn, packet):
@@ -362,17 +359,14 @@ class PrimaryAnswersHandler(BaseHandler):
         app.master_conn.close()
         app.master_conn = None
         app.primary_master_node = None
-        app.connectToPrimaryMasterNode()
         super(PrimaryAnswersHandler, self).connectionClosed(conn)
 
     def timeoutExpired(self, conn):
         logging.critical("connection timeout to primary master node expired")
-        self.app.connectToPrimaryMasterNode()
         super(PrimaryAnswersHandler, self).timeoutExpired(conn)
 
     def peerBroken(self, conn):
         logging.critical("primary master node is broken")
-        self.app.connectToPrimaryMasterNode()
         super(PrimaryAnswersHandler, self).peerBroken(conn)
 
     def handleAnswerNewTID(self, conn, packet, tid):

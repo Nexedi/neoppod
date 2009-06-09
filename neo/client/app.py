@@ -268,10 +268,7 @@ class Application(object):
         lock = Lock()
         self._pt_acquire = lock.acquire
         self._pt_release = lock.release
-        # Connect to master node
-        self.connectToPrimaryMasterNode()
-        if self.uuid == INVALID_UUID:
-            raise NEOStorageError('No UUID given from the primary master')
+        self.master_conn = self._getMasterConnection()
 
     def _waitMessage(self, target_conn = None, msg_id = None, handler=None):
         """Wait for a message returned by the dispatcher in queues."""
@@ -310,9 +307,7 @@ class Application(object):
 
     def _askPrimary(self, packet, timeout=5, additional_timeout=30):
         """ Send a request to the primary master and process it's answer """
-        if self.master_conn is None:
-            raise NEOStorageError("Connection to master node failed")
-        conn = self.master_conn
+        conn = self._getMasterConnection()
         conn.lock()
         try:
             msg_id = conn.ask(packet, timeout, additional_timeout)
@@ -320,6 +315,12 @@ class Application(object):
         finally:
             conn.unlock()
         self._waitMessage(conn, msg_id, self.primary_handler)
+
+    def _getMasterConnection(self):
+        """ Connect to the primary master node on demand """
+        if self.master_conn is None:    
+            self.master_conn = self.connectToPrimaryMasterNode()
+        return self.master_conn
 
     def registerDB(self, db, limit):
         self._db = db
@@ -626,7 +627,7 @@ class Application(object):
                 conn.unlock()
 
         # Abort the transaction in the primary master node.
-        conn = self.master_conn
+        conn = self._getMasterConnection()
         conn.lock()
         try:
             conn.notify(protocol.abortTransaction(self.local_var.tid))
@@ -913,15 +914,10 @@ class Application(object):
         self._waitMessage()
 
     def connectToPrimaryMasterNode(self):
-        self.master_conn = None
         logging.debug('connecting to primary master...')
         # acquire the lock to allow only one thread to connect to the primary 
         lock = self._connecting_to_master_node_acquire(1)
         try:
-            if self.master_conn is not None:
-                # another thread has done the job
-                logging.debug('already connected')
-                return
             if self.pt is not None:
                 # pt is protected with the master lock
                 self.pt.clear()
@@ -981,14 +977,15 @@ class Application(object):
                         elif self.pt is not None and self.pt.operational():
                             # Connected to primary master node
                             break
-                if self.pt is not None and self.pt.operational():
+                if self.pt is not None and self.pt.operational() \
+                        and self.uuid != INVALID_UUID:
                     # Connected to primary master node and got all informations
                     break
                 sleep(1)
 
             logging.info("connected to primary master node %s" % self.primary_master_node)
             conn.setHandler(PrimaryNotificationsHandler(self, self.dispatcher))
-            self.master_conn = conn
+            return conn
 
         finally:
             self._connecting_to_master_node_release()
