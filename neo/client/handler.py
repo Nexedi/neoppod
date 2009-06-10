@@ -61,8 +61,52 @@ class BaseHandler(EventHandler):
         else:
             queue.put((conn, packet))
 
+class PrimaryHandler(BaseHandler):
 
-class PrimaryBootstrapHandler(BaseHandler):
+    def handleNotifyNodeInformation(self, conn, packet, node_list):
+        app = self.app
+        nm = app.nm
+        for node_type, ip_address, port, uuid, state in node_list:
+            # Register new nodes.
+            addr = (ip_address, port)
+            # Try to retrieve it from nm
+            n = None
+            if uuid != INVALID_UUID:
+                n = nm.getNodeByUUID(uuid)
+            if n is None:
+                n = nm.getNodeByServer(addr)
+                if n is not None and uuid != INVALID_UUID:
+                    # node only exists by address, remove it
+                    nm.remove(n)
+                    n = None
+            elif n.getServer() != addr:
+                # same uuid but different address, remove it
+                nm.remove(n)
+                n = None
+                 
+            if node_type == MASTER_NODE_TYPE:
+                if n is None:
+                    n = MasterNode(server = addr)
+                    nm.add(n)
+                if uuid != INVALID_UUID:
+                    # If I don't know the UUID yet, believe what the peer
+                    # told me at the moment.
+                    if n.getUUID() is None:
+                        n.setUUID(uuid)
+            elif node_type == STORAGE_NODE_TYPE:
+                if uuid == INVALID_UUID:
+                    # No interest.
+                    continue
+                if n is None:
+                    n = StorageNode(server = addr, uuid = uuid)
+                    nm.add(n)
+            elif node_type == CLIENT_NODE_TYPE:
+                continue
+
+            n.setState(state)
+
+
+class PrimaryBootstrapHandler(PrimaryHandler):
     """ Bootstrap handler used when looking for the primary master """
 
     def connectionFailed(self, conn):
@@ -169,58 +213,6 @@ class PrimaryBootstrapHandler(BaseHandler):
                     app.primary_master_node = primary_node
 
     @identification_required
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
-        uuid = conn.getUUID()
-        app = self.app
-        nm = app.nm
-        node = nm.getNodeByUUID(uuid)
-        # This must be sent only by a primary master node.
-        # Note that this may be sent before I know that it is
-        # a primary master node.
-        if node.getNodeType() != MASTER_NODE_TYPE:
-            logging.warn('ignoring notify node information from %s',
-                         dump(uuid))
-            return
-        for node_type, ip_address, port, uuid, state in node_list:
-            # Register new nodes.
-            addr = (ip_address, port)
-            # Try to retrieve it from nm
-            n = None
-            if uuid != INVALID_UUID:
-                n = nm.getNodeByUUID(uuid)
-            if n is None:
-                n = nm.getNodeByServer(addr)
-                if n is not None and uuid != INVALID_UUID:
-                    # node only exists by address, remove it
-                    nm.remove(n)
-                    n = None
-            elif n.getServer() != addr:
-                # same uuid but different address, remove it
-                nm.remove(n)
-                n = None
-                 
-            if node_type == MASTER_NODE_TYPE:
-                if n is None:
-                    n = MasterNode(server = addr)
-                    nm.add(n)
-                if uuid != INVALID_UUID:
-                    # If I don't know the UUID yet, believe what the peer
-                    # told me at the moment.
-                    if n.getUUID() is None:
-                        n.setUUID(uuid)
-            elif node_type == STORAGE_NODE_TYPE:
-                if uuid == INVALID_UUID:
-                    # No interest.
-                    continue
-                if n is None:
-                    n = StorageNode(server = addr, uuid = uuid)
-                    nm.add(n)
-            elif node_type == CLIENT_NODE_TYPE:
-                continue
-
-            n.setState(state)
-
-    @identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         # This handler is in PrimaryBootstrapHandler, since this
         # basicaly is an answer to askPrimaryMaster.
@@ -256,7 +248,7 @@ class PrimaryBootstrapHandler(BaseHandler):
                 pt.setCell(offset, node, state)
 
 
-class PrimaryNotificationsHandler(BaseHandler):
+class PrimaryNotificationsHandler(PrimaryHandler):
     """ Handler that process the notifications from the primary master """
 
     def connectionClosed(self, conn):
@@ -296,38 +288,6 @@ class PrimaryNotificationsHandler(BaseHandler):
                 db.invalidate(tid, oids)
         finally:
             app._cache_lock_release()
-
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
-        app = self.app
-        nm = app.nm
-        for node_type, ip_address, port, uuid, state in node_list:
-            # Register new nodes.
-            addr = (ip_address, port)
-
-            if node_type == MASTER_NODE_TYPE:
-                n = nm.getNodeByServer(addr)
-                if n is None:
-                    n = MasterNode(server = addr)
-                    nm.add(n)
-                if uuid != INVALID_UUID:
-                    # If I don't know the UUID yet, believe what the peer
-                    # told me at the moment.
-                    if n.getUUID() is None:
-                        n.setUUID(uuid)
-            elif node_type == STORAGE_NODE_TYPE:
-                if uuid == INVALID_UUID:
-                    # No interest.
-                    continue
-                n = nm.getNodeByUUID(uuid)
-                if n is None:
-                    n = StorageNode(server = addr, uuid = uuid)
-                    nm.add(n)
-                else:
-                    n.setServer(addr)
-            elif node_type == CLIENT_NODE_TYPE:
-                continue
-
-            n.setState(state)
 
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):

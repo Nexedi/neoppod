@@ -310,16 +310,17 @@ class ClientHandlerTest(NeoTestBase):
         self.assertEquals(app.pt,  None)
         self.assertEquals(app.uuid, 'C' * 16)
 
-    def _testHandleUnexpectedPacketCalledWithMedhod(self, client_handler, method, args=(), kw=()):
-        call_list = []
+    def _testHandleUnexpectedPacketCalledWithMedhod(self, method, args=(), kw=()):
         self.assertRaises(UnexpectedPacketError, method, *args, **dict(kw))
 
     # Master node handler
     def test_initialAnswerPrimaryMaster(self):
-        client_handler = PrimaryBootstrapHandler(None, self.getDispatcher())
+        class App:
+            nm = Mock()
+        client_handler = PrimaryBootstrapHandler(App(), self.getDispatcher())
         conn = Mock({'getUUID': None})
         self._testHandleUnexpectedPacketCalledWithMedhod(
-            client_handler, client_handler.handleAnswerPrimaryMaster,
+            client_handler.handleAnswerPrimaryMaster,
             args=(conn, None, 0, []))
         
     def test_nonMasterAnswerPrimaryMaster(self):
@@ -511,7 +512,7 @@ class ClientHandlerTest(NeoTestBase):
         client_handler = PrimaryBootstrapHandler(None, self.getDispatcher())
         conn = Mock({'getUUID': None})
         self._testHandleUnexpectedPacketCalledWithMedhod(
-            client_handler, client_handler.handleSendPartitionTable,
+            client_handler.handleSendPartitionTable,
             args=(conn, None, None, None))
 
     def test_nonMasterSendPartitionTable(self):
@@ -589,13 +590,6 @@ class ClientHandlerTest(NeoTestBase):
         setCell_call_list[0].checkArgs(test_row_list[0][0], test_node,
                 test_row_list[0][1][0][1])
 
-    def test_initialNotifyNodeInformation(self):
-        client_handler = PrimaryBootstrapHandler(None, self.getDispatcher())
-        conn = Mock({'getUUID': None})
-        self._testHandleUnexpectedPacketCalledWithMedhod(
-            client_handler, client_handler.handleNotifyNodeInformation,
-            args=(conn, None, None))
-
     def test_nonMasterNotifyNodeInformation(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
             test_master_uuid = self.getNewUUID()
@@ -663,9 +657,15 @@ class ClientHandlerTest(NeoTestBase):
                      RUNNING_STATE)
         nm = self._testNotifyNodeInformation(test_node, getNodeByServer=node,
                 getNodeByUUID=node)
-        # Check that no node got added
-        self.assertEqual(len(nm.mockGetNamedCalls('add')), 0)
-        add_call_list = node.mockGetNamedCalls('add')
+        # Check that node got replaced
+        add_call_list = nm.mockGetNamedCalls('add')
+        self.assertEquals(len(add_call_list), 1)
+        remove_call_list = nm.mockGetNamedCalls('remove')
+        self.assertEquals(len(remove_call_list), 1)
+        # Check node state has been updated
+        setState_call_list = node.mockGetNamedCalls('setState')
+        self.assertEqual(len(setState_call_list), 1)
+        self.assertEqual(setState_call_list[0].getParam(0), test_node[4])
 
     def test_unknownStorageNotifyNodeInformation(self):
         test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getNewUUID(),
@@ -682,23 +682,18 @@ class ClientHandlerTest(NeoTestBase):
         # Likewise for server address and node uuid.
 
     def test_knownStorageNotifyNodeInformation(self):
-        import pdb
-        pdb.set_trace()
         node = Mock({'setState': None, 'setServer': None})
         test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getNewUUID(),
                      RUNNING_STATE)
         nm = self._testNotifyNodeInformation(test_node, getNodeByUUID=node)
-        # Check that no node got added
-        self.assertEqual(len(nm.mockGetNamedCalls('add')), 0)
-        # Check that server address got set
-        setServer_call_list = node.mockGetNamedCalls('setServer')
-        self.assertEqual(len(setServer_call_list), 1)
-        self.assertEqual(setServer_call_list[0].getParam(0),
-                         (test_node[1], test_node[2]))
+        # Check that node got replaced
+        add_call_list = nm.mockGetNamedCalls('add')
+        self.assertEquals(len(add_call_list), 1)
+        remove_call_list = nm.mockGetNamedCalls('remove')
+        self.assertEquals(len(remove_call_list), 1)
         # Check node state has been updated
-        setState_call_list = node.mockGetNamedCalls('setState')
-        self.assertEqual(len(setState_call_list), 1)
-        self.assertEqual(setState_call_list[0].getParam(0), test_node[4])
+        node = add_call_list[0].getParam(0)
+        self.assertEquals(node.getState(), test_node[4])
 
     def test_initialNotifyPartitionChanges(self):
         class App:
@@ -709,7 +704,7 @@ class ClientHandlerTest(NeoTestBase):
         client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
         conn = Mock({'getUUID': None})
         self._testHandleUnexpectedPacketCalledWithMedhod(
-            client_handler, client_handler.handleNotifyPartitionChanges,
+            client_handler.handleNotifyPartitionChanges,
             args=(conn, None, None, None))
 
     def test_nonMasterNotifyPartitionChanges(self):
