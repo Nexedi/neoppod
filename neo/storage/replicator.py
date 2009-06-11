@@ -299,6 +299,9 @@ class Replicator(object):
             return
 
         addr = node.getServer()
+        if addr is None:
+            logging.error("no address known for the selected node %s" %(node.getUUID()))
+            return
         if self.current_connection is not None:
             if self.current_connection.getAddress() == addr:
                 # I can reuse the same connection.
