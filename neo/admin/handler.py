@@ -99,22 +99,20 @@ class AdminEventHandler(BaseEventHandler):
         p = protocol.answerNodeList(node_information_list)
         conn.ask(p)
 
-    def handleSetNodeState(self, conn, packet, uuid, state):
+    def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s" %(dump(uuid), state))
         node = self.app.nm.getNodeByUUID(uuid)
         if node is None:
             p = protocol.protocolError('invalid uuid')
             conn.notify(p)
-        if node.getState() == state:
+        if node.getState() == state and modify_partition_table is False:
             # no change
             p = protocol.answerNodeState(node.getUUID(), node.getState())
             conn.answer(p, packet)
             return
-        # send information to master node
+        # forward to primary master node
         master_conn = self.app.master_conn
-        ip, port = node.getServer()
-        node_list = [(node.getNodeType(), ip, port, uuid, state),]
-        p = protocol.notifyNodeInformation(node_list)
+        p = protocol.setNodeState(uuid, state, modify_partition_table)
         master_conn.ask(p)
         self.app.notified = False        
         while not self.app.notified:
