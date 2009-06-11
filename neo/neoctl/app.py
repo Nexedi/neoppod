@@ -72,7 +72,9 @@ class Application(object):
         # print pt all [uuid] : print the partition table for all rows [containing node with uuid]
         # print pt 10-0 [uuid] : print the partition table for row 10 to the end [containing node with uuid]
         # print node type : print list of node of the given type (STORAGE_NODE_TYPE, MASTER_NODE_TYPE...)
-        # set node uuid state : set the node for the given uuid to the state (RUNNING_STATE, DOWN_STATE...)
+        # set node uuid state [1|0] : set the node for the given uuid to the state (RUNNING_STATE, DOWN_STATE...)
+        #                             and modify the partition if asked
+        # set cluster name [shutdown|operational] : either shutdown the cluster or mark it as operational
         command = args[0]
         options = args[1:]
         if command == "print":
@@ -106,7 +108,18 @@ class Application(object):
                 state = node_states.getFromStr(state)
                 if state is None:
                     return "unknown state type"
-                p = protocol.setNodeState(uuid, state)
+                if len(options):
+                    modify = int(options.pop(0))
+                else:
+                    modify = 0
+                p = protocol.setNodeState(uuid, state, modify)
+            elif set_type == "cluster":
+                name = options.pop(0)
+                state = options.pop(0)
+                cluster_state = cluster_states.getFromStr(state)
+                if state is None:
+                    return "unknown cluster state"
+                p = protocol.setClusterState(name, state)
             else:
                 return "unknown command options"                                
         else:
