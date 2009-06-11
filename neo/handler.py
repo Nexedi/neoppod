@@ -373,7 +373,7 @@ class EventHandler(object):
     def handleAnswerNodeList(self, conn, packet, ptid, row_list):
         self.handleUnexpectedPacket(conn, packet)
 
-    def handleSetNodeState(self, conn, packet, uuid, state):
+    def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         self.handleUnexpectedPacket(conn, packet)
 
     def handleAnswerNodeState(self, conn, packet, uuid, state):
