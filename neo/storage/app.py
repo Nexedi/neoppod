@@ -150,6 +150,8 @@ class Application(object):
                         self.doOperation()
                     except OperationFailure:
                         logging.error('operation stopped')
+                        # XXX still we can receive answer packet here
+                        # this must be handle in order not to fail
                         self.operational = False                            
                                 
             except PrimaryFailure:
@@ -278,6 +280,7 @@ class Application(object):
 
     def wait(self):
         # change handler
+        logging.info("waiting in hidden state")
         handler = HiddenEventHandler(self)
         for conn in self.em.getConnectionList():
             conn.setHandler(handler)
