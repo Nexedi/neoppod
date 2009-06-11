@@ -228,14 +228,11 @@ class Application(object):
         self.pt = None
         self.primary_master_node = None
         self.master_node_list = master_nodes.split(' ')
-        self.master_conn = None
         # no self-assigned UUID, primary master will supply us one
         self.uuid = INVALID_UUID
         self.mq_cache = MQ()
         self.new_oid_list = []
         self.ptid = INVALID_PTID
-        self.num_replicas = 0
-        self.num_partitions = 0
         self.storage_handler = StorageAnswersHandler(self, self.dispatcher)
         self.primary_handler = PrimaryAnswersHandler(self, self.dispatcher)
         self.notifications_handler = PrimaryNotificationsHandler(self, self.dispatcher)
@@ -268,24 +265,45 @@ class Application(object):
         lock = Lock()
         self._pt_acquire = lock.acquire
         self._pt_release = lock.release
+        self.master_conn = None
+        self.num_replicas = None
+        self.num_partitions = None
         self.master_conn = self._getMasterConnection()
+        assert self.master_conn is not None
+        assert self.num_partitions is not None
+        assert self.num_replicas is not None
+
+    def _notifyDeadStorage(self, s_node):
+        """ Notify a storage failure to the primary master """
+        if s_node is None:
+            return
+        s_uuid = s_node.getUUID()
+        ip_address, port = s_node.getServer()
+        m_conn = self._getMasterConnection()
+        m_conn.lock()
+        try:
+            node_list = [(STORAGE_NODE_TYPE, ip_address, port, s_uuid, state)]
+            m_conn.notify(protocol.notifyNodeInformation(node_list))
+        finally:
+            m_conn.unlock()
 
     def _waitMessage(self, target_conn = None, msg_id = None, handler=None):
         """Wait for a message returned by the dispatcher in queues."""
         local_queue = self.local_var.queue
-
         if handler is None:
             handler = self.notifications_handler
-
         while 1:
-            try:
-                if msg_id is None:
+            if msg_id is None:
+                try:
                     conn, packet = local_queue.get_nowait()
-                else:
-                    conn, packet = local_queue.get()
-            except Empty:
-                break
+                except Empty:
+                    break
+            else:
+                conn, packet = local_queue.get()
+            # check fake packet
             if packet is None:
+                s_node = self.nm.getNodeByServer(conn.getAddress())
+                self._notifyDeadStorage(s_node)
                 if conn.getUUID() == target_conn.getUUID():
                     raise NEOStorageConnectionFailure('connection closed')
                 else:

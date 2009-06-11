@@ -359,20 +359,11 @@ class StorageBaseHandler(BaseHandler):
             if id(conn) == key[0]:
                 queue = self.dispatcher.message_table.pop(key)
                 queue_set.add(queue)
+        # Storage failure is notified to the primary master when the fake 
+        # packet if popped by a non-polling thread.
         for queue in queue_set:
             queue.put((conn, None))
 
-        # Notify the primary master node of the failure.
-        conn = app.master_conn
-        if conn is not None:
-            conn.lock()
-            try:
-                ip_address, port = node.getServer()
-                node_list = [(STORAGE_NODE_TYPE, ip_address, port, 
-                              node.getUUID(), state)]
-                conn.notify(protocol.notifyNodeInformation(node_list))
-            finally:
-                conn.unlock()
 
     def connectionClosed(self, conn):
         node = self.app.nm.getNodeByServer(conn.getAddress())
