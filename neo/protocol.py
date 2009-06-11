@@ -281,6 +281,12 @@ packet_types = Enum({
 
     # Answer state of the node
     'ANSWER_NODE_STATE': 0x8023,
+
+    # Set the cluster state
+    'SET_CLUSTER_STATE': 0x0024,
+
+    # Answer state of the cluster
+    'ANSWER_CLUSTER_STATE': 0x8024,
 })
 
 # Error codes.
@@ -987,7 +993,7 @@ decode_table[ANSWER_NODE_LIST] = _decodeAnswerNodeList
 
 def _decodeSetNodeState(body):
     try:
-        uuid, state = unpack('!16sH', body)
+        uuid, state, modify = unpack('!16sHB', body)
         state = node_states.get(state)
         if state not in VALID_NODE_STATE_LIST:
             raise ProtocolError(self, 'invalid node state %d' % state)            
@@ -995,7 +1001,7 @@ def _decodeSetNodeState(body):
         raise
     except:
         raise ProtocolError(self, 'invalid set node state')
-    return (uuid, state)
+    return (uuid, state, modify)
 decode_table[SET_NODE_STATE] = _decodeSetNodeState
 
 def _decodeAnswerNodeState(body):
@@ -1012,6 +1018,36 @@ def _decodeAnswerNodeState(body):
     return (uuid, state)
 decode_table[ANSWER_NODE_STATE] = _decodeAnswerNodeState
 
+
+def _decodeSetClusterState(body):
+    try:
+        state, len_name = unpack('!HL', body)
+        name = body[8:]
+        if len_name != len(name):
+            raise PacketMalformedError('invalid name size')
+        state = cluster_states.get(state)
+        if state not in VALID_CLUSTER_STATE_LIST:
+            raise ProtocolError(self, 'invalid cluster state %d' % state)            
+    except ProtocolError:
+        raise
+    except:
+        raise ProtocolError(self, 'invalid set node state')
+    return (uuid, state, modify)
+decode_table[SET_CLUSTER_STATE] = _decodeSetClusterState
+
+def _decodeAnswerClusterState(body):
+    try:
+        state = unpack('!H', body)
+        state = cluster_states.get(state)
+        if state not in VALID_CLUSTER_STATE_LIST:
+            raise ProtocolError(self, 'invalid cluster state %d' % state)            
+    except ProtocolError:
+        raise
+    except:
+        raise
+        raise ProtocolError(self, 'invalid answer node state')
+    return (uuid, state)
+decode_table[ANSWER_CLUSTER_STATE] = _decodeAnswerClusterState
 
 # Packet encoding
 
@@ -1288,8 +1324,8 @@ def answerNodeList(node_list):
     body = ''.join(body)
     return Packet(ANSWER_NODE_LIST, body)
 
-def setNodeState(uuid, state):    
-    body = [pack('!16sH', uuid, state)]
+def setNodeState(uuid, state, modify_partition_table):    
+    body = [pack('!16sHB', uuid, state, modify_partition_table)]
     body = ''.join(body)
     return Packet(SET_NODE_STATE, body)
 
@@ -1297,3 +1333,13 @@ def answerNodeState(uuid, state):
     body = [pack('!16sH', uuid, state)]
     body = ''.join(body)
     return Packet(ANSWER_NODE_STATE, body)
+
+def setClusterState(name, state):    
+    body = [pack('!HL', state, len(name))+name]
+    body = ''.join(body)
+    return Packet(SET_CLUSTER_STATE, body)
+
+def answerClusterState(state):
+    body = [pack('!H', uuid, state)]
+    body = ''.join(body)
+    return Packet(ANSWER_CLUSTER_STATE, body)
