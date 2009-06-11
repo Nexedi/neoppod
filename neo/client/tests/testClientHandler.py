@@ -149,12 +149,7 @@ class ClientHandlerTest(NeoTestBase):
                              key_2: queue_2}
         dispatcher = Dispatcher()
         method(dispatcher, app, handler_class, conn=conn)
-        # Check that master was notified of the failure
-        (node_list, ) = self.checkNotifyNodeInformation(app.master_conn, decode=True)
-          # Test sanity check
-        # the test below is disabled because the msg_id is now set by the connection
-        expected_node_list = [(STORAGE_NODE_TYPE, storage_ip, storage_port, fake_storage_node_uuid, state), ]
-        self.assertEquals(node_list, expected_node_list)
+        # The master should be notified, but this is done in app.py 
         # Check that failed connection got removed from connection pool
         removeConnection_call_list = app.cp.mockGetNamedCalls('removeConnection')
           # Test sanity check

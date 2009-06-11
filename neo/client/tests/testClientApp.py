@@ -25,15 +25,18 @@ from neo.client.exception import NEOStorageError, NEOStorageNotFoundError, \
         NEOStorageConflictError
 from neo import protocol
 from neo.protocol import *
+from neo.pt import PartitionTable
 import neo.connection
 import os
 
-def connectToPrimaryMasterNode(self):
-    # TODO: remove monkeypatching and properly simulate master node connection
+def _getMasterConnection(self):
     self.uuid = 'C' * 16
-    pass
-Application.connectToPrimaryMasterNode_org = Application.connectToPrimaryMasterNode
-Application.connectToPrimaryMasterNode = connectToPrimaryMasterNode
+    self.num_partitions = 10
+    self.num_replicas = 1
+    self.pt = PartitionTable(self.num_partitions, self.num_replicas)
+    return Mock() # master_conn
+Application._getMasterConnection_ord = Application._getMasterConnection
+Application._getMasterConnection = _getMasterConnection
 
 def _waitMessage(self, conn=None, msg_id=None, handler=None):
     if conn is not None and handler is not None:
@@ -85,10 +88,7 @@ class ClientApplicationTest(NeoTestBase):
 
     def getApp(self, master_nodes='127.0.0.1:10010', name='test',
                connector='SocketConnector', **kw):
-        # TODO: properly simulate master node connection
         app = Application(master_nodes, name, connector, **kw)
-        app.num_partitions = 10
-        app.num_replicas = 2
         return app
 
     def makeOID(self, value=None):
