@@ -22,7 +22,8 @@ from neo import protocol
 from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, \
-        STORAGE_NODE_TYPE, ADMIN_NODE_TYPE, OUT_OF_DATE_STATE
+        STORAGE_NODE_TYPE, ADMIN_NODE_TYPE, OUT_OF_DATE_STATE, \
+        HIDDEN_STATE
 from neo.master.handler import MasterEventHandler
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.exception import OperationFailure, ElectionFailure
@@ -240,7 +241,7 @@ class ServiceEventHandler(MasterEventHandler):
                 else:
                     node.setUUID(uuid)
                     node.setState(RUNNING_STATE)
-                    logging.info('broadcasting node information as running')
+                    logging.info('broadcasting node information as running %s' %(node.getState(),))
                     app.broadcastNodeInformation(node)
 
         conn.setUUID(uuid)
@@ -254,9 +255,9 @@ class ServiceEventHandler(MasterEventHandler):
                 cell_list = app.pt.dropNode(old_node)
             else:
                 cell_list = []
-            logging.info('adding %s into a partition table',
-                         dump(node.getUUID()))
             cell_list.extend(app.pt.addNode(node))
+            logging.info('added %s into a partition table (%d modifications)',
+                         dump(node.getUUID()), len(cell_list))
             if len(cell_list) != 0:
                 ptid = app.getNextPartitionTableID()
                 app.broadcastPartitionChanges(ptid, cell_list)
@@ -347,22 +348,18 @@ class ServiceEventHandler(MasterEventHandler):
 
 
             node.setState(state)
-            if conn_node.getNodeType() == ADMIN_NODE_TYPE:
-                # reply to it
-                ip, port = node.getServer()
-                node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
-                conn.answer(protocol.notifyNodeInformation(node_list), packet)
-            else:                
-                # Something wrong happened possibly. Cut the connection to
-                # this node, if any, and notify the information to others.
-                # XXX this can be very slow.
-                # XXX does this need to be closed in all cases ?
-                for c in app.em.getConnectionList():
-                    if c.getUUID() == uuid:
-                        c.close()
+            # Something wrong happened possibly. Cut the connection to
+            # this node, if any, and notify the information to others.
+            # XXX this can be very slow.
+            # XXX does this need to be closed in all cases ?
+            for c in app.em.getConnectionList():
+                if c.getUUID() == uuid:
+                    c.close()
 
             logging.debug('broadcasting node information')
             app.broadcastNodeInformation(node)
+            # XXX still required to change here ??? who can send
+            # this kind of message with these status excep admin node
             if node.getNodeType() == STORAGE_NODE_TYPE \
                     and state in (DOWN_STATE, BROKEN_STATE):
                 cell_list = app.pt.dropNode(node)
@@ -549,4 +546,40 @@ class ServiceEventHandler(MasterEventHandler):
         if new_cell_list:
             ptid = app.getNextPartitionTableID()
             app.broadcastPartitionChanges(ptid, new_cell_list)
+
+
+    @identification_required
+    @restrict_node_types(ADMIN_NODE_TYPE)
+    def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
+        logging.info("set node state for %s-%s : %s" %(dump(uuid), state, modify_partition_table))
+        app = self.app
+        node = app.nm.getNodeByUUID(uuid)
+        if node is None:
+            p = protocol.protocolError('invalid uuid')
+            conn.notify(p)
+            return
+        if node.getState() == state and modify_partition_table is False:
+            # no change
+            p = protocol.answerNodeState(node.getUUID(), node.getState())
+            conn.answer(p, packet)
+            return
+        # forward information to nodes
+        if node.getState() != state:
+            node.setState(state)
+            ip, port = node.getServer()
+            node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
+            conn.answer(protocol.notifyNodeInformation(node_list), packet)
+            app.broadcastNodeInformation(node)
+        # modify the partition table if required
+        if modify_partition_table: 
+            if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE):
+                # remove from pt
+                cell_list = app.pt.dropNode(node)
+            else:
+                # add to pt
+                cell_list = app.pt.addNode(node)
+            if len(cell_list) != 0:
+                ptid = app.getNextPartitionTableID()
+                app.broadcastPartitionChanges(ptid, cell_list)
+                
 
