@@ -157,16 +157,8 @@ class StorageEventHandler(EventHandler):
                         n = app.nm.getNodeByUUID(uuid)
                         n.setState(state)                
                         raise OperationFailure
-                    else:
-                        # I know I'm running
-                        continue
                 
                 if n is None:
-                    # try by address
-                    n = app.nm.getNodeByServer(addr)
-                    if n is not None:
-                        # remove the node
-                        app.nm.remode(n)
                     n = StorageNode(server = addr, uuid = uuid)
                     app.nm.add(n)
 
@@ -186,6 +178,8 @@ class StorageEventHandler(EventHandler):
                     if n is not None:
                         logging.debug('removing client node %s', dump(uuid))
                         app.nm.remove(n)
+            if n is not None:
+                logging.info("added %s %s" %(dump(n.getUUID()), n.getServer()))
 
     def handleAskLastIDs(self, conn, packet):
         raise NotImplementedError('this method must be overridden')
