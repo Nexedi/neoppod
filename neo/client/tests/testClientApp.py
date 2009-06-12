@@ -803,7 +803,7 @@ class ClientApplicationTest(NeoTestBase):
         app.pt = Mock({ 'operational': ReturnValues(False, False, True, True)})
         self.all_passed = False
         try:
-            self.connectToPrimaryMasterNode(app)
+            app.master_conn = app.connectToPrimaryMasterNode()
         finally:
             Application._waitMessage = _waitMessage_old
         self.assertEquals(len(app.pt.mockGetNamedCalls('clear')), 1)
@@ -821,8 +821,8 @@ class ClientApplicationTest(NeoTestBase):
         def _waitMessage_hook(app, conn=None, msg_id=None, handler=None):
             self.test_ok = True
         _waitMessage_old = Application._waitMessage
-        Application._waitMessage = _waitMessage_hook
         packet = protocol.askNewTID()
+        Application._waitMessage = _waitMessage_hook
         try:
             app._askStorage(conn, packet)
         finally:
@@ -846,8 +846,8 @@ class ClientApplicationTest(NeoTestBase):
             self.assertEquals(handler, app.primary_handler)
             self.test_ok = True
         _waitMessage_old = Application._waitMessage
-        Application._waitMessage = _waitMessage_hook
         packet = protocol.askNewTID()
+        Application._waitMessage = _waitMessage_hook
         try:
             app._askPrimary(packet)
         finally:

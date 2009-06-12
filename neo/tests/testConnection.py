@@ -748,6 +748,7 @@ class testConnection(unittest.TestCase):
 
 
     def test_12_ClientConnection_init(self):
+        makeClientConnection_org = DoNothingConnector.makeClientConnection
         # create a good client connection
         em = Mock()
         handler = Mock()
@@ -776,12 +777,15 @@ class testConnection(unittest.TestCase):
         # raise connection in progress
         def makeClientConnection(self, *args, **kw):
             raise ConnectorInProgressException
-        DoNothingConnector.makeClientConnection = makeClientConnection
         em = Mock()
         handler = Mock()
         connector = DoNothingConnector()
-        bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
-                              addr=("127.0.0.7", 93413))
+        DoNothingConnector.makeClientConnection = makeClientConnection
+        try:
+            bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
+                                  addr=("127.0.0.7", 93413))
+        finally:
+            DoNothingConnector.makeClientConnection = makeClientConnection_org
         # check connector created and connection initialize
         self.assertTrue(bc.connecting)
         self.assertFalse(bc.isServerConnection())
@@ -804,12 +808,15 @@ class testConnection(unittest.TestCase):
         # raise another error, connection must fail
         def makeClientConnection(self, *args, **kw):
             raise ConnectorException
-        DoNothingConnector.makeClientConnection = makeClientConnection
         em = Mock()
         handler = Mock()
         connector = DoNothingConnector()
-        self.assertRaises(ConnectorException, ClientConnection, em, handler, 
-                connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413))
+        DoNothingConnector.makeClientConnection = makeClientConnection
+        try:
+            self.assertRaises(ConnectorException, ClientConnection, em, handler, 
+                    connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413))
+        finally:
+            DoNothingConnector.makeClientConnection = makeClientConnection_org
         # since the exception was raised, the connection is not created
         # check call to handler
         self.assertNotEqual(bc.getHandler(), None)
@@ -828,12 +835,18 @@ class testConnection(unittest.TestCase):
         handler = Mock()
         def makeClientConnection(self, *args, **kw):
             return "OK"
-        DoNothingConnector.makeClientConnection = makeClientConnection
         def send(self, data):
             return len(data)
+        makeClientConnection_org = DoNothingConnector.makeClientConnection
+        send_org = DoNothingConnector.send
         DoNothingConnector.send = send
-        bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
-                              addr=("127.0.0.7", 93413))
+        DoNothingConnector.makeClientConnection = makeClientConnection
+        try:
+            bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
+                                  addr=("127.0.0.7", 93413))
+        finally:
+            DoNothingConnector.send = send_org
+            DoNothingConnector.makeClientConnection = makeClientConnection_org
         # check connector created and connection initialize
         self.assertFalse(bc.connecting)
         self.assertNotEqual(bc.getConnector(), None)
@@ -977,6 +990,7 @@ class testConnection(unittest.TestCase):
         
 
     def test_15_MTClientConnection(self):
+        makeClientConnection_org = DoNothingConnector.makeClientConnection
         # same as ClientConnection, except definition of some lock
         # create a good client connection
         em = Mock()
@@ -1005,12 +1019,15 @@ class testConnection(unittest.TestCase):
         # raise connection in progress
         def makeClientConnection(self, *args, **kw):
             raise ConnectorInProgressException
-        DoNothingConnector.makeClientConnection = makeClientConnection
         em = Mock()
         handler = Mock()
         connector = DoNothingConnector()
-        bc = MTClientConnection(em, handler, connector_handler=DoNothingConnector,
+        DoNothingConnector.makeClientConnection = makeClientConnection
+        try:
+            bc = MTClientConnection(em, handler, connector_handler=DoNothingConnector,
                               addr=("127.0.0.7", 93413))
+        finally:
+            DoNothingConnector.makeClientConnection = makeClientConnection_org
         # check connector created and connection initialize
         self.assertTrue(bc.connecting)
         self.assertFalse(bc.isServerConnection())
@@ -1033,12 +1050,15 @@ class testConnection(unittest.TestCase):
         # raise another error, connection must fail
         def makeClientConnection(self, *args, **kw):
             raise ConnectorException
-        DoNothingConnector.makeClientConnection = makeClientConnection
         em = Mock()
         handler = Mock()
         connector = DoNothingConnector()
-        self.assertRaises(ConnectorException, MTClientConnection, em, handler, 
-                connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413))
+        DoNothingConnector.makeClientConnection = makeClientConnection
+        try:
+            self.assertRaises(ConnectorException, MTClientConnection, em, handler, 
+                    connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413))
+        finally:
+            DoNothingConnector.makeClientConnection = makeClientConnection_org
         # the connection is not created
         # check call to handler
         self.assertNotEqual(bc.getHandler(), None)
