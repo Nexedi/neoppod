@@ -61,8 +61,6 @@ def expectMessage(self, packet):
     if self.connector is not None:
         self.connector.expectMessage(packet)
 
-ClientConnection._addPacket = _addPacket
-ClientConnection.expectMessage = expectMessage
 
 
 class MasterElectionTests(NeoTestBase):
@@ -125,15 +123,22 @@ server: 127.0.0.1:10023
         for node in self.app.nm.getMasterNodeList():
             self.app.unconnected_master_node_set.add(node.getServer())
             node.setState(RUNNING_STATE)
-
         # define some variable to simulate client and storage node
         self.client_port = 11022
         self.storage_port = 10021
         self.master_port = 10011
+        # apply monkey patches
+        self._addPacket = ClientConnection._addPacket
+        self.expectMessage = ClientConnection.expectMessage
+        ClientConnection._addPacket = _addPacket
+        ClientConnection.expectMessage = expectMessage
         
     def tearDown(self):
         # Delete tmp file
         os.remove(self.tmp_path)
+        # restore environnement
+        ClientConnection._addPacket = self._addPacket
+        ClientConnection.expectMessage = self.expectMessage
 
     # Common methods
     def getNewUUID(self):

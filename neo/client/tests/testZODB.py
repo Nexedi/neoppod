@@ -237,6 +237,9 @@ class ZODBTests(unittest.TestCase):
         NEOProcess(NEO_STORAGE, '-vRc', config_file_path, '-s', 'storage2', '-l', s2_log)
         NEOProcess(NEO_STORAGE, '-vRc', config_file_path, '-s', 'storage3', '-l', s3_log)
         NEOProcess(NEO_STORAGE, '-vRc', config_file_path, '-s', 'storage4', '-l', s4_log)
+        # wait a bit during cluster startup, this is just to avoid many
+        # 'connection refused' messages in logs
+        time.sleep(5)
         # Send Storage output to a logfile
         self._storage = Storage(
             master_nodes=NEO_MASTER_NODES,

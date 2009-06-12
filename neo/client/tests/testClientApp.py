@@ -35,54 +35,27 @@ def _getMasterConnection(self):
     self.num_replicas = 1
     self.pt = PartitionTable(self.num_partitions, self.num_replicas)
     return Mock() # master_conn
-Application._getMasterConnection_ord = Application._getMasterConnection
-Application._getMasterConnection = _getMasterConnection
 
 def _waitMessage(self, conn=None, msg_id=None, handler=None):
     if conn is not None and handler is not None:
         handler.dispatch(conn, conn.fakeReceived())
     else:
         raise NotImplementedError
-Application._waitMessage_org = Application._waitMessage
-Application._waitMessage = _waitMessage
 
-class TestSocketConnector(object):
-    """
-      Test socket connector.
-      Exports both an API compatible with neo.connector.SocketConnector
-      and a test-only API which allows sending packets to created connectors.
-    """
-    def __init__(self):
-        raise NotImplementedError
-
-    def makeClientConnection(self, addr):
-        raise NotImplementedError
-
-    def makeListeningConnection(self, addr):
-        raise NotImplementedError
-
-    def getError(self):
-        raise NotImplementedError
-
-    def getDescriptor(self):
-        raise NotImplementedError
-
-    def getNewConnection(self):
-        raise NotImplementedError
-
-    def shutdown(self):
-        raise NotImplementedError
-    
-    def receive(self):
-        raise NotImplementedError
-
-    def send(self, msg):
-        raise NotImplementedError
 
 class ClientApplicationTest(NeoTestBase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.WARNING)
+        # apply monkey patches
+        self._getMasterConnection = Application._getMasterConnection
+        self._waitMessage = Application._waitMessage
+        Application._getMasterConnection = _getMasterConnection
+        Application._waitMessage = _waitMessage
+
+    def tearDown(self):
+        # restore environnement
+        Application._getMasterConnection = self._getMasterConnection
+        Application._waitMessage = self._waitMessage
 
     # some helpers
 
@@ -220,7 +193,7 @@ class ClientApplicationTest(NeoTestBase):
         app.pt = Mock({ 'getCellList': (cell, ), })
         app.cp = Mock({ 'getConnForNode' : conn})
         app.local_var.asked_object = -1
-        Application._waitMessage = Application._waitMessage_org
+        Application._waitMessage = self._waitMessage
         self.assertRaises(NEOStorageNotFoundError, app.load, oid)
         self.checkAskObject(conn)
         Application._waitMessage = _waitMessage
@@ -830,7 +803,7 @@ class ClientApplicationTest(NeoTestBase):
         app.pt = Mock({ 'operational': ReturnValues(False, False, True, True)})
         self.all_passed = False
         try:
-            app.connectToPrimaryMasterNode_org()
+            self.connectToPrimaryMasterNode(app)
         finally:
             Application._waitMessage = _waitMessage_old
         self.assertEquals(len(app.pt.mockGetNamedCalls('clear')), 1)
