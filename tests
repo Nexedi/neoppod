@@ -1,0 +1,205 @@
+#! /usr/bin/env python
+#
+# Copyright (C) 2009  Nexedi SA
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+import unittest
+import logging
+import datetime
+import time
+
+# configuration 
+LOG_FILE = 'neo.log'
+SEND_REPORT = True
+SENDER = 'gregory@nexedi.com'
+RECIPIENTS = ['neo-report@erp5.org']
+
+SMTP_SERVER = ( "mail.nexedi.com", "25")
+ATTACH_LOG = False # for ZODB test, only the client side
+CONSOLE_LOG = False
+
+# override logging configuration to send all messages to a file
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+handler = logging.FileHandler(LOG_FILE, 'w+')
+format='[%(module)12s:%(levelname)s:%(lineno)3d] %(message)s'
+formatter = logging.Formatter(format)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+# enabled console logging is desired
+if CONSOLE_LOG:
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logging.info("Tests started on %s" % datetime.date.today().isoformat())
+
+# import all test modules
+from neo.tests import *
+from neo.client.tests import *
+from neo.master.tests import *
+from neo.storage.tests import *
+
+class NeoTestResult(unittest.TestResult):
+    """ Custom result class to build report with statistics per module """
+
+    class ModuleStats(object):
+        errors = 0
+        success = 0
+        failures = 0
+        time = 0.0
+
+    modulesStats = {}
+    lastStart = None
+
+    def _getModuleStats(self, test):
+        module = test.__class__.__name__
+        try:
+            return self.modulesStats[module] 
+        except KeyError:
+            self.modulesStats[module] = self.ModuleStats()
+            return self.modulesStats[module]
+
+    def _updateTimer(self, stats):
+        stats.time += time.time() - self.lastStart
+
+    def startTest(self, test):
+        unittest.TestResult.startTest(self, test)
+        module = test.__class__.__name__
+        method = test._TestCase__testMethodName
+        logging.info(" * TEST %s" % test)
+        self.lastStart = time.time()
+
+    def addSuccess(self, test):
+        unittest.TestResult.addSuccess(self, test)
+        stats = self._getModuleStats(test)
+        stats.success += 1
+        self._updateTimer(stats)
+
+    def addError(self, test, err):
+        unittest.TestResult.addError(self, test, err)
+        stats = self._getModuleStats(test)
+        stats.errors += 1
+        self._updateTimer(stats)
+
+    def addFailure(self, test, err):
+        unittest.TestResult.addFailure(self, test, err)
+        stats = self._getModuleStats(test)
+        stats.failures += 1
+        self._updateTimer(stats)
+
+    def _buildSummary(self):
+        s = '\n NEO TESTS REPORT'
+        s += '\n'
+        s += "                   Test Module |  run   |  error |  fail  |   took  \n"
+        s += "-------------------------------+--------+--------+--------+----------\n"
+        format = "%30s |  %3d   |  %3d   |  %3d   | %6.2fs  \n"
+        for k, v in self.modulesStats.items():
+            args = (k, v.success, v.errors, v.failures, v.time)
+            s += format % args
+        args = ("Summary", self.testsRun, len(self.errors), len(self.failures),
+                self.time)
+        s += "-------------------------------+--------+--------+--------+----------\n"
+        s += format % args
+        s += '\n'
+        return s
+
+    def _buildErrors(self):
+        s = '\n'
+        if len(self.errors):
+            s += '\nERRORS:\n'
+            for test, trace in self.errors:
+                s += "%s\n" % test
+                s += "---------------------------------------------------------\n"
+                s += trace
+                s += "---------------------------------------------------------\n"
+                s += '\n'
+        if len(self.failures):
+            s += '\nFAILURES:\n'
+            for test, trace in self.failures:
+                s += "%s\n" % test
+                s += "---------------------------------------------------------\n"
+                s += trace
+                s += "---------------------------------------------------------\n"
+                s += '\n'
+        return s
+
+    def build(self):
+        self.time = sum([s.time for s in self.modulesStats.values()])
+        args = (self.testsRun, len(self.errors), len(self.failures))
+        self.subject = "Neo : %s Tests, %s Errors, %s Failures" % args
+        self.summary = self._buildSummary()
+        self.errors = self._buildErrors()
+
+
+def sendReport(result):
+    """ Send a mail with the report summary """
+
+    import smtplib
+    from email.MIMEMultipart import MIMEMultipart
+    from email.MIMEText import MIMEText
+
+    # build the email
+    msg = MIMEMultipart()
+    msg['Subject'] = result.subject
+    msg['From']    = SENDER
+    msg['To']      = ', '.join(RECIPIENTS)
+    #msg.preamble = result.subject
+    msg.epilogue = ''
+
+    # Add custom headers for client side filtering
+    msg['X-ERP5-Tests'] = 'NEO'
+    if result.wasSuccessful():
+      msg['X-ERP5-Tests-Status'] = 'OK'
+
+    # write the body
+    body = MIMEText(result.summary + result.errors, 'text')
+    msg.attach(body)
+
+    # attach the log file
+    if ATTACH_LOG:
+        log = MIMEText(file(LOG_FILE, 'r').read())
+        log.add_header('Content-Disposition', 'attachment', filename=LOG_FILE)
+        msg.attach(log)
+
+    # Send the email via our own SMTP server.
+    s = smtplib.SMTP()
+    s.connect(*SMTP_SERVER)
+    mail = msg.as_string()
+    for recipient in RECIPIENTS:
+        s.sendmail(SENDER, recipient, mail)
+    s.close()
+
+
+if __name__ == "__main__":
+
+    # load functional tests
+    from neo.client.tests.testZODB import ZODBTests
+    tests = unittest.makeSuite(ZODBTests, 'check')
+    loader = unittest.defaultTestLoader
+    # load test cases from itself
+    self = __import__(__name__)
+    tests.addTests(loader.loadTestsFromModule(self))
+    # run and build the report
+    result = NeoTestResult()
+    tests.run(result)
+    result.build()
+    # send a mail
+    if SEND_REPORT:
+        sendReport(result)
+    else:
+        print result.subject
+        print result.summary
+        print result.errors
