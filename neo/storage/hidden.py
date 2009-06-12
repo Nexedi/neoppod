@@ -17,56 +17,26 @@
 
 import logging
 
-from neo.handler import EventHandler
+from neo.storage.handler import EventHandler
 from neo.protocol import Packet, \
         INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE
+        DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE, \
+        DISCARDED_STATE, OUT_OF_DATE_STATE
 
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo.exception import PrimaryFailure
+from neo.handler import identification_required, restrict_node_types, \
+        server_connection_required, client_connection_required
+
 
 class HiddenEventHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
     def __init__(self, app):
         self.app = app
         EventHandler.__init__(self)
-
-    def handleAnnouncePrimaryMaster(self, conn, packet):
-        """Theoretically speaking, I should not get this message,
-        because the primary master election must happen when I am
-        not connected to any master node."""
-        uuid = conn.getUUID()
-        if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
-        app = self.app
-        node = app.nm.getNodeByUUID(uuid)
-        if node is None:
-            raise RuntimeError('I do not know the uuid %r' % dump(uuid))
-
-        if node.getNodeType() != MASTER_NODE_TYPE:
-            self.handleUnexpectedPacket(conn, packet)
-            return
-
-        if app.primary_master_node is None:
-            # Hmm... I am somehow connected to the primary master already.
-            app.primary_master_node = node
-            if not isinstance(conn, ClientConnection):
-                # I do not want a connection from any master node. I rather
-                # want to connect from myself.
-                conn.close()
-        elif app.primary_master_node.getUUID() == uuid:
-            # Yes, I know you are the primary master node.
-            pass
-        else:
-            # It seems that someone else claims taking over the primary
-            # master node...
-            app.primary_master_node = None
-            raise PrimaryFailure('another master node wants to take over')
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary
@@ -107,3 +77,91 @@ class HiddenEventHandler(EventHandler):
             else:
                 # Do not care of other node
                 pass
+
+
+    def handleRequestNodeIdentification(self, conn, packet, node_type,
+                                        uuid, ip_address, port, name):
+        pass
+
+    def handleAcceptNodeIdentification(self, conn, packet, node_type,
+                                       uuid, ip_address, port,
+                                       num_partitions, num_replicas, your_uuid):
+        pass
+
+    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
+                                  known_master_list):
+        pass
+
+    def handleAskLastIDs(self, conn, packet):
+        pass
+
+    def handleAskPartitionTable(self, conn, packet, offset_list):
+        pass
+
+    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
+        pass
+
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        pass
+
+    @client_connection_required
+    def handleStartOperation(self, conn, packet):
+        self.app.operational = True
+
+    def handleStopOperation(self, conn, packet):
+        pass
+
+    def handleAskUnfinishedTransactions(self, conn, packet):
+        pass
+
+    def handleAskTransactionInformation(self, conn, packet, tid):
+        pass
+
+    def handleAskObjectPresent(self, conn, packet, oid, tid):
+        pass
+
+    def handleDeleteTransaction(self, conn, packet, tid):
+        pass
+
+    def handleCommitTransaction(self, conn, packet, tid):
+        pass
+
+    def handleLockInformation(self, conn, packet, tid):
+        pass
+
+    def handleUnlockInformation(self, conn, packet, tid):
+        pass
+
+    def handleAskObject(self, conn, packet, oid, serial, tid):
+        pass
+
+    def handleAskTIDs(self, conn, packet, first, last, partition):
+        pass
+
+    def handleAskObjectHistory(self, conn, packet, oid, first, last):
+        pass
+
+    def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
+                                  ext, oid_list):
+        pass
+
+    def handleAskStoreObject(self, conn, packet, oid, serial,
+                             compression, checksum, data, tid):
+        pass
+
+    def handleAbortTransaction(self, conn, packet, tid):
+        logging.info('ignoring abort transaction')
+        pass
+
+    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
+        logging.info('ignoring answer last ids')
+        pass
+
+    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
+        logging.info('ignoring answer unfinished transactions')
+        pass
+
+    def handleAskOIDs(self, conn, packet, first, last, partition):
+        logging.info('ignoring ask oids')
+        pass
+
