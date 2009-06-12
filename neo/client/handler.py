@@ -23,7 +23,7 @@ from neo import protocol
 from neo.protocol import Packet, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
-        BROKEN_STATE, FEEDING_STATE, DISCARDED_STATE, DOWN_STATE \
+        BROKEN_STATE, FEEDING_STATE, DISCARDED_STATE, DOWN_STATE, \
         HIDDEN_STATE
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.pt import PartitionTable
@@ -107,9 +107,9 @@ class PrimaryHandler(BaseHandler):
 
             n.setState(state)
             # close connection to this node if no longer running
-            if node_type in (MASTER_NODE_STATE, STORAGE_NODE_TYPE) and \
+            if node_type in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE) and \
                    state in (DOWN_STATE, HIDDEN_STATE):
-                for conn self.app.em.getConnectionList():
+                for conn in self.app.em.getConnectionList():
                     if conn.getUUID() == n.getUUID():
                         conn.close()
 
