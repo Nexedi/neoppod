@@ -289,10 +289,7 @@ class Application(object):
         while 1:
             self.em.poll(1)
             if node.getState() != HIDDEN_STATE:
-                # act as if we lost the connection to the PMN
-                # thus all protocol remains the same
-                raise PrimaryFailure
-
+                break
 
     def queueEvent(self, callable, *args, **kwargs):
         self.event_queue.append((callable, args, kwargs))
