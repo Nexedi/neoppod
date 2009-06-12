@@ -285,7 +285,7 @@ class Application(object):
         m_conn = self._getMasterConnection()
         m_conn.lock()
         try:
-            node_list = [(STORAGE_NODE_TYPE, ip_address, port, s_uuid, state)]
+            node_list = [(STORAGE_NODE_TYPE, ip_address, port, s_uuid, s_node.getState())]
             m_conn.notify(protocol.notifyNodeInformation(node_list))
         finally:
             m_conn.unlock()
