@@ -18,7 +18,6 @@
 import os
 import unittest
 import logging
-from tempfile import mkstemp
 from mock import Mock
 from struct import pack, unpack
 from neo.tests.base import NeoTestBase
@@ -26,24 +25,10 @@ from neo.protocol import Packet, INVALID_UUID
 from neo.master.verification import VerificationEventHandler
 from neo.master.app import Application
 from neo import protocol
-from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
-     PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
-     REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION, START_OPERATION, \
-     STOP_OPERATION, ASK_LAST_IDS, ANSWER_LAST_IDS, ASK_PARTITION_TABLE, \
-     ANSWER_PARTITION_TABLE, SEND_PARTITION_TABLE, NOTIFY_PARTITION_CHANGES, \
-     ASK_UNFINISHED_TRANSACTIONS, ANSWER_UNFINISHED_TRANSACTIONS, \
-     ASK_OBJECT_PRESENT, ANSWER_OBJECT_PRESENT, \
-     DELETE_TRANSACTION, COMMIT_TRANSACTION, ASK_NEW_TID, ANSWER_NEW_TID, \
-     FINISH_TRANSACTION, NOTIFY_TRANSACTION_FINISHED, LOCK_INFORMATION, \
-     NOTIFY_INFORMATION_LOCKED, INVALIDATE_OBJECTS, UNLOCK_INFORMATION, \
-     ASK_NEW_OIDS, ANSWER_NEW_OIDS, ASK_STORE_OBJECT, ANSWER_STORE_OBJECT, \
-     ABORT_TRANSACTION, ASK_STORE_TRANSACTION, ANSWER_STORE_TRANSACTION, \
-     ASK_OBJECT, ANSWER_OBJECT, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
-     ANSWER_TRANSACTION_INFORMATION, ASK_OBJECT_HISTORY, ANSWER_OBJECT_HISTORY, \
-     ASK_OIDS, ANSWER_OIDS, \
-     NOT_READY_CODE, OID_NOT_FOUND_CODE, SERIAL_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
-     PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
-     INTERNAL_ERROR_CODE, \
+from neo.protocol import ERROR, ANNOUNCE_PRIMARY_MASTER, \
+    NOTIFY_NODE_INFORMATION, ANSWER_LAST_IDS, ANSWER_PARTITION_TABLE, \
+     ANSWER_UNFINISHED_TRANSACTIONS, ANSWER_OBJECT_PRESENT, \
+     ANSWER_TRANSACTION_INFORMATION, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
      STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, MASTER_NODE_TYPE, \
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
@@ -58,50 +43,8 @@ class MasterVerificationeTests(NeoTestBase):
     def setUp(self):
         logging.basicConfig(level = logging.WARNING)
         # create an application object
-        config_file_text = """# Default parameters.
-[DEFAULT]
-# The list of master nodes.
-master_nodes: 127.0.0.1:10010 127.0.0.1:10011
-# The number of replicas.
-replicas: 2
-# The number of partitions.
-partitions: 1009
-# The name of this cluster.
-name: main
-# The user name for the database.
-user: neo
-# The password for the database.
-password: neo
-connector : SocketConnector
-# The first master.
-[mastertest]
-server: 127.0.0.1:10010
-
-# The first storage.
-[storage1]
-database: neotest1
-server: 127.0.0.1:10020
-
-# The second storage.
-[storage2]
-database: neotest2
-server: 127.0.0.1:10021
-
-# The third storage.
-[storage3]
-database: neotest3
-server: 127.0.0.1:10022
-
-# The fourth storage.
-[storage4]
-database: neotest4
-server: 127.0.0.1:10023
-"""
-        tmp_id, self.tmp_path = mkstemp()
-        tmp_file = os.fdopen(tmp_id, "w+b")
-        tmp_file.write(config_file_text)
-        tmp_file.close()
-        self.app = Application(self.tmp_path, "mastertest")        
+        config = self.getConfigFile(master_number=2)
+        self.app = Application(config, "master1")
         self.app.pt.clear()
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
@@ -123,8 +66,7 @@ server: 127.0.0.1:10023
         self.storage_address = ('127.0.0.1', self.storage_port)
         
     def tearDown(self):
-        # Delete tmp file
-        os.remove(self.tmp_path)
+        NeoTestBase.tearDown(self)
 
     # Common methods
     def getLastUUID(self):

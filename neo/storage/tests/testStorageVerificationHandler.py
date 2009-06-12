@@ -18,8 +18,6 @@
 import os
 import unittest
 import logging
-import MySQLdb
-from tempfile import mkstemp
 from mock import Mock
 from neo.tests.base import NeoTestBase
 from neo import protocol
@@ -32,67 +30,22 @@ from neo.protocol import BROKEN_STATE, RUNNING_STATE, Packet, INVALID_UUID, \
      UP_TO_DATE_STATE, INVALID_OID, INVALID_TID, PROTOCOL_ERROR_CODE
 from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION, \
      NOTIFY_PARTITION_CHANGES, STOP_OPERATION, ASK_LAST_IDS, ASK_PARTITION_TABLE, \
-     ANSWER_LAST_IDS, ASK_UNFINISHED_TRANSACTIONS, ANSWER_UNFINISHED_TRANSACTIONS, \
      ANSWER_OBJECT_PRESENT, ASK_OBJECT_PRESENT, OID_NOT_FOUND_CODE, LOCK_INFORMATION, \
-     UNLOCK_INFORMATION, TID_NOT_FOUND_CODE, ASK_TRANSACTION_INFORMATION, ANSWER_TRANSACTION_INFORMATION, \
-     ANSWER_PARTITION_TABLE,SEND_PARTITION_TABLE, COMMIT_TRANSACTION
+     UNLOCK_INFORMATION, TID_NOT_FOUND_CODE, ASK_TRANSACTION_INFORMATION, \
+     COMMIT_TRANSACTION, ASK_UNFINISHED_TRANSACTIONS, SEND_PARTITION_TABLE
 from neo.protocol import ERROR, BROKEN_NODE_DISALLOWED_CODE, ASK_PRIMARY_MASTER
 from neo.protocol import ANSWER_PRIMARY_MASTER
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 
-SQL_ADMIN_USER = 'root'
-SQL_ADMIN_PASSWORD = None
-NEO_SQL_USER = 'test'
-NEO_SQL_DATABASE = 'test_storage_neo1'
-
 class StorageVerificationTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.ERROR)
+        self.prepareDatabase(number=1)
         # create an application object
-        config_file_text = """# Default parameters.
-[DEFAULT]
-# The list of master nodes.
-master_nodes: 127.0.0.1:10010 
-# The number of replicas.
-replicas: 2
-# The number of partitions.
-partitions: 1009
-# The name of this cluster.
-name: main
-# The user name for the database.
-user: %(user)s
-connector : SocketConnector
-# The first master.
-[mastertest]
-server: 127.0.0.1:10010
-
-[storagetest]
-database: %(database)s
-server: 127.0.0.1:10020
-""" % {
-    'database': NEO_SQL_DATABASE,
-    'user': NEO_SQL_USER,
-}
-        # SQL connection
-        connect_arg_dict = {'user': SQL_ADMIN_USER}
-        if SQL_ADMIN_PASSWORD is not None:
-            connect_arg_dict['raise NotImplementedErrorwd'] = SQL_ADMIN_PASSWORD
-        sql_connection = MySQLdb.Connect(**connect_arg_dict)
-        cursor = sql_connection.cursor()
-        # new database
-        cursor.execute('DROP DATABASE IF EXISTS %s' % (NEO_SQL_DATABASE, ))
-        cursor.execute('CREATE DATABASE %s' % (NEO_SQL_DATABASE, ))
-        cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' % 
-                (NEO_SQL_DATABASE, NEO_SQL_USER))
-        cursor.close()
-        # config file
-        tmp_id, self.tmp_path = mkstemp()
-        tmp_file = os.fdopen(tmp_id, "w+b")
-        tmp_file.write(config_file_text)
-        tmp_file.close()
-        self.app = Application(self.tmp_path, "storagetest")        
+        config = self.getConfigFile(master_number=1)
+        self.app = Application(config, "storage1")
         self.verification = VerificationEventHandler(self.app)
         # define some variable to simulate client and storage node
         self.master_port = 10010
@@ -108,8 +61,7 @@ server: 127.0.0.1:10020
 
         
     def tearDown(self):
-        # Delete tmp file
-        os.remove(self.tmp_path)
+        NeoTestBase.tearDown(self)
 
     # Common methods
     def getLastUUID(self):

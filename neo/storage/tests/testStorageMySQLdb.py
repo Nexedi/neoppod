@@ -21,31 +21,18 @@ import logging
 import MySQLdb
 from mock import Mock
 from neo.protocol import *
+from neo.tests.base import NeoTestBase
 from neo.exception import DatabaseFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 
-SQL_ADMIN_USER = 'root'
-SQL_ADMIN_PASSWORD = None
+NEO_SQL_DATABASE = 'test_mysqldb_1'
 NEO_SQL_USER = 'test'
-NEO_SQL_DATABASE = 'test_storage_neo1'
 
-class StorageMySQSLdbTests(unittest.TestCase):
+class StorageMySQSLdbTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.ERROR)
-        # SQL connection
-        connect_arg_dict = {'user': SQL_ADMIN_USER}
-        if SQL_ADMIN_PASSWORD is not None:
-            connect_arg_dict['passwd'] = SQL_ADMIN_PASSWORD
-        sql_connection = MySQLdb.Connect(**connect_arg_dict)
-        cursor = sql_connection.cursor()
-        # new database
-        cursor.execute('DROP DATABASE IF EXISTS %s' % (NEO_SQL_DATABASE, ))
-        cursor.execute('CREATE DATABASE %s' % (NEO_SQL_DATABASE, ))
-        cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' % 
-                (NEO_SQL_DATABASE, NEO_SQL_USER))
-        cursor.close()
-        sql_connection.close()
+        self.prepareDatabase(number=1, prefix=NEO_SQL_DATABASE[:-1])
         # db manager
         self.db = MySQLDatabaseManager(
             database=NEO_SQL_DATABASE, 

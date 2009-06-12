@@ -18,8 +18,6 @@
 import os
 import unittest
 import logging
-import MySQLdb
-from tempfile import mkstemp
 from mock import Mock
 from neo.tests.base import NeoTestBase
 from neo.master.app import MasterNode
@@ -34,59 +32,14 @@ from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION
 from neo.protocol import ERROR, BROKEN_NODE_DISALLOWED_CODE, ASK_PRIMARY_MASTER
 from neo.protocol import ANSWER_PRIMARY_MASTER
 
-SQL_ADMIN_USER = 'root'
-SQL_ADMIN_PASSWORD = None
-NEO_SQL_USER = 'test'
-NEO_SQL_DATABASE = 'test_storage_neo1'
-
 class StorageBootstrapTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.ERROR)
+        self.prepareDatabase(number=1)
         # create an application object
-        config_file_text = """# Default parameters.
-[DEFAULT]
-# The list of master nodes.
-master_nodes: 127.0.0.1:10010 
-# The number of replicas.
-replicas: 2
-# The number of partitions.
-partitions: 1009
-# The name of this cluster.
-name: main
-# The user name for the database.
-user: %(user)s
-connector : SocketConnector
-# The first master.
-[mastertest]
-server: 127.0.0.1:10010
-
-[storagetest]
-database: %(database)s
-server: 127.0.0.1:10020
-""" % {
-    'database': NEO_SQL_DATABASE,
-    'user': NEO_SQL_USER,
-}
-        # SQL connection
-        connect_arg_dict = {'user': SQL_ADMIN_USER}
-        if SQL_ADMIN_PASSWORD is not None:
-            connect_arg_dict['passwd'] = SQL_ADMIN_PASSWORD
-        sql_connection = MySQLdb.Connect(**connect_arg_dict)
-        cursor = sql_connection.cursor()
-        # new database
-        cursor.execute('DROP DATABASE IF EXISTS %s' % (NEO_SQL_DATABASE, ))
-        cursor.execute('CREATE DATABASE %s' % (NEO_SQL_DATABASE, ))
-        cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' % 
-                (NEO_SQL_DATABASE, NEO_SQL_USER))
-        cursor.close()
-        sql_connection.close()
-        # config file
-        tmp_id, self.tmp_path = mkstemp()
-        tmp_file = os.fdopen(tmp_id, "w+b")
-        tmp_file.write(config_file_text)
-        tmp_file.close()
-        self.app = Application(self.tmp_path, "storagetest")        
+        config = self.getConfigFile()
+        self.app = Application(config, "master1")
         for server in self.app.master_node_list:
             self.app.nm.add(MasterNode(server = server))
         self.trying_master_node = self.app.nm.getMasterNodeList()[0 ]
@@ -98,8 +51,7 @@ server: 127.0.0.1:10020
         self.num_replicas = 2
         
     def tearDown(self):
-        # Delete tmp file
-        os.remove(self.tmp_path)
+        NeoTestBase.tearDown(self)
 
     # Common methods
     def getLastUUID(self):

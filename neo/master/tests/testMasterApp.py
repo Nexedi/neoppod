@@ -16,7 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import unittest, logging, os
-from tempfile import mkstemp
 from mock import Mock
 from neo.tests.base import NeoTestBase
 from neo.master.app import Application
@@ -30,57 +29,12 @@ class MasterAppTests(NeoTestBase):
     def setUp(self):
         logging.basicConfig(level = logging.WARNING)
         # create an application object
-        config_file_text = """# Default parameters.
-[DEFAULT]
-# The list of master nodes.
-master_nodes: 127.0.0.1:10010
-# The number of replicas.
-replicas: 2
-# The number of partitions.
-partitions: 1009
-# The name of this cluster.
-name: main
-# The user name for the database.
-user: neo
-# The password for the database.
-password: neo
-
-connector: SocketConnector
-
-# The first master.
-[mastertest]
-server: 127.0.0.1:10010
-
-# The first storage.
-[storage1]
-database: neotest1
-server: 127.0.0.1:10020
-
-# The second storage.
-[storage2]
-database: neotest2
-server: 127.0.0.1:10021
-
-# The third storage.
-[storage3]
-database: neotest3
-server: 127.0.0.1:10022
-
-# The fourth storage.
-[storage4]
-database: neotest4
-server: 127.0.0.1:10023
-"""
-        tmp_id, self.tmp_path = mkstemp()
-        tmp_file = os.fdopen(tmp_id, "w+b")
-        tmp_file.write(config_file_text)
-        tmp_file.close()
-        self.app = Application(self.tmp_path, "mastertest")        
+        config = self.getConfigFile()
+        self.app = Application(config, "master1")
         self.app.pt.clear()
 
     def tearDown(self):
-        # Delete tmp file
-        os.remove(self.tmp_path)
+        NeoTestBase.tearDown(self)
 
     def test_01_getNextPartitionTableID(self):
       # must raise as we don"t have one
