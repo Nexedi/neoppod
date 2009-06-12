@@ -553,25 +553,45 @@ class ServiceEventHandler(MasterEventHandler):
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s : %s" %(dump(uuid), state, modify_partition_table))
         app = self.app
+        if uuid == app.uuid:
+            # get message for self
+            if state == RUNNING_STATE:
+                # yes I know
+                p = protocol.answerNodeState(app.uuid, state)
+                conn.answer(p, packet)
+                return
+            else:
+                p = protocol.answerNodeState(app.uuid, state)
+                conn.answer(p, packet)
+                app.shutdown()
         node = app.nm.getNodeByUUID(uuid)
         if node is None:
             p = protocol.protocolError('invalid uuid')
             conn.notify(p)
             return
-        if node.getState() == state and modify_partition_table is False:
-            # no change
-            p = protocol.answerNodeState(node.getUUID(), node.getState())
-            conn.answer(p, packet)
-            return
-        # forward information to nodes
+        if node.getState() == state:
+            # no change, just notify admin node
+            node.setState(state)
+            ip, port = node.getServer()
+            node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
+            conn.answer(protocol.notifyNodeInformation(node_list), packet)
+
+        # forward information to all nodes
         if node.getState() != state:
             node.setState(state)
             ip, port = node.getServer()
             node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
             conn.answer(protocol.notifyNodeInformation(node_list), packet)
             app.broadcastNodeInformation(node)
+            # If this is a storage node, ask it to start.
+            if node.getNodeType() == STORAGE_NODE_TYPE and state == RUNNING_STATE:
+                for sn_conn in app.em.getConnectionList():
+                    if sn_conn.getUUID() == node.getUUID():
+                        logging.info("asking sn to start operation")
+                        sn_conn.notify(protocol.startOperation())
+
         # modify the partition table if required
-        if modify_partition_table: 
+        if modify_partition_table and node.getType() == STORAGE_NODE_TYPE: 
             if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE):
                 # remove from pt
                 cell_list = app.pt.dropNode(node)
@@ -581,5 +601,5 @@ class ServiceEventHandler(MasterEventHandler):
             if len(cell_list) != 0:
                 ptid = app.getNextPartitionTableID()
                 app.broadcastPartitionChanges(ptid, cell_list)
-                
 
+                
