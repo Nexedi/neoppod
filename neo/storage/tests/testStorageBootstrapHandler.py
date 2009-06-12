@@ -80,6 +80,7 @@ server: 127.0.0.1:10020
         cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' % 
                 (NEO_SQL_DATABASE, NEO_SQL_USER))
         cursor.close()
+        sql_connection.close()
         # config file
         tmp_id, self.tmp_path = mkstemp()
         tmp_file = os.fdopen(tmp_id, "w+b")

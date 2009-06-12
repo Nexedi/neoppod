@@ -44,6 +44,8 @@ class StorageMySQSLdbTests(unittest.TestCase):
         cursor.execute('CREATE DATABASE %s' % (NEO_SQL_DATABASE, ))
         cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' % 
                 (NEO_SQL_DATABASE, NEO_SQL_USER))
+        cursor.close()
+        sql_connection.close()
         # db manager
         self.db = MySQLDatabaseManager(
             database=NEO_SQL_DATABASE, 
