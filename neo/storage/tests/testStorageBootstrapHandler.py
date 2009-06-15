@@ -397,10 +397,10 @@ class StorageBootstrapTests(NeoTestBase):
         self.checkNoPacketSent(conn)
         # create a new partition table
         self.bootstrap.handleAcceptNodeIdentification(
-            num_partitions=self.app.num_partitions,
+            num_partitions=self.num_partitions,
             num_replicas=self.num_replicas + 1,
             **args)
-        #self.assertEquals(self.app.num_partitions, self.num_partitions)
+        self.assertEquals(self.app.num_partitions, self.num_partitions)
         self.assertEquals(self.app.num_replicas, self.num_replicas + 1)
         self.assertEqual(self.app.num_partitions, self.app.dm.getNumPartitions())
         self.assertTrue(isinstance(self.app.pt, PartitionTable))
@@ -418,7 +418,7 @@ class StorageBootstrapTests(NeoTestBase):
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
         self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
-        self.assertEqual(None, self.app.dm.getNumPartitions())
+        self.assertEqual(self.app.dm.getNumPartitions(), self.num_partitions)
         packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
         self.bootstrap.handleAcceptNodeIdentification(
             conn=conn,
