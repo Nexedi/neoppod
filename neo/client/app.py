@@ -69,7 +69,7 @@ class ConnectionPool(object):
 
         # Loop until a connection is obtained.
         while True:
-            logging.info('trying to connect to %s', node)
+            logging.info('trying to connect to %s - %s', node, node.getState())
             app.setNodeReady()
             handler = StorageBootstrapHandler(app, app.dispatcher)
             conn = MTClientConnection(app.em, handler, addr,
