@@ -45,6 +45,9 @@ class MySQLDatabaseManager(DatabaseManager):
         self.connect()
         super(MySQLDatabaseManager, self).__init__(**kwargs)
 
+    def close(self):
+        self.conn.close()
+
     def connect(self):
         kwd = {'db' : self.db, 'user' : self.user}
         if self.passwd is not None:

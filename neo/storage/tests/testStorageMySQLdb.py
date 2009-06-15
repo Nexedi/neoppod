@@ -40,7 +40,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         )
 
     def tearDown(self):
-        pass
+        self.db.close()
 
     def checkCalledQuery(self, query=None, call=0):
         self.assertTrue(len(self.db.conn.mockGetNamedCalls('query')) > call)
@@ -142,6 +142,8 @@ class StorageMySQSLdbTests(NeoTestBase):
         # OperationalError > raise DatabaseFailure exception
         from MySQLdb import OperationalError
         class FakeConn(object):
+            def close(self):
+                pass
             def query(*args):
                 raise OperationalError(-1, 'this is a test')
         self.db.conn = FakeConn()

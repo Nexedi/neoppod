@@ -42,7 +42,7 @@ class StorageBootstrapTests(NeoTestBase):
         self.app = Application(config, "master1")
         for server in self.app.master_node_list:
             self.app.nm.add(MasterNode(server = server))
-        self.trying_master_node = self.app.nm.getMasterNodeList()[0 ]
+        self.trying_master_node = self.app.nm.getMasterNodeList()[0]
         self.bootstrap = BootstrapEventHandler(self.app)
         # define some variable to simulate client and storage node
         self.master_port = 10010

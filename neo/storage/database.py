@@ -22,6 +22,10 @@ class DatabaseManager(object):
         """Initialize the object."""
         pass
 
+    def close(self):
+        """ close the database connection """
+        raise NotImplementedError('this method must be overridden')
+
     def setup(self, reset = 0):
         """Set up a database. If reset is true, existing data must be
         discarded."""
