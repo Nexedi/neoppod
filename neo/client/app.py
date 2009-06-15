@@ -387,8 +387,6 @@ class Application(object):
         """Internal method which manage load ,loadSerial and loadBefore."""
         partition_id = u64(oid) % self.num_partitions
 
-        self.local_var.asked_object = None
-
         self._pt_acquire()
         try:
             cell_list = self.pt.getCellList(partition_id, readable=True)
