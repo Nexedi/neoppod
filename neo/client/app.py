@@ -42,7 +42,6 @@ from neo.event import EventManager
 from neo.locking import RLock, Lock
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
-from ZODB.utils import p64, u64, oid_repr
 
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
@@ -229,6 +228,7 @@ class Application(object):
         self.nm = NodeManager()
         self.cp = ConnectionPool(self)
         self.pt = None
+        self.master_conn = None
         self.primary_master_node = None
         self.master_node_list = master_nodes.split(' ')
         # no self-assigned UUID, primary master will supply us one
@@ -268,13 +268,6 @@ class Application(object):
         lock = Lock()
         self._pt_acquire = lock.acquire
         self._pt_release = lock.release
-        self.master_conn = None
-        self.num_replicas = None
-        self.num_partitions = None
-        self.master_conn = self._getMasterConnection()
-        assert self.master_conn is not None
-        assert self.num_partitions is not None
-        assert self.num_replicas is not None
 
     def _notifyDeadStorage(self, s_node):
         """ Notify a storage failure to the primary master """
@@ -339,10 +332,93 @@ class Application(object):
 
     def _getMasterConnection(self):
         """ Connect to the primary master node on demand """
-        if self.master_conn is None:    
-            self.master_conn = self.connectToPrimaryMasterNode()
-        return self.master_conn
+        # acquire the lock to allow only one thread to connect to the primary 
+        lock = self._connecting_to_master_node_acquire(True)
+        try:
+            if self.master_conn is None:    
+                self.master_conn = self._connectToPrimaryMasterNode()
+            return self.master_conn
+        finally:
+            self._connecting_to_master_node_release()
 
+    def _getPartitionTable(self):
+        """ Return the partition table manager, reconnect the PMN if needed """
+        self._pt_acquire(True)
+        try:
+            if self.master_conn is None:
+                self.master_conn = self._connectToPrimaryMasterNode()
+                assert self.pt is not None
+            return self.pt
+        finally:
+            self._pt_release()
+
+    def _connectToPrimaryMasterNode(self):
+        logging.debug('connecting to primary master...')
+        master_index = 0
+        # Make application execute remaining message if any
+        self._waitMessage()
+        while True:
+            self.setNodeReady()
+            if self.primary_master_node is None:
+                # Try with master node defined in config
+                try:
+                    addr, port = self.master_node_list[master_index].split(':')                        
+                except IndexError:
+                    master_index = 0
+                    addr, port = self.master_node_list[master_index].split(':')
+                port = int(port)
+            else:
+                addr, port = self.primary_master_node.getServer()
+            # Request Node Identification
+            handler = PrimaryBootstrapHandler(self, self.dispatcher)
+            conn = MTClientConnection(self.em, handler, (addr, port), 
+                 connector_handler=self.connector_handler)
+            self._nm_acquire()
+            try:
+                if self.nm.getNodeByServer((addr, port)) is None:
+                    n = MasterNode(server = (addr, port))
+                    self.nm.add(n)
+            finally:
+                self._nm_release()
+
+            conn.lock()
+            try:
+                p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE, 
+                        self.uuid, '0.0.0.0', 0, self.name)
+                msg_id = conn.ask(p)
+                self.dispatcher.register(conn, msg_id, self.local_var.queue)
+            finally:
+                conn.unlock()
+
+            # Wait for answer
+            while 1:
+                self._waitMessage(handler=handler)
+                # Now check result
+                if self.primary_master_node is not None:
+                    if self.primary_master_node == -1:
+                        # Connection failed, try with another master node
+                        self.primary_master_node = None
+                        master_index += 1
+                        break
+                    elif self.primary_master_node.getServer() != (addr, port):
+                        # Master node changed, connect to new one
+                        break
+                    elif not self.isNodeReady():
+                        # Wait a bit and reask again
+                        break
+                    elif self.pt is not None and self.pt.operational():
+                        # Connected to primary master node
+                        break
+            if self.pt is not None and self.pt.operational() \
+                    and self.uuid != INVALID_UUID:
+                # Connected to primary master node and got all informations
+                break
+            sleep(1)
+
+        logging.info("connected to primary master node %s" % self.primary_master_node)
+        conn.setHandler(PrimaryNotificationsHandler(self, self.dispatcher))
+        return conn
+        
     def registerDB(self, db, limit):
         self._db = db
 
@@ -385,14 +461,8 @@ class Application(object):
 
     def _load(self, oid, serial = INVALID_TID, tid = INVALID_TID, cache = 0):
         """Internal method which manage load ,loadSerial and loadBefore."""
-        partition_id = u64(oid) % self.num_partitions
-
-        self._pt_acquire()
-        try:
-            cell_list = self.pt.getCellList(partition_id, readable=True)
-        finally:
-            self._pt_release()
-
+        pt = self._getPartitionTable()
+        cell_list = pt.getCellListForID(oid, readable=True)
         if len(cell_list) == 0:
             # No cells available, so why are we running ?
             logging.error('oid %s not found because no storage is available for it', dump(oid))
@@ -526,12 +596,8 @@ class Application(object):
         logging.debug('storing oid %s serial %s',
                      dump(oid), dump(serial))
         # Find which storage node to use
-        partition_id = u64(oid) % self.num_partitions
-        self._pt_acquire()
-        try:
-            cell_list = self.pt.getCellList(partition_id, writable=True)
-        finally:
-            self._pt_release()
+        pt = self._getPartitionTable()
+        cell_list = pt.getCellListForID(oid, writable=True)
         if len(cell_list) == 0:
             # FIXME must wait for cluster to be ready
             raise NEOStorageError
@@ -586,12 +652,8 @@ class Application(object):
         ext = dumps(transaction._extension)
         oid_list = self.local_var.data_dict.keys()
         # Store data on each node
-        partition_id = u64(self.local_var.tid) % self.num_partitions
-        self._pt_acquire()
-        try:
-            cell_list = self.pt.getCellList(partition_id, writable=True)
-        finally:
-            self._pt_release()
+        pt = self._getPartitionTable()
+        cell_list = pt.getCellListForID(self.local_var.tid, writable=True)
         self.local_var.voted_counter = 0
         for cell in cell_list:
             logging.info("voting object %s %s" %(cell.getServer(), cell.getState()))
@@ -621,19 +683,12 @@ class Application(object):
             return
 
         cell_set = set()
-
-        self._pt_acquire()
-        try:
-            # select nodes where objects were stored
-            for oid in self.local_var.data_dict.iterkeys():
-                partition_id = u64(oid) % self.num_partitions
-                cell_set |= set(self.pt.getCellList(partition_id, writable=True))
-
-            # select nodes where transaction was stored
-            partition_id = u64(self.local_var.tid) % self.num_partitions
-            cell_set |= set(self.pt.getCellList(partition_id, writable=True))
-        finally:
-            self._pt_release()
+        pt = self._getPartitionTable()
+        # select nodes where objects were stored
+        for oid in self.local_var.data_dict.iterkeys():
+            cell_set |= set(pt.getCellListForID(oid, writable=True))
+        # select nodes where transaction was stored
+        cell_set |= set(pt.getCellListForID(self.local_var.tid, writable=True))
 
         # cancel transaction one all those nodes
         for cell in cell_set:
@@ -691,12 +746,8 @@ class Application(object):
             raise StorageTransactionError(self, transaction_id)
 
         # First get transaction information from a storage node.
-        partition_id = u64(transaction_id) % self.num_partitions
-        self._pt_acquire()
-        try:
-            cell_list = self.pt.getCellList(partition_id, writable=True)
-        finally:
-            self._pt_release()
+        pt = self._getPartitionTable()
+        cell_list = pt.getCellListForID(transaction_id, writable=True)
         shuffle(cell_list)
         for cell in cell_list:
             conn = self.cp.getConnForNode(cell)
@@ -761,11 +812,8 @@ class Application(object):
         # First get a list of transactions from all storage nodes.
         # Each storage node will return TIDs only for UP_TO_DATE_STATE and
         # FEEDING_STATE cells
-        self._pt_acquire()
-        try:
-            storage_node_list = self.pt.getNodeList()
-        finally:
-            self._pt_release()
+        pt = self._getPartitionTable()
+        storage_node_list = pt.getNodeList()
 
         self.local_var.node_tids = {}
         for storage_node in storage_node_list:
@@ -800,12 +848,7 @@ class Application(object):
         # For each transaction, get info
         undo_info = []
         for tid in ordered_tids:
-            partition_id = u64(tid) % self.num_partitions
-            self._pt_acquire()
-            try:
-                cell_list = self.pt.getCellList(partition_id, readable=True)
-            finally:
-                self._pt_release()
+            cell_list = pt.getCellListForID(tid, readable=True)
             shuffle(cell_list)
             for cell in cell_list:
                 conn = self.cp.getConnForNode(storage_node)
@@ -848,12 +891,8 @@ class Application(object):
     # FIXME: filter function isn't used 
     def history(self, oid, version=None, length=1, filter=None, object_only=0):
         # Get history informations for object first
-        partition_id = u64(oid) % self.num_partitions
-        self._pt_acquire()
-        try:
-            cell_list = self.pt.getCellList(partition_id, readable=True)
-        finally:
-            self._pt_release()
+        pt = self._getPartitionTable()
+        cell_list = pt.getCellListForID(oid, readable=True)
         shuffle(cell_list)
 
         for cell in cell_list:
@@ -883,12 +922,7 @@ class Application(object):
         # Now that we have object informations, get txn informations
         history_list = []
         for serial, size in self.local_var.history[1]:
-            partition_id = u64(serial) % self.num_partitions
-            self._pt_acquire()
-            try:
-                cell_list = self.pt.getCellList(partition_id, readable=True)
-            finally:
-                self._pt_release()
+            pt.getCellListForID(serial, readable=True)
             shuffle(cell_list)
 
             for cell in cell_list:
@@ -931,83 +965,6 @@ class Application(object):
 
     def sync(self):
         self._waitMessage()
-
-    def connectToPrimaryMasterNode(self):
-        logging.debug('connecting to primary master...')
-        # acquire the lock to allow only one thread to connect to the primary 
-        lock = self._connecting_to_master_node_acquire(1)
-        try:
-            if self.pt is not None:
-                # pt is protected with the master lock
-                self.pt.clear()
-            master_index = 0
-            conn = None
-            # Make application execute remaining message if any
-            self._waitMessage()
-            while True:
-                self.setNodeReady()
-                if self.primary_master_node is None:
-                    # Try with master node defined in config
-                    try:
-                        addr, port = self.master_node_list[master_index].split(':')                        
-                    except IndexError:
-                        master_index = 0
-                        addr, port = self.master_node_list[master_index].split(':')
-                    port = int(port)
-                else:
-                    addr, port = self.primary_master_node.getServer()
-                # Request Node Identification
-                handler = PrimaryBootstrapHandler(self, self.dispatcher)
-                conn = MTClientConnection(self.em, handler, (addr, port), 
-                     connector_handler=self.connector_handler)
-                self._nm_acquire()
-                try:
-                    if self.nm.getNodeByServer((addr, port)) is None:
-                        n = MasterNode(server = (addr, port))
-                        self.nm.add(n)
-                finally:
-                    self._nm_release()
-
-                conn.lock()
-                try:
-                    p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE, 
-                            self.uuid, '0.0.0.0', 0, self.name)
-                    msg_id = conn.ask(p)
-                    self.dispatcher.register(conn, msg_id, self.local_var.queue)
-                finally:
-                    conn.unlock()
-
-                # Wait for answer
-                while 1:
-                    self._waitMessage(handler=handler)
-                    # Now check result
-                    if self.primary_master_node is not None:
-                        if self.primary_master_node == -1:
-                            # Connection failed, try with another master node
-                            self.primary_master_node = None
-                            master_index += 1
-                            break
-                        elif self.primary_master_node.getServer() != (addr, port):
-                            # Master node changed, connect to new one
-                            break
-                        elif not self.isNodeReady():
-                            # Wait a bit and reask again
-                            break
-                        elif self.pt is not None and self.pt.operational():
-                            # Connected to primary master node
-                            break
-                if self.pt is not None and self.pt.operational() \
-                        and self.uuid != INVALID_UUID:
-                    # Connected to primary master node and got all informations
-                    break
-                sleep(1)
-
-            logging.info("connected to primary master node %s" % self.primary_master_node)
-            conn.setHandler(PrimaryNotificationsHandler(self, self.dispatcher))
-            return conn
-
-        finally:
-            self._connecting_to_master_node_release()
 
     def setNodeReady(self):
         self.local_var.node_ready = True

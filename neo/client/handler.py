@@ -166,11 +166,8 @@ class PrimaryBootstrapHandler(PrimaryHandler):
             # got an uuid from the primary master
             app.uuid = your_uuid
 
-        # Create partition table if necessary
-        if app.pt is None:
-            app.pt = PartitionTable(num_partitions, num_replicas)
-            app.num_partitions = num_partitions
-            app.num_replicas = num_replicas
+        # Always create partition table 
+        app.pt = PartitionTable(num_partitions, num_replicas)
 
         # Ask a primary master.
         conn.lock()

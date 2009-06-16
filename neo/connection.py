@@ -18,7 +18,6 @@
 import logging
 from neo.locking import RLock
 import sys
-import traceback
 
 from neo import protocol
 from neo.protocol import Packet, PacketMalformedError

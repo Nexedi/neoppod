@@ -37,7 +37,7 @@ from neo.master.recovery import RecoveryEventHandler
 from neo.master.verification import VerificationEventHandler
 from neo.master.service import ServiceEventHandler
 from neo.master.secondary import SecondaryEventHandler
-from neo.pt import PartitionTable
+from neo.master.pt import PartitionTable
 from neo.util import dump
 from neo.connector import getConnectorHandler
 

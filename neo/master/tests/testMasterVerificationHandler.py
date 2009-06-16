@@ -38,7 +38,7 @@ from neo.master.tests.connector import DoNothingConnector
 from neo.connection import ClientConnection
 
 
-class MasterVerificationeTests(NeoTestBase):
+class MasterVerificationTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.WARNING)

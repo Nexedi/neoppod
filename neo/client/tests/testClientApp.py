@@ -28,16 +28,22 @@ from neo.protocol import *
 from neo.util import makeChecksum
 from neo.pt import PartitionTable
 import neo.connection
-import os
 
 def _getMasterConnection(self):
-    self.uuid = 'C' * 16
-    self.num_partitions = 10
-    self.num_replicas = 1
-    self.pt = PartitionTable(self.num_partitions, self.num_replicas)
     if self.master_conn is None:
+        self.uuid = 'C' * 16
+        self.num_partitions = 10
+        self.num_replicas = 1
+        self.pt = Mock({
+            'getCellListForID': (),
+        })
         self.master_conn = Mock()
     return self.master_conn
+
+def _getPartitionTable(self):
+    if self.pt is None:
+        self.master_conn = _getMasterConnection(self)
+    return self.pt
 
 def _waitMessage(self, conn=None, msg_id=None, handler=None):
     if conn is not None and handler is not None:
@@ -52,13 +58,16 @@ class ClientApplicationTest(NeoTestBase):
         # apply monkey patches
         self._getMasterConnection = Application._getMasterConnection
         self._waitMessage = Application._waitMessage
+        self._getPartitionTable = Application._getPartitionTable
         Application._getMasterConnection = _getMasterConnection
         Application._waitMessage = _waitMessage
+        Application._getPartitionTable = _getPartitionTable
 
     def tearDown(self):
         # restore environnement
         Application._getMasterConnection = self._getMasterConnection
         Application._waitMessage = self._waitMessage
+        Application._getPartitionTable = self._getPartitionTable
 
     # some helpers
 
@@ -96,7 +105,7 @@ class ClientApplicationTest(NeoTestBase):
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
         cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
         app.cp = Mock({ 'getConnForNode': conn})
-        app.pt = Mock({ 'getCellList': (cell, cell, ) })
+        app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
         return oid
 
     def voteTransaction(self, app):
@@ -105,7 +114,7 @@ class ClientApplicationTest(NeoTestBase):
         packet = protocol.answerStoreTransaction(tid=tid)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
         cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
-        app.pt = Mock({ 'getCellList': (cell, cell, ) })
+        app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
         app.cp = Mock({ 'getConnForNode': ReturnValues(None, conn), })
         app.tpc_vote(txn)
 
@@ -165,17 +174,17 @@ class ClientApplicationTest(NeoTestBase):
         tid = self.makeTID()
         # cache cleared -> result from ZODB
         self.assertTrue(oid not in mq)
-        app.pt = Mock({ 'getCellList': (), })
+        app.pt = Mock({ 'getCellListForID': (), })
         app.local_var.history = (oid, [(tid, 0)])
         self.assertEquals(app.getSerial(oid), tid)
-        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellList')), 1)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForID')), 1)
         # fill the cache -> hit
         mq.store(oid, (tid, ''))
         self.assertTrue(oid in mq)
-        app.pt = Mock({ 'getCellList': (), })
+        app.pt = Mock({ 'getCellListForID': (), })
         app.getSerial(oid)
         self.assertEquals(app.getSerial(oid), tid)
-        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellList')), 0)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForID')), 0)
     
     def test_load(self):
         app = self.getApp()
@@ -193,7 +202,7 @@ class ClientApplicationTest(NeoTestBase):
                      'fakeReceived': packet,    
                      })
         app.local_var.queue = Mock({'get_nowait' : (conn, None)})
-        app.pt = Mock({ 'getCellList': (cell, ), })
+        app.pt = Mock({ 'getCellListForID': (cell, ), })
         app.cp = Mock({ 'getConnForNode' : conn})
         app.local_var.asked_object = -1
         Application._waitMessage = self._waitMessage
@@ -208,7 +217,7 @@ class ClientApplicationTest(NeoTestBase):
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
-        app.pt = Mock({ 'getCellList': (cell, ), })
+        app.pt = Mock({ 'getCellListForID': (cell, ), })
         app.cp = Mock({ 'getConnForNode' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.load, oid)
@@ -248,7 +257,7 @@ class ClientApplicationTest(NeoTestBase):
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
-        app.pt = Mock({ 'getCellList': (cell, ), })
+        app.pt = Mock({ 'getCellListForID': (cell, ), })
         app.cp = Mock({ 'getConnForNode' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.loadSerial, oid, tid2)
@@ -285,7 +294,7 @@ class ClientApplicationTest(NeoTestBase):
             'getServer': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
-        app.pt = Mock({ 'getCellList': (cell, ), })
+        app.pt = Mock({ 'getCellListForID': (cell, ), })
         app.cp = Mock({ 'getConnForNode' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.loadBefore, oid, tid2)
@@ -369,12 +378,12 @@ class ClientApplicationTest(NeoTestBase):
         # check partition_id and an empty cell list -> NEOStorageError
         app.local_var.txn = txn
         app.local_var.tid = tid
-        app.pt = Mock({ 'getCellList': (), })
+        app.pt = Mock({ 'getCellListForID': (), })
         app.num_partitions = 2 
         self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None, txn)
-        calls = app.pt.mockGetNamedCalls('getCellList')
+        calls = app.pt.mockGetNamedCalls('getCellListForID')
         self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), 1) # oid=11 
+        self.assertEquals(calls[0].getParam(0), oid) # oid=11 
 
     def test_store2(self):
         app = self.getApp()
@@ -393,7 +402,7 @@ class ClientApplicationTest(NeoTestBase):
             'getServer': 'FakeServer',
             'getState': 'FakeState',
         })
-        app.pt = Mock({ 'getCellList': (cell, cell, )})
+        app.pt = Mock({ 'getCellListForID': (cell, cell, )})
         app.cp = Mock({ 'getConnForNode': ReturnValues(None, conn)})
         app.dispatcher = Mock({})
         app.local_var.object_stored = (oid, tid)
@@ -423,7 +432,7 @@ class ClientApplicationTest(NeoTestBase):
             'getServer': 'FakeServer',
             'getState': 'FakeState',
         })
-        app.pt = Mock({ 'getCellList': (cell, cell, ) })
+        app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
         app.dispatcher = Mock({})
         app.conflict_serial = None # reset by hand
         app.local_var.object_stored = ()
@@ -462,7 +471,7 @@ class ClientApplicationTest(NeoTestBase):
             'getServer': 'FakeServer',
             'getState': 'FakeState',
         })
-        app.pt = Mock({ 'getCellList': (cell, cell, ) })
+        app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
         app.cp = Mock({ 'getConnForNode': ReturnValues(None, conn), })
         app.dispatcher = Mock()
         app.tpc_begin(txn, tid)
@@ -490,7 +499,7 @@ class ClientApplicationTest(NeoTestBase):
             'getServer': 'FakeServer',
             'getState': 'FakeState',
         })
-        app.pt = Mock({ 'getCellList': (cell, cell, ) })
+        app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
         app.cp = Mock({ 'getConnForNode': ReturnValues(None, conn), })
         app.dispatcher = Mock()
         app.tpc_begin(txn, tid)
@@ -509,7 +518,7 @@ class ClientApplicationTest(NeoTestBase):
         self.assertFalse(app.local_var.txn is txn)
         conn = Mock()
         cell = Mock()
-        app.pt = Mock({'getCellList': (cell, cell)})
+        app.pt = Mock({'getCellListForID': (cell, cell)})
         app.cp = Mock({'getConnForNode': ReturnValues(None, cell)})
         app.tpc_abort(txn)
         # no packet sent
@@ -532,7 +541,7 @@ class ClientApplicationTest(NeoTestBase):
         cell1 = Mock({ 'getNode': 'NODE1', '__hash__': 1 })
         cell2 = Mock({ 'getNode': 'NODE2', '__hash__': 2 })
         conn1, conn2 = Mock({ 'getNextId': 1, }), Mock({ 'getNextId': 2, })
-        app.pt = Mock({ 'getCellList': ReturnValues((cell1, ), (cell1, ), (cell1, cell2)), })
+        app.pt = Mock({ 'getCellListForID': ReturnValues((cell1, ), (cell1, ), (cell1, cell2)), })
         app.cp = Mock({ 'getConnForNode': ReturnValues(conn1, conn2), })
         # fake data
         app.local_var.data_dict = {oid1: '', oid2: ''}
@@ -557,7 +566,7 @@ class ClientApplicationTest(NeoTestBase):
         self.assertFalse(app.local_var.txn is txn)
         conn = Mock()
         cell = Mock()
-        app.pt = Mock({'getCellList': (cell, cell)})
+        app.pt = Mock({'getCellListForID': (cell, cell)})
         app.cp = Mock({'getConnForNode': ReturnValues(None, cell)})
         app.tpc_finish(txn)
         # no packet sent
@@ -689,7 +698,7 @@ class ClientApplicationTest(NeoTestBase):
             'getAddress': ('127.0.0.1', 10010),
         })
         cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
-        app.pt = Mock({ 'getCellList': (cell, ) })
+        app.pt = Mock({ 'getCellListForID': (cell, ) })
         app.cp = Mock({ 'getConnForNode': conn})
         wrapper = Mock({'tryToResolveConflict': None})
         txn4 = self.beginTransaction(app, tid=tid4)
@@ -723,7 +732,7 @@ class ClientApplicationTest(NeoTestBase):
         })
         app.pt = Mock({
             'getNodeList': (node1, node2, ),
-            'getCellList': ReturnValues([cell1], [cell2]),
+            'getCellListForID': ReturnValues([cell1], [cell2]),
         })
         app.cp = Mock({ 'getConnForNode': conn})
         def _waitMessage(self, conn=None, msg_id=None, handler=None):
@@ -758,7 +767,7 @@ class ClientApplicationTest(NeoTestBase):
         object_cells = [ Mock({}), Mock({}) ]
         history_cells = [ Mock({}), Mock({}) ]
         app.pt = Mock({
-            'getCellList': ReturnValues(object_cells, history_cells,
+            'getCellListForID': ReturnValues(object_cells, history_cells,
                 history_cells),
         })
         app.cp = Mock({ 'getConnForNode': conn})
@@ -783,6 +792,9 @@ class ClientApplicationTest(NeoTestBase):
         # third iteration : node not ready
         def _waitMessage4(app, conn=None, msg_id=None, handler=None):
             app.local_var.node_ready = False 
+            app.setNodeReady()
+            app.pt = Mock({'operational': True})
+            app.uuid = 'C' * 16
             self.all_passed = True
         # second iteration : master node changed
         def _waitMessage3(app, conn=None, msg_id=None, handler=None):
@@ -803,13 +815,12 @@ class ClientApplicationTest(NeoTestBase):
         # faked environnement
         app.connector_handler = DoNothingConnector
         app.em = Mock({})
-        app.pt = Mock({ 'operational': ReturnValues(False, False, True, True)})
+        app.pt = Mock({ 'operational': False})
         self.all_passed = False
         try:
-            app.master_conn = app.connectToPrimaryMasterNode()
+            app.master_conn = app._connectToPrimaryMasterNode()
         finally:
             Application._waitMessage = _waitMessage_old
-        self.assertEquals(len(app.pt.mockGetNamedCalls('clear')), 1)
         self.assertTrue(self.all_passed)
         self.assertTrue(app.master_conn, neo.connection.MTClientConnection)
         self.assertTrue(app.pt.operational())
