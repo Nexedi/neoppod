@@ -152,6 +152,9 @@ class ServiceEventHandler(MasterEventHandler):
         node = app.nm.getNodeByUUID(uuid)
         if node is not None and node.getServer() != addr:
             # Here we have an UUID conflict, assume that's a new node
+            # XXX what about a storage node wich has changed of address ?
+            # it still must be used with its old data if marked out of date
+            # into the partition table
             node = None
         old_node = None
         if node is None:
@@ -358,14 +361,19 @@ class ServiceEventHandler(MasterEventHandler):
 
             logging.debug('broadcasting node information')
             app.broadcastNodeInformation(node)
-            # XXX still required to change here ??? who can send
-            # this kind of message with these status excep admin node
-            if node.getNodeType() == STORAGE_NODE_TYPE \
-                    and state in (DOWN_STATE, BROKEN_STATE):
-                cell_list = app.pt.dropNode(node)
-                if len(cell_list) != 0:
-                    ptid = app.getNextPartitionTableID()
-                    app.broadcastPartitionChanges(ptid, cell_list)
+            if node.getNodeType() == STORAGE_NODE_TYPE:
+                if state in (DOWN_STATE, BROKEN_STATE):
+                    # XXX still required to change here ??? who can send
+                    # this kind of message with these status except admin node
+                    cell_list = app.pt.dropNode(node)
+                    if len(cell_list) != 0:
+                        ptid = app.getNextPartitionTableID()
+                        app.broadcastPartitionChanges(ptid, cell_list)
+                elif state == TEMPORARILY_DOWN_STATE:
+                    cell_list = app.pt.outdate()
+                    if len(cell_list) != 0:
+                        ptid = app.getNextPartitionTableID()
+                        app.broadcastPartitionChanges(ptid, cell_list)
 
     @identification_required
     @restrict_node_types(STORAGE_NODE_TYPE)
@@ -417,7 +425,8 @@ class ServiceEventHandler(MasterEventHandler):
         # Collect the UUIDs of nodes related to this transaction.
         uuid_set = set()
         for part in partition_set:
-            uuid_set.update((cell.getUUID() for cell in app.pt.getCellList(part)))
+            uuid_set.update((cell.getUUID() for cell in app.pt.getCellList(part) \
+                             if cell.getNodeState() != HIDDEN_STATE))
 
         # Request locking data.
         # build a new set as we may not send the message to all nodes as some
@@ -601,5 +610,12 @@ class ServiceEventHandler(MasterEventHandler):
             if len(cell_list) != 0:
                 ptid = app.getNextPartitionTableID()
                 app.broadcastPartitionChanges(ptid, cell_list)
+        else:
+            # outdate node in partition table
+            cell_list = app.pt.outdate()
+            if len(cell_list) != 0:
+                ptid = app.getNextPartitionTableID()
+                app.broadcastPartitionChanges(ptid, cell_list)
+            
 
                 
