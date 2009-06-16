@@ -127,13 +127,13 @@ class NeoTestResult(unittest.TestResult):
         s += '\n'
         s += "                   Test Module |  run   |  error |  fail  |   time   \n"
         s += "-------------------------------+--------+--------+--------+----------\n"
-        format = "%30s |  %3d   |  %3d   |  %3d   | %6.2fs  \n"
+        format = "%30s |  %3d   |  %3s   |  %3s   | %6.2fs  \n"
         for k, v in self.modulesStats.items():
             args = (k, v.success, v.errors, v.failures, v.time)
             s += format % args
+        s += "-------------------------------+--------+--------+--------+----------\n"
         errors, failures = len(self.errors) or '.', len(self.failures) or '.'
         args = ("Summary", self.testsRun, errors, failures, self.time)
-        s += "-------------------------------+--------+--------+--------+----------\n"
         s += format % args
         s += '\n'
         return s
