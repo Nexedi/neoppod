@@ -102,7 +102,37 @@ class HiddenEventHandler(EventHandler):
         pass
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        pass
+        """This is very similar to Send Partition Table, except that
+        the information is only about changes from the previous."""
+        app = self.app
+        nm = app.nm
+        pt = app.pt
+        if app.ptid >= ptid:
+            # Ignore this packet.
+            logging.info('ignoring older partition changes')
+            return
+
+        # First, change the table on memory.
+        app.ptid = ptid
+        for offset, uuid, state in cell_list:
+            node = nm.getNodeByUUID(uuid)
+            if node is None:
+                node = StorageNode(uuid = uuid)
+                if uuid != app.uuid:
+                    node.setState(TEMPORARILY_DOWN_STATE)
+                nm.add(node)
+            pt.setCell(offset, node, state)
+
+            if uuid == app.uuid:
+                # If this is for myself, this can affect replications.
+                if state == DISCARDED_STATE:
+                    app.replicator.removePartition(offset)
+                elif state == OUT_OF_DATE_STATE:
+                    app.replicator.addPartition(offset)
+
+        # Then, the database.
+        app.dm.changePartitionTable(ptid, cell_list)
+        app.pt.log()
 
     @client_connection_required
     def handleStartOperation(self, conn, packet):
