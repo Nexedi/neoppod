@@ -108,7 +108,7 @@ class PrimaryHandler(BaseHandler):
             n.setState(state)
             # close connection to this node if no longer running
             if node_type in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE) and \
-                   state in (DOWN_STATE, HIDDEN_STATE):
+                   state != RUNNING_STATE:
                 for conn in self.app.em.getConnectionList():
                     if conn.getUUID() == n.getUUID():
                         conn.close()
