@@ -22,7 +22,7 @@ from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROK
 from neo.node import Node, MasterNode, StorageNode, ClientNode, NodeManager
 from time import time
 
-class testNodes(unittest.TestCase):
+class NodesTests(unittest.TestCase):
 
     def setUp(self):
         pass

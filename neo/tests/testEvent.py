@@ -22,7 +22,7 @@ from neo.epoll import Epoll
 from neo.event import EpollEventManager, IdleEvent
 from neo.protocol import Packet, PING
 
-class testEvent(NeoTestBase):
+class EventTests(NeoTestBase):
 
     def setUp(self):
         pass

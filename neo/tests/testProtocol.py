@@ -21,7 +21,7 @@ from neo import protocol
 from neo.protocol import *
 from time import time, gmtime
 
-class testProtocol(unittest.TestCase):
+class ProtocolTests(unittest.TestCase):
 
     def setUp(self):
         self.ltid = INVALID_TID

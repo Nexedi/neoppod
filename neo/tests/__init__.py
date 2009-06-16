@@ -1,18 +1,18 @@
-from neo.tests.testConfig import testConfigurationManager
-from neo.tests.testConnection import testConnection
-from neo.tests.testEvent import testEvent
-from neo.tests.testHandler import HandlerDecoratorsTest, HandlerTest
-from neo.tests.testNodes import testNodes
-from neo.tests.testPT import testPartitionTable
-from neo.tests.testProtocol import testProtocol
+from neo.tests.testConfig import ConfigurationManagerTests
+from neo.tests.testConnection import ConnectionTests
+from neo.tests.testEvent import EventTests
+from neo.tests.testHandler import HandlerDecoratorsTests, HandlerTests
+from neo.tests.testNodes import NodesTests
+from neo.tests.testPT import PartitionTableTests
+from neo.tests.testProtocol import ProtocolTests
 
 __all__ = [
-    'testConfigurationManager',
-    'testConnection',
-    'testEvent',
-    'HandlerDecoratorsTest', 
-    'HandlerTest',
-    'testNodes',
-    'testPartitionTable',
-    'testProtocol',
+    'ConfigurationManagerTests',
+    'ConnectionTests',
+    'EventTests',
+    'HandlerDecoratorsTests',
+    'HandlerTests',
+    'NodesTests',
+    'PartitionTableTests',
+    'ProtocolTests',
 ]

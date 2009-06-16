@@ -52,7 +52,7 @@ def _waitMessage(self, conn=None, msg_id=None, handler=None):
         raise NotImplementedError
 
 
-class ClientApplicationTest(NeoTestBase):
+class ClientApplicationTests(NeoTestBase):
 
     def setUp(self):
         # apply monkey patches

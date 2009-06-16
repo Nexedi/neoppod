@@ -19,25 +19,19 @@ import unittest
 from mock import Mock, ReturnValues
 from neo.protocol import INVALID_UUID
 
+from neo.tests.base import NeoTestBase
 from neo.client.app import ConnectionPool
 import os
 
-class ConnectionPoolTest(unittest.TestCase):
-
-    def getUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
+class ConnectionPoolTests(NeoTestBase):
 
     def test_removeConnection(self):
         app = None
         pool = ConnectionPool(app)
-        test_node_uuid = self.getUUID()
+        test_node_uuid = self.getNewUUID()
         other_node_uuid = test_node_uuid
         while other_node_uuid == test_node_uuid:
-            other_node_uuid = self.getUUID()
+            other_node_uuid = self.getNewUUID()
         test_node = Mock({'getUUID': test_node_uuid})
         other_node = Mock({'getUUID': other_node_uuid})
         # Test sanity check

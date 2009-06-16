@@ -19,7 +19,7 @@ import unittest
 
 from neo.client.dispatcher import Dispatcher
 
-class DispatcherTest(unittest.TestCase):
+class DispatcherTests(unittest.TestCase):
 
     def test_register(self):
         dispatcher = Dispatcher()

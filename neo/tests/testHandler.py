@@ -26,14 +26,14 @@ from neo.protocol import UnexpectedPacketError, MASTER_NODE_TYPE, \
 from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
 
-class HandlerDecoratorsTest(NeoTestBase):
+class HandlerDecoratorsTests(NeoTestBase):
 
     class FakeApp(object):
         nm = None
 
     def setUp(self):
         self.handler_called = False
-        self.app = HandlerDecoratorsTest.FakeApp()
+        self.app = HandlerDecoratorsTests.FakeApp()
 
     def fakeHandler(self, conn, packet):
         self.handler_called = True
@@ -141,7 +141,7 @@ class HandlerDecoratorsTest(NeoTestBase):
         self.checkHandlerCalled(handler)
 
 
-class HandlerTest(NeoTestBase):
+class HandlerTests(NeoTestBase):
 
     def setUp(self):
         self.handler = EventHandler()

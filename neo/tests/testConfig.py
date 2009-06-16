@@ -23,7 +23,7 @@ from neo.config import ConfigurationManager
 from tempfile import mkstemp
 
 
-class testConfigurationManager(unittest.TestCase):
+class ConfigurationManagerTests(unittest.TestCase):
 
     def setUp(self):
         pass

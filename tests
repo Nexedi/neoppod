@@ -30,7 +30,7 @@ TEST_MODULES = [
 ]
 
 # configuration 
-WITH_ZODB_TESTS = True
+WITH_ZODB_TESTS = False
 SEND_REPORT = True
 CONSOLE_LOG = False
 ATTACH_LOG = False # for ZODB test, only the client side is logged
@@ -129,7 +129,8 @@ class NeoTestResult(unittest.TestResult):
         s += "-------------------------------+--------+--------+--------+----------\n"
         format = "%30s |  %3d   |  %3s   |  %3s   | %6.2fs  \n"
         for k, v in self.modulesStats.items():
-            args = (k, v.success, v.errors, v.failures, v.time)
+            errors, failures = v.errors or '.', v.failures or '.'
+            args = (k, v.success, errors, failures, v.time)
             s += format % args
         s += "-------------------------------+--------+--------+--------+----------\n"
         errors, failures = len(self.errors) or '.', len(self.failures) or '.'

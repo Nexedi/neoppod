@@ -24,7 +24,7 @@ from neo.pt import Cell, PartitionTable
 from neo.node import StorageNode
 from neo.tests.base import NeoTestBase
 
-class testPartitionTable(NeoTestBase):
+class PartitionTableTests(NeoTestBase):
 
     def test_01_Cell(self):
         uuid = self.getNewUUID()

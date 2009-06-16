@@ -36,24 +36,7 @@ from neo.util import dump
 
 MARKER = []
 
-class BaseClientHandlerTest(NeoTestBase):
-
-    def setUp(self):
-        dispatcher = Mock({'getQueue': queue, 'connectToPrimaryMasterNode': None})
-        self.handler = BaseClientHandler(dispatcher)
-
-    def getConnection(self, uuid=None, port=10010, next_id=None, ip='127.0.0.1'):
-        if uuid is None:
-            uuid = self.getNewUUID()
-        return Mock({'_addPacket': None,
-                     'getUUID': uuid,
-                     'getAddress': (ip, port),
-                     'getNextId': next_id,
-                     'lock': None,
-                     'unlock': None})
-
-
-class ClientHandlerTest(NeoTestBase):
+class ClientHandlerTests(NeoTestBase):
 
     def setUp(self):
         # Silence all log messages

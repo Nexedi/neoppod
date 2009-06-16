@@ -38,7 +38,7 @@ def getNewUUID():
         uuid = os.urandom(16)
     return uuid
 
-class testConnection(unittest.TestCase):
+class ConnectionTests(unittest.TestCase):
 
     def setUp(self):
         pass
