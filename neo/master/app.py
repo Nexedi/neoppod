@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import logging
-import os
+import os, sys
 from time import time, gmtime
 from struct import pack, unpack
 
@@ -796,4 +796,12 @@ class Application(object):
                 return False
         return uuid != self.uuid and uuid != INVALID_UUID
 
+
+    def shutdown(self):
+        """Close all connections and exit"""
+        self.em.poll(1)
+        for c in self.em.getConnectionList():
+            if not c.isListeningConnection():
+                c.close()
+        sys.exit("Application has been asked to shut down")
 
