@@ -112,6 +112,22 @@ class PrimaryHandler(BaseHandler):
                 for conn in self.app.em.getConnectionList():
                     if conn.getUUID() == n.getUUID():
                         conn.close()
+                        break
+                if node_type == STORAGE_NODE_TYPE:
+                    # Remove from pool connection
+                    app.cp.removeConnection(n)
+
+                    # Put fake packets to task queues.
+                    queue_set = set()
+                    for key in self.dispatcher.message_table.keys():
+                        if id(conn) == key[0]:
+                            queue = self.dispatcher.message_table.pop(key)
+                            queue_set.add(queue)
+                    # Storage failure is notified to the primary master when the fake 
+                    # packet if popped by a non-polling thread.
+                    for queue in queue_set:
+                        queue.put((conn, None))
+
 
 
 class PrimaryBootstrapHandler(PrimaryHandler):
