@@ -355,7 +355,7 @@ class Application(object):
         self._waitMessage()
         while True:
             self.setNodeReady()
-            if self.primary_master_node is None:
+            if self.primary_master_node in (None, -1):
                 # Try with master node defined in config
                 try:
                     addr, port = self.master_node_list[master_index].split(':')                        
