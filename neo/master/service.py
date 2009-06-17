@@ -600,7 +600,7 @@ class ServiceEventHandler(MasterEventHandler):
                         sn_conn.notify(protocol.startOperation())
 
         # modify the partition table if required
-        if modify_partition_table and node.getType() == STORAGE_NODE_TYPE: 
+        if modify_partition_table and node.getNodeType() == STORAGE_NODE_TYPE: 
             if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE):
                 # remove from pt
                 cell_list = app.pt.dropNode(node)
