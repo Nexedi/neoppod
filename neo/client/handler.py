@@ -26,7 +26,7 @@ from neo.protocol import Packet, \
         BROKEN_STATE, FEEDING_STATE, DISCARDED_STATE, DOWN_STATE, \
         HIDDEN_STATE
 from neo.node import MasterNode, StorageNode, ClientNode
-from neo.pt import PartitionTable
+from neo.pt import MTPartitionTable as PartitionTable
 from neo.client.exception import NEOStorageError
 from neo.exception import ElectionFailure
 from neo.util import dump
@@ -34,7 +34,6 @@ from neo.handler import identification_required, restrict_node_types
 
 from ZODB.TimeStamp import TimeStamp
 from ZODB.utils import p64
-
 
 class BaseHandler(EventHandler):
     """Base class for client-side EventHandler implementations."""

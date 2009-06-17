@@ -21,6 +21,8 @@ from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         BROKEN_STATE, VALID_CELL_STATE_LIST, HIDDEN_STATE
 from neo.util import dump, u64
+from neo.locking import RLock
+
 
 class Cell(object):
     """This class represents a cell in a partition table."""
@@ -221,4 +223,49 @@ class PartitionTable(object):
         if row is None:
             return ()
         return [(cell.getUUID(), cell.getState()) for cell in row]
+
+
+def thread_safe(method):
+    def wrapper(self, *args, **kwargs):
+        self.lock()
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            self.unlock()
+    return wrapper
+
+
+class MTPartitionTable(PartitionTable):
+    """ Thread-safe aware version of the partition table, override only methods
+        used in the client """
+
+    def __init__(self, *args, **kwargs):
+        self._lock = RLock()
+        PartitionTable.__init__(self, *args, **kwargs)
+
+    def lock(self):
+        self._lock.acquire()
+
+    def unlock(self):
+        self._lock.release()
+
+    @thread_safe
+    def getCellListForID(self, *args, **kwargs):
+        return PartitionTable.getCellListForID(self, *args, **kwargs)
+
+    @thread_safe
+    def setCell(self, *args, **kwargs):
+        return PartitionTable.setCell(self, *args, **kwargs)
+
+    @thread_safe
+    def clear(self, *args, **kwargs):
+        return PartitionTable.clear(self, *args, **kwargs)
+
+    @thread_safe
+    def operational(self, *args, **kwargs):
+        return PartitionTable.operational(self, *args, **kwargs)
+
+    @thread_safe
+    def getNodeList(self, *args, **kwargs):
+        return PartitionTable.getNodeList(self, *args, **kwargs)
 

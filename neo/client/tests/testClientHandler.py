@@ -481,13 +481,14 @@ class ClientHandlerTests(NeoTestBase):
             node = Mock({'getNodeType': node_type})
             class App:
                 nm = Mock({'getNodeByUUID': node})
-                pt = None
+                pt = Mock()
             app = App()
             client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
             conn = self.getConnection()
             client_handler.handleSendPartitionTable(conn, None, 0, [])
             # Check that nothing happened
-            self.assertTrue(app.pt is None)
+            self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
+            self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
 
     def test_newSendPartitionTable(self):
         node = Mock({'getNodeType': MASTER_NODE_TYPE})
@@ -674,7 +675,7 @@ class ClientHandlerTests(NeoTestBase):
             node = Mock({'getNodeType': node_type, 'getUUID': test_master_uuid})
             class App:
                 nm = Mock({'getNodeByUUID': node})
-                pt = None
+                pt = Mock()
                 ptid = INVALID_PTID
                 primary_master_node = node
             app = App()
@@ -682,13 +683,14 @@ class ClientHandlerTests(NeoTestBase):
             conn = self.getConnection(uuid=test_master_uuid)
             client_handler.handleNotifyPartitionChanges(conn, None, 0, [])
             # Check that nothing happened
-            self.assertTrue(app.pt is None)
+            self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
+            self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
 
     def test_noPrimaryMasterNotifyPartitionChanges(self):
         node = Mock({'getNodeType': MASTER_NODE_TYPE})
         class App:
             nm = Mock({'getNodeByUUID': node})
-            pt = None
+            pt = Mock()
             ptid = INVALID_PTID
             primary_master_node = None
         app = App()
@@ -696,7 +698,8 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         client_handler.handleNotifyPartitionChanges(conn, None, 0, [])
         # Check that nothing happened
-        self.assertTrue(app.pt is None)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
 
     def test_nonPrimaryMasterNotifyPartitionChanges(self):
         test_master_uuid = self.getNewUUID()
@@ -707,7 +710,7 @@ class ClientHandlerTests(NeoTestBase):
         test_master_node = Mock({'getUUID': test_master_uuid})
         class App:
             nm = Mock({'getNodeByUUID': node})
-            pt = None
+            pt = Mock()
             ptid = INVALID_PTID
             primary_master_node = test_master_node
         app = App()
@@ -715,7 +718,8 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection(uuid=test_sender_uuid)
         client_handler.handleNotifyPartitionChanges(conn, None, 0, [])
         # Check that nothing happened
-        self.assertTrue(app.pt is None)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
 
     def test_ignoreOutdatedPTIDNotifyPartitionChanges(self):
         test_master_uuid = self.getNewUUID()
@@ -723,7 +727,7 @@ class ClientHandlerTests(NeoTestBase):
         test_ptid = 1
         class App:
             nm = Mock({'getNodeByUUID': node})
-            pt = None
+            pt = Mock()
             primary_master_node = node
             ptid = test_ptid
         app = App()
@@ -731,7 +735,8 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection(uuid=test_master_uuid)
         client_handler.handleNotifyPartitionChanges(conn, None, test_ptid, [])
         # Check that nothing happened
-        self.assertTrue(app.pt is None)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
         self.assertEquals(app.ptid, test_ptid)
 
     def test_unknownNodeNotifyPartitionChanges(self):

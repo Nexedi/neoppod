@@ -1,4 +1,3 @@
-#
 # Copyright (C) 2006-2009  Nexedi SA
 # 
 # This program is free software; you can redistribute it and/or
@@ -264,10 +263,6 @@ class Application(object):
         lock = Lock()
         self._nm_acquire = lock.acquire
         self._nm_release = lock.release
-        # __pt ensure exclusive access to the partition table
-        lock = Lock()
-        self._pt_acquire = lock.acquire
-        self._pt_release = lock.release
 
     def _notifyDeadStorage(self, s_node):
         """ Notify a storage failure to the primary master """
@@ -343,14 +338,15 @@ class Application(object):
 
     def _getPartitionTable(self):
         """ Return the partition table manager, reconnect the PMN if needed """
-        self._pt_acquire(True)
-        try:
-            if self.master_conn is None:
-                self.master_conn = self._connectToPrimaryMasterNode()
-                assert self.pt is not None
-            return self.pt
-        finally:
-            self._pt_release()
+        # this ensure the master connection is established and the partition
+        # table is up to date.
+        self._getMasterConnection()
+        return self.pt
+
+    def _getCellListForID(self, id, readable=False, writable=False):
+        """ Return the cells available for the specified (O|T)ID """
+        pt = self._getPartitionTable()
+        return pt.getCellListForID(id, readable, writable)
 
     def _connectToPrimaryMasterNode(self):
         logging.debug('connecting to primary master...')
@@ -409,6 +405,7 @@ class Application(object):
                     elif self.pt is not None and self.pt.operational():
                         # Connected to primary master node
                         break
+                    sleep(0.1)
             if self.pt is not None and self.pt.operational() \
                     and self.uuid != INVALID_UUID:
                 # Connected to primary master node and got all informations
@@ -461,8 +458,7 @@ class Application(object):
 
     def _load(self, oid, serial = INVALID_TID, tid = INVALID_TID, cache = 0):
         """Internal method which manage load ,loadSerial and loadBefore."""
-        pt = self._getPartitionTable()
-        cell_list = pt.getCellListForID(oid, readable=True)
+        cell_list = self._getCellListForID(oid, readable=True)
         if len(cell_list) == 0:
             # No cells available, so why are we running ?
             logging.error('oid %s not found because no storage is available for it', dump(oid))
@@ -596,8 +592,7 @@ class Application(object):
         logging.debug('storing oid %s serial %s',
                      dump(oid), dump(serial))
         # Find which storage node to use
-        pt = self._getPartitionTable()
-        cell_list = pt.getCellListForID(oid, writable=True)
+        cell_list = self._getCellListForID(oid, writable=True)
         if len(cell_list) == 0:
             # FIXME must wait for cluster to be ready
             raise NEOStorageError
@@ -653,7 +648,7 @@ class Application(object):
         oid_list = self.local_var.data_dict.keys()
         # Store data on each node
         pt = self._getPartitionTable()
-        cell_list = pt.getCellListForID(self.local_var.tid, writable=True)
+        cell_list = self._getCellListForID(self.local_var.tid, writable=True)
         self.local_var.voted_counter = 0
         for cell in cell_list:
             logging.info("voting object %s %s" %(cell.getServer(), cell.getState()))
@@ -683,12 +678,11 @@ class Application(object):
             return
 
         cell_set = set()
-        pt = self._getPartitionTable()
         # select nodes where objects were stored
         for oid in self.local_var.data_dict.iterkeys():
-            cell_set |= set(pt.getCellListForID(oid, writable=True))
+            cell_set |= set(self._getCellListForID(oid, writable=True))
         # select nodes where transaction was stored
-        cell_set |= set(pt.getCellListForID(self.local_var.tid, writable=True))
+        cell_set |= set(self._getCellListForID(self.local_var.tid, writable=True))
 
         # cancel transaction one all those nodes
         for cell in cell_set:
@@ -746,8 +740,7 @@ class Application(object):
             raise StorageTransactionError(self, transaction_id)
 
         # First get transaction information from a storage node.
-        pt = self._getPartitionTable()
-        cell_list = pt.getCellListForID(transaction_id, writable=True)
+        cell_list = self._getCellListForID(transaction_id, writable=True)
         shuffle(cell_list)
         for cell in cell_list:
             conn = self.cp.getConnForNode(cell)
@@ -848,7 +841,7 @@ class Application(object):
         # For each transaction, get info
         undo_info = []
         for tid in ordered_tids:
-            cell_list = pt.getCellListForID(tid, readable=True)
+            cell_list = self._getCellListForID(tid, readable=True)
             shuffle(cell_list)
             for cell in cell_list:
                 conn = self.cp.getConnForNode(storage_node)
@@ -891,8 +884,7 @@ class Application(object):
     # FIXME: filter function isn't used 
     def history(self, oid, version=None, length=1, filter=None, object_only=0):
         # Get history informations for object first
-        pt = self._getPartitionTable()
-        cell_list = pt.getCellListForID(oid, readable=True)
+        cell_list = self._getCellListForID(oid, readable=True)
         shuffle(cell_list)
 
         for cell in cell_list:
@@ -922,7 +914,7 @@ class Application(object):
         # Now that we have object informations, get txn informations
         history_list = []
         for serial, size in self.local_var.history[1]:
-            pt.getCellListForID(serial, readable=True)
+            self._getCellListForID(serial, readable=True)
             shuffle(cell_list)
 
             for cell in cell_list:
