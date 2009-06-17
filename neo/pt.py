@@ -20,8 +20,7 @@ import logging
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         BROKEN_STATE, VALID_CELL_STATE_LIST, HIDDEN_STATE
-from ZODB.utils import u64
-from neo.util import dump
+from neo.util import dump, u64
 
 class Cell(object):
     """This class represents a cell in a partition table."""

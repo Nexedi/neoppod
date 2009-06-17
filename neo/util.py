@@ -17,6 +17,13 @@
 
 
 from zlib import adler32
+from struct import pack, unpack
+
+def u64(s):
+    return unpack('!Q', s)[0]
+
+def p64(n):
+    return pack('!Q', n)
 
 def dump(s):
     """Dump a binary string in hex."""
