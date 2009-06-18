@@ -362,22 +362,22 @@ class EventHandler(object):
         raise UnexpectedPacketError
 
     def handleAskPartitionList(self, conn, packet, offset_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerPartitionList(self, conn, packet, ptid, row_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAskNodeList(self, conn, packet, offset_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerNodeList(self, conn, packet, ptid, row_list):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     def handleAnswerNodeState(self, conn, packet, uuid, state):
-        self.handleUnexpectedPacket(conn, packet)
+        raise UnexpectedPacketError
 
     # Error packet handlers.
 
