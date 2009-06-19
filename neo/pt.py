@@ -197,7 +197,7 @@ class PartitionTable(object):
                         cell.append('.')
                 line.append(''.join(cell))
         if len(line):
-            logging.debug('pt: %08d: %s', offset - len(line),
+            logging.debug('pt: %08d: %s', offset - len(line) + 1,
                           '|'.join(line))
 
 
