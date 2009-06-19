@@ -632,7 +632,6 @@ class Application(object):
             raise NEOStorageError('tpc_store failed')
         
         # Store object in tmp cache
-        noid, nserial = self.local_var.object_stored
         self.local_var.data_dict[oid] = data
 
         return self.local_var.tid
