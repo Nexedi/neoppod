@@ -56,9 +56,8 @@ class ConnectionPool(object):
         self.connection_lock_acquire = l.acquire
         self.connection_lock_release = l.release
 
-    def _initNodeConnection(self, cell):
+    def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
-        node = cell.getNode()
         addr = node.getServer()
         if addr is None:
             return None
@@ -140,6 +139,9 @@ class ConnectionPool(object):
         self.connection_dict[node.getUUID()] = conn
         conn.lock()
         return conn
+
+    def getConnForCell(self, cell):
+        return self.getConnForNode(cell.getNode())
 
     def getConnForNode(self, node):
         """Return a locked connection object to a given node
@@ -469,7 +471,7 @@ class Application(object):
         for cell in cell_list:
             logging.debug('trying to load %s from %s',
                           dump(oid), dump(cell.getUUID()))
-            conn = self.cp.getConnForNode(cell)
+            conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
 
@@ -602,7 +604,7 @@ class Application(object):
         self.local_var.object_stored_counter = 0
         for cell in cell_list:
             #logging.info("storing object %s %s" %(cell.getServer(),cell.getState()))
-            conn = self.cp.getConnForNode(cell)
+            conn = self.cp.getConnForCell(cell)
             if conn is None:                
                 continue
 
@@ -651,7 +653,7 @@ class Application(object):
         self.local_var.voted_counter = 0
         for cell in cell_list:
             logging.info("voting object %s %s" %(cell.getServer(), cell.getState()))
-            conn = self.cp.getConnForNode(cell)
+            conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
 
@@ -685,7 +687,7 @@ class Application(object):
 
         # cancel transaction one all those nodes
         for cell in cell_set:
-            conn = self.cp.getConnForNode(cell)
+            conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
             try:
@@ -742,7 +744,7 @@ class Application(object):
         cell_list = self._getCellListForID(transaction_id, writable=True)
         shuffle(cell_list)
         for cell in cell_list:
-            conn = self.cp.getConnForNode(cell)
+            conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
 
@@ -887,7 +889,7 @@ class Application(object):
         shuffle(cell_list)
 
         for cell in cell_list:
-            conn = self.cp.getConnForNode(cell)
+            conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
 
@@ -917,7 +919,7 @@ class Application(object):
             shuffle(cell_list)
 
             for cell in cell_list:
-                conn = self.cp.getConnForNode(cell)
+                conn = self.cp.getConnForCell(cell)
                 if conn is None:
                     continue
 
