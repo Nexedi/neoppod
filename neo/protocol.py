@@ -21,7 +21,71 @@ from socket import inet_ntoa, inet_aton
 import logging
 
 from neo.util import dump
-from neo.enum import Enum
+
+class EnumItem(int):
+    """
+      Enumerated value type.
+      Not to be used outside of Enum class.
+    """
+    def __new__(cls, enum, name, value):
+        instance = super(EnumItem, cls).__new__(cls, value)
+        instance.enum = enum
+        instance.name = name
+        return instance
+
+    def __eq__(self, other):
+        """
+          Raise if compared type doesn't match.
+        """
+        if not isinstance(other, EnumItem):
+            raise TypeError, 'Comparing an enum with an int.'
+        if other.enum is not self.enum:
+            raise TypeError, 'Comparing enums of incompatible types: %s ' \
+                             'and %s' % (self, other)
+        return int(other) == int(self)
+
+    def __ne__(self, other):
+        return not(self == other)
+
+    def __str__(self):
+        return self.name
+
+    def __repr__(self):
+        return '<EnumItem %r (%r) of %r>' % (self.name, int(self), self.enum)
+
+class Enum(object):
+    """
+      C-style enumerated type support with extended typechecking.
+      Instantiate with a dict whose keys are variable names and values are
+      the value of that variable.
+      Variables are added to module's globals and can be used directly.
+
+      The purpose of this class is purely to prevent developper from
+      mistakenly comparing an enumerated value with a value from another enum,
+      or even not from any enum at all.
+    """
+    def __init__(self, value_dict):
+        global_dict = globals()
+        self.enum_dict = enum_dict = {}
+        self.str_enum_dict = str_enum_dict = {}
+        for key, value in value_dict.iteritems():
+            # Only integer types are supported. This should be enough, and
+            # extending support to other types would only make moving to other
+            # languages harder.
+            if not isinstance(value, int):
+                raise TypeError, 'Enum class only support integer values.'
+            item = EnumItem(self, key, value)
+            global_dict[key] = enum_dict[value] = item
+            str_enum_dict[key] = item
+
+    def get(self, value, default=None):
+        return self.enum_dict.get(value, default)
+
+    def getFromStr(self, value, default=None):
+        return self.str_enum_dict.get(value, default)
+
+    def __getitem__(self, value):
+        return self.enum_dict[value]
 
 # The protocol version (major, minor).
 PROTOCOL_VERSION = (4, 0)
