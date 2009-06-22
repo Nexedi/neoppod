@@ -20,6 +20,7 @@
 
 from optparse import OptionParser
 from neo.master.app import Application
+from neo import DEFAULT_LOG_FORMAT
 import logging
 
 
@@ -38,9 +39,9 @@ logfile = options.logfile or None
 
 format='[%(module)12s:%(lineno)3d] %(message)s'
 if options.verbose:
-    logging.basicConfig(filename=logfile, level=logging.DEBUG, format=format)
+    logging.basicConfig(filename=logfile, level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
 else:
-    logging.basicConfig(filename=logfile, level=logging.WARNING, format=format)
+    logging.basicConfig(filename=logfile, level=logging.WARNING, format=DEFAULT_LOG_FORMAT)
 
 app = Application(config, section)
 app.run()
