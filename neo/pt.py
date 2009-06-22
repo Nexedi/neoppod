@@ -62,6 +62,12 @@ class PartitionTable(object):
         self.partition_list = [[] for x in xrange(num_partitions)]
         self.count_dict = {}
 
+    def getPartitions(self):
+        return self.num_partitions
+
+    def getReplicas(self):
+        return self.num_replicas
+
     def clear(self):
         """Forget an existing partition table."""
         self.num_filled_rows = 0
