@@ -831,10 +831,11 @@ class Application(object):
                 continue
 
         # Reorder tids
-        ordered_tids = []
-        extend = ordered_tids.extend
-        for tids in self.local_var.node_tids.itervalues():
-            extend(tids)
+        ordered_tids = set()
+        update = ordered_tids.update
+        for tid_list in self.local_var.node_tids.itervalues():
+          update(tid_list)
+        ordered_tids = list(ordered_tids)
         # XXX do we need a special cmp function here ?
         ordered_tids.sort(reverse=True)
         logging.info("UndoLog, tids %s", ordered_tids)
