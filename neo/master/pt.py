@@ -18,11 +18,23 @@
 import logging
 
 import neo.pt
+from neo import protocol
+from struct import pack, unpack
 from neo.protocol import OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, BROKEN_STATE
 
 class PartitionTable(neo.pt.PartitionTable):
     """This class manages a partition table for the primary master node"""
+
+    def setID(self, id):
+        self.id = id
+
+    def setNextID(self):
+        if self.id == INVALID_PTID:
+            raise RuntimeError, 'I do not know the last Partition Table ID'
+        last_id = unpack('!Q', self.id)[0]
+        self.id = pack('!Q', last_id + 1)
+        return self.id
 
     def make(self, node_list):
         """Make a new partition table from scratch."""

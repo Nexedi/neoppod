@@ -80,7 +80,7 @@ class SecondaryEventHandler(MasterEventHandler):
 
         p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
                                    app.uuid, app.server[0], app.server[1],
-                                   app.num_partitions, app.num_replicas,
+                                   app.pt.getPartitions(), app.pt.getReplicas(),
                                    uuid)
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)

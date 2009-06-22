@@ -270,7 +270,7 @@ class ServiceEventHandler(MasterEventHandler):
 
         p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
                                    app.uuid, app.server[0], app.server[1],
-                                   app.num_partitions, app.num_replicas, uuid)
+                                   app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
@@ -385,7 +385,7 @@ class ServiceEventHandler(MasterEventHandler):
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
         # If I get a bigger value here, it is dangerous.
-        if app.loid < loid or app.ltid < ltid or app.lptid < lptid:
+        if app.loid < loid or app.ltid < ltid or app.pt.getID() < lptid:
             logging.critical('got later information in service')
             raise OperationFailure
 
@@ -556,7 +556,7 @@ class ServiceEventHandler(MasterEventHandler):
                     break
 
         if new_cell_list:
-            ptid = app.getNextPartitionTableID()
+            ptid = app.pt.setNextID()
             app.broadcastPartitionChanges(ptid, new_cell_list)
 
 

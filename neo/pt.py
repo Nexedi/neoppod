@@ -17,6 +17,7 @@
 
 import logging
 
+from neo import protocol
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         BROKEN_STATE, VALID_CELL_STATE_LIST, HIDDEN_STATE, PENDING_STATE
@@ -56,17 +57,21 @@ class PartitionTable(object):
     """This class manages a partition table."""
 
     def __init__(self, num_partitions, num_replicas):
+        self.id = protocol.INVALID_PTID
         self.np = num_partitions
         self.nr = num_replicas
         self.num_filled_rows = 0
         self.partition_list = [[] for x in xrange(num_partitions)]
         self.count_dict = {}
 
+    def getID(self):
+        return self.id
+
     def getPartitions(self):
-        return self.num_partitions
+        return self.np
 
     def getReplicas(self):
-        return self.num_replicas
+        return self.nr
 
     def clear(self):
         """Forget an existing partition table."""

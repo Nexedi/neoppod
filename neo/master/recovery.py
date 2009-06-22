@@ -165,7 +165,7 @@ class RecoveryEventHandler(MasterEventHandler):
 
         p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
                                    app.uuid, app.server[0], app.server[1],
-                                   app.num_partitions, app.num_replicas, uuid)
+                                   app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
@@ -187,10 +187,10 @@ class RecoveryEventHandler(MasterEventHandler):
         node = app.nm.getNodeByUUID(uuid)
         if node.getNodeType() == STORAGE_NODE_TYPE:
             conn.ask(protocol.askLastIDs())
-        elif node.getNodeType() == ADMIN_NODE_TYPE and app.lptid != INVALID_PTID:
+        elif node.getNodeType() == ADMIN_NODE_TYPE and app.pt.getID() != INVALID_PTID:
             # send partition table if exists
-            logging.info('sending partition table %s to %s' % (dump(app.lptid),
-                                                              conn.getAddress()))
+            logging.info('sending partition table %s to %s' % 
+                    (dump(app.pt.getID()), conn.getAddress()))
             app.sendPartitionTable(conn)
 
     @identification_required
@@ -268,11 +268,11 @@ class RecoveryEventHandler(MasterEventHandler):
             app.loid = loid
         if app.ltid < ltid:
             app.ltid = ltid
-        if app.lptid == INVALID_PTID or app.lptid < lptid:
-            app.lptid = lptid
+        if app.pt.getID() == INVALID_PTID or app.pt.getID() < lptid:
+            app.pt.setID(lptid)
             # I need to use the node which has the max Partition Table ID.
             app.target_uuid = uuid
-        elif app.lptid == lptid and app.target_uuid is None:
+        elif app.pt.getID() == lptid and app.target_uuid is None:
             app.target_uuid = uuid
 
     @identification_required
@@ -288,7 +288,7 @@ class RecoveryEventHandler(MasterEventHandler):
             return
 
         for offset, cell_list in row_list:
-            if offset >= app.num_partitions or app.pt.hasOffset(offset):
+            if offset >= app.pt.getPartitions() or app.pt.hasOffset(offset):
                 # There must be something wrong.
                 raise UnexpectedPacketError
 
