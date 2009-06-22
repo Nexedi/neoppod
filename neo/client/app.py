@@ -835,7 +835,7 @@ class Application(object):
         # Reorder tids
         ordered_tids = []
         extend = ordered_tids.extend
-        for tids in self.local_var.node_tids.values():
+        for tids in self.local_var.node_tids.itervalues():
             extend(tids)
         # XXX do we need a special cmp function here ?
         ordered_tids.sort(reverse=True)
