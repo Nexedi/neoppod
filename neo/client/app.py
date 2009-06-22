@@ -834,8 +834,9 @@ class Application(object):
 
         # Reorder tids
         ordered_tids = []
+        extend = ordered_tids.extend
         for tids in self.local_var.node_tids.values():
-            ordered_tids.extend(tids)
+            extend(tids)
         # XXX do we need a special cmp function here ?
         ordered_tids.sort(reverse=True)
         logging.info("UndoLog, tids %s", ordered_tids)
