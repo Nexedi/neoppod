@@ -841,41 +841,30 @@ class Application(object):
         logging.info("UndoLog, tids %s", ordered_tids)
         # For each transaction, get info
         undo_info = []
+        append = undo_info.append
         for tid in ordered_tids:
             cell_list = self._getCellListForID(tid, readable=True)
             shuffle(cell_list)
             for cell in cell_list:
                 conn = self.cp.getConnForCell(cell)
-                if conn is None:
-                    continue
-
-                self.local_var.txn_info = 0
-                try:
-                    self._askStorage(conn, protocol.askTransactionInformation(tid))
-                except NEOStorageConnectionFailure:
-                    continue
-
-                if self.local_var.txn_info == -1:
-                    # TID not found, go on with next node
-                    continue
-                elif isinstance(self.local_var.txn_info, dict):
-                    break
+                if conn is not None:
+                    self.local_var.txn_info = 0
+                    try:
+                        self._askStorage(conn, protocol.askTransactionInformation(tid))
+                    except NEOStorageConnectionFailure:
+                        continue
+                    if isinstance(self.local_var.txn_info, dict):
+                        break
 
             if self.local_var.txn_info in (-1, 0):
                 # TID not found at all
                 continue
 
-            # Filter result if needed
-            if filter is not None:
-                # Filter method return True if match
-                if not filter(self.local_var.txn_info):
-                    continue
-
-            # Append to returned list
-            self.local_var.txn_info.pop("oids")
-            undo_info.append(self.local_var.txn_info)
-            if len(undo_info) >= last - first:
-                break
+            if filter is None or filter(self.local_var.txn_info):
+                self.local_var.txn_info.pop("oids")
+                append(self.local_var.txn_info)
+                if len(undo_info) >= last - first:
+                    break
         # Check we return at least one element, otherwise call
         # again but extend offset
         if len(undo_info) == 0 and not block:
