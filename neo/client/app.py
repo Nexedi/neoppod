@@ -829,7 +829,7 @@ class Application(object):
                 self._waitMessage(handler=self.storage_handler)
             except NEOStorageConnectionFailure:
                 continue
-            if len(self.local_var.node_tids.keys()) == len(storage_node_list):
+            if len(self.local_var.node_tids) == len(storage_node_list):
                 break
 
         # Reorder tids
