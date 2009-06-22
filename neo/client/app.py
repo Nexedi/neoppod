@@ -824,13 +824,11 @@ class Application(object):
 
         # Wait for answers from all storages.
         # FIXME this is a busy loop.
-        while True:
+        while len(self.local_var.node_tids) != len(storage_node_list):
             try:
                 self._waitMessage(handler=self.storage_handler)
             except NEOStorageConnectionFailure:
                 continue
-            if len(self.local_var.node_tids) == len(storage_node_list):
-                break
 
         # Reorder tids
         ordered_tids = []
