@@ -858,7 +858,9 @@ class Application(object):
 
             if self.local_var.txn_info in (-1, 0):
                 # TID not found at all
-                continue
+                raise NeoException, 'Data inconsistency detected: ' \
+                                    'transaction info for TID %r could not ' \
+                                    'be found' % (tid, )
 
             if filter is None or filter(self.local_var.txn_info):
                 self.local_var.txn_info.pop("oids")
