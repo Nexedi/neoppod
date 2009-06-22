@@ -845,7 +845,7 @@ class Application(object):
             cell_list = self._getCellListForID(tid, readable=True)
             shuffle(cell_list)
             for cell in cell_list:
-                conn = self.cp.getConnForNode(storage_node)
+                conn = self.cp.getConnForCell(cell)
                 if conn is None:
                     continue
 
