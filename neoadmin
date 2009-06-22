@@ -36,9 +36,9 @@ section = options.section or 'admin'
 logfile = options.logfile or None
 
 if options.verbose:
-  logging.basicConfig(level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
+    logging.basicConfig(filename=logfile, level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
 else:
-  logging.basicConfig(level=logging.INFO, format=DEFAULT_LOG_FORMAT)
+    logging.basicConfig(filename=logfile, level=logging.INFO, format=DEFAULT_LOG_FORMAT)
 
 app = Application(config, section)
 app.run()

@@ -36,11 +36,10 @@ port = options.port or 5555
 ip = options.ip or '127.0.0.1'
 handler = options.handler or "SocketConnector"
 
-format='[%(module)12s:%(lineno)3d] %(message)s'
 if options.verbose:
-  logging.basicConfig(level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
+    logging.basicConfig(filename=logfile, level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
 else:
-  logging.basicConfig(level=logging.INFO, format=DEFAULT_LOG_FORMAT)
+    logging.basicConfig(filename=logfile, level=logging.INFO, format=DEFAULT_LOG_FORMAT)
   
   
 app = Application(ip, port, handler)
