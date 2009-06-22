@@ -40,6 +40,7 @@ from neo.master.secondary import SecondaryEventHandler
 from neo.master.pt import PartitionTable
 from neo.util import dump
 from neo.connector import getConnectorHandler
+from neo.master import ENABLE_PENDING_NODES
 
 class Application(object):
     """The master node application."""
@@ -616,10 +617,11 @@ class Application(object):
         cell_list.extend(self.pt.tweak())
 
         # And, add unused nodes.
-        node_list = self.pt.getNodeList()
-        for node in nm.getStorageNodeList():
-            if node.getState() == RUNNING_STATE and node not in node_list:
-                cell_list.extend(self.pt.addNode(node))
+        if not ENABLE_PENDING_NODES:
+            node_list = self.pt.getNodeList()
+            for node in nm.getStorageNodeList():
+                if node.getState() == RUNNING_STATE and node not in node_list:
+                    cell_list.extend(self.pt.addNode(node))
 
         # If anything changed, send the changes.
         if cell_list:
@@ -790,10 +792,9 @@ class Application(object):
         return prefix + uuid
 
     def isValidUUID(self, uuid, addr):
-        for node in self.nm.getNodeList():
-            if node.getUUID() == uuid and node.getServer() is not None \
-                    and addr != node.getServer():
-                return False
+        node = self.nm.getNodeByUUID(uuid)
+        if node is not None and node.getServer() is not None and node.getServer() != addr:
+            return False
         return uuid != self.uuid and uuid != INVALID_UUID
 
 

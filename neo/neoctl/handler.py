@@ -48,20 +48,20 @@ class CommandEventHandler(EventHandler):
 
     def connectionFailed(self, conn):
         EventHandler.connectionFailed(self, conn)
-        raise OperationFailure, "impossible to connect to admin node %s" %conn.getAddress()
+        raise OperationFailure, "impossible to connect to admin node %s:%d" % conn.getAddress()
 
     def timeoutExpired(self, conn):
         EventHandler.timeoutExpired(self, conn)
-        raise OperationFailure, "connection to admin node %s timeout" %conn.getAddress()
+        raise OperationFailure, "connection to admin node %s:%d timeout" % conn.getAddress()
 
     def connectionClosed(self, conn):
         if self.app.trying_admin_node:
-            raise OperationFailure, "cannot connect to admin node %s:%d" %conn.getAddress()
+            raise OperationFailure, "cannot connect to admin node %s:%d" % conn.getAddress()
         EventHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
         EventHandler.peerBroken(self, conn)
-        raise OperationFailure, "connect to admin node %s broken" %conn.getAddress()
+        raise OperationFailure, "connect to admin node %s:%d broken" % conn.getAddress()
 
     def handleAnswerPartitionList(self, conn, packet, ptid, row_list):
         data = ""
@@ -85,4 +85,8 @@ class CommandEventHandler(EventHandler):
                 
     def handleAnswerNodeState(self, conn, packet, uuid, state):
         self.app.result = "Node %s set to state %s" %(dump(uuid), state)
+
+    def handleAnswerNewNodes(self, conn, packet, uuid_list):
+        uuids = ', '.join([dump(uuid) for uuid in uuid_list])
+        self.app.result = 'New storage nodes : %s' % uuids
 

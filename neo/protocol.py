@@ -287,6 +287,12 @@ packet_types = Enum({
 
     # Answer state of the cluster
     'ANSWER_CLUSTER_STATE': 0x8024,
+
+    # Ask the primary to include some pending node in the partition table
+    'ADD_PENDING_NODES': 0x0025,
+
+    # Anwer what are the nodes added in the partition table
+    'ANSWER_NEW_NODES': 0x8025,
 })
 
 # Error codes.
@@ -316,9 +322,11 @@ node_states = Enum({
 'DOWN_STATE': 2,
 'BROKEN_STATE': 3,
 'HIDDEN_STATE' : 4,
+'PENDING_STATE': 5,
 })
 
-VALID_NODE_STATE_LIST = (RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, HIDDEN_STATE)
+VALID_NODE_STATE_LIST = (RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE,
+        BROKEN_STATE, HIDDEN_STATE, PENDING_STATE)
 
 # Partition cell states.
 partition_cell_states = Enum({
@@ -1049,6 +1057,28 @@ def _decodeAnswerClusterState(body):
     return (uuid, state)
 decode_table[ANSWER_CLUSTER_STATE] = _decodeAnswerClusterState
 
+def _decodeAddPendingNodes(body):
+    try:
+        (n, ) = unpack('!H', body[:2])
+        uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
+    except:
+        raise
+        raise ProtocolError(self, 'invalide add pending nodes')
+    return (uuid_list, )
+decode_table[ADD_PENDING_NODES] = _decodeAddPendingNodes
+
+def _decodeAnswerNewNodes(body):
+    try:
+        (n, ) = unpack('!H', body[:2])
+        uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
+    except:
+        raise
+        raise ProtocolError(self, 'invalide answer new nodes')
+    return (uuid_list, )
+decode_table[ANSWER_NEW_NODES] = _decodeAnswerNewNodes
+
+
+
 # Packet encoding
 
 def _error(error_code, error_message):
@@ -1343,3 +1373,15 @@ def answerClusterState(state):
     body = [pack('!H', uuid, state)]
     body = ''.join(body)
     return Packet(ANSWER_CLUSTER_STATE, body)
+
+def addPendingNodes(uuid_list=()):
+    # an empty list means all current pending nodes
+    uuid_list = [pack('!16s', uuid) for uuid in uuid_list]
+    body = pack('!H', len(uuid_list)) + ''.join(uuid_list)
+    return Packet(ADD_PENDING_NODES, body)
+
+def answerNewNodes(uuid_list):
+    # an empty list means no new nodes
+    uuid_list = [pack('!16s', uuid) for uuid in uuid_list]
+    body = pack('!H', len(uuid_list)) + ''.join(uuid_list)
+    return Packet(ANSWER_NEW_NODES, body)

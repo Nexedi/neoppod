@@ -20,6 +20,7 @@ import unittest
 import logging
 from mock import Mock
 from struct import pack, unpack
+import neo
 from neo.tests.base import NeoTestBase
 from neo.protocol import Packet, INVALID_UUID
 from neo.master.verification import VerificationEventHandler
@@ -82,6 +83,7 @@ class MasterVerificationTests(NeoTestBase):
         # test alien cluster
         conn = self.getFakeConnection()
         self.verification.handleRequestNodeIdentification(conn, packet, *args)
+        self.app.nm.getNodeByServer((ip, port)).setState(RUNNING_STATE)
         self.checkAcceptNodeIdentification(conn)
         return uuid
 

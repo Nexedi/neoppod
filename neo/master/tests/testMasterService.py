@@ -21,6 +21,7 @@ import logging
 from mock import Mock
 from struct import pack, unpack
 from neo.tests.base import NeoTestBase
+import neo.master
 from neo import protocol
 from neo.protocol import Packet, INVALID_UUID
 from neo.master.service import ServiceEventHandler
@@ -57,6 +58,7 @@ class MasterServiceTests(NeoTestBase):
         self.master_address = ('127.0.0.1', self.master_port)
         self.client_address = ('127.0.0.1', self.client_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
+        
         
     def tearDown(self):
         NeoTestBase.tearDown(self)

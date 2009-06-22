@@ -122,6 +122,12 @@ class Application(object):
                 p = protocol.setClusterState(name, state)
             else:
                 return "unknown command options"                                
+        elif command == "add":
+            if len(options) == 1 and options[0] == 'all':
+                uuid_list = []
+            else:
+                uuid_list = [bin(opt) for opt in options]
+            p = protocol.addPendingNodes(uuid_list)
         else:
             return "unknown command"
         

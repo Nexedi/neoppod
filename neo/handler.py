@@ -36,7 +36,7 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         ABORT_TRANSACTION, ASK_STORE_TRANSACTION, ANSWER_STORE_TRANSACTION, \
         ASK_OBJECT, ANSWER_OBJECT, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
         ANSWER_TRANSACTION_INFORMATION, ASK_OBJECT_HISTORY, ANSWER_OBJECT_HISTORY, \
-        ASK_OIDS, ANSWER_OIDS, \
+        ASK_OIDS, ANSWER_OIDS, ADD_PENDING_NODES, ANSWER_NEW_NODES, \
         NOT_READY_CODE, OID_NOT_FOUND_CODE, SERIAL_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
         INTERNAL_ERROR_CODE, ASK_PARTITION_LIST, ANSWER_PARTITION_LIST, ASK_NODE_LIST, \
@@ -156,9 +156,11 @@ class EventHandler(object):
     def unexpectedPacket(self, conn, packet, message=None, *args):
         """Handle an unexpected packet."""
         if message is None:
-            message = 'unexpected packet type %s' % packet.getType()
+            message = 'unexpected packet type %s in %s' % (packet.getType(),
+                    self.__class__.__name__)
         else:
-            message = 'unexpected packet: %s' % message
+            message = 'unexpected packet: %s in %s' % (message,
+                    self.__class__.__name__)
         logging.info('%s', message)
         conn.answer(protocol.protocolError(message), packet)
         conn.abort()
@@ -379,6 +381,13 @@ class EventHandler(object):
     def handleAnswerNodeState(self, conn, packet, uuid, state):
         raise UnexpectedPacketError
 
+    def handleAddPendingNodes(self, conn, packet, uuid_list):
+        raise UnexpectedPacketError
+
+    def handleAnswerNewNodes(self, conn, packet, uuid_list):
+        raise UnexpectedPacketError
+
+
     # Error packet handlers.
 
     # XXX: why answer a protocolError to another protocolError ?
@@ -458,6 +467,8 @@ class EventHandler(object):
         d[ANSWER_NODE_LIST] = self.handleAnswerNodeList
         d[SET_NODE_STATE] = self.handleSetNodeState
         d[ANSWER_NODE_STATE] = self.handleAnswerNodeState
+        d[ADD_PENDING_NODES] = self.handleAddPendingNodes
+        d[ANSWER_NEW_NODES] = self.handleAnswerNewNodes
 
         self.packet_dispatch_table = d
 

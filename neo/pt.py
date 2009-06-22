@@ -19,7 +19,7 @@ import logging
 
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        BROKEN_STATE, VALID_CELL_STATE_LIST, HIDDEN_STATE
+        BROKEN_STATE, VALID_CELL_STATE_LIST, HIDDEN_STATE, PENDING_STATE
 from neo.util import dump, u64
 from neo.locking import RLock
 
@@ -166,10 +166,12 @@ class PartitionTable(object):
                             TEMPORARILY_DOWN_STATE: 'T',
                             DOWN_STATE: 'D',
                             BROKEN_STATE: 'B',
-                            HIDDEN_STATE: 'H'}
+                            HIDDEN_STATE: 'H',
+                            PENDING_STATE: 'P'}
         cell_state_dict = { UP_TO_DATE_STATE: 'U', 
                             OUT_OF_DATE_STATE: 'O', 
-                            FEEDING_STATE: 'F' }
+                            FEEDING_STATE: 'F',
+                            DISCARDED_STATE: 'D'}
         node_list = self.count_dict.keys()
         node_list.sort()
         node_dict = {}

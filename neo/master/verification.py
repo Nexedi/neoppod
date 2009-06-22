@@ -20,7 +20,7 @@ import logging
 from neo import protocol
 from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        ADMIN_NODE_TYPE
+        PENDING_STATE, ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
 from neo.exception import VerificationFailure, ElectionFailure
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
@@ -127,7 +127,9 @@ class VerificationEventHandler(MasterEventHandler):
                 elif node_type == ADMIN_NODE_TYPE:
                     node = AdminNode(uuid = uuid)
                 else:
+                    # empty storage nodes starts in PENDING state
                     node = StorageNode(server = addr, uuid = uuid)
+                    node.setState(PENDING_STATE)
                 app.nm.add(node)
                 app.broadcastNodeInformation(node)
             else:
@@ -153,7 +155,11 @@ class VerificationEventHandler(MasterEventHandler):
                     app.broadcastNodeInformation(node)
                     # And insert a new one.
                     node.setUUID(uuid)
-                    node.setState(RUNNING_STATE)
+                    if node_type is STORAGE_NODE_TYPE:
+                        # empty node
+                        node.setState(PENDING_STATE)
+                    else:
+                        node.setState(RUNNING_STATE)
                     app.broadcastNodeInformation(node)
         else:
             # I know this node by the UUID.

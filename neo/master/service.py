@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+ 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
@@ -23,13 +23,14 @@ from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, \
         STORAGE_NODE_TYPE, ADMIN_NODE_TYPE, OUT_OF_DATE_STATE, \
-        HIDDEN_STATE
+        HIDDEN_STATE, PENDING_STATE
 from neo.master.handler import MasterEventHandler
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.exception import OperationFailure, ElectionFailure
 from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
 from neo.handler import identification_required, restrict_node_types
 from neo.util import dump
+from neo.master import ENABLE_PENDING_NODES
 
 class FinishingTransaction(object):
     """This class describes a finishing transaction."""
@@ -174,6 +175,8 @@ class ServiceEventHandler(MasterEventHandler):
                     node = AdminNode(uuid = uuid)
                 else:
                     node = StorageNode(server = addr, uuid = uuid)
+                    if ENABLE_PENDING_NODES:
+                        node.setState(PENDING_STATE)
                 app.nm.add(node)
                 logging.debug('broadcasting node information')
                 app.broadcastNodeInformation(node)
@@ -249,7 +252,7 @@ class ServiceEventHandler(MasterEventHandler):
 
         conn.setUUID(uuid)
 
-        if node.getNodeType() == STORAGE_NODE_TYPE:
+        if not ENABLE_PENDING_NODES and node.getNodeType() == STORAGE_NODE_TYPE:
             # If this is a storage node, add it into the partition table.
             # Note that this does no harm, even if the node is not new.
             if old_node is not None:
@@ -291,8 +294,8 @@ class ServiceEventHandler(MasterEventHandler):
             logging.info('sending partition table to %s:%d', *(conn.getAddress()))
             app.sendPartitionTable(conn)
 
-        # If this is a storage node, ask it to start.
-        if node.getNodeType() == STORAGE_NODE_TYPE:
+        # If this is a non-pending storage node, ask it to start.
+        if node.getNodeType() == STORAGE_NODE_TYPE and node.getState() != PENDING_STATE:
             conn.notify(protocol.startOperation())
 
     @identification_required
@@ -617,5 +620,38 @@ class ServiceEventHandler(MasterEventHandler):
                 ptid = app.getNextPartitionTableID()
                 app.broadcastPartitionChanges(ptid, cell_list)
             
+    def handleAddPendingNodes(self, conn, packet, uuid_list):
+        uuids = ', '.join([dump(uuid) for uuid in uuid_list])
+        logging.debug('Add nodes %s' % uuids)
+        app, nm, em, pt = self.app, self.app.nm, self.app.em, self.app.pt
+        cell_list = []
+        uuid_set = set()
+        # take all pending nodes
+        for node in nm.getStorageNodeList():
+            if node.getState() == PENDING_STATE:
+                uuid_set.add(node.getUUID())
+        # keep only selected nodes
+        if uuid_list:
+            uuid_set = uuid_set.intersection(set(uuid_list))
+        # nothing to do
+        if not uuid_set:
+            logging.warning('No nodes added')
+            conn.answer(protocol.answerNewNodes(()), packet)
+            return
+        uuids = ', '.join([dump(uuid) for uuid in uuid_set])
+        logging.info('Adding nodes %s' % uuids)
+        # switch nodes to running state
+        for uuid in uuid_set:
+            node = nm.getNodeByUUID(uuid)
+            new_cells = pt.addNode(node)
+            cell_list.extend(new_cells)
+            node.setState(RUNNING_STATE)
+            app.broadcastNodeInformation(node)
+        # start nodes
+        for s_conn in em.getConnectionList():
+            if s_conn.getUUID() in uuid_set:
+                s_conn.notify(protocol.startOperation())
+        # broadcast the new partition table
+        app.broadcastPartitionChanges(app.getNextPartitionTableID(), cell_list)
+        conn.answer(protocol.answerNewNodes(list(uuid_set)), packet)
 
-                

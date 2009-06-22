@@ -74,6 +74,12 @@ class RecoveryEventHandler(MasterEventHandler):
             logging.error('reject an alien cluster')
             raise protocol.ProtocolError('invalid cluster name')
 
+        if node_type is STORAGE_NODE_TYPE and uuid is INVALID_UUID:
+            # refuse an empty storage node (with no UUID) to avoid potential
+            # UUID conflict
+            logging.info('reject empty storage node')
+            raise protocol.NotReadyError
+
         # Here are many situations. In principle, a node should be identified by
         # an UUID, since an UUID never change when moving a storage node to a different
         # server, and an UUID always changes for a master node and a client node whenever
@@ -83,6 +89,7 @@ class RecoveryEventHandler(MasterEventHandler):
         # may claim a server address used by another node.
 
         addr = (ip_address, port)
+        node = app.nm.getNodeByUUID(uuid)
         if not app.isValidUUID(uuid, addr):
             # Here we have an UUID conflict, assume that's a new node
             node = None

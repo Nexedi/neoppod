@@ -105,6 +105,7 @@ class AdminEventHandler(BaseEventHandler):
         if node is None:
             p = protocol.protocolError('invalid uuid')
             conn.notify(p)
+            return
         if node.getState() == state and modify_partition_table is False:
             # no change
             p = protocol.answerNodeState(node.getUUID(), node.getState())
@@ -120,6 +121,22 @@ class AdminEventHandler(BaseEventHandler):
         node = self.app.nm.getNodeByUUID(uuid)
         p = protocol.answerNodeState(node.getUUID(), node.getState())
         conn.answer(p, packet)
+            
+    def handleAddPendingNodes(self, conn, packet, uuid_list):
+        uuids = ', '.join([dump(uuid) for uuid in uuid_list])
+        logging.info('Add nodes %s' % uuids)
+        uuid = conn.getUUID()
+        node = self.app.nm.getNodeByUUID(uuid)
+        # forward the request to primary
+        master_conn = self.app.master_conn
+        master_conn.ask(protocol.addPendingNodes(uuid_list))
+        self.app.nn_notified = False        
+        while not self.app.nn_notified:
+            self.app.em.poll(1)
+        # forward the answer to neoctl
+        uuid_list = self.app.uuid_list
+        conn.answer(protocol.answerNewNodes(uuid_list), packet)
+
 
 class MonitoringEventHandler(BaseEventHandler):
     """This class deals with events for monitoring cluster."""
@@ -413,4 +430,9 @@ class MonitoringEventHandler(BaseEventHandler):
             n.setState(state)
             
         self.app.notified = True
+
+    def handleAnswerNewNodes(self, conn, packet, uuid_list):
+        self.app.uuid_list = uuid_list
+        self.app.nn_notified = True
+
 
