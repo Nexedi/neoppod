@@ -30,7 +30,7 @@ class PartitionTable(neo.pt.PartitionTable):
         self.id = id
 
     def setNextID(self):
-        if self.id == INVALID_PTID:
+        if self.id == protocol.INVALID_PTID:
             raise RuntimeError, 'I do not know the last Partition Table ID'
         last_id = unpack('!Q', self.id)[0]
         self.id = pack('!Q', last_id + 1)
@@ -38,6 +38,8 @@ class PartitionTable(neo.pt.PartitionTable):
 
     def make(self, node_list):
         """Make a new partition table from scratch."""
+        # start with the first PTID
+        self.id = pack('!Q', 1)
         # First, filter the list of nodes.
         node_list = [n for n in node_list \
                 if n.getState() == RUNNING_STATE and n.getUUID() is not None]
