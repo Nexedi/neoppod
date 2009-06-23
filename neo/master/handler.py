@@ -39,66 +39,49 @@ class MasterEventHandler(EventHandler):
         raise NotImplementedError('this method must be overridden')
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        logging.info('ignoring Notify Node Information')
-        pass
+        logging.error('ignoring Notify Node Information in %s', self.__class__.__name__)
 
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        logging.info('ignoring Answer Last IDs')
-        pass
+        logging.error('ignoring Answer Last IDs in %s' % self.__class__.__name__)
 
     def handleAnswerPartitionTable(self, conn, packet, ptid, cell_list):
-        logging.info('ignoring Answer Partition Table')
-        pass
+        logging.error('ignoring Answer Partition Table in %s' % self.__class__.__name__)
 
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
-        logging.info('ignoring Answer Unfinished Transactions')
-        pass
+        logging.error('ignoring Answer Unfinished Transactions in %s' % self.__class__.__name__)
 
-    def handleAnswerTransactionInformation(self, conn, packet, tid,
-                                           user, desc, ext, oid_list):
-        logging.info('ignoring Answer Transactin Information')
-        pass
+    def handleAnswerTransactionInformation(self, conn, packet, tid, user, desc, ext, oid_list):
+        logging.error('ignoring Answer Transactin Information in %s' % self.__class__.__name__)
 
     def handleTidNotFound(self, conn, packet, message):
-        logging.info('ignoring Answer OIDs By TID')
-        pass
+        logging.error('ignoring Answer OIDs By TID in %s' % self.__class__.__name__)
 
     def handleAnswerObjectPresent(self, conn, packet, oid, tid):
-        logging.info('ignoring Answer Object Present')
-        pass
+        logging.error('ignoring Answer Object Present in %s' % self.__class__.__name__)
 
     def handleOidNotFound(self, conn, packet, message):
-        logging.info('ignoring OID Not Found')
-        pass
+        logging.error('ignoring OID Not Found in %s' % self.__class__.__name__)
 
     def handleAskNewTID(self, conn, packet):
-        logging.info('ignoring Ask New TID')
-        pass
+        logging.error('ignoring Ask New TID in %s' % self.__class__.__name__)
 
     def handleAskNewOIDs(self, conn, packet):
-        logging.info('ignoring Ask New OIDs')
-        pass
+        logging.error('ignoring Ask New OIDs in %s' % self.__class__.__name__)
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
-        logging.info('ignoring Finish Transaction')
-        pass
+        logging.error('ignoring Finish Transaction in %s' % self.__class__.__name__)
 
     def handleNotifyInformationLocked(self, conn, packet, tid):
-        logging.info('ignoring Notify Information Locked')
-        pass
+        logging.error('ignoring Notify Information Locked in %s' % self.__class__.__name__)
 
     def handleAbortTransaction(self, conn, packet, tid):
-        logging.info('ignoring Abort Transaction')
-        pass
+        logging.error('ignoring Abort Transaction in %s' % self.__class__.__name__)
 
     def handleAskLastIDs(self, conn, packet):
-        logging.info('ignoring Ask Last IDs')
-        pass
+        logging.error('ignoring Ask Last IDs in %s' % self.__class__.__name__)
 
     def handleAskUnfinishedTransactions(self, conn, packet):
-        logging.info('ignoring ask unfinished transactions')
-        pass
+        logging.error('ignoring ask unfinished transactions in %s' % self.__class__.__name__)
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        logging.info('ignoring notify partition changes')
-        pass
+        logging.error('ignoring notify partition changes in %s' % self.__class__.__name__)
