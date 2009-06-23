@@ -169,6 +169,17 @@ class EpollEventManager(object):
     def getConnectionList(self):
         return self.connection_dict.values()
 
+    def getConnectionByUUID(self, uuid):
+        """ Return the connection associated to the UUID, None if the UUID is
+        None, invalid or not found"""
+        # FIXME: We may optimize this by using use a dict on UUIDs
+        if uuid in (None, protocol.INVALID_UUID):
+            return None
+        for conn in self.connection_dict.values():
+            if conn.getUUID() == uuid:
+                return conn
+        return None
+
     def register(self, conn):
         fd = conn.getDescriptor()
         self.connection_dict[fd] = conn
