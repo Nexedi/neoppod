@@ -40,7 +40,8 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         NOT_READY_CODE, OID_NOT_FOUND_CODE, SERIAL_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
         INTERNAL_ERROR_CODE, ASK_PARTITION_LIST, ANSWER_PARTITION_LIST, ASK_NODE_LIST, \
-        ANSWER_NODE_LIST, SET_NODE_STATE, ANSWER_NODE_STATE
+        ANSWER_NODE_LIST, SET_NODE_STATE, ANSWER_NODE_STATE, SET_CLUSTER_STATE, \
+        ANSWER_CLUSTER_STATE
 
 
 # Some decorators useful to avoid duplication of patterns in handlers
@@ -387,6 +388,12 @@ class EventHandler(object):
     def handleAnswerNewNodes(self, conn, packet, uuid_list):
         raise UnexpectedPacketError
 
+    def handleSetClusterState(self, conn, packet, name, state):
+        raise UnexpectedPacketError
+
+    def handleAnswerClusterState(self, conn, packet, state):
+        raise UnexpectedPacketError
+
 
     # Error packet handlers.
 
@@ -467,6 +474,8 @@ class EventHandler(object):
         d[ANSWER_NODE_LIST] = self.handleAnswerNodeList
         d[SET_NODE_STATE] = self.handleSetNodeState
         d[ANSWER_NODE_STATE] = self.handleAnswerNodeState
+        d[SET_CLUSTER_STATE] = self.handleSetClusterState
+        d[ANSWER_CLUSTER_STATE] = self.handleAnswerClusterState
         d[ADD_PENDING_NODES] = self.handleAddPendingNodes
         d[ANSWER_NEW_NODES] = self.handleAnswerNewNodes
 

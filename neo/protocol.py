@@ -305,6 +305,14 @@ TIMEOUT_ERROR_CODE = 6
 BROKEN_NODE_DISALLOWED_CODE = 7
 INTERNAL_ERROR_CODE = 8
 
+# Cluster states
+cluster_states = Enum({
+    'BOOTING': 1,
+    'RUNNING': 2,
+    'STOPPING': 3,
+})
+VALID_CLUSTER_STATE_LIST = (BOOTING, RUNNING, STOPPING)
+
 # Node types.
 node_types = Enum({
 'MASTER_NODE_TYPE' : 1,
@@ -340,11 +348,11 @@ VALID_CELL_STATE_LIST = (UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE,
                          DISCARDED_STATE)
 
 # Other constants.
-INVALID_UUID = '\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0'
-INVALID_TID = '\0\0\0\0\0\0\0\0'
-INVALID_SERIAL = '\0\0\0\0\0\0\0\0'
-INVALID_OID = '\0\0\0\0\0\0\0\0'
-INVALID_PTID = '\0\0\0\0\0\0\0\0'
+INVALID_UUID = '\0' * 16
+INVALID_TID = '\0' * 8
+INVALID_SERIAL = '\0' * 8
+INVALID_OID = '\0' * 8
+INVALID_PTID = '\0' * 8
 INVALID_PARTITION = 0xffffffff
 
 STORAGE_NS = 'S'
@@ -937,8 +945,8 @@ decode_table[ANSWER_OIDS] = _decodeAnswerOIDs
 def _decodeAskPartitionList(body):
     try:
         min_offset, max_offset, uuid = unpack('!LL16s', body)
-    except:
-        raise ProtocolError(self, 'invalid ask partition list')
+    except struct.error, msg:
+        raise PacketMalformedError('invalid ask partition list')
     return (min_offset, max_offset, uuid)
 decode_table[ASK_PARTITION_LIST] = _decodeAskPartitionList
 
@@ -958,8 +966,8 @@ def _decodeAnswerPartitionList(body):
                 cell_list.append((uuid, state))
             row_list.append((offset, tuple(cell_list)))
             del cell_list[:]
-    except:
-        raise ProtocolError(self, 'invalid answer partition list')
+    except struct.error, msg:
+        raise PacketMalformedError('invalid answer partition list')
     return ptid, row_list
 decode_table[ANSWER_PARTITION_LIST] = _decodeAnswerPartitionList
 
@@ -968,11 +976,9 @@ def _decodeAskNodeList(body):
         node_type = unpack('!H', body)[0]
         node_type = node_types.get(node_type)
         if node_type not in VALID_NODE_TYPE_LIST:
-            raise ProtocolError(self, 'invalid node type %d' % node_type)
-    except ProtocolError:
-        raise
-    except:
-        raise ProtocolError(self, 'invalid ask node list')
+            raise PacketMalformedError('invalid node type %d' % node_type)
+    except struct.error, msg:
+        raise PacketMalformedError('invalid ask node list')
     return (node_type,)
 decode_table[ASK_NODE_LIST] = _decodeAskNodeList
 
@@ -986,15 +992,13 @@ def _decodeAnswerNodeList(body):
             ip_address = inet_ntoa(ip_address)
             node_type = node_types.get(node_type)
             if node_type not in VALID_NODE_TYPE_LIST:
-                raise ProtocolError(self, 'invalid node type %d' % node_type)
+                raise PacketMalformedError('invalid node type %d' % node_type)
             state = node_states.get(state)
             if state not in VALID_NODE_STATE_LIST:
-                raise ProtocolError(self, 'invalid node state %d' % state)
+                raise PacketMalformedError('invalid node state %d' % state)
             node_list.append((node_type, ip_address, port, uuid, state))
-    except ProtocolError:
-        raise
-    except:
-        raise ProtocolError(self, 'invalid answer node information')
+    except struct.error, msg:
+        raise PacketMalformedError('invalid answer node information')
     return (node_list,)
 decode_table[ANSWER_NODE_LIST] = _decodeAnswerNodeList
 
@@ -1004,11 +1008,9 @@ def _decodeSetNodeState(body):
         uuid, state, modify = unpack('!16sHB', body)
         state = node_states.get(state)
         if state not in VALID_NODE_STATE_LIST:
-            raise ProtocolError(self, 'invalid node state %d' % state)            
-    except ProtocolError:
-        raise
-    except:
-        raise ProtocolError(self, 'invalid set node state')
+            raise PacketMalformedError('invalid node state %d' % state)            
+    except struct.error, msg:
+        raise PacketMalformedError('invalid set node state')
     return (uuid, state, modify)
 decode_table[SET_NODE_STATE] = _decodeSetNodeState
 
@@ -1017,53 +1019,43 @@ def _decodeAnswerNodeState(body):
         uuid, state = unpack('!16sH', body)
         state = node_states.get(state)
         if state not in VALID_NODE_STATE_LIST:
-            raise ProtocolError(self, 'invalid node state %d' % state)            
-    except ProtocolError:
-        raise
-    except:
-        raise
-        raise ProtocolError(self, 'invalid answer node state')
+            raise PacketMalformedError('invalid node state %d' % state)            
+    except struct.error, msg:
+        raise PacketMalformedError('invalid answer node state')
     return (uuid, state)
 decode_table[ANSWER_NODE_STATE] = _decodeAnswerNodeState
 
-
 def _decodeSetClusterState(body):
     try:
-        state, len_name = unpack('!HL', body)
-        name = body[8:]
+        state, len_name = unpack('!HL', body[:6])
+        name = body[6:]
         if len_name != len(name):
             raise PacketMalformedError('invalid name size')
         state = cluster_states.get(state)
-        if state not in VALID_CLUSTER_STATE_LIST:
-            raise ProtocolError(self, 'invalid cluster state %d' % state)            
-    except ProtocolError:
-        raise
-    except:
-        raise ProtocolError(self, 'invalid set node state')
-    return (uuid, state, modify)
+        if state is None:
+            raise PacketMalformedError('invalid cluster state %d' % state)            
+    except struct.error, msg:
+        raise PacketMalformedError('invalid set node state')
+    return (name, state)
 decode_table[SET_CLUSTER_STATE] = _decodeSetClusterState
 
 def _decodeAnswerClusterState(body):
     try:
-        state = unpack('!H', body)
+        (state, ) = unpack('!H', body)
         state = cluster_states.get(state)
-        if state not in VALID_CLUSTER_STATE_LIST:
-            raise ProtocolError(self, 'invalid cluster state %d' % state)            
-    except ProtocolError:
-        raise
-    except:
-        raise
-        raise ProtocolError(self, 'invalid answer node state')
-    return (uuid, state)
+        if state is None:
+            raise PacketMalformedError('invalid cluster state %d' % state)            
+    except struct.error, msg:
+        raise PacketMalformedError('invalid answer cluster state')
+    return (state, )
 decode_table[ANSWER_CLUSTER_STATE] = _decodeAnswerClusterState
 
 def _decodeAddPendingNodes(body):
     try:
         (n, ) = unpack('!H', body[:2])
         uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
-    except:
-        raise
-        raise ProtocolError(self, 'invalide add pending nodes')
+    except struct.error, msg:
+        raise PacketMalformedError('invalid add pending nodes')
     return (uuid_list, )
 decode_table[ADD_PENDING_NODES] = _decodeAddPendingNodes
 
@@ -1071,9 +1063,8 @@ def _decodeAnswerNewNodes(body):
     try:
         (n, ) = unpack('!H', body[:2])
         uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
-    except:
-        raise
-        raise ProtocolError(self, 'invalide answer new nodes')
+    except struct.error, msg:
+        raise PacketMalformedError('invalid answer new nodes')
     return (uuid_list, )
 decode_table[ANSWER_NEW_NODES] = _decodeAnswerNewNodes
 
@@ -1365,13 +1356,12 @@ def answerNodeState(uuid, state):
     return Packet(ANSWER_NODE_STATE, body)
 
 def setClusterState(name, state):    
-    body = [pack('!HL', state, len(name))+name]
+    body = [pack('!HL', state, len(name)), name]
     body = ''.join(body)
     return Packet(SET_CLUSTER_STATE, body)
 
 def answerClusterState(state):
-    body = [pack('!H', uuid, state)]
-    body = ''.join(body)
+    body = pack('!H', state)
     return Packet(ANSWER_CLUSTER_STATE, body)
 
 def addPendingNodes(uuid_list=()):
