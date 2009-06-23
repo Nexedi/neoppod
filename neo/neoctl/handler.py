@@ -86,6 +86,9 @@ class CommandEventHandler(EventHandler):
     def handleAnswerNodeState(self, conn, packet, uuid, state):
         self.app.result = "Node %s set to state %s" %(dump(uuid), state)
 
+    def handleAnswerClusterState(self, conn, packet, state):
+        self.app.result = "Cluster state : %s" % state
+
     def handleAnswerNewNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
         self.app.result = 'New storage nodes : %s' % uuids

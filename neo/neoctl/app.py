@@ -116,7 +116,7 @@ class Application(object):
             elif set_type == "cluster":
                 name = options.pop(0)
                 state = options.pop(0)
-                cluster_state = cluster_states.getFromStr(state)
+                state = protocol.cluster_states.getFromStr(state)
                 if state is None:
                     return "unknown cluster state"
                 p = protocol.setClusterState(name, state)
