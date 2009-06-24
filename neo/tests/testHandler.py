@@ -19,12 +19,11 @@ import unittest, os
 from mock import Mock, ReturnValues
 from neo.tests.base import NeoTestBase
 from neo.handler import EventHandler
-from neo.handler import identification_required, restrict_node_types, \
-        client_connection_required, server_connection_required
 from neo.protocol import UnexpectedPacketError, MASTER_NODE_TYPE, \
         CLIENT_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE
 from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
+from neo import decorators
 
 class HandlerDecoratorsTests(NeoTestBase):
 
@@ -49,7 +48,7 @@ class HandlerDecoratorsTests(NeoTestBase):
     def test_identification_required(self):
         packet = Mock({})
         handler = Mock({})
-        wrapped = identification_required(handler)
+        wrapped = decorators.identification_required(handler)
         # no UUID -> fail
         conn = Mock({ 'getUUID': None, })
         self.assertRaises(UnexpectedPacketError, wrapped, self, conn, packet)
@@ -69,17 +68,17 @@ class HandlerDecoratorsTests(NeoTestBase):
         admin = Mock({'getNodeType': ADMIN_NODE_TYPE})
         nodes = (storage, master, client, admin)
         # no uuid -> fail
-        wrapped = restrict_node_types()(handler)
+        wrapped = decorators.restrict_node_types()(handler)
         conn = Mock({ 'getUUID': None, })
         self.assertRaises(UnexpectedPacketError, wrapped, self, conn, packet)
         self.checkHandlerNotCalled(handler)
         # unknown node -> fail
-        wrapped = restrict_node_types()(handler)
+        wrapped = decorators.restrict_node_types()(handler)
         self.app.nm = Mock({'getNodeByUUID': uuid, })
         self.assertRaises(UnexpectedPacketError, wrapped, self, conn, packet)
         self.checkHandlerNotCalled(handler)
         # no node allowed at all -> all fail
-        wrapped = restrict_node_types()(handler)
+        wrapped = decorators.restrict_node_types()(handler)
         conn = Mock({ 'getUUID': uuid, })
         self.app.nm = Mock({'getNodeByUUID': ReturnValues(*nodes)})
         self.assertRaises(UnexpectedPacketError, wrapped, self, conn, packet) 
@@ -88,7 +87,7 @@ class HandlerDecoratorsTests(NeoTestBase):
         self.assertRaises(UnexpectedPacketError, wrapped, self, conn, packet) 
         # Only master nodes allowed
         handler = Mock() 
-        wrapped = restrict_node_types(MASTER_NODE_TYPE)(handler)
+        wrapped = decorators.restrict_node_types(MASTER_NODE_TYPE)(handler)
         conn = Mock({ 'getUUID': uuid, })
         self.app.nm = Mock({'getNodeByUUID': ReturnValues(*nodes)})
         self.assertRaises(UnexpectedPacketError, wrapped, self, conn, packet) 
@@ -100,7 +99,7 @@ class HandlerDecoratorsTests(NeoTestBase):
         self.checkHandlerCalled(handler) # fail if re-called
         # storage or client nodes
         handler = Mock() 
-        wrapped = restrict_node_types(STORAGE_NODE_TYPE, CLIENT_NODE_TYPE)(handler)
+        wrapped = decorators.restrict_node_types(STORAGE_NODE_TYPE, CLIENT_NODE_TYPE)(handler)
         conn = Mock({ 'getUUID': uuid, })
         self.app.nm = Mock({'getNodeByUUID': ReturnValues(*nodes)})
         wrapped(self, conn, packet) # storage
@@ -117,7 +116,7 @@ class HandlerDecoratorsTests(NeoTestBase):
     def test_client_connection_required(self):
         packet = Mock({})
         handler = Mock({})
-        wrapped = client_connection_required(handler)
+        wrapped = decorators.client_connection_required(handler)
         # server connection -> fail
         conn = Mock({ 'isServerConnection': True, })
         self.assertRaises(UnexpectedPacketError, wrapped, self, conn, packet)
@@ -130,7 +129,7 @@ class HandlerDecoratorsTests(NeoTestBase):
     def test_server_connection_required(self):
         packet = Mock({})
         handler = Mock({})
-        wrapped = server_connection_required(handler)
+        wrapped = decorators.server_connection_required(handler)
         # client connection -> fail
         conn = Mock({ 'isServerConnection': False, })
         self.assertRaises(UnexpectedPacketError, wrapped, self, conn, packet)
