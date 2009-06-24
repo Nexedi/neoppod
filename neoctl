@@ -37,9 +37,9 @@ ip = options.ip or '127.0.0.1'
 handler = options.handler or "SocketConnector"
 
 if options.verbose:
-    logging.basicConfig(filename=logfile, level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
+    logging.basicConfig(level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
 else:
-    logging.basicConfig(filename=logfile, level=logging.INFO, format=DEFAULT_LOG_FORMAT)
+    logging.basicConfig(level=logging.INFO, format=DEFAULT_LOG_FORMAT)
   
   
 app = Application(ip, port, handler)
