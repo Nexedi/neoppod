@@ -210,7 +210,7 @@ class BootstrapEventHandler(StorageEventHandler):
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
-                pass
+                logging.warning('Unknown primary master UUID: %s. Ignoring.' % dump(primary_uuid))
             else:
                 app.primary_master_node = primary_node
                 if app.trying_master_node is primary_node:
