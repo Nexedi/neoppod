@@ -61,7 +61,241 @@ class BaseHandler(EventHandler):
         else:
             queue.put((conn, packet))
 
-class PrimaryHandler(BaseHandler):
+
+class PrimaryBootstrapHandler(BaseHandler):
+    """ Bootstrap handler used when looking for the primary master """
+
+    def connectionCompleted(self, conn):
+        app = self.app
+        if app.trying_master_node is None:
+            # Should not happen.
+            raise RuntimeError('connection completed while not trying to connect')
+ 
+        super(PrimaryBootstrapHandler, self).connectionCompleted(conn)
+
+    def connectionFailed(self, conn):
+        app = self.app
+        if app.trying_master_node is None:
+            # Should not happen.
+            raise RuntimeError('connection failed while not trying to connect')
+        if app.trying_master_node is app.primary_master_node:
+            # Tried to connect to a primary master node and failed.
+            # So this would effectively mean that it is dead.
+            app.primary_master_node = None
+
+        app.trying_master_node = None
+
+        super(PrimaryBootstrapHandler, self).connectionFailed(conn)
+    
+    def timeoutExpired(self, conn):
+        app = self.app
+        if app.trying_master_node is app.primary_master_node:
+            # If a primary master node timeouts, I should not rely on it.
+            app.primary_master_node = None
+        app.trying_master_node = None
+        super(PrimaryBootstrapHandler, self).timeoutExpired(conn)
+
+    def connectionClosed(self, conn):
+        app = self.app
+        if app.trying_master_node is app.primary_master_node:
+            # If a primary master node closes, I should not rely on it.
+            app.primary_master_node = None
+        app.trying_master_node = None
+        super(PrimaryBootstrapHandler, self).connectionClosed(conn)
+
+    def peerBroken(self, conn):
+        app = self.app
+        if app.trying_master_node is app.primary_master_node:
+            # If a primary master node gets broken, I should not rely
+            # on it.
+            app.primary_master_node = None
+        app.trying_master_node = None
+        super(PrimaryBootstrapHandler, self).peerBroken(conn)
+
+    def handleNotReady(self, conn, packet, message):
+        app = self.app
+        if app.trying_master_node is not None:
+            app.trying_master_node = None
+        conn.close()
+
+    def handleAcceptNodeIdentification(self, conn, packet, node_type,
+                                       uuid, ip_address, port,
+                                       num_partitions, num_replicas, your_uuid):
+        app = self.app
+        node = app.nm.getNodeByServer(conn.getAddress())
+        # this must be a master node
+        if node_type != MASTER_NODE_TYPE:
+            conn.close()
+            return
+        if conn.getAddress() != (ip_address, port):
+            # The server address is different! Then why was
+            # the connection successful?
+            logging.error('%s:%d is waiting for %s:%d',
+                          conn.getAddress()[0], conn.getAddress()[1],
+                          ip_address, port)
+            app.nm.remove(node)
+            conn.close()
+            return
+
+        conn.setUUID(uuid)
+        node.setUUID(uuid)
+
+        if your_uuid != INVALID_UUID:
+            # got an uuid from the primary master
+            app.uuid = your_uuid
+
+        # Always create partition table 
+        app.pt = PartitionTable(num_partitions, num_replicas)
+
+        # Ask a primary master.
+        conn.lock()
+        try:
+            msg_id = conn.ask(protocol.askPrimaryMaster())
+            self.dispatcher.register(conn, msg_id, app.local_var.queue)
+        finally:
+            conn.unlock()
+
+    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
+                                  known_master_list):
+        app = self.app
+        # Register new master nodes.
+        for ip_address, port, uuid in known_master_list:
+            addr = (ip_address, port)
+            n = app.nm.getNodeByServer(addr)
+            if n is None:
+                n = MasterNode(server = addr)
+                app.nm.add(n)
+            if uuid != INVALID_UUID:
+                # If I don't know the UUID yet, believe what the peer
+                # told me at the moment.
+                if n.getUUID() is None or n.getUUID() != uuid:
+                    n.setUUID(uuid)
+
+        if primary_uuid != INVALID_UUID:
+            primary_node = app.nm.getNodeByUUID(primary_uuid)
+            if primary_node is None:
+                # I don't know such a node. Probably this information
+                # is old. So ignore it.
+                logging.warning('Unknown primary master UUID: %s. ' \
+                                'Ignoring.' % dump(primary_uuid))
+            else:
+                app.primary_master_node = primary_node
+                if app.trying_master_node is primary_node:
+                    # I am connected to the right one.
+                    logging.info('connected to a primary master node')
+                else:
+                    app.trying_master_node = None
+                    conn.close()
+        else:
+            if app.primary_master_node is not None:
+                # The primary master node is not a primary master node
+                # any longer.
+                app.primary_master_node = None
+ 
+            app.trying_master_node = None
+            conn.close()
+ 
+    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
+        logging.info("handleAnswerPartitionTable")
+ 
+    def handleAnswerNodeInformation(self, conn, packet, node_list):
+        logging.info("handleAnswerNodeInformation")
+
+
+class PrimaryNotificationsHandler(BaseHandler):
+    """ Handler that process the notifications from the primary master """
+
+    def connectionClosed(self, conn):
+        logging.critical("connection to primary master node closed")
+        # Close connection
+        app = self.app
+        app.master_conn.close()
+        app.master_conn = None
+        app.primary_master_node = None
+        BaseHandler.connectionClosed(self, conn)
+
+    def timeoutExpired(self, conn):
+        logging.critical("connection timeout to primary master node expired")
+        BaseHandler.timeoutExpired(self, conn)
+
+    def peerBroken(self, conn):
+        logging.critical("primary master node is broken")
+        BaseHandler.peerBroken(self, conn)
+
+    def handleStopOperation(self, conn, packet):
+        logging.critical("master node ask to stop operation")
+
+    def handleInvalidateObjects(self, conn, packet, oid_list, tid):
+        app = self.app
+        app._cache_lock_acquire()
+        try:
+            # ZODB required a dict with oid as key, so create it
+            oids = {}
+            for oid in oid_list:
+                oids[oid] = tid
+                try:
+                    del app.mq_cache[oid]
+                except KeyError:
+                    pass
+            db = app.getDB()
+            if db is not None:
+                db.invalidate(tid, oids)
+        finally:
+            app._cache_lock_release()
+
+
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        app = self.app
+        nm = app.nm
+        pt = app.pt
+
+        if app.ptid >= ptid:
+            # Ignore this packet.
+            return
+        app.ptid = ptid
+        for offset, uuid, state in cell_list:
+            node = nm.getNodeByUUID(uuid)
+            if node is None:
+                node = StorageNode(uuid = uuid)
+                if uuid != app.uuid:
+                    node.setState(TEMPORARILY_DOWN_STATE)
+                nm.add(node)
+            pt.setCell(offset, node, state)
+
+    @decorators.identification_required
+    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
+        # This handler is in PrimaryBootstrapHandler, since this
+        # basicaly is an answer to askPrimaryMaster.
+        # Extract from P-NEO-Protocol.Description:
+        #  Connection to primary master node (PMN in service state)
+        #   CN -> PMN : askPrimaryMaster
+        #   PMN -> CN : answerPrimaryMaster containing primary uuid and no
+        #               known master list
+        #   PMN -> CN : notifyNodeInformation containing list of all
+        #   ASK_STORE_TRANSACTION#   PMN -> CN : sendPartitionTable containing partition table id and
+        #               list of rows
+        # notifyNodeInformation is valid as asynchrounous event, but
+        # sendPartitionTable is only triggered after askPrimaryMaster.
+        uuid = conn.getUUID()
+        app = self.app
+        nm = app.nm
+        pt = app.pt
+        node = app.nm.getNodeByUUID(uuid)
+        # This must be sent only by primary master node
+        if node.getNodeType() != MASTER_NODE_TYPE:
+            return
+
+        if app.ptid != ptid:
+            app.ptid = ptid
+            pt.clear()
+        for offset, row in row_list:
+            for uuid, state in row:
+                node = nm.getNodeByUUID(uuid)
+                if node is None:
+                    node = StorageNode(uuid = uuid)
+                    node.setState(TEMPORARILY_DOWN_STATE)
+                    nm.add(node)
+                pt.setCell(offset, node, state)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
@@ -127,206 +361,6 @@ class PrimaryHandler(BaseHandler):
                     for queue in queue_set:
                         queue.put((conn, None))
 
-
-
-class PrimaryBootstrapHandler(PrimaryHandler):
-    """ Bootstrap handler used when looking for the primary master """
-
-    def connectionFailed(self, conn):
-        if self.app.primary_master_node is None:
-            self.app.primary_master_node = -1
-        super(PrimaryBootstrapHandler, self).connectionFailed(conn)
-    
-    def connectionClosed(self, conn):
-        if self.app.primary_master_node is None:
-            self.app.primary_master_node = -1
-        super(PrimaryBootstrapHandler, self).connectionClosed(conn)
-
-    def peerBroken(self, conn):
-        if self.app.primary_master_node is None:
-            self.app.primary_master_node = -1
-        super(PrimaryBootstrapHandler, self).peerBroken(conn)
-
-    def timeoutExpired(self, conn):
-        if self.app.primary_master_node is None:
-            self.app.primary_master_node = -1
-        super(PrimaryBootstrapHandler, self).timeoutExpired(conn)
-
-    def handleNotReady(self, conn, packet, message):
-        self.app.setNodeNotReady()
-        
-    def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port,
-                                       num_partitions, num_replicas, your_uuid):
-        app = self.app
-        node = app.nm.getNodeByServer(conn.getAddress())
-        # this must be a master node
-        if node_type != MASTER_NODE_TYPE:
-            conn.close()
-            return
-        if conn.getAddress() != (ip_address, port):
-            # The server address is different! Then why was
-            # the connection successful?
-            logging.error('%s:%d is waiting for %s:%d',
-                          conn.getAddress()[0], conn.getAddress()[1],
-                          ip_address, port)
-            app.nm.remove(node)
-            conn.close()
-            return
-
-        conn.setUUID(uuid)
-        node.setUUID(uuid)
-
-        if your_uuid != INVALID_UUID:
-            # got an uuid from the primary master
-            app.uuid = your_uuid
-
-        # Always create partition table 
-        app.pt = PartitionTable(num_partitions, num_replicas)
-
-        # Ask a primary master.
-        conn.lock()
-        try:
-            msg_id = conn.ask(protocol.askPrimaryMaster())
-            self.dispatcher.register(conn, msg_id, app.local_var.queue)
-        finally:
-            conn.unlock()
-
-    @decorators.identification_required
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
-        uuid = conn.getUUID()
-        app = self.app
-        node = app.nm.getNodeByUUID(uuid)
-        # This must be sent only by master node
-        if node.getNodeType() != MASTER_NODE_TYPE:
-            conn.close()
-            return
-
-        # Register new master nodes.
-        for ip_address, port, uuid in known_master_list:
-            addr = (ip_address, port)
-            n = app.nm.getNodeByServer(addr)
-            if n is None:
-                n = MasterNode(server = addr)
-                app.nm.add(n)
-            if uuid != INVALID_UUID:
-                # If I don't know the UUID yet, believe what the peer
-                # told me at the moment.
-                if n.getUUID() is None or n.getUUID() != uuid:
-                    n.setUUID(uuid)
-
-        if primary_uuid != INVALID_UUID:
-            # The primary master is defined.
-            if app.primary_master_node is not None \
-                    and app.primary_master_node.getUUID() != primary_uuid:
-                # There are multiple primary master nodes. This is
-                # dangerous.
-                raise ElectionFailure, 'multiple primary master nodes'
-            primary_node = app.nm.getNodeByUUID(primary_uuid)
-            if primary_node is None:
-                # I don't know such a node. Probably this information
-                # is old. So ignore it.
-                pass
-            else:
-                if primary_node.getUUID() == primary_uuid:
-                    # Whatever the situation is, I trust this master.
-                    app.primary_master_node = primary_node
-
-    @decorators.identification_required
-    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        # This handler is in PrimaryBootstrapHandler, since this
-        # basicaly is an answer to askPrimaryMaster.
-        # Extract from P-NEO-Protocol.Description:
-        #  Connection to primary master node (PMN in service state)
-        #   CN -> PMN : askPrimaryMaster
-        #   PMN -> CN : answerPrimaryMaster containing primary uuid and no
-        #               known master list
-        #   PMN -> CN : notifyNodeInformation containing list of all
-        #   ASK_STORE_TRANSACTION#   PMN -> CN : sendPartitionTable containing partition table id and
-        #               list of rows
-        # notifyNodeInformation is valid as asynchrounous event, but
-        # sendPartitionTable is only triggered after askPrimaryMaster.
-        uuid = conn.getUUID()
-        app = self.app
-        nm = app.nm
-        pt = app.pt
-        node = app.nm.getNodeByUUID(uuid)
-        # This must be sent only by primary master node
-        if node.getNodeType() != MASTER_NODE_TYPE:
-            return
-
-        if app.ptid != ptid:
-            app.ptid = ptid
-            pt.clear()
-        for offset, row in row_list:
-            for uuid, state in row:
-                node = nm.getNodeByUUID(uuid)
-                if node is None:
-                    node = StorageNode(uuid = uuid)
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                    nm.add(node)
-                pt.setCell(offset, node, state)
-
-
-class PrimaryNotificationsHandler(PrimaryHandler):
-    """ Handler that process the notifications from the primary master """
-
-    def connectionClosed(self, conn):
-        logging.critical("connection to primary master node closed")
-        # Close connection
-        app = self.app
-        app.master_conn.close()
-        app.master_conn = None
-        app.primary_master_node = None
-        BaseHandler.connectionClosed(self, conn)
-
-    def timeoutExpired(self, conn):
-        logging.critical("connection timeout to primary master node expired")
-        BaseHandler.timeoutExpired(self, conn)
-
-    def peerBroken(self, conn):
-        logging.critical("primary master node is broken")
-        BaseHandler.peerBroken(self, conn)
-
-    def handleStopOperation(self, conn, packet):
-        logging.critical("master node ask to stop operation")
-
-    def handleInvalidateObjects(self, conn, packet, oid_list, tid):
-        app = self.app
-        app._cache_lock_acquire()
-        try:
-            # ZODB required a dict with oid as key, so create it
-            oids = {}
-            for oid in oid_list:
-                oids[oid] = tid
-                try:
-                    del app.mq_cache[oid]
-                except KeyError:
-                    pass
-            db = app.getDB()
-            if db is not None:
-                db.invalidate(tid, oids)
-        finally:
-            app._cache_lock_release()
-
-
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        app = self.app
-        nm = app.nm
-        pt = app.pt
-
-        if app.ptid >= ptid:
-            # Ignore this packet.
-            return
-        app.ptid = ptid
-        for offset, uuid, state in cell_list:
-            node = nm.getNodeByUUID(uuid)
-            if node is None:
-                node = StorageNode(uuid = uuid)
-                if uuid != app.uuid:
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                nm.add(node)
-            pt.setCell(offset, node, state)
 
 
 class PrimaryAnswersHandler(BaseHandler):

@@ -162,9 +162,8 @@ class MonitoringEventHandler(BaseEventHandler):
             # Should not happen.
             raise RuntimeError('connection completed while not trying to connect')
 
-        p = protocol.requestNodeIdentification(ADMIN_NODE_TYPE, 
-                app.uuid, app.server[0], app.server[1], app.name)
-        conn.ask(p)
+        # Ask a primary master.
+        conn.ask(protocol.askPrimaryMaster())
         EventHandler.connectionCompleted(self, conn)
 
     def connectionFailed(self, conn):
@@ -275,8 +274,8 @@ class MonitoringEventHandler(BaseEventHandler):
             # got an uuid from the primary master
             app.uuid = your_uuid
 
-        # Ask a primary master.
-        conn.ask(protocol.askPrimaryMaster())
+        conn.ask(protocol.askNodeInformation())
+        conn.ask(protocol.askPartitionTable([]))
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
@@ -322,6 +321,9 @@ class MonitoringEventHandler(BaseEventHandler):
             app.trying_master_node = None
             conn.close()
 
+        p = protocol.requestNodeIdentification(ADMIN_NODE_TYPE, 
+                app.uuid, app.server[0], app.server[1], app.name)
+        conn.ask(p)
     
     @decorators.identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
@@ -348,6 +350,10 @@ class MonitoringEventHandler(BaseEventHandler):
                 pt.setCell(offset, node, state)
 
         pt.log()
+
+    @decorators.identification_required
+    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
+        logging.warning("handleAnswerPartitionTable")
 
     @decorators.identification_required
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
@@ -441,6 +447,10 @@ class MonitoringEventHandler(BaseEventHandler):
             n.setState(state)
             
         self.app.notified = True
+
+    @decorators.identification_required
+    def handleAnswerNodeInformation(self, conn, packet, node_list):
+        logging.info("handleAnswerNodeInformation")
 
     def handleAnswerClusterState(self, conn, packet, state):
         self.app.cluster_state = state

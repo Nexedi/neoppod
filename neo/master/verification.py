@@ -190,24 +190,6 @@ class VerificationEventHandler(MasterEventHandler):
         conn.answer(p, packet)
 
     @decorators.identification_required
-    def handleAskPrimaryMaster(self, conn, packet):
-        uuid = conn.getUUID()
-        app = self.app
-
-        # Merely tell the peer that I am the primary master node.
-        # It is not necessary to send known master nodes, because
-        # I must send all node information immediately.
-        conn.answer(protocol.answerPrimaryMaster(app.uuid, []), packet)
-
-        # Send the information.
-        app.sendNodesInformations(conn)
-
-        # If this is a storage node or an admin node, send the partition table.
-        node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() in (STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
-            app.sendPartitionTable(conn)
-
-    @decorators.identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
         # I am also the primary... So restart the election.

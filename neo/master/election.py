@@ -39,11 +39,7 @@ class ElectionEventHandler(MasterEventHandler):
         MasterEventHandler.connectionStarted(self, conn)
 
     def connectionCompleted(self, conn):
-        app = self.app
-        # Request a node idenfitication.
-        p = protocol.requestNodeIdentification(MASTER_NODE_TYPE, app.uuid,
-                                    app.server[0], app.server[1], app.name)
-        conn.ask(p)
+        conn.ask(protocol.askPrimaryMaster())
         MasterEventHandler.connectionCompleted(self, conn)
 
     def connectionFailed(self, conn):
@@ -119,8 +115,11 @@ class ElectionEventHandler(MasterEventHandler):
         conn.setUUID(uuid)
         node.setUUID(uuid)
 
-        # Ask a primary master.
-        conn.ask(protocol.askPrimaryMaster())
+        if app.uuid < uuid:
+            # I lost.
+            app.primary = False
+
+        app.negotiating_master_node_set.discard(conn.getAddress())
 
     @decorators.client_connection_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
@@ -161,12 +160,10 @@ class ElectionEventHandler(MasterEventHandler):
                     # Whatever the situation is, I trust this master.
                     app.primary = False
                     app.primary_master_node = primary_node
-        else:
-            if app.uuid < conn.getUUID():
-                # I lost.
-                app.primary = False
 
-        app.negotiating_master_node_set.discard(conn.getAddress())
+        # Request a node idenfitication.
+        conn.ask(protocol.requestNodeIdentification(MASTER_NODE_TYPE,
+                 app.uuid, app.server[0], app.server[1], app.name))
 
     @decorators.server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
@@ -198,28 +195,6 @@ class ElectionEventHandler(MasterEventHandler):
         p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE, app.uuid, 
                 app.server[0], app.server[1], app.pt.getPartitions(), 
                 app.pt.getReplicas(), uuid)
-        # Next, the peer should ask a primary master node.
-        conn.answer(p, packet)
-
-    @decorators.identification_required
-    @decorators.server_connection_required
-    def handleAskPrimaryMaster(self, conn, packet):
-        uuid = conn.getUUID()
-        app = self.app
-        if app.primary:
-            primary_uuid = app.uuid
-        elif app.primary_master_node is not None:
-            primary_uuid = app.primary_master_node.getUUID()
-        else:
-            primary_uuid = INVALID_UUID
-
-        known_master_list = []
-        for n in app.nm.getMasterNodeList():
-            if n.getState() == BROKEN_STATE:
-                continue
-            info = n.getServer() + (n.getUUID() or INVALID_UUID,)
-            known_master_list.append(info)
-        p = protocol.answerPrimaryMaster(primary_uuid, known_master_list)
         conn.answer(p, packet)
 
     @decorators.identification_required

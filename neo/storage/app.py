@@ -192,7 +192,27 @@ class Application(object):
         t = 0
         while 1:
             em.poll(1)
-            if self.primary_master_node is not None:
+            if self.trying_master_node is None:
+                if t + 1 < time():
+                    # Choose a master node to connect to.
+                    if self.primary_master_node is not None:
+                        # If I know a primary master node, pinpoint it.
+                        self.trying_master_node = self.primary_master_node
+                    else:
+                        # Otherwise, check one by one.
+                        master_list = nm.getMasterNodeList()
+                        try:
+                            self.trying_master_node = master_list[index]
+                        except IndexError:
+                            index = 0
+                            self.trying_master_node = master_list[0]
+                        index += 1
+
+                    ClientConnection(em, handler, \
+                                     addr = self.trying_master_node.getServer(),
+                                     connector_handler = self.connector_handler)
+                    t = time()
+            elif self.primary_master_node is self.trying_master_node:
                 # If I know which is a primary master node, check if
                 # I have a connection to it already.
                 for conn in em.getConnectionList():
@@ -203,26 +223,6 @@ class Application(object):
                             if node is self.primary_master_node:
                                 # Yes, I have.
                                 return
-
-            if self.trying_master_node is None and t + 1 < time():
-                # Choose a master node to connect to.
-                if self.primary_master_node is not None:
-                    # If I know a primary master node, pinpoint it.
-                    self.trying_master_node = self.primary_master_node
-                else:
-                    # Otherwise, check one by one.
-                    master_list = nm.getMasterNodeList()
-                    try:
-                        self.trying_master_node = master_list[index]
-                    except IndexError:
-                        index = 0
-                        self.trying_master_node = master_list[0]
-                    index += 1
-
-                ClientConnection(em, handler, \
-                                 addr = self.trying_master_node.getServer(),
-                                 connector_handler = self.connector_handler)
-                t = time()
 
     def verifyData(self):
         """Verify data under the control by a primary master node.

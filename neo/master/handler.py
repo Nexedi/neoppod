@@ -18,6 +18,8 @@
 import logging
 
 from neo.handler import EventHandler
+from neo.protocol import INVALID_UUID, BROKEN_STATE, ADMIN_NODE_TYPE
+from neo import protocol
 
 class MasterEventHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -27,9 +29,6 @@ class MasterEventHandler(EventHandler):
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleAskPrimaryMaster(self, conn, packet):
         raise NotImplementedError('this method must be overridden')
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
@@ -85,3 +84,32 @@ class MasterEventHandler(EventHandler):
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         logging.error('ignoring notify partition changes in %s' % self.__class__.__name__)
+
+    def handleAskPrimaryMaster(self, conn, packet):
+        app = self.app
+        if app.primary:
+            primary_uuid = app.uuid
+        elif app.primary_master_node is not None:
+            primary_uuid = app.primary_master_node.getUUID()
+        else:
+            primary_uuid = INVALID_UUID
+
+        known_master_list = [app.server + (app.uuid, )]
+        for n in app.nm.getMasterNodeList():
+            if n.getState() == BROKEN_STATE:
+                continue
+            known_master_list.append(n.getServer() + \
+                                     (n.getUUID() or INVALID_UUID, ))
+        conn.answer(protocol.answerPrimaryMaster(primary_uuid,
+                                                 known_master_list), packet)
+
+    def handleAskNodeInformation(self, conn, packet):
+        self.app.sendNodesInformations(conn)
+        conn.answer(protocol.answerNodeInformation([]), packet)
+
+    def handleAskPartitionTable(self, conn, packet, offset_list):
+        assert len(offset_list) == 0
+        app = self.app
+        app.sendPartitionTable(conn)
+        conn.answer(protocol.answerPartitionTable(app.pt.getID(), []), packet)
+

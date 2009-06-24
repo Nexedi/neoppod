@@ -231,7 +231,21 @@ class Application(object):
         self.pt = None
         self.master_conn = None
         self.primary_master_node = None
-        self.master_node_list = master_nodes.split(' ')
+        self.trying_master_node = None
+        # XXX: this code duplicates neo.config.ConfigurationManager.getMasterNodeList
+        self.master_node_list = master_node_list = []
+        for node in master_nodes.split():
+            if not node:
+                continue
+            if ':' in node:
+                ip_address, port = node.split(':')
+                port = int(port)
+            else:
+                ip_address = node
+                port = 10100 # XXX: default_master_port
+            server = (ip_address, port)
+            master_node_list.append(server)
+            self.nm.add(MasterNode(server=server))
         # no self-assigned UUID, primary master will supply us one
         self.uuid = INVALID_UUID
         self.mq_cache = MQ()
@@ -239,6 +253,7 @@ class Application(object):
         self.ptid = INVALID_PTID
         self.storage_handler = StorageAnswersHandler(self, self.dispatcher)
         self.primary_handler = PrimaryAnswersHandler(self, self.dispatcher)
+        self.primary_bootstrap_handler = PrimaryBootstrapHandler(self, self.dispatcher)
         self.notifications_handler = PrimaryNotificationsHandler(self, self.dispatcher)
         # Internal attribute distinct between thread
         self.local_var = ThreadContext()
@@ -352,70 +367,72 @@ class Application(object):
 
     def _connectToPrimaryMasterNode(self):
         logging.debug('connecting to primary master...')
-        master_index = 0
-        # Make application execute remaining message if any
-        self._waitMessage()
-        while True:
-            self.setNodeReady()
-            if self.primary_master_node in (None, -1):
-                # Try with master node defined in config
+        ready = False
+        nm = self.nm
+        while not ready:
+            # Get network connection to primary master
+            index = 0
+            connected = False
+            while not connected:
+                if self.primary_master_node is not None:
+                    # If I know a primary master node, pinpoint it.
+                    self.trying_master_node = self.primary_master_node
+                else:
+                    # Otherwise, check one by one.
+                    master_list = nm.getMasterNodeList()
+                    try:
+                        self.trying_master_node = master_list[index]
+                    except IndexError:
+                        index = 0
+                        self.trying_master_node = master_list[0]
+                    index += 1
+                # Connect to master
+                conn = MTClientConnection(self.em, self.notifications_handler,
+                                          addr=self.trying_master_node.getServer(),
+                                          connector_handler=self.connector_handler)
+                # Query for primary master node
+                conn.lock()
                 try:
-                    addr, port = self.master_node_list[master_index].split(':')                        
-                except IndexError:
-                    master_index = 0
-                    addr, port = self.master_node_list[master_index].split(':')
-                port = int(port)
-            else:
-                addr, port = self.primary_master_node.getServer()
-            # Request Node Identification
-            handler = PrimaryBootstrapHandler(self, self.dispatcher)
-            conn = MTClientConnection(self.em, handler, (addr, port), 
-                 connector_handler=self.connector_handler)
-            self._nm_acquire()
-            try:
-                if self.nm.getNodeByServer((addr, port)) is None:
-                    n = MasterNode(server = (addr, port))
-                    self.nm.add(n)
-            finally:
-                self._nm_release()
+                    msg_id = conn.ask(protocol.askPrimaryMaster())
+                    self.dispatcher.register(conn, msg_id, self.local_var.queue)
+                finally:
+                    conn.unlock()
+                self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                # If we reached the primary master node, mark as connected
+                connected = self.primary_master_node is not None \
+                            and self.primary_master_node is self.trying_master_node
 
+            # Identify to primary master and request initial data
             conn.lock()
             try:
-                p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE, 
+                p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
                         self.uuid, '0.0.0.0', 0, self.name)
                 msg_id = conn.ask(p)
                 self.dispatcher.register(conn, msg_id, self.local_var.queue)
             finally:
                 conn.unlock()
-
-            # Wait for answer
-            while 1:
-                self._waitMessage(handler=handler)
-                # Now check result
-                if self.primary_master_node is not None:
-                    if self.primary_master_node == -1:
-                        # Connection failed, try with another master node
-                        self.primary_master_node = None
-                        master_index += 1
-                        break
-                    elif self.primary_master_node.getServer() != (addr, port):
-                        # Master node changed, connect to new one
-                        break
-                    elif not self.isNodeReady():
-                        # Wait a bit and reask again
-                        break
-                    elif self.pt is not None and self.pt.operational():
-                        # Connected to primary master node
-                        break
-                    sleep(0.1)
-            if self.pt is not None and self.pt.operational() \
-                    and self.uuid != INVALID_UUID:
-                # Connected to primary master node and got all informations
-                break
-            sleep(1)
-
+            self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+            if self.uuid != INVALID_UUID:
+                # TODO: pipeline those 2 requests
+                # This is currently impossible because _waitMessage can only
+                # wait on one message at a time
+                conn.lock()
+                try:
+                    msg_id = conn.ask(protocol.askPartitionTable([]))
+                    self.dispatcher.register(conn, msg_id, self.local_var.queue)
+                finally:
+                    conn.unlock()
+                self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                conn.lock()
+                try:
+                    msg_id = conn.ask(protocol.askNodeInformation())
+                    self.dispatcher.register(conn, msg_id, self.local_var.queue)
+                finally:
+                    conn.unlock()
+                self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+            ready = self.uuid != INVALID_UUID and self.pt is not None \
+                                 and self.pt.operational()
         logging.info("connected to primary master node %s" % self.primary_master_node)
-        conn.setHandler(PrimaryNotificationsHandler(self, self.dispatcher))
         return conn
         
     def registerDB(self, db, limit):

@@ -56,48 +56,6 @@ class SecondaryEventHandler(MasterEventHandler):
                 node.setState(RUNNING_STATE)
         MasterEventHandler.packetReceived(self, conn, packet)
 
-    @decorators.server_connection_required
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
-        self.checkClusterName(name)
-        app = self.app
-        # Add a node only if it is a master node and I do not know it yet.
-        if node_type == MASTER_NODE_TYPE and uuid != INVALID_UUID:
-            addr = (ip_address, port)
-            node = app.nm.getNodeByServer(addr)
-            if node is None:
-                node = MasterNode(server = addr, uuid = uuid)
-                app.nm.add(node)
-
-            # Trust the UUID sent by the peer.
-            node.setUUID(uuid)
-
-        conn.setUUID(uuid)
-
-        p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
-                                   app.uuid, app.server[0], app.server[1],
-                                   app.pt.getPartitions(), app.pt.getReplicas(),
-                                   uuid)
-        # Next, the peer should ask a primary master node.
-        conn.answer(p, packet)
-
-    @decorators.identification_required
-    @decorators.server_connection_required
-    def handleAskPrimaryMaster(self, conn, packet):
-        uuid = conn.getUUID()
-        app = self.app
-        primary_uuid = app.primary_master_node.getUUID()
-
-        known_master_list = []
-        for n in app.nm.getMasterNodeList():
-            if n.getState() == BROKEN_STATE:
-                continue
-            info = n.getServer() + (n.getUUID() or INVALID_UUID,)
-            known_master_list.append(info)
-
-        p = protocol.answerPrimaryMaster(primary_uuid, known_master_list)
-        conn.answer(p, packet)
-
     def handleAnnouncePrimaryMaster(self, conn, packet):
         raise UnexpectedPacketError
 

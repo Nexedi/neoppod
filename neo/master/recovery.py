@@ -163,32 +163,11 @@ class RecoveryEventHandler(MasterEventHandler):
         p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
                                    app.uuid, app.server[0], app.server[1],
                                    app.pt.getPartitions(), app.pt.getReplicas(), uuid)
-        # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
-    @decorators.identification_required
-    def handleAskPrimaryMaster(self, conn, packet):
-        uuid = conn.getUUID()
-        app = self.app
-
-        # Merely tell the peer that I am the primary master node.
-        # It is not necessary to send known master nodes, because
-        # I must send all node information immediately.
-        p = protocol.answerPrimaryMaster(app.uuid, [])
-        conn.answer(p, packet)
-
-        # Send the information.
-        app.sendNodesInformations(conn)
-
-        # If this is a storage node, ask the last IDs.
-        node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() == STORAGE_NODE_TYPE:
+        if node_type is STORAGE_NODE_TYPE:
+            # ask the last IDs.
             conn.ask(protocol.askLastIDs())
-        elif node.getNodeType() == ADMIN_NODE_TYPE and app.pt.getID() != INVALID_PTID:
-            # send partition table if exists
-            logging.info('sending partition table %s to %s' % 
-                    (dump(app.pt.getID()), conn.getAddress()))
-            app.sendPartitionTable(conn)
 
     @decorators.identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):

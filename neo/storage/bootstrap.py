@@ -38,9 +38,7 @@ class BootstrapEventHandler(StorageEventHandler):
             # Should not happen.
             raise RuntimeError('connection completed while not trying to connect')
 
-        p = protocol.requestNodeIdentification(STORAGE_NODE_TYPE, app.uuid,
-                                    app.server[0], app.server[1], app.name)
-        conn.ask(p)
+        conn.ask(protocol.askPrimaryMaster())
         StorageEventHandler.connectionCompleted(self, conn)
 
     def connectionFailed(self, conn):
@@ -179,10 +177,13 @@ class BootstrapEventHandler(StorageEventHandler):
             logging.info('Got a new UUID from master : %s' % dump(app.uuid))
 
         conn.setUUID(uuid)
-        node.setUUID(uuid)
+        #node.setUUID(uuid)
+        # Node UUID was set in handleAnswerPrimaryMaster
+        assert node.getUUID() == uuid
 
-        # Ask a primary master.
-        conn.ask(protocol.askPrimaryMaster())
+        # XXX: change handler for next packet (which might be handled in poll before it returns)
+        # This should be removed when we will handle our own pending packet queue.
+        conn.setHandler(VerificationEventHandler(app))
 
     @decorators.client_connection_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
@@ -213,10 +214,6 @@ class BootstrapEventHandler(StorageEventHandler):
                 if app.trying_master_node is primary_node:
                     # I am connected to the right one.
                     logging.info('connected to a primary master node')
-                    # This is a workaround to prevent handling of
-                    # packets for the verification phase.
-                    handler = VerificationEventHandler(app)
-                    conn.setHandler(handler)
                 else:
                     app.trying_master_node = None
                     conn.close()
@@ -228,6 +225,9 @@ class BootstrapEventHandler(StorageEventHandler):
 
             app.trying_master_node = None
             conn.close()
+        p = protocol.requestNodeIdentification(STORAGE_NODE_TYPE, app.uuid,
+                                    app.server[0], app.server[1], app.name)
+        conn.ask(p)
 
     def handleAskLastIDs(self, conn, packet):
         logging.warning('/!\ handleAskLastIDs')

@@ -272,30 +272,6 @@ class ServiceEventHandler(MasterEventHandler):
         conn.answer(p, packet)
 
     @decorators.identification_required
-    def handleAskPrimaryMaster(self, conn, packet):
-        uuid = conn.getUUID()
-        app = self.app
-
-        # Merely tell the peer that I am the primary master node.
-        # It is not necessary to send known master nodes, because
-        # I must send all node information immediately.
-        conn.answer(protocol.answerPrimaryMaster(app.uuid, []), packet)
-
-        # Send the information.
-        logging.info('sending notify node information to %s:%d', *(conn.getAddress()))
-        app.sendNodesInformations(conn)
-
-        # If this is a storage node or a client node or an admin node, send the partition table.
-        node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
-            logging.info('sending partition table to %s:%d', *(conn.getAddress()))
-            app.sendPartitionTable(conn)
-
-        # If this is a non-pending storage node, ask it to start.
-        if node.getNodeType() == STORAGE_NODE_TYPE and node.getState() != PENDING_STATE:
-            conn.notify(protocol.startOperation())
-
-    @decorators.identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
         # I am also the primary... So restart the election.
         raise ElectionFailure, 'another primary arises'
