@@ -654,8 +654,8 @@ class Application(object):
             if node is not None and node.getNodeType() == ADMIN_NODE_TYPE:
                 continue
             conn.setHandler(handler)
-            if not conn.isListeningConnection() and node is None or \
-                    node.getNodeType() == STORAGE_NODE_TYPE:
+            if not conn.isListeningConnection() and (node is None or \
+                    node.getNodeType() == STORAGE_NODE_TYPE):
                 conn.notify(protocol.startOperation())
 
         # Now everything is passive.
