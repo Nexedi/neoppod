@@ -35,7 +35,6 @@ class Storage(BaseStorage.BaseStorage,
     def __init__(self, master_nodes, name, connector, read_only=False, **kw):
         self._is_read_only = read_only
         logging.basicConfig(level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
-        # Transaction must be under protection of lock
         self.app = Application(master_nodes, name, connector)
 
     def load(self, oid, version=None):
