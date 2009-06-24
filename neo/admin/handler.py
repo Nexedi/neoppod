@@ -115,13 +115,26 @@ class AdminEventHandler(BaseEventHandler):
         master_conn = self.app.master_conn
         p = protocol.setNodeState(uuid, state, modify_partition_table)
         master_conn.ask(p)
-        self.app.notified = False        
+        self.app.notified = False
         while not self.app.notified:
             self.app.em.poll(1)
         node = self.app.nm.getNodeByUUID(uuid)
         p = protocol.answerNodeState(node.getUUID(), node.getState())
         conn.answer(p, packet)
             
+    def handleSetClusterState(self, conn, packet, name, state):
+        if name != self.app.name:
+            logging.error('reject an alien cluster')
+            raise protocol.ProtocolError('invalid cluster name')
+        # forward to primary
+        master_conn = self.app.master_conn
+        p = protocol.setClusterState(name, state)
+        master_conn.ask(p)
+        self.app.cluster_state = None
+        while self.app.cluster_state is None:
+            self.app.em.poll(1)
+        conn.answer(protocol.answerClusterState(self.app.cluster_state), packet)
+
     def handleAddPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
         logging.info('Add nodes %s' % uuids)
@@ -430,6 +443,9 @@ class MonitoringEventHandler(BaseEventHandler):
             n.setState(state)
             
         self.app.notified = True
+
+    def handleAnswerClusterState(self, conn, packet, state):
+        self.app.cluster_state = state
 
     def handleAnswerNewNodes(self, conn, packet, uuid_list):
         self.app.uuid_list = uuid_list
