@@ -68,7 +68,13 @@ class RecoveryEventHandler(MasterEventHandler):
                                         ip_address, port, name):
         self.checkClusterName(name)
         app = self.app
-        if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
+        addr = (ip_address, port)
+
+        if node_type == ADMIN_NODE_TYPE:
+            self.registerAdminNode(conn, packet, uuid, addr)
+            return
+
+        if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
             logging.info('reject a connection from a client')
             raise protocol.NotReadyError
         if node_type is STORAGE_NODE_TYPE and uuid is INVALID_UUID:
@@ -85,7 +91,6 @@ class RecoveryEventHandler(MasterEventHandler):
         # However, master nodes can be known only as the server addresses. And, a node
         # may claim a server address used by another node.
 
-        addr = (ip_address, port)
         node = app.nm.getNodeByUUID(uuid)
         if not app.isValidUUID(uuid, addr):
             # Here we have an UUID conflict, assume that's a new node
@@ -104,8 +109,6 @@ class RecoveryEventHandler(MasterEventHandler):
                 # connected to me.
                 if node_type == MASTER_NODE_TYPE:
                     node = MasterNode(server = addr, uuid = uuid)
-                elif node_type == ADMIN_NODE_TYPE:
-                    node = AdminNode(uuid = uuid)
                 else:
                     node = StorageNode(server = addr, uuid = uuid)
                 app.nm.add(node)
@@ -160,10 +163,7 @@ class RecoveryEventHandler(MasterEventHandler):
 
         conn.setUUID(uuid)
 
-        p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
-                                   app.uuid, app.server[0], app.server[1],
-                                   app.pt.getPartitions(), app.pt.getReplicas(), uuid)
-        conn.answer(p, packet)
+        self.acceptNodeIdentification(conn, packet, uuid)
 
         if node_type is STORAGE_NODE_TYPE:
             # ask the last IDs.

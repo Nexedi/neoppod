@@ -155,7 +155,8 @@ class StorageEventHandler(EventHandler):
                         self.app.shutdown()
                     elif state == HIDDEN_STATE:
                         n = app.nm.getNodeByUUID(uuid)
-                        n.setState(state)                
+                        if n is not None:
+                            n.setState(state)                
                         raise OperationFailure
                 
                 if n is None:

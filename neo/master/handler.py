@@ -17,15 +17,41 @@
 
 import logging
 
+from neo import protocol
 from neo.handler import EventHandler
 from neo.protocol import INVALID_UUID, BROKEN_STATE, ADMIN_NODE_TYPE
 from neo import protocol
+from neo import util
 
 class MasterEventHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
+
     def __init__(self, app):
         self.app = app
         EventHandler.__init__(self)
+
+    def acceptNodeIdentification(self, conn, packet, uuid):
+        """ Send a packet to accept the node identification """
+        app = self.app
+        args = (protocol.MASTER_NODE_TYPE, app.uuid, 
+                app.server[0], app.server[1], 
+                app.pt.getPartitions(), app.pt.getReplicas(),
+                uuid)
+        p = protocol.acceptNodeIdentification(*args)
+        conn.answer(p, packet)
+    
+    def registerAdminNode(self, conn, packet, uuid, server):
+        """ Register the connection's peer as an admin node """
+        from neo.master.administration import AdministrationEventHandler
+        from neo.node import AdminNode
+        node = self.app.nm.getNodeByUUID(uuid)
+        if node is None:
+            uuid = self.app.getNewUUID(protocol.ADMIN_NODE_TYPE)
+            self.app.nm.add(AdminNode(uuid=uuid, server=server))
+        conn.setUUID(uuid)
+        conn.setHandler(AdministrationEventHandler(self.app))
+        logging.info('Register admin node %s' % util.dump(uuid))
+        self.acceptNodeIdentification(conn, packet, uuid)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):

@@ -39,7 +39,7 @@ class VerificationEventHandler(MasterEventHandler):
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
                 app.broadcastNodeInformation(node)
-                if node.getNodeType() in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
+                if node.getNodeType() in (CLIENT_NODE_TYPE):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
@@ -56,7 +56,7 @@ class VerificationEventHandler(MasterEventHandler):
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
                 app.broadcastNodeInformation(node)
-                if node.getNodeType() in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
+                if node.getNodeType() in (CLIENT_NODE_TYPE):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
@@ -73,7 +73,7 @@ class VerificationEventHandler(MasterEventHandler):
             if node.getState() != BROKEN_STATE:
                 node.setState(BROKEN_STATE)
                 app.broadcastNodeInformation(node)
-                if node.getNodeType() in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
+                if node.getNodeType() in (CLIENT_NODE_TYPE):
                     # If this node is a client, just forget it.
                     app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
@@ -92,9 +92,15 @@ class VerificationEventHandler(MasterEventHandler):
                                         uuid, ip_address, port, name):
         self.checkClusterName(name)
         app = self.app
-        if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
+        addr = (ip_address, port)
+        if node_type == ADMIN_NODE_TYPE:
+            self.registerAdminNode(conn, packet, uuid, addr)
+            return
+
+        if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
             logging.info('reject a connection from a client')
             raise protocol.NotReadyError
+
         # Here are many situations. In principle, a node should be identified by
         # an UUID, since an UUID never change when moving a storage node to a different
         # server, and an UUID always changes for a master node and a client node whenever
@@ -103,7 +109,6 @@ class VerificationEventHandler(MasterEventHandler):
         # However, master nodes can be known only as the server addresses. And, a node
         # may claim a server address used by another node.
 
-        addr = (ip_address, port)
         if not app.isValidUUID(uuid, addr):
             # Here we have an UUID conflict, assume that's a new node
             node = None
@@ -121,8 +126,6 @@ class VerificationEventHandler(MasterEventHandler):
                 # connected to me.
                 if node_type == MASTER_NODE_TYPE:
                     node = MasterNode(server = addr, uuid = uuid)
-                elif node_type == ADMIN_NODE_TYPE:
-                    node = AdminNode(uuid = uuid)
                 else:
                     # empty storage nodes starts in PENDING state
                     node = StorageNode(server = addr, uuid = uuid)
@@ -183,11 +186,7 @@ class VerificationEventHandler(MasterEventHandler):
 
         conn.setUUID(uuid)
 
-        p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
-                                   app.uuid, app.server[0], app.server[1],
-                                   app.pt.getPartitions(), app.pt.getReplicas(), uuid)
-        # Next, the peer should ask a primary master node.
-        conn.answer(p, packet)
+        self.acceptNodeIdentification(conn, packet, uuid)
 
     @decorators.identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):

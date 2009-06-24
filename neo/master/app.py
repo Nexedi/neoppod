@@ -306,6 +306,7 @@ class Application(object):
 
     def broadcastPartitionChanges(self, ptid, cell_list):
         """Broadcast a Notify Partition Changes packet."""
+        logging.info('broadcastPartitionChanges')
         self.pt.log()
         for c in self.em.getConnectionList():
             if c.getUUID() is not None:
@@ -364,7 +365,11 @@ class Application(object):
 
         # Make sure that every connection has the status recovery event handler.
         for conn in em.getConnectionList():
-            conn.setHandler(handler)
+            node = nm.getNodeByUUID(conn.getUUID())
+            # admin should keep their own handlers
+            # FIXME: should be filtered at node manager level
+            if node is None or node.getNodeType() != ADMIN_NODE_TYPE:
+                conn.setHandler(handler)
 
         self.loid = INVALID_OID
         self.ltid = INVALID_TID
@@ -539,7 +544,9 @@ class Application(object):
 
         # Make sure that every connection has the data verification event handler.
         for conn in em.getConnectionList():
-            conn.setHandler(handler)
+            node = nm.getNodeByUUID(conn.getUUID())
+            if node is None or node.getNodeType() != ADMIN_NODE_TYPE:
+                conn.setHandler(handler)
 
         # FIXME this part has a potential problem that the write buffers can
         # be very huge. Thus it would be better to flush the buffers from time
@@ -641,16 +648,15 @@ class Application(object):
         self.finishing_transaction_dict = {}
 
         # Make sure that every connection has the service event handler.
+        # and storage nodes should know that the cluster is operational.
         for conn in em.getConnectionList():
+            node = nm.getNodeByUUID(conn.getUUID())
+            if node is not None and node.getNodeType() == ADMIN_NODE_TYPE:
+                continue
             conn.setHandler(handler)
-
-        # Now storage nodes should know that the cluster is operational.
-        for conn in em.getConnectionList():
-            uuid = conn.getUUID()
-            if uuid is not None:
-                node = nm.getNodeByUUID(uuid)
-                if node.getNodeType() == STORAGE_NODE_TYPE:
-                    conn.notify(protocol.startOperation())
+            if not conn.isListeningConnection() and node is None or \
+                    node.getNodeType() == STORAGE_NODE_TYPE:
+                conn.notify(protocol.startOperation())
 
         # Now everything is passive.
         expiration = 10

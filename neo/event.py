@@ -83,7 +83,7 @@ class SelectEventManager(object):
         self.event_list = []
         self.prev_time = time()
 
-    def getConnectionList(self):
+    def getConnectionList(self, with_admin_nodes=False):
         return self.connection_dict.values()
 
     def register(self, conn):

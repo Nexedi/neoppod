@@ -89,9 +89,6 @@ class ServiceEventHandler(MasterEventHandler):
                 for tid, t in app.finishing_transaction_dict.items():
                     if t.getConnection() is conn:
                         del app.finishing_transaction_dict[tid]
-            elif node.getNodeType() == ADMIN_NODE_TYPE:
-                # If this node is an admin , just forget it.
-                app.nm.remove(node)
             elif node.getNodeType() == STORAGE_NODE_TYPE:
                 if not app.pt.operational():
                     # Catastrophic.
@@ -121,9 +118,6 @@ class ServiceEventHandler(MasterEventHandler):
                     for tid, t in app.finishing_transaction_dict.items():
                         if t.getConnection() is conn:
                             del app.finishing_transaction_dict[tid]
-                elif node.getNodeType() == ADMIN_NODE_TYPE:
-                    # If this node is an admin , just forget it.
-                    app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
                     cell_list = app.pt.dropNode(node)
                     ptid = app.pt.setNextID()
@@ -137,6 +131,12 @@ class ServiceEventHandler(MasterEventHandler):
                                         uuid, ip_address, port, name):
         self.checkClusterName(name)
         app = self.app
+        addr = (ip_address, port)
+
+        if node_type == ADMIN_NODE_TYPE:
+            self.registerAdminNode(conn, packet, uuid, addr)
+            return
+
         # Here are many situations. In principle, a node should be identified
         # by an UUID, since an UUID never change when moving a storage node
         # to a different server, and an UUID always changes for a master node
@@ -145,7 +145,6 @@ class ServiceEventHandler(MasterEventHandler):
         #
         # However, master nodes can be known only as the server addresses.
         # And, a node may claim a server address used by another node.
-        addr = (ip_address, port)
         # First, get the node by the UUID.
         node = app.nm.getNodeByUUID(uuid)
         if node is not None and node.getServer() != addr:
@@ -168,8 +167,6 @@ class ServiceEventHandler(MasterEventHandler):
                     node = MasterNode(server = addr, uuid = uuid)
                 elif node_type == CLIENT_NODE_TYPE:
                     node = ClientNode(uuid = uuid)
-                elif node_type == ADMIN_NODE_TYPE:
-                    node = AdminNode(uuid = uuid)
                 else:
                     node = StorageNode(server = addr, uuid = uuid)
                     if ENABLE_PENDING_NODES:
@@ -265,11 +262,7 @@ class ServiceEventHandler(MasterEventHandler):
                 ptid = app.pt.setNextID()
                 app.broadcastPartitionChanges(ptid, cell_list)
 
-        p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
-                                   app.uuid, app.server[0], app.server[1],
-                                   app.pt.getPartitions(), app.pt.getReplicas(), uuid)
-        # Next, the peer should ask a primary master node.
-        conn.answer(p, packet)
+        self.acceptNodeIdentification(conn, packet, uuid)
 
     @decorators.identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
@@ -531,106 +524,4 @@ class ServiceEventHandler(MasterEventHandler):
         if new_cell_list:
             ptid = app.pt.setNextID()
             app.broadcastPartitionChanges(ptid, new_cell_list)
-
-
-    @decorators.identification_required
-    @decorators.restrict_node_types(ADMIN_NODE_TYPE)
-    def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
-        logging.info("set node state for %s-%s : %s" %(dump(uuid), state, modify_partition_table))
-        app = self.app
-        if uuid == app.uuid:
-            # get message for self
-            if state == RUNNING_STATE:
-                # yes I know
-                p = protocol.answerNodeState(app.uuid, state)
-                conn.answer(p, packet)
-                return
-            else:
-                # I was asked to shutdown
-                node.setState(state)
-                ip, port = node.getServer()
-                node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
-                conn.answer(protocol.notifyNodeInformation(node_list), packet)
-                app.shutdown()
-
-        node = app.nm.getNodeByUUID(uuid)
-        if node is None:
-            p = protocol.protocolError('invalid uuid')
-            conn.notify(p)
-            return
-        if node.getState() == state:
-            # no change, just notify admin node
-            node.setState(state)
-            ip, port = node.getServer()
-            node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
-            conn.answer(protocol.notifyNodeInformation(node_list), packet)
-
-        # forward information to all nodes
-        if node.getState() != state:
-            node.setState(state)
-            ip, port = node.getServer()
-            node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
-            conn.answer(protocol.notifyNodeInformation(node_list), packet)
-            app.broadcastNodeInformation(node)
-            # If this is a storage node, ask it to start.
-            if node.getNodeType() == STORAGE_NODE_TYPE and state == RUNNING_STATE:
-                for sn_conn in app.em.getConnectionList():
-                    if sn_conn.getUUID() == node.getUUID():
-                        logging.info("asking sn to start operation")
-                        sn_conn.notify(protocol.startOperation())
-
-        # modify the partition table if required
-        if modify_partition_table and node.getNodeType() == STORAGE_NODE_TYPE: 
-            if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE):
-                # remove from pt
-                cell_list = app.pt.dropNode(node)
-            else:
-                # add to pt
-                cell_list = app.pt.addNode(node)
-            if len(cell_list) != 0:
-                ptid = app.pt.setNextID()
-                app.broadcastPartitionChanges(ptid, cell_list)
-        else:
-            # outdate node in partition table
-            cell_list = app.pt.outdate()
-            if len(cell_list) != 0:
-                ptid = app.pt.setNextID()
-                app.broadcastPartitionChanges(ptid, cell_list)
-            
-    @decorators.identification_required
-    @decorators.restrict_node_types(ADMIN_NODE_TYPE)
-    def handleAddPendingNodes(self, conn, packet, uuid_list):
-        uuids = ', '.join([dump(uuid) for uuid in uuid_list])
-        logging.debug('Add nodes %s' % uuids)
-        app, nm, em, pt = self.app, self.app.nm, self.app.em, self.app.pt
-        cell_list = []
-        uuid_set = set()
-        # take all pending nodes
-        for node in nm.getStorageNodeList():
-            if node.getState() == PENDING_STATE:
-                uuid_set.add(node.getUUID())
-        # keep only selected nodes
-        if uuid_list:
-            uuid_set = uuid_set.intersection(set(uuid_list))
-        # nothing to do
-        if not uuid_set:
-            logging.warning('No nodes added')
-            conn.answer(protocol.answerNewNodes(()), packet)
-            return
-        uuids = ', '.join([dump(uuid) for uuid in uuid_set])
-        logging.info('Adding nodes %s' % uuids)
-        # switch nodes to running state
-        for uuid in uuid_set:
-            node = nm.getNodeByUUID(uuid)
-            new_cells = pt.addNode(node)
-            cell_list.extend(new_cells)
-            node.setState(RUNNING_STATE)
-            app.broadcastNodeInformation(node)
-        # start nodes
-        for s_conn in em.getConnectionList():
-            if s_conn.getUUID() in uuid_set:
-                s_conn.notify(protocol.startOperation())
-        # broadcast the new partition table
-        app.broadcastPartitionChanges(app.pt.setNextID(), cell_list)
-        conn.answer(protocol.answerNewNodes(list(uuid_set)), packet)
 
