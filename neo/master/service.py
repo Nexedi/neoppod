@@ -573,9 +573,13 @@ class ServiceEventHandler(MasterEventHandler):
                 conn.answer(p, packet)
                 return
             else:
-                p = protocol.answerNodeState(app.uuid, state)
-                conn.answer(p, packet)
+                # I was asked to shutdown
+                node.setState(state)
+                ip, port = node.getServer()
+                node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
+                conn.answer(protocol.notifyNodeInformation(node_list), packet)
                 app.shutdown()
+
         node = app.nm.getNodeByUUID(uuid)
         if node is None:
             p = protocol.protocolError('invalid uuid')
