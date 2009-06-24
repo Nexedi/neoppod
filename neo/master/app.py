@@ -26,7 +26,7 @@ from neo.protocol import Packet, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, \
         CLIENT_NODE_TYPE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
-        UUID_NAMESPACES, ADMIN_NODE_TYPE
+        UUID_NAMESPACES, ADMIN_NODE_TYPE, BOOTING
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
@@ -87,6 +87,7 @@ class Application(object):
         self.ltid = INVALID_TID
         # The target node's uuid to request next.
         self.target_uuid = None
+        self.cluster_state = BOOTING
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
@@ -789,9 +790,36 @@ class Application(object):
 
     def shutdown(self):
         """Close all connections and exit"""
-        self.em.poll(1)
+        # change handler
+        handler = ShutdownEventHandler(self)
         for c in self.em.getConnectionList():
-            if not c.isListeningConnection():
-                c.close()
-        sys.exit("Application has been asked to shut down")
+            c.setHandler(handler)
+
+        # wait for all transaction to be finished
+        while 1:
+            self.em.poll(1)
+            if len(self.finishing_transaction_dict) == 0:
+                if self.cluster_state == RUNNING:
+                    sys.exit("Application has been asked to shut down")
+                else:
+                    # no more transaction, ask clients to shutdown
+                    logging.info("asking all clients to shutdown")
+                    for c in self.em.getConnectionList():
+                        node = self.nm.getNodeByUUID(c.getUUID())
+                        if node.getType() == CLIENT_NODE_TYPE:
+                            ip_address, port = node.getServer()
+                            node_list = [(node.getType(), ip_address, port, node.getUUID(), DOWN_STATE)]
+                            c.notify(protocol.notifyNodeInformation(node_list))
+                    # then ask storages and master nodes to shutdown
+                    logging.info("asking all remaining nodes to shutdown")
+                    for c in self.em.getConnectionList():
+                        node = self.nm.getNodeByUUID(c.getUUID())
+                        if node.getType() in (STORAGE_NODE_TYPE, MASTER_NODE_TYPE):
+                            ip_address, port = node.getServer()
+                            node_list = [(node.getType(), ip_address, port, node.getUUID(), DOWN_STATE)]
+                            c.notify(protocol.notifyNodeInformation(node_list))
+                    # then shutdown
+                    sys.exit("Cluster has been asked to shut down")
+            
+
 
