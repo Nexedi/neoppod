@@ -921,7 +921,7 @@ def _decodeAnswerNodeList(body):
         node_type, ip_address, port, uuid, state = r
         ip_address = inet_ntoa(ip_address)
         node_type = _checkNodeType(node_type)
-        state = checkNodeState(state)
+        state = _checkNodeState(state)
         node_list.append((node_type, ip_address, port, uuid, state))
     return (node_list,)
 decode_table[ANSWER_NODE_LIST] = _decodeAnswerNodeList
@@ -929,14 +929,14 @@ decode_table[ANSWER_NODE_LIST] = _decodeAnswerNodeList
 @handle_errors
 def _decodeSetNodeState(body):
     (uuid, state, modify) = unpack('!16sHB', body)
-    state = checkNodeState(state)
+    state = _checkNodeState(state)
     return (uuid, state, modify)
 decode_table[SET_NODE_STATE] = _decodeSetNodeState
 
 @handle_errors
 def _decodeAnswerNodeState(body):
     (uuid, state) = unpack('!16sH', body)
-    state = checkNodeState(state)
+    state = _checkNodeState(state)
     return (uuid, state)
 decode_table[ANSWER_NODE_STATE] = _decodeAnswerNodeState
 
