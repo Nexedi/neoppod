@@ -27,7 +27,7 @@ from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo.exception import PrimaryFailure, OperationFailure
-from neo.handler import identification_required, restrict_node_types
+from neo import decorators
 
 class StorageEventHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -72,8 +72,8 @@ class StorageEventHandler(EventHandler):
                                   known_master_list):
         raise NotImplementedError('this method must be overridden')
 
-    @identification_required
-    @restrict_node_types(MASTER_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(MASTER_NODE_TYPE)
     def handleAnnouncePrimaryMaster(self, conn, packet):
         """Theoretically speaking, I should not get this message,
         because the primary master election must happen when I am
@@ -102,8 +102,8 @@ class StorageEventHandler(EventHandler):
     def handleReelectPrimaryMaster(self, conn, packet):
         raise PrimaryFailure('re-election occurs')
 
-    @identification_required
-    @restrict_node_types(MASTER_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(MASTER_NODE_TYPE)
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""

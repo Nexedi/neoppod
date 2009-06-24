@@ -28,8 +28,7 @@ from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo.exception import PrimaryFailure
-from neo.handler import identification_required, restrict_node_types, \
-        server_connection_required, client_connection_required
+from neo import decorators
 
 
 class HiddenEventHandler(EventHandler):
@@ -134,7 +133,7 @@ class HiddenEventHandler(EventHandler):
         app.dm.changePartitionTable(ptid, cell_list)
         app.pt.log()
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleStartOperation(self, conn, packet):
         self.app.operational = True
 

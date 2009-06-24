@@ -29,8 +29,7 @@ from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo.protocol import Packet, UnexpectedPacketError
 from neo.exception import PrimaryFailure, OperationFailure
-from neo.handler import identification_required, restrict_node_types, \
-        server_connection_required, client_connection_required
+from neo import decorators
 
 class TransactionInformation(object):
     """This class represents information on a transaction."""
@@ -133,7 +132,7 @@ class OperationEventHandler(StorageEventHandler):
 
         StorageEventHandler.peerBroken(self, conn)
 
-    @server_connection_required
+    @decorators.server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
         app = self.app
@@ -171,7 +170,7 @@ class OperationEventHandler(StorageEventHandler):
         if node_type == MASTER_NODE_TYPE:
             conn.abort()
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas, your_uuid):
@@ -190,7 +189,7 @@ class OperationEventHandler(StorageEventHandler):
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         raise UnexpectedPacketError
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
@@ -226,7 +225,7 @@ class OperationEventHandler(StorageEventHandler):
     def handleStartOperation(self, conn, packet):
         raise UnexpectedPacketError
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleStopOperation(self, conn, packet):
         raise OperationFailure('operation stopped')
 
@@ -252,7 +251,7 @@ class OperationEventHandler(StorageEventHandler):
     def handleCommitTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleLockInformation(self, conn, packet, tid):
         app = self.app
         try:
@@ -266,7 +265,7 @@ class OperationEventHandler(StorageEventHandler):
             pass
         conn.answer(protocol.notifyInformationLocked(tid), packet)
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleUnlockInformation(self, conn, packet, tid):
         app = self.app
         try:
@@ -346,7 +345,7 @@ class OperationEventHandler(StorageEventHandler):
         p = protocol.answerObjectHistory(oid, history_list)
         conn.answer(p, packet)
 
-    @identification_required
+    @decorators.identification_required
     def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
                                   ext, oid_list):
         uuid = conn.getUUID()
@@ -355,7 +354,7 @@ class OperationEventHandler(StorageEventHandler):
         t.addTransaction(oid_list, user, desc, ext)
         conn.answer(protocol.answerStoreTransaction(tid), packet)
 
-    @identification_required
+    @decorators.identification_required
     def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
         uuid = conn.getUUID()
@@ -392,7 +391,7 @@ class OperationEventHandler(StorageEventHandler):
         conn.answer(p, packet)
         app.store_lock_dict[oid] = tid
 
-    @identification_required
+    @decorators.identification_required
     def handleAbortTransaction(self, conn, packet, tid):
         uuid = conn.getUUID()
         app = self.app
@@ -414,11 +413,11 @@ class OperationEventHandler(StorageEventHandler):
         except KeyError:
             pass
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         self.app.replicator.setCriticalTID(packet, ltid)
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
         self.app.replicator.setUnfinishedTIDList(tid_list)
 

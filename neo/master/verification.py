@@ -26,7 +26,7 @@ from neo.exception import VerificationFailure, ElectionFailure
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.util import dump
 from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
-from neo.handler import identification_required, restrict_node_types
+from neo import decorators
 
 class VerificationEventHandler(MasterEventHandler):
     """This class deals with events for a verification phase."""
@@ -192,7 +192,7 @@ class VerificationEventHandler(MasterEventHandler):
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
-    @identification_required
+    @decorators.identification_required
     def handleAskPrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
         app = self.app
@@ -210,7 +210,7 @@ class VerificationEventHandler(MasterEventHandler):
         if node.getNodeType() in (STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
             app.sendPartitionTable(conn)
 
-    @identification_required
+    @decorators.identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
         # I am also the primary... So restart the election.
@@ -219,7 +219,7 @@ class VerificationEventHandler(MasterEventHandler):
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
-    @identification_required
+    @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
         app = self.app
@@ -270,8 +270,8 @@ class VerificationEventHandler(MasterEventHandler):
             node.setState(state)
             app.broadcastNodeInformation(node)
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         uuid = conn.getUUID()
         app = self.app
@@ -285,8 +285,8 @@ class VerificationEventHandler(MasterEventHandler):
         # Ignore this packet.
         pass
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
         uuid = conn.getUUID()
         logging.info('got unfinished transactions %s from %s:%d', 
@@ -299,8 +299,8 @@ class VerificationEventHandler(MasterEventHandler):
         app.unfinished_tid_set.update(tid_list)
         app.asking_uuid_dict[uuid] = True
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):
         uuid = conn.getUUID()
@@ -322,8 +322,8 @@ class VerificationEventHandler(MasterEventHandler):
             app.unfinished_oid_set = None
         app.asking_uuid_dict[uuid] = True
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleTidNotFound(self, conn, packet, message):
         uuid = conn.getUUID()
         logging.info('TID not found: %s', message)
@@ -335,8 +335,8 @@ class VerificationEventHandler(MasterEventHandler):
         app.unfinished_oid_set = None
         app.asking_uuid_dict[uuid] = True
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerObjectPresent(self, conn, packet, oid, tid):
         uuid = conn.getUUID()
         logging.info('object %s:%s found', dump(oid), dump(tid))
@@ -347,8 +347,8 @@ class VerificationEventHandler(MasterEventHandler):
             return
         app.asking_uuid_dict[uuid] = True
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleOidNotFound(self, conn, packet, message):
         uuid = conn.getUUID()
         logging.info('OID not found: %s', message)

@@ -28,7 +28,7 @@ from neo.protocol import Packet, UnexpectedPacketError
 from neo.pt import PartitionTable
 from neo.exception import PrimaryFailure
 from neo.util import dump
-from neo.handler import identification_required, restrict_node_types
+from neo import decorators
 
 
 class BaseEventHandler(EventHandler):
@@ -312,7 +312,7 @@ class MonitoringEventHandler(BaseEventHandler):
             conn.close()
 
     
-    @identification_required
+    @decorators.identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         logging.warning("handleSendPartitionTable")
         uuid = conn.getUUID()
@@ -338,7 +338,7 @@ class MonitoringEventHandler(BaseEventHandler):
 
         pt.log()
 
-    @identification_required
+    @decorators.identification_required
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         logging.warning("handleNotifyPartitionChanges")
         app = self.app
@@ -368,7 +368,7 @@ class MonitoringEventHandler(BaseEventHandler):
         pt.log()                
 
 
-    @identification_required
+    @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         logging.info("handleNotifyNodeInformation")
         uuid = conn.getUUID()

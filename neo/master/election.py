@@ -26,8 +26,7 @@ from neo.connection import ClientConnection
 from neo.exception import ElectionFailure
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.node import MasterNode, StorageNode, ClientNode
-from neo.handler import identification_required, restrict_node_types, \
-        client_connection_required, server_connection_required
+from neo import decorators
 
 class ElectionEventHandler(MasterEventHandler):
     """This class deals with events for a primary master election."""
@@ -89,7 +88,7 @@ class ElectionEventHandler(MasterEventHandler):
                 node.setState(RUNNING_STATE)
         MasterEventHandler.packetReceived(self, conn, packet)
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port, num_partitions,
                                        num_replicas, your_uuid):
@@ -123,7 +122,7 @@ class ElectionEventHandler(MasterEventHandler):
         # Ask a primary master.
         conn.ask(protocol.askPrimaryMaster())
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
         app = self.app
         # Register new master nodes.
@@ -169,7 +168,7 @@ class ElectionEventHandler(MasterEventHandler):
 
         app.negotiating_master_node_set.discard(conn.getAddress())
 
-    @server_connection_required
+    @decorators.server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
         app = self.app
@@ -205,8 +204,8 @@ class ElectionEventHandler(MasterEventHandler):
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
-    @identification_required
-    @server_connection_required
+    @decorators.identification_required
+    @decorators.server_connection_required
     def handleAskPrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
         app = self.app
@@ -226,8 +225,8 @@ class ElectionEventHandler(MasterEventHandler):
         p = protocol.answerPrimaryMaster(primary_uuid, known_master_list)
         conn.answer(p, packet)
 
-    @identification_required
-    @server_connection_required
+    @decorators.identification_required
+    @decorators.server_connection_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
         app = self.app
@@ -243,7 +242,7 @@ class ElectionEventHandler(MasterEventHandler):
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
-    @identification_required
+    @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
         app = self.app

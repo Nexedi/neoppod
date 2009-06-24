@@ -26,7 +26,7 @@ from neo.exception import ElectionFailure
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID, INVALID_PTID
 from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
 from neo.util import dump
-from neo.handler import identification_required, restrict_node_types
+from neo import decorators
 
 class RecoveryEventHandler(MasterEventHandler):
     """This class deals with events for a recovery phase."""
@@ -169,7 +169,7 @@ class RecoveryEventHandler(MasterEventHandler):
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
-    @identification_required
+    @decorators.identification_required
     def handleAskPrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
         app = self.app
@@ -193,7 +193,7 @@ class RecoveryEventHandler(MasterEventHandler):
                     (dump(app.pt.getID()), conn.getAddress()))
             app.sendPartitionTable(conn)
 
-    @identification_required
+    @decorators.identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
         # I am also the primary... So restart the election.
@@ -202,7 +202,7 @@ class RecoveryEventHandler(MasterEventHandler):
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
-    @identification_required
+    @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
         app = self.app
@@ -253,8 +253,8 @@ class RecoveryEventHandler(MasterEventHandler):
             node.setState(state)
             app.broadcastNodeInformation(node)
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         uuid = conn.getUUID()
         app = self.app
@@ -275,8 +275,8 @@ class RecoveryEventHandler(MasterEventHandler):
         elif app.pt.getID() == lptid and app.target_uuid is None:
             app.target_uuid = uuid
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()
         app = self.app

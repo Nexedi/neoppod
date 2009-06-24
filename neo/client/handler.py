@@ -30,7 +30,7 @@ from neo.pt import MTPartitionTable as PartitionTable
 from neo.client.exception import NEOStorageError
 from neo.exception import ElectionFailure
 from neo.util import dump
-from neo.handler import identification_required, restrict_node_types
+from neo import decorators
 
 from ZODB.TimeStamp import TimeStamp
 from ZODB.utils import p64
@@ -192,7 +192,7 @@ class PrimaryBootstrapHandler(PrimaryHandler):
         finally:
             conn.unlock()
 
-    @identification_required
+    @decorators.identification_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
         uuid = conn.getUUID()
         app = self.app
@@ -232,7 +232,7 @@ class PrimaryBootstrapHandler(PrimaryHandler):
                     # Whatever the situation is, I trust this master.
                     app.primary_master_node = primary_node
 
-    @identification_required
+    @decorators.identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         # This handler is in PrimaryBootstrapHandler, since this
         # basicaly is an answer to askPrimaryMaster.

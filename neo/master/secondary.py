@@ -26,8 +26,7 @@ from neo.connection import ClientConnection
 from neo.exception import ElectionFailure, PrimaryFailure
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.node import MasterNode
-from neo.handler import identification_required, restrict_node_types, \
-        client_connection_required, server_connection_required
+from neo import decorators
 
 class SecondaryEventHandler(MasterEventHandler):
     """This class deals with events for a secondary master."""
@@ -57,7 +56,7 @@ class SecondaryEventHandler(MasterEventHandler):
                 node.setState(RUNNING_STATE)
         MasterEventHandler.packetReceived(self, conn, packet)
 
-    @server_connection_required
+    @decorators.server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
         app = self.app
@@ -85,8 +84,8 @@ class SecondaryEventHandler(MasterEventHandler):
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
-    @identification_required
-    @server_connection_required
+    @decorators.identification_required
+    @decorators.server_connection_required
     def handleAskPrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
         app = self.app

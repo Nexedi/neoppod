@@ -28,9 +28,9 @@ from neo.master.handler import MasterEventHandler
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.exception import OperationFailure, ElectionFailure
 from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
-from neo.handler import identification_required, restrict_node_types
 from neo.util import dump
 from neo.master import ENABLE_PENDING_NODES
+from neo import decorators
 
 class FinishingTransaction(object):
     """This class describes a finishing transaction."""
@@ -274,7 +274,7 @@ class ServiceEventHandler(MasterEventHandler):
         # Next, the peer should ask a primary master node.
         conn.answer(p, packet)
 
-    @identification_required
+    @decorators.identification_required
     def handleAskPrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
         app = self.app
@@ -298,7 +298,7 @@ class ServiceEventHandler(MasterEventHandler):
         if node.getNodeType() == STORAGE_NODE_TYPE and node.getState() != PENDING_STATE:
             conn.notify(protocol.startOperation())
 
-    @identification_required
+    @decorators.identification_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
         # I am also the primary... So restart the election.
         raise ElectionFailure, 'another primary arises'
@@ -306,7 +306,7 @@ class ServiceEventHandler(MasterEventHandler):
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
-    @identification_required
+    @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
         uuid = conn.getUUID()
@@ -378,8 +378,8 @@ class ServiceEventHandler(MasterEventHandler):
                         ptid = app.getNextPartitionTableID()
                         app.broadcastPartitionChanges(ptid, cell_list)
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         uuid = conn.getUUID()
         app = self.app
@@ -389,8 +389,8 @@ class ServiceEventHandler(MasterEventHandler):
             logging.critical('got later information in service')
             raise OperationFailure
 
-    @identification_required
-    @restrict_node_types(CLIENT_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(CLIENT_NODE_TYPE)
     def handleAskNewTID(self, conn, packet):
         uuid = conn.getUUID()
         app = self.app
@@ -399,8 +399,8 @@ class ServiceEventHandler(MasterEventHandler):
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
         conn.answer(protocol.answerNewTID(tid), packet)
 
-    @identification_required
-    @restrict_node_types(CLIENT_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(CLIENT_NODE_TYPE)
     def handleAskNewOIDs(self, conn, packet, num_oids):
         uuid = conn.getUUID()
         app = self.app
@@ -408,8 +408,8 @@ class ServiceEventHandler(MasterEventHandler):
         oid_list = app.getNewOIDList(num_oids)
         conn.answer(protocol.answerNewOIDs(oid_list), packet)
 
-    @identification_required
-    @restrict_node_types(CLIENT_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(CLIENT_NODE_TYPE)
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
         uuid = conn.getUUID()
         app = self.app
@@ -449,8 +449,8 @@ class ServiceEventHandler(MasterEventHandler):
             logging.warn('finishing transaction %s does not exist', dump(tid))
             pass
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleNotifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()
         app = self.app
@@ -489,8 +489,8 @@ class ServiceEventHandler(MasterEventHandler):
             # What is this?
             pass
 
-    @identification_required
-    @restrict_node_types(CLIENT_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(CLIENT_NODE_TYPE)
     def handleAbortTransaction(self, conn, packet, tid):
         uuid = conn.getUUID()
         node = self.app.nm.getNodeByUUID(uuid)
@@ -500,19 +500,19 @@ class ServiceEventHandler(MasterEventHandler):
             logging.warn('aborting transaction %s does not exist', dump(tid))
             pass
 
-    @identification_required
+    @decorators.identification_required
     def handleAskLastIDs(self, conn, packet):
         app = self.app
         conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.pt.getID()), packet)
 
-    @identification_required
+    @decorators.identification_required
     def handleAskUnfinishedTransactions(self, conn, packet):
         app = self.app
         p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
         conn.answer(p, packet)
 
-    @identification_required
-    @restrict_node_types(STORAGE_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         # This should be sent when a cell becomes up-to-date because
         # a replication has finished.
@@ -560,8 +560,8 @@ class ServiceEventHandler(MasterEventHandler):
             app.broadcastPartitionChanges(ptid, new_cell_list)
 
 
-    @identification_required
-    @restrict_node_types(ADMIN_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(ADMIN_NODE_TYPE)
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s : %s" %(dump(uuid), state, modify_partition_table))
         app = self.app
@@ -624,6 +624,8 @@ class ServiceEventHandler(MasterEventHandler):
                 ptid = app.getNextPartitionTableID()
                 app.broadcastPartitionChanges(ptid, cell_list)
             
+    @decorators.identification_required
+    @decorators.restrict_node_types(ADMIN_NODE_TYPE)
     def handleAddPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
         logging.debug('Add nodes %s' % uuids)

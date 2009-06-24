@@ -27,8 +27,7 @@ from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection
 from neo.exception import PrimaryFailure, OperationFailure
-from neo.handler import identification_required, restrict_node_types, \
-        server_connection_required, client_connection_required
+from neo import decorators
 
 class VerificationEventHandler(StorageEventHandler):
     """This class deals with events for a verification phase."""
@@ -63,7 +62,7 @@ class VerificationEventHandler(StorageEventHandler):
 
         StorageEventHandler.peerBroken(self, conn)
 
-    @server_connection_required
+    @decorators.server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
         app = self.app
@@ -102,7 +101,7 @@ class VerificationEventHandler(StorageEventHandler):
                                        num_partitions, num_replicas, your_uuid):
         raise UnexpectedPacketError
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
         app = self.app
@@ -112,7 +111,7 @@ class VerificationEventHandler(StorageEventHandler):
         # But a primary master node is supposed not to send any info
         # with this packet, so it would be useless.
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAskLastIDs(self, conn, packet):
         app = self.app
         oid = app.dm.getLastOID() or INVALID_OID
@@ -120,7 +119,7 @@ class VerificationEventHandler(StorageEventHandler):
         p = protocol.answerLastIDs(oid, tid, app.ptid)
         conn.answer(p, packet)
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAskPartitionTable(self, conn, packet, offset_list):
         app = self.app
         row_list = []
@@ -139,7 +138,7 @@ class VerificationEventHandler(StorageEventHandler):
         p = protocol.answerPartitionTable(app.ptid, row_list)
         conn.answer(p, packet)
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         """A primary master node sends this packet to synchronize a partition
         table. Note that the message can be split into multiple packets."""
@@ -171,7 +170,7 @@ class VerificationEventHandler(StorageEventHandler):
                                       cell.getState()))
             app.dm.setPartitionTable(ptid, cell_list)
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
@@ -198,15 +197,15 @@ class VerificationEventHandler(StorageEventHandler):
         # Then, the database.
         app.dm.changePartitionTable(ptid, cell_list)
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleStartOperation(self, conn, packet):
         self.app.operational = True
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleStopOperation(self, conn, packet):
         raise OperationFailure('operation stopped')
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAskUnfinishedTransactions(self, conn, packet):
         tid_list = self.app.dm.getUnfinishedTIDList()
         p = protocol.answerUnfinishedTransactions(tid_list)
@@ -228,7 +227,7 @@ class VerificationEventHandler(StorageEventHandler):
             p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
         conn.answer(p, packet)
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAskObjectPresent(self, conn, packet, oid, tid):
         if self.app.dm.objectPresent(oid, tid):
             p = protocol.answerObjectPresent(oid, tid)
@@ -237,11 +236,11 @@ class VerificationEventHandler(StorageEventHandler):
                           '%s:%s do not exist' % (dump(oid), dump(tid)))
         conn.answer(p, packet)
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleDeleteTransaction(self, conn, packet, tid):
         self.app.dm.deleteTransaction(tid, all = True)
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleCommitTransaction(self, conn, packet, tid):
         self.app.dm.finishTransaction(tid)
 

@@ -28,7 +28,7 @@ from neo.protocol import Packet, UnexpectedPacketError
 from neo.pt import PartitionTable
 from neo.exception import OperationFailure
 from neo.util import dump
-from neo.handler import identification_required, restrict_node_types
+from neo import decorators
 
 class CommandEventHandler(EventHandler):
     """ Base handler for command """

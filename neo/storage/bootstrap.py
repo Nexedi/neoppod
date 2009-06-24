@@ -27,8 +27,7 @@ from neo.protocol import Packet, UnexpectedPacketError
 from neo.pt import PartitionTable
 from neo.storage.verification import VerificationEventHandler
 from neo.util import dump
-from neo.handler import identification_required, restrict_node_types, \
-        server_connection_required, client_connection_required
+from neo import decorators
 
 class BootstrapEventHandler(StorageEventHandler):
     """This class deals with events for a bootstrap phase."""
@@ -107,7 +106,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
         conn.close()
 
-    @server_connection_required
+    @decorators.server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
         app = self.app
@@ -140,7 +139,7 @@ class BootstrapEventHandler(StorageEventHandler):
         # Now the master node should know that I am not the right one.
         conn.abort()
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas, your_uuid):
@@ -188,7 +187,7 @@ class BootstrapEventHandler(StorageEventHandler):
         # Ask a primary master.
         conn.ask(protocol.askPrimaryMaster())
 
-    @client_connection_required
+    @decorators.client_connection_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
         app = self.app
