@@ -263,7 +263,7 @@ class MasterElectionTests(NeoTestBase):
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         args = (MASTER_NODE_TYPE, uuid, '127.0.0.1', self.master_port,
-                self.app.num_partitions, self.app.num_replicas, self.app.uuid)
+                self.app.pt.getPartitions(), self.app.pt.getReplicas(), self.app.uuid)
         p = protocol.acceptNodeIdentification(*args)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
@@ -272,8 +272,8 @@ class MasterElectionTests(NeoTestBase):
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.election.handleAcceptNodeIdentification(conn, p, STORAGE_NODE_TYPE,
                                                      uuid, "127.0.0.1", self.master_port,
-                                                     self.app.num_partitions, 
-                                                     self.app.num_replicas,
+                                                     self.app.pt.getPartitions(), 
+                                                     self.app.pt.getReplicas(),
                                                      self.app.uuid
                                                      )
         self.assertEqual(conn.getConnector(), None)
@@ -286,7 +286,7 @@ class MasterElectionTests(NeoTestBase):
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         args = (MASTER_NODE_TYPE, uuid, '127.0.0.1', self.master_port,
-                self.app.num_partitions, self.app.num_replicas, self.app.uuid)
+                self.app.pt.getPartitions(), self.app.pt.getReplicas(), self.app.uuid)
         p = protocol.acceptNodeIdentification(*args)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
@@ -295,8 +295,8 @@ class MasterElectionTests(NeoTestBase):
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.election.handleAcceptNodeIdentification(conn, p, STORAGE_NODE_TYPE,
                                                      uuid, "127.0.0.2", self.master_port,
-                                                     self.app.num_partitions, 
-                                                     self.app.num_replicas,
+                                                     self.app.pt.getPartitions(), 
+                                                     self.app.pt.getReplicas(),
                                                      self.app.uuid)
         self.assertEqual(conn.getConnector(), None)
 
@@ -306,7 +306,7 @@ class MasterElectionTests(NeoTestBase):
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         args = (MASTER_NODE_TYPE, uuid, '127.0.0.1', self.master_port,
-                self.app.num_partitions, self.app.num_replicas, self.app.uuid)
+                self.app.pt.getPartitions(), self.app.pt.getReplicas(), self.app.uuid)
         p = protocol.acceptNodeIdentification(*args)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
@@ -316,8 +316,8 @@ class MasterElectionTests(NeoTestBase):
 
         self.election.handleAcceptNodeIdentification(conn, p, MASTER_NODE_TYPE,
                                                      uuid, "127.0.0.1", self.master_port,
-                                                     self.app.num_partitions, 
-                                                     self.app.num_replicas,
+                                                     self.app.pt.getPartitions(), 
+                                                     self.app.pt.getReplicas(),
                                                      self.app.uuid)
         self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getUUID(), uuid)
         self.assertEqual(conn.getUUID(), uuid)

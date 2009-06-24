@@ -456,14 +456,14 @@ class MasterVerificationTests(NeoTestBase):
         packet = Packet(msg_type=ANSWER_LAST_IDS)
         loid = self.app.loid
         ltid = self.app.ltid
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         # do not answer if no uuid
         conn = self.getFakeConnection(None, self.storage_address)
         node_list = []
         self.checkIdenficationRequired(verification.handleAnswerLastIDs, conn, packet, None, None, None)
         self.assertEquals(loid, self.app.loid)
         self.assertEquals(ltid, self.app.ltid)
-        self.assertEquals(lptid, self.app.lptid)
+        self.assertEquals(lptid, self.app.pt.getID())
         # do not care if master node call it
         master_uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
         conn = self.getFakeConnection(master_uuid, self.master_address)
@@ -471,7 +471,7 @@ class MasterVerificationTests(NeoTestBase):
         self.checkUnexpectedPacketRaised(verification.handleAnswerLastIDs, conn, packet, None, None, None)
         self.assertEquals(loid, self.app.loid)
         self.assertEquals(ltid, self.app.ltid)
-        self.assertEquals(lptid, self.app.lptid)
+        self.assertEquals(lptid, self.app.pt.getID())
         # send information which are later to what PMN knows, this must raise
         conn = self.getFakeConnection(uuid, self.storage_address)
         node_list = []
@@ -481,13 +481,13 @@ class MasterVerificationTests(NeoTestBase):
         new_oid = pack('!Q', oid + 1)
         upper, lower = unpack('!LL', ltid)
         new_tid = pack('!LL', upper, lower + 10)
-        self.failUnless(new_ptid > self.app.lptid)
+        self.failUnless(new_ptid > self.app.pt.getID())
         self.failUnless(new_oid > self.app.loid)
         self.failUnless(new_tid > self.app.ltid)
         self.assertRaises(VerificationFailure, verification.handleAnswerLastIDs, conn, packet, new_oid, new_tid, new_ptid)
         self.assertNotEquals(new_oid, self.app.loid)
         self.assertNotEquals(new_tid, self.app.ltid)
-        self.assertNotEquals(new_ptid, self.app.lptid)
+        self.assertNotEquals(new_ptid, self.app.pt.getID())
 
     def test_10_handleAnswerPartitionTable(self):
         verification = self.verification

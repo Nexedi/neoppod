@@ -45,7 +45,7 @@ class MasterServiceTests(NeoTestBase):
         config = self.getConfigFile(master_number=1, replicas=1)
         self.app = Application(config, "master1")
         self.app.pt.clear()
-        self.app.lptid = pack('!Q', 1)
+        self.app.pt.setID(pack('!Q', 1))
         self.app.em = Mock({"getConnectionList" : []})
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
@@ -87,14 +87,14 @@ class MasterServiceTests(NeoTestBase):
         packet = protocol.requestNodeIdentification(*args)
         # test alien cluster
         conn = self.getFakeConnection()
-        ptid = self.app.lptid
+        ptid = self.app.pt.getID()
         self.checkProtocolErrorRaised(service.handleRequestNodeIdentification, conn, packet, *args)
         self.assertEquals(len(self.app.nm.getStorageNodeList()), 0)
-        self.assertEquals(self.app.lptid, ptid)
+        self.assertEquals(self.app.pt.getID(), ptid)
         
         # test connection of a storage node
         conn = self.getFakeConnection()
-        ptid = self.app.lptid
+        ptid = self.app.pt.getID()
         service.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=STORAGE_NODE_TYPE,
@@ -108,11 +108,11 @@ class MasterServiceTests(NeoTestBase):
         self.assertEquals(sn.getServer(), ('127.0.0.1', self.storage_port))
         self.assertEquals(sn.getUUID(), uuid)
         self.assertEquals(sn.getState(), RUNNING_STATE)
-        self.failUnless(self.app.lptid > ptid)
+        self.failUnless(self.app.pt.getID() > ptid)
 
         # send message again for the same storage node, MN must recognize it
         conn = self.getFakeConnection()
-        ptid = self.app.lptid
+        ptid = self.app.pt.getID()
         service.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=STORAGE_NODE_TYPE,
@@ -126,12 +126,12 @@ class MasterServiceTests(NeoTestBase):
         self.assertEquals(sn.getUUID(), uuid)
         self.assertEquals(sn.getState(), RUNNING_STATE)
         # No change of partition table
-        self.assertEquals(self.app.lptid, ptid)
+        self.assertEquals(self.app.pt.getID(), ptid)
         
         # send message again for the same storage node but different uuid
         # must be rejected as SN is considered as running
         conn = self.getFakeConnection()
-        ptid = self.app.lptid
+        ptid = self.app.pt.getID()
         new_uuid = self.getNewUUID()
 
         self.checkProtocolErrorRaised(
@@ -148,12 +148,12 @@ class MasterServiceTests(NeoTestBase):
         self.assertEquals(sn.getUUID(), uuid)
         self.assertEquals(sn.getState(), RUNNING_STATE)
         # No change of partition table
-        self.assertEquals(self.app.lptid, ptid)
+        self.assertEquals(self.app.pt.getID(), ptid)
 
         # same test, but set SN as not running before
         # this new node must replaced the old one
         conn = self.getFakeConnection()
-        ptid = self.app.lptid
+        ptid = self.app.pt.getID()
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getState(), RUNNING_STATE)
         sn.setState(TEMPORARILY_DOWN_STATE)
@@ -173,13 +173,13 @@ class MasterServiceTests(NeoTestBase):
         self.assertEquals(sn.getUUID(), new_uuid)
         self.assertEquals(sn.getState(), RUNNING_STATE)
         # Partition table changed
-        self.failUnless(self.app.lptid > ptid)        
+        self.failUnless(self.app.pt.getID() > ptid)        
         uuid = new_uuid
         
         # send message again for the same storage node but different address
         # A new UUID should be send and the node is added to the storage node list
         conn = self.getFakeConnection()
-        ptid = self.app.lptid
+        ptid = self.app.pt.getID()
         service.handleRequestNodeIdentification(conn,
                                                 packet=packet,
                                                 node_type=STORAGE_NODE_TYPE,
@@ -201,11 +201,11 @@ class MasterServiceTests(NeoTestBase):
         self.assertEquals(sn.getUUID(), new_uuid)
         self.assertEquals(sn.getState(), RUNNING_STATE)
         # Partition table changed
-        self.failUnless(self.app.lptid > ptid)        
+        self.failUnless(self.app.pt.getID() > ptid)        
 
         # mark the node as broken and request identification, this must be forbidden
         conn = self.getFakeConnection()
-        ptid = self.app.lptid
+        ptid = self.app.pt.getID()
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getState(), RUNNING_STATE)
         sn.setState(BROKEN_STATE)
@@ -226,7 +226,7 @@ class MasterServiceTests(NeoTestBase):
         self.assertEquals(sn.getUUID(), uuid)
         self.assertEquals(sn.getState(), BROKEN_STATE)
         # No change of partition table
-        self.assertEqual(self.app.lptid, ptid)
+        self.assertEqual(self.app.pt.getID(), ptid)
 
 
     def test_02_handleAskPrimaryMaster(self):
@@ -320,7 +320,7 @@ class MasterServiceTests(NeoTestBase):
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify node is temp down, must be taken into account
-        ptid = self.app.lptid
+        ptid = self.app.pt.getID()
         conn = self.getFakeConnection(uuid, self.storage_address)
         node_list = [(STORAGE_NODE_TYPE, '127.0.0.1', self.storage_port, uuid, TEMPORARILY_DOWN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
@@ -328,7 +328,7 @@ class MasterServiceTests(NeoTestBase):
             self.assertEquals(call.getName(), "getUUID")
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getState(), TEMPORARILY_DOWN_STATE)
-        self.assertEquals(ptid, self.app.lptid)
+        self.assertEquals(ptid, self.app.pt.getID())
         # notify node is broken, must be taken into account and partition must changed
         conn = self.getFakeConnection(uuid, self.storage_address)
         node_list = [(STORAGE_NODE_TYPE, '127.0.0.1', self.storage_port, uuid, BROKEN_STATE),]
@@ -337,7 +337,7 @@ class MasterServiceTests(NeoTestBase):
             self.assertEquals(call.getName(), "getUUID")
         sn = self.app.nm.getStorageNodeList()[0]
         self.assertEquals(sn.getState(), BROKEN_STATE)
-        self.failUnless(ptid < self.app.lptid)
+        self.failUnless(ptid < self.app.pt.getID())
 
     def test_06_handleAnswerLastIDs(self):
         service = self.service
@@ -345,14 +345,14 @@ class MasterServiceTests(NeoTestBase):
         packet = Packet(msg_type=ANSWER_LAST_IDS)
         loid = self.app.loid
         ltid = self.app.ltid
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         # do not answer if no uuid
         conn = self.getFakeConnection(None, self.storage_address)
         node_list = []
         self.checkIdenficationRequired(service.handleAnswerLastIDs, conn, packet, None, None, None)
         self.assertEquals(loid, self.app.loid)
         self.assertEquals(ltid, self.app.ltid)
-        self.assertEquals(lptid, self.app.lptid)
+        self.assertEquals(lptid, self.app.pt.getID())
         # do not care if client node call it
         client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
@@ -360,17 +360,17 @@ class MasterServiceTests(NeoTestBase):
         self.checkUnexpectedPacketRaised(service.handleAnswerLastIDs, conn, packet, None, None, None)
         self.assertEquals(loid, self.app.loid)
         self.assertEquals(ltid, self.app.ltid)
-        self.assertEquals(lptid, self.app.lptid)
+        self.assertEquals(lptid, self.app.pt.getID())
         # send information which are later to what PMN knows, this must raise
         conn = self.getFakeConnection(uuid, self.storage_address)
         node_list = []
         new_ptid = unpack('!Q', lptid)[0]
         new_ptid = pack('!Q', new_ptid + 1)
-        self.failUnless(new_ptid > self.app.lptid)
+        self.failUnless(new_ptid > self.app.pt.getID())
         self.assertRaises(OperationFailure, service.handleAnswerLastIDs, conn, packet, None, None, new_ptid)
         self.assertEquals(loid, self.app.loid)
         self.assertEquals(ltid, self.app.ltid)
-        self.assertEquals(lptid, self.app.lptid)
+        self.assertEquals(lptid, self.app.pt.getID())
         
 
     def test_07_handleAskNewTID(self):        
@@ -551,7 +551,7 @@ class MasterServiceTests(NeoTestBase):
         self.checkIdenficationRequired(service.handleAskLastIDs, conn, packet )
         # give a uuid
         conn = self.getFakeConnection(uuid, self.storage_address)
-        ptid = self.app.lptid
+        ptid = self.app.pt.getID()
         tid = self.app.ltid
         oid = self.app.loid
         service.handleAskLastIDs(conn, packet)
@@ -647,9 +647,9 @@ class MasterServiceTests(NeoTestBase):
                 self.assertEquals(state, FEEDING_STATE)
             else:
                 self.assertEquals(state, OUT_OF_DATE_STATE)        
-        lptid = self.app.lptid
-        service.handleNotifyPartitionChanges(conn, packet, self.app.lptid, cell_list)
-        self.failUnless(lptid < self.app.lptid)
+        lptid = self.app.pt.getID()
+        service.handleNotifyPartitionChanges(conn, packet, self.app.pt.getID(), cell_list)
+        self.failUnless(lptid < self.app.pt.getID())
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             if cell == uuid:
@@ -674,23 +674,23 @@ class MasterServiceTests(NeoTestBase):
         self.assertTrue(self.app.pt.filled())
         self.assertTrue(self.app.pt.operational())
         conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), RUNNING_STATE)
         service.peerBroken(conn)
         self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), BROKEN_STATE) 
-        self.failUnless(lptid < self.app.lptid)        
+        self.failUnless(lptid < self.app.pt.getID())        
         # give an uuid, must raise as no other storage node available
         conn = self.getFakeConnection(uuid, self.storage_address)
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE) 
         self.assertRaises(OperationFailure, service.peerBroken, conn)
         self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), BROKEN_STATE) 
-        self.failUnless(lptid < self.app.lptid)
+        self.failUnless(lptid < self.app.pt.getID())
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         packet = Packet(msg_type=ASK_NEW_TID)
         service.handleAskNewTID(conn, packet)
         service.handleAskNewTID(conn, packet)
@@ -700,7 +700,7 @@ class MasterServiceTests(NeoTestBase):
         service.peerBroken(conn)
         # node must be have been remove, and no more transaction must remains
         self.assertEquals(self.app.nm.getNodeByUUID(client_uuid), None) 
-        self.assertEquals(lptid, self.app.lptid)
+        self.assertEquals(lptid, self.app.pt.getID())
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 0)
         
 
@@ -720,23 +720,23 @@ class MasterServiceTests(NeoTestBase):
         self.assertTrue(self.app.pt.filled())
         self.assertTrue(self.app.pt.operational())
         conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), RUNNING_STATE)
         service.timeoutExpired(conn)
         self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), TEMPORARILY_DOWN_STATE) 
-        self.assertEquals(lptid, self.app.lptid)        
+        self.assertEquals(lptid, self.app.pt.getID())        
         # give an uuid, must raise as no other storage node available
         conn = self.getFakeConnection(uuid, self.storage_address)
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE) 
         self.assertRaises(OperationFailure, service.timeoutExpired, conn)
         self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), TEMPORARILY_DOWN_STATE) 
-        self.assertEquals(lptid, self.app.lptid)
+        self.assertEquals(lptid, self.app.pt.getID())
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         packet = Packet(msg_type=ASK_NEW_TID)
         service.handleAskNewTID(conn, packet)
         service.handleAskNewTID(conn, packet)
@@ -746,7 +746,7 @@ class MasterServiceTests(NeoTestBase):
         service.timeoutExpired(conn)
         # node must be have been remove, and no more transaction must remains
         self.assertEquals(self.app.nm.getNodeByUUID(client_uuid), None) 
-        self.assertEquals(lptid, self.app.lptid)
+        self.assertEquals(lptid, self.app.pt.getID())
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 0)
 
 
@@ -766,23 +766,23 @@ class MasterServiceTests(NeoTestBase):
         self.assertTrue(self.app.pt.filled())
         self.assertTrue(self.app.pt.operational())
         conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), RUNNING_STATE)
         service.connectionClosed(conn)
         self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), TEMPORARILY_DOWN_STATE) 
-        self.assertEquals(lptid, self.app.lptid)        
+        self.assertEquals(lptid, self.app.pt.getID())        
         # give an uuid, must raise as no other storage node available
         conn = self.getFakeConnection(uuid, self.storage_address)
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE) 
         self.assertRaises(OperationFailure, service.connectionClosed, conn)
         self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), TEMPORARILY_DOWN_STATE) 
-        self.assertEquals(lptid, self.app.lptid)
+        self.assertEquals(lptid, self.app.pt.getID())
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        lptid = self.app.lptid
+        lptid = self.app.pt.getID()
         packet = Packet(msg_type=ASK_NEW_TID)
         service.handleAskNewTID(conn, packet)
         service.handleAskNewTID(conn, packet)
@@ -792,7 +792,7 @@ class MasterServiceTests(NeoTestBase):
         service.connectionClosed(conn)
         # node must be have been remove, and no more transaction must remains
         self.assertEquals(self.app.nm.getNodeByUUID(client_uuid), None) 
-        self.assertEquals(lptid, self.app.lptid)
+        self.assertEquals(lptid, self.app.pt.getID())
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 0)
 
 
