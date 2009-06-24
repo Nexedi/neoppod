@@ -503,7 +503,7 @@ class ServiceEventHandler(MasterEventHandler):
     @identification_required
     def handleAskLastIDs(self, conn, packet):
         app = self.app
-        conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.lptid), packet)
+        conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.pt.getID()), packet)
 
     @identification_required
     def handleAskUnfinishedTransactions(self, conn, packet):
