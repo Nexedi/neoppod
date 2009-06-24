@@ -36,18 +36,6 @@ class MasterAppTests(NeoTestBase):
     def tearDown(self):
         NeoTestBase.tearDown(self)
 
-    def test_01_getNextPartitionTableID(self):
-      # must raise as we don"t have one
-      self.assertEqual(self.app.lptid, INVALID_PTID)
-      self.app.lptid = INVALID_PTID
-      self.assertRaises(RuntimeError, self.app.getNextPartitionTableID)
-      # set one
-      self.app.lptid = p64(23)
-      nptid = self.app.getNextPartitionTableID()
-      self.assertEqual(self.app.lptid, nptid)
-      self.failUnless(u64(self.app.lptid) > 23)
-      self.assertEqual(u64(self.app.lptid), 24)
-
     def test_02_getNextOID(self):
       # must raise as we don"t have one
       self.assertEqual(self.app.loid, INVALID_OID)
@@ -70,12 +58,12 @@ class MasterAppTests(NeoTestBase):
       self.failUnless(tid > ntid)
     
     def test_04_getPartition(self):
-      self.app.num_partitions = 3
+      self.app.pt.num_partitions = 3
       p = self.app.getPartition(p64(1))
       self.assertEqual(p, 1)
       p = self.app.getPartition(p64(2))
       self.assertEqual(p, 2)
-      p = self.app.getPartition(p64(3))
+      p = self.app.getPartition(p64(1009)) # 1009 defined in config
       self.assertEqual(p, 0)
 
     def test_05_getNewOIDList(self):

@@ -613,7 +613,7 @@ class MasterServiceTests(NeoTestBase):
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, OUT_OF_DATE_STATE)
-        service.handleNotifyPartitionChanges(conn, packet, self.app.lptid, cell_list)
+        service.handleNotifyPartitionChanges(conn, packet, self.app.pt.getID(), cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, OUT_OF_DATE_STATE)
@@ -625,7 +625,7 @@ class MasterServiceTests(NeoTestBase):
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, OUT_OF_DATE_STATE)
-        service.handleNotifyPartitionChanges(conn, packet, self.app.lptid, cell_list)
+        service.handleNotifyPartitionChanges(conn, packet, self.app.pt.getID(), cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, OUT_OF_DATE_STATE)
