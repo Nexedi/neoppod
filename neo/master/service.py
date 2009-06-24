@@ -126,7 +126,7 @@ class ServiceEventHandler(MasterEventHandler):
                     app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
                     cell_list = app.pt.dropNode(node)
-                    ptid = app.getNextPartitionTableID()
+                    ptid = app.pt.setNextID()
                     app.broadcastPartitionChanges(ptid, cell_list)
                     if not app.pt.operational():
                         # Catastrophic.
@@ -262,7 +262,7 @@ class ServiceEventHandler(MasterEventHandler):
             logging.info('added %s into a partition table (%d modifications)',
                          dump(node.getUUID()), len(cell_list))
             if len(cell_list) != 0:
-                ptid = app.getNextPartitionTableID()
+                ptid = app.pt.setNextID()
                 app.broadcastPartitionChanges(ptid, cell_list)
 
         p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE,
@@ -367,12 +367,12 @@ class ServiceEventHandler(MasterEventHandler):
                     # this kind of message with these status except admin node
                     cell_list = app.pt.dropNode(node)
                     if len(cell_list) != 0:
-                        ptid = app.getNextPartitionTableID()
+                        ptid = app.pt.setNextID()
                         app.broadcastPartitionChanges(ptid, cell_list)
                 elif state == TEMPORARILY_DOWN_STATE:
                     cell_list = app.pt.outdate()
                     if len(cell_list) != 0:
-                        ptid = app.getNextPartitionTableID()
+                        ptid = app.pt.setNextID()
                         app.broadcastPartitionChanges(ptid, cell_list)
 
     @decorators.identification_required
@@ -612,13 +612,13 @@ class ServiceEventHandler(MasterEventHandler):
                 # add to pt
                 cell_list = app.pt.addNode(node)
             if len(cell_list) != 0:
-                ptid = app.getNextPartitionTableID()
+                ptid = app.pt.setNextID()
                 app.broadcastPartitionChanges(ptid, cell_list)
         else:
             # outdate node in partition table
             cell_list = app.pt.outdate()
             if len(cell_list) != 0:
-                ptid = app.getNextPartitionTableID()
+                ptid = app.pt.setNextID()
                 app.broadcastPartitionChanges(ptid, cell_list)
             
     @decorators.identification_required
@@ -655,6 +655,6 @@ class ServiceEventHandler(MasterEventHandler):
             if s_conn.getUUID() in uuid_set:
                 s_conn.notify(protocol.startOperation())
         # broadcast the new partition table
-        app.broadcastPartitionChanges(app.getNextPartitionTableID(), cell_list)
+        app.broadcastPartitionChanges(app.pt.setNextID(), cell_list)
         conn.answer(protocol.answerNewNodes(list(uuid_set)), packet)
 

@@ -78,7 +78,7 @@ class VerificationEventHandler(MasterEventHandler):
                     app.nm.remove(node)
                 elif node.getNodeType() == STORAGE_NODE_TYPE:
                     cell_list = app.pt.dropNode(node)
-                    ptid = app.getNextPartitionTableID()
+                    ptid = app.pt.setNextID()
                     app.broadcastPartitionChanges(ptid, cell_list)
                     if not app.pt.operational():
                         # Catastrophic.
