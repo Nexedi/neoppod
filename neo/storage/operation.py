@@ -135,11 +135,8 @@ class OperationEventHandler(StorageEventHandler):
     @decorators.server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
+        self.checkClusterName(name)
         app = self.app
-        if name != app.name:
-            logging.error('reject an alien cluster')
-            raise protocol.ProtocolError('invalid cluster name')
-
         addr = (ip_address, port)
         node = app.nm.getNodeByUUID(uuid)
         if node is None:

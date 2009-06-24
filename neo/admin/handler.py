@@ -123,9 +123,7 @@ class AdminEventHandler(BaseEventHandler):
         conn.answer(p, packet)
             
     def handleSetClusterState(self, conn, packet, name, state):
-        if name != self.app.name:
-            logging.error('reject an alien cluster')
-            raise protocol.ProtocolError('invalid cluster name')
+        self.checkClusterName(name)
         # forward to primary
         master_conn = self.app.master_conn
         p = protocol.setClusterState(name, state)

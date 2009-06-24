@@ -66,14 +66,11 @@ class RecoveryEventHandler(MasterEventHandler):
 
     def handleRequestNodeIdentification(self, conn, packet, node_type, uuid, 
                                         ip_address, port, name):
+        self.checkClusterName(name)
         app = self.app
         if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
             logging.info('reject a connection from a client')
             raise protocol.NotReadyError
-        if name != app.name:
-            logging.error('reject an alien cluster')
-            raise protocol.ProtocolError('invalid cluster name')
-
         if node_type is STORAGE_NODE_TYPE and uuid is INVALID_UUID:
             # refuse an empty storage node (with no UUID) to avoid potential
             # UUID conflict

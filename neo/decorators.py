@@ -21,14 +21,6 @@ from neo import protocol
 
 # Some decorators useful to avoid duplication of patterns in handlers
 
-def check_cluster_name(handler):
-    def wrapper(self, conn, packet, name, *args, **kwargs):
-        if self.app.name != name:
-            logging.error('reject an alien cluster')
-            raise protocol.ProtocolError('invalid cluster name')
-        handler(self, conn, packet, name, *args, **kwargs)
-    return wrapper
-
 def identification_required(handler):
     """ Raise UnexpectedPacketError if the identification has not succeed """
     def wrapper(self, conn, packet, *args, **kwargs):

@@ -90,14 +90,11 @@ class VerificationEventHandler(MasterEventHandler):
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
+        self.checkClusterName(name)
         app = self.app
         if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
             logging.info('reject a connection from a client')
             raise protocol.NotReadyError
-        if name != app.name:
-            logging.error('reject an alien cluster')
-            raise protocol.ProtocolError('invalid cluster name')
-
         # Here are many situations. In principle, a node should be identified by
         # an UUID, since an UUID never change when moving a storage node to a different
         # server, and an UUID always changes for a master node and a client node whenever

@@ -171,14 +171,11 @@ class ElectionEventHandler(MasterEventHandler):
     @decorators.server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
+        self.checkClusterName(name)
         app = self.app
         if node_type != MASTER_NODE_TYPE:
             logging.info('reject a connection from a non-master')
             raise protocol.NotReadyError
-        if name != app.name:
-            logging.error('reject an alien cluster')
-            raise protocol.ProtocolError('invalid cluster name')
-
         addr = (ip_address, port)
         node = app.nm.getNodeByServer(addr)
         if node is None:

@@ -151,6 +151,12 @@ class EventHandler(object):
         except ProtocolError, e:
             self.protocolError(conn, packet, *e.args)
 
+    def checkClusterName(self, name):
+        # raise an exception if the fiven name mismatch the current cluster name
+        if self.app.name != name:
+            logging.error('reject an alien cluster')
+            raise protocol.ProtocolError('invalid cluster name')
+
     # Packet handlers.
 
     def handleError(self, conn, packet, code, message):

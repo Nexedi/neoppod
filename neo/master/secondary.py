@@ -59,11 +59,8 @@ class SecondaryEventHandler(MasterEventHandler):
     @decorators.server_connection_required
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
+        self.checkClusterName(name)
         app = self.app
-        if name != app.name:
-            logging.error('reject an alien cluster')
-            raise protocol.ProtocolError('invalid cluster name')
-
         # Add a node only if it is a master node and I do not know it yet.
         if node_type == MASTER_NODE_TYPE and uuid != INVALID_UUID:
             addr = (ip_address, port)
