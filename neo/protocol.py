@@ -293,6 +293,12 @@ packet_types = Enum({
 
     # Anwer what are the nodes added in the partition table
     'ANSWER_NEW_NODES': 0x8025,
+
+    # Ask node information
+    'ASK_NODE_INFORMATION': 0x0026,
+
+    # Answer node information
+    'ANSWER_NODE_INFORMATION': 0x8026,
 })
 
 # Error codes.
@@ -963,6 +969,10 @@ def _decodeAnswerNewNodes(body):
     return (uuid_list, )
 decode_table[ANSWER_NEW_NODES] = _decodeAnswerNewNodes
 
+def _decodeAskNodeInformation(body):
+    pass # No payload
+decode_table[ASK_NODE_INFORMATION] = _decodeAskNodeInformation
+decode_table[ANSWER_NODE_INFORMATION] = _decodeNotifyNodeInformation
 
 
 # Packet encoding
@@ -1270,3 +1280,16 @@ def answerNewNodes(uuid_list):
     uuid_list = [pack('!16s', uuid) for uuid in uuid_list]
     body = pack('!H', len(uuid_list)) + ''.join(uuid_list)
     return Packet(ANSWER_NEW_NODES, body)
+
+def askNodeInformation():
+    return Packet(ASK_NODE_INFORMATION)
+
+def answerNodeInformation(node_list):
+    # XXX: copy-paste from notifyNodeInformation
+    body = [pack('!L', len(node_list))]
+    for node_type, ip_address, port, uuid, state in node_list:
+        body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
+                         uuid, state))
+    body = ''.join(body)
+    return Packet(ANSWER_NODE_INFORMATION, body)
+

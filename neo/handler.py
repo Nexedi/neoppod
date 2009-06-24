@@ -41,7 +41,7 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
         INTERNAL_ERROR_CODE, ASK_PARTITION_LIST, ANSWER_PARTITION_LIST, ASK_NODE_LIST, \
         ANSWER_NODE_LIST, SET_NODE_STATE, ANSWER_NODE_STATE, SET_CLUSTER_STATE, \
-        ANSWER_CLUSTER_STATE
+        ANSWER_CLUSTER_STATE, ASK_NODE_INFORMATION, ANSWER_NODE_INFORMATION
 
 
 # Some decorators useful to avoid duplication of patterns in handlers
@@ -394,6 +394,11 @@ class EventHandler(object):
     def handleAnswerClusterState(self, conn, packet, state):
         raise UnexpectedPacketError
 
+    def handleAskNodeInformation(self, conn, packet):
+        raise UnexpectedPacketError
+
+    def handleAnswerNodeInformation(self, conn, packet, node_list):
+        raise UnexpectedPacketError
 
     # Error packet handlers.
 
@@ -478,6 +483,8 @@ class EventHandler(object):
         d[ANSWER_CLUSTER_STATE] = self.handleAnswerClusterState
         d[ADD_PENDING_NODES] = self.handleAddPendingNodes
         d[ANSWER_NEW_NODES] = self.handleAnswerNewNodes
+        d[ASK_NODE_INFORMATION] = self.handleAskNodeInformation
+        d[ANSWER_NODE_INFORMATION] = self.handleAnswerNodeInformation
 
         self.packet_dispatch_table = d
 
