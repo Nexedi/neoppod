@@ -135,11 +135,12 @@ class EventHandler(object):
         """This is a helper method to handle various packet types."""
         t = packet.getType()
         try:
-            method = self.packet_dispatch_table[t]
+            try:
+                method = self.packet_dispatch_table[t]
+            except KeyError:
+                raise UnexpectedPacketError('no handler found')
             args = packet.decode() or ()
             method(conn, packet, *args)
-        except (KeyError, ValueError):
-            self.unexpectedPacket(conn, packet)
         except UnexpectedPacketError, e:
             self.unexpectedPacket(conn, packet, *e.args)
         except PacketMalformedError, e:
