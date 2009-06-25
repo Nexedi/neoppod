@@ -195,26 +195,28 @@ class EpollEventManager(object):
         for fd in rlist:
             try:
                 conn = self.connection_dict[fd]
+            except KeyError:
+                pass
+            else:
                 #logging.info("conn is %s" %(conn,))
                 conn.lock()
                 try:
                     conn.readable()
                 finally:
                     conn.unlock()
-            except KeyError:
-                pass
 
         for fd in wlist:
             # This can fail, if a connection is closed in readable().
             try:
                 conn = self.connection_dict[fd]
+            except KeyError:
+                pass
+            else:
                 conn.lock()
                 try:
                     conn.writable()
                 finally:
                     conn.unlock()
-            except KeyError:
-                pass
 
         # Check idle events. Do not check them out too often, because this
         # is somehow heavy.
