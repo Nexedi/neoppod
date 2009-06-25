@@ -19,7 +19,7 @@ import logging
 from copy import copy
 
 from neo import protocol
-from neo.protocol import MASTER_NODE_TYPE, CLIENT_NODE_TYPE, \
+from neo.protocol import CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, \
         STORAGE_NODE_TYPE, ADMIN_NODE_TYPE, OUT_OF_DATE_STATE, \
@@ -30,53 +30,12 @@ from neo.exception import OperationFailure, ElectionFailure
 from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
 from neo.util import dump
 from neo.master import ENABLE_PENDING_NODES
-from neo import decorators
-
-class FinishingTransaction(object):
-    """This class describes a finishing transaction."""
-
-    def __init__(self, conn):
-        self._conn = conn
-        self._msg_id = None
-        self._oid_list = None
-        self._uuid_set = None
-        self._locked_uuid_set = set()
-
-    def getConnection(self):
-        return self._conn
-
-    def setMessageId(self, msg_id):
-        self._msg_id = msg_id
-
-    def getMessageId(self):
-        return self._msg_id
-
-    def setOIDList(self, oid_list):
-        self._oid_list = oid_list
-
-    def getOIDList(self):
-        return self._oid_list
-
-    def setUUIDSet(self, uuid_set):
-        self._uuid_set = uuid_set
-
-    def getUUIDSet(self):
-        return self._uuid_set
-
-    def addLockedUUID(self, uuid):
-        if uuid in self._uuid_set:
-            self._locked_uuid_set.add(uuid)
-
-    def allLocked(self):
-        return self._uuid_set == self._locked_uuid_set
 
 class ServiceEventHandler(MasterEventHandler):
     """This class deals with events for a service phase."""
 
     def _dealWithNodeFailure(self, conn, new_state):
         uuid = conn.getUUID()
-        if uuid is None:
-            return
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
         if node is not None and node.getState() == RUNNING_STATE:
@@ -105,181 +64,29 @@ class ServiceEventHandler(MasterEventHandler):
 
     def peerBroken(self, conn):
         uuid = conn.getUUID()
-        if uuid is not None:
-            app = self.app
-            node = app.nm.getNodeByUUID(uuid)
-            if node is not None and node.getState() != BROKEN_STATE:
-                node.setState(BROKEN_STATE)
-                logging.debug('broadcasting node information')
-                app.broadcastNodeInformation(node)
-                if node.getNodeType() == CLIENT_NODE_TYPE:
-                    # If this node is a client, just forget it.
-                    app.nm.remove(node)
-                    for tid, t in app.finishing_transaction_dict.items():
-                        if t.getConnection() is conn:
-                            del app.finishing_transaction_dict[tid]
-                elif node.getNodeType() == STORAGE_NODE_TYPE:
-                    cell_list = app.pt.dropNode(node)
-                    ptid = app.pt.setNextID()
-                    app.broadcastPartitionChanges(ptid, cell_list)
-                    if not app.pt.operational():
-                        # Catastrophic.
-                        raise OperationFailure, 'cannot continue operation'
-        MasterEventHandler.peerBroken(self, conn)
-
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
-        self.checkClusterName(name)
         app = self.app
-        addr = (ip_address, port)
-
-        if node_type == ADMIN_NODE_TYPE:
-            self.registerAdminNode(conn, packet, uuid, addr)
-            return
-
-        # Here are many situations. In principle, a node should be identified
-        # by an UUID, since an UUID never change when moving a storage node
-        # to a different server, and an UUID always changes for a master node
-        # and a client node whenever it restarts, so more reliable than a
-        # server address.
-        #
-        # However, master nodes can be known only as the server addresses.
-        # And, a node may claim a server address used by another node.
-        # First, get the node by the UUID.
         node = app.nm.getNodeByUUID(uuid)
-        if node is not None and node.getServer() != addr:
-            # Here we have an UUID conflict, assume that's a new node
-            # XXX what about a storage node wich has changed of address ?
-            # it still must be used with its old data if marked out of date
-            # into the partition table
-            node = None
-        old_node = None
-        if node is None:
-            # generate a new uuid for this node
-            while not app.isValidUUID(uuid, addr):
-                uuid = app.getNewUUID(node_type)
-            # If nothing is present, try with the server address.
-            node = app.nm.getNodeByServer(addr)
-            if node is None:
-                # Nothing is found. So this must be the first time that
-                # this node connected to me.
-                if node_type == MASTER_NODE_TYPE:
-                    node = MasterNode(server = addr, uuid = uuid)
-                elif node_type == CLIENT_NODE_TYPE:
-                    node = ClientNode(uuid = uuid)
-                else:
-                    node = StorageNode(server = addr, uuid = uuid)
-                    if ENABLE_PENDING_NODES:
-                        node.setState(PENDING_STATE)
-                app.nm.add(node)
-                logging.debug('broadcasting node information')
-                app.broadcastNodeInformation(node)
-            else:
-                # Otherwise, I know it only by the server address or the same
-                # server address but with a different UUID.
-                if node.getUUID() is None:
-                    # This must be a master node loaded from configuration
-                    if node.getNodeType() != MASTER_NODE_TYPE \
-                            or node_type != MASTER_NODE_TYPE:
-                        # Error. This node uses the same server address as
-                        # a master node.
-                        raise protocol.ProtocolError('invalid server address')
-
-                    node.setUUID(uuid)
-                    if node.getState() != RUNNING_STATE:
-                        node.setState(RUNNING_STATE)
-                    logging.debug('broadcasting node information')
-                    app.broadcastNodeInformation(node)
-                else:
-                    # This node has a different UUID.
-                    if node.getState() == RUNNING_STATE:
-                        # If it is still running, reject this node.
-                        raise protocol.ProtocolError('invalid uuid')
-                    else:
-                        # Otherwise, forget the old one.
-                        node.setState(DOWN_STATE)
-                        logging.debug('broadcasting node information')
-                        app.broadcastNodeInformation(node)
-                        app.nm.remove(node)
-                        old_node = node
-                        node = copy(node)
-                        # And insert a new one.
-                        node.setUUID(uuid)
-                        node.setState(RUNNING_STATE)
-                        logging.debug('broadcasting node information')
-                        app.broadcastNodeInformation(node)
-                        app.nm.add(node)
-        else:
-            # I know this node by the UUID.
-            try:
-                ip_address, port = node.getServer()
-            except TypeError:
-                ip_address, port = '0.0.0.0', 0
-            if (ip_address, port) != addr:
-                # This node has a different server address.
-                if node.getState() == RUNNING_STATE:
-                    # If it is still running, reject this node.
-                    raise protocol.ProtocolError('invalid server address')
-                # Otherwise, forget the old one.
-                node.setState(DOWN_STATE)
-                logging.debug('broadcasting node information')
-                app.broadcastNodeInformation(node)
+        if node is not None and node.getState() != BROKEN_STATE:
+            node.setState(BROKEN_STATE)
+            logging.debug('broadcasting node information')
+            app.broadcastNodeInformation(node)
+            if node.getNodeType() == CLIENT_NODE_TYPE:
+                # If this node is a client, just forget it.
                 app.nm.remove(node)
-                old_node = node
-                node = copy(node)
-                # And insert a new one.
-                node.setServer(addr)
-                node.setState(RUNNING_STATE)
-                logging.debug('broadcasting node information')
-                app.broadcastNodeInformation(node)
-                app.nm.add(node)
-            else:
-                # If this node is broken, reject it. Otherwise, assume that
-                # it is working again.
-                if node.getState() == BROKEN_STATE:
-                    raise protocol.BrokenNodeDisallowedError
-                else:
-                    node.setUUID(uuid)
-                    node.setState(RUNNING_STATE)
-                    logging.info('broadcasting node information as running %s' %(node.getState(),))
-                    app.broadcastNodeInformation(node)
-
-        conn.setUUID(uuid)
-
-        if not ENABLE_PENDING_NODES and node.getNodeType() == STORAGE_NODE_TYPE:
-            # If this is a storage node, add it into the partition table.
-            # Note that this does no harm, even if the node is not new.
-            if old_node is not None:
-                logging.info('dropping %s from a partition table', 
-                             dump(old_node.getUUID()))
-                cell_list = app.pt.dropNode(old_node)
-            else:
-                cell_list = []
-            cell_list.extend(app.pt.addNode(node))
-            logging.info('added %s into a partition table (%d modifications)',
-                         dump(node.getUUID()), len(cell_list))
-            if len(cell_list) != 0:
+                for tid, t in app.finishing_transaction_dict.items():
+                    if t.getConnection() is conn:
+                        del app.finishing_transaction_dict[tid]
+            elif node.getNodeType() == STORAGE_NODE_TYPE:
+                cell_list = app.pt.dropNode(node)
                 ptid = app.pt.setNextID()
                 app.broadcastPartitionChanges(ptid, cell_list)
+                if not app.pt.operational():
+                    # Catastrophic.
+                    raise OperationFailure, 'cannot continue operation'
+        MasterEventHandler.peerBroken(self, conn)
 
-        self.acceptNodeIdentification(conn, packet, uuid)
-
-    @decorators.identification_required
-    def handleAnnouncePrimaryMaster(self, conn, packet):
-        # I am also the primary... So restart the election.
-        raise ElectionFailure, 'another primary arises'
-
-    def handleReelectPrimaryMaster(self, conn, packet):
-        raise ElectionFailure, 'reelection requested'
-
-    @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
-        uuid = conn.getUUID()
-        conn_node = app.nm.getNodeByUUID(uuid)
-        if conn_node is None:
-            raise RuntimeError('I do not know the uuid %r' % dump(uuid))
-
         for node_type, ip_address, port, uuid, state in node_list:
             if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                 # No interest.
@@ -324,11 +131,10 @@ class ServiceEventHandler(MasterEventHandler):
             # this node, if any, and notify the information to others.
             # XXX this can be very slow.
             # XXX does this need to be closed in all cases ?
-            for c in app.em.getConnectionList():
-                if c.getUUID() == uuid:
-                    c.close()
+            c = app.em.getConnectionByUUID(uuid)
+            if c is not None:
+                c.close()
 
-            logging.debug('broadcasting node information')
             app.broadcastNodeInformation(node)
             if node.getNodeType() == STORAGE_NODE_TYPE:
                 if state in (DOWN_STATE, BROKEN_STATE):
@@ -344,19 +150,70 @@ class ServiceEventHandler(MasterEventHandler):
                         ptid = app.pt.setNextID()
                         app.broadcastPartitionChanges(ptid, cell_list)
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
-    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        uuid = conn.getUUID()
-        app = self.app
-        node = app.nm.getNodeByUUID(uuid)
-        # If I get a bigger value here, it is dangerous.
-        if app.loid < loid or app.ltid < ltid or app.pt.getID() < lptid:
-            logging.critical('got later information in service')
-            raise OperationFailure
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(CLIENT_NODE_TYPE)
+    def handleAskLastIDs(self, conn, packet):
+        app = self.app
+        conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.pt.getID()), packet)
+
+    def handleAskUnfinishedTransactions(self, conn, packet):
+        app = self.app
+        p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
+        conn.answer(p, packet)
+
+
+class FinishingTransaction(object):
+    """This class describes a finishing transaction."""
+
+    def __init__(self, conn):
+        self._conn = conn
+        self._msg_id = None
+        self._oid_list = None
+        self._uuid_set = None
+        self._locked_uuid_set = set()
+
+    def getConnection(self):
+        return self._conn
+
+    def setMessageId(self, msg_id):
+        self._msg_id = msg_id
+
+    def getMessageId(self):
+        return self._msg_id
+
+    def setOIDList(self, oid_list):
+        self._oid_list = oid_list
+
+    def getOIDList(self):
+        return self._oid_list
+
+    def setUUIDSet(self, uuid_set):
+        self._uuid_set = uuid_set
+
+    def getUUIDSet(self):
+        return self._uuid_set
+
+    def addLockedUUID(self, uuid):
+        if uuid in self._uuid_set:
+            self._locked_uuid_set.add(uuid)
+
+    def allLocked(self):
+        return self._uuid_set == self._locked_uuid_set
+
+
+class ClientServiceEventHandler(ServiceEventHandler):
+
+    def connectionCompleted(self, conn):
+        pass
+
+    def handleAbortTransaction(self, conn, packet, tid):
+        uuid = conn.getUUID()
+        node = self.app.nm.getNodeByUUID(uuid)
+        try:
+            del self.app.finishing_transaction_dict[tid]
+        except KeyError:
+            logging.warn('aborting transaction %s does not exist', dump(tid))
+            pass
+
     def handleAskNewTID(self, conn, packet):
         uuid = conn.getUUID()
         app = self.app
@@ -365,8 +222,6 @@ class ServiceEventHandler(MasterEventHandler):
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
         conn.answer(protocol.answerNewTID(tid), packet)
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(CLIENT_NODE_TYPE)
     def handleAskNewOIDs(self, conn, packet, num_oids):
         uuid = conn.getUUID()
         app = self.app
@@ -374,8 +229,6 @@ class ServiceEventHandler(MasterEventHandler):
         oid_list = app.getNewOIDList(num_oids)
         conn.answer(protocol.answerNewOIDs(oid_list), packet)
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(CLIENT_NODE_TYPE)
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
         uuid = conn.getUUID()
         app = self.app
@@ -415,8 +268,12 @@ class ServiceEventHandler(MasterEventHandler):
             logging.warn('finishing transaction %s does not exist', dump(tid))
             pass
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
+
+class StorageServiceEventHandler(ServiceEventHandler):
+
+    def connectionCompleted(self, conn):
+        conn.notify(protocol.startOperation())
+
     def handleNotifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()
         app = self.app
@@ -455,30 +312,15 @@ class ServiceEventHandler(MasterEventHandler):
             # What is this?
             pass
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(CLIENT_NODE_TYPE)
-    def handleAbortTransaction(self, conn, packet, tid):
+    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         uuid = conn.getUUID()
-        node = self.app.nm.getNodeByUUID(uuid)
-        try:
-            del self.app.finishing_transaction_dict[tid]
-        except KeyError:
-            logging.warn('aborting transaction %s does not exist', dump(tid))
-            pass
-
-    @decorators.identification_required
-    def handleAskLastIDs(self, conn, packet):
         app = self.app
-        conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.pt.getID()), packet)
+        node = app.nm.getNodeByUUID(uuid)
+        # If I get a bigger value here, it is dangerous.
+        if app.loid < loid or app.ltid < ltid or app.pt.getID() < lptid:
+            logging.critical('got later information in service')
+            raise OperationFailure
 
-    @decorators.identification_required
-    def handleAskUnfinishedTransactions(self, conn, packet):
-        app = self.app
-        p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
-        conn.answer(p, packet)
-
-    @decorators.identification_required
-    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         # This should be sent when a cell becomes up-to-date because
         # a replication has finished.

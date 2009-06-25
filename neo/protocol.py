@@ -314,8 +314,10 @@ INTERNAL_ERROR_CODE = 8
 # Cluster states
 cluster_states = Enum({
     'BOOTING': 1,
-    'RUNNING': 2,
-    'STOPPING': 3,
+    'RECOVERING': 2,
+    'VERIFYING': 3,
+    'RUNNING': 4,
+    'STOPPING': 5,
 })
 VALID_CLUSTER_STATE_LIST = (BOOTING, RUNNING, STOPPING)
 

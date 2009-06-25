@@ -24,18 +24,20 @@ from neo.config import ConfigurationManager
 from neo import protocol
 from neo.protocol import Packet, \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, \
+        PENDING_STATE, INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, \
         CLIENT_NODE_TYPE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
         UUID_NAMESPACES, ADMIN_NODE_TYPE, BOOTING
-from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
+from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
 from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure, \
         OperationFailure
+from neo.master.identification import IdentificationEventHandler
+from neo.master.administration import AdministrationEventHandler
 from neo.master.election import ElectionEventHandler
 from neo.master.recovery import RecoveryEventHandler
 from neo.master.verification import VerificationEventHandler
-from neo.master.service import ServiceEventHandler
+from neo.master.service import ClientServiceEventHandler, StorageServiceEventHandler
 from neo.master.secondary import SecondaryEventHandler
 from neo.master.pt import PartitionTable
 from neo.util import dump
@@ -87,7 +89,7 @@ class Application(object):
         self.ltid = INVALID_TID
         # The target node's uuid to request next.
         self.target_uuid = None
-        self.cluster_state = BOOTING
+
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
@@ -95,8 +97,10 @@ class Application(object):
             self.nm.add(MasterNode(server = server))
 
         # Make a listening port.
-        ListeningConnection(self.em, None, addr = self.server,
-                            connector_handler = self.connector_handler)
+        self.listening_conn = ListeningConnection(self.em, None, 
+            addr = self.server, connector_handler = self.connector_handler)
+
+        self.cluster_state = BOOTING
 
         # Start the election of a primary master node.
         self.electPrimary()
@@ -272,6 +276,7 @@ class Application(object):
 
     def broadcastNodeInformation(self, node):
         """Broadcast a Notify Node Information packet."""
+        logging.debug('broadcasting node information')
         node_type = node.getNodeType()
         state = node.getState()
         uuid = node.getUUID()
@@ -359,18 +364,11 @@ class Application(object):
         partition table or make a new table from scratch, if this is the first time."""
         logging.info('begin the recovery of the status')
 
-        handler = RecoveryEventHandler(self)
+        self.changeClusterState(protocol.RECOVERING)
+
         em = self.em
         nm = self.nm
-
-        # Make sure that every connection has the status recovery event handler.
-        for conn in em.getConnectionList():
-            node = nm.getNodeByUUID(conn.getUUID())
-            # admin should keep their own handlers
-            # FIXME: should be filtered at node manager level
-            if node is None or node.getNodeType() != ADMIN_NODE_TYPE:
-                conn.setHandler(handler)
-
+    
         self.loid = INVALID_OID
         self.ltid = INVALID_TID
         self.pt.setID(INVALID_PTID)
@@ -532,7 +530,6 @@ class Application(object):
         """Verify the data in storage nodes and clean them up, if necessary."""
         logging.info('start to verify data')
 
-        handler = VerificationEventHandler(self)
         em = self.em
         nm = self.nm
 
@@ -542,11 +539,7 @@ class Application(object):
         while time() < t + 1:
             em.poll(1)
 
-        # Make sure that every connection has the data verification event handler.
-        for conn in em.getConnectionList():
-            node = nm.getNodeByUUID(conn.getUUID())
-            if node is None or node.getNodeType() != ADMIN_NODE_TYPE:
-                conn.setHandler(handler)
+        self.changeClusterState(protocol.VERIFYING)
 
         # FIXME this part has a potential problem that the write buffers can
         # be very huge. Thus it would be better to flush the buffers from time
@@ -623,13 +616,6 @@ class Application(object):
         # is not uniform.
         cell_list.extend(self.pt.tweak())
 
-        # And, add unused nodes.
-        if not ENABLE_PENDING_NODES:
-            node_list = self.pt.getNodeList()
-            for node in nm.getStorageNodeList():
-                if node.getState() == RUNNING_STATE and node not in node_list:
-                    cell_list.extend(self.pt.addNode(node))
-
         # If anything changed, send the changes.
         if cell_list:
             self.broadcastPartitionChanges(self.pt.setNextID(), cell_list)
@@ -639,24 +625,13 @@ class Application(object):
         and stop the service only if a catastrophy happens or the user commits
         a shutdown."""
         logging.info('provide service')
-
-        handler = ServiceEventHandler(self)
         em = self.em
         nm = self.nm
 
+        self.changeClusterState(protocol.RUNNING)
+
         # This dictionary is used to hold information on transactions being finished.
         self.finishing_transaction_dict = {}
-
-        # Make sure that every connection has the service event handler.
-        # and storage nodes should know that the cluster is operational.
-        for conn in em.getConnectionList():
-            node = nm.getNodeByUUID(conn.getUUID())
-            if node is not None and node.getNodeType() == ADMIN_NODE_TYPE:
-                continue
-            conn.setHandler(handler)
-            if not conn.isListeningConnection() and (node is None or \
-                    node.getNodeType() == STORAGE_NODE_TYPE):
-                conn.notify(protocol.startOperation())
 
         # Now everything is passive.
         expiration = 10
@@ -704,6 +679,9 @@ class Application(object):
         logging.info('play the primary role with %s (%s:%d)', 
                 dump(self.uuid), *(self.server))
 
+        # all incoming connections identify through this handler
+        self.listening_conn.setHandler(IdentificationEventHandler(self))
+
         # If I know any storage node, make sure that they are not in the running state,
         # because they are not connected at this stage.
         for node in self.nm.getStorageNodeList():
@@ -719,7 +697,6 @@ class Application(object):
                     self.verifyData()
                 except VerificationFailure:
                     recovering = True
-
             self.provideService()
 
     def playSecondaryRole(self):
@@ -737,6 +714,47 @@ class Application(object):
 
         while 1:
             em.poll(1)
+
+    def changeClusterState(self, state):
+        """ Change the cluster state and apply right handler on each connections """
+        if self.cluster_state == state:
+            return
+        nm, em = self.nm, self.em
+
+        # select the storage handler
+        if state == protocol.BOOTING:
+            storage_handler = RecoveryEventHandler
+        elif state == protocol.RECOVERING:
+            storage_handler = RecoveryEventHandler
+        elif state == protocol.VERIFYING:
+            storage_handler = VerificationEventHandler
+        elif state == protocol.RUNNING:
+            storage_handler = StorageServiceEventHandler
+        else:
+            RuntimeError('Unexpected node type')
+
+        # change handlers
+        for conn in em.getConnectionList():
+            node = nm.getNodeByUUID(conn.getUUID())
+            if conn.isListeningConnection() or node is None:
+                # not identified or listening, keep the identification handler
+                continue
+            node_type = node.getNodeType()
+            if node_type in (ADMIN_NODE_TYPE, MASTER_NODE_TYPE):
+                # those node types keep their own handler
+                continue
+            if node_type == CLIENT_NODE_TYPE:
+                if state != RUNNING:
+                    # FIXME: cut the connection ?
+                    pass
+                handler = ClientServiceEventHandler
+            elif node_type == STORAGE_NODE_TYPE:
+                handler = storage_handler
+            handler = handler(self)
+            conn.setHandler(handler)
+            handler.connectionCompleted(conn)
+        self.cluster_state = state
+
 
     def getNextOID(self):
         if self.loid is None:
@@ -826,6 +844,68 @@ class Application(object):
                             c.notify(protocol.notifyNodeInformation(node_list))
                     # then shutdown
                     sys.exit("Cluster has been asked to shut down")
-            
+
+    def identifyStorageNode(self, uuid, node):
+        # TODO: check all cases here, when server address change...
+        # in verification and running states, if the node is unknown but the
+        # uuid != INVALID_UUID, we have to give it a new uuid, but in recovery
+        # the node must keep it's UUID
+        state = protocol.RUNNING_STATE
+        handler = None
+        if self.cluster_state == protocol.RECOVERING:
+            # TODO: Enable empty node rejection when manual startup is ok :
+            if False and uuid == protocol.INVALID_UUID:
+                logging.info('reject empty storage node')
+                raise protocol.NotReadyError
+            handler = RecoveryEventHandler
+        elif self.cluster_state == protocol.VERIFYING:
+            if uuid == INVALID_UUID or node is None:
+                # if node is unknown, it has been forget when the current
+                # partition was validated by the admin
+                uuid = INVALID_UUID
+                state = protocol.PENDING_STATE
+            handler = VerificationEventHandler
+        elif self.cluster_state == protocol.RUNNING:
+            if uuid == INVALID_UUID or node is None:
+                # same as for verification
+                uuid = INVALID_UUID
+                state = protocol.PENDING_STATE
+            handler = StorageServiceEventHandler
+        elif self.cluster_state == protocol.STOPPING:
+            # FIXME: raise a ShutdowningError ?
+            raise protocol.NotReadyError
+        else:
+            raise RuntimeError('unhandled cluster state')
+        return (uuid, state, handler)
+
+
+    def identifyNode(self, node_type, uuid, node):
+
+        state = protocol.RUNNING_STATE
+        handler = self.__class__
+
+        if node_type == protocol.ADMIN_NODE_TYPE:
+            # always accept admin nodes
+            klass = AdminNode
+            handler = AdministrationEventHandler
+            logging.info('Accept an admin %s' % dump(uuid))
+        elif node_type == protocol.MASTER_NODE_TYPE:
+            # always put other master in waiting state
+            klass = MasterNode
+            # FIXME: Apply a dedicated handler 
+            logging.info('Accept a master %s' % dump(uuid))
+        elif node_type == protocol.CLIENT_NODE_TYPE:
+            # refuse any client before running
+            if self.cluster_state != protocol.RUNNING:
+                logging.info('reject a connection from a client')
+                raise protocol.NotReadyError
+            klass = ClientNode
+            # FIXME: Apply an handler dedicated to client nodes
+            handler = ClientServiceEventHandler
+            logging.info('Accept a client %s' % dump(uuid))
+        elif node_type == protocol.STORAGE_NODE_TYPE:
+            klass = StorageNode
+            (uuid, state, handler) = self.identifyStorageNode(uuid, node)
+        return (uuid, node, state, handler, klass)
 
 

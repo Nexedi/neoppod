@@ -26,180 +26,53 @@ from neo.exception import VerificationFailure, ElectionFailure
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.util import dump
 from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
-from neo import decorators
 
 class VerificationEventHandler(MasterEventHandler):
     """This class deals with events for a verification phase."""
 
+    def connectionCompleted(self, conn):
+        pass
+
     def connectionClosed(self, conn):
+        app = self.app
         uuid = conn.getUUID()
-        if uuid is not None:
-            app = self.app
-            node = app.nm.getNodeByUUID(uuid)
-            if node.getState() == RUNNING_STATE:
-                node.setState(TEMPORARILY_DOWN_STATE)
-                app.broadcastNodeInformation(node)
-                if node.getNodeType() in (CLIENT_NODE_TYPE):
-                    # If this node is a client, just forget it.
-                    app.nm.remove(node)
-                elif node.getNodeType() == STORAGE_NODE_TYPE:
-                    if not app.pt.operational():
-                        # Catastrophic.
-                        raise VerificationFailure, 'cannot continue verification'
+        node = app.nm.getNodeByUUID(uuid)
+        if node.getState() == RUNNING_STATE:
+            node.setState(TEMPORARILY_DOWN_STATE)
+            app.broadcastNodeInformation(node)
+            if not app.pt.operational():
+                # Catastrophic.
+                raise VerificationFailure, 'cannot continue verification'
         MasterEventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
+        app = self.app
         uuid = conn.getUUID()
-        if uuid is not None:
-            app = self.app
-            node = app.nm.getNodeByUUID(uuid)
-            if node.getState() == RUNNING_STATE:
-                node.setState(TEMPORARILY_DOWN_STATE)
-                app.broadcastNodeInformation(node)
-                if node.getNodeType() in (CLIENT_NODE_TYPE):
-                    # If this node is a client, just forget it.
-                    app.nm.remove(node)
-                elif node.getNodeType() == STORAGE_NODE_TYPE:
-                    if not app.pt.operational():
-                        # Catastrophic.
-                        raise VerificationFailure, 'cannot continue verification'
+        node = app.nm.getNodeByUUID(uuid)
+        if node.getState() == RUNNING_STATE:
+            node.setState(TEMPORARILY_DOWN_STATE)
+            app.broadcastNodeInformation(node)
+            if not app.pt.operational():
+                # Catastrophic.
+                raise VerificationFailure, 'cannot continue verification'
         MasterEventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
+        app = self.app
         uuid = conn.getUUID()
-        if uuid is not None:
-            app = self.app
-            node = app.nm.getNodeByUUID(uuid)
-            if node.getState() != BROKEN_STATE:
-                node.setState(BROKEN_STATE)
-                app.broadcastNodeInformation(node)
-                if node.getNodeType() in (CLIENT_NODE_TYPE):
-                    # If this node is a client, just forget it.
-                    app.nm.remove(node)
-                elif node.getNodeType() == STORAGE_NODE_TYPE:
-                    cell_list = app.pt.dropNode(node)
-                    ptid = app.pt.setNextID()
-                    app.broadcastPartitionChanges(ptid, cell_list)
-                    if not app.pt.operational():
-                        # Catastrophic.
-                        raise VerificationFailure, 'cannot continue verification'
+        node = app.nm.getNodeByUUID(uuid)
+        if node.getState() != BROKEN_STATE:
+            node.setState(BROKEN_STATE)
+            app.broadcastNodeInformation(node)
+            cell_list = app.pt.dropNode(node)
+            ptid = app.pt.setNextID()
+            app.broadcastPartitionChanges(ptid, cell_list)
+            if not app.pt.operational():
+                # Catastrophic.
+                raise VerificationFailure, 'cannot continue verification'
         MasterEventHandler.peerBroken(self, conn)
 
-    def packetReceived(self, conn, packet):
-        MasterEventHandler.packetReceived(self, conn, packet)
-
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
-        self.checkClusterName(name)
-        app = self.app
-        addr = (ip_address, port)
-        if node_type == ADMIN_NODE_TYPE:
-            self.registerAdminNode(conn, packet, uuid, addr)
-            return
-
-        if node_type not in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
-            logging.info('reject a connection from a client')
-            raise protocol.NotReadyError
-
-        # Here are many situations. In principle, a node should be identified by
-        # an UUID, since an UUID never change when moving a storage node to a different
-        # server, and an UUID always changes for a master node and a client node whenever
-        # it restarts, so more reliable than a server address.
-        # 
-        # However, master nodes can be known only as the server addresses. And, a node
-        # may claim a server address used by another node.
-
-        if not app.isValidUUID(uuid, addr):
-            # Here we have an UUID conflict, assume that's a new node
-            node = None
-        else:
-            # First, get the node by the UUID.
-            node = app.nm.getNodeByUUID(uuid)
-        if node is None:
-            # generate a new uuid for this node
-            while not app.isValidUUID(uuid, addr):
-                uuid = app.getNewUUID(node_type)
-            # If nothing is present, try with the server address.
-            node = app.nm.getNodeByServer(addr)
-            if node is None:
-                # Nothing is found. So this must be the first time that this node
-                # connected to me.
-                if node_type == MASTER_NODE_TYPE:
-                    node = MasterNode(server = addr, uuid = uuid)
-                else:
-                    # empty storage nodes starts in PENDING state
-                    node = StorageNode(server = addr, uuid = uuid)
-                    node.setState(PENDING_STATE)
-                app.nm.add(node)
-                app.broadcastNodeInformation(node)
-            else:
-                # Otherwise, I know it only by the server address or the same server
-                # address but with a different UUID.
-                if node.getUUID() is None:
-                    # This must be a master node.
-                    if node.getNodeType() != MASTER_NODE_TYPE or node_type != MASTER_NODE_TYPE:
-                        # Error. This node uses the same server address as a master
-                        # node.
-                        raise protocol.ProtocolError('invalid server address')
-                    node.setUUID(uuid)
-                    if node.getState() != RUNNING_STATE:
-                        node.setState(RUNNING_STATE)
-                    app.broadcastNodeInformation(node)
-                else:
-                    # This node has a different UUID.
-                    if node.getState() == RUNNING_STATE:
-                        # If it is still running, reject this node.
-                        raise protocol.ProtocolError('invalid server address')
-                    # Otherwise, forget the old one.
-                    node.setState(BROKEN_STATE)
-                    app.broadcastNodeInformation(node)
-                    # And insert a new one.
-                    node.setUUID(uuid)
-                    if node_type is STORAGE_NODE_TYPE:
-                        # empty node
-                        node.setState(PENDING_STATE)
-                    else:
-                        node.setState(RUNNING_STATE)
-                    app.broadcastNodeInformation(node)
-        else:
-            # I know this node by the UUID.
-            if node.getServer() != addr:
-                # This node has a different server address.
-                if node.getState() == RUNNING_STATE:
-                    # If it is still running, reject this node.
-                    raise protocol.ProtocolError('invalid server address')
-                # Otherwise, forget the old one.
-                node.setState(BROKEN_STATE)
-                app.broadcastNodeInformation(node)
-                # And insert a new one.
-                node.setServer(addr)
-                node.setState(RUNNING_STATE)
-                app.broadcastNodeInformation(node)
-            else:
-                # If this node is broken, reject it. Otherwise, assume that it is
-                # working again.
-                if node.getState() == BROKEN_STATE:
-                    raise protocol.BrokenNodeDisallowedError
-                node.setUUID(uuid)
-                node.setState(RUNNING_STATE)
-                app.broadcastNodeInformation(node)
-
-        conn.setUUID(uuid)
-
-        self.acceptNodeIdentification(conn, packet, uuid)
-
-    @decorators.identification_required
-    def handleAnnouncePrimaryMaster(self, conn, packet):
-        uuid = conn.getUUID()
-        # I am also the primary... So restart the election.
-        raise ElectionFailure, 'another primary arises'
-
-    def handleReelectPrimaryMaster(self, conn, packet):
-        raise ElectionFailure, 'reelection requested'
-
-    @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        uuid = conn.getUUID()
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
             if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
@@ -242,14 +115,12 @@ class VerificationEventHandler(MasterEventHandler):
             # Something wrong happened possibly. Cut the connection to this node,
             # if any, and notify the information to others.
             # XXX this can be very slow.
-            for c in app.em.getConnectionList():
-                if c.getUUID() == uuid:
-                    c.close()
+            c = app.em.getConnectionByUUID(uuid)
+            if c is not None:
+                c.close()
             node.setState(state)
             app.broadcastNodeInformation(node)
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         uuid = conn.getUUID()
         app = self.app
@@ -263,8 +134,6 @@ class VerificationEventHandler(MasterEventHandler):
         # Ignore this packet.
         pass
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
         uuid = conn.getUUID()
         logging.info('got unfinished transactions %s from %s:%d', 
@@ -277,8 +146,6 @@ class VerificationEventHandler(MasterEventHandler):
         app.unfinished_tid_set.update(tid_list)
         app.asking_uuid_dict[uuid] = True
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):
         uuid = conn.getUUID()
@@ -300,8 +167,6 @@ class VerificationEventHandler(MasterEventHandler):
             app.unfinished_oid_set = None
         app.asking_uuid_dict[uuid] = True
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleTidNotFound(self, conn, packet, message):
         uuid = conn.getUUID()
         logging.info('TID not found: %s', message)
@@ -313,8 +178,6 @@ class VerificationEventHandler(MasterEventHandler):
         app.unfinished_oid_set = None
         app.asking_uuid_dict[uuid] = True
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleAnswerObjectPresent(self, conn, packet, oid, tid):
         uuid = conn.getUUID()
         logging.info('object %s:%s found', dump(oid), dump(tid))
@@ -325,8 +188,6 @@ class VerificationEventHandler(MasterEventHandler):
             return
         app.asking_uuid_dict[uuid] = True
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(STORAGE_NODE_TYPE)
     def handleOidNotFound(self, conn, packet, message):
         uuid = conn.getUUID()
         logging.info('OID not found: %s', message)
