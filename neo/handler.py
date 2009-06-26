@@ -41,7 +41,7 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         PROTOCOL_ERROR_CODE, TIMEOUT_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
         INTERNAL_ERROR_CODE, ASK_PARTITION_LIST, ANSWER_PARTITION_LIST, ASK_NODE_LIST, \
         ANSWER_NODE_LIST, SET_NODE_STATE, ANSWER_NODE_STATE, SET_CLUSTER_STATE, \
-        ANSWER_CLUSTER_STATE, ASK_NODE_INFORMATION, ANSWER_NODE_INFORMATION
+        ANSWER_CLUSTER_STATE, ASK_NODE_INFORMATION, ANSWER_NODE_INFORMATION, NO_ERROR_CODE
 
 
 class EventHandler(object):
@@ -377,6 +377,9 @@ class EventHandler(object):
         self.peerBroken(conn)
         conn.close()
 
+    def handleNoError(self, conn, packet, message):
+        logging.info("no error message : %s" %(message))
+
     def initPacketDispatchTable(self):
         d = {}
 
@@ -446,7 +449,7 @@ class EventHandler(object):
 
     def initErrorDispatchTable(self):
         d = {}
-
+        d[NO_ERROR_CODE] = self.handleNoError
         d[NOT_READY_CODE] = self.handleNotReady
         d[OID_NOT_FOUND_CODE] = self.handleOidNotFound
         d[SERIAL_NOT_FOUND_CODE] = self.handleSerialNotFound

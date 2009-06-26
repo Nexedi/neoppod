@@ -302,6 +302,7 @@ packet_types = Enum({
 })
 
 # Error codes.
+NO_ERROR_CODE = 0
 NOT_READY_CODE = 1
 OID_NOT_FOUND_CODE = 2
 SERIAL_NOT_FOUND_CODE = 3
