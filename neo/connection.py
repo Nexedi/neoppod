@@ -232,9 +232,6 @@ class Connection(BaseConnection):
                 except KeyError:
                     pass
 
-            logging.debug('analyse #0x%04x %-30s from %s (%s:%d)', packet.getId(), 
-                    packet.getType(), dump(self.uuid), *self.getAddress())
-
             try:
                 self._queue.append(packet)
             finally:
@@ -262,6 +259,8 @@ class Connection(BaseConnection):
         """
           Process a pending packet.
         """
+        logging.debug('analyse #0x%04x %-30s from %s (%s:%d)', packet.getId(), 
+                packet.getType(), dump(self.uuid), *self.getAddress())
         self.handler.packetReceived(self, self._dequeue())
 
     def pending(self):
