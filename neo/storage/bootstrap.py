@@ -181,10 +181,6 @@ class BootstrapEventHandler(StorageEventHandler):
         # Node UUID was set in handleAnswerPrimaryMaster
         assert node.getUUID() == uuid
 
-        # XXX: change handler for next packet (which might be handled in poll before it returns)
-        # This should be removed when we will handle our own pending packet queue.
-        conn.setHandler(VerificationEventHandler(app))
-
     @decorators.client_connection_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):

@@ -222,6 +222,7 @@ class Application(object):
                             node = nm.getNodeByUUID(uuid)
                             if node is self.primary_master_node:
                                 # Yes, I have.
+                                conn.setHandler(VerificationEventHandler(self))
                                 return
 
     def verifyData(self):
