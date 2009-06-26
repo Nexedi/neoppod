@@ -298,6 +298,10 @@ class MasterRequestEventHandler(MasterBaseEventHandler):
         p = protocol.answerNodeState(uuid, state)
         client_conn.notify(p, kw['msg_id'])
 
+    def handleNoError(self, conn, packet, msg):
+        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())        
+        p = protocol.noError(msg)
+        client_conn.notify(p, kw['msg_id'])
 
 class MasterBootstrapEventHandler(MasterBaseEventHandler):
     """This class manage the bootstrap part to the primary master node"""

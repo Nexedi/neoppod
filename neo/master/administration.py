@@ -56,7 +56,8 @@ class AdministrationEventHandler(MasterEventHandler):
         self.checkClusterName(name)
         if state == protocol.RUNNING:
             self.app.cluster_state = state
-        conn.answer(protocol.answerClusterState(self.app.cluster_state), packet)
+        p = protocol.noError('cluster state changed')
+        conn.answer(p, packet)
 
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s : %s" % (dump(uuid), state, modify_partition_table))
@@ -65,13 +66,13 @@ class AdministrationEventHandler(MasterEventHandler):
             # get message for self
             if state == RUNNING_STATE:
                 # yes I know
-                p = protocol.answerNodeState(app.uuid, state)
+                p = protocol.noError('node state changed')
                 conn.answer(p, packet)
                 return
             else:
                 # I was asked to shutdown
                 node.setState(state)
-                p = protocol.answerNodeState(app.uuid, state)
+                p = protocol.noError('node state changed')
                 conn.answer(p, packet)
                 app.shutdown()
 
@@ -82,13 +83,13 @@ class AdministrationEventHandler(MasterEventHandler):
             return
         if node.getState() == state:
             # no change, just notify admin node
-            p = protocol.answerNodeState(app.uuid, state)
+            p = protocol.noError('node state changed')
             conn.answer(p, packet)
 
         # forward information to all nodes
         if node.getState() != state:
             node.setState(state)
-            p = protocol.answerNodeState(app.uuid, state)
+            p = protocol.noError('state changed')
             conn.answer(p, packet)
             app.broadcastNodeInformation(node)
             # If this is a storage node, ask it to start.
@@ -132,7 +133,8 @@ class AdministrationEventHandler(MasterEventHandler):
         # nothing to do
         if not uuid_set:
             logging.warning('No nodes added')
-            conn.answer(protocol.answerNewNodes(()), packet)
+            p = protocol.noError('no nodes added')
+            conn.answer(p, packet)
             return
         uuids = ', '.join([dump(uuid) for uuid in uuid_set])
         logging.info('Adding nodes %s' % uuids)
@@ -149,4 +151,5 @@ class AdministrationEventHandler(MasterEventHandler):
                 s_conn.notify(protocol.startOperation())
         # broadcast the new partition table
         app.broadcastPartitionChanges(app.pt.setNextID(), cell_list)
-        conn.answer(protocol.answerNewNodes(list(uuid_set)), packet)
+        p = protocol.noError('node added')
+        conn.answer(p, packet)

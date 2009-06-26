@@ -985,7 +985,7 @@ def _error(error_code, error_message):
     return Packet(ERROR, body)
 
 def noError(message):
-    return _error(NO_ERROR_CODE, 'no error: ' + message)
+    return _error(NO_ERROR_CODE, message)
 
 def protocolError(error_message):
     return _error(PROTOCOL_ERROR_CODE, 'protocol error: ' + error_message)

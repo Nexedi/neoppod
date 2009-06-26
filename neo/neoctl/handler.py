@@ -93,3 +93,5 @@ class CommandEventHandler(EventHandler):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
         self.app.result = 'New storage nodes : %s' % uuids
 
+    def handleNoError(self, conn, packet, msg):
+        self.app.result = msg
