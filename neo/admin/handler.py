@@ -52,13 +52,14 @@ class AdminEventHandler(BaseEventHandler):
         # check we have one pt otherwise ask it to PMN
         if len(app.pt.getNodeList()) == 0:
             master_conn = self.app.master_conn
-            p = protocol.askPartitionTable([x for x in xrange(app.num_partitions)])
+            p = protocol.askPartitionTable([])
             msg_id = master_conn.ask(p)
             app.dispatcher.register(msg_id, conn, {'min_offset' : min_offset,
                                                    'max_offset' : max_offset,
-                                                   'uuid' : uuid})
+                                                   'uuid' : uuid,
+                                                   'msg_id' : packet.getId()})
         else:
-            app.sendPartitionTable(conn, min_offset, max_offset, uuid)
+            app.sendPartitionTable(conn, min_offset, max_offset, uuid, packet.getId())
         
 
     def handleAskNodeList(self, conn, packet, node_type):
@@ -92,13 +93,8 @@ class AdminEventHandler(BaseEventHandler):
         # forward to primary master node
         master_conn = self.app.master_conn
         p = protocol.setNodeState(uuid, state, modify_partition_table)
-        master_conn.ask(p)
-        self.app.notified = False
-        while not self.app.notified:
-            self.app.em.poll(1)
-        node = self.app.nm.getNodeByUUID(uuid)
-        p = protocol.answerNodeState(node.getUUID(), node.getState())
-        conn.answer(p, packet)
+        msg_id = master_conn.ask(p)
+        self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
             
     def handleSetClusterState(self, conn, packet, name, state):
         self.checkClusterName(name)
@@ -106,7 +102,7 @@ class AdminEventHandler(BaseEventHandler):
         master_conn = self.app.master_conn
         p = protocol.setClusterState(name, state)
         msg_id = master_conn.ask(p)
-        self.app.dispatcher.register(msg_id, conn)
+        self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
         
     def handleAddPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
@@ -115,14 +111,8 @@ class AdminEventHandler(BaseEventHandler):
         node = self.app.nm.getNodeByUUID(uuid)
         # forward the request to primary
         master_conn = self.app.master_conn
-        master_conn.ask(protocol.addPendingNodes(uuid_list))
-        self.app.nn_notified = False        
-        while not self.app.nn_notified:
-            self.app.em.poll(1)
-        # forward the answer to neoctl
-        uuid_list = self.app.uuid_list
-
-
+        msg_id = master_conn.ask(protocol.addPendingNodes(uuid_list))
+        self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
 class MasterEventHandler(BaseEventHandler):
     """ This class is just used to dispacth message to right handler"""
@@ -283,27 +273,31 @@ class MasterBaseEventHandler(BaseEventHandler):
         self.app.notified = True
 
 
-
 class MasterRequestEventHandler(MasterBaseEventHandler):
     """ This class handle all answer from primary master node"""
 
     def handleAnswerClusterState(self, conn, packet, state):
         logging.info("handleAnswerClusterState for a conn")
-        client_conn, kw = self.app.retrieve(packet.getId())
-        conn.answer(protocol.answerClusterState(state), packet)
+        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
+        client_conn.notify(protocol.answerClusterState(state), kw['msg_id'])
 
     def handleAnswerNewNodes(self, conn, packet, uuid_list):
         logging.info("handleAnswerNewNodes for a conn")
-        client_conn, kw = self.app.retrieve(packet.getId())
-        conn.answer(protocol.answerNewNodes(uuid_list), packet)
+        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
+        client_conn.notify(protocol.answerNewNodes(uuid_list), kw['msg_id'])
                           
     @decorators.identification_required
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         logging.info("handleAnswerPartitionTable for a conn")
-        client_conn, kw = self.app.retrieve(packet.getId())
+        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
         # sent client the partition table
         self.app.sendPartitionTable(client_conn, **kw)
-        
+
+    def handleAnswerNodeState(self, conn, packet, uuid, state):        
+        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
+        p = protocol.answerNodeState(uuid, state)
+        client_conn.notify(p, kw['msg_id'])
+
 
 class MasterBootstrapEventHandler(MasterBaseEventHandler):
     """This class manage the bootstrap part to the primary master node"""

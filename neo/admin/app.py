@@ -41,8 +41,8 @@ class Dispatcher:
         # message to connection
         self.message_table = {}
 
-    def register(self, msg_id, conn):
-        self.message_table[msg_id] = conn
+    def register(self, msg_id, conn, kw=None):
+        self.message_table[msg_id] = conn, kw
 
     def retrieve(self, msg_id):
         return self.message_table.pop(msg_id, None)
@@ -172,7 +172,7 @@ class Application(object):
                                  connector_handler = self.connector_handler)
                 t = time()
 
-    def sendPartitionTable(self, conn, min_offset, max_offset, uuid):
+    def sendPartitionTable(self, conn, min_offset, max_offset, uuid, msg_id):
         # we have a pt
         self.pt.log()
         row_list = []
@@ -196,4 +196,4 @@ class Application(object):
             return
         print "sending packet", len(row_list)
         p = protocol.answerPartitionList(self.ptid, row_list)
-        conn.notify(p)
+        conn.notify(p, msg_id)
