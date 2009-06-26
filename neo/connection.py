@@ -106,6 +106,9 @@ class BaseConnection(object):
     def isListeningConnection(self):
         raise NotImplementedError
 
+    def hasPendingMessages(self):
+        return False
+
 class ListeningConnection(BaseConnection):
     """A listen connection."""
     def __init__(self, event_manager, handler, addr = None,
@@ -141,6 +144,7 @@ class Connection(BaseConnection):
         self.event_dict = {}
         self.aborted = False
         self.uuid = None
+        self._queue = []
         BaseConnection.__init__(self, event_manager, handler,
                                 connector = connector, addr = addr,
                                 connector_handler = connector_handler)
@@ -232,9 +236,33 @@ class Connection(BaseConnection):
                     packet.getType(), dump(self.uuid), *self.getAddress())
 
             try:
-                self.handler.packetReceived(self, packet)
+                self._queue.append(packet)
             finally:
                 self.read_buf = self.read_buf[len(packet):]
+
+    def hasPendingMessages(self):
+        """
+          Returns True if there are messages queued and awaiting processing.
+        """
+        return len(self._queue) != 0
+
+    def _enqueue(self, packet):
+        """
+          Enqueue a parsed packet for future processing.
+        """
+        self._queue.append(packet)
+
+    def _dequeue(self):
+        """
+          Dequeue a packet for processing.
+        """
+        return self._queue.pop(0)
+
+    def process(self):
+        """
+          Process a pending packet.
+        """
+        self.handler.packetReceived(self, self._dequeue())
 
     def pending(self):
         return self.connector is not None and self.write_buf

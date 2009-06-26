@@ -82,6 +82,7 @@ class SelectEventManager(object):
         self.exc_list = []
         self.event_list = []
         self.prev_time = time()
+        self._pending_processing = []
 
     def getConnectionList(self, with_admin_nodes=False):
         return self.connection_dict.values()
@@ -91,6 +92,30 @@ class SelectEventManager(object):
 
     def unregister(self, conn):
         del self.connection_dict[conn.getConnector()]
+
+    def _getPendingConnection(self):
+        if len(self._pending_processing):
+            result = self._pending_processing.pop(0)
+        else:
+            result = None
+        return result
+
+    def _addPendingConnection(self, conn):
+        self._pending_processing.append(conn)
+
+    def poll(self, timeout = 1):
+        to_process = self._getPendingConnection()
+        if to_process is None:
+            # Fetch messages from polled file descriptors
+            self._poll(timeout=timeout)
+            # See if there is anything to process
+            to_process = self._getPendingConnection()
+        if to_process is not None:
+            # Process
+            to_process.process()
+            # ...and requeue if there are pending messages
+            if to_process.hasPendingMessages():
+                self._addPendingConnection(to_process)
 
     def poll(self, timeout = 1):
         rlist, wlist, xlist = select(self.reader_set, self.writer_set, self.exc_list,
@@ -102,6 +127,8 @@ class SelectEventManager(object):
                 conn.readable()
             finally:
                 conn.unlock()
+            if conn.hasPendingMessages():
+                self._addPendingConnection(conn)
 
         for s in wlist:
             # This can fail, if a connection is closed in readable().
@@ -166,6 +193,7 @@ class EpollEventManager(object):
         self.event_list = []
         self.prev_time = time()
         self.epoll = Epoll()
+        self._pending_processing = []
 
     def getConnectionList(self):
         return self.connection_dict.values()
@@ -191,7 +219,31 @@ class EpollEventManager(object):
         self.epoll.unregister(fd)
         del self.connection_dict[fd]
 
+    def _getPendingConnection(self):
+        if len(self._pending_processing):
+            result = self._pending_processing.pop(0)
+        else:
+            result = None
+        return result
+
+    def _addPendingConnection(self, conn):
+        self._pending_processing.append(conn)
+
     def poll(self, timeout = 1):
+        to_process = self._getPendingConnection()
+        if to_process is None:
+            # Fetch messages from polled file descriptors
+            self._poll(timeout=timeout)
+            # See if there is anything to process
+            to_process = self._getPendingConnection()
+        if to_process is not None:
+            # Process
+            to_process.process()
+            # ...and requeue if there are pending messages
+            if to_process.hasPendingMessages():
+                self._addPendingConnection(to_process)
+
+    def _poll(self, timeout = 1):
         rlist, wlist = self.epoll.poll(timeout)
         for fd in rlist:
             try:
@@ -205,6 +257,8 @@ class EpollEventManager(object):
                     conn.readable()
                 finally:
                     conn.unlock()
+                if conn.hasPendingMessages():
+                    self._addPendingConnection(conn)
 
         for fd in wlist:
             # This can fail, if a connection is closed in readable().
