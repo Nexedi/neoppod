@@ -51,27 +51,46 @@ class IdentificationEventHandler(MasterEventHandler):
     def handleRequestNodeIdentification(self, conn, packet, node_type,
             uuid, ip_address, port, name):
 
-        # TODO: handle broken nodes
-
         self.checkClusterName(name)
         app, nm = self.app, self.app.nm
         server = (ip_address, port)
         node_by_uuid = nm.getNodeByUUID(uuid)
         node_by_addr = nm.getNodeByServer(server)
 
-        if node_by_uuid is not None and node_by_addr is not None and \
-                node_by_uuid is not node_by_addr:
-            # got a conflict, but UUIDs should be more reliable
-            # TODO: delete the old node...
-            raise RuntimeError('node conflict not implemented yet')
-            pass
-        node = node_by_uuid or node_by_addr
-
-        if node is not None and node.getServer() != server:
-            # address changed
-            # TODO: delete or update the old node ?
+        def changeNodeAddress(node, server):
+            from copy import copy
+            if node_type == protocol.STORAGE_NODE_TYPE:
+                args = (node.getServer(), server)
+                # remove storage from partition table
+                cell_list = app.pt.dropNode(node)
+                if cell_list:
+                    ptid = app.pt.setNextID()
+                    app.broadcastPartitionChanges(ptid, cell_list)
+            # TODO: check this, avoid copy()
+            # set it to down state
+            node.setState(protocol.DOWN_STATE)
+            app.broadcastNodeInformation(node)
+            nm.remove(node)
+            # then update the address and set it to running state
+            node = copy(node)
             node.setServer(server)
-            raise RuntimeError('node address changement not implemented yet')
+            node.setState(protocol.RUNNING_STATE)
+            nm.add(node)
+            return node
+
+        # handle conflicts and broken nodes
+        node = node_by_uuid or node_by_addr
+        if node_by_uuid is not None:
+            if node.getServer() == server and node.getState() == protocol.BROKEN_STATE:
+                raise protocol.BrokenNodeDisallowedError
+            if node.getServer() != server:
+                if node.getState() == protocol.RUNNING_STATE:
+                    raise protocol.ProtocolError('invalid server address')
+                node = changeNodeAddress(node, server)
+        if node_by_uuid is None and node_by_addr is not None:
+            if node.getState() == protocol.RUNNING_STATE:
+                raise protocol.ProtocolError('invalid server address')
+            node = changeNodeAddress(node, server)
 
         # ask the app the node identification, if refused, an exception is raised
         result = self.app.identifyNode(node_type, uuid, node) 
@@ -90,7 +109,6 @@ class IdentificationEventHandler(MasterEventHandler):
         # set up the connection
         conn.setUUID(uuid)
         conn.setHandler(handler)
-        # XXX: Here we could bin conn and node together
         # answer
         args = (protocol.MASTER_NODE_TYPE, app.uuid, app.server[0], app.server[1], 
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
