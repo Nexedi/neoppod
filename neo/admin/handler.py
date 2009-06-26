@@ -28,7 +28,7 @@ from neo.protocol import Packet, UnexpectedPacketError
 from neo.pt import PartitionTable
 from neo.exception import PrimaryFailure
 from neo.util import dump
-from neo import decorators
+from neo import decorators, handler
 
 
 class BaseEventHandler(EventHandler):
@@ -53,34 +53,12 @@ class AdminEventHandler(BaseEventHandler):
         if len(app.pt.getNodeList()) == 0:
             master_conn = self.app.master_conn
             p = protocol.askPartitionTable([x for x in xrange(app.num_partitions)])
-            master_conn.ask(p)
-            self.app.pt = None        
-            while self.app.pt is None:
-                self.app.em.poll(1)
-        # we have a pt
-        app.pt.log()
-        row_list = []
-        if max_offset == 0:
-            max_offset = app.num_partitions
-        try:
-            for offset in xrange(min_offset, max_offset):
-                row = []
-                try:
-                    for cell in app.pt.getCellList(offset):
-                        if uuid != INVALID_UUID and cell.getUUID() != uuid:
-                            continue
-                        else:
-                            row.append((cell.getUUID(), cell.getState()))
-                except TypeError:
-                    pass
-                row_list.append((offset, row))
-        except IndexError:
-            p = protocot.protocolError('invalid partition table offset')
-            conn.notify(p)
-            return
-        print "sending packet", len(row_list)
-        p = protocol.answerPartitionList(app.ptid, row_list)
-        conn.notify(p)
+            msg_id = master_conn.ask(p)
+            app.dispatcher.register(msg_id, conn, {'min_offset' : min_offset,
+                                                   'max_offset' : max_offset,
+                                                   'uuid' : uuid})
+        else:
+            app.sendPartitionTable(conn, min_offset, max_offset, uuid)
         
 
     def handleAskNodeList(self, conn, packet, node_type):
@@ -97,7 +75,7 @@ class AdminEventHandler(BaseEventHandler):
                 port = 0
             node_information_list.append((node.getNodeType(), ip, port, node.getUUID(), node.getState()))
         p = protocol.answerNodeList(node_information_list)
-        conn.ask(p)
+        conn.answer(p, packet)
 
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s" %(dump(uuid), state))
@@ -127,12 +105,9 @@ class AdminEventHandler(BaseEventHandler):
         # forward to primary
         master_conn = self.app.master_conn
         p = protocol.setClusterState(name, state)
-        master_conn.ask(p)
-        self.app.cluster_state = None
-        while self.app.cluster_state is None:
-            self.app.em.poll(1)
-        conn.answer(protocol.answerClusterState(self.app.cluster_state), packet)
-
+        msg_id = master_conn.ask(p)
+        self.app.dispatcher.register(msg_id, conn)
+        
     def handleAddPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
         logging.info('Add nodes %s' % uuids)
@@ -146,15 +121,27 @@ class AdminEventHandler(BaseEventHandler):
             self.app.em.poll(1)
         # forward the answer to neoctl
         uuid_list = self.app.uuid_list
-        conn.answer(protocol.answerNewNodes(uuid_list), packet)
 
 
-class MonitoringEventHandler(BaseEventHandler):
-    """This class deals with events for monitoring cluster."""
 
+class MasterEventHandler(BaseEventHandler):
+    """ This class is just used to dispacth message to right handler"""
+    
+    def dispatch(self, conn, packet):
+        if self.app.dispatcher.registered(packet.getId()):
+            # answer to a request
+            self.app.request_handler.dispatch(conn, packet)
+        else:
+            # monitoring phase
+            self.app.monitoring_handler.dispatch(conn, packet)            
+
+class MasterBaseEventHandler(BaseEventHandler):
+    """ This is the base class for connection to primary master node"""
+    
     def connectionAccepted(self, conn, s, addr):
         """Called when a connection is accepted."""
         raise UnexpectedPacketError
+
 
     def connectionCompleted(self, conn):
         app = self.app
@@ -165,6 +152,7 @@ class MonitoringEventHandler(BaseEventHandler):
         # Ask a primary master.
         conn.ask(protocol.askPrimaryMaster())
         EventHandler.connectionCompleted(self, conn)
+
 
     def connectionFailed(self, conn):
         app = self.app
@@ -230,160 +218,6 @@ class MonitoringEventHandler(BaseEventHandler):
 
         EventHandler.peerBroken(self, conn)
 
-    def handleNotReady(self, conn, packet, message):
-        app = self.app
-        if app.trying_master_node is not None:
-            app.trying_master_node = None
-
-        conn.close()
-
-    def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port,
-                                       num_partitions, num_replicas, your_uuid):
-        app = self.app
-        node = app.nm.getNodeByServer(conn.getAddress())
-        if node_type != MASTER_NODE_TYPE:
-            # The peer is not a master node!
-            logging.error('%s:%d is not a master node', ip_address, port)
-            app.nm.remove(node)
-            conn.close()
-            return
-        if conn.getAddress() != (ip_address, port):
-            # The server address is different! Then why was
-            # the connection successful?
-            logging.error('%s:%d is waiting for %s:%d',
-                          conn.getAddress()[0], conn.getAddress()[1], 
-                          ip_address, port)
-            app.nm.remove(node)
-            conn.close()
-            return
-
-        if app.num_partitions is None:
-            app.num_partitions = num_partitions
-            app.num_replicas = num_replicas
-            app.pt = PartitionTable(num_partitions, num_replicas)
-        elif app.num_partitions != num_partitions:
-            raise RuntimeError('the number of partitions is inconsistent')
-        elif app.num_replicas != num_replicas:
-            raise RuntimeError('the number of replicas is inconsistent')
-
-        conn.setUUID(uuid)
-        node.setUUID(uuid)
-
-        if your_uuid != INVALID_UUID:
-            # got an uuid from the primary master
-            app.uuid = your_uuid
-
-        conn.ask(protocol.askNodeInformation())
-        conn.ask(protocol.askPartitionTable([]))
-
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
-                                  known_master_list):
-        app = self.app
-        # Register new master nodes.
-        for ip_address, port, uuid in known_master_list:
-            addr = (ip_address, port)
-            n = app.nm.getNodeByServer(addr)
-            if n is None:
-                n = MasterNode(server = addr)
-                app.nm.add(n)
-
-            if uuid != INVALID_UUID:
-                # If I don't know the UUID yet, believe what the peer
-                # told me at the moment.
-                if n.getUUID() is None or n.getUUID() != uuid:
-                    n.setUUID(uuid)
-            else:
-                n.setUUID(INVALID_UUID)
-
-        if primary_uuid != INVALID_UUID:
-            primary_node = app.nm.getNodeByUUID(primary_uuid)
-            if primary_node is None:
-                # I don't know such a node. Probably this information
-                # is old. So ignore it.
-                pass
-            else:
-                app.primary_master_node = primary_node
-                if app.trying_master_node is primary_node:
-                    # I am connected to the right one.
-                    logging.info('connected to a primary master node')
-                    # This is a workaround to prevent handling of
-                    # packets for the verification phase.
-                else:
-                    app.trying_master_node = None
-                    conn.close()
-        else:
-            if app.primary_master_node is not None:
-                # The primary master node is not a primary master node
-                # any longer.
-                app.primary_master_node = None
-
-            app.trying_master_node = None
-            conn.close()
-
-        p = protocol.requestNodeIdentification(ADMIN_NODE_TYPE, 
-                app.uuid, app.server[0], app.server[1], app.name)
-        conn.ask(p)
-    
-    @decorators.identification_required
-    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        logging.warning("handleSendPartitionTable")
-        uuid = conn.getUUID()
-        app = self.app
-        nm = app.nm
-        pt = app.pt
-        node = app.nm.getNodeByUUID(uuid)
-        # This must be sent only by primary master node
-        if node.getNodeType() != MASTER_NODE_TYPE:
-            return
-
-        if app.ptid != ptid:
-            app.ptid = ptid
-            pt.clear()
-        for offset, row in row_list:
-            for uuid, state in row:
-                node = nm.getNodeByUUID(uuid)
-                if node is None:
-                    node = StorageNode(uuid = uuid)
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                    nm.add(node)
-                pt.setCell(offset, node, state)
-
-        pt.log()
-
-    @decorators.identification_required
-    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
-        logging.warning("handleAnswerPartitionTable")
-
-    @decorators.identification_required
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        logging.warning("handleNotifyPartitionChanges")
-        app = self.app
-        nm = app.nm
-        pt = app.pt
-        uuid = conn.getUUID()
-        node = app.nm.getNodeByUUID(uuid)
-        # This must be sent only by primary master node
-        if node.getNodeType() != MASTER_NODE_TYPE \
-               or app.primary_master_node is None \
-               or app.primary_master_node.getUUID() != uuid:
-            return
-
-        if app.ptid >= ptid:
-            # Ignore this packet.
-            return
-
-        app.ptid = ptid
-        for offset, uuid, state in cell_list:
-            node = nm.getNodeByUUID(uuid)
-            if node is None:
-                node = StorageNode(uuid = uuid)
-                if uuid != app.uuid:
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                nm.add(node)
-            pt.setCell(offset, node, state)
-        pt.log()                
-
 
     @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
@@ -448,15 +282,196 @@ class MonitoringEventHandler(BaseEventHandler):
             
         self.app.notified = True
 
+
+
+class MasterRequestEventHandler(MasterBaseEventHandler):
+    """ This class handle all answer from primary master node"""
+
+    def handleAnswerClusterState(self, conn, packet, state):
+        logging.info("handleAnswerClusterState for a conn")
+        client_conn, kw = self.app.retrieve(packet.getId())
+        conn.answer(protocol.answerClusterState(state), packet)
+
+    def handleAnswerNewNodes(self, conn, packet, uuid_list):
+        logging.info("handleAnswerNewNodes for a conn")
+        client_conn, kw = self.app.retrieve(packet.getId())
+        conn.answer(protocol.answerNewNodes(uuid_list), packet)
+                          
+    @decorators.identification_required
+    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
+        logging.info("handleAnswerPartitionTable for a conn")
+        client_conn, kw = self.app.retrieve(packet.getId())
+        # sent client the partition table
+        self.app.sendPartitionTable(client_conn, **kw)
+        
+
+class MasterBootstrapEventHandler(MasterBaseEventHandler):
+    """This class manage the bootstrap part to the primary master node"""
+
+
+    def handleNotReady(self, conn, packet, message):
+        app = self.app
+        if app.trying_master_node is not None:
+            app.trying_master_node = None
+
+        conn.close()
+    
+    def handleAcceptNodeIdentification(self, conn, packet, node_type,
+                                       uuid, ip_address, port,
+                                       num_partitions, num_replicas, your_uuid):
+        app = self.app
+        node = app.nm.getNodeByServer(conn.getAddress())
+        if node_type != MASTER_NODE_TYPE:
+            # The peer is not a master node!
+            logging.error('%s:%d is not a master node', ip_address, port)
+            app.nm.remove(node)
+            conn.close()
+            return
+        if conn.getAddress() != (ip_address, port):
+            # The server address is different! Then why was
+            # the connection successful?
+            logging.error('%s:%d is waiting for %s:%d',
+                          conn.getAddress()[0], conn.getAddress()[1], 
+                          ip_address, port)
+            app.nm.remove(node)
+            conn.close()
+            return
+
+        if app.num_partitions is None:
+            app.num_partitions = num_partitions
+            app.num_replicas = num_replicas
+            app.pt = PartitionTable(num_partitions, num_replicas)
+        elif app.num_partitions != num_partitions:
+            raise RuntimeError('the number of partitions is inconsistent')
+        elif app.num_replicas != num_replicas:
+            raise RuntimeError('the number of replicas is inconsistent')
+
+        conn.setUUID(uuid)
+        node.setUUID(uuid)
+
+        if your_uuid != INVALID_UUID:
+            # got an uuid from the primary master
+            app.uuid = your_uuid
+
+        conn.ask(protocol.askNodeInformation())
+        conn.ask(protocol.askPartitionTable([]))
+        logging.info("changing handler for master conn")
+        conn.setHandler(MasterEventHandler(self.app))
+
+    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
+                                  known_master_list):
+        app = self.app
+        # Register new master nodes.
+        for ip_address, port, uuid in known_master_list:
+            addr = (ip_address, port)
+            n = app.nm.getNodeByServer(addr)
+            if n is None:
+                n = MasterNode(server = addr)
+                app.nm.add(n)
+
+            if uuid != INVALID_UUID:
+                # If I don't know the UUID yet, believe what the peer
+                # told me at the moment.
+                if n.getUUID() is None or n.getUUID() != uuid:
+                    n.setUUID(uuid)
+            else:
+                n.setUUID(INVALID_UUID)
+
+        if primary_uuid != INVALID_UUID:
+            primary_node = app.nm.getNodeByUUID(primary_uuid)
+            if primary_node is None:
+                # I don't know such a node. Probably this information
+                # is old. So ignore it.
+                pass
+            else:
+                app.primary_master_node = primary_node
+                if app.trying_master_node is primary_node:
+                    # I am connected to the right one.
+                    logging.info('connected to a primary master node')
+                    # This is a workaround to prevent handling of
+                    # packets for the verification phase.
+                else:
+                    app.trying_master_node = None
+                    conn.close()
+        else:
+            if app.primary_master_node is not None:
+                # The primary master node is not a primary master node
+                # any longer.
+                app.primary_master_node = None
+
+            app.trying_master_node = None
+            conn.close()
+
+        p = protocol.requestNodeIdentification(ADMIN_NODE_TYPE, 
+                app.uuid, app.server[0], app.server[1], app.name)
+        conn.ask(p)
+
+
+class MasterMonitoringEventHandler(MasterBaseEventHandler):
+    """This class deals with events for monitoring cluster."""
+
     @decorators.identification_required
     def handleAnswerNodeInformation(self, conn, packet, node_list):
         logging.info("handleAnswerNodeInformation")
 
-    def handleAnswerClusterState(self, conn, packet, state):
-        self.app.cluster_state = state
+    @decorators.identification_required
+    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
+        logging.info("handleAnswerPartitionTable")
 
-    def handleAnswerNewNodes(self, conn, packet, uuid_list):
-        self.app.uuid_list = uuid_list
-        self.app.nn_notified = True
+    @decorators.identification_required
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        logging.warning("handleNotifyPartitionChanges")
+        app = self.app
+        nm = app.nm
+        pt = app.pt
+        uuid = conn.getUUID()
+        node = app.nm.getNodeByUUID(uuid)
+        # This must be sent only by primary master node
+        if node.getNodeType() != MASTER_NODE_TYPE \
+               or app.primary_master_node is None \
+               or app.primary_master_node.getUUID() != uuid:
+            return
+
+        if app.ptid >= ptid:
+            # Ignore this packet.
+            return
+
+        app.ptid = ptid
+        for offset, uuid, state in cell_list:
+            node = nm.getNodeByUUID(uuid)
+            if node is None:
+                node = StorageNode(uuid = uuid)
+                if uuid != app.uuid:
+                    node.setState(TEMPORARILY_DOWN_STATE)
+                nm.add(node)
+            pt.setCell(offset, node, state)
+        pt.log()                
+
+    @decorators.identification_required
+    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
+        logging.warning("handleSendPartitionTable")
+        uuid = conn.getUUID()
+        app = self.app
+        nm = app.nm
+        pt = app.pt
+        node = app.nm.getNodeByUUID(uuid)
+        # This must be sent only by primary master node
+        if node.getNodeType() != MASTER_NODE_TYPE:
+            return
+
+        if app.ptid != ptid:
+            app.ptid = ptid
+            pt.clear()
+        for offset, row in row_list:
+            for uuid, state in row:
+                node = nm.getNodeByUUID(uuid)
+                if node is None:
+                    node = StorageNode(uuid = uuid)
+                    node.setState(TEMPORARILY_DOWN_STATE)
+                    nm.add(node)
+                pt.setCell(offset, node, state)
+
+        pt.log()
+
 
 

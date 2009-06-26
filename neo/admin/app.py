@@ -28,8 +28,28 @@ from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection 
 from neo.exception import OperationFailure, PrimaryFailure
-from neo.admin.handler import MonitoringEventHandler, AdminEventHandler
+from neo.admin.handler import MasterMonitoringEventHandler, AdminEventHandler, \
+     MasterBootstrapEventHandler, MasterRequestEventHandler, MasterEventHandler
 from neo.connector import getConnectorHandler
+from neo import protocol
+
+class Dispatcher:
+    """Dispatcher use to redirect master request to handler"""
+
+    def __init__(self):
+        # associate conn/message_id to dispatch
+        # message to connection
+        self.message_table = {}
+
+    def register(self, msg_id, conn):
+        self.message_table[msg_id] = conn
+
+    def retrieve(self, msg_id):
+        return self.message_table.pop(msg_id, None)
+
+    def registered(self, msg_id):
+        return self.message_table.has_key(msg_id)    
+    
 
 class Application(object):
     """The storage node application."""
@@ -58,8 +78,10 @@ class Application(object):
         self.uuid = INVALID_UUID
         self.primary_master_node = None
         self.ptid = INVALID_PTID
-
-
+        self.monitoring_handler = MasterMonitoringEventHandler(self)
+        self.request_handler = MasterRequestEventHandler(self)
+        self.dispatcher = Dispatcher()
+        
     def run(self):
         """Make sure that the status is sane and start a loop."""
         if self.num_partitions is not None and self.num_partitions <= 0:
@@ -100,7 +122,7 @@ class Application(object):
         at this stage."""
         logging.info('connecting to a primary master node')
 
-        handler = MonitoringEventHandler(self)
+        handler = MasterBootstrapEventHandler(self)
         em = self.em
         nm = self.nm
 
@@ -150,3 +172,28 @@ class Application(object):
                                  connector_handler = self.connector_handler)
                 t = time()
 
+    def sendPartitionTable(self, conn, min_offset, max_offset, uuid):
+        # we have a pt
+        self.pt.log()
+        row_list = []
+        if max_offset == 0:
+            max_offset = self.num_partitions
+        try:
+            for offset in xrange(min_offset, max_offset):
+                row = []
+                try:
+                    for cell in self.pt.getCellList(offset):
+                        if uuid != INVALID_UUID and cell.getUUID() != uuid:
+                            continue
+                        else:
+                            row.append((cell.getUUID(), cell.getState()))
+                except TypeError:
+                    pass
+                row_list.append((offset, row))
+        except IndexError:
+            p = protocot.protocolError('invalid partition table offset')
+            conn.notify(p)
+            return
+        print "sending packet", len(row_list)
+        p = protocol.answerPartitionList(self.ptid, row_list)
+        conn.notify(p)
