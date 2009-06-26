@@ -71,9 +71,8 @@ class AdministrationEventHandler(MasterEventHandler):
             else:
                 # I was asked to shutdown
                 node.setState(state)
-                ip, port = node.getServer()
-                node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
-                conn.answer(protocol.notifyNodeInformation(node_list), packet)
+                p = protocol.answerNodeState(app.uuid, state)
+                conn.answer(p, packet)
                 app.shutdown()
 
         node = app.nm.getNodeByUUID(uuid)
@@ -83,17 +82,14 @@ class AdministrationEventHandler(MasterEventHandler):
             return
         if node.getState() == state:
             # no change, just notify admin node
-            node.setState(state)
-            ip, port = node.getServer()
-            node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
-            conn.answer(protocol.notifyNodeInformation(node_list), packet)
+            p = protocol.answerNodeState(app.uuid, state)
+            conn.answer(p, packet)
 
         # forward information to all nodes
         if node.getState() != state:
             node.setState(state)
-            ip, port = node.getServer()
-            node_list = [(node.getNodeType(), ip, port, node.getUUID(), node.getState()),]
-            conn.answer(protocol.notifyNodeInformation(node_list), packet)
+            p = protocol.answerNodeState(app.uuid, state)
+            conn.answer(p, packet)
             app.broadcastNodeInformation(node)
             # If this is a storage node, ask it to start.
             if node.getNodeType() == STORAGE_NODE_TYPE and state == RUNNING_STATE:
