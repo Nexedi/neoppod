@@ -38,7 +38,7 @@ from neo.master.election import ElectionEventHandler
 from neo.master.recovery import RecoveryEventHandler
 from neo.master.verification import VerificationEventHandler
 from neo.master.service import ClientServiceEventHandler, StorageServiceEventHandler
-from neo.master.secondary import SecondaryEventHandler
+from neo.master.secondary import PrimaryMasterEventHandler, SecondaryMasterEventHandler
 from neo.master.pt import PartitionTable
 from neo.util import dump
 from neo.connector import getConnectorHandler
@@ -704,7 +704,7 @@ class Application(object):
         logging.info('play the secondary role with %s (%s:%d)', 
                 dump(self.uuid), *(self.server))
 
-        handler = SecondaryEventHandler(self)
+        handler = PrimaryMasterEventHandler(self)
         em = self.em
         nm = self.nm
 
@@ -892,7 +892,7 @@ class Application(object):
         elif node_type == protocol.MASTER_NODE_TYPE:
             # always put other master in waiting state
             klass = MasterNode
-            # FIXME: Apply a dedicated handler 
+            handler = SecondaryMasterEventHandler
             logging.info('Accept a master %s' % dump(uuid))
         elif node_type == protocol.CLIENT_NODE_TYPE:
             # refuse any client before running

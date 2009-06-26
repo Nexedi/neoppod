@@ -18,9 +18,7 @@
 import logging
 
 from neo import protocol
-from neo.node import AdminNode, MasterNode, ClientNode, StorageNode
 from neo.master.handler import MasterEventHandler
-from neo import decorators
 
 class IdentificationEventHandler(MasterEventHandler):
     """This class deals with messages from the admin node only"""
@@ -33,20 +31,6 @@ class IdentificationEventHandler(MasterEventHandler):
 
     def peerBroken(self, conn):
         logging.warning('lost a node in IdentificationEventHandler')
-
-    # TODO: move this into a new handler
-    @decorators.identification_required
-    def handleAnnouncePrimaryMaster(self, conn, packet):
-        uuid = conn.getUUID()
-        # I am also the primary... So restart the election.
-        raise ElectionFailure, 'another primary arises'
-
-    def handleReelectPrimaryMaster(self, conn, packet):
-        raise ElectionFailure, 'reelection requested'
-
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
-        # XXX: Secondary master can send this packet 
-        logging.error('ignoring NotifyNodeInformation packet')
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
             uuid, ip_address, port, name):
@@ -66,29 +50,30 @@ class IdentificationEventHandler(MasterEventHandler):
                 if cell_list:
                     ptid = app.pt.setNextID()
                     app.broadcastPartitionChanges(ptid, cell_list)
-            # TODO: check this, avoid copy()
             # set it to down state
             node.setState(protocol.DOWN_STATE)
             app.broadcastNodeInformation(node)
-            nm.remove(node)
             # then update the address and set it to running state
-            node = copy(node)
             node.setServer(server)
             node.setState(protocol.RUNNING_STATE)
-            nm.add(node)
             return node
 
         # handle conflicts and broken nodes
         node = node_by_uuid or node_by_addr
         if node_by_uuid is not None:
-            if node.getServer() == server and node.getState() == protocol.BROKEN_STATE:
-                raise protocol.BrokenNodeDisallowedError
+            if node.getServer() == server:
+                if node.getState() == protocol.BROKEN_STATE:
+                    raise protocol.BrokenNodeDisallowedError
+                # the node is still alive
+                node.setState(protocol.RUNNING_STATE)
             if node.getServer() != server:
                 if node.getState() == protocol.RUNNING_STATE:
+                    # still running, reject this new node
                     raise protocol.ProtocolError('invalid server address')
                 node = changeNodeAddress(node, server)
         if node_by_uuid is None and node_by_addr is not None:
             if node.getState() == protocol.RUNNING_STATE:
+                # still running, reject this new node
                 raise protocol.ProtocolError('invalid server address')
             node = changeNodeAddress(node, server)
 

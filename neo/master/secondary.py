@@ -22,35 +22,49 @@ from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
         DOWN_STATE, ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
-from neo.connection import ClientConnection
 from neo.exception import ElectionFailure, PrimaryFailure
 from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
 from neo.node import MasterNode
-from neo import decorators
 
-class SecondaryEventHandler(MasterEventHandler):
-    """This class deals with events for a secondary master."""
+class SecondaryMasterEventHandler(MasterEventHandler):
+    """ Handler used by primary to handle secondary masters"""
+
+    def connectionCompleted(self, conn):
+        pass
+
+    def handleAnnouncePrimaryMaster(self, conn, packet):
+        raise ElectionFailure, 'another primary arises'
+
+    def handleReelectPrimaryMaster(self, conn, packet):
+        raise ElectionFailure, 'reelection requested'
+
+    def handleNotifyNodeInformation(self, conn, packet, node_list):
+        logging.error('/!\ NotifyNodeInformation packet from secondary master')
+
+
+class PrimaryMasterEventHandler(MasterEventHandler):
+    """ Handler used by secondaries to handle primary master"""
 
     def connectionClosed(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.isServerConnection():
             self.app.primary_master_node.setState(DOWN_STATE)
             raise PrimaryFailure, 'primary master is dead'
         MasterEventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.isServerConnection():
             self.app.primary_master_node.setState(DOWN_STATE)
             raise PrimaryFailure, 'primary master is down'
         MasterEventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
-        if isinstance(conn, ClientConnection):
+        if not conn.isServerConnection():
             self.app.primary_master_node.setState(DOWN_STATE)
             raise PrimaryFailure, 'primary master is crazy'
         MasterEventHandler.peerBroken(self, conn)
 
     def packetReceived(self, conn, packet):
-        if isinstance(conn, ClientConnection):
+        if not conn.isServerConnection():
             node = self.app.nm.getNodeByServer(conn.getAddress())
             if node.getState() != BROKEN_STATE:
                 node.setState(RUNNING_STATE)

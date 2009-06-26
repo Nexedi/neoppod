@@ -16,73 +16,40 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import logging
-from copy import copy
 
 from neo import protocol
 from neo.protocol import CLIENT_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, \
         STORAGE_NODE_TYPE, ADMIN_NODE_TYPE, OUT_OF_DATE_STATE, \
-        HIDDEN_STATE, PENDING_STATE
+        HIDDEN_STATE, PENDING_STATE, INVALID_UUID
 from neo.master.handler import MasterEventHandler
-from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
-from neo.exception import OperationFailure, ElectionFailure
-from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
+from neo.protocol import UnexpectedPacketError
+from neo.exception import OperationFailure
 from neo.util import dump
-from neo.master import ENABLE_PENDING_NODES
 
 class ServiceEventHandler(MasterEventHandler):
     """This class deals with events for a service phase."""
 
-    def _dealWithNodeFailure(self, conn, new_state):
-        uuid = conn.getUUID()
-        app = self.app
-        node = app.nm.getNodeByUUID(uuid)
-        if node is not None and node.getState() == RUNNING_STATE:
-            node.setState(new_state)
-            logging.debug('broadcasting node information')
-            app.broadcastNodeInformation(node)
-            if node.getNodeType() == CLIENT_NODE_TYPE:
-                # If this node is a client, just forget it.
-                app.nm.remove(node)
-                for tid, t in app.finishing_transaction_dict.items():
-                    if t.getConnection() is conn:
-                        del app.finishing_transaction_dict[tid]
-            elif node.getNodeType() == STORAGE_NODE_TYPE:
-                if not app.pt.operational():
-                    # Catastrophic.
-                    raise OperationFailure, 'cannot continue operation'
-                
+    def _dropIt(self, conn, new_state):
+        raise RuntimeError('rhis method must be overriden')
 
     def connectionClosed(self, conn):
-        self._dealWithNodeFailure(conn, TEMPORARILY_DOWN_STATE)
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        if node.getState() == RUNNING_STATE:
+            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
         MasterEventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
-        self._dealWithNodeFailure(conn, TEMPORARILY_DOWN_STATE)
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        if node.getState() == RUNNING_STATE:
+            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
         MasterEventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
-        uuid = conn.getUUID()
-        app = self.app
-        node = app.nm.getNodeByUUID(uuid)
-        if node is not None and node.getState() != BROKEN_STATE:
-            node.setState(BROKEN_STATE)
-            logging.debug('broadcasting node information')
-            app.broadcastNodeInformation(node)
-            if node.getNodeType() == CLIENT_NODE_TYPE:
-                # If this node is a client, just forget it.
-                app.nm.remove(node)
-                for tid, t in app.finishing_transaction_dict.items():
-                    if t.getConnection() is conn:
-                        del app.finishing_transaction_dict[tid]
-            elif node.getNodeType() == STORAGE_NODE_TYPE:
-                cell_list = app.pt.dropNode(node)
-                ptid = app.pt.setNextID()
-                app.broadcastPartitionChanges(ptid, cell_list)
-                if not app.pt.operational():
-                    # Catastrophic.
-                    raise OperationFailure, 'cannot continue operation'
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        if node.getState() != BROKEN_STATE:
+            self._dropIt(conn, node, BROKEN_STATE)
         MasterEventHandler.peerBroken(self, conn)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
@@ -201,9 +168,19 @@ class FinishingTransaction(object):
 
 
 class ClientServiceEventHandler(ServiceEventHandler):
+    """ Handler dedicated to client during service state """
 
     def connectionCompleted(self, conn):
         pass
+
+    def _dropIt(self, node, new_state):
+        app = self.app
+        node.setState(new_state)
+        app.broadcastNodeInformation(node)
+        app.nm.remove(node)
+        for tid, t in app.finishing_transaction_dict.items():
+            if t.getConnection() is conn:
+                del app.finishing_transaction_dict[tid]
 
     def handleAbortTransaction(self, conn, packet, tid):
         uuid = conn.getUUID()
@@ -270,11 +247,37 @@ class ClientServiceEventHandler(ServiceEventHandler):
 
 
 class StorageServiceEventHandler(ServiceEventHandler):
+    """ Handler dedicated to storages during service state """
 
     def connectionCompleted(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() == RUNNING_STATE:
             conn.notify(protocol.startOperation())
+
+    def _dropIt(self, conn, node, new_state):
+        app = self.app
+        node.setState(new_state)
+        app.broadcastNodeInformation(node)
+        cell_list = app.pt.dropNode(node)
+        ptid = app.pt.setNextID()
+        app.broadcastPartitionChanges(ptid, cell_list)
+        if not app.pt.operational():
+            raise OperationFailure, 'cannot continue operation'
+
+    def connectionClosed(self, conn):
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        if node.getState() == RUNNING_STATE:
+            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
+
+    def timeoutExpired(self, conn):
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        if node.getState() == RUNNING_STATE:
+            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
+
+    def peerBroken(self, conn):
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        if node.getState() != BROKEN_STATE:
+            self._dropIt(conn, node, BROKEN_STATE)
 
     def handleNotifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()
@@ -368,4 +371,5 @@ class StorageServiceEventHandler(ServiceEventHandler):
         if new_cell_list:
             ptid = app.pt.setNextID()
             app.broadcastPartitionChanges(ptid, new_cell_list)
+
 
