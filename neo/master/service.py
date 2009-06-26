@@ -88,11 +88,6 @@ class ServiceEventHandler(MasterEventHandler):
                 # No change. Don't care.
                 continue
 
-            if state == node.getState():
-                # No problem.
-                continue
-
-
             node.setState(state)
             # Something wrong happened possibly. Cut the connection to
             # this node, if any, and notify the information to others.

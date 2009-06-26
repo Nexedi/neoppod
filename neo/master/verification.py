@@ -130,10 +130,6 @@ class VerificationEventHandler(MasterEventHandler):
             logging.critical('got later information in verification')
             raise VerificationFailure
 
-    def handleAnswerPartitionTable(self, conn, packet, ptid, cell_list):
-        # Ignore this packet.
-        pass
-
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
         uuid = conn.getUUID()
         logging.info('got unfinished transactions %s from %s:%d', 
