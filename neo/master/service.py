@@ -272,7 +272,9 @@ class ClientServiceEventHandler(ServiceEventHandler):
 class StorageServiceEventHandler(ServiceEventHandler):
 
     def connectionCompleted(self, conn):
-        conn.notify(protocol.startOperation())
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        if node.getState() == RUNNING_STATE:
+            conn.notify(protocol.startOperation())
 
     def handleNotifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()

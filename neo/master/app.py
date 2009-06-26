@@ -882,7 +882,7 @@ class Application(object):
     def identifyNode(self, node_type, uuid, node):
 
         state = protocol.RUNNING_STATE
-        handler = self.__class__
+        handler = IdentificationEventHandler
 
         if node_type == protocol.ADMIN_NODE_TYPE:
             # always accept admin nodes
