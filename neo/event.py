@@ -107,13 +107,14 @@ class SelectEventManager(object):
             # This can fail, if a connection is closed in readable().
             try:
                 conn = self.connection_dict[s]
+            except KeyError:
+                pass
+            else:
                 conn.lock()
                 try:
                     conn.writable()
                 finally:
                     conn.unlock()
-            except KeyError:
-                pass
 
         # Check idle events. Do not check them out too often, because this
         # is somehow heavy.
