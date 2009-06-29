@@ -805,7 +805,7 @@ class ClientApplicationTests(NeoTestBase):
             Application._waitMessage = _waitMessage4
         # first iteration : connection failed
         def _waitMessage2(app, conn=None, msg_id=None, handler=None):
-            app.primary_master_node = -1
+            app.trying_master_node = None
             Application._waitMessage = _waitMessage3
         # do nothing for the first call
         def _waitMessage1(app, conn=None, msg_id=None, handler=None):
@@ -824,7 +824,6 @@ class ClientApplicationTests(NeoTestBase):
         self.assertTrue(self.all_passed)
         self.assertTrue(app.master_conn, neo.connection.MTClientConnection)
         self.assertTrue(app.pt.operational())
-        self.assertEquals(len(app.nm.getNodeList()), 3)
 
     def test_askStorage(self):
         """ _askStorage is private but test it anyway """
