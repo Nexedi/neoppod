@@ -913,7 +913,9 @@ class Application(object):
                 continue
             if self.local_var.history[0] != oid:
                 # Got history for wrong oid
-                continue
+                raise NEOStorageError('inconsistency in storage: asked oid ' \
+                                      '%r, got %r' % (
+                                      oid, self.local_var.history[0]))
 
         if not isinstance(self.local_var.history, tuple):
             raise NEOStorageError('history failed')
