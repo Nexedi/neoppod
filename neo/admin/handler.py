@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -60,7 +60,7 @@ class AdminEventHandler(BaseEventHandler):
                                                    'msg_id' : packet.getId()})
         else:
             app.sendPartitionTable(conn, min_offset, max_offset, uuid, packet.getId())
-        
+
 
     def handleAskNodeList(self, conn, packet, node_type):
         logging.info("ask node list for %s" %(node_type))
@@ -95,7 +95,7 @@ class AdminEventHandler(BaseEventHandler):
         p = protocol.setNodeState(uuid, state, modify_partition_table)
         msg_id = master_conn.ask(p)
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
-            
+
     def handleSetClusterState(self, conn, packet, name, state):
         self.checkClusterName(name)
         # forward to primary
@@ -103,7 +103,7 @@ class AdminEventHandler(BaseEventHandler):
         p = protocol.setClusterState(name, state)
         msg_id = master_conn.ask(p)
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
-        
+
     def handleAddPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
         logging.info('Add nodes %s' % uuids)
@@ -116,22 +116,22 @@ class AdminEventHandler(BaseEventHandler):
 
 class MasterEventHandler(BaseEventHandler):
     """ This class is just used to dispacth message to right handler"""
-    
+
     def dispatch(self, conn, packet):
         if self.app.dispatcher.registered(packet.getId()):
             # answer to a request
             self.app.request_handler.dispatch(conn, packet)
         else:
             # monitoring phase
-            self.app.monitoring_handler.dispatch(conn, packet)            
+            self.app.monitoring_handler.dispatch(conn, packet)
+
 
 class MasterBaseEventHandler(BaseEventHandler):
     """ This is the base class for connection to primary master node"""
-    
+
     def connectionAccepted(self, conn, s, addr):
         """Called when a connection is accepted."""
         raise UnexpectedPacketError
-
 
     def connectionCompleted(self, conn):
         app = self.app
@@ -142,7 +142,6 @@ class MasterBaseEventHandler(BaseEventHandler):
         # Ask a primary master.
         conn.ask(protocol.askPrimaryMaster())
         EventHandler.connectionCompleted(self, conn)
-
 
     def connectionFailed(self, conn):
         app = self.app
@@ -163,7 +162,6 @@ class MasterBaseEventHandler(BaseEventHandler):
 
         EventHandler.connectionFailed(self, conn)
 
-
     def timeoutExpired(self, conn):
         app = self.app
 
@@ -173,11 +171,10 @@ class MasterBaseEventHandler(BaseEventHandler):
         if app.trying_master_node is app.primary_master_node:
             # If a primary master node timeouts, I should not rely on it.
             app.primary_master_node = None
-            
+
         app.trying_master_node = None
 
         EventHandler.timeoutExpired(self, conn)
-
 
     def connectionClosed(self, conn):
         app = self.app
@@ -208,10 +205,8 @@ class MasterBaseEventHandler(BaseEventHandler):
 
         EventHandler.peerBroken(self, conn)
 
-
     @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        logging.info("handleNotifyNodeInformation")
         uuid = conn.getUUID()
         app = self.app
         nm = app.nm
@@ -240,7 +235,7 @@ class MasterBaseEventHandler(BaseEventHandler):
                 # same uuid but different address, remove it
                 nm.remove(n)
                 n = None
-                 
+
             if node_type == MASTER_NODE_TYPE:
                 if n is None:
                     n = MasterNode(server = addr)
@@ -257,7 +252,7 @@ class MasterBaseEventHandler(BaseEventHandler):
                     # No interest.
                     continue
                 if n is None:
-                    if node_type == STORAGE_NODE_TYPE:                        
+                    if node_type == STORAGE_NODE_TYPE:
                         n = StorageNode(server = addr, uuid = uuid)
                     elif node_type == CLIENT_NODE_TYPE:
                         n = ClientNode(server = addr, uuid = uuid)
@@ -267,9 +262,9 @@ class MasterBaseEventHandler(BaseEventHandler):
             else:
                 logging.warning("unknown node type %s" %(node_type))
                 continue
-            
+
             n.setState(state)
-            
+
         self.app.notified = True
 
 
@@ -285,7 +280,7 @@ class MasterRequestEventHandler(MasterBaseEventHandler):
         logging.info("handleAnswerNewNodes for a conn")
         client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
         client_conn.notify(protocol.answerNewNodes(uuid_list), kw['msg_id'])
-                          
+
     @decorators.identification_required
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         logging.info("handleAnswerPartitionTable for a conn")
@@ -293,19 +288,19 @@ class MasterRequestEventHandler(MasterBaseEventHandler):
         # sent client the partition table
         self.app.sendPartitionTable(client_conn, **kw)
 
-    def handleAnswerNodeState(self, conn, packet, uuid, state):        
+    def handleAnswerNodeState(self, conn, packet, uuid, state):
         client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
         p = protocol.answerNodeState(uuid, state)
         client_conn.notify(p, kw['msg_id'])
 
     def handleNoError(self, conn, packet, msg):
-        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())        
+        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
         p = protocol.noError(msg)
         client_conn.notify(p, kw['msg_id'])
 
+
 class MasterBootstrapEventHandler(MasterBaseEventHandler):
     """This class manage the bootstrap part to the primary master node"""
-
 
     def handleNotReady(self, conn, packet, message):
         app = self.app
@@ -313,7 +308,7 @@ class MasterBootstrapEventHandler(MasterBaseEventHandler):
             app.trying_master_node = None
 
         conn.close()
-    
+
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas, your_uuid):
@@ -329,7 +324,7 @@ class MasterBootstrapEventHandler(MasterBaseEventHandler):
             # The server address is different! Then why was
             # the connection successful?
             logging.error('%s:%d is waiting for %s:%d',
-                          conn.getAddress()[0], conn.getAddress()[1], 
+                          conn.getAddress()[0], conn.getAddress()[1],
                           ip_address, port)
             app.nm.remove(node)
             conn.close()
@@ -400,7 +395,7 @@ class MasterBootstrapEventHandler(MasterBaseEventHandler):
             app.trying_master_node = None
             conn.close()
 
-        p = protocol.requestNodeIdentification(ADMIN_NODE_TYPE, 
+        p = protocol.requestNodeIdentification(ADMIN_NODE_TYPE,
                 app.uuid, app.server[0], app.server[1], app.name)
         conn.ask(p)
 
@@ -418,7 +413,6 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
 
     @decorators.identification_required
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        logging.warning("handleNotifyPartitionChanges")
         app = self.app
         nm = app.nm
         pt = app.pt
@@ -443,11 +437,10 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
                     node.setState(TEMPORARILY_DOWN_STATE)
                 nm.add(node)
             pt.setCell(offset, node, state)
-        pt.log()                
+        pt.log()
 
     @decorators.identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        logging.warning("handleSendPartitionTable")
         uuid = conn.getUUID()
         app = self.app
         nm = app.nm
@@ -470,6 +463,3 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
                 pt.setCell(offset, node, state)
 
         pt.log()
-
-
-

@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -26,7 +26,7 @@ from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         INVALID_UUID, INVALID_PTID, partition_cell_states, MASTER_NODE_TYPE
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
 from neo.event import EventManager
-from neo.connection import ListeningConnection, ClientConnection 
+from neo.connection import ListeningConnection, ClientConnection
 from neo.exception import OperationFailure, PrimaryFailure
 from neo.admin.handler import MasterMonitoringEventHandler, AdminEventHandler, \
      MasterBootstrapEventHandler, MasterRequestEventHandler, MasterEventHandler
@@ -48,8 +48,8 @@ class Dispatcher:
         return self.message_table.pop(msg_id, None)
 
     def registered(self, msg_id):
-        return self.message_table.has_key(msg_id)    
-    
+        return self.message_table.has_key(msg_id)
+
 
 class Application(object):
     """The storage node application."""
@@ -81,7 +81,7 @@ class Application(object):
         self.monitoring_handler = MasterMonitoringEventHandler(self)
         self.request_handler = MasterRequestEventHandler(self)
         self.dispatcher = Dispatcher()
-        
+
     def run(self):
         """Make sure that the status is sane and start a loop."""
         if self.num_partitions is not None and self.num_partitions <= 0:
@@ -110,14 +110,14 @@ class Application(object):
                 # do not trust any longer our informations
                 self.pt.clear()
                 self.nm.clear(filter = lambda node: node.getNodeType() != MASTER_NODE_TYPE)
-                
+
 
     def connectToPrimaryMaster(self):
         """Find a primary master node, and connect to it.
 
         If a primary master node is not elected or ready, repeat
         the attempt of a connection periodically.
-        
+
         Note that I do not accept any connection from non-master nodes
         at this stage."""
         logging.info('connecting to a primary master node')
@@ -194,6 +194,5 @@ class Application(object):
             p = protocot.protocolError('invalid partition table offset')
             conn.notify(p)
             return
-        print "sending packet", len(row_list)
         p = protocol.answerPartitionList(self.ptid, row_list)
         conn.notify(p, msg_id)
