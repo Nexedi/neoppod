@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -69,7 +69,7 @@ class HiddenEventHandler(EventHandler):
                         # I know I'm hidden
                         continue
                     else:
-                        # I must be working again                
+                        # I must be working again
                         n = app.nm.getNodeByUUID(uuid)
                         n.setState(state)
 
@@ -122,7 +122,7 @@ class HiddenEventHandler(EventHandler):
                 nm.add(node)
             pt.setCell(offset, node, state)
 
-            if uuid == app.uuid:
+            if uuid == app.uuid and app.replicator is not None:
                 # If this is for myself, this can affect replications.
                 if state == DISCARDED_STATE:
                     app.replicator.removePartition(offset)
