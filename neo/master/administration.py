@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -20,7 +20,7 @@ import logging
 from neo import protocol
 from neo.master.handler import MasterEventHandler
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        STORAGE_NODE_TYPE, HIDDEN_STATE, PENDING_STATE
+        STORAGE_NODE_TYPE, HIDDEN_STATE, PENDING_STATE, RUNNING
 from neo.util import dump
 
 class AdministrationEventHandler(MasterEventHandler):
@@ -86,21 +86,33 @@ class AdministrationEventHandler(MasterEventHandler):
             p = protocol.noError('node state changed')
             conn.answer(p, packet)
 
-        # forward information to all nodes
+        # Change node state
         if node.getState() != state:
+            # first make sure to have a connection to the node
+            node_conn = None
+            conn_found = False
+            for node_conn in app.em.getConnectionList():
+                if node_conn.getUUID() == node.getUUID():
+                    conn_found = True
+                    break
+            if conn_found is False:
+                # no connection to the node
+                p = protocol.protocolError('no connection to the node')
+                conn.notify(p)
+                return
+
             node.setState(state)
             p = protocol.noError('state changed')
             conn.answer(p, packet)
             app.broadcastNodeInformation(node)
             # If this is a storage node, ask it to start.
-            if node.getNodeType() == STORAGE_NODE_TYPE and state == RUNNING_STATE:
-                for sn_conn in app.em.getConnectionList():
-                    if sn_conn.getUUID() == node.getUUID():
-                        logging.info("asking sn to start operation")
-                        sn_conn.notify(protocol.startOperation())
+            if node.getNodeType() == STORAGE_NODE_TYPE and state == RUNNING_STATE  \
+                   and self.app.cluster_state == RUNNING:
+                logging.info("asking sn to start operation")
+                node_conn.notify(protocol.startOperation())
 
         # modify the partition table if required
-        if modify_partition_table and node.getNodeType() == STORAGE_NODE_TYPE: 
+        if modify_partition_table and node.getNodeType() == STORAGE_NODE_TYPE:
             if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE):
                 # remove from pt
                 cell_list = app.pt.dropNode(node)
@@ -116,7 +128,7 @@ class AdministrationEventHandler(MasterEventHandler):
             if len(cell_list) != 0:
                 ptid = app.pt.setNextID()
                 app.broadcastPartitionChanges(ptid, cell_list)
-            
+
     def handleAddPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
         logging.debug('Add nodes %s' % uuids)
