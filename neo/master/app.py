@@ -811,6 +811,8 @@ class Application(object):
             return False
         return uuid != self.uuid and uuid != INVALID_UUID
 
+    def getClusterState(self):
+        return self.cluster_state
 
     def shutdown(self):
         """Close all connections and exit"""
