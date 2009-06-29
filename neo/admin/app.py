@@ -81,6 +81,7 @@ class Application(object):
         self.monitoring_handler = MasterMonitoringEventHandler(self)
         self.request_handler = MasterRequestEventHandler(self)
         self.dispatcher = Dispatcher()
+        self.cluster_state = None
 
     def run(self):
         """Make sure that the status is sane and start a loop."""

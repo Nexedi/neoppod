@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -73,7 +73,7 @@ class CommandEventHandler(EventHandler):
                 for uuid, state in cell_list:
                     data += "%s - %s |" %(dump(uuid), state)
         self.app.result = data
-        
+
     def handleAnswerNodeList(self, conn, packet, node_list):
         data = ""
         if len(node_list) == 0:
@@ -82,7 +82,7 @@ class CommandEventHandler(EventHandler):
             for node_type, ip, port, uuid, state in node_list:
                 data += "\n%s - %s - %s:%s - %s" %(node_type, dump(uuid), ip, port, state)
         self.app.result = data
-                
+
     def handleAnswerNodeState(self, conn, packet, uuid, state):
         self.app.result = "Node %s set to state %s" %(dump(uuid), state)
 

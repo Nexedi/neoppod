@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -27,7 +27,7 @@ from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         INVALID_UUID, INVALID_PTID, partition_cell_states, MASTER_NODE_TYPE
 from neo.event import EventManager
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
-from neo.connection import ClientConnection 
+from neo.connection import ClientConnection
 from neo.exception import OperationFailure, PrimaryFailure
 from neo.neoctl.handler import CommandEventHandler
 from neo.connector import getConnectorHandler
@@ -45,7 +45,7 @@ class Application(object):
         self.ptid = INVALID_PTID
 
 
-    def execute(self, args):        
+    def execute(self, args):
         """Execute the command given."""
         handler = CommandEventHandler(self)
         # connect to admin node
@@ -53,7 +53,7 @@ class Application(object):
         self.trying_admin_node = False
         try:
             while 1:
-                self.em.poll(1)                
+                self.em.poll(1)
                 if conn is None:
                     self.trying_admin_node = True
                     logging.info('connecting to address %s:%d', *(self.server))
@@ -62,7 +62,7 @@ class Application(object):
                                             connector_handler = self.connector_handler)
                 if self.trying_admin_node is False:
                     break
-                
+
         except OperationFailure, msg:
             return "FAIL : %s" %(msg,)
 
@@ -98,6 +98,8 @@ class Application(object):
                 if node_type is None:
                     return 'unknown node type'
                 p = protocol.askNodeList(node_type)
+            elif print_type == "cluster":
+                p = protocol.askClusterState()
             else:
                 return "unknown command options"
         elif command == "set":
@@ -121,7 +123,7 @@ class Application(object):
                     return "unknown cluster state"
                 p = protocol.setClusterState(name, state)
             else:
-                return "unknown command options"                                
+                return "unknown command options"
         elif command == "add":
             if len(options) == 1 and options[0] == 'all':
                 uuid_list = []
@@ -130,7 +132,7 @@ class Application(object):
             p = protocol.addPendingNodes(uuid_list)
         else:
             return "unknown command"
-        
+
         conn.ask(p)
         self.result = ""
         while 1:

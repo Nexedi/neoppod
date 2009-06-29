@@ -114,6 +114,14 @@ class AdminEventHandler(BaseEventHandler):
         msg_id = master_conn.ask(protocol.addPendingNodes(uuid_list))
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
+    def handleAskClusterState(self, conn, packet):
+        if self.app.cluster_state is None:
+            # required it from PMN first
+            msg_id = self.app.master_conn.ask(protocol.askClusterState())
+            self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
+            return
+        conn.answer(protocol.answerClusterState(self.app.cluster_state), packet)
+
 class MasterEventHandler(BaseEventHandler):
     """ This class is just used to dispacth message to right handler"""
 
@@ -206,6 +214,10 @@ class MasterBaseEventHandler(BaseEventHandler):
         EventHandler.peerBroken(self, conn)
 
     @decorators.identification_required
+    def handleNotifyClusterInformation(self, con, packet, cluster_state):
+        self.app.cluster_state = cluster_state
+
+    @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
         app = self.app
@@ -273,6 +285,7 @@ class MasterRequestEventHandler(MasterBaseEventHandler):
 
     def handleAnswerClusterState(self, conn, packet, state):
         logging.info("handleAnswerClusterState for a conn")
+        self.app.cluster_state = state
         client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
         client_conn.notify(protocol.answerClusterState(state), kw['msg_id'])
 
