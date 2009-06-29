@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -27,7 +27,7 @@ from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
-from neo.connection import ListeningConnection, ClientConnection 
+from neo.connection import ListeningConnection, ClientConnection
 from neo.exception import OperationFailure, PrimaryFailure
 from neo.storage.bootstrap import BootstrapEventHandler
 from neo.storage.verification import VerificationEventHandler
@@ -59,14 +59,15 @@ class Application(object):
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
-        self.dm = MySQLDatabaseManager(database = config.getDatabase(), 
-                                       user = config.getUser(), 
+        self.dm = MySQLDatabaseManager(database = config.getDatabase(),
+                                       user = config.getUser(),
                                        password = config.getPassword())
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
 
         self.primary_master_node = None
+        self.replicator = None
 
         self.dm.setup(reset)
         self.loadConfiguration()
@@ -86,7 +87,7 @@ class Application(object):
         if self.num_partitions is not None and self.num_replicas is not None:
             # create a partition table
             self.pt = PartitionTable(self.num_partitions, self.num_replicas)
-        
+
         name = dm.getName()
         if name is None:
             dm.setName(self.name)
@@ -152,8 +153,8 @@ class Application(object):
                         logging.error('operation stopped')
                         # XXX still we can receive answer packet here
                         # this must be handle in order not to fail
-                        self.operational = False                            
-                                
+                        self.operational = False
+
             except PrimaryFailure:
                 logging.error('primary master is down')
 
@@ -162,7 +163,7 @@ class Application(object):
 
         If a primary master node is not elected or ready, repeat
         the attempt of a connection periodically.
-        
+
         Note that I do not accept any connection from non-master nodes
         at this stage."""
         logging.info('connecting to a primary master node')
@@ -263,7 +264,7 @@ class Application(object):
         # This is a mapping between object IDs and transaction IDs. Used
         # for locking objects against store operations.
         self.store_lock_dict = {}
-        
+
         # This is a mapping between object IDs and transactions IDs. Used
         # for locking objects against load operations.
         self.load_lock_dict = {}
