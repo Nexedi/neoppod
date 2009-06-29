@@ -32,7 +32,8 @@ from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
         DOWN_STATE, HIDDEN_STATE
 from neo.client.handler import *
 from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
-     NEOStorageNotFoundError, NEOStorageConnectionFailure, NeoException
+     NEOStorageNotFoundError, NEOStorageConnectionFailure
+from neo.exception import NeoException
 from neo.util import makeChecksum, dump
 from neo.connector import getConnectorHandler
 from neo.client.dispatcher import Dispatcher
