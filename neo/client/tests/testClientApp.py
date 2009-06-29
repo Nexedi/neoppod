@@ -752,7 +752,6 @@ class ClientApplicationTests(NeoTestBase):
         tid1, tid2 = self.makeTID(1), self.makeTID(2)
         object_history = ( (tid1, 42), (tid2, 42),)
         # object history, first is a wrong oid, second is valid
-        p1 = protocol.answerObjectHistory(self.makeOID(2), ())
         p2 = protocol.answerObjectHistory(oid, object_history)
         # transaction history
         p3 = protocol.answerTransactionInformation(tid1, 'u', 'd', 'e', (oid, ))
@@ -761,16 +760,16 @@ class ClientApplicationTests(NeoTestBase):
         conn = Mock({
             'getNextId': 1,
             'fakeGetApp': app,
-            'fakeReceived': ReturnValues(p1, p2, p3, p4),
+            'fakeReceived': ReturnValues(p2, p3, p4),
             'getAddress': ('127.0.0.1', 10010),
         })
-        object_cells = [ Mock({}), Mock({}) ]
+        object_cells = [ Mock({}), ]
         history_cells = [ Mock({}), Mock({}) ]
         app.pt = Mock({
             'getCellListForID': ReturnValues(object_cells, history_cells,
                 history_cells),
         })
-        app.cp = Mock({ 'getConnForNode': conn})
+        app.cp = Mock({ 'getConnForCell': conn})
         # start test here
         result = app.history(oid)
         self.assertEquals(len(result), 2)
