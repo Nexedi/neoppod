@@ -106,6 +106,11 @@ class MasterEventHandler(EventHandler):
         conn.answer(protocol.answerPrimaryMaster(primary_uuid,
                                                  known_master_list), packet)
 
+    def handleAskClusterState(self, conn, packet):
+        assert conn.getUUID() != protocol.INVALID_UUID
+        state = self.app.getClusterState()
+        conn.answer(protocol.answerClusterState(state), packet)
+
     def handleAskNodeInformation(self, conn, packet):
         self.app.sendNodesInformations(conn)
         conn.answer(protocol.answerNodeInformation([]), packet)

@@ -282,23 +282,30 @@ packet_types = Enum({
     # Answer state of the node
     'ANSWER_NODE_STATE': 0x8023,
 
-    # Set the cluster state
-    'SET_CLUSTER_STATE': 0x0024,
-
-    # Answer state of the cluster
-    'ANSWER_CLUSTER_STATE': 0x8024,
-
     # Ask the primary to include some pending node in the partition table
-    'ADD_PENDING_NODES': 0x0025,
+    'ADD_PENDING_NODES': 0x0024,
 
     # Anwer what are the nodes added in the partition table
-    'ANSWER_NEW_NODES': 0x8025,
+    'ANSWER_NEW_NODES': 0x8024,
 
     # Ask node information
-    'ASK_NODE_INFORMATION': 0x0026,
+    'ASK_NODE_INFORMATION': 0x0025,
 
     # Answer node information
-    'ANSWER_NODE_INFORMATION': 0x8026,
+    'ANSWER_NODE_INFORMATION': 0x8025,
+
+    # Set the cluster state
+    'SET_CLUSTER_STATE': 0x0026,
+
+    # Notify information about the cluster
+    'NOTIFY_CLUSTER_INFORMATION': 0x8027,
+
+    # Ask state of the cluster
+    'ASK_CLUSTER_STATE': 0x0028,
+
+    # Answer state of the cluster
+    'ANSWER_CLUSTER_STATE': 0x8028,
+    
 })
 
 # Error codes.
@@ -944,21 +951,6 @@ def _decodeAnswerNodeState(body):
 decode_table[ANSWER_NODE_STATE] = _decodeAnswerNodeState
 
 @handle_errors
-def _decodeSetClusterState(body):
-    (state, ) = unpack('!H', body[:2])
-    (name, _) = _readString(body, 'name', offset=2)
-    state = _checkClusterState(state)
-    return (name, state)
-decode_table[SET_CLUSTER_STATE] = _decodeSetClusterState
-
-@handle_errors
-def _decodeAnswerClusterState(body):
-    (state, ) = unpack('!H', body)
-    state = _checkClusterState(state)
-    return (state, )
-decode_table[ANSWER_CLUSTER_STATE] = _decodeAnswerClusterState
-
-@handle_errors
 def _decodeAddPendingNodes(body):
     (n, ) = unpack('!H', body[:2])
     uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
@@ -976,6 +968,32 @@ def _decodeAskNodeInformation(body):
     pass # No payload
 decode_table[ASK_NODE_INFORMATION] = _decodeAskNodeInformation
 decode_table[ANSWER_NODE_INFORMATION] = _decodeNotifyNodeInformation
+
+def _decodeAskClusterState(body):
+    pass
+decode_table[ASK_CLUSTER_STATE] = _decodeAskClusterState
+
+@handle_errors
+def _decodeAnswerClusterState(body):
+    (state, ) = unpack('!H', body)
+    state = _checkClusterState(state)
+    return (state, )
+decode_table[ANSWER_CLUSTER_STATE] = _decodeAnswerClusterState
+
+@handle_errors
+def _decodeSetClusterState(body):
+    (state, ) = unpack('!H', body[:2])
+    (name, _) = _readString(body, 'name', offset=2)
+    state = _checkClusterState(state)
+    return (name, state)
+decode_table[SET_CLUSTER_STATE] = _decodeSetClusterState
+
+@handle_errors
+def _decodeNotifyClusterInformation(body):
+    (state, ) = unpack('!H', body)
+    state = _checkClusterState(state)
+    return (state, )
+decode_table[NOTIFY_CLUSTER_INFORMATION] = _decodeNotifyClusterInformation
 
 
 # Packet encoding
@@ -1266,15 +1284,6 @@ def answerNodeState(uuid, state):
     body = ''.join(body)
     return Packet(ANSWER_NODE_STATE, body)
 
-def setClusterState(name, state):    
-    body = [pack('!HL', state, len(name)), name]
-    body = ''.join(body)
-    return Packet(SET_CLUSTER_STATE, body)
-
-def answerClusterState(state):
-    body = pack('!H', state)
-    return Packet(ANSWER_CLUSTER_STATE, body)
-
 def addPendingNodes(uuid_list=()):
     # an empty list means all current pending nodes
     uuid_list = [pack('!16s', uuid) for uuid in uuid_list]
@@ -1298,4 +1307,20 @@ def answerNodeInformation(node_list):
                          uuid, state))
     body = ''.join(body)
     return Packet(ANSWER_NODE_INFORMATION, body)
+
+def askClusterState():
+    return Packet(ASK_CLUSTER_STATE)
+
+def answerClusterState(state):
+    body = pack('!H', state)
+    return Packet(ANSWER_CLUSTER_STATE, body)
+
+def setClusterState(name, state):    
+    body = [pack('!HL', state, len(name)), name]
+    body = ''.join(body)
+    return Packet(SET_CLUSTER_STATE, body)
+
+def notifyClusterInformation(state):
+    body = pack('!H', state)
+    return Packet(NOTIFY_CLUSTER_INFORMATION, body)
 
