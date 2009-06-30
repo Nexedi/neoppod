@@ -181,7 +181,7 @@ class Application(object):
             self.ptid = self.dm.getPTID()
 
         # bootstrap handler, only for outgoing connections
-        handler BootstrapEventHandler(self)
+        handler = BootstrapEventHandler(self)
         em = self.em
         nm = self.nm
 

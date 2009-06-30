@@ -34,105 +34,49 @@ class BootstrapEventHandler(StorageEventHandler):
 
     def connectionCompleted(self, conn):
         app = self.app
-        if app.trying_master_node is None:
-            # Should not happen.
-            raise RuntimeError('connection completed while not trying to connect')
-
         conn.ask(protocol.askPrimaryMaster())
         StorageEventHandler.connectionCompleted(self, conn)
 
     def connectionFailed(self, conn):
         app = self.app
-        if app.trying_master_node is None:
-            # Should not happen.
-            raise RuntimeError('connection failed while not trying to connect')
-
         if app.trying_master_node is app.primary_master_node:
             # Tried to connect to a primary master node and failed.
             # So this would effectively mean that it is dead.
             app.primary_master_node = None
-
         app.trying_master_node = None
 
         StorageEventHandler.connectionFailed(self, conn)
 
-    def connectionAccepted(self, conn, s, addr):
-        """Called when a connection is accepted."""
-        # I do not want to accept a connection at this phase, but
-        # someone might mistake me as a master node.
-        StorageEventHandler.connectionAccepted(self, conn, s, addr)
-
     def timeoutExpired(self, conn):
-        if not conn.isServerConnection():
-            app = self.app
-            if app.trying_master_node is app.primary_master_node:
-                # If a primary master node timeouts, I should not rely on it.
-                app.primary_master_node = None
-
-            app.trying_master_node = None
-
+        app = self.app
+        if app.trying_master_node is app.primary_master_node:
+            # If a primary master node timeouts, I should not rely on it.
+            app.primary_master_node = None
+        app.trying_master_node = None
         StorageEventHandler.timeoutExpired(self, conn)
 
     def connectionClosed(self, conn):
-        if not conn.isServerConnection():
-            app = self.app
-            if app.trying_master_node is app.primary_master_node:
-                # If a primary master node closes, I should not rely on it.
-                app.primary_master_node = None
-
-            app.trying_master_node = None
-
+        app = self.app
+        if app.trying_master_node is app.primary_master_node:
+            # If a primary master node closes, I should not rely on it.
+            app.primary_master_node = None
+        app.trying_master_node = None
         StorageEventHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
-        if not conn.isServerConnection():
-            app = self.app
-            if app.trying_master_node is app.primary_master_node:
-                # If a primary master node gets broken, I should not rely
-                # on it.
-                app.primary_master_node = None
-
-            app.trying_master_node = None
-
+        app = self.app
+        if app.trying_master_node is app.primary_master_node:
+            # If a primary master node gets broken, I should not rely
+            # on it.
+            app.primary_master_node = None
+        app.trying_master_node = None
         StorageEventHandler.peerBroken(self, conn)
 
     def handleNotReady(self, conn, packet, message):
-        if not conn.isServerConnection():
-            app = self.app
-            if app.trying_master_node is not None:
-                app.trying_master_node = None
-
-        conn.close()
-
-    @decorators.server_connection_required
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
-        self.checkClusterName(name)
         app = self.app
-        if node_type != MASTER_NODE_TYPE:
-            logging.info('reject a connection from a non-master')
-            raise protocol.NotReadyError
-        addr = (ip_address, port)
-        node = app.nm.getNodeByServer(addr)
-        if node is None:
-            node = MasterNode(server = addr, uuid = uuid)
-            app.nm.add(node)
-        else:
-            # If this node is broken, reject it.
-            if node.getUUID() == uuid:
-                if node.getState() == BROKEN_STATE:
-                    raise protocol.BrokenNodeDisallowedError
-
-        # Trust the UUID sent by the peer.
-        node.setUUID(uuid)
-        conn.setUUID(uuid)
-
-        p = protocol.acceptNodeIdentification(STORAGE_NODE_TYPE, app.uuid, 
-                    app.server[0], app.server[1], 0, 0, uuid)
-        conn.answer(p, packet)
-
-        # Now the master node should know that I am not the right one.
-        conn.abort()
+        if app.trying_master_node is not None:
+            app.trying_master_node = None
+        conn.close()
 
     @decorators.client_connection_required
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
@@ -225,54 +169,3 @@ class BootstrapEventHandler(StorageEventHandler):
                                     app.server[0], app.server[1], app.name)
         conn.ask(p)
 
-    def handleAskLastIDs(self, conn, packet):
-        logging.warning('/!\ handleAskLastIDs')
-        pass
-
-    def handleAskPartitionTable(self, conn, packet, offset_list):
-        logging.warning('/!\ handleAskPartitionTable')
-        pass
-
-    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        logging.warning('/!\ handleSendPartitionTable')
-        pass
-
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        logging.warning('/!\ handleNotifyPartitionChanges')
-        pass
-
-    def handleStartOperation(self, conn, packet):
-        logging.warning('/!\ handleStartOperation')
-        pass
-
-    def handleStopOperation(self, conn, packet):
-        logging.warning('/!\ handleStopOperation')
-        pass
-
-    def handleAskUnfinishedTransactions(self, conn, packet):
-        logging.warning('/!\ handleAskUnfinishedTransactions')
-        pass
-
-    def handleAskTransactionInformation(self, conn, packet, tid):
-        logging.warning('/!\ handleAskTransactionInformation')
-        pass
-
-    def handleAskObjectPresent(self, conn, packet, oid, tid):
-        logging.warning('/!\ handleAskObjectPresent')
-        pass
-
-    def handleDeleteTransaction(self, conn, packet, tid):
-        logging.warning('/!\ handleDeleteTransaction')
-        pass
-
-    def handleCommitTransaction(self, conn, packet, tid):
-        logging.warning('/!\ handleCommitTransaction')
-        pass
-
-    def handleLockInformation(self, conn, packet, tid):
-        logging.warning('/!\ handleLockInformation')
-        pass
-
-    def handleUnlockInformation(self, conn, packet, tid):
-        logging.warning('/!\ handleUnlockInformation')
-        pass
