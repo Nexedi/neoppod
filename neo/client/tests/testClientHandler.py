@@ -384,13 +384,14 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         # If primary master is already set *and* is not given primary master
         # handle call raises.
-        # XXX: is it acceptable for a handle call to raise without any proper fallback ?
-        self.assertRaises(ElectionFailure, client_handler.handleAnswerPrimaryMaster,
-                          conn, None, test_node_uuid, [])
+        # Check that the call doesn't raise
+        client_handler.handleAnswerPrimaryMaster(conn, None, test_node_uuid, [])
+        # Check that the primary master changed
+        self.assertTrue(app.primary_master_node is node)
         # Test sanity checks
         getNodeByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
         self.assertEqual(len(getNodeByUUID_call_list), 1)
-        self.assertEqual(getNodeByUUID_call_list[0].getParam(0), conn.getUUID())
+        self.assertEqual(getNodeByUUID_call_list[0].getParam(0), test_node_uuid)
         getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         self.assertEqual(len(getNodeByServer_call_list), 0)
 
