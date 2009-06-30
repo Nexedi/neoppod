@@ -65,7 +65,7 @@ class AdministrationEventHandler(MasterEventHandler):
         node = app.nm.getNodeByUUID(uuid)
         if node is None:
             p = protocol.protocolError('invalid uuid')
-            conn.notify(p)
+            conn.answer(p, packet)
             return
 
         if uuid == app.uuid:
@@ -86,9 +86,7 @@ class AdministrationEventHandler(MasterEventHandler):
             # no change, just notify admin node
             p = protocol.noError('node state changed')
             conn.answer(p, packet)
-
-        # Change node state
-        if node.getState() != state:
+        else:
             # first make sure to have a connection to the node
             node_conn = None
             conn_found = False
