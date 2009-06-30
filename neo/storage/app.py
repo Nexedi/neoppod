@@ -68,6 +68,7 @@ class Application(object):
 
         self.primary_master_node = None
         self.replicator = None
+        self.listening_conn = None
 
         self.dm.setup(reset)
         self.loadConfiguration()
@@ -128,18 +129,22 @@ class Application(object):
         for server in self.master_node_list:
             self.nm.add(MasterNode(server = server))
 
-        # Make a listening port.
-        ListeningConnection(self.em, None, addr = self.server,
-                            connector_handler = self.connector_handler)
-
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permentnly,
         # until the user explicitly requests a shutdown.
         while 1:
             self.operational = False
+            # refuse any incoming connections for now
+            if self.listening_conn is not None:
+                self.listening_conn.close()
+                self.listening_conn = None
+            # look for the primary master
             self.connectToPrimaryMaster()
             if self.uuid == INVALID_UUID:
                 raise RuntimeError, 'No UUID supplied from the primary master'
+            # Make a listening port when connected to the primary
+            self.listening_conn = ListeningConnection(self.em, None, 
+                    addr=self.server, connector_handler=self.connector_handler)
             try:
                 while 1:
                     try:
@@ -175,7 +180,8 @@ class Application(object):
             self.loadPartitionTable()
             self.ptid = self.dm.getPTID()
 
-        handler = BootstrapEventHandler(self)
+        # bootstrap handler, only for outgoing connections
+        handler BootstrapEventHandler(self)
         em = self.em
         nm = self.nm
 
@@ -183,10 +189,6 @@ class Application(object):
         for conn in em.getConnectionList():
             if not isinstance(conn, ListeningConnection):
                 conn.close()
-
-        # Make sure that every connection has the boostrap event handler.
-        for conn in em.getConnectionList():
-            conn.setHandler(handler)
 
         index = 0
         self.trying_master_node = None
