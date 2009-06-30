@@ -88,6 +88,9 @@ class MasterEventHandler(EventHandler):
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         logging.error('ignoring notify partition changes in %s' % self.__class__.__name__)
 
+    def handleNotifyClusterInformation(self, conn, packet, state):
+        logging.error('ignoring notify cluster information in %s' % self.__class__.__name__)
+
     def handleAskPrimaryMaster(self, conn, packet):
         app = self.app
         if app.primary:
