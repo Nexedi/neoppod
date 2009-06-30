@@ -31,6 +31,57 @@ from neo import decorators
 class ElectionEventHandler(MasterEventHandler):
     """This class deals with events for a primary master election."""
 
+    def handleNotifyNodeInformation(self, conn, packet, node_list):
+        uuid = conn.getUUID()
+        if uuid is None:
+            raise protocol.UnexpectedPacketError
+        app = self.app
+        for node_type, ip_address, port, uuid, state in node_list:
+            if node_type != MASTER_NODE_TYPE:
+                # No interest.
+                continue
+
+            # Register new master nodes.
+            addr = (ip_address, port)
+            if app.server == addr:
+                # This is self.
+                continue
+            else:
+                node = app.nm.getNodeByServer(addr)
+                if node is None:
+                    node = MasterNode(server = addr)
+                    app.nm.add(node)
+                    app.unconnected_master_node_set.add(addr)
+
+                if uuid != INVALID_UUID:
+                    # If I don't know the UUID yet, believe what the peer
+                    # told me at the moment.
+                    if node.getUUID() is None:
+                        node.setUUID(uuid)
+
+                if state in (node.getState(), RUNNING_STATE):
+                    # No change. Don't care.
+                    continue
+                if state == RUNNING_STATE:
+                    # No problem.
+                    continue
+
+                # Something wrong happened possibly. Cut the connection to
+                # this node, if any, and notify the information to others.
+                # XXX this can be very slow.
+                for c in app.em.getConnectionList():
+                    if c.getUUID() == uuid:
+                        c.close()
+                node.setState(state)
+
+class ClientElectionEventHandler(MasterEventHandler):
+
+    def packetReceived(self, conn, packet):
+        node = self.app.nm.getNodeByServer(conn.getAddress())
+        if node.getState() != BROKEN_STATE:
+            node.setState(RUNNING_STATE)
+        MasterEventHandler.packetReceived(self, conn, packet)
+
     def connectionStarted(self, conn):
         app = self.app
         addr = conn.getAddress()
@@ -41,6 +92,14 @@ class ElectionEventHandler(MasterEventHandler):
     def connectionCompleted(self, conn):
         conn.ask(protocol.askPrimaryMaster())
         MasterEventHandler.connectionCompleted(self, conn)
+
+    def connectionClosed(self, conn):
+        self.connectionFailed(conn)
+        MasterEventHandler.connectionClosed(self, conn)
+
+    def timeoutExpired(self, conn):
+        self.connectionFailed(conn)
+        MasterEventHandler.timeoutExpired(self, conn)
 
     def connectionFailed(self, conn):
         app = self.app
@@ -54,37 +113,15 @@ class ElectionEventHandler(MasterEventHandler):
             app.unconnected_master_node_set.add(addr)
         MasterEventHandler.connectionFailed(self, conn)
 
-    def connectionClosed(self, conn):
-        if not conn.isServerConnection():
-            self.connectionFailed(conn)
-        MasterEventHandler.connectionClosed(self, conn)
-
-    def timeoutExpired(self, conn):
-        if not conn.isServerConnection():
-            self.connectionFailed(conn)
-        MasterEventHandler.timeoutExpired(self, conn)
-
     def peerBroken(self, conn):
         app = self.app
         addr = conn.getAddress()
         node = app.nm.getNodeByServer(addr)
-        if not conn.isServerConnection():
-            if node is not None:
-                node.setState(DOWN_STATE)
-            app.negotiating_master_node_set.discard(addr)
-        else:
-            if node is not None and node.getUUID() is not None:
-                node.setState(BROKEN_STATE)
+        if node is not None:
+            node.setState(DOWN_STATE)
+        app.negotiating_master_node_set.discard(addr)
         MasterEventHandler.peerBroken(self, conn)
 
-    def packetReceived(self, conn, packet):
-        if not conn.isServerConnection():
-            node = self.app.nm.getNodeByServer(conn.getAddress())
-            if node.getState() != BROKEN_STATE:
-                node.setState(RUNNING_STATE)
-        MasterEventHandler.packetReceived(self, conn, packet)
-
-    @decorators.client_connection_required
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port, num_partitions,
                                        num_replicas, your_uuid):
@@ -121,7 +158,6 @@ class ElectionEventHandler(MasterEventHandler):
 
         app.negotiating_master_node_set.discard(conn.getAddress())
 
-    @decorators.client_connection_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
         app = self.app
         # Register new master nodes.
@@ -165,7 +201,20 @@ class ElectionEventHandler(MasterEventHandler):
         conn.ask(protocol.requestNodeIdentification(MASTER_NODE_TYPE,
                  app.uuid, app.server[0], app.server[1], app.name))
 
-    @decorators.server_connection_required
+
+class ServerElectionEventHandler(MasterEventHandler):
+
+    def handleReelectPrimaryMaster(self, conn, packet):
+        raise ElectionFailure, 'reelection requested'
+
+    def peerBroken(self, conn):
+        app = self.app
+        addr = conn.getAddress()
+        node = app.nm.getNodeByServer(addr)
+        if node is not None and node.getUUID() is not None:
+            node.setState(BROKEN_STATE)
+        MasterEventHandler.peerBroken(self, conn)
+
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
         self.checkClusterName(name)
@@ -197,62 +246,16 @@ class ElectionEventHandler(MasterEventHandler):
                 app.pt.getReplicas(), uuid)
         conn.answer(p, packet)
 
-    @decorators.identification_required
-    @decorators.server_connection_required
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
+        if uuid is None:
+            raise protocol.UnexpectedPacketError
         app = self.app
         if app.primary:
             # I am also the primary... So restart the election.
             raise ElectionFailure, 'another primary arises'
-
         node = app.nm.getNodeByUUID(uuid)
         app.primary = False
         app.primary_master_node = node
         logging.info('%s is the primary', node)
 
-    def handleReelectPrimaryMaster(self, conn, packet):
-        raise ElectionFailure, 'reelection requested'
-
-    @decorators.identification_required
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
-        uuid = conn.getUUID()
-        app = self.app
-        for node_type, ip_address, port, uuid, state in node_list:
-            if node_type != MASTER_NODE_TYPE:
-                # No interest.
-                continue
-
-            # Register new master nodes.
-            addr = (ip_address, port)
-            if app.server == addr:
-                # This is self.
-                continue
-            else:
-                node = app.nm.getNodeByServer(addr)
-                if node is None:
-                    node = MasterNode(server = addr)
-                    app.nm.add(node)
-                    app.unconnected_master_node_set.add(addr)
-
-                if uuid != INVALID_UUID:
-                    # If I don't know the UUID yet, believe what the peer
-                    # told me at the moment.
-                    if node.getUUID() is None:
-                        node.setUUID(uuid)
-
-                if node.getState() == state:
-                    # No change. Don't care.
-                    continue
-
-                if state == RUNNING_STATE:
-                    # No problem.
-                    continue
-
-                # Something wrong happened possibly. Cut the connection to
-                # this node, if any, and notify the information to others.
-                # XXX this can be very slow.
-                for c in app.em.getConnectionList():
-                    if c.getUUID() == uuid:
-                        c.close()
-                node.setState(state)

@@ -34,7 +34,7 @@ from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure, 
         OperationFailure
 from neo.master.identification import IdentificationEventHandler
 from neo.master.administration import AdministrationEventHandler
-from neo.master.election import ElectionEventHandler
+from neo.master.election import ClientElectionEventHandler, ServerElectionEventHandler
 from neo.master.recovery import RecoveryEventHandler
 from neo.master.verification import VerificationEventHandler
 from neo.master.service import ClientServiceEventHandler, StorageServiceEventHandler
@@ -116,7 +116,7 @@ class Application(object):
             except (ElectionFailure, PrimaryFailure):
                 # Forget all connections.
                 for conn in self.em.getConnectionList():
-                    if not isinstance(conn, ListeningConnection):
+                    if not conn.isListeningConnection():
                         conn.close()
                 # Reelect a new primary master.
                 self.electPrimary(bootstrap = False)
@@ -132,13 +132,10 @@ class Application(object):
 
         self.unconnected_master_node_set = set()
         self.negotiating_master_node_set = set()
-        handler = ElectionEventHandler(self)
+        self.listening_conn.setHandler(ServerElectionEventHandler(self))
+        client_handler = ClientElectionEventHandler(self)
         em = self.em
         nm = self.nm
-
-        # Make sure that every connection has the election event handler.
-        for conn in em.getConnectionList():
-            conn.setHandler(handler)
 
         while 1:
             t = 0
@@ -178,7 +175,7 @@ class Application(object):
                         # Try to connect to master nodes.
                         if self.unconnected_master_node_set:
                             for addr in list(self.unconnected_master_node_set):
-                                ClientConnection(em, handler, addr = addr,
+                                ClientConnection(em, client_handler, addr = addr,
                                                  connector_handler = self.connector_handler)
                     if len(self.unconnected_master_node_set) == 0 \
                             and len(self.negotiating_master_node_set) == 0:
@@ -270,7 +267,7 @@ class Application(object):
 
                 # Close all connections.
                 for conn in em.getConnectionList():
-                    if not isinstance(conn, ListeningConnection):
+                    if not conn.isListeningConnection():
                         conn.close()
                 bootstrap = False
 
