@@ -273,15 +273,6 @@ class ClientHandlerTests(NeoTestBase):
         self.assertRaises(UnexpectedPacketError, method, *args, **dict(kw))
 
     # Master node handler
-    def test_initialAnswerPrimaryMaster(self):
-        class App:
-            nm = Mock()
-        client_handler = PrimaryBootstrapHandler(App(), self.getDispatcher())
-        conn = Mock({'getUUID': None})
-        self._testHandleUnexpectedPacketCalledWithMedhod(
-            client_handler.handleAnswerPrimaryMaster,
-            args=(conn, None, 0, []))
-        
     def test_nonMasterAnswerPrimaryMaster(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
             node = Mock({'getNodeType': node_type})
