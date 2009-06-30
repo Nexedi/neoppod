@@ -188,3 +188,5 @@ class DatabaseManager(object):
         the given list."""
         raise NotImplementedError('this method must be overridden')
 
+    __del__ = close
+
