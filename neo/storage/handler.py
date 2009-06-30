@@ -182,6 +182,9 @@ class StorageEventHandler(EventHandler):
             if n is not None:
                 logging.info("added %s %s" %(dump(n.getUUID()), n.getServer()))
 
+    def handleNotifyClusterInformation(self, conn, packet, state):
+        logging.error('ignoring notify cluster information in %s' % self.__class__.__name__)
+
     def handleAskLastIDs(self, conn, packet):
         raise NotImplementedError('this method must be overridden')
 
