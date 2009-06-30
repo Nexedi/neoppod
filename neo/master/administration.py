@@ -62,6 +62,12 @@ class AdministrationEventHandler(MasterEventHandler):
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s : %s" % (dump(uuid), state, modify_partition_table))
         app = self.app
+        node = app.nm.getNodeByUUID(uuid)
+        if node is None:
+            p = protocol.protocolError('invalid uuid')
+            conn.notify(p)
+            return
+
         if uuid == app.uuid:
             # get message for self
             if state == RUNNING_STATE:
@@ -76,11 +82,6 @@ class AdministrationEventHandler(MasterEventHandler):
                 conn.answer(p, packet)
                 app.shutdown()
 
-        node = app.nm.getNodeByUUID(uuid)
-        if node is None:
-            p = protocol.protocolError('invalid uuid')
-            conn.notify(p)
-            return
         if node.getState() == state:
             # no change, just notify admin node
             p = protocol.noError('node state changed')
