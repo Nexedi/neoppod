@@ -731,19 +731,20 @@ class Application(object):
             RuntimeError('Unexpected node type')
 
         # change handlers
+        notification_packet = protocol.notifyClusterInformation(state)
         for conn in em.getConnectionList():
             node = nm.getNodeByUUID(conn.getUUID())
             if conn.isListeningConnection() or node is None:
                 # not identified or listening, keep the identification handler
                 continue
             node_type = node.getNodeType()
+            conn.notify(notification_packet)
             if node_type in (ADMIN_NODE_TYPE, MASTER_NODE_TYPE):
                 # those node types keep their own handler
                 continue
             if node_type == CLIENT_NODE_TYPE:
-                if state != RUNNING:
-                    # FIXME: cut the connection ?
-                    pass
+                if state != protocol.RUNNING:
+                    conn.close()
                 handler = ClientServiceEventHandler
             elif node_type == STORAGE_NODE_TYPE:
                 handler = storage_handler
