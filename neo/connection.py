@@ -184,7 +184,7 @@ class Connection(BaseConnection):
                 dump(self.uuid), *(self.addr))
         BaseConnection.close(self)
         for event in self.event_dict.itervalues():
-            em.removeIdleEvent(event)
+            self.em.removeIdleEvent(event)
         self.event_dict.clear()
         self.write_buf = ""
         self.read_buf = ""
