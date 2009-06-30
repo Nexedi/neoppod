@@ -424,7 +424,7 @@ class ClientHandlerTests(NeoTestBase):
             test_primary_node_uuid = self.getNewUUID()
         node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
-            nm = Mock({'getNodeByUUID': ReturnValues(node, None), 'getNodeByServer': node, 'add': None})
+            nm = Mock({'getNodeByUUID': None, 'getNodeByServer': node, 'add': None})
             primary_master_node = None
             trying_master_node = None
         app = App()
