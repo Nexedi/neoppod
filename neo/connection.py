@@ -91,6 +91,19 @@ class BaseConnection(object):
     def writable(self):
         raise NotImplementedError
 
+    def close(self):
+        """Close the connection."""
+        em = self.em
+        if self.connector is not None:
+            em.removeReader(self)
+            em.removeWriter(self)
+            em.unregister(self)            
+            self.connector.shutdown()
+            self.connector.close()
+            self.connector = None
+
+    __del__ = close
+
     def getHandler(self):
         return self.handler
 
@@ -129,7 +142,7 @@ class ListeningConnection(BaseConnection):
             self.handler.connectionAccepted(self, new_s, addr)
         except ConnectorTryAgainException:
             pass
-            
+
     def isListeningConnection(self):
         return True
 
@@ -167,25 +180,14 @@ class Connection(BaseConnection):
         return next_id
 
     def close(self):
-        """Close the connection."""
-        em = self.em
-        if self.connector is not None:
-            logging.debug('closing a connector for %s (%s:%d)', 
-                    dump(self.uuid), *(self.addr))
-            em.removeReader(self)
-            em.removeWriter(self)
-            em.unregister(self)            
-            self.connector.shutdown()
-            self.connector.close()
-            self.connector = None
-            for event in self.event_dict.itervalues():
-                em.removeIdleEvent(event)
-            self.event_dict.clear()
+        logging.debug('closing a connector for %s (%s:%d)', 
+                dump(self.uuid), *(self.addr))
+        BaseConnection.close(self)
+        for event in self.event_dict.itervalues():
+            em.removeIdleEvent(event)
+        self.event_dict.clear()
         self.write_buf = ""
         self.read_buf = ""
-
-    def __del__(self):
-        self.close()
 
     def abort(self):
         """Abort dealing with this connection."""
