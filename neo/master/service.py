@@ -253,9 +253,6 @@ class StorageServiceEventHandler(ServiceEventHandler):
         app = self.app
         node.setState(new_state)
         app.broadcastNodeInformation(node)
-        cell_list = app.pt.dropNode(node)
-        ptid = app.pt.setNextID()
-        app.broadcastPartitionChanges(ptid, cell_list)
         if not app.pt.operational():
             raise OperationFailure, 'cannot continue operation'
 
