@@ -33,43 +33,33 @@ class VerificationEventHandler(MasterEventHandler):
     def connectionCompleted(self, conn):
         pass
 
-    def connectionClosed(self, conn):
+    def _dropIt(self, conn, node, new_state):
         app = self.app
-        uuid = conn.getUUID()
-        node = app.nm.getNodeByUUID(uuid)
+        node.setState(new_state)
+        app.broadcastNodeInformation(node)
+        if not app.pt.operational():
+            raise VerificationFailure, 'cannot continue verification'
+
+    def connectionClosed(self, conn):
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() == RUNNING_STATE:
-            node.setState(TEMPORARILY_DOWN_STATE)
-            app.broadcastNodeInformation(node)
-            if not app.pt.operational():
-                # Catastrophic.
-                raise VerificationFailure, 'cannot continue verification'
+            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
         MasterEventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
-        app = self.app
-        uuid = conn.getUUID()
-        node = app.nm.getNodeByUUID(uuid)
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() == RUNNING_STATE:
-            node.setState(TEMPORARILY_DOWN_STATE)
-            app.broadcastNodeInformation(node)
-            if not app.pt.operational():
-                # Catastrophic.
-                raise VerificationFailure, 'cannot continue verification'
+            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
         MasterEventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
-        app = self.app
-        uuid = conn.getUUID()
-        node = app.nm.getNodeByUUID(uuid)
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() != BROKEN_STATE:
-            node.setState(BROKEN_STATE)
-            app.broadcastNodeInformation(node)
-            cell_list = app.pt.dropNode(node)
-            ptid = app.pt.setNextID()
-            app.broadcastPartitionChanges(ptid, cell_list)
-            if not app.pt.operational():
-                # Catastrophic.
-                raise VerificationFailure, 'cannot continue verification'
+            self._dropIt(conn, node, BROKEN_STATE)
+            # here the node is no more dropped from the partition table anymore
+            # because it's under the responsability of an administrator to
+            # restore the node, backup the node content or drop it definitely
+            # and loose all it's content.
         MasterEventHandler.peerBroken(self, conn)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):

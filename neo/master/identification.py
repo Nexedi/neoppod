@@ -42,10 +42,10 @@ class IdentificationEventHandler(MasterEventHandler):
         node_by_addr = nm.getNodeByServer(server)
 
         def changeNodeAddress(node, server):
-            from copy import copy
             if node_type == protocol.STORAGE_NODE_TYPE:
                 args = (node.getServer(), server)
                 # remove storage from partition table
+                # XXX: this should be safe but need to be checked
                 cell_list = app.pt.dropNode(node)
                 if cell_list:
                     ptid = app.pt.setNextID()
@@ -70,11 +70,15 @@ class IdentificationEventHandler(MasterEventHandler):
                 if node.getState() == protocol.RUNNING_STATE:
                     # still running, reject this new node
                     raise protocol.ProtocolError('invalid server address')
+                # this node has changed its address
                 node = changeNodeAddress(node, server)
         if node_by_uuid is None and node_by_addr is not None:
             if node.getState() == protocol.RUNNING_STATE:
                 # still running, reject this new node
                 raise protocol.ProtocolError('invalid server address')
+            # FIXME: here the node was known with a different uuid but with the
+            # same address, is it safe to forgot the old, even if he's not
+            # running ?
             node = changeNodeAddress(node, server)
 
         # ask the app the node identification, if refused, an exception is raised

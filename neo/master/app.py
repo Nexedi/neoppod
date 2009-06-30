@@ -646,11 +646,15 @@ class Application(object):
                     for node in nm.getStorageNodeList():
                         if node.getState() == TEMPORARILY_DOWN_STATE \
                                and node.getLastStateChange() + expiration < current_time:
-                            logging.info('%s is down' % (node, ))
-                            node.setState(DOWN_STATE)
-                            self.broadcastNodeInformation(node)
-                            cell_list = self.pt.dropNode(node)
-                            self.broadcastPartitionChanges(self.pt.setNextID(), cell_list)
+                            logging.warning('%s is down, have to notify the admin' % (node, ))
+                            # XXX: here we should notify the administrator that
+                            # a node seems dead and should be dropped frop the
+                            # partition table. This should not be done
+                            # automaticaly to avoid data lost.
+                            #node.setState(DOWN_STATE)
+                            #self.broadcastNodeInformation(node)
+                            #cell_list = self.pt.dropNode(node)
+                            #self.broadcastPartitionChanges(self.pt.setNextID(), cell_list)
                             if not self.pt.operational():
                                 # Catastrophic.
                                 raise OperationFailure, 'cannot continue operation'

@@ -99,14 +99,7 @@ class ServiceEventHandler(MasterEventHandler):
 
             app.broadcastNodeInformation(node)
             if node.getNodeType() == STORAGE_NODE_TYPE:
-                if state in (DOWN_STATE, BROKEN_STATE):
-                    # XXX still required to change here ??? who can send
-                    # this kind of message with these status except admin node
-                    cell_list = app.pt.dropNode(node)
-                    if len(cell_list) != 0:
-                        ptid = app.pt.setNextID()
-                        app.broadcastPartitionChanges(ptid, cell_list)
-                elif state == TEMPORARILY_DOWN_STATE:
+                if state == TEMPORARILY_DOWN_STATE:
                     cell_list = app.pt.outdate()
                     if len(cell_list) != 0:
                         ptid = app.pt.setNextID()

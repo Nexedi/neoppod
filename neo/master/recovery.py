@@ -31,7 +31,7 @@ class RecoveryEventHandler(MasterEventHandler):
     """This class deals with events for a recovery phase."""
 
     def connectionCompleted(self, conn):
-        # ask the last IDs to perform the the recovery
+        # ask the last IDs to perform the recovery
         conn.ask(protocol.askLastIDs())
 
     def connectionClosed(self, conn):
