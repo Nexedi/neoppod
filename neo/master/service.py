@@ -36,7 +36,7 @@ class ServiceEventHandler(MasterEventHandler):
 
     def connectionClosed(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node.getState() == RUNNING_STATE:
+        if node is not None and node.getState() == RUNNING_STATE:
             self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
         MasterEventHandler.connectionClosed(self, conn)
 
