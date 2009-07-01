@@ -22,6 +22,7 @@ from struct import unpack, pack
 from collections import deque
 
 from neo.config import ConfigurationManager
+from neo import protocol
 from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         INVALID_UUID, INVALID_PTID, partition_cell_states, HIDDEN_STATE
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
@@ -69,6 +70,10 @@ class Application(object):
         self.primary_master_node = None
         self.replicator = None
         self.listening_conn = None
+        self.master_conn = None
+
+        self.has_node_information = False
+        self.has_partition_table = False
 
         self.dm.setup(reset)
         self.loadConfiguration()
@@ -140,6 +145,7 @@ class Application(object):
                 self.listening_conn = None
             # look for the primary master
             self.connectToPrimaryMaster()
+            assert self.master_conn is not None
             if self.uuid == INVALID_UUID:
                 raise RuntimeError, 'No UUID supplied from the primary master'
             # Make a listening port when connected to the primary
@@ -226,6 +232,7 @@ class Application(object):
                             if node is self.primary_master_node:
                                 # Yes, I have.
                                 conn.setHandler(VerificationEventHandler(self))
+                                self.master_conn = conn
                                 return
 
     def verifyData(self):
@@ -241,6 +248,12 @@ class Application(object):
             conn.setHandler(handler)
 
         while not self.operational:
+            em.poll(1)
+
+        # ask node list
+        self.master_conn.ask(protocol.askNodeInformation())        
+        self.master_conn.ask(protocol.askPartitionTable(()))
+        while not self.has_node_information or not self.has_partition_table:
             em.poll(1)
 
     def doOperation(self):

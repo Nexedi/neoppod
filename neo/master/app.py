@@ -651,7 +651,7 @@ class Application(object):
                             # a node seems dead and should be dropped frop the
                             # partition table. This should not be done
                             # automaticaly to avoid data lost.
-                            #node.setState(DOWN_STATE)
+                            node.setState(DOWN_STATE)
                             #self.broadcastNodeInformation(node)
                             #cell_list = self.pt.dropNode(node)
                             #self.broadcastPartitionChanges(self.pt.setNextID(), cell_list)

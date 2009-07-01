@@ -117,6 +117,14 @@ class VerificationEventHandler(StorageEventHandler):
         p = protocol.answerLastIDs(oid, tid, app.ptid)
         conn.answer(p, packet)
 
+    def handleAnswerNodeInformation(self, conn, packet, node_list):
+        assert not node_list
+        self.app.has_node_information = True
+
+    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
+        assert not row_list
+        self.app.has_partition_table = True
+
     @decorators.client_connection_required
     def handleAskPartitionTable(self, conn, packet, offset_list):
         app = self.app
