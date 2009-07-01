@@ -274,6 +274,7 @@ class Connection(BaseConnection):
         try:
             data = self.connector.receive()
             if not data:
+                logging.info('Connection %r closed in recv', self.connector)
                 self.handler.connectionClosed(self)
                 self.close()
                 return
@@ -288,9 +289,11 @@ class Connection(BaseConnection):
         except ConnectorConnectionClosedException:
             # connection resetted by peer, according to the man, this error 
             # should not occurs but it seems it's false
+            logging.info('Connection reset by peer: %r', self.connector)
             self.handler.connectionClosed(self)
             self.close()
         except ConnectorException:
+            logging.info('Unknown connection error: %r', self.connector)
             self.handler.connectionClosed(self)
             self.close()
             # unhandled connector exception
@@ -303,6 +306,7 @@ class Connection(BaseConnection):
         try:
             n = self.connector.send(self.write_buf)
             if not n:
+                logging.info('Connection %r closed in send', self.connector)
                 self.handler.connectionClosed(self)
                 self.close()
                 return
@@ -311,9 +315,11 @@ class Connection(BaseConnection):
             pass
         except ConnectorConnectionClosedException:
             # connection resetted by peer
+            logging.info('Connection reset by peer: %r', self.connector)
             self.handler.connectionClosed(self)
             self.close()
         except ConnectorException:
+            logging.info('Unknown connection error: %r', self.connector)
             # unhandled connector exception
             self.handler.connectionClosed(self)
             self.close()
