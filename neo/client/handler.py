@@ -114,9 +114,8 @@ class PrimaryBootstrapHandler(BaseHandler):
 
     def handleNotReady(self, conn, packet, message):
         app = self.app
-        if app.trying_master_node is not None:
-            app.trying_master_node = None
-        conn.close()
+        app.trying_master_node = None
+        app.setNodeNotReady()
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
