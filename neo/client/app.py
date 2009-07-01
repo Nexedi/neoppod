@@ -378,6 +378,7 @@ class Application(object):
                 if self.primary_master_node is not None:
                     # If I know a primary master node, pinpoint it.
                     self.trying_master_node = self.primary_master_node
+                    self.primary_master_node = None
                 else:
                     # Otherwise, check one by one.
                     master_list = nm.getMasterNodeList()
