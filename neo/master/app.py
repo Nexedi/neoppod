@@ -177,8 +177,9 @@ class Application(object):
                             for addr in list(self.unconnected_master_node_set):
                                 ClientConnection(em, client_handler, addr = addr,
                                                  connector_handler = self.connector_handler)
-                    if len(self.unconnected_master_node_set) == 0 \
-                            and len(self.negotiating_master_node_set) == 0:
+                    if (len(self.unconnected_master_node_set) == 0 \
+                            and len(self.negotiating_master_node_set) == 0) \
+                       or self.primary is not None:
                         break
 
                 # Now there are three situations:

@@ -99,3 +99,19 @@ class PrimaryMasterEventHandler(MasterEventHandler):
                     # told me at the moment.
                     if n.getUUID() is None:
                         n.setUUID(uuid)
+
+    def handleAcceptNodeIdentification(self, conn, packet, node_type,
+                                       uuid, ip_address, port, num_partitions,
+                                       num_replicas, your_uuid):
+        app = self.app
+        node = app.nm.getNodeByServer(conn.getAddress())
+        assert node_type == MASTER_NODE_TYPE
+        assert conn.getAddress() == (ip_address, port)
+
+        if your_uuid != app.uuid:
+            # uuid conflict happened, accept the new one
+            app.uuid = your_uuid
+
+        conn.setUUID(uuid)
+        node.setUUID(uuid)
+
