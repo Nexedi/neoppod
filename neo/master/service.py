@@ -31,25 +31,25 @@ from neo.util import dump
 class ServiceEventHandler(MasterEventHandler):
     """This class deals with events for a service phase."""
 
-    def _dropIt(self, conn, new_state):
+    def _dropIt(self, node, new_state):
         raise RuntimeError('rhis method must be overriden')
 
     def connectionClosed(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() == RUNNING_STATE:
-            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
+            self._dropIt(node, TEMPORARILY_DOWN_STATE)
         MasterEventHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() == RUNNING_STATE:
-            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
+            self._dropIt(node, TEMPORARILY_DOWN_STATE)
         MasterEventHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() != BROKEN_STATE:
-            self._dropIt(conn, node, BROKEN_STATE)
+            self._dropIt(conn, BROKEN_STATE)
         MasterEventHandler.peerBroken(self, conn)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
@@ -242,7 +242,7 @@ class StorageServiceEventHandler(ServiceEventHandler):
         if node.getState() == RUNNING_STATE:
             conn.notify(protocol.startOperation())
 
-    def _dropIt(self, conn, node, new_state):
+    def _dropIt(self, node, new_state):
         app = self.app
         node.setState(new_state)
         app.broadcastNodeInformation(node)
@@ -252,17 +252,17 @@ class StorageServiceEventHandler(ServiceEventHandler):
     def connectionClosed(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() == RUNNING_STATE:
-            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
+            self._dropIt(node, TEMPORARILY_DOWN_STATE)
 
     def timeoutExpired(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() == RUNNING_STATE:
-            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
+            self._dropIt(node, TEMPORARILY_DOWN_STATE)
 
     def peerBroken(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() != BROKEN_STATE:
-            self._dropIt(conn, node, BROKEN_STATE)
+            self._dropIt(node, BROKEN_STATE)
 
     def handleNotifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()
