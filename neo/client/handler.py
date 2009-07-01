@@ -180,10 +180,7 @@ class PrimaryBootstrapHandler(BaseHandler):
                                 'Ignoring.' % dump(primary_uuid))
             else:
                 app.primary_master_node = primary_node
-                if app.trying_master_node is primary_node:
-                    # I am connected to the right one.
-                    logging.info('connected to a primary master node')
-                else:
+                if app.trying_master_node is not primary_node:
                     app.trying_master_node = None
                     conn.close()
         else:

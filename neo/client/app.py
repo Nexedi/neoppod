@@ -404,6 +404,7 @@ class Application(object):
                 connected = self.primary_master_node is not None \
                             and self.primary_master_node is self.trying_master_node
 
+            logging.info('connected to a primary master node')
             # Identify to primary master and request initial data
             conn.lock()
             try:
