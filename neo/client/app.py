@@ -406,15 +406,18 @@ class Application(object):
 
             logging.info('connected to a primary master node')
             # Identify to primary master and request initial data
-            conn.lock()
-            try:
-                p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
-                        self.uuid, '0.0.0.0', 0, self.name)
-                msg_id = conn.ask(p)
-                self.dispatcher.register(conn, msg_id, self.local_var.queue)
-            finally:
-                conn.unlock()
-            self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+            while conn.getUUID() is None:
+                conn.lock()
+                try:
+                    p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
+                            self.uuid, '0.0.0.0', 0, self.name)
+                    msg_id = conn.ask(p)
+                    self.dispatcher.register(conn, msg_id, self.local_var.queue)
+                finally:
+                    conn.unlock()
+                self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                if conn.getUUID() is None:
+                    time.sleep(5)
             if self.uuid != INVALID_UUID:
                 # TODO: pipeline those 2 requests
                 # This is currently impossible because _waitMessage can only
