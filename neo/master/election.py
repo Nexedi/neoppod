@@ -190,7 +190,7 @@ class ClientElectionEventHandler(MasterEventHandler):
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
-                pass
+                logging.warning('received an unknown primary node UUID')
             else:
                 if primary_node.getUUID() == primary_uuid:
                     # Whatever the situation is, I trust this master.
