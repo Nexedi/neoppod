@@ -39,24 +39,40 @@ def getConnectorHandler(connector):
 class SocketConnector:
   """ This class is a wrapper for a socket """
 
-  def __init__(self, s=None):
+  is_listening = False
+  remote_addr = None
+  is_closed = None
+
+  def __init__(self, s=None, accepted_from=None):
+    self.accepted_from = accepted_from
+    if accepted_from is not None:
+      self.remote_addr = accepted_from
+      self.is_listening = False
+      self.is_closed = False
     if s is None:      
       self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     else:
       self.socket = s
   
   def makeClientConnection(self, addr):
+    self.is_closed = False
+    self.remote_addr = addr
     try:
-      self.socket.setblocking(0)
-      self.socket.connect(addr)
-    except socket.error, (err, errmsg):
-      if err == errno.EINPROGRESS:
-        raise ConnectorInProgressException
-      if err == errno.ECONNREFUSED:
-        raise ConnectorConnectionRefusedException
-      raise ConnectorException, 'makeClientConnection failed: %s:%s' %  (err, errmsg)
+      try:
+        self.socket.setblocking(0)
+        self.socket.connect(addr)
+      except socket.error, (err, errmsg):
+        if err == errno.EINPROGRESS:
+          raise ConnectorInProgressException
+        if err == errno.ECONNREFUSED:
+          raise ConnectorConnectionRefusedException
+        raise ConnectorException, 'makeClientConnection failed: %s:%s' %  (err, errmsg)
+    finally:
+      logging.info('%r connecting to %r', self.socket.getsockname(), addr)
 
   def makeListeningConnection(self, addr):
+    self.is_closed = False
+    self.is_listening = True
     try:
       self.socket.setblocking(0)
       self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -75,7 +91,7 @@ class SocketConnector:
   def getNewConnection(self):
     try:
       new_s, addr =  self.socket.accept()
-      new_s = SocketConnector(new_s)
+      new_s = SocketConnector(new_s, accepted_from=addr)
       return new_s, addr
     except socket.error, m:
       if m[0] == errno.EAGAIN:
@@ -112,7 +128,28 @@ class SocketConnector:
       raise ConnectorException, 'send failed: %s:%s' % (err, errmsg) 
 
   def close(self):
+    self.is_closed = True
     return self.socket.close()
+
+  def __repr__(self):
+    result = '<%s at 0x%x fileno %i %s ' % (self.__class__.__name__, id(self),
+      self.socket.fileno(), self.socket.getsockname())
+    if self.is_closed is None:
+      result += 'never opened'
+    else:
+      if self.is_closed:
+        result += 'closed '
+      else:
+        result += 'opened '
+      if self.is_listening:
+        result += 'listening'
+      else:
+        if self.accepted_from is None:
+          result += 'to'
+        else:
+          result += 'from'
+        result += ' %s' % (self.remote_addr, )
+    return result + '>'
 
 registerConnectorHandler(SocketConnector)
 
