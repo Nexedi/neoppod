@@ -191,31 +191,13 @@ class StorageEventHandler(EventHandler):
     def handleAskPartitionTable(self, conn, packet, offset_list):
         raise NotImplementedError('this method must be overridden')
 
-    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        raise NotImplementedError('this method must be overridden')
-
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleStartOperation(self, conn, packet):
         raise NotImplementedError('this method must be overridden')
 
     def handleStopOperation(self, conn, packet):
         raise NotImplementedError('this method must be overridden')
 
-    def handleAskUnfinishedTransactions(self, conn, packet):
-        raise NotImplementedError('this method must be overridden')
-
     def handleAskTransactionInformation(self, conn, packet, tid):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleAskObjectPresent(self, conn, packet, oid, tid):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleDeleteTransaction(self, conn, packet, tid):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleCommitTransaction(self, conn, packet, tid):
         raise NotImplementedError('this method must be overridden')
 
     def handleLockInformation(self, conn, packet, tid):
@@ -243,10 +225,6 @@ class StorageEventHandler(EventHandler):
 
     def handleAbortTransaction(self, conn, packet, tid):
         logging.info('ignoring abort transaction')
-        pass
-
-    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        logging.info('ignoring answer last ids')
         pass
 
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):

@@ -177,15 +177,6 @@ class OperationEventHandler(StorageEventHandler):
                                   known_master_list):
         raise UnexpectedPacketError
 
-    def handleAskLastIDs(self, conn, packet):
-        raise UnexpectedPacketError
-
-    def handleAskPartitionTable(self, conn, packet, offset_list):
-        raise UnexpectedPacketError
-
-    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        raise UnexpectedPacketError
-
     @decorators.client_connection_required
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
@@ -219,15 +210,9 @@ class OperationEventHandler(StorageEventHandler):
         # Then, the database.
         app.dm.changePartitionTable(ptid, cell_list)
 
-    def handleStartOperation(self, conn, packet):
-        raise UnexpectedPacketError
-
     @decorators.client_connection_required
     def handleStopOperation(self, conn, packet):
         raise OperationFailure('operation stopped')
-
-    def handleAskUnfinishedTransactions(self, conn, packet):
-        raise UnexpectedPacketError
 
     def handleAskTransactionInformation(self, conn, packet, tid):
         app = self.app
@@ -238,15 +223,6 @@ class OperationEventHandler(StorageEventHandler):
         else:
             p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
         conn.answer(p, packet)
-
-    def handleAskObjectPresent(self, conn, packet, oid, tid):
-        raise UnexpectedPacketError
-
-    def handleDeleteTransaction(self, conn, packet, tid):
-        raise UnexpectedPacketError
-
-    def handleCommitTransaction(self, conn, packet, tid):
-        raise UnexpectedPacketError
 
     @decorators.client_connection_required
     def handleLockInformation(self, conn, packet, tid):
