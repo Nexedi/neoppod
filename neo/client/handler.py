@@ -61,6 +61,17 @@ class BaseHandler(EventHandler):
         else:
             queue.put((conn, packet))
 
+class PrimaryBaseHandler(BaseHandler):
+    def _closePrimaryMasterConnection(self, conn):
+        """
+          This method is not part of EvenHandler API.
+        """
+        app = self.app
+        if app.master_conn is not None:
+            assert conn is app.master_conn
+            app.master_conn.close()
+            app.master_conn = None
+            app.primary_master_node = None
 
 class PrimaryBootstrapHandler(BaseHandler):
     """ Bootstrap handler used when looking for the primary master """
@@ -198,16 +209,13 @@ class PrimaryBootstrapHandler(BaseHandler):
         logging.info("handleAnswerNodeInformation")
 
 
-class PrimaryNotificationsHandler(BaseHandler):
+class PrimaryNotificationsHandler(PrimaryBaseHandler):
     """ Handler that process the notifications from the primary master """
 
     def connectionClosed(self, conn):
         logging.critical("connection to primary master node closed")
         # Close connection
-        app = self.app
-        app.master_conn.close()
-        app.master_conn = None
-        app.primary_master_node = None
+        self._closePrimaryMasterConnection(conn)
         BaseHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
@@ -359,16 +367,13 @@ class PrimaryNotificationsHandler(BaseHandler):
 
 
 
-class PrimaryAnswersHandler(BaseHandler):
+class PrimaryAnswersHandler(PrimaryBaseHandler):
     """ Handle that process expected packets from the primary master """
 
     def connectionClosed(self, conn):
         logging.critical("connection to primary master node closed")
         # Close connection
-        app = self.app
-        app.master_conn.close()
-        app.master_conn = None
-        app.primary_master_node = None
+        self._closePrimaryMasterConnection(conn)
         super(PrimaryAnswersHandler, self).connectionClosed(conn)
 
     def timeoutExpired(self, conn):
