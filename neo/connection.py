@@ -33,6 +33,7 @@ def not_closed(func):
        if self.connector is None:
             raise ConnectorConnectionClosedException
        return func(self, *args, **kw)
+    return decorator
 
 def lockCheckWrapper(func):
     """
