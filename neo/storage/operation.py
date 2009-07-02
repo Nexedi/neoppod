@@ -51,72 +51,9 @@ class TransactionInformation(object):
     def getTransaction(self):
         return self._transaction
 
-class OperationEventHandler(StorageEventHandler):
-    """This class deals with events for a operation phase."""
 
-    def dealWithClientFailure(self, uuid):
-        if uuid is not None:
-            app = self.app
-            node = app.nm.getNodeByUUID(uuid)
-            if node is not None and node.getNodeType() == CLIENT_NODE_TYPE:
-                for tid, t in app.transaction_dict.items():
-                    if t.getUUID() == uuid:
-                        for o in t.getObjectList():
-                            oid = o[0]
-                            try:
-                                del app.store_lock_dict[oid]
-                                del app.load_lock_dict[oid]
-                            except KeyError:
-                                pass
-                        del app.transaction_dict[tid]
-
-                # Now it may be possible to execute some events.
-                app.executeQueuedEvents()
-
-    def timeoutExpired(self, conn):
-        if not conn.isServerConnection():
-            if conn.getUUID() == self.app.primary_master_node.getUUID():
-                # If a primary master node timeouts, I cannot continue.
-                logging.critical('the primary master node times out')
-                raise PrimaryFailure('the primary master node times out')
-            else:
-                # Otherwise, this connection is to another storage node.
-                raise NotImplementedError
-        else:
-            self.dealWithClientFailure(conn.getUUID())
-
-        StorageEventHandler.timeoutExpired(self, conn)
-
-    def connectionClosed(self, conn):
-        if not conn.isServerConnection():
-            if conn.getUUID() == self.app.primary_master_node.getUUID():
-                # If a primary master node closes, I cannot continue.
-                logging.critical('the primary master node is dead')
-                raise PrimaryFailure('the primary master node is dead')
-            else:
-                # Otherwise, this connection is to another storage node.
-                raise NotImplementedError
-        else:
-            self.dealWithClientFailure(conn.getUUID())
-
-        StorageEventHandler.connectionClosed(self, conn)
-
-    def peerBroken(self, conn):
-        if not conn.isServerConnection():
-            if conn.getUUID() == self.app.primary_master_node.getUUID():
-                # If a primary master node gets broken, I cannot continue.
-                logging.critical('the primary master node is broken')
-                raise PrimaryFailure('the primary master node is broken')
-            else:
-                # Otherwise, this connection is to another storage node.
-                raise NotImplementedError
-        else:
-            self.dealWithClientFailure(conn.getUUID())
-
-        StorageEventHandler.peerBroken(self, conn)
-
-
-class ClientAndStorageOperationEventHandler(OperationEventHandler):
+class ClientAndStorageOperationEventHandler(StorageEventHandler):
+    """ Accept requests common to client and storage nodes """
 
     def handleAskTIDs(self, conn, packet, first, last, partition):
         # This method is complicated, because I must return TIDs only
@@ -155,6 +92,33 @@ class ClientAndStorageOperationEventHandler(OperationEventHandler):
 
 
 class ClientOperationEventHandler(ClientAndStorageOperationEventHandler):
+
+    def dealWithClientFailure(self, uuid):
+        app = self.app
+        for tid, t in app.transaction_dict.items():
+            if t.getUUID() == uuid:
+                for o in t.getObjectList():
+                    oid = o[0]
+                    try:
+                        del app.store_lock_dict[oid]
+                        del app.load_lock_dict[oid]
+                    except KeyError:
+                        pass
+                del app.transaction_dict[tid]
+        # Now it may be possible to execute some events.
+        app.executeQueuedEvents()
+
+    def timeoutExpired(self, conn):
+        self.dealWithClientFailure(conn.getUUID())
+        StorageEventHandler.timeoutExpired(self, conn)
+
+    def connectionClosed(self, conn):
+        self.dealWithClientFailure(conn.getUUID())
+        StorageEventHandler.connectionClosed(self, conn)
+
+    def peerBroken(self, conn):
+        self.dealWithClientFailure(conn.getUUID())
+        StorageEventHandler.peerBroken(self, conn)
 
     def connectionCompleted(self, conn):
         ClientAndStorageOperationEventHandler.connectionCompleted(self, conn)
@@ -280,7 +244,20 @@ class StorageOperationEventHandler(ClientAndStorageOperationEventHandler):
         conn.answer(protocol.answerOIDs(oid_list), packet)
 
 
-class MasterOperationEventHandler(OperationEventHandler):
+class MasterOperationEventHandler(StorageEventHandler):
+    """ This handler is used for the primary master """
+
+    def timeoutExpired(self, conn):
+        logging.critical('the primary master node times out')
+        raise PrimaryFailure('the primary master node times out')
+
+    def connectionClosed(self, conn):
+        logging.critical('primary master connection closed')
+        raise PrimaryFailure('primary master connection closed')
+
+    def peerBroken(self, conn):
+        logging.critical('the primary master is broken')
+        raise PrimaryFailure('the primary master is broken')
 
     def handleStopOperation(self, conn, packet):
         raise OperationFailure('operation stopped')

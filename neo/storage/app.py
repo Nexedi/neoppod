@@ -249,6 +249,7 @@ class Application(object):
             em.poll(1)
 
         # ask node list and partition table
+        self.pt.clear()
         self.master_conn.ask(protocol.askNodeInformation())        
         self.master_conn.ask(protocol.askPartitionTable(()))
         while not self.has_node_information or not self.has_partition_table:
