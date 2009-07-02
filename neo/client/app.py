@@ -417,6 +417,16 @@ class Application(object):
                     conn.unlock()
                 self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
                 if conn.getUUID() is None:
+                    # Node identification was refused by master.
+                    # Sleep a bit an retry.
+                    # XXX: This should be replaced by:
+                    # - queuing requestNodeIdentification at master side
+                    # - sending the acceptance from master when it becomes
+                    #   ready
+                    # Thus removing the need to:
+                    # - needlessly bother the primary master every 5 seconds
+                    #   (...per client)
+                    # - have a sleep in the code (yuck !)
                     sleep(5)
             if self.uuid != INVALID_UUID:
                 # TODO: pipeline those 2 requests
