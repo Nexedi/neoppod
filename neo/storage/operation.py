@@ -25,11 +25,9 @@ from neo.protocol import INVALID_SERIAL, INVALID_TID, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         DISCARDED_STATE, OUT_OF_DATE_STATE
 from neo.util import dump
-from neo.node import MasterNode, StorageNode, ClientNode
-from neo.connection import ClientConnection
+from neo.node import StorageNode
 from neo.protocol import Packet, UnexpectedPacketError
 from neo.exception import PrimaryFailure, OperationFailure
-from neo import decorators
 
 class TransactionInformation(object):
     """This class represents information on a transaction."""
@@ -55,21 +53,6 @@ class TransactionInformation(object):
 
 class OperationEventHandler(StorageEventHandler):
     """This class deals with events for a operation phase."""
-
-    def connectionCompleted(self, conn):
-        # FIXME this must be implemented for replications.
-        raise NotImplementedError
-
-    def connectionFailed(self, conn):
-        # FIXME this must be implemented for replications.
-        raise NotImplementedError
-
-    def connectionAccepted(self, conn, s, addr):
-        """Called when a connection is accepted."""
-        # Client nodes and other storage nodes may connect. Also,
-        # master nodes may connect, only if they misunderstand that
-        # I am a master node.
-        StorageEventHandler.connectionAccepted(self, conn, s, addr)
 
     def dealWithClientFailure(self, uuid):
         if uuid is not None:
@@ -132,156 +115,8 @@ class OperationEventHandler(StorageEventHandler):
 
         StorageEventHandler.peerBroken(self, conn)
 
-    @decorators.server_connection_required
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
-        self.checkClusterName(name)
-        app = self.app
-        addr = (ip_address, port)
-        node = app.nm.getNodeByUUID(uuid)
-        if node is None:
-            if node_type != MASTER_NODE_TYPE:
-                # If I do not know such a node, and it is not even a master
-                # node, simply reject it.
-                logging.error('reject an unknown node %s', dump(uuid))
-                raise protocol.NotReadyError
-            node = app.nm.getNodeByServer(addr)
-            if node is None:
-                node = MasterNode(server = addr, uuid = uuid)
-                app.nm.add(node)
-        else:
-            # If this node is broken, reject it.
-            if node.getUUID() == uuid:
-                if node.getState() == BROKEN_STATE:
-                    raise protocol.BrokenNodeDisallowedError
 
-        # Trust the UUID sent by the peer.
-        node.setUUID(uuid)
-        conn.setUUID(uuid)
-
-        p = protocol.acceptNodeIdentification(STORAGE_NODE_TYPE, app.uuid, 
-                    app.server[0], app.server[1], app.num_partitions, 
-                    app.num_replicas, uuid)
-        conn.answer(p, packet)
-
-        if node_type == MASTER_NODE_TYPE:
-            conn.abort()
-
-    @decorators.client_connection_required
-    def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port,
-                                       num_partitions, num_replicas, your_uuid):
-        raise NotImplementedError
-
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
-                                  known_master_list):
-        raise UnexpectedPacketError
-
-    @decorators.client_connection_required
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        """This is very similar to Send Partition Table, except that
-        the information is only about changes from the previous."""
-        app = self.app
-        nm = app.nm
-        pt = app.pt
-        if app.ptid >= ptid:
-            # Ignore this packet.
-            logging.info('ignoring older partition changes')
-            return
-
-        # First, change the table on memory.
-        app.ptid = ptid
-        for offset, uuid, state in cell_list:
-            node = nm.getNodeByUUID(uuid)
-            if node is None:
-                node = StorageNode(uuid = uuid)
-                if uuid != app.uuid:
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                nm.add(node)
-            pt.setCell(offset, node, state)
-
-            if uuid == app.uuid:
-                # If this is for myself, this can affect replications.
-                if state == DISCARDED_STATE:
-                    app.replicator.removePartition(offset)
-                elif state == OUT_OF_DATE_STATE:
-                    app.replicator.addPartition(offset)
-
-        # Then, the database.
-        app.dm.changePartitionTable(ptid, cell_list)
-
-    @decorators.client_connection_required
-    def handleStopOperation(self, conn, packet):
-        raise OperationFailure('operation stopped')
-
-    def handleAskTransactionInformation(self, conn, packet, tid):
-        app = self.app
-        t = app.dm.getTransaction(tid)
-
-        if t is None:
-            p = protocol.tidNotFound('%s does not exist' % dump(tid))
-        else:
-            p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
-        conn.answer(p, packet)
-
-    @decorators.client_connection_required
-    def handleLockInformation(self, conn, packet, tid):
-        app = self.app
-        try:
-            t = app.transaction_dict[tid]
-            object_list = t.getObjectList()
-            for o in object_list:
-                app.load_lock_dict[o[0]] = tid
-
-            app.dm.storeTransaction(tid, object_list, t.getTransaction())
-        except KeyError:
-            pass
-        conn.answer(protocol.notifyInformationLocked(tid), packet)
-
-    @decorators.client_connection_required
-    def handleUnlockInformation(self, conn, packet, tid):
-        app = self.app
-        try:
-            t = app.transaction_dict[tid]
-            object_list = t.getObjectList()
-            for o in object_list:
-                oid = o[0]
-                del app.load_lock_dict[oid]
-                del app.store_lock_dict[oid]
-
-            app.dm.finishTransaction(tid)
-            del app.transaction_dict[tid]
-
-            # Now it may be possible to execute some events.
-            app.executeQueuedEvents()
-        except KeyError:
-            pass
-
-    def handleAskObject(self, conn, packet, oid, serial, tid):
-        app = self.app
-        if oid in app.load_lock_dict:
-            # Delay the response.
-            app.queueEvent(self.handleAskObject, conn, packet, oid,
-                           serial, tid)
-            return
-
-        if serial == INVALID_SERIAL:
-            serial = None
-        if tid == INVALID_TID:
-            tid = None
-        o = app.dm.getObject(oid, serial, tid)
-        if o is not None:
-            serial, next_serial, compression, checksum, data = o
-            if next_serial is None:
-                next_serial = INVALID_SERIAL
-            logging.debug('oid = %s, serial = %s, next_serial = %s',
-                          dump(oid), dump(serial), dump(next_serial))
-            p = protocol.answerObject(oid, serial, next_serial,
-                           compression, checksum, data)
-        else:
-            logging.debug('oid = %s not found', dump(oid))
-            p = protocol.oidNotFound('%s does not exist' % dump(oid))
-        conn.answer(p, packet)
+class ClientAndStorageOperationEventHandler(OperationEventHandler):
 
     def handleAskTIDs(self, conn, packet, first, last, partition):
         # This method is complicated, because I must return TIDs only
@@ -318,7 +153,59 @@ class OperationEventHandler(StorageEventHandler):
         p = protocol.answerObjectHistory(oid, history_list)
         conn.answer(p, packet)
 
-    @decorators.identification_required
+
+class ClientOperationEventHandler(ClientAndStorageOperationEventHandler):
+
+    def connectionCompleted(self, conn):
+        ClientAndStorageOperationEventHandler.connectionCompleted(self, conn)
+
+    def handleAskObject(self, conn, packet, oid, serial, tid):
+        app = self.app
+        if oid in app.load_lock_dict:
+            # Delay the response.
+            app.queueEvent(self.handleAskObject, conn, packet, oid,
+                           serial, tid)
+            return
+
+        if serial == INVALID_SERIAL:
+            serial = None
+        if tid == INVALID_TID:
+            tid = None
+        o = app.dm.getObject(oid, serial, tid)
+        if o is not None:
+            serial, next_serial, compression, checksum, data = o
+            if next_serial is None:
+                next_serial = INVALID_SERIAL
+            logging.debug('oid = %s, serial = %s, next_serial = %s',
+                          dump(oid), dump(serial), dump(next_serial))
+            p = protocol.answerObject(oid, serial, next_serial,
+                           compression, checksum, data)
+        else:
+            logging.debug('oid = %s not found', dump(oid))
+            p = protocol.oidNotFound('%s does not exist' % dump(oid))
+        conn.answer(p, packet)
+
+    def handleAbortTransaction(self, conn, packet, tid):
+        uuid = conn.getUUID()
+        app = self.app
+        try:
+            t = app.transaction_dict[tid]
+            object_list = t.getObjectList()
+            for o in object_list:
+                oid = o[0]
+                try:
+                    del app.load_lock_dict[oid]
+                except KeyError:
+                    pass
+                del app.store_lock_dict[oid]
+
+            del app.transaction_dict[tid]
+
+            # Now it may be possible to execute some events.
+            app.executeQueuedEvents()
+        except KeyError:
+            pass
+
     def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
                                   ext, oid_list):
         uuid = conn.getUUID()
@@ -327,7 +214,6 @@ class OperationEventHandler(StorageEventHandler):
         t.addTransaction(oid_list, user, desc, ext)
         conn.answer(protocol.answerStoreTransaction(tid), packet)
 
-    @decorators.identification_required
     def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
         uuid = conn.getUUID()
@@ -364,35 +250,11 @@ class OperationEventHandler(StorageEventHandler):
         conn.answer(p, packet)
         app.store_lock_dict[oid] = tid
 
-    @decorators.identification_required
-    def handleAbortTransaction(self, conn, packet, tid):
-        uuid = conn.getUUID()
-        app = self.app
-        try:
-            t = app.transaction_dict[tid]
-            object_list = t.getObjectList()
-            for o in object_list:
-                oid = o[0]
-                try:
-                    del app.load_lock_dict[oid]
-                except KeyError:
-                    pass
-                del app.store_lock_dict[oid]
 
-            del app.transaction_dict[tid]
+class StorageOperationEventHandler(ClientAndStorageOperationEventHandler):
 
-            # Now it may be possible to execute some events.
-            app.executeQueuedEvents()
-        except KeyError:
-            pass
-
-    @decorators.client_connection_required
-    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        self.app.replicator.setCriticalTID(packet, ltid)
-
-    @decorators.client_connection_required
-    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
-        self.app.replicator.setUnfinishedTIDList(tid_list)
+    def connectionCompleted(self, conn):
+        ClientAndStorageOperationEventHandler.connectionCompleted(self, conn)
 
     def handleAskOIDs(self, conn, packet, first, last, partition):
         # This method is complicated, because I must return OIDs only
@@ -413,7 +275,94 @@ class OperationEventHandler(StorageEventHandler):
                         break
         else:
             partition_list = [partition]
-
         oid_list = app.dm.getOIDList(first, last - first,
                                      app.num_partitions, partition_list)
         conn.answer(protocol.answerOIDs(oid_list), packet)
+
+
+class MasterOperationEventHandler(OperationEventHandler):
+
+    def handleStopOperation(self, conn, packet):
+        raise OperationFailure('operation stopped')
+
+    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
+        self.app.replicator.setCriticalTID(packet, ltid)
+
+    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
+        self.app.replicator.setUnfinishedTIDList(tid_list)
+
+    def handleAskTransactionInformation(self, conn, packet, tid):
+        app = self.app
+        t = app.dm.getTransaction(tid)
+
+        if t is None:
+            p = protocol.tidNotFound('%s does not exist' % dump(tid))
+        else:
+            p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
+        conn.answer(p, packet)
+
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        """This is very similar to Send Partition Table, except that
+        the information is only about changes from the previous."""
+        app = self.app
+        nm = app.nm
+        pt = app.pt
+        if app.ptid >= ptid:
+            # Ignore this packet.
+            logging.info('ignoring older partition changes')
+            return
+
+        # First, change the table on memory.
+        app.ptid = ptid
+        for offset, uuid, state in cell_list:
+            node = nm.getNodeByUUID(uuid)
+            if node is None:
+                node = StorageNode(uuid = uuid)
+                if uuid != app.uuid:
+                    node.setState(TEMPORARILY_DOWN_STATE)
+                nm.add(node)
+            pt.setCell(offset, node, state)
+
+            if uuid == app.uuid:
+                # If this is for myself, this can affect replications.
+                if state == DISCARDED_STATE:
+                    app.replicator.removePartition(offset)
+                elif state == OUT_OF_DATE_STATE:
+                    app.replicator.addPartition(offset)
+
+        # Then, the database.
+        app.dm.changePartitionTable(ptid, cell_list)
+        logging.info('Partition table updated:')
+        self.app.pt.log()
+
+    def handleLockInformation(self, conn, packet, tid):
+        app = self.app
+        try:
+            t = app.transaction_dict[tid]
+            object_list = t.getObjectList()
+            for o in object_list:
+                app.load_lock_dict[o[0]] = tid
+
+            app.dm.storeTransaction(tid, object_list, t.getTransaction())
+        except KeyError:
+            pass
+        conn.answer(protocol.notifyInformationLocked(tid), packet)
+
+    def handleUnlockInformation(self, conn, packet, tid):
+        app = self.app
+        try:
+            t = app.transaction_dict[tid]
+            object_list = t.getObjectList()
+            for o in object_list:
+                oid = o[0]
+                del app.load_lock_dict[oid]
+                del app.store_lock_dict[oid]
+
+            app.dm.finishTransaction(tid)
+            del app.transaction_dict[tid]
+
+            # Now it may be possible to execute some events.
+            app.executeQueuedEvents()
+        except KeyError:
+            pass
+

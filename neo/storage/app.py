@@ -32,9 +32,10 @@ from neo.connection import ListeningConnection, ClientConnection
 from neo.exception import OperationFailure, PrimaryFailure
 from neo.storage.bootstrap import BootstrapEventHandler
 from neo.storage.verification import VerificationEventHandler
-from neo.storage.operation import OperationEventHandler
+from neo.storage.operation import MasterOperationEventHandler
 from neo.storage.hidden import HiddenEventHandler
 from neo.storage.replicator import Replicator
+from neo.storage.identification import IdentificationEventHandler
 from neo.connector import getConnectorHandler
 from neo.pt import PartitionTable
 from neo.util import dump
@@ -72,6 +73,8 @@ class Application(object):
         self.listening_conn = None
         self.master_conn = None
 
+        # ready is True when operational and got all informations
+        self.ready = False
         self.has_node_information = False
         self.has_partition_table = False
 
@@ -134,23 +137,21 @@ class Application(object):
         for server in self.master_node_list:
             self.nm.add(MasterNode(server = server))
 
+        # Make a listening port
+        handler = IdentificationEventHandler(self)
+        self.listening_conn = ListeningConnection(self.em, handler, 
+            addr=self.server, connector_handler=self.connector_handler)
+
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permentnly,
         # until the user explicitly requests a shutdown.
         while 1:
             self.operational = False
-            # refuse any incoming connections for now
-            if self.listening_conn is not None:
-                self.listening_conn.close()
-                self.listening_conn = None
             # look for the primary master
             self.connectToPrimaryMaster()
             assert self.master_conn is not None
             if self.uuid == INVALID_UUID:
                 raise RuntimeError, 'No UUID supplied from the primary master'
-            # Make a listening port when connected to the primary
-            self.listening_conn = ListeningConnection(self.em, None, 
-                    addr=self.server, connector_handler=self.connector_handler)
             try:
                 while 1:
                     try:
@@ -241,32 +242,28 @@ class Application(object):
         logging.info('verifying data')
 
         handler = VerificationEventHandler(self)
+        self.master_conn.setHandler(handler)
         em = self.em
-
-        # Make sure that every connection has the verfication event handler.
-        for conn in em.getConnectionList():
-            conn.setHandler(handler)
 
         while not self.operational:
             em.poll(1)
 
-        # ask node list
+        # ask node list and partition table
         self.master_conn.ask(protocol.askNodeInformation())        
         self.master_conn.ask(protocol.askPartitionTable(()))
         while not self.has_node_information or not self.has_partition_table:
             em.poll(1)
+        self.ready = True
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""
         logging.info('doing operation')
 
-        handler = OperationEventHandler(self)
         em = self.em
         nm = self.nm
 
-        # Make sure that every connection has the verfication event handler.
-        for conn in em.getConnectionList():
-            conn.setHandler(handler)
+        handler = MasterOperationEventHandler(self)
+        self.master_conn.setHandler(handler)
 
         # Forget all unfinished data.
         self.dm.dropUnfinishedData()
@@ -320,7 +317,6 @@ class Application(object):
 
     def getPartition(self, oid_or_tid):
         return unpack('!Q', oid_or_tid)[0] % self.num_partitions
-
 
     def shutdown(self):
         """Close all connections and exit"""
