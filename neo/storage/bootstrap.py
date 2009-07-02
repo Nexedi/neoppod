@@ -27,7 +27,6 @@ from neo.protocol import Packet, UnexpectedPacketError
 from neo.pt import PartitionTable
 from neo.storage.verification import VerificationEventHandler
 from neo.util import dump
-from neo import decorators
 
 class BootstrapEventHandler(StorageEventHandler):
     """This class deals with events for a bootstrap phase."""
@@ -78,7 +77,6 @@ class BootstrapEventHandler(StorageEventHandler):
             app.trying_master_node = None
         conn.close()
 
-    @decorators.client_connection_required
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port,
                                        num_partitions, num_replicas, your_uuid):
@@ -125,7 +123,6 @@ class BootstrapEventHandler(StorageEventHandler):
         # Node UUID was set in handleAnswerPrimaryMaster
         assert node.getUUID() == uuid
 
-    @decorators.client_connection_required
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
         app = self.app
