@@ -203,10 +203,10 @@ class PrimaryBootstrapHandler(BaseHandler):
             conn.close()
  
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
-        logging.info("handleAnswerPartitionTable")
+        pass
  
     def handleAnswerNodeInformation(self, conn, packet, node_list):
-        logging.info("handleAnswerNodeInformation")
+        pass
 
 
 class PrimaryNotificationsHandler(PrimaryBaseHandler):
