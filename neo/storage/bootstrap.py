@@ -125,6 +125,7 @@ class BootstrapEventHandler(StorageEventHandler):
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
+        closed = False
         app = self.app
         # Register new master nodes.
         for ip_address, port, uuid in known_master_list:
@@ -154,6 +155,7 @@ class BootstrapEventHandler(StorageEventHandler):
                 else:
                     app.trying_master_node = None
                     conn.close()
+                    closed = True
         else:
             if app.primary_master_node is not None:
                 # The primary master node is not a primary master node
@@ -162,7 +164,9 @@ class BootstrapEventHandler(StorageEventHandler):
 
             app.trying_master_node = None
             conn.close()
-        p = protocol.requestNodeIdentification(STORAGE_NODE_TYPE, app.uuid,
-                                    app.server[0], app.server[1], app.name)
-        conn.ask(p)
+            closed = True
+        if not closed:
+            p = protocol.requestNodeIdentification(STORAGE_NODE_TYPE, app.uuid,
+                                        app.server[0], app.server[1], app.name)
+            conn.ask(p)
 
