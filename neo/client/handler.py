@@ -402,7 +402,7 @@ class PrimaryAnswersHandler(PrimaryBaseHandler):
 class StorageBaseHandler(BaseHandler):
 
 
-    def _dealWithStorageFailure(self, conn, node, state):
+    def _dealWithStorageFailure(self, conn, node):
         app = self.app
 
         # Remove from pool connection
@@ -423,17 +423,17 @@ class StorageBaseHandler(BaseHandler):
     def connectionClosed(self, conn):
         node = self.app.nm.getNodeByServer(conn.getAddress())
         logging.info("connection to storage node %s closed", node.getServer())
-        self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
+        self._dealWithStorageFailure(conn, node)
         super(StorageBaseHandler, self).connectionClosed(conn)
 
     def timeoutExpired(self, conn):
         node = self.app.nm.getNodeByServer(conn.getAddress())
-        self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
+        self._dealWithStorageFailure(conn, node)
         super(StorageBaseHandler, self).timeoutExpired(conn)
 
     def peerBroken(self, conn):
         node = self.app.nm.getNodeByServer(conn.getAddress())
-        self._dealWithStorageFailure(conn, node, BROKEN_STATE)
+        self._dealWithStorageFailure(conn, node)
         super(StorageBaseHandler, self).peerBroken(conn)
 
 
@@ -443,7 +443,7 @@ class StorageBootstrapHandler(StorageBaseHandler):
     def connectionFailed(self, conn):
         # Connection to a storage node failed
         node = self.app.nm.getNodeByServer(conn.getAddress())
-        self._dealWithStorageFailure(conn, node, TEMPORARILY_DOWN_STATE)
+        self._dealWithStorageFailure(conn, node)
         super(StorageBootstrapHandler, self).connectionFailed(conn)
 
     def handleNotReady(self, conn, packet, message):
