@@ -20,8 +20,9 @@ import logging
 
 from neo import protocol
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        BROKEN_STATE, PENDING_STATE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
-        CLIENT_NODE_TYPE, VALID_NODE_STATE_LIST, ADMIN_NODE_TYPE
+        BROKEN_STATE, PENDING_STATE, HIDDEN_STATE, MASTER_NODE_TYPE, \
+        STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE, \
+        VALID_NODE_STATE_LIST, ADMIN_NODE_TYPE
 from neo.util import dump
 
 class Node(object):
@@ -170,3 +171,24 @@ class NodeManager(object):
         for node in self.getNodeList():
             if filter is not None and filter(node):
                 self.remove(node)
+
+    def log(self):
+        node_state_dict = { RUNNING_STATE: 'R',
+                            TEMPORARILY_DOWN_STATE: 'T',
+                            DOWN_STATE: 'D',
+                            BROKEN_STATE: 'B',
+                            HIDDEN_STATE: 'H',
+                            PENDING_STATE: 'P'}
+        node_type_dict = {
+                MASTER_NODE_TYPE: 'M',
+                STORAGE_NODE_TYPE: 'S',
+                CLIENT_NODE_TYPE: 'C',
+                ADMIN_NODE_TYPE: 'A',
+        }
+        for uuid, node in sorted(self.uuid_dict.items()):
+            args = (
+                    dump(uuid), 
+                    node_type_dict[node.getNodeType()],
+                    node_state_dict[node.getState()]
+            )
+            logging.debug('nm: %s : %s/%s' % args)
