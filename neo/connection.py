@@ -28,6 +28,12 @@ from neo.connector import ConnectorException, ConnectorTryAgainException, \
 from neo.util import dump
 from neo.exception import OperationFailure
 
+def not_closed(func):
+    def decorator(self, *args, **kw):
+       if self.connector is None:
+            raise ConnectorConnectionClosedException
+       return func(self, *args, **kw)
+
 def lockCheckWrapper(func):
     """
     This function is to be used as a wrapper around
@@ -371,6 +377,7 @@ class Connection(BaseConnection):
         self.event_dict[msg_id] = event
         self.em.addIdleEvent(event)
 
+    @not_closed
     def notify(self, packet, msg_id=None):
         """ Then a packet with a new ID """
         if msg_id is None:
@@ -379,6 +386,7 @@ class Connection(BaseConnection):
         self._addPacket(packet)
         return msg_id
 
+    @not_closed
     def ask(self, packet, timeout=5, additional_timeout=30):
         """ Send a packet with a new ID and register the expectation of an answer """
         msg_id = self._getNextId()
@@ -387,6 +395,7 @@ class Connection(BaseConnection):
         self._addPacket(packet)
         return msg_id
 
+    @not_closed
     def answer(self, packet, answered_packet):
         """ Answer to a packet by re-using its ID for the packet answer """
         msg_id = answered_packet.getId()
