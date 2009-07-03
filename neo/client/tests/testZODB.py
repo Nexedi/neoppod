@@ -26,7 +26,6 @@ import transaction
 from neo.client.Storage import Storage
 import os
 import sys
-import time
 import signal
 import MySQLdb
 import logging
@@ -72,9 +71,6 @@ class NEOProcess:
             raise KeyboardInterrupt
         else:
             neo_process_list.append(self)
-            # TODO: remove the need for this sleep. It must become possible to
-            # restart the cluster without any artificial delay.
-            time.sleep(1)
 
     def kill(self, sig=signal.SIGTERM):
         if self.pid:
@@ -237,9 +233,6 @@ class ZODBTests(unittest.TestCase):
         NEOProcess(NEO_STORAGE, '-vRc', config_file_path, '-s', 'storage2', '-l', s2_log)
         NEOProcess(NEO_STORAGE, '-vRc', config_file_path, '-s', 'storage3', '-l', s3_log)
         NEOProcess(NEO_STORAGE, '-vRc', config_file_path, '-s', 'storage4', '-l', s4_log)
-        # wait a bit during cluster startup, this is just to avoid many
-        # 'connection refused' messages in logs
-        time.sleep(5)
         # Send Storage output to a logfile
         self._storage = Storage(
             master_nodes=NEO_MASTER_NODES,
