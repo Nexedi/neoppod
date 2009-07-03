@@ -22,9 +22,9 @@ from struct import pack, unpack
 
 from neo.config import ConfigurationManager
 from neo import protocol
-from neo.protocol import Packet, \
-        RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        PENDING_STATE, INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, \
+from neo.protocol import \
+        RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
+        INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, \
         CLIENT_NODE_TYPE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
         UUID_NAMESPACES, ADMIN_NODE_TYPE, BOOTING
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
@@ -39,10 +39,10 @@ from neo.master.recovery import RecoveryEventHandler
 from neo.master.verification import VerificationEventHandler
 from neo.master.service import ClientServiceEventHandler, StorageServiceEventHandler
 from neo.master.secondary import PrimaryMasterEventHandler, SecondaryMasterEventHandler
+from neo.master.shutdown import ShutdownEventHandler
 from neo.master.pt import PartitionTable
 from neo.util import dump
 from neo.connector import getConnectorHandler
-from neo.master import ENABLE_PENDING_NODES
 
 class Application(object):
     """The master node application."""
@@ -828,7 +828,7 @@ class Application(object):
         while 1:
             self.em.poll(1)
             if len(self.finishing_transaction_dict) == 0:
-                if self.cluster_state == RUNNING:
+                if self.cluster_state == protocol.RUNNING:
                     sys.exit("Application has been asked to shut down")
                 else:
                     # no more transaction, ask clients to shutdown

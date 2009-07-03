@@ -17,13 +17,11 @@
 
 import logging
 
-from neo import protocol
 from neo.protocol import MASTER_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
-        DOWN_STATE, ADMIN_NODE_TYPE
+        RUNNING_STATE, BROKEN_STATE, DOWN_STATE
 from neo.master.handler import MasterEventHandler
 from neo.exception import ElectionFailure, PrimaryFailure
-from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
+from neo.protocol import UnexpectedPacketError, INVALID_UUID
 from neo.node import MasterNode
 
 class SecondaryMasterEventHandler(MasterEventHandler):

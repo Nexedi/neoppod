@@ -18,17 +18,16 @@
 import logging
 
 from neo.handler import EventHandler
-from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
+from neo.protocol import INVALID_UUID, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        ADMIN_NODE_TYPE, DISCARDED_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE
-from neo.node import MasterNode, StorageNode, ClientNode
-from neo.connection import ClientConnection
+        ADMIN_NODE_TYPE, TEMPORARILY_DOWN_STATE
+from neo.node import MasterNode, StorageNode, ClientNode, AdminNode
 from neo import protocol
-from neo.protocol import Packet, UnexpectedPacketError
+from neo.protocol import UnexpectedPacketError
 from neo.pt import PartitionTable
 from neo.exception import PrimaryFailure
 from neo.util import dump
-from neo import decorators, handler
+from neo import decorators
 
 
 class BaseEventHandler(EventHandler):

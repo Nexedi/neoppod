@@ -20,13 +20,11 @@ import logging
 from neo import protocol
 from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
-        DOWN_STATE, ADMIN_NODE_TYPE
+        DOWN_STATE
 from neo.master.handler import MasterEventHandler
-from neo.connection import ClientConnection
 from neo.exception import ElectionFailure
-from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
-from neo.node import MasterNode, StorageNode, ClientNode
-from neo import decorators
+from neo.protocol import INVALID_UUID
+from neo.node import MasterNode
 
 class ElectionEventHandler(MasterEventHandler):
     """This class deals with events for a primary master election."""

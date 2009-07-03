@@ -19,9 +19,7 @@ import logging
 
 from neo import protocol
 from neo.handler import EventHandler
-from neo.protocol import INVALID_UUID, BROKEN_STATE, ADMIN_NODE_TYPE
-from neo import protocol
-from neo import util
+from neo.protocol import INVALID_UUID, BROKEN_STATE
 
 class MasterEventHandler(EventHandler):
     """This class implements a generic part of the event handlers."""

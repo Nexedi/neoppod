@@ -17,8 +17,11 @@
 
 import logging
 from neo import protocol
+from eno.protocol import CLIENT_NODE_TYPE, ADMIN_NODE_TYPE, INVALID_UUID, \
+        RUNNING_STATE, STORAGE_NODE_TYPE, TEMPORARILY_DOWN_STATE, STOPPING
 from neo.master.service import ServiceEventHandler
-from neo.protocol import BOOTING
+from neo import decorators
+from neo.util import dump
 
 class ShutdownEventHandler(ServiceEventHandler):
     """This class deals with events for a shutting down phase."""
@@ -34,8 +37,8 @@ class ShutdownEventHandler(ServiceEventHandler):
         logging.error('reject any new demand for primary master')
         raise protocol.ProtocolError('cluster is shutting down')
 
-    @identification_required
-    @restrict_node_types(CLIENT_NODE_TYPE)
+    @decorators.identification_required
+    @decorators.restrict_node_types(CLIENT_NODE_TYPE)
     def handleAskNewTID(self, conn, packet):
         logging.error('reject any new demand for new tid')
         raise protocol.ProtocolError('cluster is shutting down')

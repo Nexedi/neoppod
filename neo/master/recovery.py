@@ -18,13 +18,11 @@
 import logging
 
 from neo import protocol
-from neo.protocol import MASTER_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE
+from neo.protocol import RUNNING_STATE, BROKEN_STATE, \
+        TEMPORARILY_DOWN_STATE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
-from neo.exception import ElectionFailure
-from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID, INVALID_PTID
-from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
+from neo.protocol import UnexpectedPacketError, INVALID_UUID, INVALID_PTID
+from neo.node import StorageNode
 from neo.util import dump
 
 class RecoveryEventHandler(MasterEventHandler):

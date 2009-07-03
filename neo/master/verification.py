@@ -17,15 +17,12 @@
 
 import logging
 
-from neo import protocol
-from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        PENDING_STATE, ADMIN_NODE_TYPE
+from neo.protocol import CLIENT_NODE_TYPE, RUNNING_STATE, BROKEN_STATE, \
+        TEMPORARILY_DOWN_STATE, ADMIN_NODE_TYPE
 from neo.master.handler import MasterEventHandler
-from neo.exception import VerificationFailure, ElectionFailure
-from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
+from neo.exception import VerificationFailure
+from neo.protocol import INVALID_UUID
 from neo.util import dump
-from neo.node import ClientNode, StorageNode, MasterNode, AdminNode
 
 class VerificationEventHandler(MasterEventHandler):
     """This class deals with events for a verification phase."""
