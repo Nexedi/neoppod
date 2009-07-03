@@ -16,22 +16,15 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import logging
-import os
-from time import time
-from struct import unpack
-from collections import deque
 
-from neo.config import ConfigurationManager
-from neo.protocol import Packet, ProtocolError, node_types, node_states
-from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        INVALID_UUID, INVALID_PTID, partition_cell_states, MASTER_NODE_TYPE
+from neo.protocol import node_types, node_states
+from neo.protocol import INVALID_UUID, INVALID_PTID
 from neo.event import EventManager
-from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
 from neo.connection import ClientConnection
-from neo.exception import OperationFailure, PrimaryFailure
+from neo.exception import OperationFailure
 from neo.neoctl.handler import CommandEventHandler
 from neo.connector import getConnectorHandler
-from neo.util import bin, dump
+from neo.util import bin
 from neo import protocol
 
 class Application(object):
