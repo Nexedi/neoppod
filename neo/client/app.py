@@ -288,7 +288,7 @@ class Application(object):
     def notifyDeadNode(self, conn):
         """ Notify a storage failure to the primary master """
         s_node = self.nm.getNodeByServer(conn.getAddress())
-        if s_node is None or s_node.getType() != STORAGE_NODE_TYPE:
+        if s_node is None or s_node.getNodeType() != protocol.STORAGE_NODE_TYPE:
             return
         s_uuid = s_node.getUUID()
         ip_address, port = s_node.getServer()
