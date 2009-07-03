@@ -34,7 +34,11 @@ class PrimaryBaseHandler(BaseHandler):
         app = self.app
         if app.master_conn is not None:
             assert conn is app.master_conn
-            app.master_conn.close()
+            app.master_conn.lock()
+            try:
+                app.master_conn.close()
+            finally:
+                app.master_conn.release()
             app.master_conn = None
             app.primary_master_node = None
 
@@ -100,7 +104,11 @@ class PrimaryBootstrapHandler(BaseHandler):
         node = app.nm.getNodeByServer(conn.getAddress())
         # this must be a master node
         if node_type != MASTER_NODE_TYPE:
-            conn.close()
+            conn.lock()
+            try:
+                conn.close()
+            finally:
+                conn.release()
             return
         if conn.getAddress() != (ip_address, port):
             # The server address is different! Then why was
@@ -109,7 +117,11 @@ class PrimaryBootstrapHandler(BaseHandler):
                           conn.getAddress()[0], conn.getAddress()[1],
                           ip_address, port)
             app.nm.remove(node)
-            conn.close()
+            conn.lock()
+            try:
+                conn.close()
+            finally:
+                conn.release()
             return
 
         conn.setUUID(uuid)
@@ -149,7 +161,11 @@ class PrimaryBootstrapHandler(BaseHandler):
                 app.primary_master_node = primary_node
                 if app.trying_master_node is not primary_node:
                     app.trying_master_node = None
-                    conn.close()
+                    conn.lock()
+                    try:
+                        conn.close()
+                    finally:
+                        conn.release()
         else:
             if app.primary_master_node is not None:
                 # The primary master node is not a primary master node
@@ -157,7 +173,11 @@ class PrimaryBootstrapHandler(BaseHandler):
                 app.primary_master_node = None
  
             app.trying_master_node = None
-            conn.close()
+            conn.lock()
+            try:
+                conn.close()
+            finally:
+                conn.release()
  
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         pass
@@ -304,7 +324,11 @@ class PrimaryNotificationsHandler(PrimaryBaseHandler):
                    state != RUNNING_STATE:
                 for conn in self.app.em.getConnectionList():
                     if conn.getUUID() == n.getUUID():
-                        conn.close()
+                        conn.lock()
+                        try:
+                            conn.close()
+                        finally:
+                            conn.release()
                         break
                 if node_type == STORAGE_NODE_TYPE:
                     # Remove from pool connection

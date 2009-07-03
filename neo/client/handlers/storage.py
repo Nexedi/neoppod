@@ -76,7 +76,11 @@ class StorageBootstrapHandler(StorageBaseHandler):
         node = app.nm.getNodeByServer(conn.getAddress())
         # It can be eiter a master node or a storage node
         if node_type != STORAGE_NODE_TYPE:
-            conn.close()
+            conn.lock()
+            try:
+                conn.close()
+            finally:
+                conn.release()
             return
         if conn.getAddress() != (ip_address, port):
             # The server address is different! Then why was
@@ -84,7 +88,11 @@ class StorageBootstrapHandler(StorageBaseHandler):
             logging.error('%s:%d is waiting for %s:%d',
                   conn.getAddress()[0], conn.getAddress()[1], ip_address, port)
             app.nm.remove(node)
-            conn.close()
+            conn.lock()
+            try:
+                conn.close()
+            finally:
+                conn.release()
             return
 
         conn.setUUID(uuid)

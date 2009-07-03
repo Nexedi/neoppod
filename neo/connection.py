@@ -507,6 +507,10 @@ class MTClientConnection(ClientConnection):
     def answer(self, *args, **kw):
         return super(MTClientConnection, self).answer(*args, **kw)
 
+    @lockCheckWrapper
+    def close(self, *args, **kw):
+        return super(MTClientConnection, self).close(*args, **kw)
+
 class MTServerConnection(ServerConnection):
     """A Multithread-safe version of ServerConnection."""
     def __init__(self, *args, **kwargs):
