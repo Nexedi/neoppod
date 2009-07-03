@@ -282,10 +282,10 @@ class Application(object):
         self._nm_acquire = lock.acquire
         self._nm_release = lock.release
 
-    def notifyDeadStorage(self, conn):
+    def notifyDeadNode(self, conn):
         """ Notify a storage failure to the primary master """
         s_node = self.nm.getNodeByServer(conn.getAddress())
-        if s_node is None:
+        if s_node is None or node.getType() != STORAGE_NODE_TYPE:
             return
         s_uuid = s_node.getUUID()
         ip_address, port = s_node.getServer()
@@ -312,7 +312,7 @@ class Application(object):
                 conn, packet = local_queue.get()
             # check fake packet
             if packet is None:
-                self.notifyDeadStorage(conn)
+                self.notifyDeadNode(conn)
                 if conn.getUUID() == target_conn.getUUID():
                     raise NEOStorageConnectionFailure('connection closed')
                 else:
