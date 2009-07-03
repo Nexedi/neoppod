@@ -122,14 +122,6 @@ class PrimaryBootstrapHandler(BaseHandler):
         # Always create partition table 
         app.pt = PartitionTable(num_partitions, num_replicas)
 
-        # Ask a primary master.
-        conn.lock()
-        try:
-            msg_id = conn.ask(protocol.askPrimaryMaster())
-            self.dispatcher.register(conn, msg_id, app.local_var.queue)
-        finally:
-            conn.unlock()
-
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
         app = self.app
