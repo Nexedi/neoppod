@@ -17,12 +17,9 @@
 
 import logging
 
+from neo.storage.handlers.handler import StorageEventHandler
+from neo.protocol import INVALID_OID, INVALID_TID, TEMPORARILY_DOWN_STATE
 from neo import protocol
-from neo.storage.handler import StorageEventHandler
-from neo.protocol import INVALID_OID, INVALID_TID, \
-        BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
-        Packet, UnexpectedPacketError
 from neo.util import dump
 from neo.node import StorageNode
 from neo.exception import PrimaryFailure, OperationFailure

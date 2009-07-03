@@ -17,12 +17,9 @@
 
 import logging
 
+from neo.storage.handlers.handler import StorageEventHandler
+from neo.protocol import BROKEN_STATE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
 from neo import protocol
-from neo.storage.handler import StorageEventHandler
-from neo.protocol import INVALID_SERIAL, INVALID_TID, \
-        INVALID_PARTITION, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        DISCARDED_STATE, OUT_OF_DATE_STATE
 from neo.util import dump
 
 class IdentificationEventHandler(StorageEventHandler):

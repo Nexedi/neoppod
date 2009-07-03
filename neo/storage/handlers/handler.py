@@ -22,7 +22,6 @@ from neo.protocol import Packet, UnexpectedPacketError, \
         INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE
-
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
 from neo.connection import ClientConnection

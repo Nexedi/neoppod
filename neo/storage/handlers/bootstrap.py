@@ -17,15 +17,11 @@
 
 import logging
 
+from neo.storage.handlers.handler import StorageEventHandler
+from neo.protocol import INVALID_UUID, MASTER_NODE_TYPE, STORAGE_NODE_TYPE
+from neo.node import MasterNode
 from neo import protocol
-from neo.storage.handler import StorageEventHandler
-from neo.protocol import INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
-from neo.node import MasterNode, StorageNode, ClientNode
-from neo.connection import ClientConnection
-from neo.protocol import Packet, UnexpectedPacketError
 from neo.pt import PartitionTable
-from neo.storage.verification import VerificationEventHandler
 from neo.util import dump
 
 class BootstrapEventHandler(StorageEventHandler):

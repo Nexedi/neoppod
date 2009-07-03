@@ -30,12 +30,8 @@ from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
 from neo.connection import ListeningConnection, ClientConnection
 from neo.exception import OperationFailure, PrimaryFailure
-from neo.storage.bootstrap import BootstrapEventHandler
-from neo.storage.verification import VerificationEventHandler
-from neo.storage.operation import MasterOperationEventHandler
-from neo.storage.hidden import HiddenEventHandler
+from neo.storage import handlers
 from neo.storage.replicator import Replicator
-from neo.storage.identification import IdentificationEventHandler
 from neo.connector import getConnectorHandler
 from neo.pt import PartitionTable
 from neo.util import dump
@@ -138,7 +134,7 @@ class Application(object):
             self.nm.add(MasterNode(server = server))
 
         # Make a listening port
-        handler = IdentificationEventHandler(self)
+        handler = handlers.IdentificationEventHandler(self)
         self.listening_conn = ListeningConnection(self.em, handler, 
             addr=self.server, connector_handler=self.connector_handler)
 
@@ -188,7 +184,7 @@ class Application(object):
             self.ptid = self.dm.getPTID()
 
         # bootstrap handler, only for outgoing connections
-        handler = BootstrapEventHandler(self)
+        handler = handlers.BootstrapEventHandler(self)
         em = self.em
         nm = self.nm
 
@@ -232,7 +228,7 @@ class Application(object):
                             node = nm.getNodeByUUID(uuid)
                             if node is self.primary_master_node:
                                 # Yes, I have.
-                                conn.setHandler(VerificationEventHandler(self))
+                                conn.setHandler(handlers.VerificationEventHandler(self))
                                 self.master_conn = conn
                                 return
 
@@ -241,7 +237,7 @@ class Application(object):
         Connections from client nodes may not be accepted at this stage."""
         logging.info('verifying data')
 
-        handler = VerificationEventHandler(self)
+        handler = handlers.VerificationEventHandler(self)
         self.master_conn.setHandler(handler)
         em = self.em
 
@@ -263,7 +259,7 @@ class Application(object):
         em = self.em
         nm = self.nm
 
-        handler = MasterOperationEventHandler(self)
+        handler = handlers.MasterOperationEventHandler(self)
         self.master_conn.setHandler(handler)
 
         # Forget all unfinished data.
@@ -296,7 +292,7 @@ class Application(object):
     def wait(self):
         # change handler
         logging.info("waiting in hidden state")
-        handler = HiddenEventHandler(self)
+        handler = handlers.HiddenEventHandler(self)
         for conn in self.em.getConnectionList():
             conn.setHandler(handler)
 
