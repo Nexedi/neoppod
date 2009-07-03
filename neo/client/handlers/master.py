@@ -17,8 +17,7 @@
 
 import logging
 
-from neo.client.handlers.handler import BaseHandler
-from neo import protocol
+from neo.client.handlers.handler import BaseHandler, AnswerBaseHandler
 from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE
 from neo.node import MasterNode, StorageNode
@@ -26,71 +25,8 @@ from neo.pt import MTPartitionTable as PartitionTable
 from neo.util import dump
 from neo import decorators
 
-class PrimaryBaseHandler(BaseHandler):
-    def _closePrimaryMasterConnection(self, conn):
-        """
-          This method is not part of EvenHandler API.
-        """
-        app = self.app
-        if app.master_conn is not None:
-            assert conn is app.master_conn
-            app.master_conn.lock()
-            try:
-                app.master_conn.close()
-            finally:
-                app.master_conn.release()
-            app.master_conn = None
-            app.primary_master_node = None
-
-class PrimaryBootstrapHandler(BaseHandler):
+class PrimaryBootstrapHandler(AnswerBaseHandler):
     """ Bootstrap handler used when looking for the primary master """
-
-    def connectionCompleted(self, conn):
-        app = self.app
-        if app.trying_master_node is None:
-            # Should not happen.
-            raise RuntimeError('connection completed while not trying to connect')
- 
-        super(PrimaryBootstrapHandler, self).connectionCompleted(conn)
-
-    def connectionFailed(self, conn):
-        app = self.app
-        if app.trying_master_node is None:
-            # Should not happen.
-            raise RuntimeError('connection failed while not trying to connect')
-        if app.trying_master_node is app.primary_master_node:
-            # Tried to connect to a primary master node and failed.
-            # So this would effectively mean that it is dead.
-            app.primary_master_node = None
-
-        app.trying_master_node = None
-
-        super(PrimaryBootstrapHandler, self).connectionFailed(conn)
-    
-    def timeoutExpired(self, conn):
-        app = self.app
-        if app.trying_master_node is app.primary_master_node:
-            # If a primary master node timeouts, I should not rely on it.
-            app.primary_master_node = None
-        app.trying_master_node = None
-        super(PrimaryBootstrapHandler, self).timeoutExpired(conn)
-
-    def connectionClosed(self, conn):
-        app = self.app
-        if app.trying_master_node is app.primary_master_node:
-            # If a primary master node closes, I should not rely on it.
-            app.primary_master_node = None
-        app.trying_master_node = None
-        super(PrimaryBootstrapHandler, self).connectionClosed(conn)
-
-    def peerBroken(self, conn):
-        app = self.app
-        if app.trying_master_node is app.primary_master_node:
-            # If a primary master node gets broken, I should not rely
-            # on it.
-            app.primary_master_node = None
-        app.trying_master_node = None
-        super(PrimaryBootstrapHandler, self).peerBroken(conn)
 
     def handleNotReady(self, conn, packet, message):
         app = self.app
@@ -185,21 +121,35 @@ class PrimaryBootstrapHandler(BaseHandler):
     def handleAnswerNodeInformation(self, conn, packet, node_list):
         pass
 
-class PrimaryNotificationsHandler(PrimaryBaseHandler):
+class PrimaryNotificationsHandler(BaseHandler):
     """ Handler that process the notifications from the primary master """
 
     def connectionClosed(self, conn):
-        logging.critical("connection to primary master node closed")
-        # Close connection
-        self._closePrimaryMasterConnection(conn)
-        BaseHandler.connectionClosed(self, conn)
+        app = self.app
+        if app.master_conn is not None:
+            assert conn is app.master_conn
+            logging.critical("connection to primary master node closed")
+            conn.lock()
+            try:
+                app.master_conn.close()
+            finally:
+                conn.release()
+            app.master_conn = None
+            app.primary_master_node = None
+        super(PrimaryNotificationsHandler, self).connectionClosed(conn)
 
     def timeoutExpired(self, conn):
-        logging.critical("connection timeout to primary master node expired")
+        app = self.app
+        if app.master_conn is not None:
+            assert conn is app.master_conn
+            logging.critical("connection timeout to primary master node expired")
         BaseHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):
-        logging.critical("primary master node is broken")
+        app = self.app
+        if app.master_conn is not None:
+            assert conn is app.master_conn
+            logging.critical("primary master node is broken")
         BaseHandler.peerBroken(self, conn)
 
     def handleStopOperation(self, conn, packet):
@@ -345,22 +295,8 @@ class PrimaryNotificationsHandler(PrimaryBaseHandler):
                     for queue in queue_set:
                         queue.put((conn, None))
 
-class PrimaryAnswersHandler(PrimaryBaseHandler):
+class PrimaryAnswersHandler(AnswerBaseHandler):
     """ Handle that process expected packets from the primary master """
-
-    def connectionClosed(self, conn):
-        logging.critical("connection to primary master node closed")
-        # Close connection
-        self._closePrimaryMasterConnection(conn)
-        super(PrimaryAnswersHandler, self).connectionClosed(conn)
-
-    def timeoutExpired(self, conn):
-        logging.critical("connection timeout to primary master node expired")
-        super(PrimaryAnswersHandler, self).timeoutExpired(conn)
-
-    def peerBroken(self, conn):
-        logging.critical("primary master node is broken")
-        super(PrimaryAnswersHandler, self).peerBroken(conn)
 
     def handleAnswerNewTID(self, conn, packet, tid):
         app = self.app

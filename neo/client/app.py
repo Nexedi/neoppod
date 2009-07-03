@@ -15,9 +15,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import logging
-import os
 from thread import get_ident
-from cPickle import dumps, loads
+from cPickle import dumps
 from zlib import compress, decompress
 from Queue import Queue, Empty
 from random import shuffle
@@ -27,15 +26,15 @@ from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connection import MTClientConnection
 from neo import protocol
-from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
-        INVALID_PTID, CLIENT_NODE_TYPE, UP_TO_DATE_STATE, INVALID_SERIAL, \
+from neo.protocol import INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
+        INVALID_PTID, CLIENT_NODE_TYPE, INVALID_SERIAL, \
         DOWN_STATE, HIDDEN_STATE
 from neo.client.handlers.master import PrimaryBootstrapHandler, \
         PrimaryNotificationsHandler, PrimaryAnswersHandler
 from neo.client.handlers.storage import StorageBootstrapHandler, \
-        StorageAnswersHandler
+        StorageAnswersHandler, StorageEventHandler
 from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
-     NEOStorageNotFoundError, NEOStorageConnectionFailure
+     NEOStorageNotFoundError
 from neo.exception import NeoException
 from neo.util import makeChecksum, dump
 from neo.connector import getConnectorHandler
@@ -45,6 +44,8 @@ from neo.event import EventManager
 from neo.locking import RLock, Lock
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
+
+class ConnectionClosed(Exception): pass
 
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
@@ -72,8 +73,7 @@ class ConnectionPool(object):
         while True:
             logging.info('trying to connect to %s - %s', node, node.getState())
             app.setNodeReady()
-            handler = StorageBootstrapHandler(app, app.dispatcher)
-            conn = MTClientConnection(app.em, handler, addr,
+            conn = MTClientConnection(app.em, app.storage_event_handler, addr,
                                       connector_handler=app.connector_handler)
             conn.lock()
             try:
@@ -90,14 +90,13 @@ class ConnectionPool(object):
                 conn.unlock()
 
             try:
-                app._waitMessage(conn, msg_id, handler=handler)
-            except NEOStorageError:
+                app._waitMessage(conn, msg_id, handler=app.storage_bootstrap_handler)
+            except ConnectionClosed:
                 logging.error('Connection to storage node %s failed', node)
                 return None
 
             if app.isNodeReady():
                 logging.info('connected to storage node %s', node)
-                conn.setHandler(self.app.storage_handler)
                 return conn
             else:
                 # Connection failed, notify primary master node
@@ -255,9 +254,11 @@ class Application(object):
         self.mq_cache = MQ()
         self.new_oid_list = []
         self.ptid = INVALID_PTID
-        self.storage_handler = StorageAnswersHandler(self, self.dispatcher)
-        self.primary_handler = PrimaryAnswersHandler(self, self.dispatcher)
-        self.primary_bootstrap_handler = PrimaryBootstrapHandler(self, self.dispatcher)
+        self.storage_event_handler = StorageEventHandler(self, self.dispatcher)
+        self.storage_bootstrap_handler = StorageBootstrapHandler(self)
+        self.storage_handler = StorageAnswersHandler(self)
+        self.primary_handler = PrimaryAnswersHandler(self)
+        self.primary_bootstrap_handler = PrimaryBootstrapHandler(self)
         self.notifications_handler = PrimaryNotificationsHandler(self, self.dispatcher)
         # Internal attribute distinct between thread
         self.local_var = ThreadContext()
@@ -303,8 +304,6 @@ class Application(object):
     def _waitMessage(self, target_conn = None, msg_id = None, handler=None):
         """Wait for a message returned by the dispatcher in queues."""
         local_queue = self.local_var.queue
-        if handler is None:
-            handler = self.notifications_handler
         while 1:
             if msg_id is None:
                 try:
@@ -315,11 +314,26 @@ class Application(object):
                 conn, packet = local_queue.get()
             # check fake packet
             if packet is None:
-                self.notifyDeadNode(conn)
                 if conn.getUUID() == target_conn.getUUID():
-                    raise NEOStorageConnectionFailure('connection closed')
+                    raise ConnectionClosed
                 else:
                     continue
+            # Guess the handler to use based on the type of node on the
+            # connection
+            if handler is None:
+                node = self.nm.getNodeByServer(conn.getAddress())
+                if node is None:
+                    raise ValueError, 'Expecting an answer from a node ' \
+                        'which type is not known... Is this right ?'
+                else:
+                    node_type = node.getType()
+                    if node_type == protocol.STORAGE_NODE_TYPE:
+                        handler = self.storage_handler
+                    elif node_type == protocol.MASTER_NODE_TYPE:
+                        handler = self.primary_handler
+                    else:
+                        raise ValueError, 'Unknown node type: %r' % (
+                            node_type, )
             handler.dispatch(conn, packet)
             if target_conn is conn and msg_id == packet.getId() \
                     and packet.getType() & 0x8000:
@@ -398,11 +412,19 @@ class Application(object):
                 # Query for primary master node
                 conn.lock()
                 try:
+                    if conn.getConnector() is None:
+                        # This happens, if a connection could not be established.
+                        logging.error('Connection to master node %s failed',
+                                      self.trying_master_node)
+                        continue
                     msg_id = conn.ask(protocol.askPrimaryMaster())
                     self.dispatcher.register(conn, msg_id, self.local_var.queue)
                 finally:
                     conn.unlock()
-                self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                try:
+                    self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                except ConnectionClosed:
+                    continue
                 # If we reached the primary master node, mark as connected
                 connected = self.primary_master_node is not None \
                             and self.primary_master_node is self.trying_master_node
@@ -412,13 +434,22 @@ class Application(object):
             while conn.getUUID() is None:
                 conn.lock()
                 try:
+                    if conn.getConnector() is None:
+                        logging.error('Connection to master node %s lost',
+                                      self.trying_master_node)
+                        self.primary_master_node = None
+                        break
                     p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
                             self.uuid, '0.0.0.0', 0, self.name)
                     msg_id = conn.ask(p)
                     self.dispatcher.register(conn, msg_id, self.local_var.queue)
                 finally:
                     conn.unlock()
-                self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                try:
+                    self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                except ConnectionClosed:
+                    self.primary_master_node = None
+                    break
                 if conn.getUUID() is None:
                     # Node identification was refused by master.
                     # Sleep a bit an retry.
@@ -513,7 +544,7 @@ class Application(object):
 
             try:
                 self._askStorage(conn, protocol.askObject(oid, serial, tid))
-            except NEOStorageConnectionFailure:
+            except ConnectionClosed:
                 continue
 
             if self.local_var.asked_object == -1:
@@ -649,7 +680,7 @@ class Application(object):
                      checksum, compressed_data, self.local_var.tid)
             try:
                 self._askStorage(conn, p)
-            except NEOStorageConnectionFailure:
+            except ConnectionClosed:
                 continue
 
             # Check we don't get any conflict
@@ -698,7 +729,7 @@ class Application(object):
                     user, desc, ext, oid_list)
             try:
                 self._askStorage(conn, p)
-            except NEOStorageConnectionFailure:
+            except ConnectionClosed:
                 continue
 
             if not self.isTransactionVoted():
@@ -787,7 +818,7 @@ class Application(object):
             self.local_var.txn_info = 0
             try:
                 self._askStorage(conn, protocol.askTransactionInformation(transaction_id))
-            except NEOStorageConnectionFailure:
+            except ConnectionClosed:
                 continue
 
             if self.local_var.txn_info == -1:
@@ -863,7 +894,7 @@ class Application(object):
         while len(self.local_var.node_tids) != len(storage_node_list):
             try:
                 self._waitMessage(handler=self.storage_handler)
-            except NEOStorageConnectionFailure:
+            except ConnectionClosed:
                 continue
 
         # Reorder tids
@@ -887,7 +918,7 @@ class Application(object):
                     self.local_var.txn_info = 0
                     try:
                         self._askStorage(conn, protocol.askTransactionInformation(tid))
-                    except NEOStorageConnectionFailure:
+                    except ConnectionClosed:
                         continue
                     if isinstance(self.local_var.txn_info, dict):
                         break
@@ -923,7 +954,7 @@ class Application(object):
             self.local_var.history = None
             try:
                 self._askStorage(conn, protocol.askObjectHistory(oid, 0, length))
-            except NEOStorageConnectionFailure:
+            except ConnectionClosed:
                 continue
 
             if self.local_var.history == -1:
@@ -956,7 +987,7 @@ class Application(object):
                 self.local_var.txn_info = None
                 try:
                     self._askStorage(conn, protocol.askTransactionInformation(serial))
-                except NEOStorageConnectionFailure:
+                except ConnectionClosed:
                     continue
 
                 if self.local_var.txn_info == -1:

@@ -17,11 +17,11 @@
 
 import logging
 
-from neo.client.handlers.handler import BaseHandler
+from neo.client.handlers.handler import BaseHandler, AnswerBaseHandler
 from neo.protocol import STORAGE_NODE_TYPE
 from ZODB.TimeStamp import TimeStamp
 
-class StorageBaseHandler(BaseHandler):
+class StorageEventHandler(BaseHandler):
 
     def _dealWithStorageFailure(self, conn, node):
         app = self.app
@@ -45,26 +45,26 @@ class StorageBaseHandler(BaseHandler):
         node = self.app.nm.getNodeByServer(conn.getAddress())
         logging.info("connection to storage node %s closed", node.getServer())
         self._dealWithStorageFailure(conn, node)
-        super(StorageBaseHandler, self).connectionClosed(conn)
+        super(StorageEventHandler, self).connectionClosed(conn)
 
     def timeoutExpired(self, conn):
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self._dealWithStorageFailure(conn, node)
-        super(StorageBaseHandler, self).timeoutExpired(conn)
+        super(StorageEventHandler, self).timeoutExpired(conn)
 
     def peerBroken(self, conn):
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self._dealWithStorageFailure(conn, node)
-        super(StorageBaseHandler, self).peerBroken(conn)
-
-class StorageBootstrapHandler(StorageBaseHandler):
-    """ Handler used when connecting to a storage node """
+        super(StorageEventHandler, self).peerBroken(conn)
 
     def connectionFailed(self, conn):
         # Connection to a storage node failed
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self._dealWithStorageFailure(conn, node)
-        super(StorageBootstrapHandler, self).connectionFailed(conn)
+        super(StorageEventHandler, self).connectionFailed(conn)
+
+class StorageBootstrapHandler(AnswerBaseHandler):
+    """ Handler used when connecting to a storage node """
 
     def handleNotReady(self, conn, packet, message):
         app = self.app
@@ -76,11 +76,7 @@ class StorageBootstrapHandler(StorageBaseHandler):
         node = app.nm.getNodeByServer(conn.getAddress())
         # It can be eiter a master node or a storage node
         if node_type != STORAGE_NODE_TYPE:
-            conn.lock()
-            try:
-                conn.close()
-            finally:
-                conn.release()
+            conn.close()
             return
         if conn.getAddress() != (ip_address, port):
             # The server address is different! Then why was
@@ -88,17 +84,13 @@ class StorageBootstrapHandler(StorageBaseHandler):
             logging.error('%s:%d is waiting for %s:%d',
                   conn.getAddress()[0], conn.getAddress()[1], ip_address, port)
             app.nm.remove(node)
-            conn.lock()
-            try:
-                conn.close()
-            finally:
-                conn.release()
+            conn.close()
             return
 
         conn.setUUID(uuid)
         node.setUUID(uuid)
 
-class StorageAnswersHandler(StorageBaseHandler):
+class StorageAnswersHandler(AnswerBaseHandler):
     """ Handle all messages related to ZODB operations """
         
     def handleAnswerObject(self, conn, packet, oid, start_serial, end_serial, 

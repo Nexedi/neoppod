@@ -43,3 +43,52 @@ class BaseHandler(EventHandler):
         else:
             queue.put((conn, packet))
 
+    def _notifyQueues(self, conn):
+        """
+          Put fake packets to task queues so that threads waiting for an
+          answer get notified of the disconnection.
+        """
+        queue_set = set()
+        conn_id = id(conn)
+        for key in self.dispatcher.message_table.keys():
+            if conn_id == key[0]:
+                queue = self.dispatcher.message_table.pop(key)
+                queue_set.add(queue)
+        for queue in queue_set:
+            queue.put((conn, None))
+
+    def connectionClosed(self, conn):
+        super(BaseHandler, self).connectionClosed(conn)
+        self._notifyQueues(conn)
+
+    def timeoutExpired(self, conn):
+        super(BaseHandler, self).timeoutExpired(conn)
+        conn.lock()
+        try:
+            conn.close()
+        finally:
+            conn.release()
+        self._notifyQueues(conn)
+
+    def connectionFailed(self, conn):
+        super(BaseHandler, self).connectionFailed(conn)
+        self._notifyQueues(conn)
+
+def unexpectedInAnswerHandler(*args, **kw):
+    raise Exception('Unexpected event in an answer handler')
+
+class AnswerBaseHandler(EventHandler):
+
+    def __init__(self, app):
+        self.app = app
+        super(AnswerBaseHandler, self).__init__()
+
+    connectionStarted = unexpectedInAnswerHandler
+    connectionCompleted = unexpectedInAnswerHandler
+    connectionFailed = unexpectedInAnswerHandler
+    connectionAccepted = unexpectedInAnswerHandler
+    timeoutExpired = unexpectedInAnswerHandler
+    connectionClosed = unexpectedInAnswerHandler
+    packetReceived = unexpectedInAnswerHandler
+    peerBroken = unexpectedInAnswerHandler
+
