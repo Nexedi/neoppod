@@ -24,7 +24,8 @@ from collections import deque
 from neo.tests.base import NeoTestBase
 from neo.master.app import MasterNode
 from neo.storage.app import Application, StorageNode
-from neo.storage.operation import TransactionInformation, OperationEventHandler
+from neo.storage.operation import TransactionInformation, ClientOperationEventHandler, \
+        StorageOperationEventHandler, MasterOperationEventHandler
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.pt import PartitionTable
 from neo import protocol
