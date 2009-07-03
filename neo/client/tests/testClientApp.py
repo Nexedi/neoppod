@@ -16,8 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import unittest
-import logging
-from mock import Mock, ReturnValues, ReturnIterator
+from mock import Mock, ReturnValues
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
 from neo.tests.base import NeoTestBase
 from neo.client.app import Application
@@ -26,7 +25,6 @@ from neo.client.exception import NEOStorageError, NEOStorageNotFoundError, \
 from neo import protocol
 from neo.protocol import *
 from neo.util import makeChecksum
-from neo.pt import PartitionTable
 import neo.connection
 
 def _getMasterConnection(self):
@@ -132,7 +130,6 @@ class ClientApplicationTests(NeoTestBase):
     # common checks
 
     def checkDispatcherRegisterCalled(self, app, conn):
-        from Queue import Queue
         calls = app.dispatcher.mockGetNamedCalls('register')
         self.assertEquals(len(calls), 1)
         #self.assertEquals(calls[0].getParam(0), conn)

@@ -16,12 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import unittest
-from mock import Mock, ReturnValues
-from neo.protocol import INVALID_UUID
+from mock import Mock
 
 from neo.tests.base import NeoTestBase
 from neo.client.app import ConnectionPool
-import os
 
 class ConnectionPoolTests(NeoTestBase):
 

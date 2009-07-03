@@ -15,26 +15,22 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import os
 import unittest
 import logging
 import threading
 from mock import Mock, ReturnValues
 from neo.tests.base import NeoTestBase
 from neo import protocol
-from neo.protocol import Packet, UnexpectedPacketError, INVALID_UUID
-from neo.protocol import ERROR, \
+from neo.protocol import UnexpectedPacketError, INVALID_UUID
+from neo.protocol import \
      INVALID_PTID, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, MASTER_NODE_TYPE, \
-     RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-     UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
-from neo.exception import ElectionFailure
+     RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
+     UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.client.handlers.handler import BaseHandler
 from neo.client.handlers.master import PrimaryBootstrapHandler, \
         PrimaryNotificationsHandler, PrimaryAnswersHandler
 from neo.client.handlers.storage import StorageBootstrapHandler, \
         StorageAnswersHandler
-from neo.node import StorageNode
-from neo.util import dump
 
 MARKER = []
 
