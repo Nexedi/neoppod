@@ -30,7 +30,9 @@ from neo import protocol
 from neo.protocol import Packet, INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
         INVALID_PTID, CLIENT_NODE_TYPE, UP_TO_DATE_STATE, INVALID_SERIAL, \
         DOWN_STATE, HIDDEN_STATE
-from neo.client.handler import *
+from neo.client.handler import PrimaryBootstrapHandler, \
+        PrimaryNotificationsHandler, PrimaryAnswersHandler, \
+        StorageBootstrapHandler, StorageAnswersHandler
 from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
      NEOStorageNotFoundError, NEOStorageConnectionFailure
 from neo.exception import NeoException
