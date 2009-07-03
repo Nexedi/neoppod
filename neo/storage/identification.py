@@ -42,7 +42,7 @@ class IdentificationEventHandler(StorageEventHandler):
         self.checkClusterName(name)
         # reject any incoming connections if not ready
         if not self.app.ready:
-            raise protocol.notReady('try again')
+            raise protocol.NotReadyError
         app, nm = self.app, self.app.nm
         server = (ip_address, port)
         node = app.nm.getNodeByUUID(uuid)
