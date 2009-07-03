@@ -15,15 +15,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-from Queue import Queue
 from ZODB import BaseStorage, ConflictResolution, POSException
-from ZODB.utils import oid_repr, p64, u64
 import logging
 
 from neo.client.app import Application
 from neo.client.exception import NEOStorageConflictError, NEOStorageNotFoundError
-from neo.util import dump
-from neo.locking import Lock
 from neo import DEFAULT_LOG_FORMAT
 
 class Storage(BaseStorage.BaseStorage,
