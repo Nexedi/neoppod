@@ -28,9 +28,11 @@ from neo.protocol import ERROR, \
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import ElectionFailure
-from neo.client.handlers.handler import BaseHandler, PrimaryBootstrapHandler, \
-        PrimaryNotificationsHandler, PrimaryAnswersHandler, \
-        StorageBootstrapHandler, StorageAnswersHandler
+from neo.client.handlers.handler import BaseHandler
+from neo.client.handlers.master import PrimaryBootstrapHandler, \
+        PrimaryNotificationsHandler, PrimaryAnswersHandler
+from neo.client.handlers.storage import StorageBootstrapHandler, \
+        StorageAnswersHandler
 from neo.node import StorageNode
 from neo.util import dump
 
