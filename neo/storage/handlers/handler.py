@@ -93,9 +93,8 @@ class BaseStorageHandler(EventHandler):
                     app.nm.remove(n)
                     n = None
             elif n.getServer() != addr:
-                # same uuid but different address, remove it
-                app.nm.remove(n)
-                n = None
+                # same uuid but different address, update it
+                n.setServer(addr)
 
             if node_type == MASTER_NODE_TYPE:
                 if n is None:
