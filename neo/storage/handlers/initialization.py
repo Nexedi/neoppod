@@ -70,3 +70,9 @@ class InitializationHandler(BaseMasterHandler):
         logging.info('Got the partition table :')
         self.app.pt.log()
 
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        # XXX: Currently it safe to ignore those packets because the master is
+        # single threaded, it send the partition table without any changes at
+        # the same time. Latter it should be needed to put in queue any changes
+        # and apply them when the initial partition is filled.
+        logging.info('ignoring notifyPartitionChanges during initialization')
