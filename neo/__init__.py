@@ -1,1 +1,1 @@
-DEFAULT_LOG_FORMAT = '[%(module)12s:%(lineno)3d] %(message)s'
+DEFAULT_LOG_FORMAT = '%(asctime)s [%(module)12s:%(lineno)3d] %(levelname)8s: %(message)s'
