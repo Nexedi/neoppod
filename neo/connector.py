@@ -93,8 +93,8 @@ class SocketConnector:
       new_s, addr =  self.socket.accept()
       new_s = SocketConnector(new_s, accepted_from=addr)
       return new_s, addr
-    except socket.error, m:
-      if m[0] == errno.EAGAIN:
+    except socket.error, (err, errmsg):
+      if err == errno.EAGAIN:
         raise ConnectorTryAgainException
       raise ConnectorException, 'getNewConnection failed: %s:%s' % (err, errmsg)
 

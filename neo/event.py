@@ -20,7 +20,6 @@ from select import select
 from time import time
 
 from neo import protocol
-from neo.protocol import Packet
 from neo.epoll import Epoll
 
 class IdleEvent(object):
@@ -117,7 +116,7 @@ class SelectEventManager(object):
             if to_process.hasPendingMessages():
                 self._addPendingConnection(to_process)
 
-    def poll(self, timeout = 1):
+    def _poll(self, timeout = 1):
         rlist, wlist, xlist = select(self.reader_set, self.writer_set, self.exc_list,
                                      timeout)
         for s in rlist:

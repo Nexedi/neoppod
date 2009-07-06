@@ -22,7 +22,7 @@ from neo import protocol
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         BROKEN_STATE, PENDING_STATE, HIDDEN_STATE, MASTER_NODE_TYPE, \
         STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE, \
-        VALID_NODE_STATE_LIST, ADMIN_NODE_TYPE
+        VALID_NODE_STATE_LIST
 from neo.util import dump
 
 class Node(object):

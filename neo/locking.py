@@ -86,7 +86,7 @@ if VERBOSE_LOCKING:
             return self.lock.release()
 
         def _locked(self):
-            raise NotImplemetedError
+            raise NotImplementedError
 
         def __repr__(self):
             return '<%s@%X>' % (self.__class__.__name__, id(self))

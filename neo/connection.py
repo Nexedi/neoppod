@@ -17,16 +17,14 @@
 
 import logging
 from neo.locking import RLock
-import sys
 
 from neo import protocol
-from neo.protocol import Packet, PacketMalformedError
+from neo.protocol import PacketMalformedError
 from neo.event import IdleEvent
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
         ConnectorConnectionClosedException
 from neo.util import dump
-from neo.exception import OperationFailure
 
 def not_closed(func):
     def decorator(self, *args, **kw):

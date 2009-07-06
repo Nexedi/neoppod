@@ -15,10 +15,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import logging, traceback
+import logging
 
 from neo import protocol
-from neo.protocol import Packet, PacketMalformedError, UnexpectedPacketError, \
+from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
 from neo.connection import ServerConnection
 

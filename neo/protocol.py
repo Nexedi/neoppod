@@ -18,9 +18,9 @@
 import struct
 from struct import pack, unpack
 from socket import inet_ntoa, inet_aton
-import logging
+#import logging
 
-from neo.util import dump
+#from neo.util import dump
 
 class EnumItem(int):
     """
