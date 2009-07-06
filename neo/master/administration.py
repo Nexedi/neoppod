@@ -54,16 +54,12 @@ class AdministrationEventHandler(MasterEventHandler):
 
     def handleSetClusterState(self, conn, packet, name, state):
         self.checkClusterName(name)
-        if state == protocol.RUNNING:
-            self.app.cluster_state = state
-        if state == protocol.STOPPING:
-            self.app.cluster_state = state
-            p = protocol.noError('cluster state changed')
-            conn.answer(p, packet)
-            self.app.shutdown()
+        self.app.changeClusterState(state)
         p = protocol.noError('cluster state changed')
         conn.answer(p, packet)
-
+        if state == protocol.STOPPING:
+            self.app.cluster_state = state
+            self.app.shutdown()
 
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s : %s" % (dump(uuid), state, modify_partition_table))

@@ -109,12 +109,7 @@ class RecoveryEventHandler(MasterEventHandler):
             app.broadcastNodeInformation(node)
 
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        uuid = conn.getUUID()
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
-        # If the target is still unknown, set it to this node for now.
-        if app.target_uuid is None:
-            app.target_uuid = uuid
 
         # Get max values.
         if app.loid < loid:
@@ -122,11 +117,11 @@ class RecoveryEventHandler(MasterEventHandler):
         if app.ltid < ltid:
             app.ltid = ltid
         if app.pt.getID() == INVALID_PTID or app.pt.getID() < lptid:
+            # something newer
             app.pt.setID(lptid)
-            # I need to use the node which has the max Partition Table ID.
-            app.target_uuid = uuid
-        elif app.pt.getID() == lptid and app.target_uuid is None:
-            app.target_uuid = uuid
+            app.target_uuid = conn.getUUID()
+            app.pt.clear()
+            conn.ask(protocol.askPartitionTable([]))
 
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()

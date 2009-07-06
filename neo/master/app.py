@@ -356,6 +356,20 @@ class Application(object):
         if node_list:
             conn.notify(protocol.notifyNodeInformation(node_list))
 
+    def buildFromScratch(self):
+        nm, em, pt = self.nm, self.em, self.pt
+        logging.debug('creating a new partition table, wait for a storage node')
+        # wait for some empty storage nodes, their are accepted
+        while len(nm.getStorageNodeList()) == 0:
+            em.poll(1)
+        # take the first node available
+        node = nm.getStorageNodeList()[0]
+        node.setState(protocol.RUNNING_STATE)
+        self.broadcastNodeInformation(node)
+        # build the partition with this node
+        pt.setID(pack('!Q', 1))
+        pt.make([node])
+
     def recoverStatus(self):
         """Recover the status about the cluster. Obtain the last OID, the last TID,
         and the last Partition Table ID from storage nodes, then get back the latest
@@ -363,102 +377,26 @@ class Application(object):
         logging.info('begin the recovery of the status')
 
         self.changeClusterState(protocol.RECOVERING)
-
-        em = self.em
-        nm = self.nm
+        em, nm = self.em, self.nm
     
         self.loid = INVALID_OID
         self.ltid = INVALID_TID
         self.pt.setID(INVALID_PTID)
-        while 1:
-            self.target_uuid = None
-            self.pt.clear()
+        self.target_uuid = None
 
-            if self.pt.getID() != INVALID_PTID:
-                # I need to retrieve last ids again.
-                logging.info('resending Ask Last IDs')
-                for conn in em.getConnectionList():
-                    uuid = conn.getUUID()
-                    if uuid is not None:
-                        node = nm.getNodeByUUID(uuid)
-                        if node.getNodeType() == STORAGE_NODE_TYPE \
-                                and node.getState() == RUNNING_STATE:
-                            conn.ask(protocol.askLastIDs())
+        # collect the last partition table available
+        start_time = time()
+        while self.cluster_state == protocol.RECOVERING:
+            em.poll(1)
+            # FIXME: remove this timeout to force manual startup
+            if start_time + 5 <= time():
+                self.changeClusterState(protocol.VERIFYING)
 
-            # Wait for at least one storage node to appear.
-            while self.target_uuid is None:
-                em.poll(1)
-
-            # Wait a bit, 1 second is too short for the ZODB test running on a
-            # dedibox
-            t = time()
-            while time() < t + 5:
-                em.poll(1)
-
-            # Now I have at least one to ask.
-            prev_lptid = self.pt.getID()
-            node = nm.getNodeByUUID(self.target_uuid)
-            if node is None or node.getState() != RUNNING_STATE:
-                # Weird. It's dead.
-                logging.info('the target storage node is dead')
-                continue
-
-            for conn in em.getConnectionList():
-                if conn.getUUID() == self.target_uuid:
-                    break
-            else:
-                # Why?
-                logging.info('no connection to the target storage node')
-                continue
-
-            if self.pt.getID() == INVALID_PTID:
-                # This looks like the first time. So make a fresh table.
-                logging.debug('creating a new partition table')
-                self.pt.setID(pack('!Q', 1)) # ptid != INVALID_PTID
-                self.pt.make(nm.getStorageNodeList())
-            else:
-                # Obtain a partition table. It is necessary to split this
-                # message, because the packet size can be huge.
-                logging.debug('asking a partition table to %s', node)
-                start = 0
-                size = self.pt.getPartitions()
-                while size:
-                    amt = min(1000, size)
-                    conn.ask(protocol.askPartitionTable(range(start, start + amt)))
-                    size -= amt
-                    start += amt
-
-                t = time()
-                while 1:
-                    em.poll(1)
-                    if node.getState() != RUNNING_STATE:
-                        # Dead.
-                        break
-                    if self.pt.filled() or t + 30 < time():
-                        break
-
-                if self.pt.getID() != prev_lptid or not self.pt.filled():
-                    # I got something newer or the target is dead.
-                    logging.debug('lptid = %s, prev_lptid = %s',
-                              dump(self.pt.getID()), dump(prev_lptid))
-                    self.pt.log()
-                    continue
-
-                # Wait until the cluster gets operational or the Partition
-                # Table ID turns out to be not the latest.
-                logging.info('waiting for the cluster to be operational')
-                self.pt.log()
-                while 1:
-                    em.poll(1)
-                    if self.pt.operational():
-                        break
-                    if self.pt.getID() != prev_lptid:
-                        break
-
-                if self.pt.getID() != prev_lptid:
-                    # I got something newer.
-                    continue
-            break
+        logging.info('startup allowed')
+        if self.pt.getID() == INVALID_PTID:
+            self.buildFromScratch()
+        logging.info('cluster starts with this partition table :')
+        self.pt.log()
 
     def verifyTransaction(self, tid):
         em = self.em
@@ -526,14 +464,16 @@ class Application(object):
 
     def verifyData(self):
         """Verify the data in storage nodes and clean them up, if necessary."""
-        logging.info('start to verify data')
 
         em, nm = self.em, self.nm
         self.changeClusterState(protocol.VERIFYING)
 
         # wait for any missing node
+        logging.info('waiting for the cluster to be operational')
         while not self.pt.operational():
             em.poll(1)
+
+        logging.info('start to verify data')
 
         # FIXME this part has a potential problem that the write buffers can
         # be very huge. Thus it would be better to flush the buffers from time
@@ -854,8 +794,7 @@ class Application(object):
         state = protocol.RUNNING_STATE
         handler = None
         if self.cluster_state == protocol.RECOVERING:
-            # TODO: Enable empty node rejection when manual startup is ok :
-            if False and uuid == protocol.INVALID_UUID:
+            if uuid == protocol.INVALID_UUID:
                 logging.info('reject empty storage node')
                 raise protocol.NotReadyError
             handler = RecoveryEventHandler
