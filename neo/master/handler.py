@@ -80,6 +80,13 @@ class MasterEventHandler(EventHandler):
         logging.error('ignoring notify cluster information in %s' % self.__class__.__name__)
 
     def handleAskPrimaryMaster(self, conn, packet):
+        if conn.getConnector() is None:
+            # Connection can be closed by peer after he sent AskPrimaryMaster
+            # if he finds the primary master before we answer him.
+            # The connection gets closed before this message gets processed
+            # because this message might have been queued, but connection
+            # interruption takes effect as soon as received.
+            return
         app = self.app
         if app.primary:
             primary_uuid = app.uuid

@@ -157,6 +157,14 @@ class ClientElectionEventHandler(MasterEventHandler):
         app.negotiating_master_node_set.discard(conn.getAddress())
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
+        if conn.getConnector() is None:
+            # Connection can be closed by peer after he sent
+            # AnswerPrimaryMaster if he finds the primary master before we
+            # give him our UUID.
+            # The connection gets closed before this message gets processed
+            # because this message might have been queued, but connection
+            # interruption takes effect as soon as received.
+            return
         app = self.app
         # Register new master nodes.
         for ip_address, port, uuid in known_master_list:
@@ -215,6 +223,14 @@ class ServerElectionEventHandler(MasterEventHandler):
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):
+        if conn.getConnector() is None:
+            # Connection can be closed by peer after he sent
+            # RequestNodeIdentification if he finds the primary master before
+            # we answer him.
+            # The connection gets closed before this message gets processed
+            # because this message might have been queued, but connection
+            # interruption takes effect as soon as received.
+            return
         self.checkClusterName(name)
         app = self.app
         if node_type != MASTER_NODE_TYPE:
