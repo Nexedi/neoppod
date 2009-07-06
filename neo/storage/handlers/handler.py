@@ -46,29 +46,57 @@ class BaseStorageHandler(EventHandler):
                                        num_partitions, num_replicas, your_uuid):
         raise NotImplementedError('this method must be overridden')
 
-    def handleAskPrimaryMaster(self, conn, packet):
-        """This should not be used in reality, because I am not a master
-        node. But? If someone likes to ask me, I can help."""
-        logging.info('asked a primary master node')
-        app = self.app
+    def handleAskLastIDs(self, conn, packet):
+        raise NotImplementedError('this method must be overridden')
 
-        if app.primary_master_node is not None:
-            primary_uuid = app.primary_master_node.getUUID()
-        else:
-            primary_uuid = INVALID_UUID
+    def handleAskPartitionTable(self, conn, packet, offset_list):
+        raise NotImplementedError('this method must be overridden')
 
-        known_master_list = []
-        for n in app.nm.getMasterNodeList():
-            if n.getState() == BROKEN_STATE:
-                continue
-            info = n.getServer() + (n.getUUID() or INVALID_UUID,)
-            known_master_list.append(info)
+    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        raise NotImplementedError('this method must be overridden')
 
-        p = protocol.answerPrimaryMaster(primary_uuid, known_master_list)
-        conn.answer(p, packet)
+    def handleStopOperation(self, conn, packet):
+        raise NotImplementedError('this method must be overridden')
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(MASTER_NODE_TYPE)
+    def handleAskTransactionInformation(self, conn, packet, tid):
+        raise NotImplementedError('this method must be overridden')
+
+    def handleLockInformation(self, conn, packet, tid):
+        raise NotImplementedError('this method must be overridden')
+
+    def handleUnlockInformation(self, conn, packet, tid):
+        raise NotImplementedError('this method must be overridden')
+
+    def handleNotifyClusterInformation(self, conn, packet, state):
+        logging.error('ignoring notify cluster information in %s' % self.__class__.__name__)
+
+    def handleAbortTransaction(self, conn, packet, tid):
+        logging.info('ignoring abort transaction')
+        pass
+
+    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
+        logging.info('ignoring answer unfinished transactions')
+        pass
+
+    def handleAskOIDs(self, conn, packet, first, last, partition):
+        logging.info('ignoring ask oids')
+        pass
+
+
+class BaseMasterHandler(BaseStorageHandler):
+
+    def timeoutExpired(self, conn):
+        raise PrimaryFailure('times out')
+
+    def connectionClosed(self, conn):
+        raise PrimaryFailure('dead')
+
+    def peerBroken(self, conn):
+        raise PrimaryFailure('broken')
+
+    def handleReelectPrimaryMaster(self, conn, packet):
+        raise PrimaryFailure('re-election occurs')
+
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
@@ -150,74 +178,6 @@ class BaseStorageHandler(EventHandler):
                         app.nm.remove(n)
             if n is not None:
                 logging.info("added %s %s" %(dump(n.getUUID()), n.getServer()))
-
-    def handleNotifyClusterInformation(self, conn, packet, state):
-        logging.error('ignoring notify cluster information in %s' % self.__class__.__name__)
-
-    def handleAskLastIDs(self, conn, packet):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleAskPartitionTable(self, conn, packet, offset_list):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleStopOperation(self, conn, packet):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleAskTransactionInformation(self, conn, packet, tid):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleLockInformation(self, conn, packet, tid):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleUnlockInformation(self, conn, packet, tid):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleAskObject(self, conn, packet, oid, serial, tid):
-        raise UnexpectedPacketError
-
-    def handleAskTIDs(self, conn, packet, first, last, partition):
-        raise UnexpectedPacketError
-
-    def handleAskObjectHistory(self, conn, packet, oid, first, last):
-        raise UnexpectedPacketError
-
-    def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
-                                  ext, oid_list):
-        raise UnexpectedPacketError
-
-    def handleAskStoreObject(self, conn, packet, oid, serial,
-                             compression, checksum, data, tid):
-        raise UnexpectedPacketError
-
-    def handleAbortTransaction(self, conn, packet, tid):
-        logging.info('ignoring abort transaction')
-        pass
-
-    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
-        logging.info('ignoring answer unfinished transactions')
-        pass
-
-    def handleAskOIDs(self, conn, packet, first, last, partition):
-        logging.info('ignoring ask oids')
-        pass
-
-
-class BaseMasterHandler(BaseStorageHandler):
-
-    def timeoutExpired(self, conn):
-        raise PrimaryFailure('times out')
-
-    def connectionClosed(self, conn):
-        raise PrimaryFailure('dead')
-
-    def peerBroken(self, conn):
-        raise PrimaryFailure('broken')
-
-    def handleReelectPrimaryMaster(self, conn, packet):
-        raise PrimaryFailure('re-election occurs')
 
 
 class BaseClientAndStorageOperationHandler(BaseStorageHandler):
