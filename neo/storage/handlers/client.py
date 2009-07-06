@@ -79,32 +79,6 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
     def connectionCompleted(self, conn):
         BaseClientAndStorageOperationHandler.connectionCompleted(self, conn)
 
-    def handleAskObject(self, conn, packet, oid, serial, tid):
-        app = self.app
-        if oid in app.load_lock_dict:
-            # Delay the response.
-            app.queueEvent(self.handleAskObject, conn, packet, oid,
-                           serial, tid)
-            return
-
-        if serial == INVALID_SERIAL:
-            serial = None
-        if tid == INVALID_TID:
-            tid = None
-        o = app.dm.getObject(oid, serial, tid)
-        if o is not None:
-            serial, next_serial, compression, checksum, data = o
-            if next_serial is None:
-                next_serial = INVALID_SERIAL
-            logging.debug('oid = %s, serial = %s, next_serial = %s',
-                          dump(oid), dump(serial), dump(next_serial))
-            p = protocol.answerObject(oid, serial, next_serial,
-                           compression, checksum, data)
-        else:
-            logging.debug('oid = %s not found', dump(oid))
-            p = protocol.oidNotFound('%s does not exist' % dump(oid))
-        conn.answer(p, packet)
-
     def handleAbortTransaction(self, conn, packet, tid):
         uuid = conn.getUUID()
         app = self.app

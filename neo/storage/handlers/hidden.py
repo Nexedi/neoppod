@@ -35,7 +35,7 @@ class HiddenHandler(BaseStorageHandler):
 
     def __init__(self, app):
         self.app = app
-        BaseStorageHandler.__init__(self)
+        BaseStorageHandler.__init__(self, app)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary

@@ -96,16 +96,7 @@ class VerificationHandler(BaseMasterHandler):
 
     def handleAskTransactionInformation(self, conn, packet, tid):
         app = self.app
-        if not conn.isServerConnection():
-            # If this is from a primary master node, assume that it wants
-            # to obtain information about the transaction, even if it has
-            # not been finished.
-            t = app.dm.getTransaction(tid, all = True)
-        else:
-            # XXX: this should never be used since we don't accept incoming
-            # connections out of the operation state.
-            t = app.dm.getTransaction(tid)
-
+        t = app.dm.getTransaction(tid, all=True)
         if t is None:
             p = protocol.tidNotFound('%s does not exist' % dump(tid))
         else:

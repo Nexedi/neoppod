@@ -39,16 +39,6 @@ class MasterOperationHandler(BaseMasterHandler):
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
         self.app.replicator.setUnfinishedTIDList(tid_list)
 
-    def handleAskTransactionInformation(self, conn, packet, tid):
-        app = self.app
-        t = app.dm.getTransaction(tid)
-
-        if t is None:
-            p = protocol.tidNotFound('%s does not exist' % dump(tid))
-        else:
-            p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
-        conn.answer(p, packet)
-
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""

@@ -218,3 +218,38 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
         p = protocol.answerObjectHistory(oid, history_list)
         conn.answer(p, packet)
 
+    def handleAskTransactionInformation(self, conn, packet, tid):
+        app = self.app
+        t = app.dm.getTransaction(tid)
+        if t is None:
+            p = protocol.tidNotFound('%s does not exist' % dump(tid))
+        else:
+            p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
+        conn.answer(p, packet)
+
+    def handleAskObject(self, conn, packet, oid, serial, tid):
+        app = self.app
+        if oid in app.load_lock_dict:
+            # Delay the response.
+            app.queueEvent(self.handleAskObject, conn, packet, oid,
+                           serial, tid)
+            return
+
+        if serial == protocol.INVALID_SERIAL:
+            serial = None
+        if tid == protocol.INVALID_TID:
+            tid = None
+        o = app.dm.getObject(oid, serial, tid)
+        if o is not None:
+            serial, next_serial, compression, checksum, data = o
+            if next_serial is None:
+                next_serial = protocol.INVALID_SERIAL
+            logging.debug('oid = %s, serial = %s, next_serial = %s',
+                          dump(oid), dump(serial), dump(next_serial))
+            p = protocol.answerObject(oid, serial, next_serial,
+                           compression, checksum, data)
+        else:
+            logging.debug('oid = %s not found', dump(oid))
+            p = protocol.oidNotFound('%s does not exist' % dump(oid))
+        conn.answer(p, packet)
+

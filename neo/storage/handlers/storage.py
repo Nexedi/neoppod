@@ -51,4 +51,3 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
                                      app.num_partitions, partition_list)
         conn.answer(protocol.answerOIDs(oid_list), packet)
 
-
