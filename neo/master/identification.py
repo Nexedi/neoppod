@@ -41,23 +41,6 @@ class IdentificationEventHandler(MasterEventHandler):
         node_by_uuid = nm.getNodeByUUID(uuid)
         node_by_addr = nm.getNodeByServer(server)
 
-        def changeNodeAddress(node, server):
-            if node_type == protocol.STORAGE_NODE_TYPE:
-                args = (node.getServer(), server)
-                # remove storage from partition table
-                # XXX: this should be safe but need to be checked
-                cell_list = app.pt.dropNode(node)
-                if cell_list:
-                    ptid = app.pt.setNextID()
-                    app.broadcastPartitionChanges(ptid, cell_list)
-            # set it to down state
-            node.setState(protocol.DOWN_STATE)
-            app.broadcastNodeInformation(node)
-            # then update the address and set it to running state
-            node.setServer(server)
-            node.setState(protocol.RUNNING_STATE)
-            return node
-
         # handle conflicts and broken nodes
         node = node_by_uuid or node_by_addr
         if node_by_uuid is not None:
@@ -71,7 +54,8 @@ class IdentificationEventHandler(MasterEventHandler):
                     # still running, reject this new node
                     raise protocol.ProtocolError('invalid server address')
                 # this node has changed its address
-                node = changeNodeAddress(node, server)
+                node.setServer(server)
+                node.setState(protocol.RUNNING_STATE)
         if node_by_uuid is None and node_by_addr is not None:
             if node.getState() == protocol.RUNNING_STATE:
                 # still running, reject this new node
@@ -79,7 +63,8 @@ class IdentificationEventHandler(MasterEventHandler):
             # FIXME: here the node was known with a different uuid but with the
             # same address, is it safe to forgot the old, even if he's not
             # running ?
-            node = changeNodeAddress(node, server)
+            node.setServer(server)
+            node.setState(protocol.RUNNING_STATE)
 
         # ask the app the node identification, if refused, an exception is raised
         result = self.app.identifyNode(node_type, uuid, node) 

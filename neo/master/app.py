@@ -549,7 +549,7 @@ class Application(object):
             uuid = conn.getUUID()
             if uuid is not None:
                 node = nm.getNodeByUUID(uuid)
-                if node.getNodeType() in (STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
+                if node.getNodeType() == ADMIN_NODE_TYPE:
                     self.sendPartitionTable(conn)
 
         # Gather all unfinished transactions.
