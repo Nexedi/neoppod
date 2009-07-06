@@ -528,16 +528,12 @@ class Application(object):
         """Verify the data in storage nodes and clean them up, if necessary."""
         logging.info('start to verify data')
 
-        em = self.em
-        nm = self.nm
-
-        # Wait ask/request primary master exchange with the last storage node
-        # because it have to be in the verification state
-        t = time()
-        while time() < t + 1:
-            em.poll(1)
-
+        em, nm = self.em, self.nm
         self.changeClusterState(protocol.VERIFYING)
+
+        # wait for any missing node
+        while not self.pt.operational():
+            em.poll(1)
 
         # FIXME this part has a potential problem that the write buffers can
         # be very huge. Thus it would be better to flush the buffers from time
@@ -545,6 +541,7 @@ class Application(object):
 
         # Send the current partition table to storage and admin nodes, so that
         # all nodes share the same view.
+        # FIXME: the admin must ask itself the partition table
         for conn in em.getConnectionList():
             uuid = conn.getUUID()
             if uuid is not None:
@@ -690,15 +687,14 @@ class Application(object):
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
 
+        # recover the cluster status at startup
+        self.recoverStatus()
+
         while 1:
-            recovering = True
-            while recovering:
-                self.recoverStatus()
-                recovering = False
-                try:
-                    self.verifyData()
-                except VerificationFailure:
-                    recovering = True
+            try:
+                self.verifyData()
+            except VerificationFailure:
+                continue
             self.provideService()
 
     def playSecondaryRole(self):
