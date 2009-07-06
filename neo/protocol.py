@@ -230,7 +230,7 @@ packet_types = Enum({
 
     # Ask a stored object by its OID and a serial or a TID if given. If a serial
     # is specified, the specified revision of an object will be returned. If
-    # a TID is specified, an object right before the TID will be returned. C -> S.
+    # a TID is specified, an object right before the TID will be returned. S,C -> S.
     'ASK_OBJECT': 0x001b,
 
     # Answer the requested object. S -> C.
