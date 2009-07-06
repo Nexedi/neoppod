@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
- 
+
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -17,7 +17,7 @@
 
 import logging
 from neo import protocol
-from eno.protocol import CLIENT_NODE_TYPE, ADMIN_NODE_TYPE, INVALID_UUID, \
+from neo.protocol import CLIENT_NODE_TYPE, ADMIN_NODE_TYPE, INVALID_UUID, \
         RUNNING_STATE, STORAGE_NODE_TYPE, TEMPORARILY_DOWN_STATE, STOPPING
 from neo.master.service import ServiceEventHandler
 from neo import decorators
