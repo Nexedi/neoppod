@@ -17,48 +17,15 @@
 
 import logging
 
-from neo.storage.handlers.handler import StorageEventHandler
+from neo.storage.handlers.handler import BaseMasterHandler
 from neo.protocol import INVALID_OID, INVALID_TID, TEMPORARILY_DOWN_STATE
 from neo import protocol
 from neo.util import dump
 from neo.node import StorageNode
-from neo.exception import PrimaryFailure, OperationFailure
+from neo.exception import OperationFailure
 
-class VerificationEventHandler(StorageEventHandler):
+class VerificationHandler(BaseMasterHandler):
     """This class deals with events for a verification phase."""
-
-    def connectionAccepted(self, conn, s, addr):
-        """Called when a connection is accepted."""
-        # I do not want to accept a connection at this phase, but
-        # someone might mistake me as a master node.
-        StorageEventHandler.connectionAccepted(self, conn, s, addr)
-
-    def timeoutExpired(self, conn):
-        # If a primary master node timeouts, I cannot continue.
-        logging.critical('the primary master node times out')
-        raise PrimaryFailure('the primary master node times out')
-        StorageEventHandler.timeoutExpired(self, conn)
-
-    def connectionClosed(self, conn):
-        # If a primary master node closes, I cannot continue.
-        logging.critical('the primary master node is dead')
-        raise PrimaryFailure('the primary master node is dead')
-        StorageEventHandler.connectionClosed(self, conn)
-
-    def peerBroken(self, conn):
-        # If a primary master node gets broken, I cannot continue.
-        logging.critical('the primary master node is broken')
-        raise PrimaryFailure('the primary master node is broken')
-        StorageEventHandler.peerBroken(self, conn)
-
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
-                                  known_master_list):
-        app = self.app
-        if app.primary_master_node.getUUID() != primary_uuid:
-            raise PrimaryFailure('the primary master node seems to have changed')
-        # XXX is it better to deal with known_master_list here?
-        # But a primary master node is supposed not to send any info
-        # with this packet, so it would be useless.
 
     def handleAskLastIDs(self, conn, packet):
         app = self.app
@@ -66,16 +33,6 @@ class VerificationEventHandler(StorageEventHandler):
         tid = app.dm.getLastTID() or INVALID_TID
         p = protocol.answerLastIDs(oid, tid, app.ptid)
         conn.answer(p, packet)
-
-    def handleAnswerNodeInformation(self, conn, packet, node_list):
-        assert not node_list
-        self.app.has_node_information = True
-
-    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
-        assert not row_list
-        self.app.has_partition_table = True
-        logging.info('Got the partition table :')
-        self.app.pt.log()
 
     def handleAskPartitionTable(self, conn, packet, offset_list):
         app = self.app
@@ -94,37 +51,6 @@ class VerificationEventHandler(StorageEventHandler):
 
         p = protocol.answerPartitionTable(app.ptid, row_list)
         conn.answer(p, packet)
-
-    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        """A primary master node sends this packet to synchronize a partition
-        table. Note that the message can be split into multiple packets."""
-        app = self.app
-        nm = app.nm
-        pt = app.pt
-        if app.ptid != ptid:
-            app.ptid = ptid
-            pt.clear()
-
-        for offset, row in row_list:
-            for uuid, state in row:
-                node = nm.getNodeByUUID(uuid)
-                if node is None:
-                    node = StorageNode(uuid = uuid)
-                    if uuid != app.uuid:
-                        node.setState(TEMPORARILY_DOWN_STATE)
-                    nm.add(node)
-
-                pt.setCell(offset, node, state)
-
-        if pt.filled():
-            # If the table is filled, I assume that the table is ready
-            # to use. Thus install it into the database for persistency.
-            cell_list = []
-            for offset in xrange(app.num_partitions):
-                for cell in pt.getCellList(offset):
-                    cell_list.append((offset, cell.getUUID(), 
-                                      cell.getState()))
-            app.dm.setPartitionTable(ptid, cell_list)
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that

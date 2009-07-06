@@ -18,10 +18,10 @@
 
 import logging
 
-from neo.storage.handlers.handler import StorageEventHandler
+from neo.storage.handlers.handler import BaseStorageHandler
 from neo import protocol
 
-class ReplicationEventHandler(StorageEventHandler):
+class ReplicationHandler(BaseStorageHandler):
     """This class handles events for replications."""
 
     def connectionCompleted(self, conn):

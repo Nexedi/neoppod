@@ -17,32 +17,32 @@
 
 import logging
 
-from neo.storage.handlers.handler import StorageEventHandler
+from neo.storage.handlers.handler import BaseStorageHandler
 from neo.protocol import Packet, \
         INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE, \
-        DISCARDED_STATE, OUT_OF_DATE_STATE
+        DISCARDED_STATE, OUT_OF_DATE_STATE, UnexpectedPacketError
 from neo.node import StorageNode
 from neo.connection import ClientConnection
 from neo import decorators
 
 
 # FIXME: before move handlers, this one was inheriting from EventHandler
-# instead of StorageEventHandler
-class HiddenEventHandler(StorageEventHandler):
+# instead of BaseStorageHandler
+class HiddenHandler(BaseStorageHandler):
     """This class implements a generic part of the event handlers."""
+
     def __init__(self, app):
         self.app = app
-        EventHandler.__init__(self)
+        BaseStorageHandler.__init__(self)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
         uuid = conn.getUUID()
         if uuid is None:
-            self.handleUnexpectedPacket(conn, packet)
-            return
+            raise UnexpectedPacketError
 
         app = self.app
         node = app.nm.getNodeByUUID(uuid)

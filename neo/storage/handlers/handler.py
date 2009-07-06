@@ -18,17 +18,17 @@
 import logging
 
 from neo.handler import EventHandler
+from neo import protocol
 from neo.protocol import Packet, UnexpectedPacketError, \
         INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode
-from neo.connection import ClientConnection
 from neo.exception import PrimaryFailure, OperationFailure
 from neo import decorators
 
-class StorageEventHandler(EventHandler):
+class BaseStorageHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
     def __init__(self, app):
         self.app = app
@@ -66,40 +66,6 @@ class StorageEventHandler(EventHandler):
 
         p = protocol.answerPrimaryMaster(primary_uuid, known_master_list)
         conn.answer(p, packet)
-
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
-                                  known_master_list):
-        raise NotImplementedError('this method must be overridden')
-
-    @decorators.identification_required
-    @decorators.restrict_node_types(MASTER_NODE_TYPE)
-    def handleAnnouncePrimaryMaster(self, conn, packet):
-        """Theoretically speaking, I should not get this message,
-        because the primary master election must happen when I am
-        not connected to any master node."""
-        uuid = conn.getUUID()
-        app = self.app
-        node = app.nm.getNodeByUUID(uuid)
-        if node is None:
-            raise RuntimeError('I do not know the uuid %r' % dump(uuid))
-        if app.primary_master_node is None:
-            # Hmm... I am somehow connected to the primary master already.
-            app.primary_master_node = node
-            if not isinstance(conn, ClientConnection):
-                # I do not want a connection from any master node. I rather
-                # want to connect from myself.
-                conn.close()
-        elif app.primary_master_node.getUUID() == uuid:
-            # Yes, I know you are the primary master node.
-            pass
-        else:
-            # It seems that someone else claims taking over the primary
-            # master node...
-            app.primary_master_node = None
-            raise PrimaryFailure('another master node wants to take over')
-
-    def handleReelectPrimaryMaster(self, conn, packet):
-        raise PrimaryFailure('re-election occurs')
 
     @decorators.identification_required
     @decorators.restrict_node_types(MASTER_NODE_TYPE)
@@ -233,3 +199,58 @@ class StorageEventHandler(EventHandler):
     def handleAskOIDs(self, conn, packet, first, last, partition):
         logging.info('ignoring ask oids')
         pass
+
+
+class BaseMasterHandler(BaseStorageHandler):
+
+    def timeoutExpired(self, conn):
+        raise PrimaryFailure('times out')
+
+    def connectionClosed(self, conn):
+        raise PrimaryFailure('dead')
+
+    def peerBroken(self, conn):
+        raise PrimaryFailure('broken')
+
+    def handleReelectPrimaryMaster(self, conn, packet):
+        raise PrimaryFailure('re-election occurs')
+
+
+class BaseClientAndStorageOperationHandler(BaseStorageHandler):
+    """ Accept requests common to client and storage nodes """
+
+    def handleAskTIDs(self, conn, packet, first, last, partition):
+        # This method is complicated, because I must return TIDs only
+        # about usable partitions assigned to me.
+        if first >= last:
+            raise protocol.ProtocolError('invalid offsets')
+
+        app = self.app
+
+        if partition == protocol.INVALID_PARTITION:
+            # Collect all usable partitions for me.
+            getCellList = app.pt.getCellList
+            partition_list = []
+            for offset in xrange(app.num_partitions):
+                for cell in getCellList(offset, readable=True):
+                    if cell.getUUID() == app.uuid:
+                        partition_list.append(offset)
+                        break
+        else:
+            partition_list = [partition]
+
+        tid_list = app.dm.getTIDList(first, last - first,
+                                     app.num_partitions, partition_list)
+        conn.answer(protocol.answerTIDs(tid_list), packet)
+
+    def handleAskObjectHistory(self, conn, packet, oid, first, last):
+        if first >= last:
+            raise protocol.ProtocolError( 'invalid offsets')
+
+        app = self.app
+        history_list = app.dm.getObjectHistory(oid, first, last - first)
+        if history_list is None:
+            history_list = []
+        p = protocol.answerObjectHistory(oid, history_list)
+        conn.answer(p, packet)
+

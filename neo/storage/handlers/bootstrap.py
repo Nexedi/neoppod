@@ -17,20 +17,20 @@
 
 import logging
 
-from neo.storage.handlers.handler import StorageEventHandler
+from neo.storage.handlers.handler import BaseStorageHandler
 from neo.protocol import INVALID_UUID, MASTER_NODE_TYPE, STORAGE_NODE_TYPE
 from neo.node import MasterNode
 from neo import protocol
 from neo.pt import PartitionTable
 from neo.util import dump
 
-class BootstrapEventHandler(StorageEventHandler):
+class BootstrapHandler(BaseStorageHandler):
     """This class deals with events for a bootstrap phase."""
 
     def connectionCompleted(self, conn):
         app = self.app
         conn.ask(protocol.askPrimaryMaster())
-        StorageEventHandler.connectionCompleted(self, conn)
+        BaseStorageHandler.connectionCompleted(self, conn)
 
     def connectionFailed(self, conn):
         app = self.app
@@ -39,8 +39,7 @@ class BootstrapEventHandler(StorageEventHandler):
             # So this would effectively mean that it is dead.
             app.primary_master_node = None
         app.trying_master_node = None
-
-        StorageEventHandler.connectionFailed(self, conn)
+        BaseStorageHandler.connectionFailed(self, conn)
 
     def timeoutExpired(self, conn):
         app = self.app
@@ -48,7 +47,7 @@ class BootstrapEventHandler(StorageEventHandler):
             # If a primary master node timeouts, I should not rely on it.
             app.primary_master_node = None
         app.trying_master_node = None
-        StorageEventHandler.timeoutExpired(self, conn)
+        BaseStorageHandler.timeoutExpired(self, conn)
 
     def connectionClosed(self, conn):
         app = self.app
@@ -56,7 +55,7 @@ class BootstrapEventHandler(StorageEventHandler):
             # If a primary master node closes, I should not rely on it.
             app.primary_master_node = None
         app.trying_master_node = None
-        StorageEventHandler.connectionClosed(self, conn)
+        BaseStorageHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
         app = self.app
@@ -65,7 +64,7 @@ class BootstrapEventHandler(StorageEventHandler):
             # on it.
             app.primary_master_node = None
         app.trying_master_node = None
-        StorageEventHandler.peerBroken(self, conn)
+        BaseStorageHandler.peerBroken(self, conn)
 
     def handleNotReady(self, conn, packet, message):
         app = self.app

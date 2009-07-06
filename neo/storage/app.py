@@ -134,7 +134,7 @@ class Application(object):
             self.nm.add(MasterNode(server = server))
 
         # Make a listening port
-        handler = handlers.IdentificationEventHandler(self)
+        handler = handlers.IdentificationHandler(self)
         self.listening_conn = ListeningConnection(self.em, handler, 
             addr=self.server, connector_handler=self.connector_handler)
 
@@ -156,6 +156,7 @@ class Application(object):
                         if node is not None and node.getState() == HIDDEN_STATE:
                             self.wait()
                         self.verifyData()
+                        self.initialize()
                         self.doOperation()
                     except OperationFailure:
                         logging.error('operation stopped')
@@ -163,8 +164,8 @@ class Application(object):
                         # this must be handle in order not to fail
                         self.operational = False
 
-            except PrimaryFailure:
-                logging.error('primary master is down')
+            except PrimaryFailure, msg:
+                logging.error('primary master is down : %s' % msg)
 
     def connectToPrimaryMaster(self):
         """Find a primary master node, and connect to it.
@@ -184,7 +185,7 @@ class Application(object):
             self.ptid = self.dm.getPTID()
 
         # bootstrap handler, only for outgoing connections
-        handler = handlers.BootstrapEventHandler(self)
+        handler = handlers.BootstrapHandler(self)
         em = self.em
         nm = self.nm
 
@@ -228,7 +229,7 @@ class Application(object):
                             node = nm.getNodeByUUID(uuid)
                             if node is self.primary_master_node:
                                 # Yes, I have.
-                                conn.setHandler(handlers.VerificationEventHandler(self))
+                                conn.setHandler(handlers.VerificationHandler(self))
                                 self.master_conn = conn
                                 return
 
@@ -237,20 +238,28 @@ class Application(object):
         Connections from client nodes may not be accepted at this stage."""
         logging.info('verifying data')
 
-        handler = handlers.VerificationEventHandler(self)
+        handler = handlers.VerificationHandler(self)
         self.master_conn.setHandler(handler)
         em = self.em
 
         while not self.operational:
             em.poll(1)
 
+    def initialize(self):
+        """ Retreive partition table and node informations from the primary """
+        logging.info('initializing...')
+        handler = handlers.InitializationHandler(self)
+        self.master_conn.setHandler(handler)
+
         # ask node list and partition table
         self.pt.clear()
         self.master_conn.ask(protocol.askNodeInformation())        
         self.master_conn.ask(protocol.askPartitionTable(()))
         while not self.has_node_information or not self.has_partition_table:
-            em.poll(1)
+            self.em.poll(1)
         self.ready = True
+        # TODO: notify the master that I switch to operation state, so other
+        # nodes can now connect to me
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""
@@ -259,7 +268,7 @@ class Application(object):
         em = self.em
         nm = self.nm
 
-        handler = handlers.MasterOperationEventHandler(self)
+        handler = handlers.MasterOperationHandler(self)
         self.master_conn.setHandler(handler)
 
         # Forget all unfinished data.
@@ -292,7 +301,7 @@ class Application(object):
     def wait(self):
         # change handler
         logging.info("waiting in hidden state")
-        handler = handlers.HiddenEventHandler(self)
+        handler = handlers.HiddenHandler(self)
         for conn in self.em.getConnectionList():
             conn.setHandler(handler)
 

@@ -1,6 +1,9 @@
-from neo.storage.handlers.hidden import HiddenEventHandler
-from neo.storage.handlers.identification import IdentificationEventHandler
-from neo.storage.handlers.bootstrap import BootstrapEventHandler
-from neo.storage.handlers.verification import VerificationEventHandler
-from neo.storage.handlers.operation import MasterOperationEventHandler, \
-        ClientOperationEventHandler, StorageOperationEventHandler
+from neo.storage.handlers.identification import IdentificationHandler
+from neo.storage.handlers.initialization import InitializationHandler
+from neo.storage.handlers.verification import VerificationHandler
+from neo.storage.handlers.replication import ReplicationHandler
+from neo.storage.handlers.bootstrap import BootstrapHandler
+from neo.storage.handlers.storage import StorageOperationHandler
+from neo.storage.handlers.master import MasterOperationHandler
+from neo.storage.handlers.client import ClientOperationHandler
+from neo.storage.handlers.hidden import HiddenHandler

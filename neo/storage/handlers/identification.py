@@ -17,12 +17,12 @@
 
 import logging
 
-from neo.storage.handlers.handler import StorageEventHandler
+from neo.storage.handlers.handler import BaseStorageHandler
 from neo.protocol import BROKEN_STATE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
 from neo import protocol
 from neo.util import dump
 
-class IdentificationEventHandler(StorageEventHandler):
+class IdentificationHandler(BaseStorageHandler):
     """ Handler used for incoming connections during operation state """
 
     def connectionClosed(self, conn):

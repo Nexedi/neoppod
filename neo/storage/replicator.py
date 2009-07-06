@@ -18,8 +18,7 @@
 import logging
 from random import choice
 
-from neo.storage.handlers.handler import StorageEventHandler
-from neo.storage.handlers.replication import ReplicationEventHandler
+from neo.storage import handlers
 from neo import protocol
 from neo.protocol import STORAGE_NODE_TYPE, UP_TO_DATE_STATE, \
         OUT_OF_DATE_STATE, INVALID_TID, RUNNING_STATE
@@ -183,7 +182,7 @@ class Replicator(object):
                 self.current_connection = None
 
         if self.current_connection is None:
-            handler = ReplicationEventHandler(app)
+            handler = handlers.ReplicationEventHandler(app)
             self.current_connection = ClientConnection(app.em, handler, 
                                                        addr = addr,
                                                        connector_handler = app.connector_handler)
