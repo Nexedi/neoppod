@@ -56,7 +56,7 @@ class AdministrationEventHandler(MasterEventHandler):
         self.checkClusterName(name)
         if state == protocol.RUNNING:
             self.app.cluster_state = state
-        if state == STOPPING:
+        if state == protocol.STOPPING:
             self.app.cluster_state = state
             p = protocol.noError('cluster state changed')
             conn.answer(p, packet)

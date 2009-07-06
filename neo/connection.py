@@ -148,6 +148,9 @@ class ListeningConnection(BaseConnection):
         except ConnectorTryAgainException:
             pass
 
+    def writable(self):
+        return False
+
     def isListeningConnection(self):
         return True
 

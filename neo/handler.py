@@ -104,7 +104,7 @@ class EventHandler(object):
         conn.abort()
         self.peerBroken(conn)
 
-    def unexpectedPacket(self, conn, packet, message=None, *args):
+    def unexpectedPacket(self, conn, packet, message=None):
         """Handle an unexpected packet."""
         if message is None:
             message = 'unexpected packet type %s in %s' % (packet.getType(),
@@ -248,10 +248,10 @@ class EventHandler(object):
     def handleAnswerNewTID(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleAskNewOIDs(self, conn, packet):
+    def handleAskNewOIDs(self, conn, packet, num_oids):
         raise UnexpectedPacketError
 
-    def handleAnswerNewOIDs(self, conn, packet, oid_list):
+    def handleAnswerNewOIDs(self, conn, packet, num_oids):
         raise UnexpectedPacketError
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):

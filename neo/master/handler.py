@@ -28,16 +28,6 @@ class MasterEventHandler(EventHandler):
         self.app = app
         EventHandler.__init__(self)
 
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleAnnouncePrimaryMaster(self, conn, packet):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleReelectPrimaryMaster(self, conn, packet):
-        raise NotImplementedError('this method must be overridden')
-
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         logging.error('ignoring Notify Node Information in %s', self.__class__.__name__)
 
@@ -65,7 +55,7 @@ class MasterEventHandler(EventHandler):
     def handleAskNewTID(self, conn, packet):
         logging.error('ignoring Ask New TID in %s' % self.__class__.__name__)
 
-    def handleAskNewOIDs(self, conn, packet):
+    def handleAskNewOIDs(self, conn, packet, num_oids):
         logging.error('ignoring Ask New OIDs in %s' % self.__class__.__name__)
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
