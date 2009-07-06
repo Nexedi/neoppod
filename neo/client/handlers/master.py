@@ -272,6 +272,7 @@ class PrimaryNotificationsHandler(BaseHandler):
             # close connection to this node if no longer running
             if node_type in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE) and \
                    state != RUNNING_STATE:
+                can_close = False
                 for conn in self.app.em.getConnectionList():
                     if conn.getUUID() == n.getUUID():
                         conn.lock()
@@ -279,8 +280,9 @@ class PrimaryNotificationsHandler(BaseHandler):
                             conn.close()
                         finally:
                             conn.release()
+                        can_close = True
                         break
-                if node_type == STORAGE_NODE_TYPE:
+                if can_close and node_type == STORAGE_NODE_TYPE:
                     # Remove from pool connection
                     app.cp.removeConnection(n)
 
