@@ -33,10 +33,8 @@ class ThreadedPoll(Thread):
             # First check if we receive any new message from other node
             try:
                 self.em.poll()
-            except KeyError:
-                # This happen when there is no connection
-                # XXX: This should be handled inside event manager, not here.
-                logging.error('Dispatcher, run, poll returned a KeyError')
+            except:
+                logging.error('poll raised, retrying', exc_info=1)
         logging.info('Threaded poll stopped')
 
     def stop(self):
