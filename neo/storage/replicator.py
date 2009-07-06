@@ -182,7 +182,7 @@ class Replicator(object):
                 self.current_connection = None
 
         if self.current_connection is None:
-            handler = handlers.ReplicationEventHandler(app)
+            handler = handlers.ReplicationHandler(app)
             self.current_connection = ClientConnection(app.em, handler, 
                                                        addr = addr,
                                                        connector_handler = app.connector_handler)

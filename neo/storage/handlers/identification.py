@@ -51,11 +51,11 @@ class IdentificationHandler(BaseStorageHandler):
             raise protocol.BrokenNodeDisallowedError
         # choose the handler according to the node type
         if node_type == protocol.CLIENT_NODE_TYPE:
-            from neo.storage.operation import ClientOperationEventHandler 
-            handler = ClientOperationEventHandler
+            from neo.storage.handlers.client import ClientOperationHandler 
+            handler = ClientOperationHandler
         elif node_type == protocol.STORAGE_NODE_TYPE:
-            from neo.storage.operation import StorageOperationEventHandler
-            handler = StorageOperationEventHandler
+            from neo.storage.handlers.storage import StorageOperationHandler
+            handler = StorageOperationHandler
         else:
             raise protocol.protocolError('reject non-client-or-storage node')
         # apply the handler and set up the connection
