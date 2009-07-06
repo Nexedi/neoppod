@@ -96,6 +96,11 @@ class BaseStorageHandler(EventHandler):
                 # same uuid but different address, update it
                 n.setServer(addr)
 
+            if state == protocol.DOWN_STATE and n is not None:
+                # this node is consider as down, remove it
+                self.app.nm.remove(n)
+                continue
+
             if node_type == MASTER_NODE_TYPE:
                 if n is None:
                     n = MasterNode(server = addr)
@@ -122,7 +127,7 @@ class BaseStorageHandler(EventHandler):
                         if n is not None:
                             n.setState(state)                
                         raise OperationFailure
-                
+
                 if n is None:
                     n = StorageNode(server = addr, uuid = uuid)
                     app.nm.add(n)
