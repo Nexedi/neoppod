@@ -35,7 +35,12 @@ class VerificationHandler(BaseMasterHandler):
         conn.answer(p, packet)
 
     def handleAskPartitionTable(self, conn, packet, offset_list):
-        app = self.app
+        app, pt = self.app, self.app.pt
+        if not offset_list:
+            # all is requested
+            # FIXME: in one packet fow now, but later this will be replaced by
+            # Ask/Send/Answer pattern or a split at packet level.
+            offset_list = range(0, pt.getPartitions())
         row_list = []
         try:
             for offset in offset_list:
