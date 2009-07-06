@@ -785,15 +785,40 @@ class ClientApplicationTests(NeoTestBase):
         from neo.master.tests.connector import DoNothingConnector
         # will raise IndexError at the third iteration
         app = self.getApp('127.0.0.1:10010 127.0.0.1:10011')
+        # TODO: test more connection failure cases
+        # Seventh packet : askNodeInformation succeeded
+        all_passed = []
+        def _waitMessage8(self, conn=None, msg_id=None, handler=None):
+            print '_waitMessage8'
+            all_passed.append(1)
+        # Sixth packet : askPartitionTable succeeded
+        def _waitMessage7(self, conn=None, msg_id=None, handler=None):
+            print '_waitMessage7'
+            app.pt = Mock({'operational': True})
+            Application._waitMessage = _waitMessage8
+        # fifth packet : request node identification succeeded
+        def _waitMessage6(self, conn=None, msg_id=None, handler=None):
+            print '_waitMessage6'
+            conn.setUUID('D' * 16)
+            app.uuid = 'C' * 16
+            Application._waitMessage = _waitMessage7
+        # fourth iteration : connection to primary master succeeded
+        def _waitMessage5(self, conn=None, msg_id=None, handler=None):
+            print '_waitMessage5'
+            app.trying_master_node = app.primary_master_node = Mock({
+                'getServer': ('192.168.1.1', 10000),
+                '__str__': 'Fake master node',
+            })
+            Application._waitMessage = _waitMessage6
         # third iteration : node not ready
         def _waitMessage4(app, conn=None, msg_id=None, handler=None):
-            app.local_var.node_ready = False 
-            app.setNodeReady()
-            app.pt = Mock({'operational': True})
-            app.uuid = 'C' * 16
-            self.all_passed = True
+            print '_waitMessage4'
+            app.setNodeNotReady() 
+            app.trying_master_node = None
+            Application._waitMessage = _waitMessage5
         # second iteration : master node changed
         def _waitMessage3(app, conn=None, msg_id=None, handler=None):
+            print '_waitMessage3'
             app.primary_master_node = Mock({
                 'getServer': ('192.168.1.1', 10000),
                 '__str__': 'Fake master node',
@@ -801,10 +826,12 @@ class ClientApplicationTests(NeoTestBase):
             Application._waitMessage = _waitMessage4
         # first iteration : connection failed
         def _waitMessage2(app, conn=None, msg_id=None, handler=None):
+            print '_waitMessage2'
             app.trying_master_node = None
             Application._waitMessage = _waitMessage3
         # do nothing for the first call
         def _waitMessage1(app, conn=None, msg_id=None, handler=None):
+            print '_waitMessage1'
             Application._waitMessage = _waitMessage2
         _waitMessage_old = Application._waitMessage
         Application._waitMessage = _waitMessage1
@@ -812,14 +839,13 @@ class ClientApplicationTests(NeoTestBase):
         app.connector_handler = DoNothingConnector
         app.em = Mock({})
         app.pt = Mock({ 'operational': False})
-        self.all_passed = False
         try:
             app.master_conn = app._connectToPrimaryMasterNode()
+            self.assertEqual(len(all_passed), 1)
+            self.assertTrue(app.master_conn is not None)
+            self.assertTrue(app.pt.operational())
         finally:
             Application._waitMessage = _waitMessage_old
-        self.assertTrue(self.all_passed)
-        self.assertTrue(app.master_conn, neo.connection.MTClientConnection)
-        self.assertTrue(app.pt.operational())
 
     def test_askStorage(self):
         """ _askStorage is private but test it anyway """
