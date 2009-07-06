@@ -252,6 +252,8 @@ class Application(object):
         self.master_conn.setHandler(handler)
 
         # ask node list and partition table
+        self.has_node_information = False
+        self.has_partition_table = False
         self.pt.clear()
         self.master_conn.ask(protocol.askNodeInformation())        
         self.master_conn.ask(protocol.askPartitionTable(()))
