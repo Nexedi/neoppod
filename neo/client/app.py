@@ -99,7 +99,6 @@ class ConnectionPool(object):
                 logging.info('connected to storage node %s', node)
                 return conn
             else:
-                # Connection failed, notify primary master node
                 logging.info('Storage node %s not ready', node)
                 return None
 
@@ -363,7 +362,7 @@ class Application(object):
     def _getMasterConnection(self):
         """ Connect to the primary master node on demand """
         # acquire the lock to allow only one thread to connect to the primary 
-        lock = self._connecting_to_master_node_acquire(True)
+        lock = self._connecting_to_master_node_acquire()
         try:
             if self.master_conn is None:    
                 self.master_conn = self._connectToPrimaryMasterNode()

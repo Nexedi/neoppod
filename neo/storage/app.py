@@ -16,16 +16,16 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import logging
-import os, sys
+import sys
 from time import time
-from struct import unpack, pack
+from struct import unpack
 from collections import deque
 
 from neo.config import ConfigurationManager
 from neo import protocol
-from neo.protocol import TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        INVALID_UUID, INVALID_PTID, partition_cell_states, HIDDEN_STATE
-from neo.node import NodeManager, MasterNode, StorageNode, ClientNode
+from neo.protocol import TEMPORARILY_DOWN_STATE, INVALID_UUID, INVALID_PTID, \
+        partition_cell_states, HIDDEN_STATE
+from neo.node import NodeManager, MasterNode, StorageNode
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
 from neo.connection import ListeningConnection, ClientConnection

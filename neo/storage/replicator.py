@@ -21,12 +21,10 @@ from random import choice
 from neo.storage.handlers.handler import StorageEventHandler
 from neo.storage.handlers.replication import ReplicationEventHandler
 from neo import protocol
-from neo.protocol import Packet, STORAGE_NODE_TYPE, \
-        UP_TO_DATE_STATE, OUT_OF_DATE_STATE, \
-        INVALID_OID, INVALID_TID, RUNNING_STATE
+from neo.protocol import STORAGE_NODE_TYPE, UP_TO_DATE_STATE, \
+        OUT_OF_DATE_STATE, INVALID_TID, RUNNING_STATE
 from neo.connection import ClientConnection
 from neo.util import dump
-from neo import protocol
 
 class Partition(object):
     """This class abstracts the state of a partition."""

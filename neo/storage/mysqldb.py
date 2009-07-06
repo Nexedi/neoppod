@@ -25,7 +25,6 @@ from struct import pack, unpack
 
 from neo.storage.database import DatabaseManager
 from neo.exception import DatabaseFailure
-from neo.util import dump
 from neo.protocol import DISCARDED_STATE, INVALID_PTID
 
 def p64(n):

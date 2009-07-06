@@ -48,6 +48,7 @@ class BaseHandler(EventHandler):
           Put fake packets to task queues so that threads waiting for an
           answer get notified of the disconnection.
         """
+        # XXX: not thread-safe !
         queue_set = set()
         conn_id = id(conn)
         for key in self.dispatcher.message_table.keys():
