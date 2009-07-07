@@ -28,6 +28,13 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
     def connectionCompleted(self, conn):
         BaseClientAndStorageOperationHandler.connectionCompleted(self, conn)
 
+    def handleAskLastIDs(self, conn, packet):
+        app = self.app
+        oid = app.dm.getLastOID() or INVALID_OID
+        tid = app.dm.getLastTID() or INVALID_TID
+        p = protocol.answerLastIDs(oid, tid, app.ptid)
+        conn.answer(p, packet)
+
     def handleAskOIDs(self, conn, packet, first, last, partition):
         # This method is complicated, because I must return OIDs only
         # about usable partitions assigned to me.
