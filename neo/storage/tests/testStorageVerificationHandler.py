@@ -24,7 +24,7 @@ from neo import protocol
 from neo.node import MasterNode
 from neo.pt import PartitionTable
 from neo.storage.app import Application, StorageNode
-from neo.storage.verification import VerificationEventHandler
+from neo.storage.handlers import VerificationHandler
 from neo.protocol import STORAGE_NODE_TYPE, MASTER_NODE_TYPE, CLIENT_NODE_TYPE
 from neo.protocol import BROKEN_STATE, RUNNING_STATE, Packet, INVALID_UUID, \
      UP_TO_DATE_STATE, INVALID_OID, INVALID_TID, PROTOCOL_ERROR_CODE
@@ -46,7 +46,7 @@ class StorageVerificationTests(NeoTestBase):
         # create an application object
         config = self.getConfigFile(master_number=1)
         self.app = Application(config, "storage1")
-        self.verification = VerificationEventHandler(self.app)
+        self.verification = VerificationHandler(self.app)
         # define some variable to simulate client and storage node
         self.master_port = 10010
         self.storage_port = 10020

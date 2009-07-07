@@ -24,8 +24,9 @@ from collections import deque
 from neo.tests.base import NeoTestBase
 from neo.master.app import MasterNode
 from neo.storage.app import Application, StorageNode
-from neo.storage.operation import TransactionInformation, ClientOperationEventHandler, \
-        StorageOperationEventHandler, MasterOperationEventHandler
+from neo.storage.handlers.client import TransactionInformation
+from neo.storage.handlers import ClientOperationHandler, \
+        StorageOperationHandler, MasterOperationHandler
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.pt import PartitionTable
 from neo import protocol
@@ -59,7 +60,7 @@ class StorageOperationTests(NeoTestBase):
             master = MasterNode(server = server)
             self.app.nm.add(master)
         # handler
-        self.operation = OperationEventHandler(self.app)
+        self.operation = OperationHandler(self.app)
         # set pmn
         self.master_uuid = self.getNewUUID()
         pmn = self.app.nm.getMasterNodeList()[0]

@@ -23,8 +23,8 @@ from neo.tests.base import NeoTestBase
 from neo.master.app import MasterNode
 from neo.pt import PartitionTable
 from neo.storage.app import Application, StorageNode
-from neo.storage.bootstrap import BootstrapEventHandler
-from neo.storage.verification import VerificationEventHandler
+from neo.storage.handlers import BootstrapHandler
+from neo.storage.handlers import VerificationHandler
 from neo import protocol
 from neo.protocol import STORAGE_NODE_TYPE, MASTER_NODE_TYPE
 from neo.protocol import BROKEN_STATE, RUNNING_STATE, Packet, INVALID_UUID
@@ -43,7 +43,7 @@ class StorageBootstrapTests(NeoTestBase):
         for server in self.app.master_node_list:
             self.app.nm.add(MasterNode(server = server))
         self.trying_master_node = self.app.nm.getMasterNodeList()[0]
-        self.bootstrap = BootstrapEventHandler(self.app)
+        self.bootstrap = BootstrapHandler(self.app)
         # define some variable to simulate client and storage node
         self.master_port = 10010
         self.storage_port = 10020
@@ -548,7 +548,7 @@ class StorageBootstrapTests(NeoTestBase):
         self.assertEquals(self.app.primary_master_node, pmn)
         self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 1)
         call = conn.mockGetNamedCalls('setHandler')[0]
-        self.assertTrue(isinstance(call.getParam(0), VerificationEventHandler))
+        self.assertTrue(isinstance(call.getParam(0), VerificationHandler))
         self.assertEquals(self.app.trying_master_node, pmn)
         self.checkNoPacketSent(conn)
         self.checkNotClosed(conn)
