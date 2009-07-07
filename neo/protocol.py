@@ -448,6 +448,9 @@ class Packet(object):
             raise PacketMalformedError('unknown message type 0x%x' % self._type)
         return method(self._body)
 
+    def isResponse(self):
+        return self._type & 0x8000 == 0x8000
+
 # packet parser
 def parse(msg):
     # logging.debug('parsing %s', dump(msg))
