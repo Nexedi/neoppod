@@ -16,5 +16,5 @@ __all__ = [
     'StorageClientHandlerTests',
     'StorageMasterHandlerTests',
     'StorageStorageHandlerTests',
-    'StorageInitializationHandlerTests',
+    'StorageVerificationHandlerTests',
 ]
