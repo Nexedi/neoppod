@@ -38,7 +38,7 @@ from neo.protocol import ANSWER_PRIMARY_MASTER
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 
-class StorageVerificationTests(NeoTestBase):
+class StorageVerificationHandlerTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.ERROR)
@@ -68,24 +68,7 @@ class StorageVerificationTests(NeoTestBase):
         return self.uuid
 
     # Tests
-    def test_01_connectionAccepted(self):
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port)})
-        self.verification.connectionAccepted(conn, None, ("127.0.0.1", self.client_port))
-        # nothing happens
-        self.checkNoPacketSent(conn)
-        
     def test_02_timeoutExpired(self):
-        # listening connection
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        self.verification.timeoutExpired(conn)
-        # nothing happens
-        self.checkNoPacketSent(conn)
-        
         # client connection
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
@@ -96,15 +79,6 @@ class StorageVerificationTests(NeoTestBase):
         self.checkNoPacketSent(conn)
 
     def test_03_connectionClosed(self):
-        # listening connection
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        self.verification.connectionClosed(conn)
-        # nothing happens
-        self.checkNoPacketSent(conn)
-        
         # client connection
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
@@ -114,17 +88,7 @@ class StorageVerificationTests(NeoTestBase):
         # nothing happens
         self.checkNoPacketSent(conn)
 
-
     def test_04_peerBroken(self):
-        # listening connection
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        self.verification.peerBroken(conn)
-        # nothing happens
-        self.checkNoPacketSent(conn)
-        
         # client connection
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
@@ -134,128 +98,9 @@ class StorageVerificationTests(NeoTestBase):
         # nothing happens
         self.checkNoPacketSent(conn)
 
-
-    def test_05_handleRequestNodeIdentification(self):
-        # listening connection
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        self.checkNotReadyErrorRaised(
-                self.verification.handleRequestNodeIdentification,
-                conn, p, CLIENT_NODE_TYPE,
-                uuid, "127.0.0.1", self.client_port, "zatt")
-
-        # not a master node
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        self.checkNotReadyErrorRaised(
-                self.verification.handleRequestNodeIdentification,
-                conn, p, CLIENT_NODE_TYPE,
-                uuid, "127.0.0.1", self.client_port, "zatt")
-
-        # bad name
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.master_port),
-                     "isServerConnection" : True})
-        p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        self.checkProtocolErrorRaised(
-            self.verification.handleRequestNodeIdentification,
-            conn, p, MASTER_NODE_TYPE, uuid, "127.0.0.1", self.client_port, "zatt")
-
-        # new node
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.master_port),
-                     "isServerConnection" : True})
-        p = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        self.verification.handleRequestNodeIdentification(conn, p, MASTER_NODE_TYPE,
-                                                          uuid, "127.0.0.1", self.master_port, "main")
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkAcceptNodeIdentification(conn)
-        self.checkAborted(conn)
-        
-        # notify a node declared as broken
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.master_port),
-                     "isServerConnection" : True})
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        node.setState(BROKEN_STATE)
-        self.assertEqual(node.getUUID(), uuid)
-        self.checkBrokenNodeDisallowedErrorRaised(
-            self.verification.handleRequestNodeIdentification,
-            conn, p, MASTER_NODE_TYPE,
-            uuid, "127.0.0.1", self.master_port, "main")
-
-        # change uuid of a known node
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.master_port),
-                     "isServerConnection" : True})
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        node.setState(RUNNING_STATE)
-        self.assertNotEqual(node.getUUID(), uuid)
-        self.verification.handleRequestNodeIdentification(conn, p, MASTER_NODE_TYPE,
-                                                          uuid, "127.0.0.1", self.master_port, "main")
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkAcceptNodeIdentification(conn)
-        self.checkAborted(conn)
-
-    def test_06_handleAcceptNodeIdentification(self):
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        p = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
-        self.checkUnexpectedPacketRaised(self.verification.handleAcceptNodeIdentification, 
-                conn, p, CLIENT_NODE_TYPE, self.getNewUUID(),"127.0.0.1", self.client_port, 1009, 2, uuid)
-
-    def test_07_handleAnswerPrimaryMaster(self):
-        # reject server connection 
-        packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        self.checkUnexpectedPacketRaised(self.verification.handleAnswerPrimaryMaster, conn, packet,self.getNewUUID(), ())
-
-        # raise id uuid is different
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : False})
-        self.app.primary_master_node = MasterNode(uuid=self.getNewUUID())
-        self.assertNotEqual(uuid, self.app.primary_master_node.getUUID())
-        self.assertRaises(PrimaryFailure, self.verification.handleAnswerPrimaryMaster, conn, packet,uuid, ())
-        
-        # same uuid, do nothing
-        uuid = self.app.primary_master_node.getUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : False})
-        self.assertEqual(uuid, self.app.primary_master_node.getUUID())
-        self.verification.handleAnswerPrimaryMaster(conn, packet,uuid, ())
-        
     def test_07_handleAskLastIDs(self):
-        # reject server connection 
-        packet = Packet(msg_type=ASK_LAST_IDS)
         uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        self.checkUnexpectedPacketRaised(self.verification.handleAskLastIDs, conn, packet)
-
+        packet = Mock()
         # return invalid if db store nothing
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
@@ -299,14 +144,8 @@ class StorageVerificationTests(NeoTestBase):
         self.assertEqual(ptid, self.app.ptid)
         
     def test_08_handleAskPartitionTable(self):
-        # reject server connection 
-        packet = Packet(msg_type=ASK_PARTITION_TABLE)
         uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        self.checkUnexpectedPacketRaised(self.verification.handleAskPartitionTable, conn, packet, [1,])
-
+        packet = Mock()
         # try to get unknown offset
         self.assertEqual(len(self.app.pt.getNodeList()), 0)
         self.assertFalse(self.app.pt.hasOffset(1))
@@ -335,63 +174,7 @@ class StorageVerificationTests(NeoTestBase):
         self.assertEqual(offset, 1)
         self.assertEqual(len(rows), 1)
 
-    def test_09_handleSendPartitionTable(self):
-        # reject server connection 
-        packet = Packet(msg_type=SEND_PARTITION_TABLE)
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        self.app.ptid = 1
-        self.checkUnexpectedPacketRaised(self.verification.handleSendPartitionTable, conn, packet, 0, ())
-        self.assertEquals(self.app.ptid, 1)
-
-        # send a table
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : False})
-
-        self.app.pt = PartitionTable(3, 2)
-        node_1 = self.getNewUUID()
-        node_2 = self.getNewUUID()
-        node_3 = self.getNewUUID()
-        # SN already known one of the node
-        self.app.nm.add(StorageNode(uuid=node_1))
-        self.app.ptid = 1
-        self.app.num_partitions = 3
-        self.app.num_replicas =2 
-        self.assertEqual(self.app.dm.getPartitionTable(), ())
-        row_list = [(0, ((node_1, UP_TO_DATE_STATE), (node_2, UP_TO_DATE_STATE))),
-                    (1, ((node_3, UP_TO_DATE_STATE), (node_1, UP_TO_DATE_STATE))),
-                    (2, ((node_2, UP_TO_DATE_STATE), (node_3, UP_TO_DATE_STATE)))]
-        self.assertFalse(self.app.pt.filled())
-        # send part of the table, won't be filled
-        self.verification.handleSendPartitionTable(conn, packet, "1", row_list[:1])
-        self.assertFalse(self.app.pt.filled())
-        self.assertEqual(self.app.ptid, "1")
-        self.assertEqual(self.app.dm.getPartitionTable(), ())
-        # send remaining of the table
-        self.verification.handleSendPartitionTable(conn, packet, "1", row_list[1:])
-        self.assertTrue(self.app.pt.filled())
-        self.assertEqual(self.app.ptid, "1")
-        self.assertNotEqual(self.app.dm.getPartitionTable(), ())
-        # send a complete new table
-        self.verification.handleSendPartitionTable(conn, packet, "2", row_list)
-        self.assertTrue(self.app.pt.filled())
-        self.assertEqual(self.app.ptid, "2")
-        self.assertNotEqual(self.app.dm.getPartitionTable(), ())
-
     def test_10_handleNotifyPartitionChanges(self):
-        # reject server connection 
-        packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : True})
-        self.app.ptid = 1
-        self.checkUnexpectedPacketRaised(self.verification.handleNotifyPartitionChanges, conn, packet, 0, ())
-        self.assertEquals(self.app.ptid, 1)
-        
         # old partition change
         conn = Mock({
             "isServerConnection": False,
@@ -424,10 +207,6 @@ class StorageVerificationTests(NeoTestBase):
 
     def test_11_handleStartOperation(self):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
-                      'isServerConnection': True })
-        packet = Packet(msg_type=STOP_OPERATION)
-        self.checkUnexpectedPacketRaised(self.verification.handleStartOperation, conn, packet)
-        conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
         self.assertFalse(self.app.operational)
         packet = Packet(msg_type=STOP_OPERATION)
@@ -436,20 +215,11 @@ class StorageVerificationTests(NeoTestBase):
 
     def test_12_handleStopOperation(self):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
-                      'isServerConnection': True })
-        packet = Packet(msg_type=STOP_OPERATION)
-        self.checkUnexpectedPacketRaised(self.verification.handleStopOperation, conn, packet)
-        conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
         packet = Packet(msg_type=STOP_OPERATION)
         self.assertRaises(OperationFailure, self.verification.handleStopOperation, conn, packet)
 
     def test_13_handleAskUnfinishedTransactions(self):
-        # server connection
-        conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
-                      'isServerConnection': True })
-        packet = Packet(msg_type=ASK_UNFINISHED_TRANSACTIONS)
-        self.checkUnexpectedPacketRaised(self.verification.handleAskUnfinishedTransactions, conn, packet)
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
@@ -472,13 +242,6 @@ class StorageVerificationTests(NeoTestBase):
         self.assertEqual(u64(tid_list[0]), 4)
 
     def test_14_handleAskTransactionInformation(self):
-        # ask from server with no data
-        conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
-                      'isServerConnection': True })
-        packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
-        self.verification.handleAskTransactionInformation(conn, packet, p64(1))
-        code, message = self.checkErrorPacket(conn, decode=True)
-        self.assertEqual(code, TID_NOT_FOUND_CODE)
         # ask from client conn with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
@@ -541,11 +304,6 @@ class StorageVerificationTests(NeoTestBase):
         self.assertEqual(code, TID_NOT_FOUND_CODE)
 
     def test_15_handleAskObjectPresent(self):
-        # server connection
-        conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
-                      'isServerConnection': True })
-        packet = Packet(msg_type=ASK_OBJECT_PRESENT)
-        self.checkUnexpectedPacketRaised(self.verification.handleAskObjectPresent, conn, packet, p64(1), p64(2))
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
@@ -568,11 +326,6 @@ class StorageVerificationTests(NeoTestBase):
         self.assertEqual(u64(oid), 1)
 
     def test_16_handleDeleteTransaction(self):
-        # server connection
-        conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
-                      'isServerConnection': True })
-        packet = Packet(msg_type=ASK_OBJECT_PRESENT)
-        self.checkUnexpectedPacketRaised(self.verification.handleDeleteTransaction, conn, packet, p64(1))
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False})
@@ -588,14 +341,6 @@ class StorageVerificationTests(NeoTestBase):
         self.assertEquals(len(result), 0)
 
     def test_17_handleCommitTransaction(self):
-        # server connection
-        conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
-                      'isServerConnection': True })
-        dm = Mock()
-        self.app.dm = dm
-        packet = Packet(msg_type=COMMIT_TRANSACTION)
-        self.checkUnexpectedPacketRaised(self.verification.handleCommitTransaction, conn, packet, p64(1))
-        self.assertEqual(len(dm.mockGetNamedCalls("finishTransaction")), 0)
         # commit a transaction
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServerConnection': False })
@@ -608,22 +353,6 @@ class StorageVerificationTests(NeoTestBase):
         tid = call.getParam(0)
         self.assertEqual(u64(tid), 1)
 
-    def test_18_handleLockInformation(self):
-        conn = Mock({"getAddress" : ("127.0.0.1", self.master_port),
-                     'isServerConnection': False})
-        packet = Packet(msg_type=LOCK_INFORMATION)
-        self.assertEquals(len(self.app.load_lock_dict), 0)
-        self.verification.handleLockInformation(conn, packet, p64(1))
-        self.assertEquals(len(self.app.load_lock_dict), 0)
-
-    def test_19_handleUnlockInformation(self):
-        conn = Mock({"getAddress" : ("127.0.0.1", self.master_port),
-                     'isServerConnection': False})
-        self.app.load_lock_dict[p64(1)] = Mock()
-        packet = Packet(msg_type=UNLOCK_INFORMATION)
-        self.verification.handleUnlockInformation(conn, packet, p64(1))
-        self.assertEquals(len(self.app.load_lock_dict), 1)
-    
 if __name__ == "__main__":
     unittest.main()
 

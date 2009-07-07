@@ -32,7 +32,7 @@ from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION
 from neo.protocol import ERROR, BROKEN_NODE_DISALLOWED_CODE, ASK_PRIMARY_MASTER
 from neo.protocol import ANSWER_PRIMARY_MASTER
 
-class StorageBootstrapTests(NeoTestBase):
+class StorageBootstrapHandlerTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.ERROR)
@@ -59,24 +59,18 @@ class StorageBootstrapTests(NeoTestBase):
 
     # Tests
     def test_01_connectionCompleted(self):
-        # trying mn is None -> RuntimeError
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
-        self.app.trying_master_node = None
-        self.assertRaises(RuntimeError, self.bootstrap.connectionCompleted, conn)
         # request identification
         self.app.trying_master_node = self.trying_master_node
         self.bootstrap.connectionCompleted(conn)
-        self.checkRequestNodeIdentification(conn)
+        self.checkAskPrimaryMaster(conn)
 
     def test_02_connectionFailed(self):
-        # trying mn is None -> RuntimeError
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
-        self.app.trying_master_node = None
-        self.assertRaises(RuntimeError, self.bootstrap.connectionFailed, conn)
         # the primary is dead
         self.app.trying_master_node = self.trying_master_node
         self.app.primary_master_node = self.app.trying_master_node
@@ -192,139 +186,6 @@ class StorageBootstrapTests(NeoTestBase):
         self.checkClosed(conn)
         self.checkNoPacketSent(conn)
 
-    def test_08_handleRequestNodeIdentification1(self):
-        # client socket connection -> rejected
-        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isServerConnection": False,
-                    "getAddress" : ("127.0.0.1", self.master_port), })
-        self.app.trying_master_node = self.trying_master_node
-        self.checkUnexpectedPacketRaised(
-            self.bootstrap.handleRequestNodeIdentification,
-            conn=conn,
-            uuid=self.getNewUUID(),
-            packet=packet, 
-            port=self.master_port,
-            node_type=MASTER_NODE_TYPE,
-            ip_address='127.0.0.1',
-            name='',)
-        self.checkNoUUIDSet(conn)
-
-    def test_08_handleRequestNodeIdentification2(self):
-        # not a master node -> rejected
-        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isServerConnection": True,
-            "getAddress" : ("127.0.0.1", self.master_port), })
-        self.checkNotReadyErrorRaised(
-            self.bootstrap.handleRequestNodeIdentification,
-            conn=conn,
-            uuid=self.getNewUUID(),
-            packet=packet, 
-            port=self.master_port,
-            node_type=STORAGE_NODE_TYPE,
-            ip_address='127.0.0.1',
-            name=self.app.name,)
-        self.checkNoUUIDSet(conn)
-
-    def test_08_handleRequestNodeIdentification3(self):
-        # bad app name -> rejected
-        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isServerConnection": True,
-            "getAddress" : ("127.0.0.1", self.master_port), })
-        self.checkProtocolErrorRaised(
-            self.bootstrap.handleRequestNodeIdentification, 
-            conn=conn,
-            uuid=self.getNewUUID(),
-            packet=packet, 
-            port=self.master_port,
-            node_type=MASTER_NODE_TYPE,
-            ip_address='127.0.0.1',
-            name='INVALID_NAME',)
-        self.checkNoUUIDSet(conn)
-
-    def test_08_handleRequestNodeIdentification4(self):
-        # new master
-        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isServerConnection": True,
-            "getAddress" : ("192.168.1.1", self.master_port), })
-        # master not known
-        mn = self.app.nm.getNodeByServer(('192.168.1.1', self.master_port))
-        self.assertEquals(mn, None)
-        count = len(self.app.nm.getNodeList())
-        uuid = self.getNewUUID()
-        self.bootstrap.handleRequestNodeIdentification(
-            conn=conn,
-            uuid=uuid,
-            packet=packet, 
-            port=self.master_port,
-            node_type=MASTER_NODE_TYPE,
-            ip_address='192.168.1.1',
-            name=self.app.name,)
-        self.assertEquals(len(self.app.nm.getNodeList()), count + 1)
-        self.checkAcceptNodeIdentification(conn, answered_packet=packet, decode=True)
-        self.checkUUIDSet(conn, uuid)
-        self.checkAborted(conn)
-
-    def test_08_handleRequestNodeIdentification5(self):
-        # broken node -> rejected
-        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isServerConnection": True,
-            "getAddress" : ("127.0.0.1", self.master_port), })
-        master = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
-        uuid=self.getNewUUID()
-        master.setState(BROKEN_STATE)
-        master.setUUID(uuid)
-        self.checkBrokenNodeDisallowedErrorRaised(
-            self.bootstrap.handleRequestNodeIdentification,
-            conn=conn,
-            uuid=uuid,
-            packet=packet, 
-            port=self.master_port,
-            node_type=MASTER_NODE_TYPE,
-            ip_address='127.0.0.1',
-            name=self.app.name,)
-        self.checkNoUUIDSet(conn)
-
-    def test_08_handleRequestNodeIdentification6(self):
-        # master node is already known
-        packet = Packet(msg_type=REQUEST_NODE_IDENTIFICATION)
-        conn = Mock({"isServerConnection": True,
-            "getAddress" : ("127.0.0.1", self.master_port), })
-        # master known
-        mn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
-        self.assertNotEquals(mn, None)
-        uuid = self.getNewUUID()
-        self.bootstrap.handleRequestNodeIdentification(
-            conn=conn,
-            uuid=uuid,
-            packet=packet, 
-            port=self.master_port,
-            node_type=MASTER_NODE_TYPE,
-            ip_address='127.0.0.1',
-            name=self.app.name)
-        master = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
-        self.assertEquals(master.getUUID(), uuid)
-        self.checkAcceptNodeIdentification(conn, answered_packet=packet, decode=True)
-        self.checkUUIDSet(conn, uuid)
-        self.checkAborted(conn)
-
-    def test_09_handleAcceptNodeIdentification1(self):
-        # server socket connection -> rejected
-        conn = Mock({"isServerConnection": True,
-                    "getAddress" : ("127.0.0.1", self.master_port), })
-        packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
-        self.app.trying_master_node = self.trying_master_node
-        self.checkUnexpectedPacketRaised(
-            self.bootstrap.handleAcceptNodeIdentification,
-            conn=conn,
-            packet=packet,
-            node_type=MASTER_NODE_TYPE,
-            uuid=self.getNewUUID(),
-            ip_address='127.0.0.1',
-            port=self.master_port,
-            num_partitions=self.app.num_partitions,
-            num_replicas=self.app.num_replicas,
-            your_uuid=self.getNewUUID())
-
     def test_09_handleAcceptNodeIdentification2(self):
         # not a master node -> rejected
         conn = Mock({"isServerConnection": False,
@@ -395,18 +256,6 @@ class StorageBootstrapTests(NeoTestBase):
             **args)
         self.checkNoUUIDSet(conn)
         self.checkNoPacketSent(conn)
-        # create a new partition table
-        self.bootstrap.handleAcceptNodeIdentification(
-            num_partitions=self.num_partitions,
-            num_replicas=self.num_replicas + 1,
-            **args)
-        self.assertEquals(self.app.num_partitions, self.num_partitions)
-        self.assertEquals(self.app.num_replicas, self.num_replicas + 1)
-        self.assertEqual(self.app.num_partitions, self.app.dm.getNumPartitions())
-        self.assertTrue(isinstance(self.app.pt, PartitionTable))
-        self.assertEquals(self.app.ptid, self.app.dm.getPTID())
-        self.checkUUIDSet(conn, uuid)
-        self.checkAskPrimaryMaster(conn)
 
     def test_09_handleAcceptNodeIdentification5(self):
         # no errors
@@ -442,23 +291,6 @@ class StorageBootstrapTests(NeoTestBase):
         self.assertEquals(self.app.trying_master_node.getUUID(), uuid)
         self.assertEquals(self.app.uuid, self.app.dm.getUUID())
         self.assertEquals(self.app.uuid, your_uuid)
-        
-    def test_10_handleAnswerPrimaryMaster01(self):
-        # server connection rejected
-        conn = Mock({"isServerConnection": True,
-                    "getAddress" : ("127.0.0.1", self.master_port), })
-        packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
-        self.app.trying_master_node = self.trying_master_node
-        self.app.primary_master_node = None
-        self.checkUnexpectedPacketRaised(
-            self.bootstrap.handleAnswerPrimaryMaster,
-            conn=conn,
-            packet=packet,
-            primary_uuid=self.getNewUUID(),
-            known_master_list=()
-        )
-        self.assertEquals(self.app.trying_master_node, self.trying_master_node)
-        self.assertEquals(self.app.primary_master_node, None)
 
     def test_10_handleAnswerPrimaryMaster02(self):
         # register new master nodes
@@ -484,8 +316,7 @@ class StorageBootstrapTests(NeoTestBase):
         self.assertTrue(isinstance(n, MasterNode))
         self.assertEquals(n.getUUID(), new_master[2])
         self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 0)
-        self.checkNoPacketSent(conn)
-        self.checkNotClosed(conn)
+        self.checkRequestNodeIdentification(conn)
         
     def test_10_handleAnswerPrimaryMaster03(self):
         # invalid primary master uuid -> close connection
@@ -546,12 +377,8 @@ class StorageBootstrapTests(NeoTestBase):
             known_master_list=()
         )
         self.assertEquals(self.app.primary_master_node, pmn)
-        self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 1)
-        call = conn.mockGetNamedCalls('setHandler')[0]
-        self.assertTrue(isinstance(call.getParam(0), VerificationHandler))
         self.assertEquals(self.app.trying_master_node, pmn)
-        self.checkNoPacketSent(conn)
-        self.checkNotClosed(conn)
+        self.checkRequestNodeIdentification(conn)
 
     def test_10_handleAnswerPrimaryMaster06(self):
         # primary_uuid not known -> nothing happen
@@ -570,8 +397,7 @@ class StorageBootstrapTests(NeoTestBase):
         self.assertEquals(self.app.primary_master_node, None)
         self.assertEquals(self.app.trying_master_node, None)
         self.assertEquals(len(conn.mockGetNamedCalls('setHandler')), 0)
-        self.checkNoPacketSent(conn)
-        self.checkNotClosed(conn)
+        self.checkRequestNodeIdentification(conn)
     
 if __name__ == "__main__":
     unittest.main()
