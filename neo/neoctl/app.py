@@ -137,12 +137,46 @@ action_dict = {
 class Application(object):
     """The storage node application."""
 
+    conn = None
+
     def __init__(self, ip, port, handler):
 
         self.connector_handler = getConnectorHandler(handler)
         self.server = (ip, port)
         self.em = EventManager()
         self.ptid = INVALID_PTID
+
+    def getConnection(self):
+        if self.conn is None:
+            handler = CommandEventHandler(self)
+            # connect to admin node
+            self.trying_admin_node = False
+            conn = None
+            while 1:
+                self.em.poll(1)
+                if conn is None:
+                    self.trying_admin_node = True
+                    logging.info('connecting to address %s:%d', *(self.server))
+                    conn = ClientConnection(self.em, handler, \
+                                            addr = self.server,
+                                            connector_handler = self.connector_handler)
+                if self.trying_admin_node is False:
+                    break
+            self.conn = conn
+        return self.conn
+
+    def doAction(self, packet):
+        conn = self.getConnection()
+
+        conn.ask(p)
+        self.result = ""
+        while 1:
+            self.em.poll(1)
+            if len(self.result):
+                break
+
+    def __del__(self):
+        self.conn.close()
 
     def execute(self, args):
         """Execute the command given."""
@@ -163,32 +197,7 @@ class Application(object):
             except ActionError, message:
                 self.result = message
             else:
-                handler = CommandEventHandler(self)
-                # connect to admin node
-                conn = None
-                self.trying_admin_node = False
-                try:
-                    while 1:
-                        self.em.poll(1)
-                        if conn is None:
-                            self.trying_admin_node = True
-                            logging.info('connecting to address %s:%d', *(self.server))
-                            conn = ClientConnection(self.em, handler, \
-                                                    addr = self.server,
-                                                    connector_handler = self.connector_handler)
-                        if self.trying_admin_node is False:
-                            break
-                except OperationFailure, msg:
-                    return "FAIL : %s" %(msg,)
-
-                conn.ask(p)
-                self.result = ""
-                while 1:
-                    self.em.poll(1)
-                    if len(self.result):
-                        break
-                # close connection
-                conn.close()
+                self.doAction(p)
         else:
             self.result = usage('unknown command')
 
