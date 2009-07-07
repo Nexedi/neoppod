@@ -168,7 +168,7 @@ class Application(object):
     def doAction(self, packet):
         conn = self.getConnection()
 
-        conn.ask(p)
+        conn.ask(packet)
         self.result = ""
         while 1:
             self.em.poll(1)
@@ -176,7 +176,8 @@ class Application(object):
                 break
 
     def __del__(self):
-        self.conn.close()
+        if self.conn is not None:
+            self.conn.close()
 
     def execute(self, args):
         """Execute the command given."""
