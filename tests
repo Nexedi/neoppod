@@ -125,14 +125,14 @@ class NeoTestResult(unittest.TestResult):
         s += '\n'
         s += self._buildSystemInfo()
         s += '\n'
-        s += "                   Test Module |  run   |  error |  fail  |   time   \n"
-        s += "-------------------------------+--------+--------+--------+----------\n"
-        format = "%30s |  %3d   |  %3s   |  %3s   | %6.2fs  \n"
+        s += "                       Test Module |  run   |  error |  fail  |   time   \n"
+        s += "-----------------------------------+--------+--------+--------+----------\n"
+        format = "%34s |  %3d   |  %3s   |  %3s   | %6.2fs  \n"
         for k, v in self.modulesStats.items():
             errors, failures = v.errors or '.', v.failures or '.'
             args = (k, v.success, errors, failures, v.time)
             s += format % args
-        s += "-------------------------------+--------+--------+--------+----------\n"
+        s += "-----------------------------------+--------+--------+--------+----------\n"
         errors, failures = len(self.errors) or '.', len(self.failures) or '.'
         args = ("Summary", self.testsRun, errors, failures, self.time)
         s += format % args
@@ -145,17 +145,17 @@ class NeoTestResult(unittest.TestResult):
             s += '\nERRORS:\n'
             for test, trace in self.errors:
                 s += "%s\n" % test
-                s += "---------------------------------------------------------\n"
+                s += "-------------------------------------------------------------\n"
                 s += trace
-                s += "---------------------------------------------------------\n"
+                s += "-------------------------------------------------------------\n"
                 s += '\n'
         if len(self.failures):
             s += '\nFAILURES:\n'
             for test, trace in self.failures:
                 s += "%s\n" % test
-                s += "---------------------------------------------------------\n"
+                s += "-------------------------------------------------------------\n"
                 s += trace
-                s += "---------------------------------------------------------\n"
+                s += "-------------------------------------------------------------\n"
                 s += '\n'
         return s
 
