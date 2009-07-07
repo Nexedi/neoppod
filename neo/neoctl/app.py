@@ -31,7 +31,7 @@ class ActionError(Exception): pass
 
 def addAction(options):
     """
-      Add storage nodes pending addition into cluster.
+      Change node state from "pending" to "running".
       Parameters:
       node uuid
         UUID of node to add, or "all".
