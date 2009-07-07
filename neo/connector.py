@@ -132,8 +132,12 @@ class SocketConnector:
     return self.socket.close()
 
   def __repr__(self):
-    result = '<%s at 0x%x fileno %i %s ' % (self.__class__.__name__, id(self),
-      self.socket.fileno(), self.socket.getsockname())
+    try:
+      fileno = str(self.socket.fileno())
+    except socket.error, (err, errmsg):
+      fileno = '?'
+    result = '<%s at 0x%x fileno %s %s>' % (self.__class__.__name__, id(self),
+      fileno, self.socket.getsockname())
     if self.is_closed is None:
       result += 'never opened'
     else:
