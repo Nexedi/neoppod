@@ -94,11 +94,10 @@ class NEOProcess:
         return os.WEXITSTATUS(os.waitpid(self.pid, options)[1])
 
 def killallNeo():
-    # Kill all processes first
-    [x.kill() for x in neo_process_list]
-    # Then wait for each process' completion
     while len(neo_process_list):
-        neo_process_list.pop().wait()
+        process = neo_process_list.pop()
+        process.kill()
+        process.wait()
 
 NEO_MASTER = 'neomaster'
 NEO_STORAGE = 'neostorage'
