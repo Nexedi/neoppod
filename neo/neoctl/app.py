@@ -186,7 +186,7 @@ class Application(object):
         #                             and modify the partition if asked
         # set cluster name [shutdown|operational] : either shutdown the cluster or mark it as operational
         current_action = action_dict
-        level = 1
+        level = 0
         while current_action is not None and \
               level < len(args) and \
               isinstance(current_action, dict):
