@@ -74,7 +74,8 @@ class ConnectionPool(object):
             logging.info('trying to connect to %s - %s', node, node.getState())
             app.setNodeReady()
             conn = MTClientConnection(app.em, app.storage_event_handler, addr,
-                                      connector_handler=app.connector_handler)
+                                      connector_handler=app.connector_handler,
+                                      dispatcher=app.dispatcher)
             conn.lock()
             try:
                 if conn.getConnector() is None:
@@ -84,8 +85,7 @@ class ConnectionPool(object):
 
                 p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
                             app.uuid, addr[0], addr[1], app.name)
-                msg_id = conn.ask(p)
-                app.dispatcher.register(conn, msg_id, app.local_var.queue)
+                msg_id = conn.ask(app.local_var.queue, p)
             finally:
                 conn.unlock()
 
@@ -341,8 +341,8 @@ class Application(object):
     def _askStorage(self, conn, packet, timeout=5, additional_timeout=30):
         """ Send a request to a storage node and process it's answer """
         try:
-            msg_id = conn.ask(packet, timeout, additional_timeout)
-            self.dispatcher.register(conn, msg_id, self.local_var.queue)
+            msg_id = conn.ask(self.local_var.queue, packet, timeout,
+                              additional_timeout)
         finally:
             # assume that the connection was already locked
             conn.unlock()
@@ -353,8 +353,8 @@ class Application(object):
         conn = self._getMasterConnection()
         conn.lock()
         try:
-            msg_id = conn.ask(packet, timeout, additional_timeout)
-            self.dispatcher.register(conn, msg_id, self.local_var.queue)
+            msg_id = conn.ask(self.local_var.queue, packet, timeout,
+                              additional_timeout)
         finally:
             conn.unlock()
         self._waitMessage(conn, msg_id, self.primary_handler)
@@ -407,7 +407,8 @@ class Application(object):
                 # Connect to master
                 conn = MTClientConnection(self.em, self.notifications_handler,
                                           addr=self.trying_master_node.getServer(),
-                                          connector_handler=self.connector_handler)
+                                          connector_handler=self.connector_handler,
+                                          dispatcher=self.dispatcher)
                 # Query for primary master node
                 conn.lock()
                 try:
@@ -416,8 +417,7 @@ class Application(object):
                         logging.error('Connection to master node %s failed',
                                       self.trying_master_node)
                         continue
-                    msg_id = conn.ask(protocol.askPrimaryMaster())
-                    self.dispatcher.register(conn, msg_id, self.local_var.queue)
+                    msg_id = conn.ask(self.local_var.queue, protocol.askPrimaryMaster())
                 finally:
                     conn.unlock()
                 try:
@@ -440,8 +440,7 @@ class Application(object):
                         break
                     p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
                             self.uuid, '0.0.0.0', 0, self.name)
-                    msg_id = conn.ask(p)
-                    self.dispatcher.register(conn, msg_id, self.local_var.queue)
+                    msg_id = conn.ask(self.local_var.queue, p)
                 finally:
                     conn.unlock()
                 try:
@@ -467,15 +466,15 @@ class Application(object):
                 # wait on one message at a time
                 conn.lock()
                 try:
-                    msg_id = conn.ask(protocol.askPartitionTable([]))
-                    self.dispatcher.register(conn, msg_id, self.local_var.queue)
+                    msg_id = conn.ask(self.local_var.queue,
+                                      protocol.askPartitionTable([]))
                 finally:
                     conn.unlock()
                 self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
                 conn.lock()
                 try:
-                    msg_id = conn.ask(protocol.askNodeInformation())
-                    self.dispatcher.register(conn, msg_id, self.local_var.queue)
+                    msg_id = conn.ask(self.local_var.queue,
+                                      protocol.askNodeInformation())
                 finally:
                     conn.unlock()
                 self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
@@ -882,9 +881,8 @@ class Application(object):
                 continue
 
             try:
-                p = protocol.askTIDs(first, last, INVALID_PARTITION)
-                msg_id = conn.ask(p)
-                self.dispatcher.register(conn, msg_id, self.local_var.queue)
+                conn.ask(self.local_var.queue,
+                         protocol.askTIDs(first, last, INVALID_PARTITION))
             finally:
                 conn.unlock()
 

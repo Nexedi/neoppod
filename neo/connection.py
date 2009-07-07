@@ -468,6 +468,7 @@ class MTClientConnection(ClientConnection):
         self._lock = lock = RLock()
         self.acquire = lock.acquire
         self.release = lock.release
+        self.dispatcher = kwargs.pop('dispatcher')
         self.lock()
         try:
             super(MTClientConnection, self).__init__(*args, **kwargs)
@@ -501,8 +502,13 @@ class MTClientConnection(ClientConnection):
         return super(MTClientConnection, self).notify(*args, **kw)
 
     @lockCheckWrapper
-    def ask(self, *args, **kw):
-        return super(MTClientConnection, self).ask(*args, **kw)
+    def ask(self, queue, packet, timeout=5, additional_timeout=30):
+        msg_id = self._getNextId()
+        packet.setId(msg_id)
+        self.dispatcher.register(self, msg_id, queue)
+        self.expectMessage(msg_id)
+        self._addPacket(packet)
+        return msg_id
 
     @lockCheckWrapper
     def answer(self, *args, **kw):
