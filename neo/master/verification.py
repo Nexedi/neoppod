@@ -30,34 +30,9 @@ class VerificationEventHandler(MasterEventHandler):
     def connectionCompleted(self, conn):
         pass
 
-    def _dropIt(self, conn, node, new_state):
-        app = self.app
-        node.setState(new_state)
-        app.broadcastNodeInformation(node)
-        if not app.pt.operational():
+    def _nodeLost(self, conn, node):
+        if not self.app.pt.operational():
             raise VerificationFailure, 'cannot continue verification'
-
-    def connectionClosed(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node.getState() == RUNNING_STATE:
-            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
-        MasterEventHandler.connectionClosed(self, conn)
-
-    def timeoutExpired(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node.getState() == RUNNING_STATE:
-            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
-        MasterEventHandler.timeoutExpired(self, conn)
-
-    def peerBroken(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node.getState() != BROKEN_STATE:
-            self._dropIt(conn, node, BROKEN_STATE)
-            # here the node is no more dropped from the partition table anymore
-            # because it's under the responsability of an administrator to
-            # restore the node, backup the node content or drop it definitely
-            # and loose all it's content.
-        MasterEventHandler.peerBroken(self, conn)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app

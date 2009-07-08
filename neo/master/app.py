@@ -643,7 +643,6 @@ class Application(object):
 
         handler = PrimaryMasterEventHandler(self)
         em = self.em
-        nm = self.nm
 
         # Make sure that every connection has the secondary event handler.
         for conn in em.getConnectionList():
