@@ -43,23 +43,10 @@ class SecondaryMasterEventHandler(MasterEventHandler):
 class PrimaryMasterEventHandler(MasterEventHandler):
     """ Handler used by secondaries to handle primary master"""
 
-    def connectionClosed(self, conn):
-        if not conn.isServerConnection():
-            self.app.primary_master_node.setState(DOWN_STATE)
-            raise PrimaryFailure, 'primary master is dead'
-        MasterEventHandler.connectionClosed(self, conn)
-
-    def timeoutExpired(self, conn):
-        if not conn.isServerConnection():
-            self.app.primary_master_node.setState(DOWN_STATE)
-            raise PrimaryFailure, 'primary master is down'
-        MasterEventHandler.timeoutExpired(self, conn)
-
-    def peerBroken(self, conn):
-        if not conn.isServerConnection():
-            self.app.primary_master_node.setState(DOWN_STATE)
-            raise PrimaryFailure, 'primary master is crazy'
-        MasterEventHandler.peerBroken(self, conn)
+    def _nodeLost(self, conn, node):
+        # XXX: why in down state ?
+        self.app.primary_master_node.setState(DOWN_STATE)
+        raise PrimaryFailure, 'primary master is dead'
 
     def packetReceived(self, conn, packet):
         if not conn.isServerConnection():

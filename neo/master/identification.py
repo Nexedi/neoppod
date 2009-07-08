@@ -23,14 +23,8 @@ from neo.master.handler import MasterEventHandler
 class IdentificationEventHandler(MasterEventHandler):
     """This class deals with messages from the admin node only"""
 
-    def connectionClosed(self, conn):
-        logging.warning('lost a node in IdentificationEventHandler')
-
-    def timeoutExpired(self, conn):
-        logging.warning('lost a node in IdentificationEventHandler')
-
-    def peerBroken(self, conn):
-        logging.warning('lost a node in IdentificationEventHandler')
+    def _nodeLost(self, conn, node):
+        logging.warning('lost a node in IdentificationEventHandler : %s' % node)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
             uuid, ip_address, port, name):

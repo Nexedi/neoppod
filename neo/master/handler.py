@@ -19,10 +19,33 @@ import logging
 
 from neo import protocol
 from neo.handler import EventHandler
-from neo.protocol import INVALID_UUID, BROKEN_STATE
 
 class MasterEventHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
+
+    def _nodeLost(self, conn, node):
+        # override this method in sub-handlers to do specific actions when a
+        # node is lost
+        pass
+
+    def _dropIt(self, conn, node, new_state):
+        if node is None or node.getState() == new_state:
+            return
+        node.setState(new_state)
+        self.app.broadcastNodeInformation(node)
+        self._nodeLost(conn, node)
+
+    def connectionClosed(self, conn):
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        self._dropIt(conn, node, protocol.TEMPORARILY_DOWN_STATE)
+
+    def timeoutExpired(self, conn):
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        self._dropIt(conn, node, protocol.TEMPORARILY_DOWN_STATE)
+
+    def peerBroken(self, conn):
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        self._dropIt(conn, node, protocol.BROKEN_STATE)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         logging.error('ignoring Notify Node Information in %s', self.__class__.__name__)
@@ -89,14 +112,14 @@ class MasterEventHandler(EventHandler):
         elif app.primary_master_node is not None:
             primary_uuid = app.primary_master_node.getUUID()
         else:
-            primary_uuid = INVALID_UUID
+            primary_uuid = protocol.INVALID_UUID
 
         known_master_list = [app.server + (app.uuid, )]
         for n in app.nm.getMasterNodeList():
-            if n.getState() == BROKEN_STATE:
+            if n.getState() == protocol.BROKEN_STATE:
                 continue
             known_master_list.append(n.getServer() + \
-                                     (n.getUUID() or INVALID_UUID, ))
+                                     (n.getUUID() or protocol.INVALID_UUID, ))
         conn.answer(protocol.answerPrimaryMaster(primary_uuid,
                                                  known_master_list), packet)
 

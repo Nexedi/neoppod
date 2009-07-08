@@ -26,12 +26,6 @@ from neo.util import dump
 class AdministrationEventHandler(MasterEventHandler):
     """This class deals with messages from the admin node only"""
 
-    def _discardNode(self, conn):
-        uuid = conn.getUUID()
-        node = self.app.nm.getNodeByUUID(uuid)
-        if node is not None:
-            self.app.nm.remove(node)
-
     def handleAskPrimaryMaster(self, conn, packet):
         app = self.app
         # I'm the primary
@@ -39,18 +33,6 @@ class AdministrationEventHandler(MasterEventHandler):
         # TODO: Admin will ask itself for these data
         app.sendNodesInformations(conn)
         app.sendPartitionTable(conn)
-
-    def connectionClosed(self, conn):
-        self._discardNode(conn)
-        MasterEventHandler.connectionClosed(self, conn)
-
-    def timeoutExpired(self, conn):
-        self._discardNode(conn)
-        MasterEventHandler.timeoutExpired(self, conn)
-
-    def peerBroken(self, conn):
-        self._discardNode(conn)
-        MasterEventHandler.peerBroken(self, conn)
 
     def handleSetClusterState(self, conn, packet, name, state):
         self.checkClusterName(name)

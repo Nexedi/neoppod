@@ -31,27 +31,6 @@ from neo.util import dump
 class ServiceEventHandler(MasterEventHandler):
     """This class deals with events for a service phase."""
 
-    def _dropIt(self, conn, node, new_state):
-        raise RuntimeError('rhis method must be overriden')
-
-    def connectionClosed(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node is not None and node.getState() == RUNNING_STATE:
-            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
-        MasterEventHandler.connectionClosed(self, conn)
-
-    def timeoutExpired(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node.getState() == RUNNING_STATE:
-            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
-        MasterEventHandler.timeoutExpired(self, conn)
-
-    def peerBroken(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node.getState() != BROKEN_STATE:
-            self._dropIt(conn, node, BROKEN_STATE)
-        MasterEventHandler.peerBroken(self, conn)
-
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
@@ -161,11 +140,8 @@ class ClientServiceEventHandler(ServiceEventHandler):
     def connectionCompleted(self, conn):
         pass
 
-    def _dropIt(self, conn, node, new_state):
+    def _nodeLost(self, conn, node):
         app = self.app
-        node.setState(new_state)
-        app.broadcastNodeInformation(node)
-        app.nm.remove(node)
         for tid, t in app.finishing_transaction_dict.items():
             if t.getConnection() is conn:
                 del app.finishing_transaction_dict[tid]
@@ -234,27 +210,9 @@ class StorageServiceEventHandler(ServiceEventHandler):
         if node.getState() == RUNNING_STATE:
             conn.notify(protocol.startOperation())
 
-    def _dropIt(self, conn, node, new_state):
-        app = self.app
-        node.setState(new_state)
-        app.broadcastNodeInformation(node)
-        if not app.pt.operational():
+    def _nodeLost(self, conn, node):
+        if not self.app.pt.operational():
             raise OperationFailure, 'cannot continue operation'
-
-    def connectionClosed(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node.getState() == RUNNING_STATE:
-            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
-
-    def timeoutExpired(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node.getState() == RUNNING_STATE:
-            self._dropIt(conn, node, TEMPORARILY_DOWN_STATE)
-
-    def peerBroken(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node.getState() != BROKEN_STATE:
-            self._dropIt(conn, node, BROKEN_STATE)
 
     def handleNotifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()

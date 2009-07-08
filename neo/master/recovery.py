@@ -32,33 +32,6 @@ class RecoveryEventHandler(MasterEventHandler):
         # ask the last IDs to perform the recovery
         conn.ask(protocol.askLastIDs())
 
-    def connectionClosed(self, conn):
-        app = self.app
-        uuid = conn.getUUID()
-        node = app.nm.getNodeByUUID(uuid)
-        if node.getState() == RUNNING_STATE:
-            node.setState(TEMPORARILY_DOWN_STATE)
-            app.broadcastNodeInformation(node)
-        MasterEventHandler.connectionClosed(self, conn)
-
-    def timeoutExpired(self, conn):
-        app = self.app
-        uuid = conn.getUUID()
-        node = app.nm.getNodeByUUID(uuid)
-        if node.getState() == RUNNING_STATE:
-            node.setState(TEMPORARILY_DOWN_STATE)
-            app.broadcastNodeInformation(node)
-        MasterEventHandler.timeoutExpired(self, conn)
-
-    def peerBroken(self, conn):
-        app = self.app
-        uuid = conn.getUUID()
-        node = app.nm.getNodeByUUID(uuid)
-        if node.getState() != BROKEN_STATE:
-            node.setState(BROKEN_STATE)
-            app.broadcastNodeInformation(node)
-        MasterEventHandler.peerBroken(self, conn)
-
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
         for node_type, ip_address, port, uuid, state in node_list:
