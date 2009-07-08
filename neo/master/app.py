@@ -816,7 +816,6 @@ class Application(object):
             raise RuntimeError('unhandled cluster state')
         return (uuid, state, handler)
 
-
     def identifyNode(self, node_type, uuid, node):
 
         state = protocol.RUNNING_STATE
@@ -844,6 +843,7 @@ class Application(object):
         elif node_type == protocol.STORAGE_NODE_TYPE:
             klass = StorageNode
             (uuid, state, handler) = self.identifyStorageNode(uuid, node)
+            logging.info('Accept a storage (%s)' % state)
         return (uuid, node, state, handler, klass)
 
 
