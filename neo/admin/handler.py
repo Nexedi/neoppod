@@ -30,19 +30,13 @@ from neo.util import dump
 from neo import decorators
 
 
-class BaseEventHandler(EventHandler):
-    """ Base handler for admin node """
-
-    pass
-
-
-class AdminEventHandler(BaseEventHandler):
+class AdminEventHandler(EventHandler):
     """This class deals with events for administrating cluster."""
 
     def connectionAccepted(self, conn, s, addr):
         """Called when a connection is accepted."""
         # we only accept connection from command tool
-        BaseEventHandler.connectionAccepted(self, conn, s, addr)
+        EventHandler.connectionAccepted(self, conn, s, addr)
 
     def handleAskPartitionList(self, conn, packet, min_offset, max_offset, uuid):
         logging.info("ask partition list from %s to %s for %s" %(min_offset, max_offset, dump(uuid)))
@@ -120,7 +114,8 @@ class AdminEventHandler(BaseEventHandler):
             return
         conn.answer(protocol.answerClusterState(self.app.cluster_state), packet)
 
-class MasterEventHandler(BaseEventHandler):
+
+class MasterEventHandler(EventHandler):
     """ This class is just used to dispacth message to right handler"""
 
     def dispatch(self, conn, packet):
@@ -132,7 +127,7 @@ class MasterEventHandler(BaseEventHandler):
             self.app.monitoring_handler.dispatch(conn, packet)
 
 
-class MasterBaseEventHandler(BaseEventHandler):
+class MasterBaseEventHandler(EventHandler):
     """ This is the base class for connection to primary master node"""
 
     def connectionAccepted(self, conn, s, addr):
@@ -165,7 +160,6 @@ class MasterBaseEventHandler(BaseEventHandler):
             app.primary_master_node = None
 
         app.trying_master_node = None
-
         EventHandler.connectionFailed(self, conn)
 
     def timeoutExpired(self, conn):
@@ -179,7 +173,6 @@ class MasterBaseEventHandler(BaseEventHandler):
             app.primary_master_node = None
 
         app.trying_master_node = None
-
         EventHandler.timeoutExpired(self, conn)
 
     def connectionClosed(self, conn):
@@ -193,7 +186,6 @@ class MasterBaseEventHandler(BaseEventHandler):
             app.primary_master_node = None
 
         app.trying_master_node = None
-
         EventHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
@@ -208,7 +200,6 @@ class MasterBaseEventHandler(BaseEventHandler):
             app.primary_master_node = None
 
         app.trying_master_node = None
-
         EventHandler.peerBroken(self, conn)
 
     @decorators.identification_required
@@ -313,6 +304,7 @@ class MasterRequestEventHandler(MasterBaseEventHandler):
         client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
         p = protocol.protocolError(msg)
         client_conn.notify(p, kw['msg_id'])
+
 
 class MasterBootstrapEventHandler(MasterBaseEventHandler):
     """This class manage the bootstrap part to the primary master node"""
