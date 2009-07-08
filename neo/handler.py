@@ -47,7 +47,8 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
 
 class EventHandler(object):
     """This class handles events."""
-    def __init__(self):
+    def __init__(self, app):
+        self.app = app
         self.initPacketDispatchTable()
         self.initErrorDispatchTable()
 

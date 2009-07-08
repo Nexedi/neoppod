@@ -19,8 +19,6 @@ import logging
 
 from neo import protocol
 from neo.storage.handlers.handler import BaseClientAndStorageOperationHandler
-from neo.protocol import INVALID_SERIAL, INVALID_TID, INVALID_PARTITION, \
-        TEMPORARILY_DOWN_STATE, DISCARDED_STATE, OUT_OF_DATE_STATE
 
 
 class StorageOperationHandler(BaseClientAndStorageOperationHandler):
@@ -30,8 +28,8 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
 
     def handleAskLastIDs(self, conn, packet):
         app = self.app
-        oid = app.dm.getLastOID() or INVALID_OID
-        tid = app.dm.getLastTID() or INVALID_TID
+        oid = app.dm.getLastOID() or protocol.INVALID_OID
+        tid = app.dm.getLastTID() or protocol.INVALID_TID
         p = protocol.answerLastIDs(oid, tid, app.ptid)
         conn.answer(p, packet)
 
@@ -43,7 +41,7 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
 
         app = self.app
 
-        if partition == INVALID_PARTITION:
+        if partition == protocol.INVALID_PARTITION:
             # Collect all usable partitions for me.
             getCellList = app.pt.getCellList
             partition_list = []

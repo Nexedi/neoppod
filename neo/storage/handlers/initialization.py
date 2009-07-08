@@ -28,10 +28,10 @@ class InitializationHandler(BaseMasterHandler):
         assert not node_list
         self.app.has_node_information = True
 
-    def handleNotifyNodeInformation(self, *args, **kw):
+    def handleNotifyNodeInformation(self, conn, packet, node_list):
         # FIXME: This message could be replaced by a SendNodeInformation to be
         # consistent with SendPartitionTable.
-        BaseMasterHandler.handleNotifyNodeInformation(self, *args, **kw)
+        BaseMasterHandler.handleNotifyNodeInformation(self, conn, packet, node_list)
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         """A primary master node sends this packet to synchronize a partition

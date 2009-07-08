@@ -24,10 +24,6 @@ from neo.protocol import INVALID_UUID, BROKEN_STATE
 class MasterEventHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
-    def __init__(self, app):
-        self.app = app
-        EventHandler.__init__(self)
-
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         logging.error('ignoring Notify Node Information in %s', self.__class__.__name__)
 

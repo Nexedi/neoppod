@@ -33,9 +33,8 @@ from neo import decorators
 class BaseEventHandler(EventHandler):
     """ Base handler for admin node """
 
-    def __init__(self, app):
-        self.app = app
-        EventHandler.__init__(self)
+    pass
+
 
 class AdminEventHandler(BaseEventHandler):
     """This class deals with events for administrating cluster."""

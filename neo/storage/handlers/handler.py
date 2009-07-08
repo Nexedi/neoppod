@@ -30,9 +30,6 @@ from neo import decorators
 
 class BaseStorageHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
-    def __init__(self, app):
-        self.app = app
-        EventHandler.__init__(self)
 
     def dealWithClientFailure(self, uuid):
         pass

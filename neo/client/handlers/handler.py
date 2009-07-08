@@ -22,9 +22,8 @@ class BaseHandler(EventHandler):
     """Base class for client-side EventHandler implementations."""
 
     def __init__(self, app, dispatcher):
-        self.app = app
+        super(BaseHandler, self).__init__(app)
         self.dispatcher = dispatcher
-        super(BaseHandler, self).__init__()
 
     def dispatch(self, conn, packet):
         # Before calling superclass's dispatch method, lock the connection.

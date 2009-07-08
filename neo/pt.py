@@ -234,7 +234,7 @@ class PartitionTable(object):
     def getRow(self, offset):
         row = self.partition_list[offset]
         if row is None:
-            return ()
+            return []
         return [(cell.getUUID(), cell.getState()) for cell in row]
 
 
