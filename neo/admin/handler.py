@@ -144,62 +144,28 @@ class MasterBaseEventHandler(EventHandler):
         conn.ask(protocol.askPrimaryMaster())
         EventHandler.connectionCompleted(self, conn)
 
-    def connectionFailed(self, conn):
+    def _connectionLost(self, conn):
         app = self.app
-
         if app.primary_master_node and conn.getUUID() == app.primary_master_node.getUUID():
             raise PrimaryFailure
-
-        if app.trying_master_node is None:
-            # Should not happen.
-            raise RuntimeError('connection failed while not trying to connect')
-
         if app.trying_master_node is app.primary_master_node:
-            # Tried to connect to a primary master node and failed.
-            # So this would effectively mean that it is dead.
             app.primary_master_node = None
-
         app.trying_master_node = None
+
+    def connectionFailed(self, conn):
+        self._connectionLost(conn)
         EventHandler.connectionFailed(self, conn)
 
     def timeoutExpired(self, conn):
-        app = self.app
-
-        if app.primary_master_node and conn.getUUID() == app.primary_master_node.getUUID():
-            raise PrimaryFailure
-
-        if app.trying_master_node is app.primary_master_node:
-            # If a primary master node timeouts, I should not rely on it.
-            app.primary_master_node = None
-
-        app.trying_master_node = None
+        self._connectionLost(conn)
         EventHandler.timeoutExpired(self, conn)
 
     def connectionClosed(self, conn):
-        app = self.app
-
-        if app.primary_master_node and conn.getUUID() == app.primary_master_node.getUUID():
-            raise PrimaryFailure
-
-        if app.trying_master_node is app.primary_master_node:
-            # If a primary master node closes, I should not rely on it.
-            app.primary_master_node = None
-
-        app.trying_master_node = None
+        self._connectionLost(conn)
         EventHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
-        app = self.app
-
-        if app.primary_master_node and conn.getUUID() == app.primary_master_node.getUUID():
-            raise PrimaryFailure
-
-        if app.trying_master_node is app.primary_master_node:
-            # If a primary master node gets broken, I should not rely
-            # on it.
-            app.primary_master_node = None
-
-        app.trying_master_node = None
+        self._connectionLost(conn)
         EventHandler.peerBroken(self, conn)
 
     @decorators.identification_required
