@@ -17,7 +17,7 @@
 
 import logging
 
-from neo.storage.handlers.handler import BaseMasterHandler
+from neo.storage.handlers import BaseMasterHandler
 from neo.protocol import TEMPORARILY_DOWN_STATE
 from neo import protocol
 from neo.node import StorageNode

@@ -18,7 +18,7 @@
 
 import logging
 
-from neo.storage.handlers.handler import BaseStorageHandler
+from neo.storage.handlers import BaseStorageHandler
 from neo import protocol
 
 class ReplicationHandler(BaseStorageHandler):

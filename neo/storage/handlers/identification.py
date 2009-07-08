@@ -17,7 +17,7 @@
 
 import logging
 
-from neo.storage.handlers.handler import BaseStorageHandler
+from neo.storage.handlers import BaseStorageHandler
 from neo.protocol import BROKEN_STATE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
 from neo import protocol
 from neo.util import dump

@@ -17,7 +17,7 @@
 
 import logging
 
-from neo.storage.handlers.handler import BaseStorageHandler
+from neo.storage.handlers import BaseStorageHandler
 from neo.protocol import Packet, \
         INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \

@@ -19,7 +19,7 @@
 import logging
 
 from neo import protocol
-from neo.storage.handlers.handler import BaseMasterHandler
+from neo.storage.handlers import BaseMasterHandler
 from neo.protocol import INVALID_SERIAL, INVALID_TID, INVALID_PARTITION, \
         TEMPORARILY_DOWN_STATE, DISCARDED_STATE, OUT_OF_DATE_STATE
 from neo.util import dump

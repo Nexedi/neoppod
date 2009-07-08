@@ -18,7 +18,7 @@
 import logging
 
 from neo import protocol
-from neo.storage.handlers.handler import BaseClientAndStorageOperationHandler
+from neo.storage.handlers import BaseClientAndStorageOperationHandler
 
 
 class StorageOperationHandler(BaseClientAndStorageOperationHandler):
