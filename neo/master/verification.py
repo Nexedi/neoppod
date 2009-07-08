@@ -109,9 +109,7 @@ class VerificationEventHandler(MasterEventHandler):
             app.broadcastNodeInformation(node)
 
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        uuid = conn.getUUID()
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         # If I get a bigger value here, it is dangerous.
         if app.loid < loid or app.ltid < ltid or app.lptid < lptid:
             logging.critical('got later information in verification')
@@ -122,7 +120,6 @@ class VerificationEventHandler(MasterEventHandler):
         logging.info('got unfinished transactions %s from %s:%d', 
                 tid_list, *(conn.getAddress()))
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
@@ -135,7 +132,6 @@ class VerificationEventHandler(MasterEventHandler):
         logging.info('got OIDs %s for %s from %s:%d', 
                 oid_list, tid, *(conn.getAddress()))
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
@@ -154,7 +150,6 @@ class VerificationEventHandler(MasterEventHandler):
         uuid = conn.getUUID()
         logging.info('TID not found: %s', message)
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
@@ -165,7 +160,6 @@ class VerificationEventHandler(MasterEventHandler):
         uuid = conn.getUUID()
         logging.info('object %s:%s found', dump(oid), dump(tid))
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return
@@ -175,7 +169,6 @@ class VerificationEventHandler(MasterEventHandler):
         uuid = conn.getUUID()
         logging.info('OID not found: %s', message)
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
             return

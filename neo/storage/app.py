@@ -268,7 +268,6 @@ class Application(object):
         logging.info('doing operation')
 
         em = self.em
-        nm = self.nm
 
         handler = handlers.MasterOperationHandler(self)
         self.master_conn.setHandler(handler)
@@ -320,8 +319,8 @@ class Application(object):
         l = len(self.event_queue)
         p = self.event_queue.popleft
         for i in xrange(l):
-            callable, args, kwargs = p()
-            callable(*args, **kwargs)
+            _callable, args, kwargs = p()
+            _callable(*args, **kwargs)
 
     def getPartition(self, oid_or_tid):
         return unpack('!Q', oid_or_tid)[0] % self.num_partitions

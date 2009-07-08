@@ -291,7 +291,6 @@ class Connection(BaseConnection):
             pass
         except ConnectorConnectionRefusedException:
             # should only occur while connecting
-            assert self.connecting
             self.handler.connectionFailed(self)
             self.close()
         except ConnectorConnectionClosedException:
@@ -432,7 +431,7 @@ class ClientConnection(Connection):
         except ConnectorConnectionRefusedException:
             handler.connectionFailed(self)
             self.close()
-        except ConnectorException, msg:
+        except ConnectorException:
             # unhandled connector exception
             handler.connectionFailed(self)
             self.close()

@@ -170,7 +170,6 @@ class PartitionTable(neo.pt.PartitionTable):
         for offset, row in enumerate(self.partition_list):
             removed_cell_list = []
             feeding_cell = None
-            out_of_date_cell_present = False
             out_of_date_cell_list = []
             up_to_date_cell_list = []
             for cell in row:

@@ -126,7 +126,6 @@ class RecoveryEventHandler(MasterEventHandler):
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         if uuid != app.target_uuid:
             # If this is not from a target node, ignore it.
             logging.warn('got answer partition table from %s while waiting for %s',

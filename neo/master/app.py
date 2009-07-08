@@ -377,7 +377,7 @@ class Application(object):
         logging.info('begin the recovery of the status')
 
         self.changeClusterState(protocol.RECOVERING)
-        em, nm = self.em, self.nm
+        em = self.em
     
         self.loid = INVALID_OID
         self.ltid = INVALID_TID

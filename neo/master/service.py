@@ -171,8 +171,6 @@ class ClientServiceEventHandler(ServiceEventHandler):
                 del app.finishing_transaction_dict[tid]
 
     def handleAbortTransaction(self, conn, packet, tid):
-        uuid = conn.getUUID()
-        node = self.app.nm.getNodeByUUID(uuid)
         try:
             del self.app.finishing_transaction_dict[tid]
         except KeyError:
@@ -180,24 +178,18 @@ class ClientServiceEventHandler(ServiceEventHandler):
             pass
 
     def handleAskNewTID(self, conn, packet):
-        uuid = conn.getUUID()
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         tid = app.getNextTID()
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
         conn.answer(protocol.answerNewTID(tid), packet)
 
     def handleAskNewOIDs(self, conn, packet, num_oids):
-        uuid = conn.getUUID()
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         oid_list = app.getNewOIDList(num_oids)
         conn.answer(protocol.answerNewOIDs(oid_list), packet)
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
-        uuid = conn.getUUID()
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
         if app.ltid < tid:
@@ -303,9 +295,7 @@ class StorageServiceEventHandler(ServiceEventHandler):
             pass
 
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        uuid = conn.getUUID()
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         # If I get a bigger value here, it is dangerous.
         if app.loid < loid or app.ltid < ltid or app.pt.getID() < lptid:
             logging.critical('got later information in service')

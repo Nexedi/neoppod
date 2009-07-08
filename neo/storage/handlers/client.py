@@ -80,7 +80,6 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         BaseClientAndStorageOperationHandler.connectionCompleted(self, conn)
 
     def handleAbortTransaction(self, conn, packet, tid):
-        uuid = conn.getUUID()
         app = self.app
         try:
             t = app.transaction_dict[tid]

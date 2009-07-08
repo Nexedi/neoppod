@@ -40,8 +40,7 @@ class IdentificationHandler(BaseStorageHandler):
         # reject any incoming connections if not ready
         if not self.app.ready:
             raise protocol.NotReadyError
-        app, nm = self.app, self.app.nm
-        server = (ip_address, port)
+        app = self.app
         node = app.nm.getNodeByUUID(uuid)
         if node is None:
             logging.error('reject an unknown node %s', dump(uuid))

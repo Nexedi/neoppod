@@ -52,8 +52,6 @@ class HiddenHandler(BaseStorageHandler):
             return
 
         for node_type, ip_address, port, uuid, state in node_list:
-            addr = (ip_address, port)
-
             if node_type == STORAGE_NODE_TYPE:
                 if uuid == INVALID_UUID:
                     # No interest.

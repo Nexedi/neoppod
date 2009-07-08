@@ -100,7 +100,6 @@ class BaseMasterHandler(BaseStorageHandler):
         # XXX it might be better to implement this callback in each handler.
         uuid = conn.getUUID()
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
         if app.primary_master_node is None \
                 or app.primary_master_node.getUUID() != uuid:
             return

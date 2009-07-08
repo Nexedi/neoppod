@@ -28,7 +28,6 @@ class BootstrapHandler(BaseStorageHandler):
     """This class deals with events for a bootstrap phase."""
 
     def connectionCompleted(self, conn):
-        app = self.app
         conn.ask(protocol.askPrimaryMaster())
         BaseStorageHandler.connectionCompleted(self, conn)
 

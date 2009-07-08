@@ -132,8 +132,7 @@ class Replicator(object):
                 partition.setCriticalTID(tid)
             del self.critical_tid_dict[msg_id]
         except KeyError:
-            logging.infor("setCriticalTID raised KeyError for msg_id %s" %(msg_id,))
-            pass
+            logging.info("setCriticalTID raised KeyError for msg_id %s" %(msg_id,))
 
     def _askCriticalTID(self):
         conn = self.primary_master_connection
