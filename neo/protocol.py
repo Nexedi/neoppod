@@ -18,9 +18,7 @@
 import struct
 from struct import pack, unpack
 from socket import inet_ntoa, inet_aton
-#import logging
 
-#from neo.util import dump
 
 class EnumItem(int):
     """
@@ -453,7 +451,6 @@ class Packet(object):
 
 # packet parser
 def parse(msg):
-    # logging.debug('parsing %s', dump(msg))
     if len(msg) < MIN_PACKET_SIZE:
         return None
     msg_id, msg_type, msg_len = unpack('!LHL', msg[:PACKET_HEADER_SIZE])

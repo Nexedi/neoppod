@@ -1,9 +1,6 @@
 from threading import Lock as threading_Lock
 from threading import RLock as threading_RLock
 from threading import currentThread
-import traceback
-import sys
-import os
 
 """
   Verbose locking classes.
