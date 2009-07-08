@@ -603,13 +603,12 @@ class Application(object):
                 # and client nodes. Abort connections to client nodes.
                 logging.critical('No longer operational, so stopping the service')
                 for conn in em.getConnectionList():
-                    uuid = conn.getUUID()
-                    if uuid is not None:
-                        node = nm.getNodeByUUID(uuid)
-                        if node.getNodeType() in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE):
-                            conn.notify(protocol.stopOperation())
-                            if node.getNodeType() == CLIENT_NODE_TYPE:
-                                conn.abort()
+                    node = nm.getNodeByUUID(conn.getUUID())
+                    if node is not None and node.getNodeType() in \
+                            (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE):
+                        conn.notify(protocol.stopOperation())
+                        if node.getNodeType() == CLIENT_NODE_TYPE:
+                            conn.abort()
 
                 # Then, go back, and restart.
                 return
