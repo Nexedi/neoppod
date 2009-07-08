@@ -26,11 +26,9 @@ from neo.protocol import \
      INVALID_PTID, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, MASTER_NODE_TYPE, \
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
      UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
-from neo.client.handlers.handler import BaseHandler
-from neo.client.handlers.master import PrimaryBootstrapHandler, \
-        PrimaryNotificationsHandler, PrimaryAnswersHandler
-from neo.client.handlers.storage import StorageBootstrapHandler, \
-        StorageAnswersHandler
+from neo.client.handlers import BaseHandler, PrimaryBootstrapHandler
+from neo.client.handlers import PrimaryNotificationsHandler, PrimaryAnswersHandler
+from neo.client.handlers import StorageBootstrapHandler, StorageAnswersHandler
 
 MARKER = []
 
