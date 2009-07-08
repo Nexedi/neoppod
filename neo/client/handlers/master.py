@@ -17,7 +17,7 @@
 
 import logging
 
-from neo.client.handlers.handler import BaseHandler, AnswerBaseHandler
+from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE
 from neo.node import MasterNode, StorageNode

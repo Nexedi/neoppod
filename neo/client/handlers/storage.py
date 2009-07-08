@@ -17,7 +17,7 @@
 
 import logging
 
-from neo.client.handlers.handler import BaseHandler, AnswerBaseHandler
+from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.protocol import STORAGE_NODE_TYPE
 from ZODB.TimeStamp import TimeStamp
 
