@@ -123,6 +123,8 @@ class NodeManager(object):
             self.registerUUID(node)
 
     def remove(self, node):
+        if node is None:
+            return
         self.node_list.remove(node)
         self.unregisterServer(node)
         self.unregisterUUID(node)
