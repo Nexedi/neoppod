@@ -21,12 +21,12 @@ from neo import protocol
 from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
         DOWN_STATE
-from neo.master.handler import MasterEventHandler
+from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
 from neo.protocol import INVALID_UUID
 from neo.node import MasterNode
 
-class ElectionEventHandler(MasterEventHandler):
+class ElectionHandler(MasterHandler):
     """This class deals with events for a primary master election."""
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
@@ -72,32 +72,32 @@ class ElectionEventHandler(MasterEventHandler):
                         c.close()
                 node.setState(state)
 
-class ClientElectionEventHandler(MasterEventHandler):
+class ClientElectionHandler(MasterHandler):
 
     def packetReceived(self, conn, packet):
         node = self.app.nm.getNodeByServer(conn.getAddress())
         if node.getState() != BROKEN_STATE:
             node.setState(RUNNING_STATE)
-        MasterEventHandler.packetReceived(self, conn, packet)
+        MasterHandler.packetReceived(self, conn, packet)
 
     def connectionStarted(self, conn):
         app = self.app
         addr = conn.getAddress()
         app.unconnected_master_node_set.remove(addr)
         app.negotiating_master_node_set.add(addr)
-        MasterEventHandler.connectionStarted(self, conn)
+        MasterHandler.connectionStarted(self, conn)
 
     def connectionCompleted(self, conn):
         conn.ask(protocol.askPrimaryMaster())
-        MasterEventHandler.connectionCompleted(self, conn)
+        MasterHandler.connectionCompleted(self, conn)
 
     def connectionClosed(self, conn):
         self.connectionFailed(conn)
-        MasterEventHandler.connectionClosed(self, conn)
+        MasterHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
         self.connectionFailed(conn)
-        MasterEventHandler.timeoutExpired(self, conn)
+        MasterHandler.timeoutExpired(self, conn)
 
     def connectionFailed(self, conn):
         app = self.app
@@ -109,7 +109,7 @@ class ClientElectionEventHandler(MasterEventHandler):
             node.setState(TEMPORARILY_DOWN_STATE)
         elif node.getState() == TEMPORARILY_DOWN_STATE:
             app.unconnected_master_node_set.add(addr)
-        MasterEventHandler.connectionFailed(self, conn)
+        MasterHandler.connectionFailed(self, conn)
 
     def peerBroken(self, conn):
         app = self.app
@@ -118,7 +118,7 @@ class ClientElectionEventHandler(MasterEventHandler):
         if node is not None:
             node.setState(DOWN_STATE)
         app.negotiating_master_node_set.discard(addr)
-        MasterEventHandler.peerBroken(self, conn)
+        MasterHandler.peerBroken(self, conn)
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, ip_address, port, num_partitions,
@@ -208,7 +208,7 @@ class ClientElectionEventHandler(MasterEventHandler):
                  app.uuid, app.server[0], app.server[1], app.name))
 
 
-class ServerElectionEventHandler(MasterEventHandler):
+class ServerElectionHandler(MasterHandler):
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
@@ -219,7 +219,7 @@ class ServerElectionEventHandler(MasterEventHandler):
         node = app.nm.getNodeByServer(addr)
         if node is not None and node.getUUID() is not None:
             node.setState(BROKEN_STATE)
-        MasterEventHandler.peerBroken(self, conn)
+        MasterHandler.peerBroken(self, conn)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, ip_address, port, name):

@@ -18,12 +18,12 @@
 import logging
 
 from neo import protocol
-from neo.master.handler import MasterEventHandler
+from neo.master.handlers import MasterHandler
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         STORAGE_NODE_TYPE, HIDDEN_STATE, PENDING_STATE, RUNNING
 from neo.util import dump
 
-class AdministrationEventHandler(MasterEventHandler):
+class AdministrationHandler(MasterHandler):
     """This class deals with messages from the admin node only"""
 
     def _nodeLost(self, conn, node):

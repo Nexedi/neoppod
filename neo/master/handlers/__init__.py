@@ -20,7 +20,7 @@ import logging
 from neo import protocol
 from neo.handler import EventHandler
 
-class MasterEventHandler(EventHandler):
+class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
     def _nodeLost(self, conn, node):
@@ -144,3 +144,81 @@ class MasterEventHandler(EventHandler):
         app.sendPartitionTable(conn)
         conn.answer(protocol.answerPartitionTable(app.pt.getID(), []), packet)
 
+
+class BaseServiceHandler(MasterHandler):
+    """This class deals with events for a service phase."""
+
+    def handleNotifyNodeInformation(self, conn, packet, node_list):
+        app = self.app
+        for node_type, ip_address, port, uuid, state in node_list:
+            if node_type in (protocol.CLIENT_NODE_TYPE, protocol.ADMIN_NODE_TYPE):
+                # No interest.
+                continue
+
+            if uuid == protocol.INVALID_UUID:
+                # No interest.
+                continue
+
+            if app.uuid == uuid:
+                # This looks like me...
+                if state == protocol.RUNNING_STATE:
+                    # Yes, I know it.
+                    continue
+                else:
+                    # What?! What happened to me?
+                    raise RuntimeError, 'I was told that I am bad'
+
+            addr = (ip_address, port)
+            node = app.nm.getNodeByUUID(uuid)
+            if node is None:
+                node = app.nm.getNodeByServer(addr)
+                if node is None:
+                    # I really don't know such a node. What is this?
+                    continue
+            else:
+                if node.getServer() != addr:
+                    # This is different from what I know.
+                    continue
+
+            if node.getState() == state:
+                # No change. Don't care.
+                continue
+
+            node.setState(state)
+            # Something wrong happened possibly. Cut the connection to
+            # this node, if any, and notify the information to others.
+            # XXX this can be very slow.
+            # XXX does this need to be closed in all cases ?
+            c = app.em.getConnectionByUUID(uuid)
+            if c is not None:
+                c.close()
+
+            app.broadcastNodeInformation(node)
+            if node.getNodeType() == protocol.STORAGE_NODE_TYPE:
+                if state == protocol.TEMPORARILY_DOWN_STATE:
+                    cell_list = app.pt.outdate()
+                    if len(cell_list) != 0:
+                        ptid = app.pt.setNextID()
+                        app.broadcastPartitionChanges(ptid, cell_list)
+
+
+    def handleAskLastIDs(self, conn, packet):
+        app = self.app
+        conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.pt.getID()), packet)
+
+    def handleAskUnfinishedTransactions(self, conn, packet):
+        app = self.app
+        p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
+        conn.answer(p, packet)
+
+
+# Import all master handlers in the current namespace
+from neo.master.handlers.administration import AdministrationHandler
+from neo.master.handlers.election import ClientElectionHandler, ServerElectionHandler
+from neo.master.handlers.identification import IdentificationHandler
+from neo.master.handlers.recovery import RecoveryHandler
+from neo.master.handlers.secondary import SecondaryMasterHandler, PrimaryMasterHandler 
+from neo.master.handlers.shutdown import ShutdownHandler
+from neo.master.handlers.verification import VerificationHandler
+from neo.master.handlers.storage import StorageServiceHandler
+from neo.master.handlers.client import ClientServiceHandler

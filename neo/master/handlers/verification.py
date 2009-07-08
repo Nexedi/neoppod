@@ -19,12 +19,12 @@ import logging
 
 from neo.protocol import CLIENT_NODE_TYPE, RUNNING_STATE, BROKEN_STATE, \
         TEMPORARILY_DOWN_STATE, ADMIN_NODE_TYPE
-from neo.master.handler import MasterEventHandler
+from neo.master.handlers import MasterHandler
 from neo.exception import VerificationFailure
 from neo.protocol import INVALID_UUID
 from neo.util import dump
 
-class VerificationEventHandler(MasterEventHandler):
+class VerificationHandler(MasterHandler):
     """This class deals with events for a verification phase."""
 
     def connectionCompleted(self, conn):

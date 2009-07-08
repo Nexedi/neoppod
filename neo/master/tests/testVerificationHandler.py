@@ -23,7 +23,7 @@ from struct import pack, unpack
 import neo
 from neo.tests.base import NeoTestBase
 from neo.protocol import Packet, INVALID_UUID
-from neo.master.verification import VerificationEventHandler
+from neo.master.handlers import VerificationHandler
 from neo.master.app import Application
 from neo import protocol
 from neo.protocol import ERROR, ANNOUNCE_PRIMARY_MASTER, \
@@ -50,7 +50,7 @@ class MasterVerificationTests(NeoTestBase):
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
             self.app.nm.add(MasterNode(server = server))
-        self.verification = VerificationEventHandler(self.app)
+        self.verification = VerificationHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
         self.app.asking_uuid_dict = {}
@@ -78,13 +78,6 @@ class MasterVerificationTests(NeoTestBase):
         """Do first step of identification to MN
         """
         uuid = self.getNewUUID()
-        args = (node_type, uuid, ip, port, self.app.name)
-        packet = protocol.requestNodeIdentification(*args)
-        # test alien cluster
-        conn = self.getFakeConnection()
-        self.verification.handleRequestNodeIdentification(conn, packet, *args)
-        self.app.nm.getNodeByServer((ip, port)).setState(RUNNING_STATE)
-        self.checkAcceptNodeIdentification(conn)
         return uuid
 
     # Tests
@@ -127,282 +120,10 @@ class MasterVerificationTests(NeoTestBase):
         self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
         self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
 
-    def test_04_handleRequestNodeIdentification(self):
-        verification = self.verification
-        uuid = self.getNewUUID()
-        args = ( MASTER_NODE_TYPE, uuid, '127.0.0.1', self.storage_port, "INVALID_NAME")
-        packet = protocol.requestNodeIdentification(*args)
-        # test alien cluster
-        conn = self.getFakeConnection()
-        self.checkProtocolErrorRaised(
-                verification.handleRequestNodeIdentification,
-                conn, packet=packet, 
-                node_type=MASTER_NODE_TYPE,
-                uuid=uuid,
-                ip_address='127.0.0.1',
-                port=self.storage_port,
-                name="INVALID_NAME",)
-        # test connection from a client node, rejectet
-        uuid = self.getNewUUID()
-        conn = self.getFakeConnection()
-        self.checkNotReadyErrorRaised(
-                verification.handleRequestNodeIdentification,
-                conn,
-                packet=packet,
-                node_type=CLIENT_NODE_TYPE,
-                uuid=uuid,
-                ip_address='127.0.0.1',
-                port=self.client_port,
-                name=self.app.name,)
-
-        # 1. unknown storage node with known address, must be rejected
-        uuid = self.getNewUUID()
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        self.assertEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        self.checkProtocolErrorRaised(
-                verification.handleRequestNodeIdentification,
-                conn,
-                packet=packet,
-                node_type=STORAGE_NODE_TYPE,
-                uuid=uuid,
-                ip_address='127.0.0.1',
-                port=self.master_port,
-                name=self.app.name,)
-
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        self.assertEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-
-        # 2. unknown master node with known address, will be accepted
-        uuid = self.getNewUUID()
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        self.assertEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        verification.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=MASTER_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.master_port,
-                                                name=self.app.name,)
-
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        self.checkUUIDSet(conn, uuid)
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkAcceptNodeIdentification(conn)
-
-        # 3. unknown master node with known address but different uuid, will be replaced
-        old_uuid = uuid
-        uuid = self.getNewUUID()
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        self.assertEqual(node.getUUID(), old_uuid)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        self.checkProtocolErrorRaised(
-                verification.handleRequestNodeIdentification,
-                conn,
-                packet=packet,
-                node_type=MASTER_NODE_TYPE,
-                uuid=uuid,
-                ip_address='127.0.0.1',
-                port=self.master_port,
-                name=self.app.name,)
-
-        # 4. unknown master node with known address but different uuid and broken state, will be accepted
-        uuid = self.getNewUUID()
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        node.setState(DOWN_STATE)
-        self.assertEqual(node.getState(), DOWN_STATE)
-        self.assertEqual(node.getUUID(), old_uuid)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        verification.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=MASTER_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.master_port,
-                                                name=self.app.name,)
-
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkAcceptNodeIdentification(conn)
-
-        # 5. known by uuid, but different address
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertNotEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        verification.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=MASTER_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.2',
-                                                port=self.master_port,
-                                                name=self.app.name,)
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
-        self.checkAcceptNodeIdentification(conn)
-        # a new uuid is sent
-        call = conn.mockGetNamedCalls('answer')[0]
-        body = call.getParam(0)._body
-        new_uuid = body[:-16]
-        self.assertNotEquals(new_uuid, uuid)
-
-        # 6.known by uuid, but different address and non running state
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertNotEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        node.setState(DOWN_STATE)
-        self.assertEqual(node.getState(), DOWN_STATE)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
-        self.checkProtocolErrorRaised(
-                verification.handleRequestNodeIdentification,
-                conn,
-                packet=packet,
-                node_type=MASTER_NODE_TYPE,
-                uuid=uuid,
-                ip_address='127.0.0.2',
-                port=self.master_port,
-                name=self.app.name,)
-
-        # 7. known node but broken
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertNotEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self.assertEqual(node.getState(), DOWN_STATE)
-        node.setState(BROKEN_STATE)
-        self.assertEqual(node.getState(), BROKEN_STATE)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
-        self.checkBrokenNodeDisallowedErrorRaised(
-                verification.handleRequestNodeIdentification,
-                conn,
-                packet=packet,
-                node_type=MASTER_NODE_TYPE,
-                uuid=uuid,
-                ip_address='127.0.0.1',
-                port=self.master_port,
-                name=self.app.name,)
-
-        # 8. known node but down
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertNotEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
-        self.assertNotEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self.assertEqual(node.getState(), BROKEN_STATE)
-        node.setState(DOWN_STATE)
-        self.assertEqual(node.getState(), DOWN_STATE)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
-        verification.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=MASTER_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.1',
-                                                port=self.master_port,
-                                                name=self.app.name,)
-
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkAcceptNodeIdentification(conn)
-
-        # 9. New node
-        uuid = self.getNewUUID()
-        conn = self.getFakeConnection(uuid, ('127.0.0.3', self.master_port))
-        self.assertEqual(self.app.nm.getNodeByUUID(conn.getUUID()), None)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()), None)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 2)
-        verification.handleRequestNodeIdentification(conn,
-                                                packet=packet,
-                                                node_type=MASTER_NODE_TYPE,
-                                                uuid=uuid,
-                                                ip_address='127.0.0.3',
-                                                port=self.master_port,
-                                                name=self.app.name,)
-
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 3)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        self.checkAcceptNodeIdentification(conn)
-        
-
-    def test_05_handleAskPrimaryMaster(self):
-        verification = self.verification
-        uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = protocol.askPrimaryMaster()
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        verification.handleAskPrimaryMaster(conn, packet)        
-        self.checkNotAborted(conn)
-        self.checkAnswerPrimaryMaster(conn)
-        self.checkNotifyNodeInformation(conn)
-        # if storage node, expect messages
-        uuid = self.identifyToMasterNode(STORAGE_NODE_TYPE, port=self.storage_port)
-        packet = protocol.askPrimaryMaster()
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        verification.handleAskPrimaryMaster(conn, packet)        
-        self.checkNotAborted(conn)
-        self.checkAnswerPrimaryMaster(conn)
-        self.checkNotifyNodeInformation(conn, packet_number=0)
-        self.checkSendPartitionTable(conn, packet_number=1)
-        self.checkSendPartitionTable(conn, packet_number=2)
-
-    def test_06_handleAnnouncePrimaryMaster(self):
-        verification = self.verification
-        uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = Packet(msg_type=ANNOUNCE_PRIMARY_MASTER)
-        # No uuid
-        conn = self.getFakeConnection(None, self.master_address)
-        self.assertEqual(len(self.app.nm.getMasterNodeList()), 1)
-        self.checkIdenficationRequired(verification.handleAnnouncePrimaryMaster, conn, packet)
-        # announce
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.primary, None)
-        self.assertEqual(self.app.primary_master_node, None)
-        self.assertRaises(ElectionFailure, verification.handleAnnouncePrimaryMaster, conn, packet)        
-
-    def test_07_handleReelectPrimaryMaster(self):
-        verification = self.verification
-        uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = protocol.askPrimaryMaster()
-        # No uuid
-        conn = self.getFakeConnection(None, self.master_address)
-        self.assertRaises(ElectionFailure, verification.handleReelectPrimaryMaster, conn, packet)
-
     def test_08_handleNotifyNodeInformation(self):
         verification = self.verification
         uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
         packet = Packet(msg_type=NOTIFY_NODE_INFORMATION)
-        # do not answer if no uuid
-        conn = self.getFakeConnection(None, self.master_address)
-        node_list = []
-        self.checkIdenficationRequired(verification.handleNotifyNodeInformation, conn, packet, node_list)
         # tell about a client node, do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(CLIENT_NODE_TYPE, '127.0.0.1', self.client_port, self.getNewUUID(), DOWN_STATE),]
@@ -457,21 +178,6 @@ class MasterVerificationTests(NeoTestBase):
         loid = self.app.loid
         ltid = self.app.ltid
         lptid = self.app.pt.getID()
-        # do not answer if no uuid
-        conn = self.getFakeConnection(None, self.storage_address)
-        node_list = []
-        self.checkIdenficationRequired(verification.handleAnswerLastIDs, conn, packet, None, None, None)
-        self.assertEquals(loid, self.app.loid)
-        self.assertEquals(ltid, self.app.ltid)
-        self.assertEquals(lptid, self.app.pt.getID())
-        # do not care if master node call it
-        master_uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
-        conn = self.getFakeConnection(master_uuid, self.master_address)
-        node_list = []
-        self.checkUnexpectedPacketRaised(verification.handleAnswerLastIDs, conn, packet, None, None, None)
-        self.assertEquals(loid, self.app.loid)
-        self.assertEquals(ltid, self.app.ltid)
-        self.assertEquals(lptid, self.app.pt.getID())
         # send information which are later to what PMN knows, this must raise
         conn = self.getFakeConnection(uuid, self.storage_address)
         node_list = []
@@ -501,13 +207,6 @@ class MasterVerificationTests(NeoTestBase):
         verification = self.verification
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=ANSWER_UNFINISHED_TRANSACTIONS)
-        # reject when no uuid
-        conn = self.getFakeConnection(None, self.storage_address)
-        self.checkIdenficationRequired(verification.handleAnswerUnfinishedTransactions, conn, packet, [])
-        # reject master node
-        master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        conn = self.getFakeConnection(master_uuid, self.master_address)
-        self.checkUnexpectedPacketRaised(verification.handleAnswerUnfinishedTransactions, conn, packet, [])
         # do nothing
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -535,13 +234,6 @@ class MasterVerificationTests(NeoTestBase):
         verification = self.verification
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=ANSWER_TRANSACTION_INFORMATION)
-        # reject when no uuid
-        conn = self.getFakeConnection(None, self.storage_address)
-        self.checkIdenficationRequired(verification.handleAnswerTransactionInformation, conn, packet, None, None, None, None, None)
-        # reject master node
-        master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        conn = self.getFakeConnection(master_uuid, self.storage_address)
-        self.checkUnexpectedPacketRaised(verification.handleAnswerTransactionInformation, conn, packet, None, None, None, None, None)
         # do nothing, as unfinished_oid_set is None
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -593,13 +285,6 @@ class MasterVerificationTests(NeoTestBase):
         verification = self.verification
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=TID_NOT_FOUND_CODE)
-        # reject when no uuid
-        conn = self.getFakeConnection(None, self.storage_address)
-        self.checkIdenficationRequired(verification.handleTidNotFound, conn, packet, [])
-        # reject master node
-        master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        conn = self.getFakeConnection(master_uuid, self.master_address)
-        self.checkUnexpectedPacketRaised(verification.handleTidNotFound, conn, packet, [])
         # do nothing as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -621,13 +306,6 @@ class MasterVerificationTests(NeoTestBase):
         verification = self.verification
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=ANSWER_OBJECT_PRESENT)
-        # reject when no uuid
-        conn = self.getFakeConnection(None, self.storage_address)
-        self.checkIdenficationRequired(verification.handleAnswerObjectPresent, conn, packet, None, None)
-        # reject master node
-        master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        conn = self.getFakeConnection(master_uuid, self.master_address)
-        self.checkUnexpectedPacketRaised(verification.handleAnswerObjectPresent, conn, packet, None, None)
         # do nothing as asking_uuid_dict is True
         upper, lower = unpack('!LL', self.app.ltid)
         new_tid = pack('!LL', upper, lower + 10)
@@ -650,13 +328,6 @@ class MasterVerificationTests(NeoTestBase):
         verification = self.verification
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=OID_NOT_FOUND_CODE)
-        # reject when no uuid
-        conn = self.getFakeConnection(None, self.storage_address)
-        self.checkIdenficationRequired(verification.handleOidNotFound, conn, packet, [])
-        # reject master node
-        master_uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        conn = self.getFakeConnection(master_uuid, self.master_address)
-        self.checkUnexpectedPacketRaised(verification.handleOidNotFound, conn, packet, [])
         # do nothinf as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)

@@ -19,12 +19,12 @@ import logging
 
 from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, DOWN_STATE
-from neo.master.handler import MasterEventHandler
+from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure, PrimaryFailure
 from neo.protocol import UnexpectedPacketError, INVALID_UUID
 from neo.node import MasterNode
 
-class SecondaryMasterEventHandler(MasterEventHandler):
+class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
 
     def connectionCompleted(self, conn):
@@ -40,7 +40,7 @@ class SecondaryMasterEventHandler(MasterEventHandler):
         logging.error('/!\ NotifyNodeInformation packet from secondary master')
 
 
-class PrimaryMasterEventHandler(MasterEventHandler):
+class PrimaryMasterHandler(MasterHandler):
     """ Handler used by secondaries to handle primary master"""
 
     def _nodeLost(self, conn, node):
@@ -53,7 +53,7 @@ class PrimaryMasterEventHandler(MasterEventHandler):
             node = self.app.nm.getNodeByServer(conn.getAddress())
             if node.getState() != BROKEN_STATE:
                 node.setState(RUNNING_STATE)
-        MasterEventHandler.packetReceived(self, conn, packet)
+        MasterHandler.packetReceived(self, conn, packet)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         raise UnexpectedPacketError

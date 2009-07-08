@@ -32,14 +32,7 @@ from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
 from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure, \
         OperationFailure
-from neo.master.identification import IdentificationEventHandler
-from neo.master.administration import AdministrationEventHandler
-from neo.master.election import ClientElectionEventHandler, ServerElectionEventHandler
-from neo.master.recovery import RecoveryEventHandler
-from neo.master.verification import VerificationEventHandler
-from neo.master.service import ClientServiceEventHandler, StorageServiceEventHandler
-from neo.master.secondary import PrimaryMasterEventHandler, SecondaryMasterEventHandler
-from neo.master.shutdown import ShutdownEventHandler
+from neo.master import handlers 
 from neo.master.pt import PartitionTable
 from neo.util import dump
 from neo.connector import getConnectorHandler
@@ -132,8 +125,8 @@ class Application(object):
 
         self.unconnected_master_node_set = set()
         self.negotiating_master_node_set = set()
-        self.listening_conn.setHandler(ServerElectionEventHandler(self))
-        client_handler = ClientElectionEventHandler(self)
+        self.listening_conn.setHandler(handlers.ServerElectionHandler(self))
+        client_handler = handlers.ClientElectionHandler(self)
         em = self.em
         nm = self.nm
 
@@ -618,7 +611,7 @@ class Application(object):
                 dump(self.uuid), *(self.server))
 
         # all incoming connections identify through this handler
-        self.listening_conn.setHandler(IdentificationEventHandler(self))
+        self.listening_conn.setHandler(handlers.IdentificationHandler(self))
 
         # If I know any storage node, make sure that they are not in the running state,
         # because they are not connected at this stage.
@@ -641,7 +634,7 @@ class Application(object):
         logging.info('play the secondary role with %s (%s:%d)', 
                 dump(self.uuid), *(self.server))
 
-        handler = PrimaryMasterEventHandler(self)
+        handler = handlers.PrimaryMasterHandler(self)
         em = self.em
 
         # Make sure that every connection has the secondary event handler.
@@ -659,13 +652,13 @@ class Application(object):
 
         # select the storage handler
         if state == protocol.BOOTING:
-            storage_handler = RecoveryEventHandler
+            storage_handler = handlers.RecoveryHandler
         elif state == protocol.RECOVERING:
-            storage_handler = RecoveryEventHandler
+            storage_handler = handlers.RecoveryHandler
         elif state == protocol.VERIFYING:
-            storage_handler = VerificationEventHandler
+            storage_handler = handlers.VerificationHandler
         elif state == protocol.RUNNING:
-            storage_handler = StorageServiceEventHandler
+            storage_handler = handlers.StorageServiceHandler
         else:
             RuntimeError('Unexpected node type')
 
@@ -684,7 +677,7 @@ class Application(object):
             if node_type == CLIENT_NODE_TYPE:
                 if state != protocol.RUNNING:
                     conn.close()
-                handler = ClientServiceEventHandler
+                handler = handlers.ClientServiceHandler
             elif node_type == STORAGE_NODE_TYPE:
                 handler = storage_handler
             handler = handler(self)
@@ -754,7 +747,7 @@ class Application(object):
     def shutdown(self):
         """Close all connections and exit"""
         # change handler
-        handler = ShutdownEventHandler(self)
+        handler = handlers.ShutdownHandler(self)
         for c in self.em.getConnectionList():
             c.setHandler(handler)
 
@@ -795,20 +788,20 @@ class Application(object):
             if uuid == protocol.INVALID_UUID:
                 logging.info('reject empty storage node')
                 raise protocol.NotReadyError
-            handler = RecoveryEventHandler
+            handler = handlers.RecoveryHandler
         elif self.cluster_state == protocol.VERIFYING:
             if uuid == INVALID_UUID or node is None:
                 # if node is unknown, it has been forget when the current
                 # partition was validated by the admin
                 uuid = INVALID_UUID
                 state = protocol.PENDING_STATE
-            handler = VerificationEventHandler
+            handler = handlers.VerificationHandler
         elif self.cluster_state == protocol.RUNNING:
             if uuid == INVALID_UUID or node is None:
                 # same as for verification
                 uuid = INVALID_UUID
                 state = protocol.PENDING_STATE
-            handler = StorageServiceEventHandler
+            handler = handlers.StorageServiceHandler
         elif self.cluster_state == protocol.STOPPING:
             # FIXME: raise a ShutdowningError ?
             raise protocol.NotReadyError
@@ -819,17 +812,17 @@ class Application(object):
     def identifyNode(self, node_type, uuid, node):
 
         state = protocol.RUNNING_STATE
-        handler = IdentificationEventHandler
+        handler = handlers.IdentificationHandler
 
         if node_type == protocol.ADMIN_NODE_TYPE:
             # always accept admin nodes
             klass = AdminNode
-            handler = AdministrationEventHandler
+            handler = handlers.AdministrationHandler
             logging.info('Accept an admin %s' % dump(uuid))
         elif node_type == protocol.MASTER_NODE_TYPE:
             # always put other master in waiting state
             klass = MasterNode
-            handler = SecondaryMasterEventHandler
+            handler = handlers.SecondaryMasterHandler
             logging.info('Accept a master %s' % dump(uuid))
         elif node_type == protocol.CLIENT_NODE_TYPE:
             # refuse any client before running
@@ -837,8 +830,7 @@ class Application(object):
                 logging.info('reject a connection from a client')
                 raise protocol.NotReadyError
             klass = ClientNode
-            # FIXME: Apply an handler dedicated to client nodes
-            handler = ClientServiceEventHandler
+            handler = handlers.ClientServiceHandler
             logging.info('Accept a client %s' % dump(uuid))
         elif node_type == protocol.STORAGE_NODE_TYPE:
             klass = StorageNode
