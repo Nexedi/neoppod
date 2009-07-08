@@ -26,7 +26,7 @@ from neo.connection import ListeningConnection, ClientConnection
 from neo.exception import PrimaryFailure
 from neo.admin.handler import MasterMonitoringEventHandler, AdminEventHandler, \
      MasterBootstrapEventHandler, MasterRequestEventHandler
-from neo.connector import getConnectorHandler
+from neo.connector import getConnectorHandler, ConnectorConnectionClosedException
 from neo import protocol
 
 class Dispatcher:
@@ -134,7 +134,11 @@ class Application(object):
         self.master_conn = None
         t = 0
         while 1:
-            em.poll(1)
+            try:
+                em.poll(1)
+            except ConnectorConnectionClosedException:
+                self.primary_master_node = None
+                continue
             if self.primary_master_node is not None:
                 # If I know which is a primary master node, check if
                 # I have a connection to it already.
@@ -163,7 +167,6 @@ class Application(object):
                         index = 0
                         self.trying_master_node = master_list[0]
                     index += 1
-                print "connecting to %s:%d" % self.trying_master_node.getServer()
                 ClientConnection(em, handler, \
                                  addr = self.trying_master_node.getServer(),
                                  connector_handler = self.connector_handler)
