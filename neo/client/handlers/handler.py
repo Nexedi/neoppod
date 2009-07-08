@@ -82,10 +82,6 @@ def unexpectedInAnswerHandler(*args, **kw):
 
 class AnswerBaseHandler(EventHandler):
 
-    def __init__(self, app):
-        self.app = app
-        super(AnswerBaseHandler, self).__init__()
-
     connectionStarted = unexpectedInAnswerHandler
     connectionCompleted = unexpectedInAnswerHandler
     connectionFailed = unexpectedInAnswerHandler
