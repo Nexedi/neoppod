@@ -23,10 +23,6 @@ from neo.util import dump
 class CommandEventHandler(EventHandler):
     """ Base handler for command """
 
-    def __init__(self, app):
-        self.app = app
-        EventHandler.__init__(self)
-
     def connectionAccepted(self, conn, s, addr):
         """Called when a connection is accepted."""
         raise UnexpectedPacketError
