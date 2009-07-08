@@ -84,7 +84,7 @@ class ConnectionPool(object):
                     return None
 
                 p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
-                            app.uuid, addr[0], addr[1], app.name)
+                            app.uuid, '0.0.0.0', 0, app.name)
                 msg_id = conn.ask(app.local_var.queue, p)
             finally:
                 conn.unlock()
