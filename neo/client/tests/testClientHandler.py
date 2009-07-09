@@ -51,6 +51,13 @@ class ClientHandlerTests(NeoTestBase):
     def getDispatcher(self, queue=None):
       return Mock({'getQueue': queue, 'connectToPrimaryMasterNode': None})
 
+    def buildHandler(self, handler_class, app, dispatcher):
+        # some handlers do not accept the second argument
+        try:
+            return handler_class(app, dispatcher)
+        except TypeError:
+            return handler_class(app)
+
     def test_ping(self):
         """
         Simplest test: check that a PING packet is answered by a PONG
@@ -74,9 +81,9 @@ class ClientHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         app = Mock({'connectToPrimaryMasterNode': None})
         app.primary_master_node = Mock({'getUUID': uuid})
-        app.master_conn = Mock({'close': None, 'getUUID': uuid})
+        app.master_conn = Mock({'close': None, 'getUUID': uuid, 'getAddress': ('127.0.0.1', 10000)})
         dispatcher = self.getDispatcher()
-        method(dispatcher, app, handler_class, uuid=uuid)
+        method(dispatcher, app, handler_class, uuid=uuid, conn=app.master_conn)
         # XXX: should connection closure be tested ? It's not implemented in all cases
         #self.assertEquals(len(App.master_conn.mockGetNamedCalls('close')), 1)
         #self.assertEquals(app.master_conn, None)
@@ -125,7 +132,7 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEqual(len(queue_2.mockGetNamedCalls('put')), 0)
 
     def _testConnectionFailed(self, dispatcher, app, handler_class, uuid=None, conn=None):
-        client_handler = handler_class(app, dispatcher)
+        client_handler = handler_class(app)
         if conn is None:
             conn = self.getConnection(uuid=uuid)
         client_handler.connectionFailed(conn)
@@ -138,7 +145,7 @@ class ClientHandlerTests(NeoTestBase):
                 StorageBootstrapHandler)
 
     def _testConnectionClosed(self, dispatcher, app, handler_class, uuid=None, conn=None):
-        client_handler = handler_class(app, dispatcher)
+        client_handler = self.buildHandler(handler_class, app, dispatcher)
         if conn is None:
             conn = self.getConnection(uuid=uuid)
         client_handler.connectionClosed(conn)
@@ -157,7 +164,7 @@ class ClientHandlerTests(NeoTestBase):
                 StorageAnswersHandler)
 
     def _testTimeoutExpired(self, dispatcher, app, handler_class, uuid=None, conn=None):
-        client_handler = handler_class(app, dispatcher)
+        client_handler = self.buildHandler(handler_class, app, dispatcher)
         if conn is None:
             conn = self.getConnection(uuid=uuid)
         client_handler.timeoutExpired(conn)
@@ -175,7 +182,7 @@ class ClientHandlerTests(NeoTestBase):
                 StorageBootstrapHandler)
 
     def _testPeerBroken(self, dispatcher, app, handler_class, uuid=None, conn=None):
-        client_handler = handler_class(app, dispatcher)
+        client_handler = self.buildHandler(handler_class, app, dispatcher)
         if conn is None:
             conn = self.getConnection(uuid=uuid)
         client_handler.peerBroken(conn)
@@ -196,7 +203,7 @@ class ClientHandlerTests(NeoTestBase):
         app = Mock({'setNodeNotReady': None})
         dispatcher = self.getDispatcher()
         conn = self.getConnection()
-        client_handler = StorageBootstrapHandler(app, dispatcher)
+        client_handler = StorageBootstrapHandler(app)
         client_handler.handleNotReady(conn, None, None)
         self.assertEquals(len(app.mockGetNamedCalls('setNodeNotReady')), 1)
 
@@ -207,7 +214,7 @@ class ClientHandlerTests(NeoTestBase):
             pt = None
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = PrimaryBootstrapHandler(app, dispatcher)
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
@@ -231,7 +238,7 @@ class ClientHandlerTests(NeoTestBase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = PrimaryBootstrapHandler(app, dispatcher)
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         uuid = self.getNewUUID()
         your_uuid = 'C' * 16
@@ -253,7 +260,7 @@ class ClientHandlerTests(NeoTestBase):
             pt = None
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = StorageBootstrapHandler(app, dispatcher)
+        client_handler = StorageBootstrapHandler(app)
         conn = self.getConnection()
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
@@ -276,7 +283,7 @@ class ClientHandlerTests(NeoTestBase):
                 nm = Mock({'getNodeByUUID': node, 'getNodeByServer': None, 'add': None})
                 trying_master_node = None
             app = App()
-            client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+            client_handler = PrimaryBootstrapHandler(app)
             conn = self.getConnection()
             client_handler.handleAnswerPrimaryMaster(conn, None, 0, [])
             # Check that nothing happened
@@ -289,7 +296,7 @@ class ClientHandlerTests(NeoTestBase):
             nm = Mock({'getNodeByServer': None, 'add': None})
             primary_master_node = None
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_master_list = [('127.0.0.1', 10010, self.getNewUUID())]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
@@ -314,7 +321,7 @@ class ClientHandlerTests(NeoTestBase):
             nm = Mock({'getNodeByServer': node, 'add': None})
             primary_master_node = None
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_node_uuid = self.getNewUUID()
         test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
@@ -341,7 +348,7 @@ class ClientHandlerTests(NeoTestBase):
             nm = Mock({'getNodeByServer': node, 'add': None})
             primary_master_node = None
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
@@ -376,7 +383,7 @@ class ClientHandlerTests(NeoTestBase):
             primary_master_node = test_primary_master_node
             trying_master_node = None
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         # If primary master is already set *and* is not given primary master
         # handle call raises.
@@ -399,7 +406,7 @@ class ClientHandlerTests(NeoTestBase):
             primary_master_node = node
             trying_master_node = node
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         client_handler.handleAnswerPrimaryMaster(conn, None, test_node_uuid, [])
         # Check that primary node is (still) node.
@@ -416,7 +423,7 @@ class ClientHandlerTests(NeoTestBase):
             primary_master_node = None
             trying_master_node = None
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         client_handler.handleAnswerPrimaryMaster(conn, None, test_primary_node_uuid, [])
         # Test sanity checks
@@ -434,7 +441,7 @@ class ClientHandlerTests(NeoTestBase):
             primary_master_node = None
             trying_master_node = None
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
         client_handler.handleAnswerPrimaryMaster(conn, None, test_node_uuid, test_master_list)
@@ -449,7 +456,7 @@ class ClientHandlerTests(NeoTestBase):
         self.assertTrue(app.primary_master_node is node)
 
     def test_initialSendPartitionTable(self):
-        client_handler = PrimaryBootstrapHandler(None, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(None)
         conn = Mock({'getUUID': None})
         self._testHandleUnexpectedPacketCalledWithMedhod(
             client_handler.handleSendPartitionTable,
@@ -462,7 +469,7 @@ class ClientHandlerTests(NeoTestBase):
                 nm = Mock({'getNodeByUUID': node})
                 pt = Mock()
             app = App()
-            client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+            client_handler = PrimaryBootstrapHandler(app)
             conn = self.getConnection()
             client_handler.handleSendPartitionTable(conn, None, 0, [])
             # Check that nothing happened
@@ -477,7 +484,7 @@ class ClientHandlerTests(NeoTestBase):
             pt = Mock({'clear': None})
             ptid = test_ptid
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         client_handler.handleSendPartitionTable(conn, None, test_ptid + 1, [])
         # Check that partition table got cleared and ptid got updated
@@ -493,7 +500,7 @@ class ClientHandlerTests(NeoTestBase):
             ptid = test_ptid
         test_storage_uuid = self.getNewUUID()
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         # TODO: use realistic values
         test_row_list = [(0, [(test_storage_uuid, 0)])]
@@ -518,7 +525,7 @@ class ClientHandlerTests(NeoTestBase):
             ptid = test_ptid
         test_storage_uuid = self.getNewUUID()
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         # TODO: use realistic values
         test_row_list = [(0, [(test_storage_uuid, 0)])]
@@ -571,7 +578,7 @@ class ClientHandlerTests(NeoTestBase):
                        'add': None,
                        'remove': None})
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection(uuid=test_master_uuid)
         client_handler.handleNotifyNodeInformation(conn, None, test_node_list)
         # Return nm so caller can check handler actions.
@@ -642,7 +649,7 @@ class ClientHandlerTests(NeoTestBase):
             pt = None
             ptid = INVALID_PTID
         app = App()
-        client_handler = PrimaryBootstrapHandler(app, self.getDispatcher())
+        client_handler = PrimaryBootstrapHandler(app)
         conn = Mock({'getUUID': None})
         self._testHandleUnexpectedPacketCalledWithMedhod(
             client_handler.handleNotifyPartitionChanges,
@@ -788,7 +795,7 @@ class ClientHandlerTests(NeoTestBase):
     def test_AnswerNewTID(self):
         app = Mock({'setTID': None})
         dispatcher = self.getDispatcher()
-        client_handler = PrimaryAnswersHandler(app, dispatcher)
+        client_handler = PrimaryAnswersHandler(app)
         conn = self.getConnection()
         test_tid = 1
         client_handler.handleAnswerNewTID(conn, None, test_tid)
@@ -800,7 +807,7 @@ class ClientHandlerTests(NeoTestBase):
         test_tid = 1
         app = Mock({'getTID': test_tid, 'setTransactionFinished': None})
         dispatcher = self.getDispatcher()
-        client_handler = PrimaryAnswersHandler(app, dispatcher)
+        client_handler = PrimaryAnswersHandler(app)
         conn = self.getConnection()
         client_handler.handleNotifyTransactionFinished(conn, None, test_tid)
         self.assertEquals(len(app.mockGetNamedCalls('setTransactionFinished')), 1)
@@ -853,7 +860,7 @@ class ClientHandlerTests(NeoTestBase):
             new_oid_list = []
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = PrimaryAnswersHandler(app, dispatcher)
+        client_handler = PrimaryAnswersHandler(app)
         conn = self.getConnection()
         test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
         client_handler.handleAnswerNewOIDs(conn, None, test_oid_list[:])
@@ -871,7 +878,7 @@ class ClientHandlerTests(NeoTestBase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = StorageAnswersHandler(app, dispatcher)
+        client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
         # TODO: use realistic values
         test_object_data = ('\x00\x00\x00\x00\x00\x00\x00\x01', 0, 0, 0, 0, 'test')
@@ -880,7 +887,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def _testAnswerStoreObject(self, app, conflicting, oid, serial):
         dispatcher = self.getDispatcher()
-        client_handler = StorageAnswersHandler(app, dispatcher)
+        client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
         client_handler.handleAnswerStoreObject(conn, None, conflicting, oid, serial)
 
@@ -908,7 +915,7 @@ class ClientHandlerTests(NeoTestBase):
         test_tid = 10
         app = Mock({'getTID': test_tid, 'setTransactionVoted': None})
         dispatcher = self.getDispatcher()
-        client_handler = StorageAnswersHandler(app, dispatcher)
+        client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
         client_handler.handleAnswerStoreTransaction(conn, None, test_tid)
         self.assertEquals(len(app.mockGetNamedCalls('setTransactionVoted')), 1)
@@ -921,7 +928,7 @@ class ClientHandlerTests(NeoTestBase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = StorageAnswersHandler(app, dispatcher)
+        client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
         tid = '\x00\x00\x00\x00\x00\x00\x00\x01' # TODO: use a more realistic tid
         user = 'bar'
@@ -943,7 +950,7 @@ class ClientHandlerTests(NeoTestBase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = StorageAnswersHandler(app, dispatcher)
+        client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
         test_oid = '\x00\x00\x00\x00\x00\x00\x00\x01'
         # TODO: use realistic values
@@ -962,7 +969,7 @@ class ClientHandlerTests(NeoTestBase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = StorageAnswersHandler(app, dispatcher)
+        client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
         client_handler.handleOidNotFound(conn, None, None)
         self.assertEquals(app.local_var.asked_object, -1)
@@ -975,7 +982,7 @@ class ClientHandlerTests(NeoTestBase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = StorageAnswersHandler(app, dispatcher)
+        client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
         client_handler.handleTidNotFound(conn, None, None)
         self.assertEquals(app.local_var.txn_info, -1)
@@ -987,7 +994,7 @@ class ClientHandlerTests(NeoTestBase):
             local_var = FakeLocal()
         app = App()
         dispatcher = self.getDispatcher()
-        client_handler = StorageAnswersHandler(app, dispatcher)
+        client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
         test_tid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
         client_handler.handleAnswerTIDs(conn, None, test_tid_list[:])
