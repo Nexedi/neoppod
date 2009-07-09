@@ -134,16 +134,6 @@ class MasterBaseEventHandler(EventHandler):
         """Called when a connection is accepted."""
         raise UnexpectedPacketError
 
-    def connectionCompleted(self, conn):
-        app = self.app
-        if app.trying_master_node is None:
-            # Should not happen.
-            raise RuntimeError('connection completed while not trying to connect')
-
-        # Ask a primary master.
-        conn.ask(protocol.askPrimaryMaster())
-        EventHandler.connectionCompleted(self, conn)
-
     def _connectionLost(self, conn):
         app = self.app
         if app.primary_master_node and conn.getUUID() == app.primary_master_node.getUUID():
@@ -274,6 +264,16 @@ class MasterRequestEventHandler(MasterBaseEventHandler):
 
 class MasterBootstrapEventHandler(MasterBaseEventHandler):
     """This class manage the bootstrap part to the primary master node"""
+
+    def connectionCompleted(self, conn):
+        app = self.app
+        if app.trying_master_node is None:
+            # Should not happen.
+            raise RuntimeError('connection completed while not trying to connect')
+
+        # Ask a primary master.
+        conn.ask(protocol.askPrimaryMaster())
+        EventHandler.connectionCompleted(self, conn)
 
     def handleNotReady(self, conn, packet, message):
         app = self.app
