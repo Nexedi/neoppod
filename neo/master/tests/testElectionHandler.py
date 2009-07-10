@@ -90,6 +90,9 @@ class MasterClientElectionTests(NeoTestBase):
         ClientConnection.expectMessage = expectMessage
         
     def tearDown(self):
+        # restore patched methods
+        ClientConnection._addPacket = self._addPacket
+        ClientConnection.expectMessage = self.expectMessage
         NeoTestBase.tearDown(self)
 
     def test_01_connectionStarted(self):
