@@ -100,3 +100,5 @@ class PrimaryMasterHandler(MasterHandler):
         conn.setUUID(uuid)
         node.setUUID(uuid)
 
+    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
+        pass
