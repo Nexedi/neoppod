@@ -32,10 +32,11 @@ class BootstrapManager(EventHandler):
     Manage the bootstrap stage, lookup for the primary master then connect to it
     """
 
-    def __init__(self, app, name, uuid=protocol.INVALID_UUID, server=NO_SERVER):
+    def __init__(self, app, name, node_type, uuid=protocol.INVALID_UUID, server=NO_SERVER):
         EventHandler.__init__(self, app)
         self.primary = None
         self.server = server
+        self.node_type = node_type
         self.uuid = uuid
         self.name = name
 
@@ -88,7 +89,7 @@ class BootstrapManager(EventHandler):
             return
 
         logging.info('connected to a primary master node')
-        conn.ask(protocol.requestNodeIdentification(protocol.STORAGE_NODE_TYPE,
+        conn.ask(protocol.requestNodeIdentification(self.node_type,
                 self.uuid, self.server[0], self.server[1], self.name))
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
