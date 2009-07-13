@@ -58,7 +58,7 @@ class InitializationHandler(BaseMasterHandler):
             # If the table is filled, I assume that the table is ready
             # to use. Thus install it into the database for persistency.
             cell_list = []
-            for offset in xrange(app.num_partitions):
+            for offset in xrange(app.pt.getPartitions()):
                 for cell in pt.getCellList(offset):
                     cell_list.append((offset, cell.getUUID(), 
                                       cell.getState()))

@@ -190,7 +190,7 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
             # Collect all usable partitions for me.
             getCellList = app.pt.getCellList
             partition_list = []
-            for offset in xrange(app.num_partitions):
+            for offset in xrange(app.pt.getPartitions()):
                 for cell in getCellList(offset, readable=True):
                     if cell.getUUID() == app.uuid:
                         partition_list.append(offset)
@@ -199,7 +199,7 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
             partition_list = [partition]
 
         tid_list = app.dm.getTIDList(first, last - first,
-                                     app.num_partitions, partition_list)
+                             app.pt.getPartitions(), partition_list)
         conn.answer(protocol.answerTIDs(tid_list), packet)
 
     def handleAskObjectHistory(self, conn, packet, oid, first, last):

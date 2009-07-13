@@ -43,8 +43,6 @@ class Application(object):
     def __init__(self, file, section, reset = False):
         config = ConfigurationManager(file, section)
 
-        self.num_partitions = None
-        self.num_replicas = None
         self.name = config.getName()
         logging.debug('the name is %s', self.name)
         self.connector_handler = getConnectorHandler(config.getConnector())
@@ -87,12 +85,14 @@ class Application(object):
         if self.uuid is None:
             self.uuid = INVALID_UUID
 
-        self.num_partitions = dm.getNumPartitions()
-        self.num_replicas = dm.getNumReplicas()
+        num_partitions = dm.getNumPartitions()
+        num_replicas = dm.getNumReplicas()
 
-        if self.num_partitions is not None and self.num_replicas is not None:
+        if num_partitions is not None and num_replicas is not None:
+            if num_partitions <= 0:
+                raise RuntimeError, 'partitions must be more than zero'
             # create a partition table
-            self.pt = PartitionTable(self.num_partitions, self.num_replicas)
+            self.pt = PartitionTable(num_partitions, num_replicas)
 
         name = dm.getName()
         if name is None:
@@ -103,7 +103,7 @@ class Application(object):
         if self.ptid == INVALID_PTID:
             dm.setPTID(self.ptid)
         logging.info("loaded configuration from db : uuid = %s, ptid = %s, name = %s, np = %s, nr = %s" \
-                     %(dump(self.uuid), dump(self.ptid), name, self.num_partitions, self.num_replicas))
+                     %(dump(self.uuid), dump(self.ptid), name, num_partitions, num_replicas))
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
@@ -126,8 +126,6 @@ class Application(object):
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
-        if self.num_partitions is not None and self.num_partitions <= 0:
-            raise RuntimeError, 'partitions must be more than zero'
         if len(self.name) == 0:
             raise RuntimeError, 'cluster name must be non-empty'
 
@@ -200,10 +198,8 @@ class Application(object):
 
         if pt is None or pt.getReplicas() != num_replicas:
             # changing number of replicas is not an issue
-            self.num_partitions = num_partitions
-            self.num_replicas = num_replicas
-            self.dm.setNumPartitions(self.num_partitions)
-            self.dm.setNumReplicas(self.num_replicas)
+            self.dm.setNumPartitions(num_partitions)
+            self.dm.setNumReplicas(num_replicas)
             self.pt = PartitionTable(num_partitions, num_replicas)
             self.loadPartitionTable()
             self.ptid = self.dm.getPTID()

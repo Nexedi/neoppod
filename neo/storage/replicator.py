@@ -104,7 +104,7 @@ class Replicator(object):
     def _getOutdatedPartitionList(self):
         app = self.app
         partition_dict = {}
-        for offset in xrange(app.num_partitions):
+        for offset in xrange(app.pt.getPartitions()):
             for uuid, state in app.pt.getRow(offset):
                 if uuid == app.uuid and state == OUT_OF_DATE_STATE:
                     partition_dict[offset] = Partition(offset)
