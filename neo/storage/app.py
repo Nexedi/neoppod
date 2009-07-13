@@ -297,9 +297,6 @@ class Application(object):
             _callable, args, kwargs = p()
             _callable(*args, **kwargs)
 
-    def getPartition(self, oid_or_tid):
-        return unpack('!Q', oid_or_tid)[0] % self.num_partitions
-
     def shutdown(self):
         """Close all connections and exit"""
         for c in self.em.getConnectionList():
