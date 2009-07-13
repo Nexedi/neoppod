@@ -25,8 +25,10 @@ from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection
 from neo.exception import PrimaryFailure
 from neo.admin.handler import MasterMonitoringEventHandler, AdminEventHandler, \
-     MasterBootstrapEventHandler, MasterRequestEventHandler
+     MasterEventHandler, MasterRequestEventHandler
 from neo.connector import getConnectorHandler, ConnectorConnectionClosedException
+from neo.bootstrap import BootstrapManager
+from neo.pt import PartitionTable
 from neo import protocol
 
 class Dispatcher:
@@ -117,60 +119,32 @@ class Application(object):
 
         Note that I do not accept any connection from non-master nodes
         at this stage."""
-        logging.info('connecting to a primary master node')
-
-        handler = MasterBootstrapEventHandler(self)
-        em = self.em
-        nm = self.nm
 
         # First of all, make sure that I have no connection.
-        for conn in em.getConnectionList():
+        for conn in self.em.getConnectionList():
             if not conn.isListeningConnection():
                 conn.close()
 
-        index = 0
-        self.trying_master_node = None
-        self.primary_master_node = None
-        self.master_conn = None
-        t = 0
-        while 1:
-            try:
-                em.poll(1)
-            except ConnectorConnectionClosedException:
-                self.primary_master_node = None
-                continue
-            if self.primary_master_node is not None:
-                # If I know which is a primary master node, check if
-                # I have a connection to it already.
-                for conn in em.getConnectionList():
-                    if not conn.isListeningConnection() and not conn.isServerConnection():
-                        uuid = conn.getUUID()
-                        if uuid is not None:
-                            node = nm.getNodeByUUID(uuid)
-                            if node is self.primary_master_node:
-                                logging.info("connected to primary master node %s:%d" % node.getServer())
-                                self.master_conn = conn
-                                # Yes, I have.
-                                return
+        # search, find, connect and identify to the primary master
+        bootstrap = BootstrapManager(self, self.name, protocol.ADMIN_NODE_TYPE, 
+                self.uuid, self.server)
+        data = bootstrap.getPrimaryConnection(self.connector_handler)
+        (node, conn, uuid, num_partitions, num_replicas) = data
+        self.master_node = node
+        self.master_conn = conn
+        self.uuid = uuid
 
-            if self.trying_master_node is None and t + 1 < time():
-                # Choose a master node to connect to.
-                if self.primary_master_node is not None:
-                    # If I know a primary master node, pinpoint it.
-                    self.trying_master_node = self.primary_master_node
-                else:
-                    # Otherwise, check one by one.
-                    master_list = nm.getMasterNodeList()
-                    try:
-                        self.trying_master_node = master_list[index]
-                    except IndexError:
-                        index = 0
-                        self.trying_master_node = master_list[0]
-                    index += 1
-                ClientConnection(em, handler, \
-                                 addr = self.trying_master_node.getServer(),
-                                 connector_handler = self.connector_handler)
-                t = time()
+        if self.num_partitions is None:
+            self.num_partitions = num_partitions
+            self.num_replicas = num_replicas
+            self.pt = PartitionTable(num_partitions, num_replicas)
+        elif self.num_partitions != num_partitions:
+            raise RuntimeError('the number of partitions is inconsistent')
+        elif self.num_replicas != num_replicas:
+            raise RuntimeError('the number of replicas is inconsistent')
+
+        # passive handler
+        self.master_conn.setHandler(MasterEventHandler(self))
 
     def sendPartitionTable(self, conn, min_offset, max_offset, uuid, msg_id):
         # we have a pt

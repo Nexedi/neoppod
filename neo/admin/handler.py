@@ -118,29 +118,8 @@ class AdminEventHandler(EventHandler):
 class MasterEventHandler(EventHandler):
     """ This class is just used to dispacth message to right handler"""
 
-    def dispatch(self, conn, packet):
-        if self.app.dispatcher.registered(packet.getId()):
-            # answer to a request
-            self.app.request_handler.dispatch(conn, packet)
-        else:
-            # monitoring phase
-            self.app.monitoring_handler.dispatch(conn, packet)
-
-
-class MasterBaseEventHandler(EventHandler):
-    """ This is the base class for connection to primary master node"""
-
-    def connectionAccepted(self, conn, s, addr):
-        """Called when a connection is accepted."""
-        raise UnexpectedPacketError
-
     def _connectionLost(self, conn):
-        app = self.app
-        if app.primary_master_node and conn.getUUID() == app.primary_master_node.getUUID():
-            raise PrimaryFailure
-        if app.trying_master_node is app.primary_master_node:
-            app.primary_master_node = None
-        app.trying_master_node = None
+        raise PrimaryFailure
 
     def connectionFailed(self, conn):
         self._connectionLost(conn)
@@ -157,6 +136,18 @@ class MasterBaseEventHandler(EventHandler):
     def peerBroken(self, conn):
         self._connectionLost(conn)
         EventHandler.peerBroken(self, conn)
+
+    def dispatch(self, conn, packet):
+        if self.app.dispatcher.registered(packet.getId()):
+            # answer to a request
+            self.app.request_handler.dispatch(conn, packet)
+        else:
+            # monitoring phase
+            self.app.monitoring_handler.dispatch(conn, packet)
+
+
+class MasterBaseEventHandler(EventHandler):
+    """ This is the base class for connection to primary master node"""
 
     @decorators.identification_required
     def handleNotifyClusterInformation(self, con, packet, cluster_state):
@@ -260,117 +251,6 @@ class MasterRequestEventHandler(MasterBaseEventHandler):
         client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
         p = protocol.protocolError(msg)
         client_conn.notify(p, kw['msg_id'])
-
-
-class MasterBootstrapEventHandler(MasterBaseEventHandler):
-    """This class manage the bootstrap part to the primary master node"""
-
-    def connectionCompleted(self, conn):
-        app = self.app
-        if app.trying_master_node is None:
-            # Should not happen.
-            raise RuntimeError('connection completed while not trying to connect')
-
-        # Ask a primary master.
-        conn.ask(protocol.askPrimaryMaster())
-        EventHandler.connectionCompleted(self, conn)
-
-    def handleNotReady(self, conn, packet, message):
-        app = self.app
-        if app.trying_master_node is not None:
-            app.trying_master_node = None
-
-        conn.close()
-
-    def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port,
-                                       num_partitions, num_replicas, your_uuid):
-        app = self.app
-        node = app.nm.getNodeByServer(conn.getAddress())
-        if node_type != MASTER_NODE_TYPE:
-            # The peer is not a master node!
-            logging.error('%s:%d is not a master node', ip_address, port)
-            app.nm.remove(node)
-            conn.close()
-            return
-        if conn.getAddress() != (ip_address, port):
-            # The server address is different! Then why was
-            # the connection successful?
-            logging.error('%s:%d is waiting for %s:%d',
-                          conn.getAddress()[0], conn.getAddress()[1],
-                          ip_address, port)
-            app.nm.remove(node)
-            conn.close()
-            return
-
-        if app.num_partitions is None:
-            app.num_partitions = num_partitions
-            app.num_replicas = num_replicas
-            app.pt = PartitionTable(num_partitions, num_replicas)
-        elif app.num_partitions != num_partitions:
-            raise RuntimeError('the number of partitions is inconsistent')
-        elif app.num_replicas != num_replicas:
-            raise RuntimeError('the number of replicas is inconsistent')
-
-        conn.setUUID(uuid)
-        node.setUUID(uuid)
-
-        if your_uuid != INVALID_UUID:
-            # got an uuid from the primary master
-            app.uuid = your_uuid
-
-        conn.ask(protocol.askNodeInformation())
-        conn.ask(protocol.askPartitionTable([]))
-        logging.info("changing handler for master conn")
-        conn.setHandler(MasterEventHandler(self.app))
-
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
-                                  known_master_list):
-        app = self.app
-        # Register new master nodes.
-        for ip_address, port, uuid in known_master_list:
-            addr = (ip_address, port)
-            n = app.nm.getNodeByServer(addr)
-            if n is None:
-                n = MasterNode(server = addr)
-                app.nm.add(n)
-
-            if uuid != INVALID_UUID:
-                # If I don't know the UUID yet, believe what the peer
-                # told me at the moment.
-                if n.getUUID() is None or n.getUUID() != uuid:
-                    n.setUUID(uuid)
-            else:
-                n.setUUID(INVALID_UUID)
-
-        if primary_uuid != INVALID_UUID:
-            primary_node = app.nm.getNodeByUUID(primary_uuid)
-            if primary_node is None:
-                # I don't know such a node. Probably this information
-                # is old. So ignore it.
-                pass
-            else:
-                app.primary_master_node = primary_node
-                if app.trying_master_node is primary_node:
-                    # I am connected to the right one.
-                    logging.info('connected to a primary master node')
-                    # This is a workaround to prevent handling of
-                    # packets for the verification phase.
-                else:
-                    app.trying_master_node = None
-                    conn.close()
-        else:
-            if app.primary_master_node is not None:
-                # The primary master node is not a primary master node
-                # any longer.
-                app.primary_master_node = None
-
-            app.trying_master_node = None
-            conn.close()
-
-        p = protocol.requestNodeIdentification(ADMIN_NODE_TYPE,
-                app.uuid, app.server[0], app.server[1], app.name)
-        conn.ask(p)
 
 
 class MasterMonitoringEventHandler(MasterBaseEventHandler):
