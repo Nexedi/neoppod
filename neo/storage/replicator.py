@@ -91,13 +91,7 @@ class Replicator(object):
         self.waiting_for_unfinished_tids = False
         self.unfinished_tid_list = None
         self.replication_done = True
-
-        # Find a connection to a primary master node.
-        uuid = app.primary_master_node.getUUID()
-        for conn in app.em.getConnectionList():
-            if isinstance(conn, ClientConnection) and conn.getUUID() == uuid:
-                self.primary_master_connection = conn
-                break
+        self.primary_master_connection = app.master_conn
 
     def reset(self):
         """Reset attributes to restart replicating."""
