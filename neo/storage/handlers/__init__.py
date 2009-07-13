@@ -99,9 +99,6 @@ class BaseMasterHandler(BaseStorageHandler):
         # XXX it might be better to implement this callback in each handler.
         uuid = conn.getUUID()
         app = self.app
-        if app.primary_master_node is None \
-                or app.primary_master_node.getUUID() != uuid:
-            return
 
         for node_type, ip_address, port, uuid, state in node_list:
             addr = (ip_address, port)

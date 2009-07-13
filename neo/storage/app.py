@@ -63,7 +63,6 @@ class Application(object):
         # partitions.
         self.pt = None
 
-        self.primary_master_node = None
         self.replicator = None
         self.listening_conn = None
         self.master_conn = None

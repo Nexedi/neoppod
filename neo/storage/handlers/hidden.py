@@ -30,7 +30,7 @@ from neo import decorators
 
 # FIXME: before move handlers, this one was inheriting from EventHandler
 # instead of BaseStorageHandler
-class HiddenHandler(BaseStorageHandler):
+class HiddenHandler(BaseMasterHandler):
     """This class implements a generic part of the event handlers."""
 
     def __init__(self, app):
@@ -46,9 +46,7 @@ class HiddenHandler(BaseStorageHandler):
 
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != MASTER_NODE_TYPE \
-                or app.primary_master_node is None \
-                or app.primary_master_node.getUUID() != uuid:
+        if node.getNodeType() != MASTER_NODE_TYPE:
             return
 
         for node_type, ip_address, port, uuid, state in node_list:
