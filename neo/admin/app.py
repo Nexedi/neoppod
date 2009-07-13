@@ -55,8 +55,6 @@ class Application(object):
     def __init__(self, file, section):
         config = ConfigurationManager(file, section)
 
-        self.num_partitions = None
-        self.num_replicas = None
         self.name = config.getName()
         logging.debug('the name is %s', self.name)
         self.connector_handler = getConnectorHandler(config.getConnector())
@@ -83,8 +81,6 @@ class Application(object):
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
-        if self.num_partitions is not None and self.num_partitions <= 0:
-            raise RuntimeError, 'partitions must be more than zero'
         if len(self.name) == 0:
             raise RuntimeError, 'cluster name must be non-empty'
 
@@ -134,24 +130,24 @@ class Application(object):
         self.master_conn = conn
         self.uuid = uuid
 
-        if self.num_partitions is None:
-            self.num_partitions = num_partitions
-            self.num_replicas = num_replicas
+        if self.pt is None:
             self.pt = PartitionTable(num_partitions, num_replicas)
-        elif self.num_partitions != num_partitions:
+        elif self.pt.getPartitions() != num_partitions:
             raise RuntimeError('the number of partitions is inconsistent')
-        elif self.num_replicas != num_replicas:
+        elif self.pt.getReplicas() != num_replicas:
             raise RuntimeError('the number of replicas is inconsistent')
 
         # passive handler
         self.master_conn.setHandler(MasterEventHandler(self))
+        self.master_conn.ask(protocol.askNodeInformation())
+        self.master_conn.ask(protocol.askPartitionTable([]))
 
     def sendPartitionTable(self, conn, min_offset, max_offset, uuid, msg_id):
         # we have a pt
         self.pt.log()
         row_list = []
         if max_offset == 0:
-            max_offset = self.num_partitions
+            max_offset = self.pt.getPartitions()
         try:
             for offset in xrange(min_offset, max_offset):
                 row = []
