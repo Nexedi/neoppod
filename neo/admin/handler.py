@@ -27,7 +27,6 @@ from neo.protocol import UnexpectedPacketError
 from neo.pt import PartitionTable
 from neo.exception import PrimaryFailure
 from neo.util import dump
-from neo import decorators
 
 
 class AdminEventHandler(EventHandler):
@@ -149,11 +148,9 @@ class MasterEventHandler(EventHandler):
 class MasterBaseEventHandler(EventHandler):
     """ This is the base class for connection to primary master node"""
 
-    @decorators.identification_required
     def handleNotifyClusterInformation(self, con, packet, cluster_state):
         self.app.cluster_state = cluster_state
 
-    @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
         app = self.app
@@ -230,7 +227,6 @@ class MasterRequestEventHandler(MasterBaseEventHandler):
         client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
         client_conn.notify(protocol.answerNewNodes(uuid_list), kw['msg_id'])
 
-    @decorators.identification_required
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         logging.info("handleAnswerPartitionTable for a conn")
         client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
@@ -256,15 +252,12 @@ class MasterRequestEventHandler(MasterBaseEventHandler):
 class MasterMonitoringEventHandler(MasterBaseEventHandler):
     """This class deals with events for monitoring cluster."""
 
-    @decorators.identification_required
     def handleAnswerNodeInformation(self, conn, packet, node_list):
         logging.info("handleAnswerNodeInformation")
 
-    @decorators.identification_required
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         logging.info("handleAnswerPartitionTable")
 
-    @decorators.identification_required
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         app = self.app
         nm = app.nm
@@ -292,7 +285,6 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
             pt.setCell(offset, node, state)
         pt.log()
 
-    @decorators.identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()
         app = self.app
