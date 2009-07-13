@@ -254,7 +254,6 @@ from neo.storage.handlers.identification import IdentificationHandler
 from neo.storage.handlers.initialization import InitializationHandler
 from neo.storage.handlers.verification import VerificationHandler
 from neo.storage.handlers.replication import ReplicationHandler
-from neo.storage.handlers.bootstrap import BootstrapHandler
 from neo.storage.handlers.storage import StorageOperationHandler
 from neo.storage.handlers.master import MasterOperationHandler
 from neo.storage.handlers.client import ClientOperationHandler

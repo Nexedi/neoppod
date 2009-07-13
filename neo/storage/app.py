@@ -35,6 +35,7 @@ from neo.storage.replicator import Replicator
 from neo.connector import getConnectorHandler
 from neo.pt import PartitionTable
 from neo.util import dump
+from neo.bootstrap import BootstrapManager
 
 class Application(object):
     """The storage node application."""
@@ -142,12 +143,9 @@ class Application(object):
         # start the operation. This cycle will be executed permentnly,
         # until the user explicitly requests a shutdown.
         while 1:
-            self.operational = False
             # look for the primary master
             self.connectToPrimaryMaster()
-            assert self.master_conn is not None
-            if self.uuid == INVALID_UUID:
-                raise RuntimeError, 'No UUID supplied from the primary master'
+            self.operational = False
             try:
                 while 1:
                     try:
@@ -175,63 +173,40 @@ class Application(object):
 
         Note that I do not accept any connection from non-master nodes
         at this stage."""
-        logging.info('connecting to a primary master node')
+        pt = self.pt
+
+        # First of all, make sure that I have no connection.
+        for conn in self.em.getConnectionList():
+            if not isinstance(conn, ListeningConnection):
+                conn.close()
+
+        # search, find, connect and identify to the primary master
+        bootstrap = BootstrapManager(self, self.name, self.uuid, self.server)
+        data = bootstrap.getPrimaryConnection(self.connector_handler)
+        (node, conn, uuid, num_partitions, num_replicas) = data
+        self.master_node = node
+        self.master_conn = conn
+        self.uuid = uuid
+        self.dm.setUUID(uuid)
 
         # Reload a partition table from the database. This is necessary
         # when a previous primary master died while sending a partition
         # table, because the table might be incomplete.
-        if self.pt is not None:
+        if pt is not None:
             self.loadPartitionTable()
             self.ptid = self.dm.getPTID()
+            if num_partitions != pt.getPartitions():
+                raise RuntimeError('the number of partitions is inconsistent')
 
-        # bootstrap handler, only for outgoing connections
-        handler = handlers.BootstrapHandler(self)
-        em = self.em
-        nm = self.nm
-
-        # First of all, make sure that I have no connection.
-        for conn in em.getConnectionList():
-            if not isinstance(conn, ListeningConnection):
-                conn.close()
-
-        index = 0
-        self.trying_master_node = None
-        t = 0
-        while 1:
-            em.poll(1)
-            if self.trying_master_node is None:
-                if t + 1 < time():
-                    # Choose a master node to connect to.
-                    if self.primary_master_node is not None:
-                        # If I know a primary master node, pinpoint it.
-                        self.trying_master_node = self.primary_master_node
-                    else:
-                        # Otherwise, check one by one.
-                        master_list = nm.getMasterNodeList()
-                        try:
-                            self.trying_master_node = master_list[index]
-                        except IndexError:
-                            index = 0
-                            self.trying_master_node = master_list[0]
-                        index += 1
-
-                    ClientConnection(em, handler, \
-                                     addr = self.trying_master_node.getServer(),
-                                     connector_handler = self.connector_handler)
-                    t = time()
-            elif self.primary_master_node is self.trying_master_node:
-                # If I know which is a primary master node, check if
-                # I have a connection to it already.
-                for conn in em.getConnectionList():
-                    if isinstance(conn, ClientConnection):
-                        uuid = conn.getUUID()
-                        if uuid is not None:
-                            node = nm.getNodeByUUID(uuid)
-                            if node is self.primary_master_node:
-                                # Yes, I have.
-                                conn.setHandler(handlers.VerificationHandler(self))
-                                self.master_conn = conn
-                                return
+        if pt is None or pt.getReplicas() != num_replicas:
+            # changing number of replicas is not an issue
+            self.num_partitions = num_partitions
+            self.num_replicas = num_replicas
+            self.dm.setNumPartitions(self.num_partitions)
+            self.dm.setNumReplicas(self.num_replicas)
+            self.pt = PartitionTable(num_partitions, num_replicas)
+            self.loadPartitionTable()
+            self.ptid = self.dm.getPTID()
 
     def verifyData(self):
         """Verify data under the control by a primary master node.
