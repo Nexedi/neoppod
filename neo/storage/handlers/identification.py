@@ -62,9 +62,8 @@ class IdentificationHandler(BaseStorageHandler):
         conn.setHandler(handler)
         conn.setUUID(uuid)
         node.setUUID(uuid)
-        # FIXME: here we should use pt.getPartitions() and pt.getReplicas()
         args = (STORAGE_NODE_TYPE, app.uuid, app.server[0], app.server[1], 
-                app.dm.getPartitions(), app.dm.getReplicas(), uuid)
+                app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         # accept the identification and trigger an event
         conn.answer(protocol.acceptNodeIdentification(*args), packet)
         handler.connectionCompleted(conn)
