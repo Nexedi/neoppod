@@ -65,7 +65,7 @@ class VerificationHandler(BaseMasterHandler):
         pt = app.pt
         if app.ptid >= ptid:
             # Ignore this packet.
-            logging.info('ignoring older partition changes')
+            logging.debug('ignoring older partition changes')
             return
 
         # First, change the table on memory.

@@ -35,7 +35,7 @@ class ThreadedPoll(Thread):
                 self.em.poll()
             except:
                 logging.error('poll raised, retrying', exc_info=1)
-        logging.info('Threaded poll stopped')
+        logging.debug('Threaded poll stopped')
 
     def stop(self):
         self._stop.set()

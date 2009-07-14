@@ -68,7 +68,7 @@ class SocketConnector:
           raise ConnectorConnectionRefusedException
         raise ConnectorException, 'makeClientConnection failed: %s:%s' %  (err, errmsg)
     finally:
-      logging.info('%r connecting to %r', self.socket.getsockname(), addr)
+      logging.debug('%r connecting to %r', self.socket.getsockname(), addr)
 
   def makeListeningConnection(self, addr):
     self.is_closed = False

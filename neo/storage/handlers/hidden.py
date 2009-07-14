@@ -103,7 +103,7 @@ class HiddenHandler(BaseMasterHandler):
         pt = app.pt
         if app.ptid >= ptid:
             # Ignore this packet.
-            logging.info('ignoring older partition changes')
+            logging.debug('ignoring older partition changes')
             return
 
         # First, change the table on memory.
@@ -174,18 +174,18 @@ class HiddenHandler(BaseMasterHandler):
         pass
 
     def handleAbortTransaction(self, conn, packet, tid):
-        logging.info('ignoring abort transaction')
+        logging.debug('ignoring abort transaction')
         pass
 
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        logging.info('ignoring answer last ids')
+        logging.debug('ignoring answer last ids')
         pass
 
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
-        logging.info('ignoring answer unfinished transactions')
+        logging.debug('ignoring answer unfinished transactions')
         pass
 
     def handleAskOIDs(self, conn, packet, first, last, partition):
-        logging.info('ignoring ask oids')
+        logging.debug('ignoring ask oids')
         pass
 

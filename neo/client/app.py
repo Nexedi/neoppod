@@ -111,7 +111,7 @@ class ConnectionPool(object):
                         not self.app.dispatcher.registered(conn):
                     del self.connection_dict[conn.getUUID()]
                     conn.close()
-                    logging.info('_dropConnections : connection to storage node %s:%d closed', 
+                    logging.debug('_dropConnections : connection to storage node %s:%d closed', 
                                  *(conn.getAddress()))
                     if len(self.connection_dict) <= self.max_pool_size:
                         break
@@ -666,7 +666,6 @@ class Application(object):
         checksum = makeChecksum(compressed_data)
         self.local_var.object_stored_counter = 0
         for cell in cell_list:
-            #logging.info("storing object %s %s" %(cell.getServer(),cell.getState()))
             conn = self.cp.getConnForCell(cell)
             if conn is None:                
                 continue
@@ -899,7 +898,7 @@ class Application(object):
         ordered_tids = list(ordered_tids)
         # XXX do we need a special cmp function here ?
         ordered_tids.sort(reverse=True)
-        logging.info("UndoLog, tids %s", ordered_tids)
+        logging.debug("UndoLog, tids %s", ordered_tids)
         # For each transaction, get info
         undo_info = []
         append = undo_info.append

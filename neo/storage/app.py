@@ -218,7 +218,7 @@ class Application(object):
 
     def initialize(self):
         """ Retreive partition table and node informations from the primary """
-        logging.info('initializing...')
+        logging.debug('initializing...')
         handler = handlers.InitializationHandler(self)
         self.master_conn.setHandler(handler)
 

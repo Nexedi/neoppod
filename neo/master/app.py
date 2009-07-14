@@ -182,7 +182,7 @@ class Application(object):
                 if self.primary is None:
                     # I am the primary.
                     self.primary = True
-                    logging.info('I am the primary, so sending an announcement')
+                    logging.debug('I am the primary, so sending an announcement')
                     for conn in em.getConnectionList():
                         if isinstance(conn, ClientConnection):
                             conn.notify(protocol.announcePrimaryMaster())
@@ -302,7 +302,7 @@ class Application(object):
 
     def broadcastPartitionChanges(self, ptid, cell_list):
         """Broadcast a Notify Partition Changes packet."""
-        logging.info('broadcastPartitionChanges')
+        logging.debug('broadcastPartitionChanges')
         self.pt.log()
         for c in self.em.getConnectionList():
             if c.getUUID() is not None:
@@ -391,7 +391,7 @@ class Application(object):
 
         # FIXME: storage node with existing partition but not in the selected PT
         # must switch to PENDING state or be disconnected to restarts from nothing
-        logging.info('cluster starts with this partition table :')
+        logging.debug('cluster starts with this partition table :')
         self.pt.log()
 
     def verifyTransaction(self, tid):
@@ -465,7 +465,7 @@ class Application(object):
         self.changeClusterState(protocol.VERIFYING)
 
         # wait for any missing node
-        logging.info('waiting for the cluster to be operational')
+        logging.debug('waiting for the cluster to be operational')
         while not self.pt.operational():
             em.poll(1)
 

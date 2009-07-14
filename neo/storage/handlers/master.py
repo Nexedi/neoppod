@@ -47,7 +47,7 @@ class MasterOperationHandler(BaseMasterHandler):
         pt = app.pt
         if app.ptid >= ptid:
             # Ignore this packet.
-            logging.info('ignoring older partition changes')
+            logging.debug('ignoring older partition changes')
             return
 
         # First, change the table on memory.
@@ -70,7 +70,7 @@ class MasterOperationHandler(BaseMasterHandler):
 
         # Then, the database.
         app.dm.changePartitionTable(ptid, cell_list)
-        logging.info('Partition table updated:')
+        logging.debug('Partition table updated:')
         self.app.pt.log()
 
     def handleLockInformation(self, conn, packet, tid):

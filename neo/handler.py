@@ -94,9 +94,9 @@ class EventHandler(object):
         args = (conn.getAddress()[0], conn.getAddress()[1], message)
         if packet is None:
             # if decoding fail, there's no packet instance 
-            logging.info('malformed packet from %s:%d: %s', *args)
+            logging.error('malformed packet from %s:%d: %s', *args)
         else:
-            logging.info('malformed packet %s from %s:%d: %s', packet.getType(), *args)
+            logging.error('malformed packet %s from %s:%d: %s', packet.getType(), *args)
         response = protocol.protocolError(message)
         if packet is not None:
             conn.answer(response, packet)
@@ -113,7 +113,7 @@ class EventHandler(object):
         else:
             message = 'unexpected packet: %s in %s' % (message,
                     self.__class__.__name__)
-        logging.info('%s', message)
+        logging.error('%s', message)
         conn.answer(protocol.protocolError(message), packet)
         conn.abort()
         self.peerBroken(conn)
@@ -179,7 +179,7 @@ class EventHandler(object):
         raise UnexpectedPacketError
 
     def handlePing(self, conn, packet):
-        logging.info('got a ping packet; am I overloaded?')
+        logging.debug('got a ping packet; am I overloaded?')
         conn.answer(protocol.pong(), packet)
 
     def handlePong(self, conn, packet):
@@ -386,7 +386,7 @@ class EventHandler(object):
         conn.close()
 
     def handleNoError(self, conn, packet, message):
-        logging.info("no error message : %s" %(message))
+        logging.debug("no error message : %s" %(message))
 
     def initPacketDispatchTable(self):
         d = {}

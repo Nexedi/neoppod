@@ -156,7 +156,7 @@ class Application(object):
                 self.em.poll(1)
                 if conn is None:
                     self.trying_admin_node = True
-                    logging.info('connecting to address %s:%d', *(self.server))
+                    logging.debug('connecting to address %s:%d', *(self.server))
                     conn = ClientConnection(self.em, handler, \
                                             addr = self.server,
                                             connector_handler = self.connector_handler)

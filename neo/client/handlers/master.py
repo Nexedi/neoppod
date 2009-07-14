@@ -231,7 +231,7 @@ class PrimaryNotificationsHandler(BaseHandler):
         app = self.app
         nm = app.nm
         for node_type, ip_address, port, uuid, state in node_list:
-            logging.info("notified of %s %s %d %s %s" %(node_type, ip_address, port, dump(uuid), state))
+            logging.debug("notified of %s %s %d %s %s" %(node_type, ip_address, port, dump(uuid), state))
             # Register new nodes.
             addr = (ip_address, port)
             # Try to retrieve it from nm

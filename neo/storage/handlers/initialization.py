@@ -67,7 +67,7 @@ class InitializationHandler(BaseMasterHandler):
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         assert not row_list
         self.app.has_partition_table = True
-        logging.info('Got the partition table :')
+        logging.debug('Got the partition table :')
         self.app.pt.log()
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
@@ -75,4 +75,4 @@ class InitializationHandler(BaseMasterHandler):
         # single threaded, it send the partition table without any changes at
         # the same time. Latter it should be needed to put in queue any changes
         # and apply them when the initial partition is filled.
-        logging.info('ignoring notifyPartitionChanges during initialization')
+        logging.debug('ignoring notifyPartitionChanges during initialization')
