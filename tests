@@ -20,13 +20,22 @@ import unittest
 import logging
 import time
 
+# TODO: 
+# - include failed imports in the report
+# - group tests by kind (unit, functionnal...)
+# - import each test case instead of modules to reduce import errors
+
 # list of test modules
 # each of them have to import its TestCase classes
-TEST_MODULES = [ 
+UNIT_TEST_MODULES = [ 
     'neo.tests', 
     'neo.client.tests', 
     'neo.master.tests', 
     'neo.storage.tests'
+]
+
+FUNC_TEST_MODULES = [
+    'neo.client.tests.testZODB',
 ]
 
 # configuration 
@@ -53,17 +62,32 @@ if CONSOLE_LOG:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-class NeoTestResult(unittest.TestResult):
+class NeoTestRunner(unittest.TestResult):
     """ Custom result class to build report with statistics per module """
+
+    def __init__(self):
+        unittest.TestResult.__init__(self)
+        self.modulesStats = {}
+        self.lastStart = None
+
+    def run(self, name, modules, prefix='test'):
+        suite = unittest.TestSuite()
+        loader = unittest.defaultTestLoader
+        loader.testMethodPrefix = prefix
+        for test_module in modules:
+            try:
+                test_module = __import__(test_module, globals(), locals(), ['*'])
+            except ImportError, err:
+                print "Import of %s failed : %s" % (test_module, err)
+                continue
+            suite.addTests(loader.loadTestsFromModule(test_module))
+        suite.run(self)
 
     class ModuleStats(object):
         errors = 0
         success = 0
         failures = 0
         time = 0.0
-
-    modulesStats = {}
-    lastStart = None
 
     def _getModuleStats(self, test):
         module = test.__class__.__name__
@@ -166,67 +190,54 @@ class NeoTestResult(unittest.TestResult):
         self.summary = self._buildSummary()
         self.errors = self._buildErrors()
 
+    def sendReport(self):
+        """ Send a mail with the report summary """
 
-def sendReport(result):
-    """ Send a mail with the report summary """
+        import smtplib
+        from email.MIMEMultipart import MIMEMultipart
+        from email.MIMEText import MIMEText
 
-    import smtplib
-    from email.MIMEMultipart import MIMEMultipart
-    from email.MIMEText import MIMEText
+        # build the email
+        msg = MIMEMultipart()
+        msg['Subject'] = self.subject
+        msg['From']    = SENDER
+        msg['To']      = ', '.join(RECIPIENTS)
+        #msg.preamble = self.subject
+        msg.epilogue = ''
 
-    # build the email
-    msg = MIMEMultipart()
-    msg['Subject'] = result.subject
-    msg['From']    = SENDER
-    msg['To']      = ', '.join(RECIPIENTS)
-    #msg.preamble = result.subject
-    msg.epilogue = ''
+        # Add custom headers for client side filtering
+        msg['X-ERP5-Tests'] = 'NEO'
+        if self.wasSuccessful():
+          msg['X-ERP5-Tests-Status'] = 'OK'
 
-    # Add custom headers for client side filtering
-    msg['X-ERP5-Tests'] = 'NEO'
-    if result.wasSuccessful():
-      msg['X-ERP5-Tests-Status'] = 'OK'
+        # write the body
+        body = MIMEText(self.summary + self.errors, 'text')
+        msg.attach(body)
 
-    # write the body
-    body = MIMEText(result.summary + result.errors, 'text')
-    msg.attach(body)
+        # attach the log file
+        if ATTACH_LOG:
+            log = MIMEText(file(LOG_FILE, 'r').read())
+            log.add_header('Content-Disposition', 'attachment', filename=LOG_FILE)
+            msg.attach(log)
 
-    # attach the log file
-    if ATTACH_LOG:
-        log = MIMEText(file(LOG_FILE, 'r').read())
-        log.add_header('Content-Disposition', 'attachment', filename=LOG_FILE)
-        msg.attach(log)
-
-    # Send the email via our own SMTP server.
-    s = smtplib.SMTP()
-    s.connect(*SMTP_SERVER)
-    mail = msg.as_string()
-    for recipient in RECIPIENTS:
-        s.sendmail(SENDER, recipient, mail)
-    s.close()
-
-def buildTestSuite():
-    suite = unittest.TestSuite()
-    loader = unittest.defaultTestLoader
-    # load neo tests
-    for test_module in TEST_MODULES:
-        test_module = __import__(test_module, globals(), locals(), ['*'])
-        suite.addTests(loader.loadTestsFromModule(test_module))
-    # load ZODB tests
-    if WITH_ZODB_TESTS:
-        from neo.client.tests.testZODB import ZODBTests
-        suite.addTests(unittest.makeSuite(ZODBTests, 'check'))
-    return suite
+        # Send the email via our own SMTP server.
+        s = smtplib.SMTP()
+        s.connect(*SMTP_SERVER)
+        mail = msg.as_string()
+        for recipient in RECIPIENTS:
+            s.sendmail(SENDER, recipient, mail)
+        s.close()
 
 if __name__ == "__main__":
     
     # run and build the report
-    result = NeoTestResult()
-    suite = buildTestSuite()
-    suite.run(result)
-    result.build()
+    runner = NeoTestRunner()
+    runner.run('Unit tests', UNIT_TEST_MODULES)
+    if WITH_ZODB_TESTS:
+        runner.run('Functional tests', FUNC_TEST_MODULES, prefix='check')
+    runner.build()
     # send a mail
     if SEND_REPORT:
-        sendReport(result)
-    print result.summary
-    print result.errors
+        runner.sendReport()
+    print runner.errors
+    print runner.summary
