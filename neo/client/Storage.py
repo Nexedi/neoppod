@@ -20,7 +20,6 @@ import logging
 
 from neo.client.app import Application
 from neo.client.exception import NEOStorageConflictError, NEOStorageNotFoundError
-from neo import DEFAULT_LOG_FORMAT
 
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
@@ -31,7 +30,6 @@ class Storage(BaseStorage.BaseStorage,
     def __init__(self, master_nodes, name, connector, read_only=False, **kw):
         BaseStorage.BaseStorage.__init__(self, name)
         self._is_read_only = read_only
-        logging.basicConfig(level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
         self.app = Application(master_nodes, name, connector)
 
     def load(self, oid, version=None):

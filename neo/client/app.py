@@ -217,8 +217,10 @@ class Application(object):
     """The client node application."""
 
     def __init__(self, master_nodes, name, connector, **kw):
-        logging.basicConfig(level = logging.DEBUG)
-        logging.debug('master node address are %s' %(master_nodes,))
+        # XXX: use a configuration entry
+        from neo import buildFormatString
+        format = buildFormatString('CLIENT')
+        logging.basicConfig(level=logging.DEBUG, format=format)
         em = EventManager()
         # Start polling thread
         self.poll_thread = ThreadedPoll(em)
@@ -234,6 +236,7 @@ class Application(object):
         self.primary_master_node = None
         self.trying_master_node = None
         # XXX: this code duplicates neo.config.ConfigurationManager.getMasterNodeList
+        logging.debug('master node address are %s' % (master_nodes,))
         self.master_node_list = master_node_list = []
         for node in master_nodes.split():
             if not node:

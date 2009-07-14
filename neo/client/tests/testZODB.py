@@ -204,9 +204,11 @@ s1_log = os.path.join(temp_dir, 's1.log')
 s2_log = os.path.join(temp_dir, 's2.log')
 s3_log = os.path.join(temp_dir, 's3.log')
 s4_log = os.path.join(temp_dir, 's4.log')
+# override logging default handler
+from neo import buildFormatString
 client_log = os.path.join(temp_dir, 'c.log')
-from neo import DEFAULT_LOG_FORMAT
-logging.basicConfig(filename=client_log, level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
+format = buildFormatString('CLIENT')
+logging.basicConfig(filename=client_log, level=logging.DEBUG, format=format)
 
 class ZODBTests(unittest.TestCase):
 

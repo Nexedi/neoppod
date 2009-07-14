@@ -20,7 +20,7 @@
 
 from optparse import OptionParser
 from neo.neoctl.app import Application
-from neo import DEFAULT_LOG_FORMAT
+from neo import buildFormatString
 import logging
 parser = OptionParser()
 parser.add_option('-v', '--verbose', action = 'store_true', 
@@ -36,10 +36,11 @@ port = options.port or 5555
 ip = options.ip or '127.0.0.1'
 handler = options.handler or "SocketConnector"
 
+format = buildFormatString('neoctl')
 if options.verbose:
-    logging.basicConfig(level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
+    logging.basicConfig(level=logging.DEBUG, format=format)
 else:
-    logging.basicConfig(level=logging.INFO, format=DEFAULT_LOG_FORMAT)
+    logging.basicConfig(level=logging.INFO, format=format)
   
   
 app = Application(ip, port, handler)

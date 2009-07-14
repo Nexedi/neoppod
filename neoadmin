@@ -20,7 +20,7 @@
 
 from optparse import OptionParser
 from neo.admin.app import Application
-from neo import DEFAULT_LOG_FORMAT
+from neo import buildFormatString
 import logging
 parser = OptionParser()
 parser.add_option('-v', '--verbose', action = 'store_true', 
@@ -35,10 +35,11 @@ config = options.config or 'neo.conf'
 section = options.section or 'admin'
 logfile = options.logfile or None
 
+format = buildFormatString(section)
 if options.verbose:
-    logging.basicConfig(filename=logfile, level=logging.DEBUG, format=DEFAULT_LOG_FORMAT)
+    logging.basicConfig(filename=logfile, level=logging.DEBUG, format=format)
 else:
-    logging.basicConfig(filename=logfile, level=logging.INFO, format=DEFAULT_LOG_FORMAT)
+    logging.basicConfig(filename=logfile, level=logging.INFO, format=format)
 
 app = Application(config, section)
 app.run()
