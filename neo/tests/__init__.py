@@ -5,6 +5,7 @@ from neo.tests.testHandler import HandlerDecoratorsTests, HandlerTests
 from neo.tests.testNodes import NodesTests
 from neo.tests.testPT import PartitionTableTests
 from neo.tests.testProtocol import ProtocolTests
+from neo.tests.testBootstrap import BootstrapManagerTests
 
 __all__ = [
     'ConfigurationManagerTests',

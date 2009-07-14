@@ -23,8 +23,7 @@ from neo.tests.base import NeoTestBase
 from neo.master.app import MasterNode
 from neo.pt import PartitionTable
 from neo.storage.app import Application, StorageNode
-from neo.storage.handlers import BootstrapHandler
-from neo.storage.handlers import VerificationHandler
+from neo.bootstrap import BootstrapManager
 from neo import protocol
 from neo.protocol import STORAGE_NODE_TYPE, MASTER_NODE_TYPE
 from neo.protocol import BROKEN_STATE, RUNNING_STATE, Packet, INVALID_UUID
@@ -32,7 +31,7 @@ from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION
 from neo.protocol import ERROR, BROKEN_NODE_DISALLOWED_CODE, ASK_PRIMARY_MASTER
 from neo.protocol import ANSWER_PRIMARY_MASTER
 
-class StorageBootstrapHandlerTests(NeoTestBase):
+class BootstrapManagerTests(NeoTestBase):
 
     def setUp(self):
         logging.basicConfig(level = logging.ERROR)
@@ -43,7 +42,7 @@ class StorageBootstrapHandlerTests(NeoTestBase):
         for server in self.app.master_node_list:
             self.app.nm.add(MasterNode(server=server))
         self.trying_master_node = self.app.nm.getMasterNodeList()[0]
-        self.bootstrap = BootstrapHandler(self.app)
+        self.bootstrap = BootstrapManager(self.app, 'main', protocol.STORAGE_NODE_TYPE)
         # define some variable to simulate client and storage node
         self.master_port = 10010
         self.storage_port = 10020
