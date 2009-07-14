@@ -31,14 +31,14 @@ class MasterHandler(EventHandler):
     def _dropIt(self, conn, node, new_state):
         if node is None or node.getState() == new_state:
             return
-        # clean node related data in specialized handlers
-        self._nodeLost(conn, node)
         if new_state != protocol.BROKEN_STATE and node.getState() == protocol.PENDING_STATE:
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
             logging.info('drop a pending node from the node manager')
             self.app.nm.remove(node)
         node.setState(new_state)
+        # clean node related data in specialized handlers
+        self._nodeLost(conn, node)
         self.app.broadcastNodeInformation(node)
 
     def connectionClosed(self, conn):
