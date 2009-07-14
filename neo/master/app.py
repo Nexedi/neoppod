@@ -388,6 +388,9 @@ class Application(object):
         logging.info('startup allowed')
         if self.pt.getID() == INVALID_PTID:
             self.buildFromScratch()
+
+        # FIXME: storage node with existing partition but not in the selected PT
+        # must switch to PENDING state or be disconnected to restarts from nothing
         logging.info('cluster starts with this partition table :')
         self.pt.log()
 
@@ -467,20 +470,6 @@ class Application(object):
             em.poll(1)
 
         logging.info('start to verify data')
-
-        # FIXME this part has a potential problem that the write buffers can
-        # be very huge. Thus it would be better to flush the buffers from time
-        # to time _without_ reading packets.
-
-        # Send the current partition table to storage and admin nodes, so that
-        # all nodes share the same view.
-        # FIXME: the admin must ask itself the partition table
-        for conn in em.getConnectionList():
-            uuid = conn.getUUID()
-            if uuid is not None:
-                node = nm.getNodeByUUID(uuid)
-                if node.getNodeType() == ADMIN_NODE_TYPE:
-                    self.sendPartitionTable(conn)
 
         # Gather all unfinished transactions.
         #
@@ -579,18 +568,11 @@ class Application(object):
                                and node.getLastStateChange() + expiration < current_time:
                             logging.warning('%s is down, have to notify the admin' % (node, ))
                             # XXX: here we should notify the administrator that
-                            # a node seems dead and should be dropped frop the
+                            # a node seems dead and should be dropped from the
                             # partition table. This should not be done
                             # automaticaly to avoid data lost.
                             node.setState(DOWN_STATE)
-                            #self.broadcastNodeInformation(node)
-                            #cell_list = self.pt.dropNode(node)
-                            #self.broadcastPartitionChanges(self.pt.setNextID(), cell_list)
-                            if not self.pt.operational():
-                                # Catastrophic.
-                                raise OperationFailure, 'cannot continue operation'
 
-                        
             except OperationFailure:
                 # If not operational, send Stop Operation packets to storage nodes
                 # and client nodes. Abort connections to client nodes.
