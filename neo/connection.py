@@ -283,26 +283,26 @@ class Connection(BaseConnection):
             data = self.connector.receive()
             if not data:
                 logging.info('Connection %r closed in recv', self.connector)
-                self.handler.connectionClosed(self)
                 self.close()
+                self.handler.connectionClosed(self)
                 return
             self.read_buf += data
         except ConnectorTryAgainException:        
             pass
         except ConnectorConnectionRefusedException:
             # should only occur while connecting
-            self.handler.connectionFailed(self)
             self.close()
+            self.handler.connectionFailed(self)
         except ConnectorConnectionClosedException:
             # connection resetted by peer, according to the man, this error 
             # should not occurs but it seems it's false
             logging.info('Connection reset by peer: %r', self.connector)
-            self.handler.connectionClosed(self)
             self.close()
+            self.handler.connectionClosed(self)
         except ConnectorException:
             logging.info('Unknown connection error: %r', self.connector)
-            self.handler.connectionClosed(self)
             self.close()
+            self.handler.connectionClosed(self)
             # unhandled connector exception
             raise
 
@@ -323,13 +323,13 @@ class Connection(BaseConnection):
         except ConnectorConnectionClosedException:
             # connection resetted by peer
             logging.info('Connection reset by peer: %r', self.connector)
-            self.handler.connectionClosed(self)
             self.close()
+            self.handler.connectionClosed(self)
         except ConnectorException:
             logging.info('Unknown connection error: %r', self.connector)
             # unhandled connector exception
-            self.handler.connectionClosed(self)
             self.close()
+            self.handler.connectionClosed(self)
             raise 
 
     def _addPacket(self, packet):
