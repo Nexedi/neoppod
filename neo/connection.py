@@ -77,9 +77,6 @@ class BaseConnection(object):
     def getConnector(self):
         return self.connector
 
-    def getDescriptor(self):
-        return self.connector.getDescriptor()
-
     def setConnector(self, connector):
         if self.connector is not None:
             raise RuntimeError, 'cannot overwrite a connector in a connection'

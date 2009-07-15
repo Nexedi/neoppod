@@ -1,4 +1,3 @@
-
 #
 # Copyright (C) 2006-2009  Nexedi SA
 # 
