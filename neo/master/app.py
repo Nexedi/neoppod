@@ -24,7 +24,6 @@ from neo.config import ConfigurationManager
 from neo import protocol
 from neo.protocol import \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        INVALID_OID, INVALID_TID, INVALID_PTID, \
         CLIENT_NODE_TYPE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
         UUID_NAMESPACES, ADMIN_NODE_TYPE, BOOTING
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
@@ -77,9 +76,9 @@ class Application(object):
         self.uuid = self.getNewUUID(MASTER_NODE_TYPE)
 
         # The last OID.
-        self.loid = INVALID_OID
+        self.loid = None
         # The last TID.
-        self.ltid = INVALID_TID
+        self.ltid = None
         # The target node's uuid to request next.
         self.target_uuid = None
 
@@ -372,9 +371,9 @@ class Application(object):
         self.changeClusterState(protocol.RECOVERING)
         em = self.em
     
-        self.loid = INVALID_OID
-        self.ltid = INVALID_TID
-        self.pt.setID(INVALID_PTID)
+        self.loid = None
+        self.ltid = None
+        self.pt.setID(None)
         self.target_uuid = None
 
         # collect the last partition table available
@@ -386,7 +385,7 @@ class Application(object):
                 self.changeClusterState(protocol.VERIFYING)
 
         logging.info('startup allowed')
-        if self.pt.getID() == INVALID_PTID:
+        if self.pt.getID() is None:
             self.buildFromScratch()
 
         # FIXME: storage node with existing partition but not in the selected PT

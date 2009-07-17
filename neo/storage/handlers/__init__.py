@@ -226,16 +226,9 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
             app.queueEvent(self.handleAskObject, conn, packet, oid,
                            serial, tid)
             return
-
-        if serial == protocol.INVALID_SERIAL:
-            serial = None
-        if tid == protocol.INVALID_TID:
-            tid = None
         o = app.dm.getObject(oid, serial, tid)
         if o is not None:
             serial, next_serial, compression, checksum, data = o
-            if next_serial is None:
-                next_serial = protocol.INVALID_SERIAL
             logging.debug('oid = %s, serial = %s, next_serial = %s',
                           dump(oid), dump(serial), dump(next_serial))
             p = protocol.answerObject(oid, serial, next_serial,

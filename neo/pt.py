@@ -57,7 +57,7 @@ class PartitionTable(object):
     """This class manages a partition table."""
 
     def __init__(self, num_partitions, num_replicas):
-        self.id = protocol.INVALID_PTID
+        self.id = None
         self.np = num_partitions
         self.nr = num_replicas
         self.num_filled_rows = 0

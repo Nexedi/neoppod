@@ -15,10 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import struct
-from struct import pack, unpack
+from struct import pack, unpack, error
 from socket import inet_ntoa, inet_aton
-
 
 class EnumItem(int):
     """
@@ -364,10 +362,12 @@ VALID_CELL_STATE_LIST = (UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE,
 # Other constants.
 INVALID_UUID = '\0' * 16
 INVALID_TID = '\0' * 8
-INVALID_SERIAL = '\0' * 8
-INVALID_OID = '\0' * 8
 INVALID_PTID = '\0' * 8
 INVALID_PARTITION = 0xffffffff
+
+# TODO: delete those definitions when tests are fixed
+INVALID_SERIAL = INVALID_TID
+INVALID_OID = '\0' * 16
 
 STORAGE_NS = 'S'
 MASTER_NS = 'M'
@@ -475,7 +475,7 @@ def handle_errors(decoder):
     def wrapper(body):
         try:
             return decoder(body)
-        except struct.error, msg:
+        except error, msg: # struct.error
             name = decoder.__name__
             raise PacketMalformedError("%s fail (%s)" % (name, msg))
         except PacketMalformedError, msg:
@@ -511,19 +511,14 @@ def _encodeUUID(uuid):
         return INVALID_UUID
     return uuid
 
-def _checkOID(oid):
-    if oid == INVALID_OID:
-        return None
-    return oid
-
-def _checkTID(tid):
-    if tid == INVALID_TID:
-        return None
-    return tid
-
 def _checkPTID(ptid):
     if ptid == INVALID_PTID:
         return None
+    return ptid
+
+def _encodePTID(ptid):
+    if ptid is None:
+        return INVALID_PTID
     return ptid
 
 def _readString(buffer, name, offset=0):
@@ -626,7 +621,10 @@ decode_table[ASK_LAST_IDS] = _decodeAskLastIDs
 
 @handle_errors
 def _decodeAnswerLastIDs(body):
-    return unpack('!8s8s8s', body) # (loid, ltid, lptid)
+
+    (loid, ltid, lptid) = unpack('!8s8s8s', body)
+    lptid = _checkPTID(lptid)
+    return (loid, ltid, lptid)
 decode_table[ANSWER_LAST_IDS] = _decodeAnswerLastIDs
 
 @handle_errors
@@ -643,6 +641,7 @@ decode_table[ASK_PARTITION_TABLE] = _decodeAskPartitionTable
 def _decodeAnswerPartitionTable(body):
     index = 12
     (ptid, n) = unpack('!8sL', body[:index])
+    ptid = _checkPTID(ptid)
     row_list = []
     cell_list = []
     for i in xrange(n):
@@ -663,6 +662,7 @@ decode_table[ANSWER_PARTITION_TABLE] = _decodeAnswerPartitionTable
 def _decodeSendPartitionTable(body):
     index = 12
     (ptid, n,) = unpack('!8sL', body[:index])
+    ptid = _checkPTID(ptid)
     row_list = []
     cell_list = []
     for i in xrange(n):
@@ -682,6 +682,7 @@ decode_table[SEND_PARTITION_TABLE] = _decodeSendPartitionTable
 @handle_errors
 def _decodeNotifyPartitionChanges(body):
     (ptid, n) = unpack('!8sL', body[:12])
+    ptid = _checkPTID(ptid)
     cell_list = []
     for i in xrange(n):
         (offset, uuid, state) = unpack('!L16sH', body[12+i*22:34+i*22])
@@ -718,22 +719,26 @@ decode_table[ANSWER_UNFINISHED_TRANSACTIONS] = _decodeAnswerUnfinishedTransactio
 
 @handle_errors
 def _decodeAskObjectPresent(body):
-    return unpack('8s8s', body) # oid, tid
+    (oid, tid) = unpack('8s8s', body)
+    return (oid, tid)
 decode_table[ASK_OBJECT_PRESENT] = _decodeAskObjectPresent
 
 @handle_errors
 def _decodeAnswerObjectPresent(body):
-    return unpack('8s8s', body) # oid, tid
+    (oid, tid) = unpack('8s8s', body)
+    return (oid, tid)
 decode_table[ANSWER_OBJECT_PRESENT] = _decodeAnswerObjectPresent
 
 @handle_errors
 def _decodeDeleteTransaction(body):
-    return unpack('8s', body) # tid
+    (tid, ) = unpack('8s', body)
+    return (tid, )
 decode_table[DELETE_TRANSACTION] = _decodeDeleteTransaction
 
 @handle_errors
 def _decodeCommitTransaction(body):
-    return unpack('8s', body) # tid
+    (tid, ) = unpack('8s', body)
+    return (tid, )
 decode_table[COMMIT_TRANSACTION] = _decodeCommitTransaction
 
 @handle_errors
@@ -743,7 +748,8 @@ decode_table[ASK_NEW_TID] = _decodeAskNewTID
 
 @handle_errors
 def _decodeAnswerNewTID(body):
-    return unpack('8s', body) # tid
+    (tid, ) = unpack('8s', body)
+    return (tid, )
 decode_table[ANSWER_NEW_TID] = _decodeAnswerNewTID
 
 @handle_errors
@@ -773,17 +779,20 @@ decode_table[FINISH_TRANSACTION] = _decodeFinishTransaction
 
 @handle_errors
 def _decodeNotifyTransactionFinished(body):
-    return unpack('8s', body) # tid
+    (tid, ) = unpack('8s', body)
+    return (tid, )
 decode_table[NOTIFY_TRANSACTION_FINISHED] = _decodeNotifyTransactionFinished
 
 @handle_errors
 def _decodeLockInformation(body):
-    return unpack('8s', body) # tid
+    (tid, ) = unpack('8s', body)
+    return (tid, )
 decode_table[LOCK_INFORMATION] = _decodeLockInformation
 
 @handle_errors
 def _decodeNotifyInformationLocked(body):
-    return unpack('8s', body) # tid
+    (tid, ) = unpack('8s', body)
+    return (tid, )
 decode_table[NOTIFY_INFORMATION_LOCKED] = _decodeNotifyInformationLocked
 
 @handle_errors
@@ -798,12 +807,14 @@ decode_table[INVALIDATE_OBJECTS] = _decodeInvalidateObjects
 
 @handle_errors
 def _decodeUnlockInformation(body):
-    return unpack('8s', body) # tid
+    (tid, ) = unpack('8s', body) 
+    return (tid, )
 decode_table[UNLOCK_INFORMATION] = _decodeUnlockInformation
 
 @handle_errors
 def _decodeAbortTransaction(body):
-    return unpack('8s', body) # tid
+    (tid, ) = unpack('8s', body)
+    return (tid, )
 decode_table[ABORT_TRANSACTION] = _decodeAbortTransaction
 
 @handle_errors
@@ -816,7 +827,8 @@ decode_table[ASK_STORE_OBJECT] = _decodeAskStoreObject
 
 @handle_errors
 def _decodeAnswerStoreObject(body):
-    return unpack('!B8s8s', body) # conflicting, oid, serial
+    (conflicting, oid, serial) = unpack('!B8s8s', body)
+    return (conflicting, oid, serial)
 decode_table[ANSWER_STORE_OBJECT] = _decodeAnswerStoreObject
 
 @handle_errors
@@ -840,18 +852,26 @@ decode_table[ASK_STORE_TRANSACTION] = _decodeAskStoreTransaction
 
 @handle_errors
 def _decodeAnswerStoreTransaction(body):
-    return unpack('8s', body) # tid
+    (tid, ) = unpack('8s', body)
+    return (tid, )
 decode_table[ANSWER_STORE_TRANSACTION] = _decodeAnswerStoreTransaction
 
 @handle_errors
 def _decodeAskObject(body):
-    return unpack('8s8s8s', body) # oid, serial, tid
+    (oid, serial, tid) = unpack('8s8s8s', body)
+    if serial == INVALID_TID:
+        serial = None
+    if tid == INVALID_TID:
+        tid = None
+    return (oid, serial, tid)
 decode_table[ASK_OBJECT] = _decodeAskObject
 
 @handle_errors
 def _decodeAnswerObject(body):
     r = unpack('!8s8s8sBL', body[:29])
     oid, serial_start, serial_end, compression, checksum = r
+    if serial_end == INVALID_TID:
+        serial_end = None
     (data, _) = _readString(body, 'data', offset=29)
     return (oid, serial_start, serial_end, compression, checksum, data)
 decode_table[ANSWER_OBJECT] = _decodeAnswerObject
@@ -873,7 +893,8 @@ decode_table[ANSWER_TIDS] = _decodeAnswerTIDs
 
 @handle_errors
 def _decodeAskTransactionInformation(body):
-    return unpack('8s', body) # tid
+    (tid, ) = unpack('8s', body)
+    return (tid, )
 decode_table[ASK_TRANSACTION_INFORMATION] = _decodeAskTransactionInformation
 
 @handle_errors
@@ -897,7 +918,8 @@ decode_table[ANSWER_TRANSACTION_INFORMATION] = _decodeAnswerTransactionInformati
 
 @handle_errors
 def _decodeAskObjectHistory(body):
-    return unpack('!8sQQ', body) # oid, first, last
+    (oid, first, last) = unpack('!8sQQ', body)
+    return (oid, first, last)
 decode_table[ASK_OBJECT_HISTORY] = _decodeAskObjectHistory
 
 @handle_errors
@@ -936,6 +958,7 @@ decode_table[ASK_PARTITION_LIST] = _decodeAskPartitionList
 def _decodeAnswerPartitionList(body):
     index = 12
     (ptid, n) = unpack('!8sL', body[:index])
+    ptid = _checkPTID(ptid)
     row_list = []
     cell_list = []
     for i in xrange(n):
@@ -1118,6 +1141,13 @@ def askLastIDs():
     return Packet(ASK_LAST_IDS)
 
 def answerLastIDs(loid, ltid, lptid):
+    # XXX: this is a valid oid, an error should be returned instead of this
+    # packet when no last IDs are known
+    if loid is None:
+        loid = '\0' * 16
+    if ltid is None:
+        ltid = INVALID_TID
+    lptid = _encodePTID(lptid)
     return Packet(ANSWER_LAST_IDS, loid + ltid + lptid)
 
 def askPartitionTable(offset_list):
@@ -1128,6 +1158,7 @@ def askPartitionTable(offset_list):
     return Packet(ASK_PARTITION_TABLE, body)
 
 def answerPartitionTable(ptid, row_list):
+    ptid = _encodePTID(ptid)
     body = [pack('!8sL', ptid, len(row_list))]
     for offset, cell_list in row_list:
         body.append(pack('!LL', offset, len(cell_list)))
@@ -1138,6 +1169,7 @@ def answerPartitionTable(ptid, row_list):
     return Packet(ANSWER_PARTITION_TABLE, body)
 
 def sendPartitionTable(ptid, row_list):
+    ptid = _encodePTID(ptid)
     body = [pack('!8sL', ptid, len(row_list))]
     for offset, cell_list in row_list:
         body.append(pack('!LL', offset, len(cell_list)))
@@ -1148,6 +1180,7 @@ def sendPartitionTable(ptid, row_list):
     return Packet(SEND_PARTITION_TABLE, body)
 
 def notifyPartitionChanges(ptid, cell_list):
+    ptid = _encodePTID(ptid)
     body = [pack('!8sL', ptid, len(cell_list))]
     for offset, uuid, state in cell_list:
         uuid = _encodeUUID(uuid)
@@ -1240,19 +1273,32 @@ def answerStoreTransaction(tid):
     return Packet(ANSWER_STORE_TRANSACTION, tid)
 
 def askStoreObject(oid, serial, compression, checksum, data, tid):
+    if serial is None:
+        serial = INVALID_TID
     body = pack('!8s8s8sBLL', oid, serial, tid, compression,
                       checksum, len(data)) + data
     return Packet(ASK_STORE_OBJECT, body)
 
 def answerStoreObject(conflicting, oid, serial):
+    if serial is None:
+        serial = INVALID_TID
     body = pack('!B8s8s', conflicting, oid, serial)
     return Packet(ANSWER_STORE_OBJECT, body)
 
 def askObject(oid, serial, tid):
+    if tid is None:
+        # tid can be unspecified
+        tid = INVALID_TID
+    if serial is None:
+        serial = INVALID_TID
     return Packet(ASK_OBJECT, pack('!8s8s8s', oid, serial, tid))
 
 def answerObject(oid, serial_start, serial_end, compression,
                  checksum, data):
+    if serial_start is None:
+        serial_start = INVALID_TID
+    if serial_end is None:
+        serial_end = INVALID_TID
     body = pack('!8s8s8sBLL', oid, serial_start, serial_end,
                       compression, checksum, len(data)) + data
     return Packet(ANSWER_OBJECT, body)
@@ -1283,9 +1329,8 @@ def askObjectHistory(oid, first, last):
 
 def answerObjectHistory(oid, history_list):
     body = [pack('!8sL', oid, len(history_list))]
-    # history_list is a list of tuple (serial, size)
-    for history_tuple in history_list:
-        body.append(pack('!8sL', history_tuple[0], history_tuple[1]))
+    for serial, size in history_list:
+        body.append(pack('!8sL', serial, size))
     body = ''.join(body)
     return Packet(ANSWER_OBJECT_HISTORY, body)
 
@@ -1305,6 +1350,7 @@ def askPartitionList(min_offset, max_offset, uuid):
     return Packet(ASK_PARTITION_LIST, body)
 
 def answerPartitionList(ptid, row_list):
+    ptid = _encodePTID(ptid)
     body = [pack('!8sL', ptid, len(row_list))]
     for offset, cell_list in row_list:
         body.append(pack('!LL', offset, len(cell_list)))

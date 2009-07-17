@@ -28,8 +28,8 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
 
     def handleAskLastIDs(self, conn, packet):
         app = self.app
-        oid = app.dm.getLastOID() or protocol.INVALID_OID
-        tid = app.dm.getLastTID() or protocol.INVALID_TID
+        oid = app.dm.getLastOID()
+        tid = app.dm.getLastTID()
         p = protocol.answerLastIDs(oid, tid, app.ptid)
         conn.answer(p, packet)
 

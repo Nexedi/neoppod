@@ -19,7 +19,7 @@ import unittest, logging, os
 from mock import Mock
 from neo.tests.base import NeoTestBase
 from neo.storage.app import Application
-from neo.protocol import INVALID_PTID, INVALID_OID, INVALID_TID, \
+from neo.protocol import INVALID_PTID, INVALID_TID, \
      INVALID_UUID, Packet, NOTIFY_NODE_INFORMATION, UP_TO_DATE_STATE
 from neo.node import MasterNode, ClientNode, StorageNode
 from neo.storage.mysqldb import p64, u64, MySQLDatabaseManager

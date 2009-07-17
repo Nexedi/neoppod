@@ -28,7 +28,7 @@ class PartitionTable(neo.pt.PartitionTable):
         self.id = id
 
     def setNextID(self):
-        if self.id == protocol.INVALID_PTID:
+        if self.id is None:
             raise RuntimeError, 'I do not know the last Partition Table ID'
         last_id = unpack('!Q', self.id)[0]
         self.id = pack('!Q', last_id + 1)

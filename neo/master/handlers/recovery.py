@@ -21,7 +21,7 @@ from neo import protocol
 from neo.protocol import RUNNING_STATE, BROKEN_STATE, \
         TEMPORARILY_DOWN_STATE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE
 from neo.master.handlers import MasterHandler
-from neo.protocol import UnexpectedPacketError, INVALID_PTID
+from neo.protocol import UnexpectedPacketError
 from neo.node import StorageNode
 from neo.util import dump
 
@@ -89,7 +89,7 @@ class RecoveryHandler(MasterHandler):
             app.loid = loid
         if app.ltid < ltid:
             app.ltid = ltid
-        if app.pt.getID() == INVALID_PTID or app.pt.getID() < lptid:
+        if app.pt.getID() is None or app.pt.getID() < lptid:
             # something newer
             app.pt.setID(lptid)
             app.target_uuid = conn.getUUID()

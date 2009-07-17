@@ -25,7 +25,7 @@ from struct import pack, unpack
 
 from neo.storage.database import DatabaseManager
 from neo.exception import DatabaseFailure
-from neo.protocol import DISCARDED_STATE, INVALID_PTID
+from neo.protocol import DISCARDED_STATE
 
 LOG_QUERIES = False
 
@@ -243,10 +243,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.commit()
 
     def getPTID(self):
-        ptid = self.getConfiguration('ptid')
-        if ptid is None:
-            return INVALID_PTID
-        return ptid
+        return self.getConfiguration('ptid')
 
     def setPTID(self, ptid):
         self.begin()

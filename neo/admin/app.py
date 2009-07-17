@@ -19,7 +19,7 @@ import logging
 from time import time
 
 from neo.config import ConfigurationManager
-from neo.protocol import INVALID_PTID, MASTER_NODE_TYPE
+from neo.protocol import MASTER_NODE_TYPE
 from neo.node import NodeManager, MasterNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection
@@ -73,7 +73,7 @@ class Application(object):
         self.pt = None
         self.uuid = None
         self.primary_master_node = None
-        self.ptid = INVALID_PTID
+        self.ptid = None
         self.monitoring_handler = MasterMonitoringEventHandler(self)
         self.request_handler = MasterRequestEventHandler(self)
         self.dispatcher = Dispatcher()

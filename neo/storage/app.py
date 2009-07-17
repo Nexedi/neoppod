@@ -23,7 +23,7 @@ from collections import deque
 
 from neo.config import ConfigurationManager
 from neo import protocol
-from neo.protocol import TEMPORARILY_DOWN_STATE, INVALID_PTID, \
+from neo.protocol import TEMPORARILY_DOWN_STATE, \
         partition_cell_states, HIDDEN_STATE
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.event import EventManager
@@ -95,9 +95,7 @@ class Application(object):
             dm.setName(self.name)
         elif name != self.name:
             raise RuntimeError('name does not match with the database')
-        self.ptid = dm.getPTID() # return ptid or INVALID_PTID
-        if self.ptid == INVALID_PTID:
-            dm.setPTID(self.ptid)
+        self.ptid = dm.getPTID()
         logging.info("loaded configuration from db : uuid = %s, ptid = %s, name = %s, np = %s, nr = %s" \
                      %(dump(self.uuid), dump(self.ptid), name, num_partitions, num_replicas))
 

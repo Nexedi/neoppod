@@ -113,7 +113,7 @@ class ReplicationHandler(BaseStorageHandler):
             present_serial_list = app.dm.getSerialListPresent(oid, serial_list)
             serial_set = set(serial_list) - set(present_serial_list)
             for serial in serial_set:
-                conn.ask(protocol.askObject(oid, serial, protocol.INVALID_TID), timeout=300)
+                conn.ask(protocol.askObject(oid, serial, None), timeout=300)
 
             # And, ask more serials.
             app.replicator.serial_offset += 1000

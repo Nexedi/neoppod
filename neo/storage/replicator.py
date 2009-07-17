@@ -21,7 +21,7 @@ from random import choice
 from neo.storage import handlers
 from neo import protocol
 from neo.protocol import STORAGE_NODE_TYPE, UP_TO_DATE_STATE, \
-        OUT_OF_DATE_STATE, INVALID_TID, RUNNING_STATE
+        OUT_OF_DATE_STATE, RUNNING_STATE
 from neo.connection import ClientConnection
 from neo.util import dump
 

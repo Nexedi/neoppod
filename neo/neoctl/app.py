@@ -18,7 +18,6 @@
 import logging
 
 from neo.protocol import node_types, node_states
-from neo.protocol import INVALID_PTID
 from neo.event import EventManager
 from neo.connection import ClientConnection
 from neo.exception import OperationFailure
@@ -144,7 +143,7 @@ class Application(object):
         self.connector_handler = getConnectorHandler(handler)
         self.server = (ip, port)
         self.em = EventManager()
-        self.ptid = INVALID_PTID
+        self.ptid = None
 
     def getConnection(self):
         if self.conn is None:

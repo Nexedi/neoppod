@@ -18,7 +18,7 @@
 import logging
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.protocol import INVALID_OID, INVALID_TID, TEMPORARILY_DOWN_STATE
+from neo.protocol import TEMPORARILY_DOWN_STATE
 from neo import protocol
 from neo.util import dump
 from neo.node import StorageNode
@@ -29,8 +29,8 @@ class VerificationHandler(BaseMasterHandler):
 
     def handleAskLastIDs(self, conn, packet):
         app = self.app
-        oid = app.dm.getLastOID() or INVALID_OID
-        tid = app.dm.getLastTID() or INVALID_TID
+        oid = app.dm.getLastOID()
+        tid = app.dm.getLastTID()
         p = protocol.answerLastIDs(oid, tid, app.ptid)
         conn.answer(p, packet)
 

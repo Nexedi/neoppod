@@ -26,9 +26,7 @@ from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connection import MTClientConnection
 from neo import protocol
-from neo.protocol import INVALID_TID, INVALID_PARTITION, \
-        INVALID_PTID, CLIENT_NODE_TYPE, INVALID_SERIAL, \
-        DOWN_STATE, HIDDEN_STATE
+from neo.protocol import DOWN_STATE, HIDDEN_STATE
 from neo.client.handlers.master import PrimaryBootstrapHandler, \
         PrimaryNotificationsHandler, PrimaryAnswersHandler
 from neo.client.handlers.storage import StorageBootstrapHandler, \
@@ -83,7 +81,7 @@ class ConnectionPool(object):
                     logging.error('Connection to storage node %s failed', node)
                     return None
 
-                p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
+                p = protocol.requestNodeIdentification(protocol.CLIENT_NODE_TYPE,
                             app.uuid, '0.0.0.0', 0, app.name)
                 msg_id = conn.ask(app.local_var.queue, p)
             finally:
@@ -255,7 +253,7 @@ class Application(object):
         self.uuid = None
         self.mq_cache = MQ()
         self.new_oid_list = []
-        self.ptid = INVALID_PTID
+        self.ptid = None
         self.storage_event_handler = StorageEventHandler(self, self.dispatcher)
         self.storage_bootstrap_handler = StorageBootstrapHandler(self)
         self.storage_handler = StorageAnswersHandler(self)
@@ -441,7 +439,7 @@ class Application(object):
                                       self.trying_master_node)
                         self.primary_master_node = None
                         break
-                    p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE,
+                    p = protocol.requestNodeIdentification(protocol.CLIENT_NODE_TYPE,
                             self.uuid, '0.0.0.0', 0, self.name)
                     msg_id = conn.ask(self.local_var.queue, p)
                 finally:
@@ -526,7 +524,7 @@ class Application(object):
         return hist[1][0][0]
 
 
-    def _load(self, oid, serial = INVALID_TID, tid = INVALID_TID, cache = 0):
+    def _load(self, oid, serial=None, tid=None, cache=0):
         """Internal method which manage load ,loadSerial and loadBefore."""
         cell_list = self._getCellListForID(oid, readable=True)
         if len(cell_list) == 0:
@@ -592,8 +590,6 @@ class Application(object):
                 self.mq_cache[oid] = start_serial, data
             finally:
                 self._cache_lock_release()
-        if end_serial == INVALID_SERIAL:
-            end_serial = None
         return data, start_serial, end_serial
 
 
@@ -625,8 +621,6 @@ class Application(object):
     def loadBefore(self, oid, tid):
         """Load an object for a given oid before tid committed."""
         # Do not try in cache as it manages only up-to-date object
-        if tid is None:
-            tid = INVALID_TID
         logging.debug('loading %s before %s', dump(oid), dump(tid))
         data, start, end = self._load(oid, tid=tid)
         if end is None:
@@ -657,8 +651,6 @@ class Application(object):
         """Store object."""
         if transaction is not self.local_var.txn:
             raise StorageTransactionError(self, transaction)
-        if serial is None:
-            serial = INVALID_SERIAL
         logging.debug('storing oid %s serial %s',
                      dump(oid), dump(serial))
         # Find which storage node to use
@@ -884,7 +876,7 @@ class Application(object):
 
             try:
                 conn.ask(self.local_var.queue,
-                         protocol.askTIDs(first, last, INVALID_PARTITION))
+                         protocol.askTIDs(first, last, protocol.INVALID_PARTITION))
             finally:
                 conn.unlock()
 
