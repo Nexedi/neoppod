@@ -19,7 +19,7 @@ import logging
 
 from neo.storage.handlers import BaseMasterHandler
 from neo.protocol import Packet, \
-        INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
+        RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE, \
         DISCARDED_STATE, OUT_OF_DATE_STATE, UnexpectedPacketError
@@ -51,7 +51,7 @@ class HiddenHandler(BaseMasterHandler):
 
         for node_type, ip_address, port, uuid, state in node_list:
             if node_type == STORAGE_NODE_TYPE:
-                if uuid == INVALID_UUID:
+                if uuid == None:
                     # No interest.
                     continue
 

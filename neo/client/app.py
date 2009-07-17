@@ -26,7 +26,7 @@ from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connection import MTClientConnection
 from neo import protocol
-from neo.protocol import INVALID_UUID, INVALID_TID, INVALID_PARTITION, \
+from neo.protocol import INVALID_TID, INVALID_PARTITION, \
         INVALID_PTID, CLIENT_NODE_TYPE, INVALID_SERIAL, \
         DOWN_STATE, HIDDEN_STATE
 from neo.client.handlers.master import PrimaryBootstrapHandler, \
@@ -252,7 +252,7 @@ class Application(object):
             master_node_list.append(server)
             self.nm.add(MasterNode(server=server))
         # no self-assigned UUID, primary master will supply us one
-        self.uuid = INVALID_UUID
+        self.uuid = None
         self.mq_cache = MQ()
         self.new_oid_list = []
         self.ptid = INVALID_PTID
@@ -463,7 +463,7 @@ class Application(object):
                     #   (...per client)
                     # - have a sleep in the code (yuck !)
                     sleep(5)
-            if self.uuid != INVALID_UUID:
+            if self.uuid is not None:
                 # TODO: pipeline those 2 requests
                 # This is currently impossible because _waitMessage can only
                 # wait on one message at a time
@@ -481,7 +481,7 @@ class Application(object):
                 finally:
                     conn.unlock()
                 self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
-            ready = self.uuid != INVALID_UUID and self.pt is not None \
+            ready = self.uuid is not None and self.pt is not None \
                                  and self.pt.operational()
         logging.info("connected to primary master node %s" % self.primary_master_node)
         return conn

@@ -23,7 +23,7 @@ from collections import deque
 
 from neo.config import ConfigurationManager
 from neo import protocol
-from neo.protocol import TEMPORARILY_DOWN_STATE, INVALID_UUID, INVALID_PTID, \
+from neo.protocol import TEMPORARILY_DOWN_STATE, INVALID_PTID, \
         partition_cell_states, HIDDEN_STATE
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.event import EventManager
@@ -81,9 +81,6 @@ class Application(object):
         dm = self.dm
 
         self.uuid = dm.getUUID()
-        if self.uuid is None:
-            self.uuid = INVALID_UUID
-
         num_partitions = dm.getNumPartitions()
         num_replicas = dm.getNumReplicas()
 

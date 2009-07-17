@@ -18,8 +18,7 @@
 import logging
 
 from neo.handler import EventHandler
-from neo.protocol import INVALID_UUID, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
+from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         ADMIN_NODE_TYPE, TEMPORARILY_DOWN_STATE
 from neo.node import MasterNode, StorageNode, ClientNode, AdminNode
 from neo import protocol
@@ -168,11 +167,11 @@ class MasterBaseEventHandler(EventHandler):
             addr = (ip_address, port)
             # Try to retrieve it from nm
             n = None
-            if uuid != INVALID_UUID:
+            if uuid is not None:
                 n = nm.getNodeByUUID(uuid)
             if n is None:
                 n = nm.getNodeByServer(addr)
-                if n is not None and uuid != INVALID_UUID:
+                if n is not None and uuid is not None:
                     # node only exists by address, remove it
                     nm.remove(n)
                     n = None
@@ -185,15 +184,15 @@ class MasterBaseEventHandler(EventHandler):
                 if n is None:
                     n = MasterNode(server = addr)
                     nm.add(n)
-                if uuid != INVALID_UUID:
+                if uuid is not None:
                     # If I don't know the UUID yet, believe what the peer
                     # told me at the moment.
                     if n.getUUID() is None:
                         n.setUUID(uuid)
                 else:
-                    n.setUUID(INVALID_UUID)
+                    n.setUUID(None)
             elif node_type in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
-                if uuid == INVALID_UUID:
+                if uuid is None:
                     # No interest.
                     continue
                 if n is None:

@@ -20,7 +20,7 @@ import logging
 from neo.handler import EventHandler
 from neo import protocol
 from neo.protocol import Packet, UnexpectedPacketError, \
-        INVALID_UUID, RUNNING_STATE, BROKEN_STATE, \
+        RUNNING_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
         DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE
 from neo.util import dump
@@ -104,11 +104,11 @@ class BaseMasterHandler(BaseStorageHandler):
             addr = (ip_address, port)
             # Try to retrieve it from nm
             n = None
-            if uuid != INVALID_UUID:
+            if uuid is not None:
                 n = app.nm.getNodeByUUID(uuid)
             if n is None:
                 n = app.nm.getNodeByServer(addr)
-                if n is not None and uuid != INVALID_UUID:
+                if n is not None and uuid is not None:
                     # node only exists by address, remove it
                     app.nm.remove(n)
                     n = None
@@ -127,12 +127,12 @@ class BaseMasterHandler(BaseStorageHandler):
                     app.nm.add(n)
 
                 n.setState(state)
-                if uuid != INVALID_UUID:
+                if uuid is not None:
                     if n.getUUID() is None:
                         n.setUUID(uuid)
 
             elif node_type == STORAGE_NODE_TYPE:
-                if uuid == INVALID_UUID:
+                if uuid is None:
                     # No interest.
                     continue
 
@@ -155,7 +155,7 @@ class BaseMasterHandler(BaseStorageHandler):
                 n.setState(state)                
 
             elif node_type == CLIENT_NODE_TYPE:
-                if uuid == INVALID_UUID:
+                if uuid is None:
                     # No interest.
                     continue
 

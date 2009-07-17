@@ -19,7 +19,7 @@ import logging
 from time import time
 
 from neo.config import ConfigurationManager
-from neo.protocol import INVALID_UUID, INVALID_PTID, MASTER_NODE_TYPE
+from neo.protocol import INVALID_PTID, MASTER_NODE_TYPE
 from neo.node import NodeManager, MasterNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection
@@ -71,7 +71,7 @@ class Application(object):
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
-        self.uuid = INVALID_UUID
+        self.uuid = None
         self.primary_master_node = None
         self.ptid = INVALID_PTID
         self.monitoring_handler = MasterMonitoringEventHandler(self)
@@ -153,7 +153,7 @@ class Application(object):
                 row = []
                 try:
                     for cell in self.pt.getCellList(offset):
-                        if uuid != INVALID_UUID and cell.getUUID() != uuid:
+                        if uuid is not None and cell.getUUID() != uuid:
                             continue
                         else:
                             row.append((cell.getUUID(), cell.getState()))

@@ -63,7 +63,7 @@ class IdentificationHandler(MasterHandler):
         # ask the app the node identification, if refused, an exception is raised
         result = self.app.identifyNode(node_type, uuid, node) 
         (uuid, node, state, handler, klass) = result
-        if uuid == protocol.INVALID_UUID:
+        if uuid is None:
             # no valid uuid, give it one
             uuid = app.getNewUUID(node_type)
         if node is None:

@@ -165,7 +165,7 @@ class NodeManager(object):
         return self.server_dict.get(server)
 
     def getNodeByUUID(self, uuid):
-        if uuid in (None, protocol.INVALID_UUID):
+        if uuid is None:
             return None
         return self.uuid_dict.get(uuid)
     

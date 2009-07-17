@@ -17,7 +17,7 @@
 
 import logging
 from neo import protocol
-from neo.protocol import CLIENT_NODE_TYPE, ADMIN_NODE_TYPE, INVALID_UUID, \
+from neo.protocol import CLIENT_NODE_TYPE, ADMIN_NODE_TYPE, \
         RUNNING_STATE, STORAGE_NODE_TYPE, TEMPORARILY_DOWN_STATE, STOPPING
 from neo.master.handlers import BaseServiceHandler
 from neo import decorators
@@ -60,7 +60,7 @@ class ShutdownHandler(BaseServiceHandler):
                 # No interest.
                 continue
 
-            if uuid == INVALID_UUID:
+            if uuid is None:
                 # No interest.
                 continue
 

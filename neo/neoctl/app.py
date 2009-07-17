@@ -18,7 +18,7 @@
 import logging
 
 from neo.protocol import node_types, node_states
-from neo.protocol import INVALID_UUID, INVALID_PTID
+from neo.protocol import INVALID_PTID
 from neo.event import EventManager
 from neo.connection import ClientConnection
 from neo.exception import OperationFailure
@@ -118,7 +118,7 @@ def printPTAction(options):
     if len(options):
         uuid = bin(options.pop(0))
     else:
-        uuid = INVALID_UUID
+        uuid = None
     return protocol.askPartitionList(min_offset, max_offset, uuid)
 
 action_dict = {

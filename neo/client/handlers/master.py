@@ -19,7 +19,7 @@ import logging
 
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        INVALID_UUID, RUNNING_STATE, TEMPORARILY_DOWN_STATE
+        RUNNING_STATE, TEMPORARILY_DOWN_STATE
 from neo.node import MasterNode, StorageNode
 from neo.pt import MTPartitionTable as PartitionTable
 from neo.util import dump
@@ -63,7 +63,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         conn.setUUID(uuid)
         node.setUUID(uuid)
 
-        if your_uuid != INVALID_UUID:
+        if your_uuid is not None:
             # got an uuid from the primary master
             app.uuid = your_uuid
 
@@ -80,13 +80,13 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
             if n is None:
                 n = MasterNode(server = addr)
                 app.nm.add(n)
-            if uuid != INVALID_UUID:
+            if uuid is not None:
                 # If I don't know the UUID yet, believe what the peer
                 # told me at the moment.
                 if n.getUUID() is None or n.getUUID() != uuid:
                     n.setUUID(uuid)
 
-        if primary_uuid != INVALID_UUID:
+        if primary_uuid is not None:
             primary_node = app.nm.getNodeByUUID(primary_uuid)
             if primary_node is None:
                 # I don't know such a node. Probably this information
@@ -236,11 +236,11 @@ class PrimaryNotificationsHandler(BaseHandler):
             addr = (ip_address, port)
             # Try to retrieve it from nm
             n = None
-            if uuid != INVALID_UUID:
+            if uuid is not None:
                 n = nm.getNodeByUUID(uuid)
             if n is None:
                 n = nm.getNodeByServer(addr)
-                if n is not None and uuid != INVALID_UUID:
+                if n is not None and uuid is not None:
                     # node only exists by address, remove it
                     nm.remove(n)
                     n = None
@@ -253,13 +253,13 @@ class PrimaryNotificationsHandler(BaseHandler):
                 if n is None:
                     n = MasterNode(server = addr)
                     nm.add(n)
-                if uuid != INVALID_UUID:
+                if uuid is not None:
                     # If I don't know the UUID yet, believe what the peer
                     # told me at the moment.
                     if n.getUUID() is None:
                         n.setUUID(uuid)
             elif node_type == STORAGE_NODE_TYPE:
-                if uuid == INVALID_UUID:
+                if uuid is None:
                     # No interest.
                     continue
                 if n is None:

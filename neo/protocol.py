@@ -501,6 +501,31 @@ def _checkNodeType(type):
         raise PacketMalformedError('invalide node type %d' % type)
     return node_type
 
+def _checkUUID(uuid):
+    if uuid == INVALID_UUID:
+        return None
+    return uuid
+
+def _encodeUUID(uuid):
+    if uuid is None:
+        return INVALID_UUID
+    return uuid
+
+def _checkOID(oid):
+    if oid == INVALID_OID:
+        return None
+    return oid
+
+def _checkTID(tid):
+    if tid == INVALID_TID:
+        return None
+    return tid
+
+def _checkPTID(ptid):
+    if ptid == INVALID_PTID:
+        return None
+    return ptid
+
 def _readString(buffer, name, offset=0):
     buffer = buffer[offset:]
     (size, ) = unpack('!L', buffer[:4])
@@ -534,6 +559,7 @@ def _decodeRequestNodeIdentification(body):
     ip_address = inet_ntoa(ip_address)
     (name, _) = _readString(body, 'name', offset=32)
     node_type = _checkNodeType(node_type)
+    uuid = _checkUUID(uuid)
     if (major, minor) != PROTOCOL_VERSION:
         raise PacketMalformedError('protocol version mismatch')
     return node_type, uuid, ip_address, port, name
@@ -545,6 +571,8 @@ def _decodeAcceptNodeIdentification(body):
     node_type, uuid, ip_address, port, num_partitions, num_replicas, your_uuid = r
     ip_address = inet_ntoa(ip_address)
     node_type = _checkNodeType(node_type)
+    uuid = _checkUUID(uuid)
+    your_uuid == _checkUUID(uuid)
     return (node_type, uuid, ip_address, port, num_partitions, num_replicas, your_uuid)
 decode_table[ACCEPT_NODE_IDENTIFICATION] = _decodeAcceptNodeIdentification
 
@@ -560,7 +588,9 @@ def _decodeAnswerPrimaryMaster(body):
     for i in xrange(n):
         ip_address, port, uuid = unpack('!4sH16s', body[20+i*22:42+i*22])
         ip_address = inet_ntoa(ip_address)
+        uuid = _checkUUID(uuid)
         known_master_list.append((ip_address, port, uuid))
+    primary_uuid = _checkUUID(primary_uuid)
     return (primary_uuid, known_master_list)
 decode_table[ANSWER_PRIMARY_MASTER] = _decodeAnswerPrimaryMaster
 
@@ -584,6 +614,7 @@ def _decodeNotifyNodeInformation(body):
         ip_address = inet_ntoa(ip_address)
         node_type = _checkNodeType(node_type)
         state = _checkNodeState(state)
+        uuid = _checkUUID(uuid)
         node_list.append((node_type, ip_address, port, uuid, state))
     return (node_list,)
 decode_table[NOTIFY_NODE_INFORMATION] = _decodeNotifyNodeInformation
@@ -621,6 +652,7 @@ def _decodeAnswerPartitionTable(body):
             uuid, state = unpack('!16sH', body[index:index+18])
             index += 18
             state = partition_cell_states.get(state)
+            uuid = _checkUUID(uuid)
             cell_list.append((uuid, state))
         row_list.append((offset, tuple(cell_list)))
         del cell_list[:]
@@ -640,6 +672,7 @@ def _decodeSendPartitionTable(body):
             uuid, state = unpack('!16sH', body[index:index+18])
             index += 18
             state = partition_cell_states.get(state)
+            uuid = _checkUUID(uuid)
             cell_list.append((uuid, state))
         row_list.append((offset, tuple(cell_list)))
         del cell_list[:]
@@ -653,6 +686,7 @@ def _decodeNotifyPartitionChanges(body):
     for i in xrange(n):
         (offset, uuid, state) = unpack('!L16sH', body[12+i*22:34+i*22])
         state = partition_cell_states.get(state)
+        uuid = _checkUUID(uuid)
         cell_list.append((offset, uuid, state))
     return ptid, cell_list
 decode_table[NOTIFY_PARTITION_CHANGES] = _decodeNotifyPartitionChanges
@@ -893,7 +927,9 @@ decode_table[ANSWER_OIDS] = _decodeAnswerOIDs
 
 @handle_errors
 def _decodeAskPartitionList(body):
-    return unpack('!LL16s', body) # min_offset, max_offset, uuid
+    (min_offset, max_offset, uuid) =  unpack('!LL16s', body)
+    uuid = _checkUUID(uuid)
+    return (min_offset, max_offset, uuid)
 decode_table[ASK_PARTITION_LIST] = _decodeAskPartitionList
 
 @handle_errors
@@ -909,6 +945,7 @@ def _decodeAnswerPartitionList(body):
             uuid, state = unpack('!16sH', body[index:index+18])
             index += 18
             state = partition_cell_states.get(state)
+            uuid = _checkUUID(uuid)
             cell_list.append((uuid, state))
         row_list.append((offset, tuple(cell_list)))
         del cell_list[:]
@@ -932,6 +969,7 @@ def _decodeAnswerNodeList(body):
         ip_address = inet_ntoa(ip_address)
         node_type = _checkNodeType(node_type)
         state = _checkNodeState(state)
+        uuid = _checkUUID(uuid)
         node_list.append((node_type, ip_address, port, uuid, state))
     return (node_list,)
 decode_table[ANSWER_NODE_LIST] = _decodeAnswerNodeList
@@ -940,6 +978,7 @@ decode_table[ANSWER_NODE_LIST] = _decodeAnswerNodeList
 def _decodeSetNodeState(body):
     (uuid, state, modify) = unpack('!16sHB', body)
     state = _checkNodeState(state)
+    uuid = _checkUUID(uuid)
     return (uuid, state, modify)
 decode_table[SET_NODE_STATE] = _decodeSetNodeState
 
@@ -947,6 +986,7 @@ decode_table[SET_NODE_STATE] = _decodeSetNodeState
 def _decodeAnswerNodeState(body):
     (uuid, state) = unpack('!16sH', body)
     state = _checkNodeState(state)
+    uuid = _checkUUID(uuid)
     return (uuid, state)
 decode_table[ANSWER_NODE_STATE] = _decodeAnswerNodeState
 
@@ -954,6 +994,7 @@ decode_table[ANSWER_NODE_STATE] = _decodeAnswerNodeState
 def _decodeAddPendingNodes(body):
     (n, ) = unpack('!H', body[:2])
     uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
+    uuid_list = map(_checkUUID, uuid_list)
     return (uuid_list, )
 decode_table[ADD_PENDING_NODES] = _decodeAddPendingNodes
 
@@ -961,6 +1002,7 @@ decode_table[ADD_PENDING_NODES] = _decodeAddPendingNodes
 def _decodeAnswerNewNodes(body):
     (n, ) = unpack('!H', body[:2])
     uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
+    uuid_list = map(_checkUUID, uuid_list)
     return (uuid_list, )
 decode_table[ANSWER_NEW_NODES] = _decodeAnswerNewNodes
 
@@ -1031,12 +1073,15 @@ def pong():
     return Packet(PONG)
 
 def requestNodeIdentification(node_type, uuid, ip_address, port, name):
+    uuid = _encodeUUID(uuid)
     body = pack('!LLH16s4sHL', PROTOCOL_VERSION[0], PROTOCOL_VERSION[1],
                       node_type, uuid, inet_aton(ip_address), port, len(name)) + name
     return Packet(REQUEST_NODE_IDENTIFICATION, body)
 
 def acceptNodeIdentification(node_type, uuid, ip_address,
          port, num_partitions, num_replicas, your_uuid):
+    uuid = _encodeUUID(uuid)
+    your_uuid = _encodeUUID(your_uuid)
     body = pack('!H16s4sHLL16s', node_type, uuid, 
                       inet_aton(ip_address), port,
                       num_partitions, num_replicas, your_uuid)
@@ -1046,9 +1091,11 @@ def askPrimaryMaster():
     return Packet(ASK_PRIMARY_MASTER)
 
 def answerPrimaryMaster(primary_uuid, known_master_list):
+    primary_uuid = _encodeUUID(primary_uuid)
     body = [primary_uuid, pack('!L', len(known_master_list))]
-    for master in known_master_list:
-        body.append(pack('!4sH16s', inet_aton(master[0]), master[1], master[2]))
+    for address, port, uuid in known_master_list:
+        uuid = _encodeUUID(uuid)
+        body.append(pack('!4sH16s', inet_aton(address), port, uuid))
     body = ''.join(body)
     return Packet(ANSWER_PRIMARY_MASTER, body)
 
@@ -1061,6 +1108,7 @@ def reelectPrimaryMaster():
 def notifyNodeInformation(node_list):
     body = [pack('!L', len(node_list))]
     for node_type, ip_address, port, uuid, state in node_list:
+        uuid = _encodeUUID(uuid)
         body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
                          uuid, state))
     body = ''.join(body)
@@ -1084,6 +1132,7 @@ def answerPartitionTable(ptid, row_list):
     for offset, cell_list in row_list:
         body.append(pack('!LL', offset, len(cell_list)))
         for uuid, state in cell_list:
+            uuid = _encodeUUID(uuid)
             body.append(pack('!16sH', uuid, state))
     body = ''.join(body)
     return Packet(ANSWER_PARTITION_TABLE, body)
@@ -1093,6 +1142,7 @@ def sendPartitionTable(ptid, row_list):
     for offset, cell_list in row_list:
         body.append(pack('!LL', offset, len(cell_list)))
         for uuid, state in cell_list:
+            uuid = _encodeUUID(uuid)
             body.append(pack('!16sH', uuid, state))
     body = ''.join(body)
     return Packet(SEND_PARTITION_TABLE, body)
@@ -1100,6 +1150,7 @@ def sendPartitionTable(ptid, row_list):
 def notifyPartitionChanges(ptid, cell_list):
     body = [pack('!8sL', ptid, len(cell_list))]
     for offset, uuid, state in cell_list:
+        uuid = _encodeUUID(uuid)
         body.append(pack('!L16sH', offset, uuid, state))
     body = ''.join(body)
     return Packet(NOTIFY_PARTITION_CHANGES, body)
@@ -1248,6 +1299,7 @@ def answerOIDs(oid_list):
     return Packet(ANSWER_OIDS, body)
 
 def askPartitionList(min_offset, max_offset, uuid):
+    uuid = _encodeUUID(uuid)
     body = [pack('!LL16s', min_offset, max_offset, uuid)]
     body = ''.join(body)
     return Packet(ASK_PARTITION_LIST, body)
@@ -1257,6 +1309,7 @@ def answerPartitionList(ptid, row_list):
     for offset, cell_list in row_list:
         body.append(pack('!LL', offset, len(cell_list)))
         for uuid, state in cell_list:
+            uuid = _encodeUUID(uuid)
             body.append(pack('!16sH', uuid, state))
     body = ''.join(body)
     return Packet(ANSWER_PARTITION_LIST, body)
@@ -1269,30 +1322,33 @@ def askNodeList(node_type):
 def answerNodeList(node_list):
     body = [pack('!L', len(node_list))]
     for node_type, ip_address, port, uuid, state in node_list:
+        uuid = _encodeUUID(uuid)
         body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
                          uuid, state))
     body = ''.join(body)
     return Packet(ANSWER_NODE_LIST, body)
 
 def setNodeState(uuid, state, modify_partition_table):    
+    uuid = _encodeUUID(uuid)
     body = [pack('!16sHB', uuid, state, modify_partition_table)]
     body = ''.join(body)
     return Packet(SET_NODE_STATE, body)
 
 def answerNodeState(uuid, state):
+    uuid = _encodeUUID(uuid)
     body = [pack('!16sH', uuid, state)]
     body = ''.join(body)
     return Packet(ANSWER_NODE_STATE, body)
 
 def addPendingNodes(uuid_list=()):
     # an empty list means all current pending nodes
-    uuid_list = [pack('!16s', uuid) for uuid in uuid_list]
+    uuid_list = [pack('!16s', _encodeUUID(uuid)) for uuid in uuid_list]
     body = pack('!H', len(uuid_list)) + ''.join(uuid_list)
     return Packet(ADD_PENDING_NODES, body)
 
 def answerNewNodes(uuid_list):
     # an empty list means no new nodes
-    uuid_list = [pack('!16s', uuid) for uuid in uuid_list]
+    uuid_list = [pack('!16s', _encodeUUID(uuid)) for uuid in uuid_list]
     body = pack('!H', len(uuid_list)) + ''.join(uuid_list)
     return Packet(ANSWER_NEW_NODES, body)
 
@@ -1303,6 +1359,7 @@ def answerNodeInformation(node_list):
     # XXX: copy-paste from notifyNodeInformation
     body = [pack('!L', len(node_list))]
     for node_type, ip_address, port, uuid, state in node_list:
+        uuid = _encodeUUID(uuid)
         body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
                          uuid, state))
     body = ''.join(body)

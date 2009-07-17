@@ -21,7 +21,6 @@ from neo.protocol import CLIENT_NODE_TYPE, RUNNING_STATE, BROKEN_STATE, \
         TEMPORARILY_DOWN_STATE, ADMIN_NODE_TYPE
 from neo.master.handlers import MasterHandler
 from neo.exception import VerificationFailure
-from neo.protocol import INVALID_UUID
 from neo.util import dump
 
 class VerificationHandler(MasterHandler):
@@ -41,7 +40,7 @@ class VerificationHandler(MasterHandler):
                 # No interest.
                 continue
             
-            if uuid == INVALID_UUID:
+            if uuid is None:
                 # No interest.
                 continue
 

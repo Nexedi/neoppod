@@ -32,7 +32,7 @@ class BootstrapManager(EventHandler):
     Manage the bootstrap stage, lookup for the primary master then connect to it
     """
 
-    def __init__(self, app, name, node_type, uuid=protocol.INVALID_UUID, server=NO_SERVER):
+    def __init__(self, app, name, node_type, uuid=None, server=NO_SERVER):
         EventHandler.__init__(self, app)
         self.primary = None
         self.server = server

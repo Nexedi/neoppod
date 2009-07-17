@@ -21,7 +21,7 @@ from neo.protocol import MASTER_NODE_TYPE, \
         RUNNING_STATE, BROKEN_STATE, DOWN_STATE
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure, PrimaryFailure
-from neo.protocol import UnexpectedPacketError, INVALID_UUID
+from neo.protocol import UnexpectedPacketError
 from neo.node import MasterNode
 
 class SecondaryMasterHandler(MasterHandler):
@@ -79,7 +79,7 @@ class PrimaryMasterHandler(MasterHandler):
                     n = MasterNode(server = addr)
                     app.nm.add(n)
 
-                if uuid != INVALID_UUID:
+                if uuid is not None:
                     # If I don't know the UUID yet, believe what the peer
                     # told me at the moment.
                     if n.getUUID() is None:

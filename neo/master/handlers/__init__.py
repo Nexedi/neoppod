@@ -118,19 +118,18 @@ class MasterHandler(EventHandler):
         elif app.primary_master_node is not None:
             primary_uuid = app.primary_master_node.getUUID()
         else:
-            primary_uuid = protocol.INVALID_UUID
+            primary_uuid = None
 
         known_master_list = [app.server + (app.uuid, )]
         for n in app.nm.getMasterNodeList():
             if n.getState() == protocol.BROKEN_STATE:
                 continue
-            known_master_list.append(n.getServer() + \
-                                     (n.getUUID() or protocol.INVALID_UUID, ))
+            known_master_list.append(n.getServer() + (n.getUUID(), ))
         conn.answer(protocol.answerPrimaryMaster(primary_uuid,
                                                  known_master_list), packet)
 
     def handleAskClusterState(self, conn, packet):
-        assert conn.getUUID() != protocol.INVALID_UUID
+        assert conn.getUUID() is not None
         state = self.app.getClusterState()
         conn.answer(protocol.answerClusterState(state), packet)
 
@@ -155,7 +154,7 @@ class BaseServiceHandler(MasterHandler):
                 # No interest.
                 continue
 
-            if uuid == protocol.INVALID_UUID:
+            if uuid is None:
                 # No interest.
                 continue
 

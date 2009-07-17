@@ -24,7 +24,7 @@ from neo.config import ConfigurationManager
 from neo import protocol
 from neo.protocol import \
         RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        INVALID_UUID, INVALID_OID, INVALID_TID, INVALID_PTID, \
+        INVALID_OID, INVALID_TID, INVALID_PTID, \
         CLIENT_NODE_TYPE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
         UUID_NAMESPACES, ADMIN_NODE_TYPE, BOOTING
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
@@ -341,7 +341,7 @@ class Application(object):
                 except TypeError:
                     ip_address, port = '0.0.0.0', 0
                 node_list.append((n.getNodeType(), ip_address, port, 
-                                  n.getUUID() or INVALID_UUID, n.getState()))
+                                  n.getUUID(), n.getState()))
                 # Split the packet if too huge.
                 if len(node_list) == 10000:
                     conn.notify(protocol.notifyNodeInformation(node_list))
@@ -709,7 +709,7 @@ class Application(object):
     def getNewUUID(self, node_type):
         # build an UUID
         uuid = os.urandom(15)
-        while uuid == INVALID_UUID[1:]:
+        while uuid == '\00' * 15: # XXX: INVALID_UUID[1:]
             uuid = os.urandom(15)
         # look for the prefix
         prefix = UUID_NAMESPACES.get(node_type, None)
@@ -721,7 +721,7 @@ class Application(object):
         node = self.nm.getNodeByUUID(uuid)
         if node is not None and node.getServer() is not None and node.getServer() != addr:
             return False
-        return uuid != self.uuid and uuid != INVALID_UUID
+        return uuid != self.uuid and uuid is not None
 
     def getClusterState(self):
         return self.cluster_state
@@ -762,26 +762,26 @@ class Application(object):
     def identifyStorageNode(self, uuid, node):
         # TODO: check all cases here, when server address change...
         # in verification and running states, if the node is unknown but the
-        # uuid != INVALID_UUID, we have to give it a new uuid, but in recovery
+        # uuid is not None, we have to give it a new uuid, but in recovery
         # the node must keep it's UUID
         state = protocol.RUNNING_STATE
         handler = None
         if self.cluster_state == protocol.RECOVERING:
-            if uuid == protocol.INVALID_UUID:
+            if uuid is None:
                 logging.info('reject empty storage node')
                 raise protocol.NotReadyError
             handler = handlers.RecoveryHandler
         elif self.cluster_state == protocol.VERIFYING:
-            if uuid == INVALID_UUID or node is None:
+            if uuid is None or node is None:
                 # if node is unknown, it has been forget when the current
                 # partition was validated by the admin
-                uuid = INVALID_UUID
+                uuid = None
                 state = protocol.PENDING_STATE
             handler = handlers.VerificationHandler
         elif self.cluster_state == protocol.RUNNING:
-            if uuid == INVALID_UUID or node is None:
+            if uuid is None or node is None:
                 # same as for verification
-                uuid = INVALID_UUID
+                uuid = None
                 state = protocol.PENDING_STATE
             handler = handlers.StorageServiceHandler
         elif self.cluster_state == protocol.STOPPING:

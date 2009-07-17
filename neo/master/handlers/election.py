@@ -23,7 +23,6 @@ from neo.protocol import MASTER_NODE_TYPE, \
         DOWN_STATE
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
-from neo.protocol import INVALID_UUID
 from neo.node import MasterNode
 
 class ElectionHandler(MasterHandler):
@@ -51,7 +50,7 @@ class ElectionHandler(MasterHandler):
                     app.nm.add(node)
                     app.unconnected_master_node_set.add(addr)
 
-                if uuid != INVALID_UUID:
+                if uuid is not None:
                     # If I don't know the UUID yet, believe what the peer
                     # told me at the moment.
                     if node.getUUID() is None:
@@ -179,13 +178,13 @@ class ClientElectionHandler(MasterHandler):
                     app.nm.add(n)
                     app.unconnected_master_node_set.add(addr)
 
-                if uuid != INVALID_UUID:
+                if uuid is not None:
                     # If I don't know the UUID yet, believe what the peer
                     # told me at the moment.
                     if n.getUUID() is None or n.getUUID() != uuid:
                         n.setUUID(uuid)
                         
-        if primary_uuid != INVALID_UUID:
+        if primary_uuid is not None:
             # The primary master is defined.
             if app.primary_master_node is not None \
                     and app.primary_master_node.getUUID() != primary_uuid:
