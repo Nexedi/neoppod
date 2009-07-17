@@ -45,8 +45,7 @@ class ReplicationHandler(BaseStorageHandler):
         self.app.replicator.reset()
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port,
-                                       num_partitions, num_replicas, your_uuid):
+                       uuid, address, num_partitions, num_replicas, your_uuid):
         # Nothing to do.
         pass
 

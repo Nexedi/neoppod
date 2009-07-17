@@ -70,11 +70,10 @@ class BootstrapManager(EventHandler):
 
         # Register new master nodes.
         # TODO: this job should be done by the node manager
-        for ip_address, port, uuid in known_master_list:
-            addr = (ip_address, port)
-            node = nm.getNodeByServer(addr)
+        for address, uuid in known_master_list:
+            node = nm.getNodeByServer(address)
             if node is None:
-                node = MasterNode(server=addr)
+                node = MasterNode(server=address)
                 nm.add(node)
             node.setUUID(uuid)
 
@@ -90,10 +89,10 @@ class BootstrapManager(EventHandler):
 
         logging.info('connected to a primary master node')
         conn.ask(protocol.requestNodeIdentification(self.node_type,
-                self.uuid, self.server[0], self.server[1], self.name))
+                self.uuid, self.server, self.name))
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-           uuid, ip_address, port, num_partitions, num_replicas, your_uuid):
+           uuid, address, num_partitions, num_replicas, your_uuid):
         self.num_partitions = num_partitions
         self.num_replicas = num_replicas
         if self.uuid != your_uuid:

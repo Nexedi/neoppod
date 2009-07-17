@@ -34,12 +34,11 @@ class BaseStorageHandler(EventHandler):
         pass
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
+                                        uuid, address, name):
         raise NotImplementedError('this method must be overridden')
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port,
-                                       num_partitions, num_replicas, your_uuid):
+                   uuid, address, num_partitions, num_replicas, your_uuid):
         raise NotImplementedError('this method must be overridden')
 
     def handleAskLastIDs(self, conn, packet):
@@ -100,8 +99,7 @@ class BaseMasterHandler(BaseStorageHandler):
         uuid = conn.getUUID()
         app = self.app
 
-        for node_type, ip_address, port, uuid, state in node_list:
-            addr = (ip_address, port)
+        for node_type, addr, uuid, state in node_list:
             # Try to retrieve it from nm
             n = None
             if uuid is not None:

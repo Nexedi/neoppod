@@ -162,9 +162,8 @@ class MasterBaseEventHandler(EventHandler):
             logging.warn('ignoring notify node information from %s',
                          dump(uuid))
             return
-        for node_type, ip_address, port, uuid, state in node_list:
+        for node_type, addr, uuid, state in node_list:
             # Register/update  nodes.
-            addr = (ip_address, port)
             # Try to retrieve it from nm
             n = None
             if uuid is not None:

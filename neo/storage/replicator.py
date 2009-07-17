@@ -180,7 +180,7 @@ class Replicator(object):
                                                        addr = addr,
                                                        connector_handler = app.connector_handler)
             p = protocol.requestNodeIdentification(STORAGE_NODE_TYPE, app.uuid,
-                                        app.server[0], app.server[1], app.name)
+                                        app.server, app.name)
             self.current_connection.ask(p)
 
         self.tid_offset = 0

@@ -63,13 +63,12 @@ class PrimaryMasterHandler(MasterHandler):
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
-        for node_type, ip_address, port, uuid, state in node_list:
+        for node_type, addr, uuid, state in node_list:
             if node_type != MASTER_NODE_TYPE:
                 # No interest.
                 continue
 
             # Register new master nodes.
-            addr = (ip_address, port)
             if app.server == addr:
                 # This is self.
                 continue
@@ -86,12 +85,12 @@ class PrimaryMasterHandler(MasterHandler):
                         n.setUUID(uuid)
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port, num_partitions,
+                                       uuid, address, num_partitions,
                                        num_replicas, your_uuid):
         app = self.app
         node = app.nm.getNodeByServer(conn.getAddress())
         assert node_type == MASTER_NODE_TYPE
-        assert conn.getAddress() == (ip_address, port)
+        assert conn.getAddress() == address
 
         if your_uuid != app.uuid:
             # uuid conflict happened, accept the new one

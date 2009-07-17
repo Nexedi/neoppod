@@ -82,7 +82,7 @@ class ConnectionPool(object):
                     return None
 
                 p = protocol.requestNodeIdentification(protocol.CLIENT_NODE_TYPE,
-                            app.uuid, '0.0.0.0', 0, app.name)
+                            app.uuid, None, app.name)
                 msg_id = conn.ask(app.local_var.queue, p)
             finally:
                 conn.unlock()
@@ -292,11 +292,10 @@ class Application(object):
         if s_node is None or s_node.getNodeType() != protocol.STORAGE_NODE_TYPE:
             return
         s_uuid = s_node.getUUID()
-        ip_address, port = s_node.getServer()
         m_conn = self._getMasterConnection()
         m_conn.lock()
         try:
-            node_list = [(protocol.STORAGE_NODE_TYPE, ip_address, port, s_uuid, s_node.getState())]
+            node_list = [(protocol.STORAGE_NODE_TYPE, s_node.getServer(), s_uuid, s_node.getState())]
             m_conn.notify(protocol.notifyNodeInformation(node_list))
         finally:
             m_conn.unlock()
@@ -440,7 +439,7 @@ class Application(object):
                         self.primary_master_node = None
                         break
                     p = protocol.requestNodeIdentification(protocol.CLIENT_NODE_TYPE,
-                            self.uuid, '0.0.0.0', 0, self.name)
+                            self.uuid, None, self.name)
                     msg_id = conn.ask(self.local_var.queue, p)
                 finally:
                     conn.unlock()

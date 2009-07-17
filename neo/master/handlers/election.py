@@ -33,13 +33,12 @@ class ElectionHandler(MasterHandler):
         if uuid is None:
             raise protocol.UnexpectedPacketError
         app = self.app
-        for node_type, ip_address, port, uuid, state in node_list:
+        for node_type, addr, uuid, state in node_list:
             if node_type != MASTER_NODE_TYPE:
                 # No interest.
                 continue
 
             # Register new master nodes.
-            addr = (ip_address, port)
             if app.server == addr:
                 # This is self.
                 continue
@@ -120,22 +119,22 @@ class ClientElectionHandler(MasterHandler):
         MasterHandler.peerBroken(self, conn)
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port, num_partitions,
+                                       uuid, address, num_partitions,
                                        num_replicas, your_uuid):
         app = self.app
         node = app.nm.getNodeByServer(conn.getAddress())
         if node_type != MASTER_NODE_TYPE:
             # The peer is not a master node!
-            logging.error('%s:%d is not a master node', ip_address, port)
+            logging.error('%s:%d is not a master node', *address)
             app.nm.remove(node)
             app.negotiating_master_node_set.discard(node.getServer())
             conn.close()
             return
-        if conn.getAddress() != (ip_address, port):
+        if conn.getAddress() != address:
             # The server address is different! Then why was
             # the connection successful?
             logging.error('%s:%d is waiting for %s:%d', 
-                          conn.getAddress()[0], conn.getAddress()[1], ip_address, port)
+                          conn.getAddress()[0], conn.getAddress()[1], *address)
             app.nm.remove(node)
             app.negotiating_master_node_set.discard(node.getServer())
             conn.close()
@@ -166,17 +165,16 @@ class ClientElectionHandler(MasterHandler):
             return
         app = self.app
         # Register new master nodes.
-        for ip_address, port, uuid in known_master_list:
-            addr = (ip_address, port)
-            if app.server == addr:
+        for address, uuid in known_master_list:
+            if app.server == address:
                 # This is self.
                 continue
             else:
-                n = app.nm.getNodeByServer(addr)
+                n = app.nm.getNodeByServer(address)
                 if n is None:
-                    n = MasterNode(server = addr)
+                    n = MasterNode(server=address)
                     app.nm.add(n)
-                    app.unconnected_master_node_set.add(addr)
+                    app.unconnected_master_node_set.add(address)
 
                 if uuid is not None:
                     # If I don't know the UUID yet, believe what the peer
@@ -204,7 +202,7 @@ class ClientElectionHandler(MasterHandler):
 
         # Request a node idenfitication.
         conn.ask(protocol.requestNodeIdentification(MASTER_NODE_TYPE,
-                 app.uuid, app.server[0], app.server[1], app.name))
+                 app.uuid, app.server, app.name))
 
 
 class ServerElectionHandler(MasterHandler):
@@ -221,7 +219,7 @@ class ServerElectionHandler(MasterHandler):
         MasterHandler.peerBroken(self, conn)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
+                                        uuid, address, name):
         if conn.getConnector() is None:
             # Connection can be closed by peer after he sent
             # RequestNodeIdentification if he finds the primary master before
@@ -235,12 +233,11 @@ class ServerElectionHandler(MasterHandler):
         if node_type != MASTER_NODE_TYPE:
             logging.info('reject a connection from a non-master')
             raise protocol.NotReadyError
-        addr = (ip_address, port)
-        node = app.nm.getNodeByServer(addr)
+        node = app.nm.getNodeByServer(address)
         if node is None:
-            node = MasterNode(server = addr, uuid = uuid)
+            node = MasterNode(server=address, uuid=uuid)
             app.nm.add(node)
-            app.unconnected_master_node_set.add(addr)
+            app.unconnected_master_node_set.add(address)
         else:
             # If this node is broken, reject it.
             if node.getUUID() == uuid:
@@ -248,15 +245,14 @@ class ServerElectionHandler(MasterHandler):
                     raise protocol.BrokenNodeDisallowedError
 
         # supplied another uuid in case of conflict
-        while not app.isValidUUID(uuid, addr):
+        while not app.isValidUUID(uuid, address):
             uuid = app.getNewUUID(node_type)
 
         node.setUUID(uuid)
         conn.setUUID(uuid)
 
         p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE, app.uuid, 
-                app.server[0], app.server[1], app.pt.getPartitions(), 
-                app.pt.getReplicas(), uuid)
+                app.server, app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         conn.answer(p, packet)
 
     def handleAnnouncePrimaryMaster(self, conn, packet):

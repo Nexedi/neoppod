@@ -36,7 +36,7 @@ class IdentificationHandler(BaseStorageHandler):
         logging.warning('lost a node in IdentificationEventHandler')
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
+                                        uuid, address, name):
         self.checkClusterName(name)
         # reject any incoming connections if not ready
         if not self.app.ready:
@@ -66,7 +66,7 @@ class IdentificationHandler(BaseStorageHandler):
         conn.setHandler(handler)
         conn.setUUID(uuid)
         node.setUUID(uuid)
-        args = (STORAGE_NODE_TYPE, app.uuid, app.server[0], app.server[1], 
+        args = (STORAGE_NODE_TYPE, app.uuid, app.server, 
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         # accept the identification and trigger an event
         conn.answer(protocol.acceptNodeIdentification(*args), packet)

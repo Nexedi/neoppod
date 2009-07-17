@@ -170,12 +170,11 @@ class EventHandler(object):
             raise UnexpectedPacketError(message)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
+                                        uuid, address, name):
         raise UnexpectedPacketError
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port,
-                                       num_partitions, num_replicas, your_uuid):
+                       uuid, address, num_partitions, num_replicas, your_uuid):
         raise UnexpectedPacketError
 
     def handlePing(self, conn, packet):

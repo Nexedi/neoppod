@@ -28,7 +28,7 @@ class ShutdownHandler(BaseServiceHandler):
 
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
+                                        uuid, address, name):
         logging.error('reject any new connection')
         raise protocol.ProtocolError('cluster is shutting down')
 
@@ -55,7 +55,7 @@ class ShutdownHandler(BaseServiceHandler):
             # do not care about these messages as we are shutting down all nodes
             return
 
-        for node_type, ip_address, port, uuid, state in node_list:
+        for node_type, addr, uuid, state in node_list:
             if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                 # No interest.
                 continue
@@ -73,7 +73,6 @@ class ShutdownHandler(BaseServiceHandler):
                     # What?! What happened to me?
                     raise RuntimeError, 'I was told that I am bad'
 
-            addr = (ip_address, port)
             node = app.nm.getNodeByUUID(uuid)
             if node is None:
                 node = app.nm.getNodeByServer(addr)

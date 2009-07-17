@@ -362,12 +362,10 @@ VALID_CELL_STATE_LIST = (UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE,
 # Other constants.
 INVALID_UUID = '\0' * 16
 INVALID_TID = '\0' * 8
+INVALID_OID = '\0' * 8
 INVALID_PTID = '\0' * 8
-INVALID_PARTITION = 0xffffffff
-
-# TODO: delete those definitions when tests are fixed
 INVALID_SERIAL = INVALID_TID
-INVALID_OID = '\0' * 16
+INVALID_PARTITION = 0xffffffff
 
 STORAGE_NS = 'S'
 MASTER_NS = 'M'
@@ -498,8 +496,19 @@ def _checkNodeState(state):
 def _checkNodeType(type):
     node_type = node_types.get(type)
     if node_type is None:
-        raise PacketMalformedError('invalide node type %d' % type)
+        raise PacketMalformedError('invalid node type %d' % type)
     return node_type
+
+def _checkAddress(address):
+    if address == '\0' * 6:
+        return None
+    (ip, port) = unpack('!4sH', address)
+    return (inet_ntoa(ip), port)
+
+def _encodeAddress(address):
+    if address is None:
+        return '\0' * 6
+    return pack('!4sH', inet_aton(address[0]), address[1])
 
 def _checkUUID(uuid):
     if uuid == INVALID_UUID:
@@ -549,26 +558,26 @@ decode_table[PONG] = _decodePong
 
 @handle_errors
 def _decodeRequestNodeIdentification(body):
-    r = unpack('!LLH16s4sH', body[:32])
-    major, minor, node_type, uuid, ip_address, port = r
-    ip_address = inet_ntoa(ip_address)
+    r = unpack('!LLH16s6s', body[:32])
+    major, minor, node_type, uuid, address = r
+    address = _checkAddress(address)
     (name, _) = _readString(body, 'name', offset=32)
     node_type = _checkNodeType(node_type)
     uuid = _checkUUID(uuid)
     if (major, minor) != PROTOCOL_VERSION:
         raise PacketMalformedError('protocol version mismatch')
-    return node_type, uuid, ip_address, port, name
+    return node_type, uuid, address, name
 decode_table[REQUEST_NODE_IDENTIFICATION] = _decodeRequestNodeIdentification
 
 @handle_errors
 def _decodeAcceptNodeIdentification(body):
-    r = unpack('!H16s4sHLL16s', body)
-    node_type, uuid, ip_address, port, num_partitions, num_replicas, your_uuid = r
-    ip_address = inet_ntoa(ip_address)
+    r = unpack('!H16s6sLL16s', body)
+    node_type, uuid, address, num_partitions, num_replicas, your_uuid = r
+    address = _checkAddress(address)
     node_type = _checkNodeType(node_type)
     uuid = _checkUUID(uuid)
     your_uuid == _checkUUID(uuid)
-    return (node_type, uuid, ip_address, port, num_partitions, num_replicas, your_uuid)
+    return (node_type, uuid, address, num_partitions, num_replicas, your_uuid)
 decode_table[ACCEPT_NODE_IDENTIFICATION] = _decodeAcceptNodeIdentification
 
 @handle_errors
@@ -581,10 +590,10 @@ def _decodeAnswerPrimaryMaster(body):
     (primary_uuid, n) = unpack('!16sL', body[:20])
     known_master_list = []
     for i in xrange(n):
-        ip_address, port, uuid = unpack('!4sH16s', body[20+i*22:42+i*22])
-        ip_address = inet_ntoa(ip_address)
+        address, uuid = unpack('!6s16s', body[20+i*22:42+i*22])
+        address = _checkAddress(address)
         uuid = _checkUUID(uuid)
-        known_master_list.append((ip_address, port, uuid))
+        known_master_list.append((address, uuid))
     primary_uuid = _checkUUID(primary_uuid)
     return (primary_uuid, known_master_list)
 decode_table[ANSWER_PRIMARY_MASTER] = _decodeAnswerPrimaryMaster
@@ -604,13 +613,13 @@ def _decodeNotifyNodeInformation(body):
     (n,) = unpack('!L', body[:4])
     node_list = []
     for i in xrange(n):
-        r = unpack('!H4sH16sH', body[4+i*26:30+i*26])
-        node_type, ip_address, port, uuid, state = r
-        ip_address = inet_ntoa(ip_address)
+        r = unpack('!H6s16sH', body[4+i*26:30+i*26])
+        node_type, address, uuid, state = r
+        address = _checkAddress(address)
         node_type = _checkNodeType(node_type)
         state = _checkNodeState(state)
         uuid = _checkUUID(uuid)
-        node_list.append((node_type, ip_address, port, uuid, state))
+        node_list.append((node_type, address, uuid, state))
     return (node_list,)
 decode_table[NOTIFY_NODE_INFORMATION] = _decodeNotifyNodeInformation
 
@@ -986,13 +995,13 @@ def _decodeAnswerNodeList(body):
     (n,) = unpack('!L', body[:4])
     node_list = []
     for i in xrange(n):
-        r = unpack('!H4sH16sH', body[4+i*26:30+i*26])
-        node_type, ip_address, port, uuid, state = r
-        ip_address = inet_ntoa(ip_address)
+        r = unpack('!H6s16sH', body[4+i*26:30+i*26])
+        node_type, address, uuid, state = r
+        address = _checkAddress(address)
         node_type = _checkNodeType(node_type)
         state = _checkNodeState(state)
         uuid = _checkUUID(uuid)
-        node_list.append((node_type, ip_address, port, uuid, state))
+        node_list.append((node_type, address, uuid, state))
     return (node_list,)
 decode_table[ANSWER_NODE_LIST] = _decodeAnswerNodeList
 
@@ -1094,18 +1103,19 @@ def ping():
 def pong():
     return Packet(PONG)
 
-def requestNodeIdentification(node_type, uuid, ip_address, port, name):
+def requestNodeIdentification(node_type, uuid, address, name):
     uuid = _encodeUUID(uuid)
-    body = pack('!LLH16s4sHL', PROTOCOL_VERSION[0], PROTOCOL_VERSION[1],
-                      node_type, uuid, inet_aton(ip_address), port, len(name)) + name
+    address = _encodeAddress(address)
+    body = pack('!LLH16s6sL', PROTOCOL_VERSION[0], PROTOCOL_VERSION[1],
+                      node_type, uuid, address, len(name)) + name
     return Packet(REQUEST_NODE_IDENTIFICATION, body)
 
-def acceptNodeIdentification(node_type, uuid, ip_address,
-         port, num_partitions, num_replicas, your_uuid):
+def acceptNodeIdentification(node_type, uuid, address,
+         num_partitions, num_replicas, your_uuid):
     uuid = _encodeUUID(uuid)
     your_uuid = _encodeUUID(your_uuid)
-    body = pack('!H16s4sHLL16s', node_type, uuid, 
-                      inet_aton(ip_address), port,
+    address = _encodeAddress(address)
+    body = pack('!H16s6sLL16s', node_type, uuid, address,
                       num_partitions, num_replicas, your_uuid)
     return Packet(ACCEPT_NODE_IDENTIFICATION, body)
 
@@ -1115,9 +1125,10 @@ def askPrimaryMaster():
 def answerPrimaryMaster(primary_uuid, known_master_list):
     primary_uuid = _encodeUUID(primary_uuid)
     body = [primary_uuid, pack('!L', len(known_master_list))]
-    for address, port, uuid in known_master_list:
+    for address, uuid in known_master_list:
         uuid = _encodeUUID(uuid)
-        body.append(pack('!4sH16s', inet_aton(address), port, uuid))
+        address = _encodeAddress(address)
+        body.append(pack('!6s16s', address, uuid))
     body = ''.join(body)
     return Packet(ANSWER_PRIMARY_MASTER, body)
 
@@ -1129,10 +1140,10 @@ def reelectPrimaryMaster():
 
 def notifyNodeInformation(node_list):
     body = [pack('!L', len(node_list))]
-    for node_type, ip_address, port, uuid, state in node_list:
+    for node_type, address, uuid, state in node_list:
         uuid = _encodeUUID(uuid)
-        body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
-                         uuid, state))
+        address = _encodeAddress(address)
+        body.append(pack('!H6s16sH', node_type, address, uuid, state))
     body = ''.join(body)
     return Packet(NOTIFY_NODE_INFORMATION, body)
 
@@ -1143,7 +1154,7 @@ def answerLastIDs(loid, ltid, lptid):
     # XXX: this is a valid oid, an error should be returned instead of this
     # packet when no last IDs are known
     if loid is None:
-        loid = '\0' * 16
+        loid = INVALID_OID
     if ltid is None:
         ltid = INVALID_TID
     lptid = _encodePTID(lptid)
@@ -1366,10 +1377,10 @@ def askNodeList(node_type):
 
 def answerNodeList(node_list):
     body = [pack('!L', len(node_list))]
-    for node_type, ip_address, port, uuid, state in node_list:
+    for node_type, address, uuid, state in node_list:
         uuid = _encodeUUID(uuid)
-        body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
-                         uuid, state))
+        address = _encodeAddress(address)
+        body.append(pack('!H6s16sH', node_type, address, uuid, state))
     body = ''.join(body)
     return Packet(ANSWER_NODE_LIST, body)
 
@@ -1403,10 +1414,9 @@ def askNodeInformation():
 def answerNodeInformation(node_list):
     # XXX: copy-paste from notifyNodeInformation
     body = [pack('!L', len(node_list))]
-    for node_type, ip_address, port, uuid, state in node_list:
+    for node_type, address, uuid, state in node_list:
         uuid = _encodeUUID(uuid)
-        body.append(pack('!H4sH16sH', node_type, inet_aton(ip_address), port,
-                         uuid, state))
+        body.append(pack('!H6s16sH', node_type, address, uuid, state))
     body = ''.join(body)
     return Packet(ANSWER_NODE_INFORMATION, body)
 

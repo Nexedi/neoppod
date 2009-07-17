@@ -34,8 +34,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         app.setNodeNotReady()
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port,
-                                       num_partitions, num_replicas, your_uuid):
+                   uuid, address, num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getNodeByServer(conn.getAddress())
         # this must be a master node
@@ -46,12 +45,11 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
             finally:
                 conn.release()
             return
-        if conn.getAddress() != (ip_address, port):
+        if conn.getAddress() != address:
             # The server address is different! Then why was
             # the connection successful?
             logging.error('%s:%d is waiting for %s:%d',
-                          conn.getAddress()[0], conn.getAddress()[1],
-                          ip_address, port)
+                          conn.getAddress()[0], conn.getAddress()[1], *address)
             app.nm.remove(node)
             conn.lock()
             try:
@@ -74,11 +72,10 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
                                   known_master_list):
         app = self.app
         # Register new master nodes.
-        for ip_address, port, uuid in known_master_list:
-            addr = (ip_address, port)
-            n = app.nm.getNodeByServer(addr)
+        for address, uuid in known_master_list:
+            n = app.nm.getNodeByServer(address)
             if n is None:
-                n = MasterNode(server = addr)
+                n = MasterNode(server=address)
                 app.nm.add(n)
             if uuid is not None:
                 # If I don't know the UUID yet, believe what the peer
@@ -230,10 +227,9 @@ class PrimaryNotificationsHandler(BaseHandler):
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
         nm = app.nm
-        for node_type, ip_address, port, uuid, state in node_list:
-            logging.debug("notified of %s %s %d %s %s" %(node_type, ip_address, port, dump(uuid), state))
+        for node_type, addr, uuid, state in node_list:
+            logging.debug("notified of %s %s %s %s" %(node_type, addr, dump(uuid), state))
             # Register new nodes.
-            addr = (ip_address, port)
             # Try to retrieve it from nm
             n = None
             if uuid is not None:

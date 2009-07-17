@@ -93,7 +93,6 @@ class Application(object):
             addr = self.server, connector_handler = self.connector_handler)
 
         self.cluster_state = BOOTING
-
         # Start the election of a primary master node.
         self.electPrimary()
 
@@ -272,16 +271,7 @@ class Application(object):
         uuid = node.getUUID()
 
         # The server address may be None.
-        addr = node.getServer()
-        if addr is None:
-            ip_address, port = None, None
-        else:
-            ip_address, port = addr
-
-        if ip_address is None:
-            ip_address = '0.0.0.0'
-        if port is None:
-            port = 0
+        address = node.getServer()
 
         if node_type == CLIENT_NODE_TYPE:
             # Only to master nodes and storage nodes.
@@ -289,12 +279,12 @@ class Application(object):
                 if c.getUUID() is not None:
                     n = self.nm.getNodeByUUID(c.getUUID())
                     if n.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
-                        node_list = [(node_type, ip_address, port, uuid, state)]
+                        node_list = [(node_type, address, uuid, state)]
                         c.notify(protocol.notifyNodeInformation(node_list))
         elif node.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
             for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
-                    node_list = [(node_type, ip_address, port, uuid, state)]
+                    node_list = [(node_type, address, uuid, state)]
                     c.notify(protocol.notifyNodeInformation(node_list))
         elif node.getNodeType() != ADMIN_NODE_TYPE:
             raise RuntimeError('unknown node type')
@@ -336,11 +326,10 @@ class Application(object):
         for n in self.nm.getNodeList():
             if n.getNodeType() != ADMIN_NODE_TYPE:
                 try:
-                    ip_address, port = n.getServer()
+                    address = n.getServer()
                 except TypeError:
-                    ip_address, port = '0.0.0.0', 0
-                node_list.append((n.getNodeType(), ip_address, port, 
-                                  n.getUUID(), n.getState()))
+                    address = None
+                node_list.append((n.getNodeType(), address, n.getUUID(), n.getState()))
                 # Split the packet if too huge.
                 if len(node_list) == 10000:
                     conn.notify(protocol.notifyNodeInformation(node_list))
@@ -747,16 +736,16 @@ class Application(object):
                     for c in self.em.getConnectionList():
                         node = self.nm.getNodeByUUID(c.getUUID())
                         if node.getType() == CLIENT_NODE_TYPE:
-                            ip_address, port = node.getServer()
-                            node_list = [(node.getType(), ip_address, port, node.getUUID(), DOWN_STATE)]
+                            node_list = [(node.getType(), node.getServer(), 
+                                node.getUUID(), DOWN_STATE)]
                             c.notify(protocol.notifyNodeInformation(node_list))
                     # then ask storages and master nodes to shutdown
                     logging.info("asking all remaining nodes to shutdown")
                     for c in self.em.getConnectionList():
                         node = self.nm.getNodeByUUID(c.getUUID())
                         if node.getType() in (STORAGE_NODE_TYPE, MASTER_NODE_TYPE):
-                            ip_address, port = node.getServer()
-                            node_list = [(node.getType(), ip_address, port, node.getUUID(), DOWN_STATE)]
+                            node_list = [(node.getType(), node.getServer(), 
+                                node.getUUID(), DOWN_STATE)]
                             c.notify(protocol.notifyNodeInformation(node_list))
                     # then shutdown
                     sys.exit("Cluster has been asked to shut down")

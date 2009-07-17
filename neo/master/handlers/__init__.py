@@ -120,11 +120,11 @@ class MasterHandler(EventHandler):
         else:
             primary_uuid = None
 
-        known_master_list = [app.server + (app.uuid, )]
+        known_master_list = [(app.server, app.uuid, )]
         for n in app.nm.getMasterNodeList():
             if n.getState() == protocol.BROKEN_STATE:
                 continue
-            known_master_list.append(n.getServer() + (n.getUUID(), ))
+            known_master_list.append((n.getServer(), n.getUUID(), ))
         conn.answer(protocol.answerPrimaryMaster(primary_uuid,
                                                  known_master_list), packet)
 
@@ -149,7 +149,7 @@ class BaseServiceHandler(MasterHandler):
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
-        for node_type, ip_address, port, uuid, state in node_list:
+        for node_type, addr, uuid, state in node_list:
             if node_type in (protocol.CLIENT_NODE_TYPE, protocol.ADMIN_NODE_TYPE):
                 # No interest.
                 continue
@@ -167,7 +167,6 @@ class BaseServiceHandler(MasterHandler):
                     # What?! What happened to me?
                     raise RuntimeError, 'I was told that I am bad'
 
-            addr = (ip_address, port)
             node = app.nm.getNodeByUUID(uuid)
             if node is None:
                 node = app.nm.getNodeByServer(addr)

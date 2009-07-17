@@ -49,7 +49,7 @@ class HiddenHandler(BaseMasterHandler):
         if node.getNodeType() != MASTER_NODE_TYPE:
             return
 
-        for node_type, ip_address, port, uuid, state in node_list:
+        for node_type, addr, uuid, state in node_list:
             if node_type == STORAGE_NODE_TYPE:
                 if uuid == None:
                     # No interest.
@@ -74,12 +74,11 @@ class HiddenHandler(BaseMasterHandler):
 
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, ip_address, port, name):
+                                        uuid, address, name):
         pass
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                                       uuid, ip_address, port,
-                                       num_partitions, num_replicas, your_uuid):
+                   uuid, address, num_partitions, num_replicas, your_uuid):
         pass
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,

@@ -71,18 +71,18 @@ class StorageBootstrapHandler(AnswerBaseHandler):
         app.setNodeNotReady()
         
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
-           uuid, ip_address, port, num_partitions, num_replicas, your_uuid):
+           uuid, address, num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getNodeByServer(conn.getAddress())
         # It can be eiter a master node or a storage node
         if node_type != STORAGE_NODE_TYPE:
             conn.close()
             return
-        if conn.getAddress() != (ip_address, port):
+        if conn.getAddress() != address:
             # The server address is different! Then why was
             # the connection successful?
             logging.error('%s:%d is waiting for %s:%d',
-                  conn.getAddress()[0], conn.getAddress()[1], ip_address, port)
+                  conn.getAddress()[0], conn.getAddress()[1], *address)
             app.nm.remove(node)
             conn.close()
             return

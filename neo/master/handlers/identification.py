@@ -27,28 +27,27 @@ class IdentificationHandler(MasterHandler):
         logging.warning('lost a node in IdentificationHandler : %s' % node)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
-            uuid, ip_address, port, name):
+            uuid, address, name):
 
         self.checkClusterName(name)
         app, nm = self.app, self.app.nm
-        server = (ip_address, port)
         node_by_uuid = nm.getNodeByUUID(uuid)
-        node_by_addr = nm.getNodeByServer(server)
+        node_by_addr = nm.getNodeByServer(address)
 
         # handle conflicts and broken nodes
         node = node_by_uuid or node_by_addr
         if node_by_uuid is not None:
-            if node.getServer() == server:
+            if node.getServer() == address:
                 if node.getState() == protocol.BROKEN_STATE:
                     raise protocol.BrokenNodeDisallowedError
                 # the node is still alive
                 node.setState(protocol.RUNNING_STATE)
-            if node.getServer() != server:
+            if node.getServer() != address:
                 if node.getState() == protocol.RUNNING_STATE:
                     # still running, reject this new node
                     raise protocol.ProtocolError('invalid server address')
                 # this node has changed its address
-                node.setServer(server)
+                node.setServer(address)
                 node.setState(protocol.RUNNING_STATE)
         if node_by_uuid is None and node_by_addr is not None:
             if node.getState() == protocol.RUNNING_STATE:
@@ -57,7 +56,7 @@ class IdentificationHandler(MasterHandler):
             # FIXME: here the node was known with a different uuid but with the
             # same address, is it safe to forgot the old, even if he's not
             # running ?
-            node.setServer(server)
+            node.setServer(address)
             node.setState(protocol.RUNNING_STATE)
 
         # ask the app the node identification, if refused, an exception is raised
@@ -68,7 +67,7 @@ class IdentificationHandler(MasterHandler):
             uuid = app.getNewUUID(node_type)
         if node is None:
             # new node
-            node = klass(uuid=uuid, server=(ip_address, port))
+            node = klass(uuid=uuid, server=address)
             app.nm.add(node)
         handler = handler(self.app)
         # set up the node
@@ -78,7 +77,7 @@ class IdentificationHandler(MasterHandler):
         conn.setUUID(uuid)
         conn.setHandler(handler)
         # answer
-        args = (protocol.MASTER_NODE_TYPE, app.uuid, app.server[0], app.server[1], 
+        args = (protocol.MASTER_NODE_TYPE, app.uuid, app.server, 
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         conn.answer(protocol.acceptNodeIdentification(*args), packet)
         # trigger the event

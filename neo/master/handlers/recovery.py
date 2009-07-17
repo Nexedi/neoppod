@@ -34,7 +34,7 @@ class RecoveryHandler(MasterHandler):
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
-        for node_type, ip_address, port, uuid, state in node_list:
+        for node_type, addr, uuid, state in node_list:
             if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
                 # No interest.
                 continue
@@ -52,7 +52,6 @@ class RecoveryHandler(MasterHandler):
                     # What?! What happened to me?
                     raise RuntimeError, 'I was told that I am bad'
 
-            addr = (ip_address, port)
             node = app.nm.getNodeByUUID(uuid)
             if node is None:
                 node = app.nm.getNodeByServer(addr)
