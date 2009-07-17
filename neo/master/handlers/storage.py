@@ -38,7 +38,10 @@ class StorageServiceHandler(BaseServiceHandler):
             conn.notify(protocol.startOperation())
 
     def _nodeLost(self, conn, node):
-        if not self.app.pt.operational():
+        pt = self.app.pt
+        # TODO: check this, is it need ? do we have to broadcast changes ?
+        pt.outdate()
+        if not pt.operational():
             raise OperationFailure, 'cannot continue operation'
 
     def handleNotifyInformationLocked(self, conn, packet, tid):
