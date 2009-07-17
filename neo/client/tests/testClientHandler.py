@@ -219,8 +219,7 @@ class ClientHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
         client_handler.handleAcceptNodeIdentification(conn, None, CLIENT_NODE_TYPE,
-                                                      uuid, '127.0.0.1', 10010,
-                                                      0, 0, INVALID_UUID)
+                                  uuid, ('127.0.0.1', 10010), 0, 0, INVALID_UUID)
         self.checkClosed(conn)
         self.assertEquals(app.storage_node, None)
         self.assertEquals(app.pt, None)
@@ -244,8 +243,7 @@ class ClientHandlerTests(NeoTestBase):
         your_uuid = 'C' * 16
         app.uuid = INVALID_UUID
         client_handler.handleAcceptNodeIdentification(conn, None, MASTER_NODE_TYPE,
-                                                      uuid, '127.0.0.1', 10010,
-                                                      10, 2, your_uuid)
+                                  uuid, ('127.0.0.1', 10010), 10, 2, your_uuid)
         self.checkNotClosed(conn)
         self.checkUUIDSet(conn, uuid)
         self.assertEquals(app.storage_node, None)
@@ -265,8 +263,7 @@ class ClientHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
         client_handler.handleAcceptNodeIdentification(conn, None, STORAGE_NODE_TYPE,
-                                                      uuid, '127.0.0.1', 10010,
-                                                      0, 0, INVALID_UUID)
+                                  uuid, ('127.0.0.1', 10010), 0, 0, INVALID_UUID)
         self.checkNotClosed(conn)
         self.checkUUIDSet(conn, uuid)
         self.assertEquals(app.pt,  None)
@@ -298,14 +295,14 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
-        test_master_list = [('127.0.0.1', 10010, self.getNewUUID())]
+        test_master_list = [(('127.0.0.1', 10010), self.getNewUUID())]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
         # Check that yet-unknown master node got added
         getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         add_call_list = app.nm.mockGetNamedCalls('add')
         self.assertEqual(len(getNodeByServer_call_list), 1)
         self.assertEqual(len(add_call_list), 1)
-        address, port, test_uuid = test_master_list[0]
+        (address, port), test_uuid = test_master_list[0]
         getNodeByServer_call = getNodeByServer_call_list[0]
         add_call = add_call_list[0]
         self.assertEquals((address, port), getNodeByServer_call.getParam(0))
@@ -324,12 +321,12 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_node_uuid = self.getNewUUID()
-        test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
+        test_master_list = [(('127.0.0.1', 10010), test_node_uuid)]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
         # Test sanity checks
         getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         self.assertEqual(len(getNodeByServer_call_list), 1)
-        self.assertEqual(getNodeByServer_call_list[0].getParam(0), test_master_list[0][:2])
+        self.assertEqual(getNodeByServer_call_list[0].getParam(0), test_master_list[0][0])
         # Check that known master node did not get added
         getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         add_call_list = app.nm.mockGetNamedCalls('add')
@@ -443,7 +440,7 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
-        test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
+        test_master_list = [(('127.0.0.1', 10010), test_node_uuid)]
         client_handler.handleAnswerPrimaryMaster(conn, None, test_node_uuid, test_master_list)
         # Test sanity checks
         getNodeByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
@@ -451,7 +448,7 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEqual(getNodeByUUID_call_list[0].getParam(0), test_node_uuid)
         getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         self.assertEqual(len(getNodeByServer_call_list), 1)
-        self.assertEqual(getNodeByServer_call_list[0].getParam(0), test_master_list[0][:2])
+        self.assertEqual(getNodeByServer_call_list[0].getParam(0), test_master_list[0][0])
         # Check that primary master was updated to known node
         self.assertTrue(app.primary_master_node is node)
 

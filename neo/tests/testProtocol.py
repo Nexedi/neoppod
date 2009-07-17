@@ -117,8 +117,8 @@ class ProtocolTests(unittest.TestCase):
     def test_11_requestNodeIdentification(self):
         uuid = self.getNewUUID()
         p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE, uuid,
-                                    "127.0.0.1", 9080, "unittest")
-        node, p_uuid, ip, port, name  = p.decode()
+                                    ("127.0.0.1", 9080), "unittest")
+        node, p_uuid, (ip, port), name  = p.decode()
         self.assertEqual(node, CLIENT_NODE_TYPE)
         self.assertEqual(p_uuid, uuid)
         self.assertEqual(ip, "127.0.0.1")
@@ -128,8 +128,8 @@ class ProtocolTests(unittest.TestCase):
     def test_12_acceptNodeIdentification(self):
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
         p = protocol.acceptNodeIdentification(CLIENT_NODE_TYPE, uuid1,
-                                   "127.0.0.1", 9080, 10, 20, uuid2)
-        node, p_uuid, ip, port, nb_partitions, nb_replicas, your_uuid  = p.decode()
+                                   ("127.0.0.1", 9080), 10, 20, uuid2)
+        node, p_uuid, (ip, port), nb_partitions, nb_replicas, your_uuid  = p.decode()
         self.assertEqual(node, CLIENT_NODE_TYPE)
         self.assertEqual(p_uuid, uuid1)
         self.assertEqual(ip, "127.0.0.1")
@@ -147,9 +147,9 @@ class ProtocolTests(unittest.TestCase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        master_list = [("127.0.0.1", 1, uuid1),
-                       ("127.0.0.2", 2, uuid2),
-                       ("127.0.0.3", 3, uuid3)]
+        master_list = [(("127.0.0.1", 1), uuid1),
+                       (("127.0.0.2", 2), uuid2),
+                       (("127.0.0.3", 3), uuid3)]
         p = protocol.answerPrimaryMaster(uuid, master_list)
         primary_uuid, p_master_list  = p.decode()
         self.assertEqual(primary_uuid, uuid)
@@ -168,9 +168,9 @@ class ProtocolTests(unittest.TestCase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        node_list = [(CLIENT_NODE_TYPE, "127.0.0.1", 1, uuid1, RUNNING_STATE),
-                       (CLIENT_NODE_TYPE, "127.0.0.2", 2, uuid2, DOWN_STATE),
-                       (CLIENT_NODE_TYPE, "127.0.0.3", 3, uuid3, BROKEN_STATE)]
+        node_list = [(CLIENT_NODE_TYPE, ("127.0.0.1", 1), uuid1, RUNNING_STATE),
+                       (CLIENT_NODE_TYPE, ("127.0.0.2", 2), uuid2, DOWN_STATE),
+                       (CLIENT_NODE_TYPE, ("127.0.0.3", 3), uuid3, BROKEN_STATE)]
         p = protocol.notifyNodeInformation(node_list)
         p_node_list = p.decode()[0]
         self.assertEqual(node_list, p_node_list)

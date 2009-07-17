@@ -213,7 +213,7 @@ class StorageMySQSLdbTests(NeoTestBase):
     def test_15_PTID(self):
         test = '\x01' * 8
         self.db.setup()
-        self.assertEquals(self.db.getPTID(), INVALID_PTID)
+        self.assertEquals(self.db.getPTID(), None)
         self.db.setPTID(test)
         self.assertEquals(self.db.getPTID(), test)
         self.db.setPTID(test * 2)

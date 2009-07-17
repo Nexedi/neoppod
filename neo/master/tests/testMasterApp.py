@@ -38,7 +38,7 @@ class MasterAppTests(NeoTestBase):
 
     def test_02_getNextOID(self):
       # must raise as we don"t have one
-      self.assertEqual(self.app.loid, INVALID_OID)
+      self.assertEqual(self.app.loid, None)
       self.app.loid = None
       self.assertRaises(RuntimeError, self.app.getNextOID)
       # set one
@@ -49,7 +49,7 @@ class MasterAppTests(NeoTestBase):
       self.assertEqual(u64(self.app.loid), 24)
     
     def test_03_getNextTID(self):
-      self.assertEqual(self.app.ltid, INVALID_TID)
+      self.assertEqual(self.app.ltid, None)
       ntid = self.app.getNextTID()
       self.assertEqual(self.app.ltid, ntid)
       # generate new one
@@ -67,9 +67,10 @@ class MasterAppTests(NeoTestBase):
       self.assertEqual(p, 0)
 
     def test_05_getNewOIDList(self):
+      self.app.loid = p64(1)
       oid_list = self.app.getNewOIDList(15)
       self.assertEqual(len(oid_list), 15)
-      i = 1
+      i = 2
       # begin from 0, so generated oid from 1 to 15
       for oid in oid_list:
         self.assertEqual(u64(oid), i)

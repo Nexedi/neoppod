@@ -111,7 +111,7 @@ class StorageStorageHandlerTests(NeoTestBase):
         calls = self.app.dm.mockGetNamedCalls('getObject')
         self.assertEquals(len(self.app.event_queue), 0)
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(INVALID_OID, None, None)
+        calls[0].checkArgs(INVALID_OID, INVALID_TID, INVALID_TID)
         self.checkErrorPacket(conn)
 
     def test_24_handleAskObject3(self):

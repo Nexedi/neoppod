@@ -46,8 +46,9 @@ class ConnectionTests(unittest.TestCase):
         pass
 
     def test_01_BaseConnection(self):
+        app = Mock()
         em = Mock() #EpollEventManager()
-        handler = EventHandler()
+        handler = EventHandler(app)
         # no connector
         bc = BaseConnection(em, handler)
         self.assertNotEqual(bc.em, None)
@@ -101,7 +102,7 @@ class ConnectionTests(unittest.TestCase):
         # init with address
         connector = DoNothingConnector()
         em = Mock()
-        handler = EventHandler()
+        handler = EventHandler(app)
         bc = BaseConnection(em, handler, connector_handler=DoNothingConnector,
                             connector=connector, addr=("127.0.0.7", 93413))
         self.assertEqual(bc.getAddress(), ("127.0.0.7", 93413))
@@ -492,6 +493,7 @@ class ConnectionTests(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
+        bc._queue = Mock()
         self.assertEqual(bc.read_buf, '')
         self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
@@ -501,10 +503,10 @@ class ConnectionTests(unittest.TestCase):
         self.assertEqual(len(bc.event_dict), 0)
 
         # give some data to analyse
-        master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
-                       ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
-                       ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
-                       ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
+        master_list = ((("127.0.0.1", 2135), getNewUUID()), (("127.0.0.1", 2135), getNewUUID()),
+                       (("127.0.0.1", 2235), getNewUUID()), (("127.0.0.1", 2134), getNewUUID()),
+                       (("127.0.0.1", 2335), getNewUUID()),(("127.0.0.1", 2133), getNewUUID()),
+                       (("127.0.0.1", 2435), getNewUUID()),(("127.0.0.1", 2132), getNewUUID()))
         p = protocol.answerPrimaryMaster(getNewUUID(), master_list)
         p.setId(1)
         data = p.encode()
@@ -513,9 +515,9 @@ class ConnectionTests(unittest.TestCase):
         bc.analyse()
         # check packet decoded
         self.assertEquals(len(em.mockGetNamedCalls("removeIdleEvent")), 0)
-        self.assertEquals(len(handler.mockGetNamedCalls("packetReceived")), 1)
-        call = handler.mockGetNamedCalls("packetReceived")[0]
-        data = call.getParam(1)
+        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
+        call = bc._queue.mockGetNamedCalls("append")[0]
+        data = call.getParam(0)
         self.assertEqual(data.getType(), p.getType())
         self.assertEqual(data.getId(), p.getId())
         self.assertEqual(data.decode(), p.decode())        
@@ -527,20 +529,21 @@ class ConnectionTests(unittest.TestCase):
         handler = Mock()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
+        bc._queue = Mock()
         # packet 1
-        master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
-                       ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
-                       ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
-                       ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
+        master_list = ((("127.0.0.1", 2135), getNewUUID()), (("127.0.0.1", 2135), getNewUUID()),
+                       (("127.0.0.1", 2235), getNewUUID()), (("127.0.0.1", 2134), getNewUUID()),
+                       (("127.0.0.1", 2335), getNewUUID()),(("127.0.0.1", 2133), getNewUUID()),
+                       (("127.0.0.1", 2435), getNewUUID()),(("127.0.0.1", 2132), getNewUUID()))
         p1 = protocol.answerPrimaryMaster(getNewUUID(), master_list)
         p1.setId(1)
         data = p1.encode()
         bc.read_buf += data
         # packet 2
-        master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
-                       ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
-                       ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
-                       ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
+        master_list = ((("127.0.0.1", 2135), getNewUUID()), (("127.0.0.1", 2135), getNewUUID()),
+                       (("127.0.0.1", 2235), getNewUUID()), (("127.0.0.1", 2134), getNewUUID()),
+                       (("127.0.0.1", 2335), getNewUUID()),(("127.0.0.1", 2133), getNewUUID()),
+                       (("127.0.0.1", 2435), getNewUUID()),(("127.0.0.1", 2132), getNewUUID()))
         p2 = protocol.answerPrimaryMaster( getNewUUID(), master_list)
         p2.setId(2)
         data = p2.encode()
@@ -550,16 +553,16 @@ class ConnectionTests(unittest.TestCase):
         bc.analyse()
         # check two packets decoded
         self.assertEquals(len(em.mockGetNamedCalls("removeIdleEvent")), 0)
-        self.assertEquals(len(handler.mockGetNamedCalls("packetReceived")), 2)
+        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 2)
         # packet 1
-        call = handler.mockGetNamedCalls("packetReceived")[0]
-        data = call.getParam(1)
+        call = bc._queue.mockGetNamedCalls("append")[0]
+        data = call.getParam(0)
         self.assertEqual(data.getType(), p1.getType())
         self.assertEqual(data.getId(), p1.getId())
         self.assertEqual(data.decode(), p1.decode())        
         # packet 2
-        call = handler.mockGetNamedCalls("packetReceived")[1]
-        data = call.getParam(1)
+        call = bc._queue.mockGetNamedCalls("append")[1]
+        data = call.getParam(0)
         self.assertEqual(data.getType(), p2.getType())
         self.assertEqual(data.getId(), p2.getId())
         self.assertEqual(data.decode(), p2.decode())        
@@ -571,12 +574,13 @@ class ConnectionTests(unittest.TestCase):
         handler = Mock()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
+        bc._queue = Mock()
         bc.read_buf += "datadatadatadata"
         self.assertEqual(len(bc.read_buf), 16)
         self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
         self.assertEqual(len(bc.read_buf), 16)
-        self.assertEquals(len(handler.mockGetNamedCalls("packetReceived")), 0)
+        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("removeIdleEvent")), 0)
 
         # give an expected packet
@@ -584,11 +588,12 @@ class ConnectionTests(unittest.TestCase):
         handler = Mock()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
+        bc._queue = Mock()
         
-        master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
-                       ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
-                       ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
-                       ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
+        master_list = ((("127.0.0.1", 2135), getNewUUID()), (("127.0.0.1", 2135), getNewUUID()),
+                       (("127.0.0.1", 2235), getNewUUID()), (("127.0.0.1", 2134), getNewUUID()),
+                       (("127.0.0.1", 2335), getNewUUID()),(("127.0.0.1", 2133), getNewUUID()),
+                       (("127.0.0.1", 2435), getNewUUID()),(("127.0.0.1", 2132), getNewUUID()))
         p = protocol.answerPrimaryMaster(getNewUUID(), master_list)
         p.setId(1)
         data = p.encode()
@@ -599,9 +604,9 @@ class ConnectionTests(unittest.TestCase):
         bc.analyse()
         # check packet decoded
         self.assertEquals(len(em.mockGetNamedCalls("removeIdleEvent")), 1)
-        self.assertEquals(len(handler.mockGetNamedCalls("packetReceived")), 1)
-        call = handler.mockGetNamedCalls("packetReceived")[0]
-        data = call.getParam(1)
+        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
+        call = bc._queue.mockGetNamedCalls("append")[0]
+        data = call.getParam(0)
         self.assertEqual(data.getType(), p.getType())
         self.assertEqual(data.getId(), p.getId())
         self.assertEqual(data.decode(), p.decode())        
@@ -711,10 +716,10 @@ class ConnectionTests(unittest.TestCase):
         handler = Mock()
         # patch receive method to return data
         def receive(self):
-            master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2136, getNewUUID()),
-                           ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
-                           ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
-                           ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
+            master_list = ((("127.0.0.1", 2135), getNewUUID()), (("127.0.0.1", 2136), getNewUUID()),
+                           (("127.0.0.1", 2235), getNewUUID()), (("127.0.0.1", 2134), getNewUUID()),
+                           (("127.0.0.1", 2335), getNewUUID()),(("127.0.0.1", 2133), getNewUUID()),
+                           (("127.0.0.1", 2435), getNewUUID()),(("127.0.0.1", 2132), getNewUUID()))
             uuid = getNewUUID()
             p = protocol.answerPrimaryMaster(uuid, master_list)
             p.setId(1)
@@ -724,6 +729,7 @@ class ConnectionTests(unittest.TestCase):
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
+        bc._queue = Mock()
         self.assertEqual(bc.read_buf, '')
         self.assertNotEqual(bc.getConnector(), None)
         self.assertFalse(bc.aborted)
@@ -731,9 +737,9 @@ class ConnectionTests(unittest.TestCase):
         # check packet decoded
         self.assertEqual(bc.read_buf, '')
         self.assertEquals(len(em.mockGetNamedCalls("removeIdleEvent")), 0)
-        self.assertEquals(len(handler.mockGetNamedCalls("packetReceived")), 1)
-        call = handler.mockGetNamedCalls("packetReceived")[0]
-        data = call.getParam(1)
+        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
+        call = bc._queue.mockGetNamedCalls("append")[0]
+        data = call.getParam(0)
         self.assertEqual(data.getType(), ANSWER_PRIMARY_MASTER)
         self.assertEqual(data.getId(), 1)
         self.assertEqual(len(bc.event_dict), 0)
@@ -995,9 +1001,10 @@ class ConnectionTests(unittest.TestCase):
         # create a good client connection
         em = Mock()
         handler = Mock()
+        dispatcher = Mock()
         connector = DoNothingConnector()
         bc = MTClientConnection(em, handler, connector_handler=DoNothingConnector,
-                              addr=("127.0.0.7", 93413))
+                              addr=("127.0.0.7", 93413), dispatcher=dispatcher)
         # check connector created and connection initialize
         self.assertFalse(bc.connecting)
         self.assertFalse(bc.isServerConnection())
@@ -1025,7 +1032,7 @@ class ConnectionTests(unittest.TestCase):
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
             bc = MTClientConnection(em, handler, connector_handler=DoNothingConnector,
-                              addr=("127.0.0.7", 93413))
+                              addr=("127.0.0.7", 93413), dispatcher=dispatcher)
         finally:
             DoNothingConnector.makeClientConnection = makeClientConnection_org
         # check connector created and connection initialize
@@ -1056,7 +1063,8 @@ class ConnectionTests(unittest.TestCase):
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
             self.assertRaises(ConnectorException, MTClientConnection, em, handler, 
-                    connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413))
+                    connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413), 
+                    dispatcher=dispatcher)
         finally:
             DoNothingConnector.makeClientConnection = makeClientConnection_org
         # the connection is not created

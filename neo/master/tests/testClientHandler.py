@@ -47,6 +47,8 @@ class MasterClientHandlerTests(NeoTestBase):
         self.app.pt.clear()
         self.app.pt.setID(pack('!Q', 1))
         self.app.em = Mock({"getConnectionList" : []})
+        self.app.loid = '\0' * 8
+        self.app.ltid = '\0' * 8
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
             self.app.nm.add(MasterNode(server = server))
@@ -83,44 +85,44 @@ class MasterClientHandlerTests(NeoTestBase):
         packet = Packet(msg_type=NOTIFY_NODE_INFORMATION)
         # tell the master node that is not running any longer, it must raises
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(MASTER_NODE_TYPE, '127.0.0.1', self.master_port, self.app.uuid, DOWN_STATE),]
+        node_list = [(MASTER_NODE_TYPE, ('127.0.0.1', self.master_port), self.app.uuid, DOWN_STATE),]
         self.assertRaises(RuntimeError, service.handleNotifyNodeInformation, conn, packet, node_list)
         # tell the master node that it's running, nothing change
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(MASTER_NODE_TYPE, '127.0.0.1', self.master_port, self.app.uuid, RUNNING_STATE),]
+        node_list = [(MASTER_NODE_TYPE, ('127.0.0.1', self.master_port), self.app.uuid, RUNNING_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify about a client node, don't care
         new_uuid = self.getNewUUID()
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(CLIENT_NODE_TYPE, '127.0.0.1', self.client_port, new_uuid, BROKEN_STATE),]
+        node_list = [(CLIENT_NODE_TYPE, ('127.0.0.1', self.client_port), new_uuid, BROKEN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify about an unknown node, don't care
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(STORAGE_NODE_TYPE, '127.0.0.1', 11010, new_uuid, BROKEN_STATE),]
+        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', 11010), new_uuid, BROKEN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify about a known node but with bad address, don't care
         self.app.nm.add(StorageNode(("127.0.0.1", 11011), self.getNewUUID()))
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(STORAGE_NODE_TYPE, '127.0.0.1', 11012, uuid, BROKEN_STATE),]
+        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', 11012), uuid, BROKEN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify node is running, as PMN already know it, nothing is done
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(STORAGE_NODE_TYPE, '127.0.0.1', self.storage_port, uuid, RUNNING_STATE),]
+        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', self.storage_port), uuid, RUNNING_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify node is temp down, must be taken into account
         ptid = self.app.pt.getID()
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(STORAGE_NODE_TYPE, '127.0.0.1', self.storage_port, uuid, TEMPORARILY_DOWN_STATE),]
+        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', self.storage_port), uuid, TEMPORARILY_DOWN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
@@ -129,7 +131,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertEquals(ptid, self.app.pt.getID())
         # notify node is broken, must be taken into account and partition must changed
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(STORAGE_NODE_TYPE, '127.0.0.1', self.storage_port, uuid, BROKEN_STATE),]
+        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', self.storage_port), uuid, BROKEN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
@@ -255,13 +257,13 @@ class MasterClientHandlerTests(NeoTestBase):
         # give a uuid
         conn = self.getFakeConnection(uuid, self.storage_address)
         ptid = self.app.pt.getID()
-        tid = self.app.ltid
-        oid = self.app.loid
+        self.app.ltid = '\1' * 8
+        self.app.loid = '\1' * 8
         service.handleAskLastIDs(conn, packet)
         packet = self.checkAnswerLastIDs(conn, answered_packet=packet)
         loid, ltid, lptid = protocol._decodeAnswerLastIDs(packet._body)
-        self.assertEqual(loid, oid)
-        self.assertEqual(ltid, tid)
+        self.assertEqual(loid, self.app.loid)
+        self.assertEqual(ltid, self.app.ltid)
         self.assertEqual(lptid, ptid)
         
 
