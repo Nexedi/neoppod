@@ -188,5 +188,9 @@ class DatabaseManager(object):
         the given list."""
         raise NotImplementedError('this method must be overridden')
 
-    __del__ = close
+    # FIXME: this was added to ensure the database connection is well closed,
+    # but this raised 'not implemented' exceptions from the mysql db api during
+    # tests. We have to check how close correctly close the database connection
+    # at database manager deletion.
+    #__del__ = close
 
