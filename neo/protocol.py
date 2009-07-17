@@ -621,7 +621,6 @@ decode_table[ASK_LAST_IDS] = _decodeAskLastIDs
 
 @handle_errors
 def _decodeAnswerLastIDs(body):
-
     (loid, ltid, lptid) = unpack('!8s8s8s', body)
     lptid = _checkPTID(lptid)
     return (loid, ltid, lptid)

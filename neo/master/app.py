@@ -358,6 +358,9 @@ class Application(object):
         node = nm.getStorageNodeList()[0]
         node.setState(protocol.RUNNING_STATE)
         self.broadcastNodeInformation(node)
+        # resert IDs generators
+        self.loid = '\0'*8
+        self.ltid = '\0'*8
         # build the partition with this node
         pt.setID(pack('!Q', 1))
         pt.make([node])
