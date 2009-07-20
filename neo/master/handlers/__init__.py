@@ -53,6 +53,9 @@ class MasterHandler(EventHandler):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         self._dropIt(conn, node, protocol.BROKEN_STATE)
 
+    def handleProtocolError(self, conn, packet, message):
+        logging.error('Protocol error %s %s' % (message, conn.getAddress()))
+
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         logging.error('ignoring Notify Node Information in %s', self.__class__.__name__)
 
