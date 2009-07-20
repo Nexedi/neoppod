@@ -101,7 +101,7 @@ class SelectEventManager(object):
         self.prev_time = time()
         self._pending_processing = []
 
-    def getConnectionList(self, with_admin_nodes=False):
+    def getConnectionList(self):
         return self.connection_dict.values()
 
     def register(self, conn):
