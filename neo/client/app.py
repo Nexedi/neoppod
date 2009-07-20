@@ -891,7 +891,7 @@ class Application(object):
         ordered_tids = set()
         update = ordered_tids.update
         for tid_list in self.local_var.node_tids.itervalues():
-          update(tid_list)
+            update(tid_list)
         ordered_tids = list(ordered_tids)
         # XXX do we need a special cmp function here ?
         ordered_tids.sort(reverse=True)
