@@ -60,7 +60,7 @@ class PartitionTable(object):
         self.np = num_partitions
         self.nr = num_replicas
         self.num_filled_rows = 0
-        self.partition_list = [[] for x in xrange(num_partitions)]
+        self.partition_list = [[]] * num_partitions
         self.count_dict = {}
 
     def getID(self):
