@@ -46,8 +46,8 @@ class ReplicationHandler(BaseStorageHandler):
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                        uuid, address, num_partitions, num_replicas, your_uuid):
-        # Nothing to do.
-        pass
+        # set the UUID on the connection
+        conn.setUUID(uuid)
 
     def handleAnswerTIDs(self, conn, packet, tid_list):
         app = self.app
