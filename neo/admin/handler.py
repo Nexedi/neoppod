@@ -64,7 +64,7 @@ class AdminEventHandler(EventHandler):
             except TypeError:
                 ip = "0.0.0.0"
                 port = 0
-            node_information_list.append((node.getNodeType(), ip, port, node.getUUID(), node.getState()))
+            node_information_list.append((node.getNodeType(), (ip, port), node.getUUID(), node.getState()))
         p = protocol.answerNodeList(node_information_list)
         conn.answer(p, packet)
 

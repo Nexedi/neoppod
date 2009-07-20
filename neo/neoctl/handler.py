@@ -65,8 +65,8 @@ class CommandEventHandler(EventHandler):
         if len(node_list) == 0:
             data = "No Node"
         else:
-            for node_type, ip, port, uuid, state in node_list:
-                data += "\n%s - %s - %s:%s - %s" %(node_type, dump(uuid), ip, port, state)
+            for node_type, (ip, port), uuid, state in node_list:
+                data += "\n%s - %s - %s:%s - %s" % (node_type, dump(uuid), ip, port, state)
         self.app.result = data
 
     def handleAnswerNodeState(self, conn, packet, uuid, state):
