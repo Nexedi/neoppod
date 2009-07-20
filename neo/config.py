@@ -35,10 +35,10 @@ class ConfigurationManager:
     # The default port to which master nodes listen when none is specified.
     default_master_port = 10100
 
-    def __init__(self, file, section):
+    def __init__(self, config_file, section):
         parser = SafeConfigParser(self.default_config_dict)
-        logging.debug('reading a configuration from %s', file)
-        parser.read(file)
+        logging.debug('reading a configuration from %s', config_file)
+        parser.read(config_file)
         self.parser = parser
         self.section = section
 
