@@ -54,21 +54,21 @@ class InitializationHandler(BaseMasterHandler):
 
                 pt.setCell(offset, node, state)
 
-        if pt.filled():
-            # If the table is filled, I assume that the table is ready
-            # to use. Thus install it into the database for persistency.
-            cell_list = []
-            for offset in xrange(app.pt.getPartitions()):
-                for cell in pt.getCellList(offset):
-                    cell_list.append((offset, cell.getUUID(), 
-                                      cell.getState()))
-            app.dm.setPartitionTable(ptid, cell_list)
-
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
+        app = self.app
+        pt = app.pt
         assert not row_list
-        self.app.has_partition_table = True
+        if not pt.filled():
+            raise protocol.ProtocolError('Partial partition table received')
         logging.debug('Got the partition table :')
         self.app.pt.log()
+        # Install the partition table into the database for persistency.
+        cell_list = []
+        for offset in xrange(app.pt.getPartitions()):
+            for cell in pt.getCellList(offset):
+                cell_list.append((offset, cell.getUUID(), cell.getState()))
+        app.dm.setPartitionTable(ptid, cell_list)
+        self.app.has_partition_table = True
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         # XXX: Currently it safe to ignore those packets because the master is
