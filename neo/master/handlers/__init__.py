@@ -38,8 +38,8 @@ class MasterHandler(EventHandler):
             self.app.nm.remove(node)
         node.setState(new_state)
         # clean node related data in specialized handlers
-        self._nodeLost(conn, node)
         self.app.broadcastNodeInformation(node)
+        self._nodeLost(conn, node)
 
     def connectionClosed(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
