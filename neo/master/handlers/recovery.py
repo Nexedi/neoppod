@@ -18,7 +18,7 @@
 import logging
 
 from neo import protocol
-from neo.protocol import RUNNING_STATE, BROKEN_STATE, \
+from neo.protocol import RUNNING_STATE, \
         TEMPORARILY_DOWN_STATE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE
 from neo.master.handlers import MasterHandler
 from neo.protocol import UnexpectedPacketError

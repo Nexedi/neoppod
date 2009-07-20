@@ -16,7 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import neo.pt
-from neo import protocol
 from struct import pack, unpack
 from neo.protocol import OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, BROKEN_STATE

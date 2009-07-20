@@ -20,7 +20,6 @@ import logging
 from neo.protocol import node_types, node_states
 from neo.event import EventManager
 from neo.connection import ClientConnection
-from neo.exception import OperationFailure
 from neo.neoctl.handler import CommandEventHandler
 from neo.connector import getConnectorHandler
 from neo.util import bin

@@ -16,7 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from ZODB import BaseStorage, ConflictResolution, POSException
-import logging
 
 from neo.client.app import Application
 from neo.client.exception import NEOStorageConflictError, NEOStorageNotFoundError

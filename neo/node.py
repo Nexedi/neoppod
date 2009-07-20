@@ -18,7 +18,6 @@
 from time import time
 import logging
 
-from neo import protocol
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         BROKEN_STATE, PENDING_STATE, HIDDEN_STATE, MASTER_NODE_TYPE, \
         STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE, \

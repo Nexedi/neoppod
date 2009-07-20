@@ -17,8 +17,6 @@
 
 import logging
 import sys
-from time import time
-from struct import unpack
 from collections import deque
 
 from neo.config import ConfigurationManager
@@ -28,7 +26,7 @@ from neo.protocol import TEMPORARILY_DOWN_STATE, \
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
-from neo.connection import ListeningConnection, ClientConnection
+from neo.connection import ListeningConnection
 from neo.exception import OperationFailure, PrimaryFailure
 from neo.storage import handlers
 from neo.storage.replicator import Replicator

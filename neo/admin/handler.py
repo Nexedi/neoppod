@@ -22,8 +22,6 @@ from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, 
         ADMIN_NODE_TYPE, TEMPORARILY_DOWN_STATE
 from neo.node import MasterNode, StorageNode, ClientNode, AdminNode
 from neo import protocol
-from neo.protocol import UnexpectedPacketError
-from neo.pt import PartitionTable
 from neo.exception import PrimaryFailure
 from neo.util import dump
 

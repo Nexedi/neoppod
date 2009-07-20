@@ -18,11 +18,7 @@
 import logging
 
 from neo import protocol
-from neo.protocol import CLIENT_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
-        UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, \
-        STORAGE_NODE_TYPE, ADMIN_NODE_TYPE, OUT_OF_DATE_STATE, \
-        HIDDEN_STATE, INTERNAL_ERROR_CODE
+from neo.protocol import HIDDEN_STATE
 from neo.master.handlers import BaseServiceHandler
 from neo.protocol import UnexpectedPacketError
 from neo.util import dump

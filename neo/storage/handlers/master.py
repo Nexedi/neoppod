@@ -20,9 +20,8 @@ import logging
 from neo import protocol
 from neo.storage.handlers import BaseMasterHandler
 from neo.protocol import TEMPORARILY_DOWN_STATE, DISCARDED_STATE, OUT_OF_DATE_STATE
-from neo.util import dump
 from neo.node import StorageNode
-from neo.exception import PrimaryFailure, OperationFailure
+from neo.exception import OperationFailure
 
 
 class MasterOperationHandler(BaseMasterHandler):

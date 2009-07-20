@@ -16,17 +16,16 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import logging
-from time import time
 
 from neo.config import ConfigurationManager
 from neo.protocol import MASTER_NODE_TYPE
 from neo.node import NodeManager, MasterNode
 from neo.event import EventManager
-from neo.connection import ListeningConnection, ClientConnection
+from neo.connection import ListeningConnection
 from neo.exception import PrimaryFailure
 from neo.admin.handler import MasterMonitoringEventHandler, AdminEventHandler, \
      MasterEventHandler, MasterRequestEventHandler
-from neo.connector import getConnectorHandler, ConnectorConnectionClosedException
+from neo.connector import getConnectorHandler
 from neo.bootstrap import BootstrapManager
 from neo.pt import PartitionTable
 from neo import protocol

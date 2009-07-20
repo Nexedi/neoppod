@@ -18,7 +18,7 @@
 import logging
 
 from neo.storage.handlers import BaseStorageHandler
-from neo.protocol import BROKEN_STATE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE
+from neo.protocol import BROKEN_STATE, STORAGE_NODE_TYPE
 from neo import protocol
 from neo.util import dump
 from neo.node import ClientNode
@@ -54,7 +54,7 @@ class IdentificationHandler(BaseStorageHandler):
             from neo.storage.handlers.storage import StorageOperationHandler
             handler = StorageOperationHandler
         else:
-            raise protocol.protocolError('reject non-client-or-storage node')
+            raise protocol.ProtocolError('reject non-client-or-storage node')
         if node is None:
             logging.error('reject an unknown node %s', dump(uuid))
             raise protocol.NotReadyError

@@ -18,13 +18,11 @@
 import logging
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.protocol import Packet, \
-        RUNNING_STATE, BROKEN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
+from neo.protocol import BROKEN_STATE, \
+        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
         DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE, \
         DISCARDED_STATE, OUT_OF_DATE_STATE, UnexpectedPacketError
 from neo.node import StorageNode
-from neo.connection import ClientConnection
 from neo import decorators
 
 

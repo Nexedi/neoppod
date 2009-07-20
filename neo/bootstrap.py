@@ -21,7 +21,6 @@ from time import sleep
 from neo.handler import EventHandler
 from neo.node import MasterNode
 from neo import protocol
-from neo.pt import PartitionTable
 from neo.util import dump
 from neo.connection import ClientConnection
 

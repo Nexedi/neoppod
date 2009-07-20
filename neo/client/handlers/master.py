@@ -123,16 +123,17 @@ class PrimaryNotificationsHandler(BaseHandler):
 
     def connectionClosed(self, conn):
         app = self.app
-        if app.master_conn is not None:
-            assert conn is app.master_conn
-            logging.critical("connection to primary master node closed")
-            conn.lock()
-            try:
-                app.master_conn.close()
-            finally:
-                conn.release()
+        logging.critical("connection to primary master node closed")
+        conn.lock()
+        try:
+            conn.close()
+        finally:
+            conn.release()
+        if app.master_conn is conn:
             app.master_conn = None
             app.primary_master_node = None
+        else:
+            logging.warn('app.master_conn is %s, but we are closing %s', app.master_conn, conn)
         super(PrimaryNotificationsHandler, self).connectionClosed(conn)
 
     def timeoutExpired(self, conn):

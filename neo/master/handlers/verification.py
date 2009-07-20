@@ -17,8 +17,7 @@
 
 import logging
 
-from neo.protocol import CLIENT_NODE_TYPE, RUNNING_STATE, BROKEN_STATE, \
-        TEMPORARILY_DOWN_STATE, ADMIN_NODE_TYPE
+from neo.protocol import CLIENT_NODE_TYPE, RUNNING_STATE, ADMIN_NODE_TYPE
 from neo.master.handlers import MasterHandler
 from neo.exception import VerificationFailure
 from neo.util import dump

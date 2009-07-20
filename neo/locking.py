@@ -24,6 +24,10 @@ __all__ = ['Lock', 'RLock']
 VERBOSE_LOCKING = False
 
 if VERBOSE_LOCKING:
+    import traceback
+    import sys
+    import os
+
     class LockUser(object):
         def __init__(self, level=0):
             self.ident = currentThread().getName()
