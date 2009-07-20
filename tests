@@ -84,13 +84,15 @@ class NeoTestRunner(unittest.TestResult):
         suite.run(self)
 
     class ModuleStats(object):
+        run = 0
         errors = 0
         success = 0
         failures = 0
         time = 0.0
 
     def _getModuleStats(self, test):
-        module = test.__class__.__name__
+        module = test.__class__.__module__
+        module = tuple(module.split('.'))
         try:
             return self.modulesStats[module] 
         except KeyError:
@@ -101,11 +103,13 @@ class NeoTestRunner(unittest.TestResult):
         stats.time += time.time() - self.lastStart
 
     def startTest(self, test):
+        print test.__class__.__module__, test._TestCase__testMethodName
         unittest.TestResult.startTest(self, test)
         module = test.__class__.__name__
         method = test._TestCase__testMethodName
-        print test
         logging.info(" * TEST %s" % test)
+        stats = self._getModuleStats(test)
+        stats.run += 1
         self.lastStart = time.time()
 
     def addSuccess(self, test):
@@ -145,22 +149,40 @@ class NeoTestRunner(unittest.TestResult):
         return s
 
     def _buildSummary(self):
+        # visual 
+        header       = "%25s |   run   | success |  errors |  fails  |   time   \n" % 'Test Module'
+        separator    = "%25s-+---------+---------+---------+---------+----------\n" % ('-' * 25)
+        format       = "%25s |   %3s   |   %3s   |   %3s   |   %3s   | %6.2fs   \n"
+        group_f      = "%25s |         |         |         |         |          \n" 
+        # header
         s = ' ' * 30 + ' NEO TESTS REPORT'
-        s += '\n'
+        s += '\n\n'
         s += self._buildSystemInfo()
-        s += '\n'
-        s += "                       Test Module |  run   |  error |  fail  |   time   \n"
-        s += "-----------------------------------+--------+--------+--------+----------\n"
-        format = "%34s |  %3d   |  %3s   |  %3s   | %6.2fs  \n"
-        for k, v in self.modulesStats.items():
+        s += '\n' + header + separator
+        group = None
+        t_success = 0
+        # for each test case
+        for k, v in sorted(self.modulesStats.items()):
+            # test case stats
+            t_success += v.success
+            run, success = v.run or '.', v.success or '.'
             errors, failures = v.errors or '.', v.failures or '.'
-            args = (k, v.success, errors, failures, v.time)
+            name = k[-1].lstrip('test')
+            args = (name, run, success, errors, failures, v.time)
             s += format % args
-        s += "-----------------------------------+--------+--------+--------+----------\n"
+            # display group below its content
+            _group = '.'.join(k[:-1])
+            if group is None:
+                group = _group
+            if _group != group:
+                s += separator + group_f % group + separator
+                group = _group
+        # the last group
+        s += separator  + group_f % group + separator
+        # the final summary
         errors, failures = len(self.errors) or '.', len(self.failures) or '.'
-        args = ("Summary", self.testsRun, errors, failures, self.time)
-        s += format % args
-        s += '\n'
+        args = ("Summary", self.testsRun, t_success, errors, failures, self.time)
+        s += format % args + separator + '\n'
         return s
 
     def _buildErrors(self):
