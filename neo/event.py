@@ -46,6 +46,9 @@ class IdleEvent(object):
     def __call__(self, t):
         conn = self._conn
         if t > self._critical_time:
+            # No answer after _critical_time, close connection.
+            # This means that remote peer is processing the request for too
+            # long, although being responsive at network level.
             conn.lock()
             try:
                 logging.info('timeout for %r with %s:%d', 
@@ -56,9 +59,25 @@ class IdleEvent(object):
             finally:
                 conn.unlock()
         elif t > self._time:
+            # Still no answer after _time, send a ping to see if connection is
+            # broken.
+            # Sending a ping triggers a new IdleEvent for the ping (hard timeout
+            # after 5 seconds, see part on additional_timeout above).
+            # XXX: Here, we return True, which causes the current IdleEvent
+            # instance to be discarded, and a new instance is created with
+            # reduced additional_timeout. It must be possible to avoid
+            # recreating a new instance just to keep waiting for the same
+            # response.
+            # XXX: This code has no meaning if the remote peer is single-
+            # threaded. Nevertheless, it should be kept in case it gets
+            # multithreaded, someday (master & storage are the only candidates
+            # for using this code, as other don't receive requests).
             conn.lock()
             try:
                 if self._additional_timeout > 5:
+                    # XXX this line is misleading: we modify self, but this
+                    # instance is doomed anyway: we will return True, causing
+                    # it to be discarded.
                     self._additional_timeout -= 5
                     conn.expectMessage(self._id, 5, self._additional_timeout)
                     # Start a keep-alive packet.
