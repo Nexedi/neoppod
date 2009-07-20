@@ -75,7 +75,7 @@ class PartitionTable(object):
     def clear(self):
         """Forget an existing partition table."""
         self.num_filled_rows = 0
-        self.partition_list = [[] for x in xrange(self.np)]
+        self.partition_list = [[]] * self.np
         self.count_dict.clear()
 
     def hasOffset(self, offset):
