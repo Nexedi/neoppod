@@ -423,6 +423,9 @@ class Packet(object):
     def getType(self):
         return self._type
 
+    def __str__(self):
+        return 'Packet <%s>' % self._type
+
     def __len__(self):
         try:
             return PACKET_HEADER_SIZE + len(self._body)
@@ -434,9 +437,7 @@ class Packet(object):
         if len(msg) > MAX_PACKET_SIZE:
             raise PacketMalformedError('message too big (%d)' % len(msg))
         return msg
-    __str__ = encode
 
-    # Decoders.
     def decode(self):
         try:
             method = decode_table[self._type]
@@ -446,6 +447,7 @@ class Packet(object):
 
     def isResponse(self):
         return self._type & 0x8000 == 0x8000
+
 
 # packet parser
 def parse(msg):
