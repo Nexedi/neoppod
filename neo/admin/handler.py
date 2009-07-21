@@ -153,6 +153,8 @@ class MasterEventHandler(EventHandler):
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         logging.info("handleAnswerPartitionTable")
 
+    def handleNotifyClusterInformation(self, con, packet, cluster_state):
+        logging.info("handleNotifyClusterInformation")
 
 
 class MasterBaseEventHandler(EventHandler):
