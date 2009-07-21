@@ -369,12 +369,8 @@ class Application(object):
         self.target_uuid = None
 
         # collect the last partition table available
-        start_time = time()
         while self.cluster_state == protocol.RECOVERING:
             em.poll(1)
-            # FIXME: remove this timeout to force manual startup
-            if start_time + 5 <= time():
-                self.changeClusterState(protocol.VERIFYING)
 
         logging.info('startup allowed')
         if self.pt.getID() is None:
