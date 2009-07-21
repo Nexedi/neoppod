@@ -410,8 +410,8 @@ class Connection(BaseConnection):
     def ping(self, timeout=5):
         """ Send a ping and expect to receive a pong notification """
         packet = protocol.ping()
-        packet.setId(msg_id)
         msg_id = self._getNextId()
+        packet.setId(msg_id)
         self.expectMessage(msg_id, timeout, 0)
         self._addPacket(packet)
 
