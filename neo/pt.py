@@ -127,7 +127,7 @@ class PartitionTable(object):
         row = self.partition_list[offset]
         if len(row) == 0:
             # Create a new row.
-            row = [Cell(node, state),]
+            row = [Cell(node, state), ]
             if state != FEEDING_STATE:
                 self.count_dict[node] = self.count_dict.get(node, 0) + 1
             self.partition_list[offset] = row
