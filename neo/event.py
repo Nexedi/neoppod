@@ -80,8 +80,7 @@ class IdleEvent(object):
                     # it to be discarded.
                     self._additional_timeout -= 5
                     conn.expectMessage(self._id, 5, self._additional_timeout)
-                    # Start a keep-alive packet.
-                    conn.ask(protocol.ping(), 5, 0)
+                    conn.ping()
                 else:
                     conn.expectMessage(self._id, self._additional_timeout, 0)
                 return True

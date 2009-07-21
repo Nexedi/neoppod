@@ -23,7 +23,7 @@ from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
 from neo.connection import ServerConnection
 
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
-        PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
+        ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
         REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION, START_OPERATION, \
         STOP_OPERATION, ASK_LAST_IDS, ANSWER_LAST_IDS, ASK_PARTITION_TABLE, \
         ANSWER_PARTITION_TABLE, SEND_PARTITION_TABLE, NOTIFY_PARTITION_CHANGES, \
@@ -176,13 +176,6 @@ class EventHandler(object):
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                        uuid, address, num_partitions, num_replicas, your_uuid):
         raise UnexpectedPacketError
-
-    def handlePing(self, conn, packet):
-        logging.debug('got a ping packet; am I overloaded?')
-        conn.answer(protocol.pong(), packet)
-
-    def handlePong(self, conn, packet):
-        pass
 
     def handleAskPrimaryMaster(self, conn, packet):
         raise UnexpectedPacketError
@@ -393,8 +386,6 @@ class EventHandler(object):
         d[ERROR] = self.handleError
         d[REQUEST_NODE_IDENTIFICATION] = self.handleRequestNodeIdentification
         d[ACCEPT_NODE_IDENTIFICATION] = self.handleAcceptNodeIdentification
-        d[PING] = self.handlePing
-        d[PONG] = self.handlePong
         d[ASK_PRIMARY_MASTER] = self.handleAskPrimaryMaster
         d[ANSWER_PRIMARY_MASTER] = self.handleAnswerPrimaryMaster
         d[ANNOUNCE_PRIMARY_MASTER] = self.handleAnnouncePrimaryMaster

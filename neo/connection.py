@@ -240,7 +240,14 @@ class Connection(BaseConnection):
                     pass
 
             try:
-                self._queue.append(packet)
+                packet_type = packet.getType()
+                if packet_type == protocol.PING:
+                    # Send a pong notification
+                    self.answer(protocol.pong(), packet)
+                elif packet_type != protocol.PONG:
+                    # Skip PONG packets, its only purpose is to drop IdleEvent
+                    # generated upong ping.
+                    self._queue.append(packet)
             finally:
                 self.read_buf = self.read_buf[len(packet):]
 
@@ -398,6 +405,14 @@ class Connection(BaseConnection):
         """ Answer to a packet by re-using its ID for the packet answer """
         msg_id = answered_packet.getId()
         packet.setId(msg_id)
+        self._addPacket(packet)
+
+    def ping(self, timeout=5):
+        """ Send a ping and expect to receive a pong notification """
+        packet = protocol.ping()
+        packet.setId(msg_id)
+        msg_id = self._getNextId()
+        self.expectMessage(msg_id, timeout, 0)
         self._addPacket(packet)
 
     def isServerConnection(self):

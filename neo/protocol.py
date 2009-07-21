@@ -101,9 +101,6 @@ packet_types = Enum({
     # Check if a peer is still alive. Any -> Any.
     'PING': 0x0001,
 
-    # Notify being alive. Any -> Any.
-    'PONG': 0x8001,
-
     # Request a node identification. This must be the first packet for any connection.
     # Any -> Any.
     'REQUEST_NODE_IDENTIFICATION': 0x0002,
@@ -302,6 +299,8 @@ packet_types = Enum({
     # Answer state of the cluster
     'ANSWER_CLUSTER_STATE': 0x8028,
     
+    # Notify being alive. Any -> Any.
+    'PONG': 0x0029,
 })
 
 # Error codes.
