@@ -60,7 +60,10 @@ class PartitionTable(object):
         self.np = num_partitions
         self.nr = num_replicas
         self.num_filled_rows = 0
-        self.partition_list = [[]] * num_partitions
+        # Note: don't use [[]] * num_partition construct, as it duplicates
+        # instance *references*, so the outer list contains really just one
+        # inner list instance.
+        self.partition_list = [[] for x in xrange(num_partitions)]
         self.count_dict = {}
 
     def getID(self):
@@ -75,7 +78,10 @@ class PartitionTable(object):
     def clear(self):
         """Forget an existing partition table."""
         self.num_filled_rows = 0
-        self.partition_list = [[]] * self.np
+        # Note: don't use [[]] * self.np construct, as it duplicates
+        # instance *references*, so the outer list contains really just one
+        # inner list instance.
+        self.partition_list = [[] for x in xrange(self.np)]
         self.count_dict.clear()
 
     def hasOffset(self, offset):
