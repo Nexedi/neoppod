@@ -65,7 +65,10 @@ class CommandEventHandler(EventHandler):
         if len(node_list) == 0:
             data = "No Node"
         else:
-            for node_type, (ip, port), uuid, state in node_list:
+            for node_type, address, uuid, state in node_list:
+                if address is None:
+                    address = (None, None)
+                ip, port = address
                 data += "\n%s - %s - %s:%s - %s" % (node_type, dump(uuid), ip, port, state)
         self.app.result = data
 
