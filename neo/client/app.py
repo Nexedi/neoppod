@@ -26,7 +26,6 @@ from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connection import MTClientConnection
 from neo import protocol
-from neo.protocol import DOWN_STATE, HIDDEN_STATE
 from neo.client.handlers.master import PrimaryBootstrapHandler, \
         PrimaryNotificationsHandler, PrimaryAnswersHandler
 from neo.client.handlers.storage import StorageBootstrapHandler, \
@@ -146,7 +145,7 @@ class ConnectionPool(object):
     def getConnForNode(self, node):
         """Return a locked connection object to a given node
         If no connection exists, create a new one"""
-        if node.getState() in (DOWN_STATE, HIDDEN_STATE):
+        if node.getState() != protocol.RUNNING_STATE:
             return None
         uuid = node.getUUID()
         self.connection_lock_acquire()
