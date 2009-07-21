@@ -82,13 +82,14 @@ class RecoveryHandler(MasterHandler):
 
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         app = self.app
+        pt = app.pt
 
         # Get max values.
         if app.loid < loid:
             app.loid = loid
         if app.ltid < ltid:
             app.ltid = ltid
-        if app.pt.getID() is None or app.pt.getID() < lptid:
+        if lptid is not None and pt.getID() is None or pt.getID() < lptid:
             # something newer
             app.pt.setID(lptid)
             app.target_uuid = conn.getUUID()
