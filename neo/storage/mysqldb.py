@@ -388,7 +388,6 @@ class MySQLDatabaseManager(DatabaseManager):
                     q("""INSERT INTO pt VALUES (%d, '%s', %d)
                             ON DUPLICATE KEY UPDATE state = %d""" \
                                     % (offset, uuid, state, state))
-            ptid = e(ptid)
             self.setPTID(ptid)
         except:
             self.rollback()
