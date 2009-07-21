@@ -37,10 +37,13 @@ class StorageServiceHandler(BaseServiceHandler):
             conn.notify(protocol.startOperation())
 
     def _nodeLost(self, conn, node):
-        pt = self.app.pt
-        # TODO: check this, is it need ? do we have to broadcast changes ?
-        pt.outdate()
-        if not pt.operational():
+        # XXX: here the cells are outdated to trigger the replication process
+        # when the node will come back. It might be better to reduce network
+        # overload since others nodes known that it's temporarily down and thus,
+        # outdate by themselves its cells.
+        logging.info('storage node lost')
+        self.app.outdateAndBroadcastPartition()
+        if not self.app.pt.operational():
             raise OperationFailure, 'cannot continue operation'
 
     def handleNotifyInformationLocked(self, conn, packet, tid):

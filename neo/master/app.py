@@ -308,6 +308,12 @@ class Application(object):
                         size -= amt
                         start += amt
 
+    def outdateAndBroadcastPartition(self):
+        " Outdate cell of non-working nodes and broadcast changes """
+        cell_list = self.pt.outdate()
+        if cell_list:
+            self.broadcastPartitionChanges(self.pt.setNextID(), cell_list)
+
     def sendPartitionTable(self, conn):
         """ Send the partition table through the given connection """
         row_list = []
