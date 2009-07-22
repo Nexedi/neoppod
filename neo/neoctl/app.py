@@ -123,12 +123,24 @@ def printPTAction(options):
 
 def startCluster(options):
     """ 
-    Allow it to leave the recovery stage and accept the current partition table,
-    or make an empty if nothing was found.
+    Allow it to leave the recovery stage and accept the current partition 
+    table, or make an empty if nothing was found.
     Parameter: Cluster name
     """
     name = options.pop(0)
     return protocol.setClusterState(name, protocol.VERIFYING)
+
+def dropNode(options):
+    """
+    Drop one or more storage node from the partition table. Its content 
+    is definitely lost. Be carefull because currently there is no check 
+    about the cluster operational status, so you can drop a node with 
+    non-replicated data.
+    Parameter: UUID
+    """
+    uuid_list = [bin(opt) for opt in options]
+    return protocol.setNodeState(uuid_list, protocol.DOWN_STATE, 1)
+
 
 action_dict = {
     'print': {
@@ -140,10 +152,11 @@ action_dict = {
         'node': setNodeAction,
         'cluster': setClusterAction,
     },
-    'add': addAction,
     'start': {
         'cluster': startCluster,
-    }
+    },
+    'add': addAction,
+    'drop': dropNode,
 }
 
 class Application(object):
