@@ -101,8 +101,6 @@ class VerificationHandler(MasterHandler):
     def handleAnswerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):
         uuid = conn.getUUID()
-        logging.info('got OIDs %s for %s from %s:%d', 
-                oid_list, tid, *(conn.getAddress()))
         app = self.app
         if app.asking_uuid_dict.get(uuid, True):
             # No interest.
