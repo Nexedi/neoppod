@@ -42,9 +42,11 @@ class StorageServiceHandler(BaseServiceHandler):
         # overload since others nodes known that it's temporarily down and thus,
         # outdate by themselves its cells.
         logging.info('storage node lost')
-        self.app.outdateAndBroadcastPartition()
         if not self.app.pt.operational():
             raise OperationFailure, 'cannot continue operation'
+        # this is intentionaly placed after the raise because the last cell in a
+        # partition must not oudated to allows a cluster restart.
+        self.app.outdateAndBroadcastPartition()
 
     def handleNotifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()
