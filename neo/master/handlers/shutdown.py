@@ -26,7 +26,6 @@ from neo.util import dump
 class ShutdownHandler(BaseServiceHandler):
     """This class deals with events for a shutting down phase."""
 
-
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
         logging.error('reject any new connection')
@@ -45,68 +44,5 @@ class ShutdownHandler(BaseServiceHandler):
 
     @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        app = self.app
-        uuid = conn.getUUID()
-        conn_node = app.nm.getNodeByUUID(uuid)
-        if conn_node is None:
-            raise RuntimeError('I do not know the uuid %r' % dump(uuid))
-
-        if app.cluster_state == STOPPING and len(app.finishing_transaction_dict) == 0:
-            # do not care about these messages as we are shutting down all nodes
-            return
-
-        for node_type, addr, uuid, state in node_list:
-            if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
-                # No interest.
-                continue
-
-            if uuid is None:
-                # No interest.
-                continue
-
-            if app.uuid == uuid:
-                # This looks like me...
-                if state == RUNNING_STATE:
-                    # Yes, I know it.
-                    continue
-                else:
-                    # What?! What happened to me?
-                    raise RuntimeError, 'I was told that I am bad'
-
-            node = app.nm.getNodeByUUID(uuid)
-            if node is None:
-                node = app.nm.getNodeByServer(addr)
-                if node is None:
-                    # I really don't know such a node. What is this?
-                    continue
-            else:
-                if node.getServer() != addr:
-                    # This is different from what I know.
-                    continue
-
-            if node.getState() == state:
-                # No change. Don't care.
-                continue
-
-            if state == node.getState():
-                # No problem.
-                continue
-
-
-            node.setState(state)
-            # Something wrong happened possibly. Cut the connection to
-            # this node, if any, and notify the information to others.
-            # XXX this can be very slow.
-            # XXX does this need to be closed in all cases ?
-            for c in app.em.getConnectionList():
-                if c.getUUID() == uuid:
-                    c.close()
-
-            logging.debug('broadcasting node information')
-            app.broadcastNodeInformation(node)
-            if node.getNodeType() == STORAGE_NODE_TYPE:
-                if state == TEMPORARILY_DOWN_STATE:
-                    cell_list = app.pt.outdate()
-                    if len(cell_list) != 0:
-                        ptid = app.pt.setNextID()
-                        app.broadcastPartitionChanges(ptid, cell_list)
+        # don't care about notifications since we are shutdowning
+        pass
