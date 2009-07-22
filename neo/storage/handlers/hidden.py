@@ -23,11 +23,7 @@ from neo.protocol import BROKEN_STATE, \
         DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE, \
         DISCARDED_STATE, OUT_OF_DATE_STATE, UnexpectedPacketError
 from neo.node import StorageNode
-from neo import decorators
 
-
-# FIXME: before move handlers, this one was inheriting from EventHandler
-# instead of BaseStorageHandler
 class HiddenHandler(BaseMasterHandler):
     """This class implements a generic part of the event handlers."""
 
@@ -93,7 +89,6 @@ class HiddenHandler(BaseMasterHandler):
         app.pt.update(cell_list, app.nm)
         app.dm.changePartitionTable(ptid, cell_list)
 
-    @decorators.client_connection_required
     def handleStartOperation(self, conn, packet):
         self.app.operational = True
 
