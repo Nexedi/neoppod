@@ -38,15 +38,7 @@ class HiddenHandler(BaseMasterHandler):
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
-        uuid = conn.getUUID()
-        if uuid is None:
-            raise UnexpectedPacketError
-
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
-        if node.getNodeType() != MASTER_NODE_TYPE:
-            return
-
         for node_type, addr, uuid, state in node_list:
             if node_type == STORAGE_NODE_TYPE:
                 if uuid == None:
@@ -65,10 +57,6 @@ class HiddenHandler(BaseMasterHandler):
                         # I must be working again
                         n = app.nm.getNodeByUUID(uuid)
                         n.setState(state)
-
-            else:
-                # Do not care of other node
-                pass
 
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
