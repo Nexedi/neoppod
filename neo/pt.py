@@ -164,6 +164,16 @@ class PartitionTable(object):
                         self.count_dict[node] = self.count_dict.get(node, 0) - 1
                     break
 
+    # XXX: node manager is given here just to verify that any node in the
+    # partition table is known, this will be removed when checked.
+    def update(self, cell_list, nm):
+        for offset, uuid, state in cell_list:
+            node = nm.getNodeByUUID(uuid) 
+            assert node is not None
+            self.setCell(offset, node, state)
+        logging.debug('partition table updated')
+        self.log()
+
     def filled(self):
         return self.num_filled_rows == self.np
 
