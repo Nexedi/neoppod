@@ -333,8 +333,7 @@ class Application(object):
                         raise ValueError, 'Unknown node type: %r' % (
                             node_type, )
             handler.dispatch(conn, packet)
-            if target_conn is conn and msg_id == packet.getId() \
-                    and packet.getType() & 0x8000:
+            if target_conn is conn and msg_id == packet.getId():
                 break
 
     def _askStorage(self, conn, packet, timeout=5, additional_timeout=30):
