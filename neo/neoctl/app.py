@@ -119,6 +119,15 @@ def printPTAction(options):
         uuid = None
     return protocol.askPartitionList(min_offset, max_offset, uuid)
 
+def startCluster(options):
+    """ 
+    Allow it to leave the recovery stage and accept the current partition table,
+    or make an empty if nothing was found.
+    Parameter: Cluster name
+    """
+    name = options.pop(0)
+    return protocol.setClusterState(name, protocol.VERIFYING)
+
 action_dict = {
     'print': {
         'pt': printPTAction,
@@ -130,6 +139,9 @@ action_dict = {
         'cluster': setClusterAction,
     },
     'add': addAction,
+    'start': {
+        'cluster': startCluster,
+    }
 }
 
 class Application(object):
