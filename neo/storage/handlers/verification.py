@@ -18,10 +18,8 @@
 import logging
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.protocol import TEMPORARILY_DOWN_STATE
 from neo import protocol
 from neo.util import dump
-from neo.node import StorageNode
 from neo.exception import OperationFailure
 
 class VerificationHandler(BaseMasterHandler):

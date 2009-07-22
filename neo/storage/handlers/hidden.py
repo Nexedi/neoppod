@@ -18,11 +18,8 @@
 import logging
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.protocol import BROKEN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
-        DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE, \
-        DISCARDED_STATE, OUT_OF_DATE_STATE, UnexpectedPacketError
-from neo.node import StorageNode
+from neo.protocol import BROKEN_STATE, STORAGE_NODE_TYPE, DOWN_STATE, \
+        TEMPORARILY_DOWN_STATE, DISCARDED_STATE, OUT_OF_DATE_STATE
 
 class HiddenHandler(BaseMasterHandler):
     """This class implements a generic part of the event handlers."""

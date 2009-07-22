@@ -18,13 +18,11 @@
 import logging
 
 from neo.handler import EventHandler
-from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
-        ADMIN_NODE_TYPE, TEMPORARILY_DOWN_STATE
-from neo.node import MasterNode, StorageNode, ClientNode, AdminNode
+from neo.protocol import STORAGE_NODE_TYPE, TEMPORARILY_DOWN_STATE
+from neo.node import StorageNode
 from neo import protocol
 from neo.exception import PrimaryFailure
 from neo.util import dump
-
 
 class AdminEventHandler(EventHandler):
     """This class deals with events for administrating cluster."""

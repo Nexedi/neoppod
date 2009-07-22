@@ -26,7 +26,6 @@ from struct import pack, unpack
 from neo.storage.database import DatabaseManager
 from neo.exception import DatabaseFailure
 from neo.protocol import DISCARDED_STATE
-from neo.util import dump
 
 LOG_QUERIES = False
 

@@ -19,7 +19,6 @@ import logging
 from select import select
 from time import time
 
-from neo import protocol
 from neo.epoll import Epoll
 
 class IdleEvent(object):

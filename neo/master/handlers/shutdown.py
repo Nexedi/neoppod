@@ -17,11 +17,9 @@
 
 import logging
 from neo import protocol
-from neo.protocol import CLIENT_NODE_TYPE, ADMIN_NODE_TYPE, \
-        RUNNING_STATE, STORAGE_NODE_TYPE, TEMPORARILY_DOWN_STATE, STOPPING
+from neo.protocol import CLIENT_NODE_TYPE
 from neo.master.handlers import BaseServiceHandler
 from neo import decorators
-from neo.util import dump
 
 class ShutdownHandler(BaseServiceHandler):
     """This class deals with events for a shutting down phase."""
