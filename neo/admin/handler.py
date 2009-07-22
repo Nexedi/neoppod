@@ -164,63 +164,7 @@ class MasterBaseEventHandler(EventHandler):
         self.app.cluster_state = cluster_state
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        uuid = conn.getUUID()
-        app = self.app
-        nm = app.nm
-        node = nm.getNodeByUUID(uuid)
-        # This must be sent only by a primary master node.
-        # Note that this may be sent before I know that it is
-        # a primary master node.
-        if node.getNodeType() != MASTER_NODE_TYPE:
-            logging.warn('ignoring notify node information from %s',
-                         dump(uuid))
-            return
-        for node_type, addr, uuid, state in node_list:
-            # Register/update  nodes.
-            # Try to retrieve it from nm
-            n = None
-            if uuid is not None:
-                n = nm.getNodeByUUID(uuid)
-            if n is None:
-                n = nm.getNodeByServer(addr)
-                if n is not None and uuid is not None:
-                    # node only exists by address, remove it
-                    nm.remove(n)
-                    n = None
-            elif n.getServer() != addr:
-                # same uuid but different address, remove it
-                nm.remove(n)
-                n = None
-
-            if node_type == MASTER_NODE_TYPE:
-                if n is None:
-                    n = MasterNode(server = addr)
-                    nm.add(n)
-                if uuid is not None:
-                    # If I don't know the UUID yet, believe what the peer
-                    # told me at the moment.
-                    if n.getUUID() is None:
-                        n.setUUID(uuid)
-                else:
-                    n.setUUID(None)
-            elif node_type in (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
-                if uuid is None:
-                    # No interest.
-                    continue
-                if n is None:
-                    if node_type == STORAGE_NODE_TYPE:
-                        n = StorageNode(server = addr, uuid = uuid)
-                    elif node_type == CLIENT_NODE_TYPE:
-                        n = ClientNode(server = addr, uuid = uuid)
-                    elif node_type == ADMIN_NODE_TYPE:
-                        n = AdminNode(server = addr, uuid = uuid)
-                    nm.add(n)
-            else:
-                logging.warning("unknown node type %s" %(node_type))
-                continue
-
-            n.setState(state)
-
+        self.app.nm.update(node_list)
         self.app.notified = True
 
 
