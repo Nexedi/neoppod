@@ -18,6 +18,7 @@
 from time import time
 import logging
 
+from neo import protocol
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         BROKEN_STATE, PENDING_STATE, HIDDEN_STATE, MASTER_NODE_TYPE, \
         STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE, \
@@ -105,6 +106,13 @@ class AdminNode(Node):
     def getNodeType(self):
         return ADMIN_NODE_TYPE
 
+NODE_TYPE_MAPPING = {
+    protocol.MASTER_NODE_TYPE: MasterNode,
+    protocol.STORAGE_NODE_TYPE: StorageNode,
+    protocol.CLIENT_NODE_TYPE: ClientNode,
+    protocol.ADMIN_NODE_TYPE: AdminNode,
+}
+
 class NodeManager(object):
     """This class manages node status."""
 
@@ -172,6 +180,40 @@ class NodeManager(object):
         for node in self.getNodeList():
             if filter is not None and filter(node):
                 self.remove(node)
+
+    def update(self, node_list):
+        for node_type, addr, uuid, state in node_list:
+            # lookup in current table
+            node_by_uuid = self.getNodeByUUID(uuid)
+            node_by_addr = self.getNodeByServer(addr)
+            node = node_by_uuid or node_by_addr
+
+            log_args = (node_type, dump(uuid), addr, state)
+            if state == protocol.DOWN_STATE:
+                # drop down nodes
+                logging.debug('drop node %s %s %s %s' % log_args)
+                self.remove(node)
+            elif node_by_uuid is not None:
+                if node.getServer() != addr:
+                    # address changed, update it
+                    node.setServer(addr)
+                # XXX: detect conflicts, but this should not happened
+                assert node_by_addr is None or node_by_addr is node
+                logging.debug('update node %s %s %s %s' % log_args)
+                node.setState(state)
+            else:
+                if node_by_addr is not None:
+                    # exists only by address,
+                    self.remove(node)
+                # don't exists, add it
+                klass = NODE_TYPE_MAPPING.get(node_type, None)
+                if klass is None:
+                    raise RuntimeError('Unknown node type')
+                node = klass(server=addr, uuid=uuid)
+                node.setState(state)
+                self.add(node)
+                args = (node_type, dump(uuid), addr)
+                logging.info('create node %s %s %s %s' % log_args)
 
     def log(self):
         node_state_dict = { RUNNING_STATE: 'R',
