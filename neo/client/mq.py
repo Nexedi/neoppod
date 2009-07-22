@@ -135,40 +135,40 @@ class MQ(object):
         self._max_size = max_size
         self._size = 0
       
-    def has_key(self, id):
-        if id in self._data:
-            data = self._data[id]
+    def has_key(self, key):
+        if key in self._data:
+            data = self._data[key]
             if data.level >= 0:
                 return 1
         return 0
       
     __contains__ = has_key
     
-    def fetch(self, id):
+    def fetch(self, key):
         """
-          Fetch a value associated with the id.
+          Fetch a value associated with the key.
         """
-        data = self._data[id]
+        data = self._data[key]
         if data.level >= 0:
             value = data.value
             self._size -= sizeof(value) # XXX inaccurate
-            self.store(id, value)
+            self.store(key, value)
             return value
-        raise KeyError(id)
+        raise KeyError(key)
     
     __getitem__ = fetch
     
-    def get(self, id, d=None):
+    def get(self, key, d=None):
         try:
-            return self.fetch(id)
+            return self.fetch(key)
         except KeyError:
             return d
     
-    def _evict(self, id):
+    def _evict(self, key):
         """
           Evict an element to the history buffer.
         """
-        data = self._data[id]
+        data = self._data[key]
         self._size -= sizeof(data.value) # XXX inaccurate
         del self._cache_buffers[data.level][data.element]
         element = self._history_buffer.append()
@@ -179,13 +179,13 @@ class MQ(object):
         element.data = data
         if len(self._history_buffer) > self._max_history_size:
             element = self._history_buffer.shift()
-            del self._data[element.data.id]
+            del self._data[element.data.key]
         
-    def store(self, id, value):
+    def store(self, key, value):
         cache_buffers = self._cache_buffers
 
         try:
-            data = self._data[id]
+            data = self._data[key]
             level, element, counter = data.level, data.element, data.counter + 1
             if level >= 0:
                 del cache_buffers[level][element]
@@ -198,14 +198,14 @@ class MQ(object):
         level = min(int(log(counter, 2)), self._buffer_levels - 1)
         element = cache_buffers[level].append()
         data = Data()
-        data.id = id
+        data.key = key
         data.expire_time = self._time + self._life_time
         data.level = level
         data.element = element
         data.value = value
         data.counter = counter
         element.data = data
-        self._data[id] = data
+        self._data[key] = data
         self._size += sizeof(value) # XXX inaccurate
         del value
         
@@ -227,7 +227,7 @@ class MQ(object):
                     data.level = new_level
                     data.element = element
                 else:
-                    self._evict(data.id)
+                    self._evict(data.key)
             
         # Limit the size.
         size = self._size
@@ -239,7 +239,7 @@ class MQ(object):
                     if element is None:
                         break
                     data = element.data
-                    del self._data[data.id]
+                    del self._data[data.key]
                     size -= sizeof(data.value) # XXX inaccurate
                     del data.value
                 if size <= max_size:
@@ -248,14 +248,14 @@ class MQ(object):
       
     __setitem__ = store
     
-    def invalidate(self, id):
+    def invalidate(self, key):
         if id in self._data:
-            data = self._data[id]
+            data = self._data[key]
             if data.level >= 0:
                 del self._cache_buffers[data.level][data.element]
-                self._evict(id)
+                self._evict(key)
                 return
-        raise KeyError, "%s was not found in the cache" % id
+        raise KeyError, "%s was not found in the cache" % key
 
     __delitem__ = invalidate
   
