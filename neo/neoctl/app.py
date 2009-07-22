@@ -68,7 +68,8 @@ def setNodeAction(options):
         If given with a 1 value, allow partition table to be changed.
     """
     uuid = bin(options.pop(0))
-    state = node_states.getFromStr(options.pop(0))
+    state = options.pop(0) + '_STATE'
+    state = node_states.getFromStr(state)
     if state is None:
         raise ActionError('unknown state type')
     if len(options):
@@ -90,7 +91,8 @@ def printNodeAction(options):
       node type
         Print known nodes of given type.
     """
-    node_type = node_types.getFromStr(options.pop(0))
+    node_type = options.pop(0) + '_NODE_TYPE'
+    node_type = node_types.getFromStr(node_type)
     if node_type is None:
         raise ActionError('unknown node type')
     return protocol.askNodeList(node_type)
