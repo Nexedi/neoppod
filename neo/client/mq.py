@@ -72,7 +72,7 @@ class FIFO(object):
     def shift(self):
         element = self._head
         if element is None:
-          return None
+            return None
         del self[element]
         del element.next
         del element.prev
