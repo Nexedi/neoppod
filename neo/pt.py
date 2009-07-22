@@ -123,7 +123,7 @@ class PartitionTable(object):
                                 readable, writable)
 
     def _getPartitionFromIndex(self, index):
-        return u64(index) % self.np
+        return index % self.np
 
     def setCell(self, offset, node, state):
         assert state in VALID_CELL_STATE_LIST
@@ -276,8 +276,12 @@ class MTPartitionTable(PartitionTable):
         self._lock.release()
 
     @thread_safe
-    def getCellListForID(self, *args, **kwargs):
-        return PartitionTable.getCellListForID(self, *args, **kwargs)
+    def getCellListForTID(self, *args, **kwargs):
+        return PartitionTable.getCellListForTID(self, *args, **kwargs)
+
+    @thread_safe
+    def getCellListForOID(self, *args, **kwargs):
+        return PartitionTable.getCellListForOID(self, *args, **kwargs)
 
     @thread_safe
     def setCell(self, *args, **kwargs):
