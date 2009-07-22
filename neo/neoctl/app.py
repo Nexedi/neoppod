@@ -138,8 +138,8 @@ def dropNode(options):
     non-replicated data.
     Parameter: UUID
     """
-    uuid_list = [bin(opt) for opt in options]
-    return protocol.setNodeState(uuid_list, protocol.DOWN_STATE, 1)
+    uuid = bin(options.pop(0))
+    return protocol.setNodeState(uuid, protocol.DOWN_STATE, 1)
 
 
 action_dict = {
