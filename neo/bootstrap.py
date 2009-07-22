@@ -68,7 +68,6 @@ class BootstrapManager(EventHandler):
         nm  = self.app.nm
 
         # Register new master nodes.
-        # TODO: this job should be done by the node manager
         for address, uuid in known_master_list:
             node = nm.getNodeByServer(address)
             if node is None:
