@@ -505,10 +505,9 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def getOIDList(self, offset, length, num_partitions, partition_list):
         q = self.query
-        r = q("""SELECT DISTINCT oid FROM obj WHERE MOD(oid,%d) in (%s)
+        r = q("""SELECT DISTINCT oid FROM obj WHERE MOD(oid, %d) in (%s)
                     ORDER BY oid DESC LIMIT %d,%d""" \
-                % (num_partitions, 
-                   ','.join([str(p) for p in partition_list]), 
+                % (num_partitions, ','.join([str(p) for p in partition_list]), 
                    offset, length))
         return [p64(t[0]) for t in r]
 
@@ -516,7 +515,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         oid = u64(oid)
         r = q("""SELECT serial, LENGTH(value) FROM obj WHERE oid = %d
-                    ORDER BY serial DESC LIMIT %d,%d""" \
+                    ORDER BY serial DESC LIMIT %d, %d""" \
                 % (oid, offset, length))
         if r:
             return [(p64(serial), length) for serial, length in r]
@@ -524,7 +523,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def getTIDList(self, offset, length, num_partitions, partition_list):
         q = self.query
-        r = q("""SELECT tid FROM trans WHERE MOD(tid,%d) in (%s)
+        r = q("""SELECT tid FROM trans WHERE MOD(tid, %d) in (%s)
                     ORDER BY tid DESC LIMIT %d,%d""" \
                 % (num_partitions, 
                    ','.join([str(p) for p in partition_list]), 

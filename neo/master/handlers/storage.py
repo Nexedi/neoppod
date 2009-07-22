@@ -118,7 +118,8 @@ class StorageServiceHandler(BaseServiceHandler):
                 if xcell.getNode().getUUID() == node.getUUID() and \
                        xcell.getState() not in (OUT_OF_DATE_STATE, UP_TO_DATE_STATE):
                     msg = "node %s telling that it is UP TO DATE for offset \
-                    %s but where %s for that offset" %(dump(node.getUUID()), offset, xcell.getState())
+                    %s but where %s for that offset" % (dump(node.getUUID()), offset, 
+                            xcell.getState())
                     logging.warning(msg)
                     self.handleError(conn, packet, INTERNAL_ERROR_CODE, msg)
                     return

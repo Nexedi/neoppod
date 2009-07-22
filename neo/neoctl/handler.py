@@ -55,9 +55,9 @@ class CommandEventHandler(EventHandler):
             data = "No partition"
         else:
             for offset, cell_list in row_list:
-                data += "\n%s | " %offset
+                data += "\n%s | " % offset
                 for uuid, state in cell_list:
-                    data += "%s - %s |" %(dump(uuid), state)
+                    data += "%s - %s |" % (dump(uuid), state)
         self.app.result = data
 
     def handleAnswerNodeList(self, conn, packet, node_list):
@@ -73,7 +73,7 @@ class CommandEventHandler(EventHandler):
         self.app.result = data
 
     def handleAnswerNodeState(self, conn, packet, uuid, state):
-        self.app.result = "Node %s set to state %s" %(dump(uuid), state)
+        self.app.result = "Node %s set to state %s" % (dump(uuid), state)
 
     def handleAnswerClusterState(self, conn, packet, state):
         self.app.result = "Cluster state : %s" % state
