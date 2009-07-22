@@ -241,7 +241,7 @@ class MQ(object):
           data = element.data
           del self._data[data.id]
           size -= sizeof(data.value) # XXX inaccurate
-	  del data.value
+          del data.value
         if size <= max_size:
           break
       self._size = size
