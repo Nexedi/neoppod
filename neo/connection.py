@@ -274,7 +274,7 @@ class Connection(BaseConnection):
           Process a pending packet.
         """
         packet = self._dequeue()
-        logging.debug('#0x%04x %-30s from %s (%s:%d)', packet.getId(), 
+        logging.debug('#0x%08x %-30s from %s (%s:%d)', packet.getId(), 
                 packet.getType(), dump(self.uuid), *self.getAddress())
         self.handler.packetReceived(self, packet)
 
@@ -341,7 +341,7 @@ class Connection(BaseConnection):
         if self.connector is None:
             return
 
-        logging.debug('#0x%04x %-30s  to  %s (%s:%d)', packet.getId(),
+        logging.debug('#0x%08x %-30s  to  %s (%s:%d)', packet.getId(),
                 packet.getType(), dump(self.uuid), *self.getAddress())
         try:
             self.write_buf += packet.encode()
