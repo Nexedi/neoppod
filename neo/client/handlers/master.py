@@ -23,7 +23,6 @@ from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, 
 from neo.node import MasterNode, StorageNode
 from neo.pt import MTPartitionTable as PartitionTable
 from neo.util import dump
-from neo import decorators
 
 class PrimaryBootstrapHandler(AnswerBaseHandler):
     """ Bootstrap handler used when looking for the primary master """
@@ -180,7 +179,6 @@ class PrimaryNotificationsHandler(BaseHandler):
         app.ptid = ptid
         app.pt.update(cell_list, app.nm)
 
-    @decorators.identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         # This handler is in PrimaryBootstrapHandler, since this
         # basicaly is an answer to askPrimaryMaster.
