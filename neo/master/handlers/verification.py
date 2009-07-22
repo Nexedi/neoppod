@@ -32,54 +32,6 @@ class VerificationHandler(MasterHandler):
         if not self.app.pt.operational():
             raise VerificationFailure, 'cannot continue verification'
 
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
-        app = self.app
-        for node_type, addr, uuid, state in node_list:
-            if node_type in (CLIENT_NODE_TYPE, ADMIN_NODE_TYPE):
-                # No interest.
-                continue
-            
-            if uuid is None:
-                # No interest.
-                continue
-
-            if app.uuid == uuid:
-                # This looks like me...
-                if state == RUNNING_STATE:
-                    # Yes, I know it.
-                    continue
-                else:
-                    # What?! What happened to me?
-                    raise RuntimeError, 'I was told that I am bad'
-
-            node = app.nm.getNodeByUUID(uuid)
-            if node is None:
-                node = app.nm.getNodeByServer(addr)
-                if node is None:
-                    # I really don't know such a node. What is this?
-                    continue
-            else:
-                if node.getServer() != addr:
-                    # This is different from what I know.
-                    continue
-
-            if node.getState() == state:
-                # No change. Don't care.
-                continue
-
-            if state == RUNNING_STATE:
-                # No problem.
-                continue
-
-            # Something wrong happened possibly. Cut the connection to this node,
-            # if any, and notify the information to others.
-            # XXX this can be very slow.
-            c = app.em.getConnectionByUUID(uuid)
-            if c is not None:
-                c.close()
-            node.setState(state)
-            app.broadcastNodeInformation(node)
-
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         app = self.app
         # If I get a bigger value here, it is dangerous.

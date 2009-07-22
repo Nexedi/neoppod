@@ -74,6 +74,58 @@ class ClientServiceHandler(BaseServiceHandler):
             if t.getConnection() is conn:
                 del app.finishing_transaction_dict[tid]
 
+    def handleNotifyNodeInformation(self, conn, packet, node_list):
+        app = self.app
+        for node_type, addr, uuid, state in node_list:
+            if node_type in (protocol.CLIENT_NODE_TYPE, protocol.ADMIN_NODE_TYPE):
+                # No interest.
+                continue
+
+            if uuid is None:
+                # No interest.
+                continue
+
+            if app.uuid == uuid:
+                # This looks like me...
+                if state == protocol.RUNNING_STATE:
+                    # Yes, I know it.
+                    continue
+                else:
+                    # What?! What happened to me?
+                    raise RuntimeError, 'I was told that I am bad'
+
+            node = app.nm.getNodeByUUID(uuid)
+            if node is None:
+                node = app.nm.getNodeByServer(addr)
+                if node is None:
+                    # I really don't know such a node. What is this?
+                    continue
+            else:
+                if node.getServer() != addr:
+                    # This is different from what I know.
+                    continue
+
+            if node.getState() == state:
+                # No change. Don't care.
+                continue
+
+            node.setState(state)
+            # Something wrong happened possibly. Cut the connection to
+            # this node, if any, and notify the information to others.
+            # XXX this can be very slow.
+            # XXX does this need to be closed in all cases ?
+            c = app.em.getConnectionByUUID(uuid)
+            if c is not None:
+                c.close()
+
+            app.broadcastNodeInformation(node)
+            if node.getNodeType() == protocol.STORAGE_NODE_TYPE:
+                if state == protocol.TEMPORARILY_DOWN_STATE:
+                    cell_list = app.pt.outdate()
+                    if len(cell_list) != 0:
+                        ptid = app.pt.setNextID()
+                        app.broadcastPartitionChanges(ptid, cell_list)
+
     def handleAbortTransaction(self, conn, packet, tid):
         try:
             del self.app.finishing_transaction_dict[tid]
