@@ -267,16 +267,11 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
         app = self.app
         nm = app.nm
         pt = app.pt
-        uuid = conn.getUUID()
-        node = app.nm.getNodeByUUID(uuid)
-        # This must be sent only by primary master node
-        if node.getNodeType() != MASTER_NODE_TYPE \
-               or app.primary_master_node is None \
-               or app.primary_master_node.getUUID() != uuid:
-            return
+        node = nm.getNodeByUUID(conn.getUUID())
 
-        if app.ptid >= ptid:
+        if ptid < app.ptid:
             # Ignore this packet.
+            # XXX: is it safe ?
             return
 
         app.ptid = ptid
