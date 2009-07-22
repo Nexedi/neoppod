@@ -1,9 +1,5 @@
 RC = Release Critical (for next release)
 
-  General
-RC  - Don't provide a default cluster name in configuration
-      To avoid lazy admin naming 2 clusters on the same net with the same name
-
   Documentation
     - Clarify node state signification, and consider renaming them in the code.
       Ideas:
