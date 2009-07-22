@@ -29,7 +29,7 @@ class InitializationHandler(BaseMasterHandler):
         self.app.has_node_information = True
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        # FIXME: This message could be replaced by a SendNodeInformation to be
+        # XXX: This message should be replaced by a SendNodeInformation to be
         # consistent with SendPartitionTable.
         BaseMasterHandler.handleNotifyNodeInformation(self, conn, packet, node_list)
 

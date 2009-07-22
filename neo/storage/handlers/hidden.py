@@ -39,25 +39,15 @@ class HiddenHandler(BaseMasterHandler):
         """Store information on nodes, only if this is sent by a primary
         master node."""
         app = self.app
+        self.app.nm.update(node_list)
+        # XXX: notification must not be used to change a node state
         for node_type, addr, uuid, state in node_list:
             if node_type == STORAGE_NODE_TYPE:
-                if uuid == None:
-                    # No interest.
-                    continue
-
                 if uuid == self.app.uuid:
                     # This is me, do what the master tell me
                     if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE):
                         conn.close()
                         self.app.shutdown()
-                    elif state == HIDDEN_STATE:
-                        # I know I'm hidden
-                        continue
-                    else:
-                        # I must be working again
-                        n = app.nm.getNodeByUUID(uuid)
-                        n.setState(state)
-
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, address, name):

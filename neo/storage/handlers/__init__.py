@@ -94,79 +94,22 @@ class BaseMasterHandler(BaseStorageHandler):
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
-        # XXX it might be better to implement this callback in each handler.
-        uuid = conn.getUUID()
-        app = self.app
-
+        self.app.nm.update(node_list)
+        # XXX: iterate over the list to keep previous logic for now, but
+        # notification must not be used to change a node state
         for node_type, addr, uuid, state in node_list:
-            # Try to retrieve it from nm
-            n = None
-            if uuid is not None:
-                n = app.nm.getNodeByUUID(uuid)
-            if n is None:
-                n = app.nm.getNodeByServer(addr)
-                if n is not None and uuid is not None:
-                    # node only exists by address, remove it
-                    app.nm.remove(n)
-                    n = None
-            elif n.getServer() != addr:
-                # same uuid but different address, update it
-                n.setServer(addr)
-
-            if state == protocol.DOWN_STATE and n is not None:
-                # this node is consider as down, remove it
-                self.app.nm.remove(n)
-                continue
-
-            if node_type == MASTER_NODE_TYPE:
-                if n is None:
-                    n = MasterNode(server = addr)
-                    app.nm.add(n)
-
-                n.setState(state)
-                if uuid is not None:
-                    if n.getUUID() is None:
-                        n.setUUID(uuid)
-
-            elif node_type == STORAGE_NODE_TYPE:
-                if uuid is None:
-                    # No interest.
-                    continue
-
-                if uuid == self.app.uuid:
-                    # This is me, do what the master tell me
-                    logging.info("I was told I'm %s" %(state))
-                    if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE):
-                        conn.close()
-                        self.app.shutdown()
-                    elif state == HIDDEN_STATE:
-                        n = app.nm.getNodeByUUID(uuid)
-                        if n is not None:
-                            n.setState(state)                
-                        raise OperationFailure
-
-                if n is None:
-                    n = StorageNode(server = addr, uuid = uuid)
-                    app.nm.add(n)
-
-                n.setState(state)                
-
-            elif node_type == CLIENT_NODE_TYPE:
-                if uuid is None:
-                    # No interest.
-                    continue
-
-                if state == RUNNING_STATE:
-                    if n is None:
-                        n = ClientNode(uuid = uuid)
-                        app.nm.add(n)
-                else:
-                    self.dealWithClientFailure(uuid)
-                    if n is not None:
-                        logging.debug('removing client node %s', dump(uuid))
-                        app.nm.remove(n)
-            if n is not None:
-                logging.info("added %s %s" %(dump(n.getUUID()), n.getServer()))
+            if uuid == self.app.uuid:
+                # This is me, do what the master tell me
+                logging.info("I was told I'm %s" %(state))
+                if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE):
+                    conn.close()
+                    self.app.shutdown()
+                elif state == HIDDEN_STATE:
+                    raise OperationFailure
+            elif node_type == CLIENT_NODE_TYPE and state != RUNNING_STATE:
+                # XXX: check why dealWithClientFailure is triggered with node
+                # notification and not only by client connection failure
+                self.dealWithClientFailure(uuid)
 
 
 class BaseClientAndStorageOperationHandler(BaseStorageHandler):
