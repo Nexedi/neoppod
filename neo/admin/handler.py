@@ -209,25 +209,12 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         app = self.app
-        nm = app.nm
-        pt = app.pt
-        node = nm.getNodeByUUID(conn.getUUID())
-
         if ptid < app.ptid:
             # Ignore this packet.
             # XXX: is it safe ?
             return
-
         app.ptid = ptid
-        for offset, uuid, state in cell_list:
-            node = nm.getNodeByUUID(uuid)
-            if node is None:
-                node = StorageNode(uuid = uuid)
-                if uuid != app.uuid:
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                nm.add(node)
-            pt.setCell(offset, node, state)
-        pt.log()
+        app.pt.update(cell_list, app.nm)
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()
@@ -235,10 +222,6 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
         nm = app.nm
         pt = app.pt
         node = app.nm.getNodeByUUID(uuid)
-        # This must be sent only by primary master node
-        if node.getNodeType() != MASTER_NODE_TYPE:
-            return
-
         if app.ptid != ptid:
             app.ptid = ptid
             pt.clear()
@@ -250,6 +233,5 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
                     node.setState(TEMPORARILY_DOWN_STATE)
                     nm.add(node)
                 pt.setCell(offset, node, state)
-
         pt.log()
 

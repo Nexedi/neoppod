@@ -61,26 +61,13 @@ class VerificationHandler(BaseMasterHandler):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
         app = self.app
-        nm = app.nm
-        pt = app.pt
         if app.ptid >= ptid:
             # Ignore this packet.
             logging.debug('ignoring older partition changes')
             return
-
-        # First, change the table on memory.
         app.ptid = ptid
-        for offset, uuid, state in cell_list:
-            node = nm.getNodeByUUID(uuid)
-            if node is None:
-                node = StorageNode(uuid = uuid)
-                if uuid != app.uuid:
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                nm.add(node)
-
-            pt.setCell(offset, node, state)
-
-        # Then, the database.
+        # update partition table in memory and the database
+        app.pt.update(cell_list, app.nm)
         app.dm.changePartitionTable(ptid, cell_list)
 
     def handleStartOperation(self, conn, packet):

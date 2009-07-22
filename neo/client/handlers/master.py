@@ -174,21 +174,11 @@ class PrimaryNotificationsHandler(BaseHandler):
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         app = self.app
-        nm = app.nm
-        pt = app.pt
-
         if app.ptid >= ptid:
             # Ignore this packet.
             return
         app.ptid = ptid
-        for offset, uuid, state in cell_list:
-            node = nm.getNodeByUUID(uuid)
-            if node is None:
-                node = StorageNode(uuid = uuid)
-                if uuid != app.uuid:
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                nm.add(node)
-            pt.setCell(offset, node, state)
+        app.pt.update(cell_list, app.nm)
 
     @decorators.identification_required
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):

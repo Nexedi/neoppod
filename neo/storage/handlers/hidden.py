@@ -74,8 +74,6 @@ class HiddenHandler(BaseMasterHandler):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
         app = self.app
-        nm = app.nm
-        pt = app.pt
         if app.ptid >= ptid:
             # Ignore this packet.
             logging.debug('ignoring older partition changes')
@@ -84,14 +82,6 @@ class HiddenHandler(BaseMasterHandler):
         # First, change the table on memory.
         app.ptid = ptid
         for offset, uuid, state in cell_list:
-            node = nm.getNodeByUUID(uuid)
-            if node is None:
-                node = StorageNode(uuid = uuid)
-                if uuid != app.uuid:
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                nm.add(node)
-            pt.setCell(offset, node, state)
-
             if uuid == app.uuid and app.replicator is not None:
                 # If this is for myself, this can affect replications.
                 if state == DISCARDED_STATE:
@@ -99,9 +89,9 @@ class HiddenHandler(BaseMasterHandler):
                 elif state == OUT_OF_DATE_STATE:
                     app.replicator.addPartition(offset)
 
-        # Then, the database.
+        # update partition table in memory and the database
+        app.pt.update(cell_list, app.nm)
         app.dm.changePartitionTable(ptid, cell_list)
-        app.pt.log()
 
     @decorators.client_connection_required
     def handleStartOperation(self, conn, packet):
