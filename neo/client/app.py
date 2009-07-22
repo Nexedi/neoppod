@@ -359,10 +359,10 @@ class Application(object):
 
     def _getMasterConnection(self):
         """ Connect to the primary master node on demand """
-        # acquire the lock to allow only one thread to connect to the primary 
+        # acquire the lock to allow only one thread to connect to the primary
         lock = self._connecting_to_master_node_acquire()
         try:
-            if self.master_conn is None:    
+            if self.master_conn is None:
                 self.master_conn = self._connectToPrimaryMasterNode()
             return self.master_conn
         finally:
@@ -375,10 +375,15 @@ class Application(object):
         self._getMasterConnection()
         return self.pt
 
-    def _getCellListForID(self, id, readable=False, writable=False):
-        """ Return the cells available for the specified (O|T)ID """
+    def _getCellListForOID(self, oid, readable=False, writable=False):
+        """ Return the cells available for the specified OID """
         pt = self._getPartitionTable()
-        return pt.getCellListForID(id, readable, writable)
+        return pt.getCellListForOID(oid, readable, writable)
+
+    def _getCellListForTID(self, tid, readable=False, writable=False):
+        """ Return the cells available for the specified TID """
+        pt = self._getPartitionTable()
+        return pt.getCellListForTID(tid, readable, writable)
 
     def _connectToPrimaryMasterNode(self):
         logging.debug('connecting to primary master...')
@@ -523,7 +528,7 @@ class Application(object):
 
     def _load(self, oid, serial=None, tid=None, cache=0):
         """Internal method which manage load ,loadSerial and loadBefore."""
-        cell_list = self._getCellListForID(oid, readable=True)
+        cell_list = self._getCellListForOID(oid, readable=True)
         if len(cell_list) == 0:
             # No cells available, so why are we running ?
             logging.error('oid %s not found because no storage is available for it', dump(oid))
@@ -651,7 +656,7 @@ class Application(object):
         logging.debug('storing oid %s serial %s',
                      dump(oid), dump(serial))
         # Find which storage node to use
-        cell_list = self._getCellListForID(oid, writable=True)
+        cell_list = self._getCellListForOID(oid, writable=True)
         if len(cell_list) == 0:
             # FIXME must wait for cluster to be ready
             raise NEOStorageError
@@ -705,7 +710,7 @@ class Application(object):
         oid_list = self.local_var.data_dict.keys()
         # Store data on each node
         pt = self._getPartitionTable()
-        cell_list = self._getCellListForID(self.local_var.tid, writable=True)
+        cell_list = self._getCellListForTID(self.local_var.tid, writable=True)
         self.local_var.voted_counter = 0
         for cell in cell_list:
             logging.info("voting object %s %s" %(cell.getServer(), cell.getState()))
@@ -737,9 +742,9 @@ class Application(object):
         cell_set = set()
         # select nodes where objects were stored
         for oid in self.local_var.data_dict.iterkeys():
-            cell_set |= set(self._getCellListForID(oid, writable=True))
+            cell_set |= set(self._getCellListForOID(oid, writable=True))
         # select nodes where transaction was stored
-        cell_set |= set(self._getCellListForID(self.local_var.tid, writable=True))
+        cell_set |= set(self._getCellListForTID(self.local_var.tid, writable=True))
 
         # cancel transaction one all those nodes
         for cell in cell_set:
@@ -797,7 +802,7 @@ class Application(object):
             raise StorageTransactionError(self, transaction_id)
 
         # First get transaction information from a storage node.
-        cell_list = self._getCellListForID(transaction_id, writable=True)
+        cell_list = self._getCellListForTID(transaction_id, writable=True)
         shuffle(cell_list)
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
@@ -898,7 +903,7 @@ class Application(object):
         undo_info = []
         append = undo_info.append
         for tid in ordered_tids:
-            cell_list = self._getCellListForID(tid, readable=True)
+            cell_list = self._getCellListForTID(tid, readable=True)
             shuffle(cell_list)
             for cell in cell_list:
                 conn = self.cp.getConnForCell(cell)
@@ -931,7 +936,7 @@ class Application(object):
     # FIXME: filter function isn't used 
     def history(self, oid, version=None, length=1, filter=None, object_only=0):
         # Get history informations for object first
-        cell_list = self._getCellListForID(oid, readable=True)
+        cell_list = self._getCellListForOID(oid, readable=True)
         shuffle(cell_list)
 
         for cell in cell_list:
@@ -963,7 +968,7 @@ class Application(object):
         # Now that we have object informations, get txn informations
         history_list = []
         for serial, size in self.local_var.history[1]:
-            self._getCellListForID(serial, readable=True)
+            self._getCellListForTID(serial, readable=True)
             shuffle(cell_list)
 
             for cell in cell_list:

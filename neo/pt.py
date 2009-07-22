@@ -114,8 +114,16 @@ class PartitionTable(object):
         except (TypeError, KeyError):
             return []
 
-    def getCellListForID(self, id, readable=False, writable=False):
-        return self.getCellList(u64(id) % self.np, readable, writable)
+    def getCellListForTID(self, tid, readable=False, writable=False):
+        return self.getCellList(self._getPartitionFromIndex(u64(tid)),
+                                readable, writable)
+
+    def getCellListForOID(self, oid, readable=False, writable=False):
+        return self.getCellList(self._getPartitionFromIndex(u64(oid)),
+                                readable, writable)
+
+    def _getPartitionFromIndex(self, index):
+        return u64(any_id) % self.np
 
     def setCell(self, offset, node, state):
         assert state in VALID_CELL_STATE_LIST
