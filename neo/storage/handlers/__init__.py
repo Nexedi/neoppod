@@ -32,50 +32,6 @@ class BaseStorageHandler(EventHandler):
     def dealWithClientFailure(self, uuid):
         pass
 
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
-                                        uuid, address, name):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleAcceptNodeIdentification(self, conn, packet, node_type,
-                   uuid, address, num_partitions, num_replicas, your_uuid):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleAskLastIDs(self, conn, packet):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleAskPartitionTable(self, conn, packet, offset_list):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleStopOperation(self, conn, packet):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleAskTransactionInformation(self, conn, packet, tid):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleLockInformation(self, conn, packet, tid):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleUnlockInformation(self, conn, packet, tid):
-        raise NotImplementedError('this method must be overridden')
-
-    def handleNotifyClusterInformation(self, conn, packet, state):
-        logging.error('ignoring notify cluster information in %s' % self.__class__.__name__)
-
-    def handleAbortTransaction(self, conn, packet, tid):
-        logging.info('ignoring abort transaction')
-        pass
-
-    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
-        logging.info('ignoring answer unfinished transactions')
-        pass
-
-    def handleAskOIDs(self, conn, packet, first, last, partition):
-        logging.info('ignoring ask oids')
-        pass
-
 
 class BaseMasterHandler(BaseStorageHandler):
 
@@ -90,6 +46,9 @@ class BaseMasterHandler(BaseStorageHandler):
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise PrimaryFailure('re-election occurs')
+
+    def handleNotifyClusterInformation(self, conn, packet, state):
+        logging.error('ignoring notify cluster information in %s' % self.__class__.__name__)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary
