@@ -363,6 +363,7 @@ class Application(object):
         lock = self._connecting_to_master_node_acquire()
         try:
             if self.master_conn is None:
+                self.new_oid_list = []
                 self.master_conn = self._connectToPrimaryMasterNode()
             return self.master_conn
         finally:
