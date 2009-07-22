@@ -605,7 +605,8 @@ class Application(object):
             try:
                 if oid in self.mq_cache:
                     logging.debug('load oid %s is cached', dump(oid))
-                    return self.mq_cache[oid][1], self.mq_cache[oid][0]
+                    serial, data = self.mq_cache[oid]
+                    return data, serial
             finally:
                 self._cache_lock_release()
             # Otherwise get it from storage node
