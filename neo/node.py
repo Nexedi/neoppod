@@ -212,7 +212,6 @@ class NodeManager(object):
                 node = klass(server=addr, uuid=uuid)
                 node.setState(state)
                 self.add(node)
-                args = (node_type, dump(uuid), addr)
                 logging.info('create node %s %s %s %s' % log_args)
 
     def log(self):
