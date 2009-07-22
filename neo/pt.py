@@ -123,7 +123,7 @@ class PartitionTable(object):
                                 readable, writable)
 
     def _getPartitionFromIndex(self, index):
-        return u64(any_id) % self.np
+        return u64(index) % self.np
 
     def setCell(self, offset, node, state):
         assert state in VALID_CELL_STATE_LIST
