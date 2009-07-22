@@ -54,15 +54,15 @@ class EventHandler(object):
 
     def connectionStarted(self, conn):
         """Called when a connection is started."""
-        logging.debug('connection started for %s:%d', *(conn.getAddress()))
+        logging.debug('connection started for %s:%d', * (conn.getAddress()))
 
     def connectionCompleted(self, conn):
         """Called when a connection is completed."""
-        logging.debug('connection completed for %s:%d', *(conn.getAddress()))
+        logging.debug('connection completed for %s:%d', * (conn.getAddress()))
 
     def connectionFailed(self, conn):
         """Called when a connection failed."""
-        logging.debug('connection failed for %s:%d', *(conn.getAddress()))
+        logging.debug('connection failed for %s:%d', * (conn.getAddress()))
 
     def connectionAccepted(self, conn, connector, addr):
         """Called when a connection is accepted."""
@@ -74,11 +74,11 @@ class EventHandler(object):
 
     def timeoutExpired(self, conn):
         """Called when a timeout event occurs."""
-        logging.debug('timeout expired for %s:%d', *(conn.getAddress()))
+        logging.debug('timeout expired for %s:%d', * (conn.getAddress()))
 
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
-        logging.debug('connection closed for %s:%d', *(conn.getAddress()))
+        logging.debug('connection closed for %s:%d', * (conn.getAddress()))
 
     def packetReceived(self, conn, packet):
         """Called when a packet is received."""
@@ -87,7 +87,7 @@ class EventHandler(object):
     # XXX: what's the purpose of this method ?
     def peerBroken(self, conn):
         """Called when a peer is broken."""
-        logging.error('%s:%d is broken', *(conn.getAddress()))
+        logging.error('%s:%d is broken', * (conn.getAddress()))
 
     def packetMalformed(self, conn, packet, message='', *args):
         """Called when a packet is malformed."""
