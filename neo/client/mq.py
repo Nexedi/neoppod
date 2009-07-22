@@ -285,7 +285,7 @@ if __name__ == '__main__':
             for i in xrange(10):
                 assert cache.get(i) == str(i), '%d does not exist' % i
 
-        for i in xrange(10,500):
+        for i in xrange(10, 500):
             cache[i] = str(i)
 
         for i in xrange(10):
