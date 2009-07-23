@@ -676,7 +676,6 @@ class Application(object):
         # Find which storage node to use
         cell_list = self._getCellListForOID(oid, writable=True)
         if len(cell_list) == 0:
-            # FIXME must wait for cluster to be ready
             raise NEOStorageError
         # Store data on each node
         compressed_data = compress(data)
