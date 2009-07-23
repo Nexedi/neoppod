@@ -52,15 +52,15 @@ EPOLL_CTL_ADD = 1
 EPOLL_CTL_DEL = 2
 EPOLL_CTL_MOD = 3
 
-class epoll_data(Union):
+class EpollData(Union):
     _fields_ = [("ptr", c_void_p),
                 ("fd", c_int),
                 ("u32", c_uint32),
                 ("u64", c_uint64)]
 
-class epoll_event(Structure):
+class EpollEvent(Structure):
     _fields_ = [("events", c_uint32),
-                ("data", epoll_data)]
+                ("data", EpollData)]
 
 class Epoll(object):
     efd = -1
@@ -71,7 +71,7 @@ class Epoll(object):
             raise OSError(errno.value, 'epoll_create failed')
 
         self.maxevents = 1024 # XXX arbitrary
-        epoll_event_array = epoll_event * self.maxevents
+        epoll_event_array = EpollEvent * self.maxevents
         self.events = epoll_event_array()
 
     def poll(self, timeout = 1):
@@ -101,14 +101,14 @@ class Epoll(object):
                 return readable_fd_list, writable_fd_list
 
     def register(self, fd):
-        ev = epoll_event()
+        ev = EpollEvent()
         ev.data.fd = fd
         ret = epoll_ctl(self.efd, EPOLL_CTL_ADD, fd, byref(ev))
         if ret == -1:
             raise OSError(errno.value, 'epoll_ctl failed')
 
     def modify(self, fd, readable, writable):
-        ev = epoll_event()
+        ev = EpollEvent()
         ev.data.fd = fd
         events = 0
         if readable:
@@ -121,7 +121,7 @@ class Epoll(object):
             raise OSError(errno.value, 'epoll_ctl failed')
 
     def unregister(self, fd):
-        ev = epoll_event()
+        ev = EpollEvent()
         ret = epoll_ctl(self.efd, EPOLL_CTL_DEL, fd, byref(ev))
         if ret == -1:
             raise OSError(errno.value, 'epoll_ctl failed')
