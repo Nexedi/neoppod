@@ -33,9 +33,6 @@ class AdministrationHandler(MasterHandler):
         app = self.app
         # I'm the primary
         conn.answer(protocol.answerPrimaryMaster(app.uuid, []), packet)
-        # TODO: Admin will ask itself for these data
-        app.sendNodesInformations(conn)
-        app.sendPartitionTable(conn)
 
     def handleSetClusterState(self, conn, packet, name, state):
         self.checkClusterName(name)
