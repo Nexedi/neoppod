@@ -20,11 +20,6 @@ import unittest
 import logging
 import time
 
-# TODO: 
-# - include failed imports in the report
-# - group tests by kind (unit, functionnal...)
-# - import each test case instead of modules to reduce import errors
-
 # list of test modules
 # each of them have to import its TestCase classes
 UNIT_TEST_MODULES = [ 
@@ -104,6 +99,7 @@ class NeoTestRunner(unittest.TestResult):
             try:
                 test_module = __import__(test_module, globals(), locals(), ['*'])
             except ImportError, err:
+                # TODO: include import errors in report
                 print "Import of %s failed : %s" % (test_module, err)
                 continue
             suite.addTests(loader.loadTestsFromModule(test_module))
