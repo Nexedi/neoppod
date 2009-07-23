@@ -40,7 +40,7 @@ class BootstrapManager(EventHandler):
         self.name = name
         self.num_replicas = None
         self.num_partitions = None
-        self.curent = None
+        self.current = None
 
     def connectionCompleted(self, conn):
         EventHandler.connectionCompleted(self, conn)

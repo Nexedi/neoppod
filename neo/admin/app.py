@@ -76,6 +76,8 @@ class Application(object):
         self.request_handler = MasterRequestEventHandler(self)
         self.dispatcher = Dispatcher()
         self.cluster_state = None
+        self.master_conn = None
+        self.master_node = None
 
     def run(self):
         """Make sure that the status is sane and start a loop."""

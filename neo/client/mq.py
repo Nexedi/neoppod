@@ -47,6 +47,15 @@ class FIFO(object):
         self._head = None
         self._tail = None
         self._len = 0
+        self.prev = None
+        self.data = None
+        self.next = None
+        self.level = None
+        self.counter = None
+        self.value = None
+        self.element = None
+        self.key = None
+        self.expire_time = None
       
     def __len__(self):
         return self._len

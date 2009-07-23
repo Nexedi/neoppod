@@ -172,6 +172,7 @@ class Application(object):
         self.em = EventManager()
         self.ptid = None
         self.trying_admin_node = False
+        self.result = ''
 
     def getConnection(self):
         if self.conn is None:

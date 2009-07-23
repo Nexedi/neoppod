@@ -69,8 +69,10 @@ class Application(object):
         logging.debug('the number of replicas is %d, the number of partitions is %d, the name is %s',
                       replicas, partitions, self.name)
 
+        self.listening_conn = None
         self.primary = None
         self.primary_master_node = None
+        self.cluster_state = None
 
         # Generate an UUID for self
         self.uuid = self.getNewUUID(protocol.MASTER_NODE_TYPE)
@@ -81,6 +83,19 @@ class Application(object):
         self.ltid = None
         # The target node's uuid to request next.
         self.target_uuid = None
+
+        # election related data
+        self.unconnected_master_node_set = set()
+        self.negotiating_master_node_set = set()
+
+        # verification related data
+        self.unfinished_oid_set = set()
+        self.unfinished_tid_set = set()
+        self.asking_uuid_dict = {}
+        self.object_present = False
+
+        # service related data
+        self.finishing_transaction_dict = {}
 
 
     def run(self):

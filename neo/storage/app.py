@@ -42,6 +42,7 @@ class Application(object):
     def __init__(self, filename, section, reset=False):
         config = ConfigurationManager(filename, section)
 
+        self.uuid = None
         self.name = config.getName()
         logging.debug('the name is %s', self.name)
         self.connector_handler = getConnectorHandler(config.getConnector())
@@ -61,10 +62,20 @@ class Application(object):
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
+        # XXX: shoud use self.pt.getID() instead
+        self.ptid = None
 
         self.replicator = None
         self.listening_conn = None
         self.master_conn = None
+        self.master_node = None
+
+        # operation related data
+        self.transaction_dict = {}
+        self.store_lock_dict = {}
+        self.load_lock_dict = {}
+        self.event_queue = None
+        self.operational = False
 
         # ready is True when operational and got all informations
         self.ready = False

@@ -42,6 +42,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.db = kwargs['database']
         self.user = kwargs['user']
         self.passwd = kwargs.get('password')
+        self.under_transaction = False
         self.conn = None
         self.connect()
         super(MySQLDatabaseManager, self).__init__(**kwargs)
