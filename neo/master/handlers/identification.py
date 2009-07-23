@@ -53,9 +53,6 @@ class IdentificationHandler(MasterHandler):
             if node.getState() == protocol.RUNNING_STATE:
                 # still running, reject this new node
                 raise protocol.ProtocolError('invalid server address')
-            # FIXME: here the node was known with a different uuid but with the
-            # same address, is it safe to forgot the old, even if he's not
-            # running ?
             node.setServer(address)
             node.setState(protocol.RUNNING_STATE)
 

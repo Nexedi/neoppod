@@ -751,10 +751,6 @@ class Application(object):
                     sys.exit("Cluster has been asked to shut down")
 
     def identifyStorageNode(self, uuid, node):
-        # TODO: check all cases here, when server address change...
-        # in verification and running states, if the node is unknown but the
-        # uuid is not None, we have to give it a new uuid, but in recovery
-        # the node must keep it's UUID
         state = protocol.RUNNING_STATE
         handler = None
         if self.cluster_state == protocol.RECOVERING:
@@ -776,7 +772,7 @@ class Application(object):
                 state = protocol.PENDING_STATE
             handler = storage.StorageServiceHandler
         elif self.cluster_state == protocol.STOPPING:
-            # FIXME: raise a ShutdowningError ?
+            # FIXME: raise a ShuttingDownError ?
             raise protocol.NotReadyError
         else:
             raise RuntimeError('unhandled cluster state')
