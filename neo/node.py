@@ -154,19 +154,22 @@ class NodeManager(object):
         except KeyError:
             pass
 
-    def getNodeList(self, filter = None):
-        if filter is None:
+    def getNodeList(self, node_filter=None):
+        if node_filter is None:
             return list(self.node_list)
-        return [n for n in self.node_list if filter(n)]
+        return filter(node_filter, self.node_list)
 
     def getMasterNodeList(self):
-        return self.getNodeList(filter = lambda node: node.getNodeType() == MASTER_NODE_TYPE)
+        node_filter = lambda node: node.getNodeType() == MASTER_NODE_TYPE
+        return self.getNodeList(node_filter=node_filter)
 
     def getStorageNodeList(self):
-        return self.getNodeList(filter = lambda node: node.getNodeType() == STORAGE_NODE_TYPE)
+        node_filter = lambda node: node.getNodeType() == STORAGE_NODE_TYPE
+        return self.getNodeList(node_filter=node_filter)
 
     def getClientNodeList(self):
-        return self.getNodeList(filter = lambda node: node.getNodeType() == CLIENT_NODE_TYPE)
+        node_filter = lambda node: node.getNodeType() == CLIENT_NODE_TYPE
+        return self.getNodeList(node_filter=node_filter)
 
     def getNodeByServer(self, server):
         return self.server_dict.get(server)
