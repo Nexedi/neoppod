@@ -196,20 +196,18 @@ class PrimaryNotificationsHandler(BaseHandler):
             if node_type != STORAGE_NODE_TYPE or state != RUNNING_STATE:
                 continue
             # close connection to this storage if no longer running
-            closed = False
             conn = self.app.em.getConnectionByUUID(uuid)
             if conn is not None:
                 conn.close()
-                closed = True
-            if closed and node_type == STORAGE_NODE_TYPE:
-                # Remove from pool connection
-                app.cp.removeConnection(n)
-                # Put fake packets to task queues.
-                # XXX: this should be done in MTClientConnection 
-                for key in self.dispatcher.message_table.keys():
-                    if id(conn) == key[0]:
-                        queue = self.dispatcher.message_table.pop(key)
-                        queue.put((conn, None))
+                if node_type == STORAGE_NODE_TYPE:
+                    # Remove from pool connection
+                    app.cp.removeConnection(n)
+                    # Put fake packets to task queues.
+                    # XXX: this should be done in MTClientConnection 
+                    for key in self.dispatcher.message_table.keys():
+                        if id(conn) == key[0]:
+                            queue = self.dispatcher.message_table.pop(key)
+                            queue.put((conn, None))
 
 class PrimaryAnswersHandler(AnswerBaseHandler):
     """ Handle that process expected packets from the primary master """
