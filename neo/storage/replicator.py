@@ -18,7 +18,7 @@
 import logging
 from random import choice
 
-from neo.storage import handlers
+from neo.storage.handlers import replication
 from neo import protocol
 from neo.protocol import STORAGE_NODE_TYPE, UP_TO_DATE_STATE, \
         OUT_OF_DATE_STATE, RUNNING_STATE
@@ -91,6 +91,7 @@ class Replicator(object):
         self.waiting_for_unfinished_tids = False
         self.unfinished_tid_list = None
         self.replication_done = True
+        self.tid_offset = 0
         self.primary_master_connection = app.master_conn
 
     def reset(self):
@@ -175,7 +176,7 @@ class Replicator(object):
                 self.current_connection = None
 
         if self.current_connection is None:
-            handler = handlers.ReplicationHandler(app)
+            handler = replication.ReplicationHandler(app)
             self.current_connection = ClientConnection(app.em, handler, 
                                                        addr = addr,
                                                        connector_handler = app.connector_handler)
