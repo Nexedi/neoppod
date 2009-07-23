@@ -92,7 +92,6 @@ class ClientServiceHandler(BaseServiceHandler):
             del self.app.finishing_transaction_dict[tid]
         except KeyError:
             logging.warn('aborting transaction %s does not exist', dump(tid))
-            pass
 
     def handleAskNewTID(self, conn, packet):
         app = self.app
@@ -140,5 +139,4 @@ class ClientServiceHandler(BaseServiceHandler):
             t.setMessageId(packet.getId())
         except KeyError:
             logging.warn('finishing transaction %s does not exist', dump(tid))
-            pass
 

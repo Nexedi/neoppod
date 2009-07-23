@@ -132,17 +132,13 @@ class HiddenHandler(BaseMasterHandler):
 
     def handleAbortTransaction(self, conn, packet, tid):
         logging.debug('ignoring abort transaction')
-        pass
 
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         logging.debug('ignoring answer last ids')
-        pass
 
     def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
         logging.debug('ignoring answer unfinished transactions')
-        pass
 
     def handleAskOIDs(self, conn, packet, first, last, partition):
         logging.debug('ignoring ask oids')
-        pass
 
