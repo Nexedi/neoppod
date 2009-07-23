@@ -23,7 +23,7 @@ from struct import pack, unpack
 from neo.config import ConfigurationManager
 from neo import protocol
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        UUID_NAMESPACES, BOOTING
+        UUID_NAMESPACES, BOOTING, INVALID_UUID
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
@@ -723,7 +723,7 @@ class Application(object):
     def getNewUUID(self, node_type):
         # build an UUID
         uuid = os.urandom(15)
-        while uuid == '\00' * 15: # XXX: INVALID_UUID[1:]
+        while uuid == protocol.INVALID_UUID[1:]:
             uuid = os.urandom(15)
         # look for the prefix
         prefix = UUID_NAMESPACES.get(node_type, None)
