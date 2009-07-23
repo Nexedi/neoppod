@@ -138,6 +138,8 @@ class Application(object):
 
         # passive handler
         self.master_conn.setHandler(MasterEventHandler(self))
+        # XXX: Use an initialization module to ensure all nodes and the whole
+        # partition table are received before process neoctl requests.
         self.master_conn.ask(protocol.askNodeInformation())
         self.master_conn.ask(protocol.askPartitionTable([]))
 
