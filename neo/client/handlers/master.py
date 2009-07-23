@@ -38,11 +38,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         node = app.nm.getNodeByServer(conn.getAddress())
         # this must be a master node
         if node_type != MASTER_NODE_TYPE:
-            conn.lock()
-            try:
-                conn.close()
-            finally:
-                conn.release()
+            conn.close()
             return
         if conn.getAddress() != address:
             # The server address is different! Then why was
@@ -50,11 +46,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
             logging.error('%s:%d is waiting for %s:%d',
                           conn.getAddress()[0], conn.getAddress()[1], *address)
             app.nm.remove(node)
-            conn.lock()
-            try:
-                conn.close()
-            finally:
-                conn.release()
+            conn.close()
             return
 
         conn.setUUID(uuid)
@@ -93,11 +85,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
                 app.primary_master_node = primary_node
                 if app.trying_master_node is not primary_node:
                     app.trying_master_node = None
-                    conn.lock()
-                    try:
-                        conn.close()
-                    finally:
-                        conn.release()
+                    conn.close()
         else:
             if app.primary_master_node is not None:
                 # The primary master node is not a primary master node
@@ -105,11 +93,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
                 app.primary_master_node = None
  
             app.trying_master_node = None
-            conn.lock()
-            try:
-                conn.close()
-            finally:
-                conn.release()
+            conn.close()
  
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         pass
@@ -123,11 +107,7 @@ class PrimaryNotificationsHandler(BaseHandler):
     def connectionClosed(self, conn):
         app = self.app
         logging.critical("connection to primary master node closed")
-        conn.lock()
-        try:
-            conn.close()
-        finally:
-            conn.release()
+        conn.close()
         if app.master_conn is conn:
             app.master_conn = None
             app.primary_master_node = None
@@ -219,12 +199,8 @@ class PrimaryNotificationsHandler(BaseHandler):
             closed = False
             conn = self.app.em.getConnectionByUUID(uuid)
             if conn is not None:
-                conn.lock()
-                try:
-                    conn.close()
-                finally:
-                    conn.release()
-                    closed = True
+                conn.close()
+                closed = True
             if closed and node_type == STORAGE_NODE_TYPE:
                 # Remove from pool connection
                 app.cp.removeConnection(n)

@@ -523,9 +523,12 @@ class MTClientConnection(ClientConnection):
     def answer(self, *args, **kw):
         return super(MTClientConnection, self).answer(*args, **kw)
 
-    @lockCheckWrapper
-    def close(self, *args, **kw):
-        return super(MTClientConnection, self).close(*args, **kw)
+    def close(self):
+        self.lock()
+        try:
+            super(MTClientConnection, self).close()
+        finally:
+            self.release()
 
 class MTServerConnection(ServerConnection):
     """A Multithread-safe version of ServerConnection."""
