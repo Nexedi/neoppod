@@ -28,7 +28,8 @@ from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
 from neo.connection import ListeningConnection
 from neo.exception import OperationFailure, PrimaryFailure
-from neo.storage import handlers
+from neo.storage.handlers import identification, verification, initialization
+from neo.storage.handlers import master, hidden
 from neo.storage.replicator import Replicator
 from neo.connector import getConnectorHandler
 from neo.pt import PartitionTable
@@ -125,7 +126,7 @@ class Application(object):
             self.nm.add(MasterNode(server = server))
 
         # Make a listening port
-        handler = handlers.IdentificationHandler(self)
+        handler = identification.IdentificationHandler(self)
         self.listening_conn = ListeningConnection(self.em, handler, 
             addr=self.server, connector_handler=self.connector_handler)
 
@@ -202,7 +203,7 @@ class Application(object):
         Connections from client nodes may not be accepted at this stage."""
         logging.info('verifying data')
 
-        handler = handlers.VerificationHandler(self)
+        handler = verification.VerificationHandler(self)
         self.master_conn.setHandler(handler)
         em = self.em
 
@@ -212,7 +213,7 @@ class Application(object):
     def initialize(self):
         """ Retreive partition table and node informations from the primary """
         logging.debug('initializing...')
-        handler = handlers.InitializationHandler(self)
+        handler = initialization.InitializationHandler(self)
         self.master_conn.setHandler(handler)
 
         # ask node list and partition table
@@ -233,7 +234,7 @@ class Application(object):
 
         em = self.em
 
-        handler = handlers.MasterOperationHandler(self)
+        handler = master.MasterOperationHandler(self)
         self.master_conn.setHandler(handler)
 
         # Forget all unfinished data.
@@ -266,7 +267,7 @@ class Application(object):
     def wait(self):
         # change handler
         logging.info("waiting in hidden state")
-        handler = handlers.HiddenHandler(self)
+        handler = hidden.HiddenHandler(self)
         for conn in self.em.getConnectionList():
             conn.setHandler(handler)
 

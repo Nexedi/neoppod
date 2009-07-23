@@ -159,14 +159,3 @@ class BaseServiceHandler(MasterHandler):
         p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
         conn.answer(p, packet)
 
-
-# Import all master handlers in the current namespace
-from neo.master.handlers.administration import AdministrationHandler
-from neo.master.handlers.election import ClientElectionHandler, ServerElectionHandler
-from neo.master.handlers.identification import IdentificationHandler
-from neo.master.handlers.recovery import RecoveryHandler
-from neo.master.handlers.secondary import SecondaryMasterHandler, PrimaryMasterHandler 
-from neo.master.handlers.shutdown import ShutdownHandler
-from neo.master.handlers.verification import VerificationHandler
-from neo.master.handlers.storage import StorageServiceHandler
-from neo.master.handlers.client import ClientServiceHandler

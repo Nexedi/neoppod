@@ -91,11 +91,3 @@ class AnswerBaseHandler(EventHandler):
     packetReceived = unexpectedInAnswerHandler
     peerBroken = unexpectedInAnswerHandler
 
-from neo.client.handlers.master import PrimaryBootstrapHandler
-from neo.client.handlers.master import PrimaryNotificationsHandler
-from neo.client.handlers.master import PrimaryAnswersHandler
-from neo.client.handlers.storage import StorageEventHandler
-from neo.client.handlers.storage import StorageBootstrapHandler
-from neo.client.handlers.storage import StorageAnswersHandler
-
-

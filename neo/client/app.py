@@ -26,10 +26,7 @@ from neo.client.mq import MQ
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connection import MTClientConnection
 from neo import protocol
-from neo.client.handlers.master import PrimaryBootstrapHandler, \
-        PrimaryNotificationsHandler, PrimaryAnswersHandler
-from neo.client.handlers.storage import StorageBootstrapHandler, \
-        StorageAnswersHandler, StorageEventHandler
+from neo.client.handlers import storage, master
 from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
      NEOStorageNotFoundError
 from neo.exception import NeoException
@@ -253,12 +250,13 @@ class Application(object):
         self.mq_cache = MQ()
         self.new_oid_list = []
         self.ptid = None
-        self.storage_event_handler = StorageEventHandler(self, self.dispatcher)
-        self.storage_bootstrap_handler = StorageBootstrapHandler(self)
-        self.storage_handler = StorageAnswersHandler(self)
-        self.primary_handler = PrimaryAnswersHandler(self)
-        self.primary_bootstrap_handler = PrimaryBootstrapHandler(self)
-        self.notifications_handler = PrimaryNotificationsHandler(self, self.dispatcher)
+        self.storage_event_handler = storage.StorageEventHandler(self, self.dispatcher)
+        self.storage_bootstrap_handler = storage.StorageBootstrapHandler(self)
+        self.storage_handler = handler.storage.StorageAnswersHandler(self)
+        self.primary_handler = master.PrimaryAnswersHandler(self)
+        self.primary_bootstrap_handler = master.PrimaryBootstrapHandler(self)
+        self.notifications_handler = master.PrimaryNotificationsHandler(
+                self, self.dispatcher)
         # Internal attribute distinct between thread
         self.local_var = ThreadContext()
         # Lock definition :
