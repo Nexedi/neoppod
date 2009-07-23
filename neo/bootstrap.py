@@ -38,6 +38,8 @@ class BootstrapManager(EventHandler):
         self.node_type = node_type
         self.uuid = uuid
         self.name = name
+        self.num_replicas = None
+        self.num_partitions = None
 
     def connectionCompleted(self, conn):
         EventHandler.connectionCompleted(self, conn)
