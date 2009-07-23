@@ -19,8 +19,7 @@ import logging
 
 from neo.handler import EventHandler
 from neo import protocol
-from neo.protocol import RUNNING_STATE, BROKEN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, \
+from neo.protocol import RUNNING_STATE, BROKEN_STATE, CLIENT_NODE_TYPE, \
         DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE
 from neo.util import dump
 from neo.node import MasterNode, StorageNode, ClientNode

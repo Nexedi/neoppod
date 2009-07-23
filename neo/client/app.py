@@ -287,7 +287,7 @@ class Application(object):
     def notifyDeadNode(self, conn):
         """ Notify a storage failure to the primary master """
         s_node = self.nm.getNodeByServer(conn.getAddress())
-        if s_node is None or s_node.getNodeType() != protocol.STORAGE_NODE_TYPE:
+        if s_node is None or not s_node.isStorage():
             return
         s_uuid = s_node.getUUID()
         m_conn = self._getMasterConnection()
@@ -323,10 +323,9 @@ class Application(object):
                     raise ValueError, 'Expecting an answer from a node ' \
                         'which type is not known... Is this right ?'
                 else:
-                    node_type = node.getType()
-                    if node_type == protocol.STORAGE_NODE_TYPE:
+                    if node.isStorage():
                         handler = self.storage_handler
-                    elif node_type == protocol.MASTER_NODE_TYPE:
+                    elif node.isMaster():
                         handler = self.primary_handler
                     else:
                         raise ValueError, 'Unknown node type: %r' % (

@@ -18,7 +18,6 @@
 import logging
 
 from neo.handler import EventHandler
-from neo.protocol import STORAGE_NODE_TYPE, TEMPORARILY_DOWN_STATE
 from neo.node import StorageNode
 from neo import protocol
 from neo.exception import PrimaryFailure
@@ -228,7 +227,7 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
                 node = nm.getNodeByUUID(uuid)
                 if node is None:
                     node = StorageNode(uuid = uuid)
-                    node.setState(TEMPORARILY_DOWN_STATE)
+                    node.setState(protocol.TEMPORARILY_DOWN_STATE)
                     nm.add(node)
                 pt.setCell(offset, node, state)
         pt.log()

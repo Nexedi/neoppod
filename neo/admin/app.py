@@ -18,7 +18,6 @@
 import logging
 
 from neo.config import ConfigurationManager
-from neo.protocol import MASTER_NODE_TYPE
 from neo.node import NodeManager, MasterNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection
@@ -103,7 +102,7 @@ class Application(object):
                 logging.error('primary master is down')
                 # do not trust any longer our informations
                 self.pt.clear()
-                self.nm.clear(filter = lambda node: node.getNodeType() != MASTER_NODE_TYPE)
+                self.nm.clear(filter = lambda node: not node.isMaster())
 
 
     def connectToPrimaryMaster(self):

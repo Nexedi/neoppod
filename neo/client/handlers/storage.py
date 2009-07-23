@@ -16,10 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import logging
+from ZODB.TimeStamp import TimeStamp
 
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
-from neo.protocol import STORAGE_NODE_TYPE
-from ZODB.TimeStamp import TimeStamp
+from neo import protocol
 
 class StorageEventHandler(BaseHandler):
 
@@ -75,7 +75,7 @@ class StorageBootstrapHandler(AnswerBaseHandler):
         app = self.app
         node = app.nm.getNodeByServer(conn.getAddress())
         # It can be eiter a master node or a storage node
-        if node_type != STORAGE_NODE_TYPE:
+        if node_type != protocol.STORAGE_NODE_TYPE:
             conn.close()
             return
         if conn.getAddress() != address:

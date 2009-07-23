@@ -18,7 +18,6 @@
 import logging
 
 from neo.storage.handlers import BaseStorageHandler
-from neo.protocol import BROKEN_STATE, STORAGE_NODE_TYPE
 from neo import protocol
 from neo.util import dump
 from neo.node import ClientNode
@@ -59,14 +58,14 @@ class IdentificationHandler(BaseStorageHandler):
             logging.error('reject an unknown node %s', dump(uuid))
             raise protocol.NotReadyError
         # If this node is broken, reject it.
-        if node.getState() == BROKEN_STATE:
+        if node.getState() == protocol.BROKEN_STATE:
             raise protocol.BrokenNodeDisallowedError
         # apply the handler and set up the connection
         handler = handler(self.app)
         conn.setHandler(handler)
         conn.setUUID(uuid)
         node.setUUID(uuid)
-        args = (STORAGE_NODE_TYPE, app.uuid, app.server, 
+        args = (protocol.STORAGE_NODE_TYPE, app.uuid, app.server, 
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         # accept the identification and trigger an event
         conn.answer(protocol.acceptNodeIdentification(*args), packet)

@@ -20,7 +20,7 @@ import logging
 from neo import protocol
 from neo.master.handlers import MasterHandler
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        STORAGE_NODE_TYPE, HIDDEN_STATE, PENDING_STATE, RUNNING
+        HIDDEN_STATE, PENDING_STATE, RUNNING
 from neo.util import dump
 
 class AdministrationHandler(MasterHandler):
@@ -92,13 +92,13 @@ class AdministrationHandler(MasterHandler):
             conn.answer(p, packet)
             app.broadcastNodeInformation(node)
             # If this is a storage node, ask it to start.
-            if node.getNodeType() == STORAGE_NODE_TYPE and state == RUNNING_STATE  \
+            if node.isStorage() and state == RUNNING_STATE  \
                    and self.app.cluster_state == RUNNING:
                 logging.info("asking sn to start operation")
                 node_conn.notify(protocol.startOperation())
 
         # modify the partition table if required
-        if modify_partition_table and node.getNodeType() == STORAGE_NODE_TYPE:
+        if modify_partition_table and node.isStorage():
             if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE):
                 # remove from pt
                 cell_list = app.pt.dropNode(node)
