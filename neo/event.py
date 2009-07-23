@@ -216,7 +216,6 @@ class EpollEventManager(object):
     def getConnectionByUUID(self, uuid):
         """ Return the connection associated to the UUID, None if the UUID is
         None, invalid or not found"""
-        # FIXME: We may optimize this by using use a dict on UUIDs
         if uuid is None:
             return None
         for conn in self.connection_dict.values():
