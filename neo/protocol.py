@@ -495,7 +495,7 @@ def _checkNodeState(state):
     return node_state
 
 def _checkNodeType(original_node_type):
-    node_type = node_types.get(node_type)
+    node_type = node_types.get(original_node_type)
     if node_type is None:
         raise PacketMalformedError('invalid node type %d' % original_node_type)
     return node_type
