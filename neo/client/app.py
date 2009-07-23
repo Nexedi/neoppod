@@ -481,9 +481,6 @@ class Application(object):
                     # - have a sleep in the code (yuck !)
                     sleep(5)
             if self.uuid is not None:
-                # TODO: pipeline those 2 requests
-                # This is currently impossible because _waitMessage can only
-                # wait on one message at a time
                 conn.lock()
                 try:
                     msg_id = conn.ask(self.local_var.queue,
