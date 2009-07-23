@@ -178,7 +178,7 @@ class ThreadContext(object):
     def __getThreadData(self):
         thread_id = get_ident()
         try:
-            result = self._threads_dict[thread_id
+            result = self._threads_dict[thread_id]
         except KeyError:
             self.clear(thread_id)
             result = self._threads_dict[thread_id]
