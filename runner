@@ -38,7 +38,6 @@ UNIT_TEST_MODULES = [
     'neo.tests.testProtocol',
     'neo.tests.testPT',
     # master application
-    'neo.tests.master.connector',
     'neo.tests.master.testClientHandler',
     'neo.tests.master.testElectionHandler',
     'neo.tests.master.testMasterApp',
@@ -59,15 +58,14 @@ UNIT_TEST_MODULES = [
     'neo.tests.client.testClientHandler',
     'neo.tests.client.testConnectionPool',
     'neo.tests.client.testDispatcher',
-    'neo.tests.client.testZODB',
 ]
 
 FUNC_TEST_MODULES = [
-    'neo.client.tests.testZODB',
+    'neo.tests.functional.testZODB',
 ]
 
 # configuration 
-WITH_ZODB_TESTS = False
+FUNCTIONAL_TESTS = True
 SEND_REPORT = False
 CONSOLE_LOG = False
 ATTACH_LOG = False # for ZODB test, only the client side is logged
@@ -283,7 +281,7 @@ if __name__ == "__main__":
     # run and build the report
     runner = NeoTestRunner()
     runner.run('Unit tests', UNIT_TEST_MODULES)
-    if WITH_ZODB_TESTS:
+    if FUNCTIONAL_TESTS:
         runner.run('Functional tests', FUNC_TEST_MODULES, prefix='check')
     runner.build()
     # send a mail
