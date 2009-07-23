@@ -394,11 +394,19 @@ class Application(object):
             em.poll(1)
 
         logging.info('startup allowed')
+
+        # build a new partition table
         if self.pt.getID() is None:
             self.buildFromScratch()
 
-        # FIXME: storage node with existing partition but not in the selected PT
-        # must switch to PENDING state or be disconnected to restarts from nothing
+        # collect node that are connected but not in the selected partition
+        # table and set them in pending state
+        allowed_node_set = set(self.pt.getNodeList())
+        refused_node_set = set(self.nm.getStorageNodeList()) - allowed_node_set
+        for node in refused_node_set:
+            node.setState(protocol.PENDING_STATE)
+            self.broadcastNodeInformation(node)
+
         logging.debug('cluster starts with this partition table :')
         self.pt.log()
 
