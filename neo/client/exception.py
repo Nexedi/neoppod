@@ -16,6 +16,12 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from ZODB import POSException
-class NEOStorageError(POSException.StorageError): pass
-class NEOStorageConflictError(NEOStorageError): pass
-class NEOStorageNotFoundError(NEOStorageError): pass
+
+class NEOStorageError(POSException.StorageError): 
+    pass
+
+class NEOStorageConflictError(NEOStorageError): 
+    pass
+
+class NEOStorageNotFoundError(NEOStorageError): 
+    pass

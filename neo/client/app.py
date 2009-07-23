@@ -39,7 +39,8 @@ from neo.locking import RLock, Lock
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 
-class ConnectionClosed(Exception): pass
+class ConnectionClosed(Exception): 
+    pass
 
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""

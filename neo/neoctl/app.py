@@ -25,7 +25,8 @@ from neo.connector import getConnectorHandler
 from neo.util import bin
 from neo import protocol
 
-class ActionError(Exception): pass
+class ActionError(Exception): 
+    pass
 
 def addAction(options):
     """

@@ -163,9 +163,18 @@ class SocketConnector:
 
 registerConnectorHandler(SocketConnector)
 
-class ConnectorException(Exception): pass
-class ConnectorTryAgainException(ConnectorException): pass
-class ConnectorInProgressException(ConnectorException): pass  
-class ConnectorConnectionClosedException(ConnectorException): pass
-class ConnectorConnectionRefusedException(ConnectorException): pass
+class ConnectorException(Exception): 
+    pass
+
+class ConnectorTryAgainException(ConnectorException): 
+    pass
+
+class ConnectorInProgressException(ConnectorException): 
+    pass
+
+class ConnectorConnectionClosedException(ConnectorException): 
+    pass
+
+class ConnectorConnectionRefusedException(ConnectorException): 
+    pass
 
