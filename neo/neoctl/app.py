@@ -171,14 +171,15 @@ class Application(object):
         self.server = (ip, port)
         self.em = EventManager()
         self.ptid = None
+        self.trying_admin_node = False
 
     def getConnection(self):
         if self.conn is None:
             handler = CommandEventHandler(self)
             # connect to admin node
-            self.trying_admin_node = False
+            self.trying_admin_node = True
             conn = None
-            while 1:
+            while self.trying_admin_node:
                 self.em.poll(1)
                 if conn is None:
                     self.trying_admin_node = True
@@ -186,8 +187,6 @@ class Application(object):
                     conn = ClientConnection(self.em, handler, \
                                             addr = self.server,
                                             connector_handler = self.connector_handler)
-                if self.trying_admin_node is False:
-                    break
             self.conn = conn
         return self.conn
 
