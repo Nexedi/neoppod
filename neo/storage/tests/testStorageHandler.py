@@ -24,7 +24,7 @@ from collections import deque
 from neo.tests.base import NeoTestBase
 from neo.master.app import MasterNode
 from neo.storage.app import Application, StorageNode
-from neo.storage.handlers import StorageOperationHandler
+from neo.storage.handlers.storage import StorageOperationHandler
 from neo import protocol
 from neo.protocol import *
 

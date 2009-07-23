@@ -25,7 +25,7 @@ from neo.tests.base import NeoTestBase
 from neo.master.app import MasterNode
 from neo.storage.app import Application, StorageNode
 from neo.storage.handlers.client import TransactionInformation
-from neo.storage.handlers import ClientOperationHandler
+from neo.storage.handlers.client import ClientOperationHandler
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.pt import PartitionTable
 from neo import protocol

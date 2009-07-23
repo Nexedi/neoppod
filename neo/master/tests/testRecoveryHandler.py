@@ -23,7 +23,7 @@ from struct import pack, unpack
 from neo.tests.base import NeoTestBase
 from neo import protocol
 from neo.protocol import Packet, INVALID_UUID
-from neo.master.handlers import RecoveryHandler
+from neo.master.handlers.recovery import RecoveryHandler
 from neo.master.app import Application
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
      PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \

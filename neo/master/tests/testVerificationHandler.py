@@ -23,7 +23,7 @@ from struct import pack, unpack
 import neo
 from neo.tests.base import NeoTestBase
 from neo.protocol import Packet, INVALID_UUID
-from neo.master.handlers import VerificationHandler
+from neo.master.handlers.verification import VerificationHandler
 from neo.master.app import Application
 from neo import protocol
 from neo.protocol import ERROR, ANNOUNCE_PRIMARY_MASTER, \

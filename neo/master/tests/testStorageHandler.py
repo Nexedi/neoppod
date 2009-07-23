@@ -24,7 +24,7 @@ from neo.tests.base import NeoTestBase
 import neo.master
 from neo import protocol
 from neo.protocol import Packet, INVALID_UUID
-from neo.master.handlers import StorageServiceHandler
+from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.app import Application
 from neo.protocol import ERROR, PING, PONG, ANNOUNCE_PRIMARY_MASTER, \
      REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION,  \
