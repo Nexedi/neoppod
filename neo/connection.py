@@ -564,13 +564,13 @@ class MTServerConnection(ServerConnection):
 
     @lockCheckWrapper
     def notify(self, *args, **kw):
-        return super(MTClientConnection, self).notify(*args, **kw)
+        return super(MTServerConnection, self).notify(*args, **kw)
 
     @lockCheckWrapper
     def ask(self, *args, **kw):
-        return super(MTClientConnection, self).ask(*args, **kw)
+        return super(MTServerConnection, self).ask(*args, **kw)
 
     @lockCheckWrapper
     def answer(self, *args, **kw):
-        return super(MTClientConnection, self).answer(*args, **kw)
+        return super(MTServerConnection, self).answer(*args, **kw)
 
