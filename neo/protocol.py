@@ -494,11 +494,11 @@ def _checkNodeState(state):
         raise PacketMalformedError('invalid node state %d' % state)
     return node_state
 
-def _checkNodeType(node_type):
-    _node_type = node_types.get(node_type)
+def _checkNodeType(original_node_type):
+    node_type = node_types.get(node_type)
     if node_type is None:
-        raise PacketMalformedError('invalid node type %d' % node_type)
-    return _node_type
+        raise PacketMalformedError('invalid node type %d' % original_node_type)
+    return node_type
 
 def _checkAddress(address):
     if address == '\0' * 6:
