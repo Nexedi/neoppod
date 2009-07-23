@@ -277,15 +277,15 @@ class Application(object):
             if node.getState() != HIDDEN_STATE:
                 break
 
-    def queueEvent(self, callable, *args, **kwargs):
-        self.event_queue.append((callable, args, kwargs))
+    def queueEvent(self, some_callable, *args, **kwargs):
+        self.event_queue.append((some_callable, args, kwargs))
 
     def executeQueuedEvents(self):
         l = len(self.event_queue)
         p = self.event_queue.popleft
         for i in xrange(l):
-            _callable, args, kwargs = p()
-            _callable(*args, **kwargs)
+            some_callable, args, kwargs = p()
+            some_callable(*args, **kwargs)
 
     def shutdown(self):
         """Close all connections and exit"""
