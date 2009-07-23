@@ -18,10 +18,8 @@
 import logging
 
 from neo import protocol
-from neo.protocol import CLIENT_NODE_TYPE, RUNNING_STATE, \
-        UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE, \
-        STORAGE_NODE_TYPE, OUT_OF_DATE_STATE, \
-        INTERNAL_ERROR_CODE
+from neo.protocol import UP_TO_DATE_STATE, FEEDING_STATE, \
+        DISCARDED_STATE, OUT_OF_DATE_STATE, INTERNAL_ERROR_CODE
 from neo.master.handlers import BaseServiceHandler
 from neo.protocol import UnexpectedPacketError
 from neo.exception import OperationFailure
@@ -33,7 +31,7 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def connectionCompleted(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node.getState() == RUNNING_STATE:
+        if node.getState() == protocol.RUNNING_STATE:
             conn.notify(protocol.startOperation())
 
     def _nodeLost(self, conn, node):
@@ -70,14 +68,14 @@ class StorageServiceHandler(BaseServiceHandler):
                     uuid = c.getUUID()
                     if uuid is not None:
                         node = app.nm.getNodeByUUID(uuid)
-                        if node.getNodeType() == CLIENT_NODE_TYPE:
+                        if node.isClient():
                             if c is t.getConnection():
                                 p = protocol.notifyTransactionFinished(tid)
                                 c.notify(p, t.getMessageId())
                             else:
                                 p = protocol.invalidateObjects(t.getOIDList(), tid)
                                 c.notify(p)
-                        elif node.getNodeType() == STORAGE_NODE_TYPE:
+                        elif node.isStorage():
                             if uuid in t.getUUIDSet():
                                 p = protocol.unlockInformation(tid)
                                 c.notify(p)

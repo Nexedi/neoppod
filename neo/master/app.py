@@ -22,10 +22,8 @@ from struct import pack, unpack
 
 from neo.config import ConfigurationManager
 from neo import protocol
-from neo.protocol import \
-        RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        CLIENT_NODE_TYPE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
-        UUID_NAMESPACES, ADMIN_NODE_TYPE, BOOTING
+from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
+        UUID_NAMESPACES, BOOTING
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
@@ -75,7 +73,7 @@ class Application(object):
         self.primary_master_node = None
 
         # Generate an UUID for self
-        self.uuid = self.getNewUUID(MASTER_NODE_TYPE)
+        self.uuid = self.getNewUUID(protocol.MASTER_NODE_TYPE)
 
         # The last OID.
         self.loid = None
@@ -275,20 +273,20 @@ class Application(object):
         # The server address may be None.
         address = node.getServer()
 
-        if node_type == CLIENT_NODE_TYPE:
+        if node.isClient():
             # Only to master nodes and storage nodes.
             for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
                     n = self.nm.getNodeByUUID(c.getUUID())
-                    if n.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
+                    if n.isMaster() or n.isStorage() or n.isAdmin():
                         node_list = [(node_type, address, uuid, state)]
                         c.notify(protocol.notifyNodeInformation(node_list))
-        elif node.getNodeType() in (MASTER_NODE_TYPE, STORAGE_NODE_TYPE):
+        elif node.isMaster() or node.isStorage():
             for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
                     node_list = [(node_type, address, uuid, state)]
                     c.notify(protocol.notifyNodeInformation(node_list))
-        elif node.getNodeType() != ADMIN_NODE_TYPE:
+        elif not node.isAdmin():
             raise RuntimeError('unknown node type')
 
     def broadcastPartitionChanges(self, ptid, cell_list):
@@ -298,7 +296,7 @@ class Application(object):
         for c in self.em.getConnectionList():
             if c.getUUID() is not None:
                 n = self.nm.getNodeByUUID(c.getUUID())
-                if n.getNodeType() in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE):
+                if n.isClient() or n.isStorage() or n.isAdmin():
                     # Split the packet if too big.
                     size = len(cell_list)
                     start = 0
@@ -332,7 +330,7 @@ class Application(object):
         """ Send informations on all nodes through the given connection """
         node_list = []
         for n in self.nm.getNodeList():
-            if n.getNodeType() != ADMIN_NODE_TYPE:
+            if not n.isAdmin():
                 try:
                     address = n.getServer()
                 except TypeError:
@@ -488,7 +486,7 @@ class Application(object):
             uuid = conn.getUUID()
             if uuid is not None:
                 node = nm.getNodeByUUID(uuid)
-                if node.getNodeType() == STORAGE_NODE_TYPE:
+                if node.isStorage():
                     self.asking_uuid_dict[uuid] = False
                     conn.ask(protocol.askUnfinishedTransactions())
 
@@ -510,7 +508,7 @@ class Application(object):
                     uuid = conn.getUUID()
                     if uuid is not None:
                         node = nm.getNodeByUUID(uuid)
-                        if node.getNodeType() == STORAGE_NODE_TYPE:
+                        if node.isStorage():
                             conn.notify(protocol.deleteTransaction(tid))
             else:
                 for conn in em.getConnectionList():
@@ -574,10 +572,9 @@ class Application(object):
                 logging.critical('No longer operational, so stopping the service')
                 for conn in em.getConnectionList():
                     node = nm.getNodeByUUID(conn.getUUID())
-                    if node is not None and node.getNodeType() in \
-                            (STORAGE_NODE_TYPE, CLIENT_NODE_TYPE):
+                    if node is not None and (node.isStorage() or node.isClient()):
                         conn.notify(protocol.stopOperation())
-                        if node.getNodeType() == CLIENT_NODE_TYPE:
+                        if node.isClient():
                             conn.abort()
 
                 # Then, go back, and restart.
@@ -646,16 +643,15 @@ class Application(object):
             if conn.isListeningConnection() or node is None:
                 # not identified or listening, keep the identification handler
                 continue
-            node_type = node.getNodeType()
             conn.notify(notification_packet)
-            if node_type in (ADMIN_NODE_TYPE, MASTER_NODE_TYPE):
+            if node.isAdmin() or node.isMaster():
                 # those node types keep their own handler
                 continue
-            if node_type == CLIENT_NODE_TYPE:
+            if node.isClient():
                 if state != protocol.RUNNING:
                     conn.close()
                 handler = client.ClientServiceHandler
-            elif node_type == STORAGE_NODE_TYPE:
+            elif node.isStorage():
                 handler = storage_handler
             handler = handler(self)
             conn.setHandler(handler)
@@ -739,7 +735,7 @@ class Application(object):
                     logging.info("asking all clients to shutdown")
                     for c in self.em.getConnectionList():
                         node = self.nm.getNodeByUUID(c.getUUID())
-                        if node.getType() == CLIENT_NODE_TYPE:
+                        if node.isClient():
                             node_list = [(node.getType(), node.getServer(), 
                                 node.getUUID(), DOWN_STATE)]
                             c.notify(protocol.notifyNodeInformation(node_list))
@@ -747,7 +743,7 @@ class Application(object):
                     logging.info("asking all remaining nodes to shutdown")
                     for c in self.em.getConnectionList():
                         node = self.nm.getNodeByUUID(c.getUUID())
-                        if node.getType() in (STORAGE_NODE_TYPE, MASTER_NODE_TYPE):
+                        if node.isStorage() or node.isMaster():
                             node_list = [(node.getType(), node.getServer(), 
                                 node.getUUID(), DOWN_STATE)]
                             c.notify(protocol.notifyNodeInformation(node_list))

@@ -86,25 +86,58 @@ class Node(object):
         uuid = self.getUUID()
         return '%s (%s:%s)' % (dump(uuid), address, port)
 
+    def isMaster(self):
+        return False
+
+    def isStorage(self):
+        return False
+
+    def isClient(self):
+        return False
+
+    def isAdmin(self):
+        return False
+
+
 class MasterNode(Node):
     """This class represents a master node."""
+
     def getNodeType(self):
         return MASTER_NODE_TYPE
 
+    def isMaster(self):
+        return True
+
+
 class StorageNode(Node):
     """This class represents a storage node."""
+
     def getNodeType(self):
         return STORAGE_NODE_TYPE
 
+    def isStorage(self):
+        return True
+
+
 class ClientNode(Node):
     """This class represents a client node."""
+
     def getNodeType(self):
         return CLIENT_NODE_TYPE
 
+    def isClient(self):
+        return True
+
+
 class AdminNode(Node):
     """This class represents an admin node."""
+
     def getNodeType(self):
         return ADMIN_NODE_TYPE
+
+    def isAdmin(self):
+        return True
+
 
 NODE_TYPE_MAPPING = {
     protocol.MASTER_NODE_TYPE: MasterNode,
@@ -160,15 +193,15 @@ class NodeManager(object):
         return filter(node_filter, self.node_list)
 
     def getMasterNodeList(self):
-        node_filter = lambda node: node.getNodeType() == MASTER_NODE_TYPE
+        node_filter = lambda node: node.isMaster()
         return self.getNodeList(node_filter=node_filter)
 
     def getStorageNodeList(self):
-        node_filter = lambda node: node.getNodeType() == STORAGE_NODE_TYPE
+        node_filter = lambda node: node.isStorage()
         return self.getNodeList(node_filter=node_filter)
 
     def getClientNodeList(self):
-        node_filter = lambda node: node.getNodeType() == CLIENT_NODE_TYPE
+        node_filter = lambda node: node.isClient()
         return self.getNodeList(node_filter=node_filter)
 
     def getNodeByServer(self, server):
