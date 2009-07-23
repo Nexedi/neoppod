@@ -19,9 +19,19 @@ max-public-methods=100
 # Inspired by Debian's /usr/share/doc/pylint/examples/pylintrc_camelcase
 module-rgx=(([a-z][a-z0-9]*)|([A-Z][a-zA-Z0-9]+))$
 class-rgx=[A-Z][a-zA-Z0-9]+$
-function-rgx=[a-z_](([a-zA-Z0-9]*)|([a-z0-9_]*))$
-method-rgx=(([a-z_](([a-zA-Z0-9]*)|([a-z0-9_]*)))|(__[a-z]*__))$
+function-rgx=((_+|[a-z]))(([a-zA-Z0-9]*)|([a-z0-9_]*))$
+method-rgx=((((_+|[a-z]))(([a-zA-Z0-9]*)|([a-z0-9_]*)))|(__.*__))$
 argument-rgx=[a-z][a-z0-9_]*$
-variable-rgx=[a-z][a-z0-9_]*$
+# variables can be:
+# - variables ([a-z][a-z0-9_]*$)
+# - method aliases (inner loop optimisation)
+variable-rgx=(([a-z][a-z0-9_]*)|(((((_+|[a-z]))(([a-zA-Z0-9]*)|([a-z0-9_]*)))|(__.*__))))$
 attr-rgx=[a-z_][a-z0-9_]*$
+# Consts (as detected by pylint) can be:
+# - functions
+# - class aliases (class Bar: pass; Foo = Bar)
+# - decorator functions
+# - real consts
+# For the moment, accept any name.
+const-rgx=.*
 
