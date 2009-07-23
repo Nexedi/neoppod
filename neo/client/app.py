@@ -176,12 +176,12 @@ class ThreadContext(object):
     _threads_dict = {}
 
     def __getThreadData(self):
-        id = get_ident()
+        thread_id = get_ident()
         try:
-            result = self._threads_dict[id]
+            result = self._threads_dict[thread_id
         except KeyError:
-            self.clear(id)
-            result = self._threads_dict[id]
+            self.clear(thread_id)
+            result = self._threads_dict[thread_id]
         return result
 
     def __getattr__(self, name):
@@ -195,10 +195,10 @@ class ThreadContext(object):
         thread_data = self.__getThreadData()
         thread_data[name] = value
 
-    def clear(self, id=None):
-        if id is None:
-            id = get_ident()
-        self._threads_dict[id] = {
+    def clear(self, thread_id=None):
+        if thread_id is None:
+            thread_id = get_ident()
+        self._threads_dict[thread_id] = {
             'tid': None,
             'txn': None,
             'data_dict': {},
@@ -215,8 +215,8 @@ class Application(object):
     def __init__(self, master_nodes, name, connector, **kw):
         # XXX: use a configuration entry
         from neo import buildFormatString
-        format = buildFormatString('CLIENT')
-        logging.basicConfig(level=logging.DEBUG, format=format)
+        fmt = buildFormatString('CLIENT')
+        logging.basicConfig(level=logging.DEBUG, format=fmt)
         em = EventManager()
         # Start polling thread
         self.poll_thread = ThreadedPoll(em)

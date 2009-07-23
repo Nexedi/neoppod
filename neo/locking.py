@@ -56,8 +56,8 @@ if VERBOSE_LOCKING:
             self.waiting = []
             self._note('%s@%X created by %r', self.__class__.__name__, id(self), LockUser(1))
 
-        def _note(self, format, *args):
-            sys.stderr.write(format % args + '\n')
+        def _note(self, fmt, *args):
+            sys.stderr.write(fmt % args + '\n')
             sys.stderr.flush()
 
         def _getOwner(self):

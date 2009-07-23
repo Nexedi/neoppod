@@ -39,8 +39,8 @@ from neo.bootstrap import BootstrapManager
 class Application(object):
     """The storage node application."""
 
-    def __init__(self, file, section, reset = False):
-        config = ConfigurationManager(file, section)
+    def __init__(self, filename, section, reset=False):
+        config = ConfigurationManager(filename, section)
 
         self.name = config.getName()
         logging.debug('the name is %s', self.name)

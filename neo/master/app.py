@@ -41,9 +41,9 @@ from neo.connector import getConnectorHandler
 class Application(object):
     """The master node application."""
 
-    def __init__(self, file, section):
+    def __init__(self, filename, section):
 
-        config = ConfigurationManager(file, section)
+        config = ConfigurationManager(filename, section)
         self.connector_handler = getConnectorHandler(config.getConnector())
 
         self.name = config.getName()

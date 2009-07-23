@@ -416,8 +416,8 @@ class Packet(object):
     def getId(self):
         return self._id
 
-    def setId(self, id):
-        self._id = id
+    def setId(self, packet_id):
+        self._id = packet_id
 
     def getType(self):
         return self._type
@@ -494,11 +494,11 @@ def _checkNodeState(state):
         raise PacketMalformedError('invalid node state %d' % state)
     return node_state
 
-def _checkNodeType(type):
-    node_type = node_types.get(type)
+def _checkNodeType(node_type):
+    _node_type = node_types.get(node_type)
     if node_type is None:
-        raise PacketMalformedError('invalid node type %d' % type)
-    return node_type
+        raise PacketMalformedError('invalid node type %d' % node_type)
+    return _node_type
 
 def _checkAddress(address):
     if address == '\0' * 6:
@@ -531,13 +531,13 @@ def _encodePTID(ptid):
         return INVALID_PTID
     return ptid
 
-def _readString(buffer, name, offset=0):
-    buffer = buffer[offset:]
-    (size, ) = unpack('!L', buffer[:4])
-    string = buffer[4:4+size]
+def _readString(buf, name, offset=0):
+    buf = buf[offset:]
+    (size, ) = unpack('!L', buf[:4])
+    string = buf[4:4+size]
     if len(string) != size:
         raise PacketMalformedError("can't read string <%s>" % name)
-    return (string, buffer[offset+size:])
+    return (string, buf[offset+size:])
 
 # packet decoding
 @handle_errors

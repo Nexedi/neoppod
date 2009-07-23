@@ -51,8 +51,8 @@ class Dispatcher:
 class Application(object):
     """The storage node application."""
 
-    def __init__(self, file, section):
-        config = ConfigurationManager(file, section)
+    def __init__(self, filename, section):
+        config = ConfigurationManager(filename, section)
 
         self.name = config.getName()
         logging.debug('the name is %s', self.name)
