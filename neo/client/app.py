@@ -175,6 +175,23 @@ class ThreadContext(object):
 
     _threads_dict = {}
 
+    def __init__(self):
+        self.tid = None
+        self.txn = None
+        self.txn_voted = False
+        self.txn_finished = False
+        self.txn_info = 0
+        self.history = None
+        self.data_dict = {}
+        self.node_tids = {}
+        self.node_ready = False
+        self.conflict_serial = 0
+        self.asked_object = 0
+        self.object_stored_counter = 0
+        self.voted_counter = 0
+        self.object_stored = 0
+        self.queue = Queue(5)
+
     def __getThreadData(self):
         thread_id = get_ident()
         try:
@@ -221,6 +238,7 @@ class Application(object):
         # Start polling thread
         self.poll_thread = ThreadedPoll(em)
         # Internal Attributes common to all thread
+        self._db = None
         self.name = name
         self.em = em
         self.connector_handler = getConnectorHandler(connector)
@@ -685,7 +703,7 @@ class Application(object):
                     # previous node which already store data as it would be resent
                     # again if conflict is resolved or txn will be aborted
                     del self.local_var.data_dict[oid]
-                self.conflict_serial = self.local_var.object_stored[1]
+                self.local_var.conflict_serial = self.local_var.object_stored[1]
                 raise NEOStorageConflictError
             # increase counter so that we know if a node has stored the object or not
             self.local_var.object_stored_counter += 1
@@ -1032,7 +1050,7 @@ class Application(object):
         return self.local_var.tid
 
     def getConflictSerial(self):
-        return self.conflict_serial
+        return self.local_var.conflict_serial
 
     def setTransactionFinished(self):
         self.local_var.txn_finished = True

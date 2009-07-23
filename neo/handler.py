@@ -47,10 +47,11 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
 
 class EventHandler(object):
     """This class handles events."""
+
     def __init__(self, app):
         self.app = app
-        self.initPacketDispatchTable()
-        self.initErrorDispatchTable()
+        self.packet_dispatch_table = self.initPacketDispatchTable()
+        self.error_dispatch_table = self.initErrorDispatchTable()
 
     def connectionStarted(self, conn):
         """Called when a connection is started."""
@@ -445,10 +446,11 @@ class EventHandler(object):
         d[ANSWER_CLUSTER_STATE] = self.handleAnswerClusterState
         d[NOTIFY_CLUSTER_INFORMATION] = self.handleNotifyClusterInformation
 
-        self.packet_dispatch_table = d
+        return d
 
     def initErrorDispatchTable(self):
         d = {}
+
         d[NO_ERROR_CODE] = self.handleNoError
         d[NOT_READY_CODE] = self.handleNotReady
         d[OID_NOT_FOUND_CODE] = self.handleOidNotFound
@@ -459,4 +461,5 @@ class EventHandler(object):
         d[BROKEN_NODE_DISALLOWED_CODE] = self.handleBrokenNodeDisallowedError
         d[INTERNAL_ERROR_CODE] = self.handleInternalError
 
-        self.error_dispatch_table = d
+        return d
+
