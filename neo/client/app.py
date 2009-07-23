@@ -269,6 +269,7 @@ class Application(object):
         self.mq_cache = MQ()
         self.new_oid_list = []
         self.ptid = None
+        self.last_oid = '\0' * 8
         self.storage_event_handler = storage.StorageEventHandler(self, self.dispatcher)
         self.storage_bootstrap_handler = storage.StorageBootstrapHandler(self)
         self.storage_handler = storage.StorageAnswersHandler(self)
@@ -518,10 +519,15 @@ class Application(object):
                 self._askPrimary(protocol.askNewOIDs(100))
                 if len(self.new_oid_list) <= 0:
                     raise NEOStorageError('new_oid failed')
-            return self.new_oid_list.pop()
+            self.last_oid = self.new_oid_list.pop()
+            return self.last_oid
         finally:
             self._oid_lock_release()
 
+    def getStorageSize(self):
+        # return the last OID used, this is innacurate
+        from neo.util import u64
+        return int(u64(self.last_oid))
 
     def getSerial(self, oid):
         # Try in cache first

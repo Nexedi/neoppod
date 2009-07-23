@@ -130,3 +130,4 @@ RC Known bugs
     - Consider storing some metadata on master nodes (partition table [version], ...). This data should be treated non-authoritatively, as a way to lower the probability to use an outdated partition table.
     - Decentralize primary master tasks as much as possible (consider distributed lock mechanisms, ...)
     - Make admin node able to monitor multiple clusters simultaneously
+    - Choose how to compute the storage size

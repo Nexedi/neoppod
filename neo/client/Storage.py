@@ -160,8 +160,7 @@ class Storage(BaseStorage.BaseStorage,
         raise NotImplementedError
 
     def __len__(self):
-        # XXX bogus but how to implement this?
-        return 0
+        return self.app.getStorageSize()
 
     def registerDB(self, db, limit):
         self.app.registerDB(db, limit)
