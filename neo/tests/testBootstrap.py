@@ -19,7 +19,7 @@ import os
 import unittest
 import logging
 from mock import Mock
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo.master.app import MasterNode
 from neo.pt import PartitionTable
 from neo.storage.app import Application, StorageNode

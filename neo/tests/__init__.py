@@ -19,6 +19,7 @@ import os
 import unittest
 import tempfile
 import MySQLdb
+import logging
 from mock import Mock
 from neo import protocol
 
@@ -323,3 +324,69 @@ class NeoTestBase(unittest.TestCase):
 
     def checkAnswerObjectPresent(self, conn, **kw):
         return self.checkAnswerPacket(conn, protocol.ANSWER_OBJECT_PRESENT, **kw)
+
+
+# XXX: imported from neo.master.test.connector since it's used at many places
+
+connector_cpt = 0
+
+# master node with the highest uuid will be declared as PMN
+previous_uuid = None
+def getNewUUID():
+    uuid = protocol.INVALID_UUID
+    previous = globals()["previous_uuid"]
+    while uuid == protocol.INVALID_UUID or (previous is \
+              not None and uuid > previous):
+        uuid = os.urandom(16)
+    logging.info("previous > uuid %s"%(previous > uuid)) 
+    globals()["previous_uuid"] = uuid
+    return uuid
+
+class DoNothingConnector(Mock):
+  def __init__(self, s=None):
+    logging.info("initializing connector")
+    self.desc = globals()['connector_cpt']
+    globals()['connector_cpt'] = globals()['connector_cpt']+ 1
+    self.packet_cpt = 0
+    Mock.__init__(self)
+
+  def getAddress(self):
+    return self.addr
+  
+  def makeClientConnection(self, addr):
+    self.addr = addr
+
+  def getDescriptor(self):
+    return self.desc
+
+
+class TestElectionConnector(DoNothingConnector):
+  def receive(self):
+    """ simulate behavior of election """
+    if self.packet_cpt == 0:
+      # first : identify
+      logging.info("in patched analyse / IDENTIFICATION")
+      p = protocol.Packet()
+      self.uuid = getNewUUID()
+      p.acceptNodeIdentification(1,
+                                 protocol.MASTER_NODE_TYPE,
+                                 self.uuid,
+                                 self.getAddress()[0],
+                                 self.getAddress()[1],
+                                 1009,
+                                 2
+                                 )
+      self.packet_cpt += 1
+      return p.encode()
+    elif self.packet_cpt == 1:
+      # second : answer primary master nodes
+      logging.info("in patched analyse / ANSWER PM")
+      p = protocol.Packet()
+      p.answerPrimaryMaster(2, protocol.INVALID_UUID, [])        
+      self.packet_cpt += 1
+      return p.encode()
+    else:
+      # then do nothing
+      from neo.connector import ConnectorTryAgainException
+      raise ConnectorTryAgainException
+    

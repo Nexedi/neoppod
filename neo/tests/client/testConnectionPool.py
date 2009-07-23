@@ -18,7 +18,7 @@
 import unittest
 from mock import Mock
 
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo.client.app import ConnectionPool
 
 class ConnectionPoolTests(NeoTestBase):

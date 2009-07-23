@@ -19,7 +19,7 @@ import unittest
 import logging
 import threading
 from mock import Mock, ReturnValues
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo import protocol
 from neo.protocol import UnexpectedPacketError, INVALID_UUID
 from neo.protocol import \

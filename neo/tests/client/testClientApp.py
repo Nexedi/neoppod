@@ -18,7 +18,7 @@
 import unittest
 from mock import Mock, ReturnValues
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo.client.app import Application
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError, \
         NEOStorageConflictError
@@ -782,7 +782,7 @@ class ClientApplicationTests(NeoTestBase):
         # the third will not be ready
         # after the third, the partition table will be operational 
         # (as if it was connected to the primary master node)
-        from neo.master.tests.connector import DoNothingConnector
+        from neo.tests import DoNothingConnector
         # will raise IndexError at the third iteration
         app = self.getApp('127.0.0.1:10010 127.0.0.1:10011')
         # TODO: test more connection failure cases

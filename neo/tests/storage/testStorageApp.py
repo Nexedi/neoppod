@@ -17,7 +17,7 @@
 
 import unittest, logging, os
 from mock import Mock
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo.storage.app import Application
 from neo.protocol import INVALID_PTID, INVALID_TID, \
      INVALID_UUID, Packet, NOTIFY_NODE_INFORMATION, UP_TO_DATE_STATE

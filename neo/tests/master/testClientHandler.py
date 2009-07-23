@@ -20,7 +20,7 @@ import unittest
 import logging
 from mock import Mock
 from struct import pack, unpack
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 import neo.master
 from neo import protocol
 from neo.protocol import Packet, INVALID_UUID

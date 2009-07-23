@@ -22,7 +22,7 @@ from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         BROKEN_STATE, INVALID_UUID
 from neo.pt import Cell, PartitionTable
 from neo.node import StorageNode
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 
 class PartitionTableTests(NeoTestBase):
 

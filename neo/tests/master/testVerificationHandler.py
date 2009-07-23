@@ -21,7 +21,7 @@ import logging
 from mock import Mock
 from struct import pack, unpack
 import neo
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo.protocol import Packet, INVALID_UUID
 from neo.master.handlers.verification import VerificationHandler
 from neo.master.app import Application
@@ -35,7 +35,7 @@ from neo.protocol import ERROR, ANNOUNCE_PRIMARY_MASTER, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import OperationFailure, ElectionFailure, VerificationFailure     
 from neo.node import MasterNode, StorageNode
-from neo.master.tests.connector import DoNothingConnector
+from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
 
 

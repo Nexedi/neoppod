@@ -17,7 +17,7 @@
 
 import unittest, os
 from mock import Mock
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         BROKEN_STATE, INVALID_UUID

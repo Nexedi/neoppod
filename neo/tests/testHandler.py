@@ -17,7 +17,7 @@
 
 import unittest, os
 from mock import Mock, ReturnValues
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo.handler import EventHandler
 from neo.protocol import UnexpectedPacketError, MASTER_NODE_TYPE, \
         CLIENT_NODE_TYPE, STORAGE_NODE_TYPE, ADMIN_NODE_TYPE

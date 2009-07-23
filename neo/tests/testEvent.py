@@ -17,7 +17,7 @@
 import unittest, os
 from mock import Mock
 from time import time
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo.epoll import Epoll
 from neo.event import EpollEventManager, IdleEvent
 from neo.protocol import Packet, PING

@@ -25,7 +25,7 @@ from neo.connection import BaseConnection, ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, MTServerConnection
 from neo.connector import getConnectorHandler, registerConnectorHandler
 from neo.handler import EventHandler
-from neo.master.tests.connector import DoNothingConnector
+from neo.tests import DoNothingConnector
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
 from neo.protocol import Packet, ProtocolError, PROTOCOL_ERROR_CODE, ERROR,INTERNAL_ERROR_CODE, \

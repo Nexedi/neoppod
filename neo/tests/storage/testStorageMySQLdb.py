@@ -21,7 +21,7 @@ import logging
 import MySQLdb
 from mock import Mock
 from neo.protocol import *
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo.exception import DatabaseFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 

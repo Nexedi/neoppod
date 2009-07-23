@@ -20,7 +20,7 @@ import unittest
 import logging
 from mock import Mock
 from struct import pack, unpack
-from neo.tests.base import NeoTestBase
+from neo.tests import NeoTestBase
 from neo import protocol
 from neo.protocol import Packet, INVALID_UUID
 from neo.master.handlers.election import ClientElectionHandler, ServerElectionHandler
@@ -48,7 +48,7 @@ from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIF
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import OperationFailure, ElectionFailure     
 from neo.node import MasterNode, StorageNode
-from neo.master.tests.connector import DoNothingConnector
+from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
 
 # patch connection so that we can register _addPacket messages
