@@ -145,13 +145,13 @@ class MasterEventHandler(EventHandler):
             EventHandler.dispatch(self, conn, packet)
 
     def handleAnswerNodeInformation(self, conn, packet, node_list):
-        logging.info("handleAnswerNodeInformation")
+        logging.debug("handleAnswerNodeInformation")
 
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
-        logging.info("handleAnswerPartitionTable")
+        logging.debug("handleAnswerPartitionTable")
 
     def handleNotifyClusterInformation(self, con, packet, cluster_state):
-        logging.info("handleNotifyClusterInformation")
+        logging.debug("handleNotifyClusterInformation")
 
 
 class MasterBaseEventHandler(EventHandler):
