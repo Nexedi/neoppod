@@ -422,8 +422,7 @@ class Connection(BaseConnection):
 
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
-    def __init__(self, event_manager, handler, addr = None,
-                 connector_handler = None, **kw):
+    def __init__(self, event_manager, handler, addr, connector_handler, **kw):
         self.connecting = True
         Connection.__init__(self, event_manager, handler, addr = addr,
                             connector_handler = connector_handler)
