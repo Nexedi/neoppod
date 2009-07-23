@@ -126,8 +126,7 @@ class BaseConnection(object):
 
 class ListeningConnection(BaseConnection):
     """A listen connection."""
-    def __init__(self, event_manager, handler, addr = None,
-                 connector_handler = None, **kw):
+    def __init__(self, event_manager, handler, addr, connector_handler, **kw):
         logging.debug('listening to %s:%d', *addr)
         BaseConnection.__init__(self, event_manager, handler,
                                 addr = addr,
