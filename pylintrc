@@ -14,6 +14,8 @@ disable-msg=C0111,C0301
 min-public-methods=0
 # Handler classes need to export many methods. We do define a complex API.
 max-public-methods=100
+# Handler methods need a big number of parameters.
+max-args=10
 
 [BASIC]
 # Inspired by Debian's /usr/share/doc/pylint/examples/pylintrc_camelcase
