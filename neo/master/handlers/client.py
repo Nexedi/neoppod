@@ -80,7 +80,8 @@ class ClientServiceHandler(BaseServiceHandler):
             # this assertion when done
             assert node_type == protocol.STORAGE_NODE_TYPE
             assert state in (protocol.TEMPORARILY_DOWN_STATE, protocol.BROKEN_STATE)
-
+            node = self.app.nm.getNodeByUUID(uuid)
+            assert node is not None
             if self.app.em.getConnectionByUUID(uuid) is None:
                 # trust this notification only if I don't have a connexion to
                 # this node
