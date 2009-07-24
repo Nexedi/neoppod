@@ -281,7 +281,7 @@ class NeoTestBase(unittest.TestCase):
         return self.checkAskPacket(conn, protocol.FINISH_TRANSACTION, **kw)
 
     def checkAskNewTid(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.ASK_NEW_TID, **kw)
+        return self.checkAskPacket(conn, protocol.ASK_BEGIN_TRANSACTION, **kw)
 
     def checkAskLastIDs(self, conn, **kw):
         return self.checkAskPacket(conn, protocol.ASK_LAST_IDS, **kw)

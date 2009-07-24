@@ -29,7 +29,7 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         ANSWER_PARTITION_TABLE, SEND_PARTITION_TABLE, NOTIFY_PARTITION_CHANGES, \
         ASK_UNFINISHED_TRANSACTIONS, ANSWER_UNFINISHED_TRANSACTIONS, \
         ASK_OBJECT_PRESENT, ANSWER_OBJECT_PRESENT, \
-        DELETE_TRANSACTION, COMMIT_TRANSACTION, ASK_NEW_TID, ANSWER_NEW_TID, \
+        DELETE_TRANSACTION, COMMIT_TRANSACTION, ASK_BEGIN_TRANSACTION, ANSWER_BEGIN_TRANSACTION, \
         FINISH_TRANSACTION, NOTIFY_TRANSACTION_FINISHED, LOCK_INFORMATION, \
         NOTIFY_INFORMATION_LOCKED, INVALIDATE_OBJECTS, UNLOCK_INFORMATION, \
         ASK_NEW_OIDS, ANSWER_NEW_OIDS, ASK_STORE_OBJECT, ANSWER_STORE_OBJECT, \
@@ -236,10 +236,10 @@ class EventHandler(object):
     def handleCommitTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleAskNewTID(self, conn, packet):
+    def handleAskBeginTransaction(self, conn, packet):
         raise UnexpectedPacketError
 
-    def handleAnswerNewTID(self, conn, packet, tid):
+    def handleAnswerBeginTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
     def handleAskNewOIDs(self, conn, packet, num_oids):
@@ -406,8 +406,8 @@ class EventHandler(object):
         d[ANSWER_OBJECT_PRESENT] = self.handleAnswerObjectPresent
         d[DELETE_TRANSACTION] = self.handleDeleteTransaction
         d[COMMIT_TRANSACTION] = self.handleCommitTransaction
-        d[ASK_NEW_TID] = self.handleAskNewTID
-        d[ANSWER_NEW_TID] = self.handleAnswerNewTID
+        d[ASK_BEGIN_TRANSACTION] = self.handleAskBeginTransaction
+        d[ANSWER_BEGIN_TRANSACTION] = self.handleAnswerBeginTransaction
         d[FINISH_TRANSACTION] = self.handleFinishTransaction
         d[NOTIFY_TRANSACTION_FINISHED] = self.handleNotifyTransactionFinished
         d[LOCK_INFORMATION] = self.handleLockInformation

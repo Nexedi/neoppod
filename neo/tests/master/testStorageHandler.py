@@ -29,7 +29,7 @@ from neo.master.app import Application
 from neo.protocol import ERROR, PING, PONG, ANNOUNCE_PRIMARY_MASTER, \
      REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION,  \
      ASK_LAST_IDS, ANSWER_LAST_IDS, NOTIFY_PARTITION_CHANGES, \
-     ASK_UNFINISHED_TRANSACTIONS, ASK_NEW_TID, FINISH_TRANSACTION, \
+     ASK_UNFINISHED_TRANSACTIONS, ASK_BEGIN_TRANSACTION, FINISH_TRANSACTION, \
      NOTIFY_INFORMATION_LOCKED, ASK_NEW_OIDS, ABORT_TRANSACTION, \
      STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, MASTER_NODE_TYPE, \
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
@@ -174,7 +174,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         storage_conn_1 = self.getFakeConnection(storage_uuid_1, ("127.0.0.1", self.storage_port))
         storage_conn_2 = self.getFakeConnection(storage_uuid_2, ("127.0.0.1", 10022))
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        service.handleAskNewTID(conn, packet)
+        service.handleAskBeginTransaction(conn, packet)
         # clean mock object
         conn.mockCalledMethods = {}
         conn.mockAllCalledMethods = []
@@ -226,9 +226,9 @@ class MasterStorageHandlerTests(NeoTestBase):
         client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
                                                 port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        service.handleAskNewTID(conn, packet)
-        service.handleAskNewTID(conn, packet)
-        service.handleAskNewTID(conn, packet)
+        service.handleAskBeginTransaction(conn, packet)
+        service.handleAskBeginTransaction(conn, packet)
+        service.handleAskBeginTransaction(conn, packet)
         conn = self.getFakeConnection(uuid, self.storage_address)
         service.handleAskUnfinishedTransactions(conn, packet)
         packet = self.checkAnswerUnfinishedTransactions(conn, answered_packet=packet)
@@ -333,10 +333,10 @@ class MasterStorageHandlerTests(NeoTestBase):
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()
-        packet = Packet(msg_type=ASK_NEW_TID)
-        service.handleAskNewTID(conn, packet)
-        service.handleAskNewTID(conn, packet)
-        service.handleAskNewTID(conn, packet)
+        packet = Packet(msg_type=ASK_BEGIN_TRANSACTION)
+        service.handleAskBeginTransaction(conn, packet)
+        service.handleAskBeginTransaction(conn, packet)
+        service.handleAskBeginTransaction(conn, packet)
         self.assertEquals(self.app.nm.getNodeByUUID(client_uuid).getState(), RUNNING_STATE)
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 3)
         service.peerBroken(conn)
@@ -379,10 +379,10 @@ class MasterStorageHandlerTests(NeoTestBase):
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()
-        packet = Packet(msg_type=ASK_NEW_TID)
-        service.handleAskNewTID(conn, packet)
-        service.handleAskNewTID(conn, packet)
-        service.handleAskNewTID(conn, packet)
+        packet = Packet(msg_type=ASK_BEGIN_TRANSACTION)
+        service.handleAskBeginTransaction(conn, packet)
+        service.handleAskBeginTransaction(conn, packet)
+        service.handleAskBeginTransaction(conn, packet)
         self.assertEquals(self.app.nm.getNodeByUUID(client_uuid).getState(), RUNNING_STATE)
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 3)
         service.timeoutExpired(conn)
@@ -425,10 +425,10 @@ class MasterStorageHandlerTests(NeoTestBase):
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()
-        packet = Packet(msg_type=ASK_NEW_TID)
-        service.handleAskNewTID(conn, packet)
-        service.handleAskNewTID(conn, packet)
-        service.handleAskNewTID(conn, packet)
+        packet = Packet(msg_type=ASK_BEGIN_TRANSACTION)
+        service.handleAskBeginTransaction(conn, packet)
+        service.handleAskBeginTransaction(conn, packet)
+        service.handleAskBeginTransaction(conn, packet)
         self.assertEquals(self.app.nm.getNodeByUUID(client_uuid).getState(), RUNNING_STATE)
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 3)
         service.connectionClosed(conn)

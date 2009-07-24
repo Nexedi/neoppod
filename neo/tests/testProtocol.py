@@ -287,13 +287,13 @@ class ProtocolTests(unittest.TestCase):
         self.assertEqual(ptid, tid)
 
 
-    def test_32_askNewTID(self):
-        p = protocol.askNewTID()
+    def test_32_askBeginTransaction(self):
+        p = protocol.askBeginTransaction()
         self.assertEqual(p.decode(), None)
 
-    def test_33_answerNewTID(self):
+    def test_33_answerBeginTransaction(self):
         tid = self.getNextTID()
-        p = protocol.answerNewTID(tid)
+        p = protocol.answerBeginTransaction(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 

@@ -94,11 +94,11 @@ class ClientServiceHandler(BaseServiceHandler):
         except KeyError:
             logging.warn('aborting transaction %s does not exist', dump(tid))
 
-    def handleAskNewTID(self, conn, packet):
+    def handleAskBeginTransaction(self, conn, packet):
         app = self.app
         tid = app.getNextTID()
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
-        conn.answer(protocol.answerNewTID(tid), packet)
+        conn.answer(protocol.answerBeginTransaction(tid), packet)
 
     def handleAskNewOIDs(self, conn, packet, num_oids):
         app = self.app

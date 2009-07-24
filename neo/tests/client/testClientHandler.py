@@ -790,13 +790,13 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEquals(calls[2].getParam(1).getUUID(), uuid3)
         self.assertEquals(calls[3].getParam(1).getUUID(), uuid4)
 
-    def test_AnswerNewTID(self):
+    def test_AnswerBeginTransaction(self):
         app = Mock({'setTID': None})
         dispatcher = self.getDispatcher()
         client_handler = PrimaryAnswersHandler(app)
         conn = self.getConnection()
         test_tid = 1
-        client_handler.handleAnswerNewTID(conn, None, test_tid)
+        client_handler.handleAnswerBeginTransaction(conn, None, test_tid)
         setTID_call_list = app.mockGetNamedCalls('setTID')
         self.assertEquals(len(setTID_call_list), 1)
         self.assertEquals(setTID_call_list[0].getParam(0), test_tid)

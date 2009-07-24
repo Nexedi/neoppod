@@ -212,7 +212,7 @@ class PrimaryNotificationsHandler(BaseHandler):
 class PrimaryAnswersHandler(AnswerBaseHandler):
     """ Handle that process expected packets from the primary master """
 
-    def handleAnswerNewTID(self, conn, packet, tid):
+    def handleAnswerBeginTransaction(self, conn, packet, tid):
         app = self.app
         app.setTID(tid)
 

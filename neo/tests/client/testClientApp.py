@@ -345,7 +345,7 @@ class ClientApplicationTests(NeoTestBase):
         # no connection -> NEOStorageError (wait until connected to primary)
         #self.assertRaises(NEOStorageError, app.tpc_begin, transaction=txn, tid=None)
         # ask a tid to pmn
-        packet = protocol.answerNewTID(tid=tid)
+        packet = protocol.answerBeginTransaction(tid=tid)
         app.master_conn = Mock({
             'getNextId': 1,
             'expectMessage': None, 
@@ -583,7 +583,7 @@ class ClientApplicationTests(NeoTestBase):
         def hook(tid): 
             self.f_called = True
             self.f_called_with_tid = tid
-        packet = protocol.answerNewTID(INVALID_TID) 
+        packet = protocol.answerBeginTransaction(INVALID_TID) 
         app.master_conn = Mock({ 
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10000),
@@ -856,7 +856,7 @@ class ClientApplicationTests(NeoTestBase):
         def _waitMessage_hook(app, conn=None, msg_id=None, handler=None):
             self.test_ok = True
         _waitMessage_old = Application._waitMessage
-        packet = protocol.askNewTID()
+        packet = protocol.askBeginTransaction()
         Application._waitMessage = _waitMessage_hook
         try:
             app._askStorage(conn, packet)
@@ -882,7 +882,7 @@ class ClientApplicationTests(NeoTestBase):
             self.test_ok = True
         _waitMessage_old = Application._waitMessage
         Application._waitMessage = _waitMessage_hook
-        packet = protocol.askNewTID()
+        packet = protocol.askBeginTransaction()
         try:
             app._askPrimary(packet)
         finally:

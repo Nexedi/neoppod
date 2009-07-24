@@ -36,7 +36,7 @@ class ShutdownHandler(BaseServiceHandler):
 
     @decorators.identification_required
     @decorators.restrict_node_types(CLIENT_NODE_TYPE)
-    def handleAskNewTID(self, conn, packet):
+    def handleAskBeginTransaction(self, conn, packet):
         logging.error('reject any new demand for new tid')
         raise protocol.ProtocolError('cluster is shutting down')
 

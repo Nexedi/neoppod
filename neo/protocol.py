@@ -173,10 +173,10 @@ packet_types = Enum({
     'COMMIT_TRANSACTION': 0x0011,
 
     # Ask a new transaction ID. C -> PM.
-    'ASK_NEW_TID': 0x0012,
+    'ASK_BEGIN_TRANSACTION': 0x0012,
 
     # Answer a new transaction ID. PM -> C.
-    'ANSWER_NEW_TID': 0x8012,
+    'ANSWER_BEGIN_TRANSACTION': 0x8012,
 
     # Finish a transaction. C -> PM.
     'FINISH_TRANSACTION': 0x0013,
@@ -751,15 +751,15 @@ def _decodeCommitTransaction(body):
 decode_table[COMMIT_TRANSACTION] = _decodeCommitTransaction
 
 @handle_errors
-def _decodeAskNewTID(body):
+def _decodeAskBeginTransaction(body):
     pass
-decode_table[ASK_NEW_TID] = _decodeAskNewTID
+decode_table[ASK_BEGIN_TRANSACTION] = _decodeAskBeginTransaction
 
 @handle_errors
-def _decodeAnswerNewTID(body):
+def _decodeAnswerBeginTransaction(body):
     (tid, ) = unpack('8s', body)
     return (tid, )
-decode_table[ANSWER_NEW_TID] = _decodeAnswerNewTID
+decode_table[ANSWER_BEGIN_TRANSACTION] = _decodeAnswerBeginTransaction
 
 @handle_errors
 def _decodeAskNewOIDs(body):
@@ -1226,11 +1226,11 @@ def deleteTransaction(tid):
 def commitTransaction(tid):
     return Packet(COMMIT_TRANSACTION, tid)
 
-def askNewTID():
-    return Packet(ASK_NEW_TID)
+def askBeginTransaction():
+    return Packet(ASK_BEGIN_TRANSACTION)
 
-def answerNewTID(tid):
-    return Packet(ANSWER_NEW_TID, tid)
+def answerBeginTransaction(tid):
+    return Packet(ANSWER_BEGIN_TRANSACTION, tid)
 
 def askNewOIDs(num_oids):
     return Packet(ASK_NEW_OIDS, pack('!H', num_oids))

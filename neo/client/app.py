@@ -662,7 +662,7 @@ class Application(object):
         # Get a new transaction id if necessary
         if tid is None:
             self.local_var.tid = None
-            self._askPrimary(protocol.askNewTID())
+            self._askPrimary(protocol.askBeginTransaction())
             if self.local_var.tid is None:
                 raise NEOStorageError('tpc_begin failed')
         else:
