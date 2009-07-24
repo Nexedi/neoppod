@@ -34,8 +34,7 @@ class AdministrationHandler(MasterHandler):
         # I'm the primary
         conn.answer(protocol.answerPrimaryMaster(app.uuid, []), packet)
 
-    def handleSetClusterState(self, conn, packet, name, state):
-        self.checkClusterName(name)
+    def handleSetClusterState(self, conn, packet, state):
         self.app.changeClusterState(state)
         p = protocol.noError('cluster state changed')
         conn.answer(p, packet)

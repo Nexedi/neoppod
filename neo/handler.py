@@ -351,7 +351,7 @@ class EventHandler(object):
     def handleAnswerClusterState(self, conn, packet, state):
         raise UnexpectedPacketError
 
-    def handleSetClusterState(self, conn, packet, name, state):
+    def handleSetClusterState(self, conn, packet, state):
         raise UnexpectedPacketError
 
     def handleNotifyClusterInformation(self, conn, packet, state):

@@ -81,11 +81,10 @@ class AdminEventHandler(EventHandler):
         msg_id = master_conn.ask(p)
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
-    def handleSetClusterState(self, conn, packet, name, state):
-        self.checkClusterName(name)
+    def handleSetClusterState(self, conn, packet, state):
         # forward to primary
         master_conn = self.app.master_conn
-        p = protocol.setClusterState(name, state)
+        p = protocol.setClusterState(state)
         msg_id = master_conn.ask(p)
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 

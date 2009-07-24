@@ -1069,9 +1069,8 @@ decode_table[ANSWER_CLUSTER_STATE] = _decodeAnswerClusterState
 @handle_errors
 def _decodeSetClusterState(body):
     (state, ) = unpack('!H', body[:2])
-    (name, _) = _readString(body, 'name', offset=2)
     state = _decodeClusterState(state)
-    return (name, state)
+    return (state, )
 decode_table[SET_CLUSTER_STATE] = _decodeSetClusterState
 
 @handle_errors
@@ -1438,9 +1437,8 @@ def answerClusterState(state):
     body = pack('!H', state)
     return Packet(ANSWER_CLUSTER_STATE, body)
 
-def setClusterState(name, state):    
-    body = [pack('!HL', state, len(name)), name]
-    body = ''.join(body)
+def setClusterState(state):    
+    body = pack('!H', state)
     return Packet(SET_CLUSTER_STATE, body)
 
 def notifyClusterInformation(state):
