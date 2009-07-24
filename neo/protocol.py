@@ -482,25 +482,25 @@ def handle_errors(decoder):
             raise PacketMalformedError("%s fail (%s)" % (name, msg))
     return wrapper
 
-def _checkClusterState(state):
+def _decodeClusterState(state):
     cluster_state = cluster_states.get(state)
     if cluster_state is None:
         raise PacketMalformedError('invalid node state %d' % state)
     return cluster_state
 
-def _checkNodeState(state):
+def _decodeNodeState(state):
     node_state = node_states.get(state)
     if node_state is None:
         raise PacketMalformedError('invalid node state %d' % state)
     return node_state
 
-def _checkNodeType(original_node_type):
+def _decodeNodeType(original_node_type):
     node_type = node_types.get(original_node_type)
     if node_type is None:
         raise PacketMalformedError('invalid node type %d' % original_node_type)
     return node_type
 
-def _checkAddress(address):
+def _decodeAddress(address):
     if address == '\0' * 6:
         return None
     (ip, port) = unpack('!4sH', address)
@@ -511,7 +511,7 @@ def _encodeAddress(address):
         return '\0' * 6
     return pack('!4sH', inet_aton(address[0]), address[1])
 
-def _checkUUID(uuid):
+def _decodeUUID(uuid):
     if uuid == INVALID_UUID:
         return None
     return uuid
@@ -521,7 +521,7 @@ def _encodeUUID(uuid):
         return INVALID_UUID
     return uuid
 
-def _checkPTID(ptid):
+def _decodePTID(ptid):
     if ptid == INVALID_PTID:
         return None
     return ptid
@@ -561,10 +561,10 @@ decode_table[PONG] = _decodePong
 def _decodeRequestNodeIdentification(body):
     r = unpack('!LLH16s6s', body[:32])
     major, minor, node_type, uuid, address = r
-    address = _checkAddress(address)
+    address = _decodeAddress(address)
     (name, _) = _readString(body, 'name', offset=32)
-    node_type = _checkNodeType(node_type)
-    uuid = _checkUUID(uuid)
+    node_type = _decodeNodeType(node_type)
+    uuid = _decodeUUID(uuid)
     if (major, minor) != PROTOCOL_VERSION:
         raise PacketMalformedError('protocol version mismatch')
     return node_type, uuid, address, name
@@ -574,10 +574,10 @@ decode_table[REQUEST_NODE_IDENTIFICATION] = _decodeRequestNodeIdentification
 def _decodeAcceptNodeIdentification(body):
     r = unpack('!H16s6sLL16s', body)
     node_type, uuid, address, num_partitions, num_replicas, your_uuid = r
-    address = _checkAddress(address)
-    node_type = _checkNodeType(node_type)
-    uuid = _checkUUID(uuid)
-    your_uuid == _checkUUID(uuid)
+    address = _decodeAddress(address)
+    node_type = _decodeNodeType(node_type)
+    uuid = _decodeUUID(uuid)
+    your_uuid == _decodeUUID(uuid)
     return (node_type, uuid, address, num_partitions, num_replicas, your_uuid)
 decode_table[ACCEPT_NODE_IDENTIFICATION] = _decodeAcceptNodeIdentification
 
@@ -592,10 +592,10 @@ def _decodeAnswerPrimaryMaster(body):
     known_master_list = []
     for i in xrange(n):
         address, uuid = unpack('!6s16s', body[20+i*22:42+i*22])
-        address = _checkAddress(address)
-        uuid = _checkUUID(uuid)
+        address = _decodeAddress(address)
+        uuid = _decodeUUID(uuid)
         known_master_list.append((address, uuid))
-    primary_uuid = _checkUUID(primary_uuid)
+    primary_uuid = _decodeUUID(primary_uuid)
     return (primary_uuid, known_master_list)
 decode_table[ANSWER_PRIMARY_MASTER] = _decodeAnswerPrimaryMaster
 
@@ -616,10 +616,10 @@ def _decodeNotifyNodeInformation(body):
     for i in xrange(n):
         r = unpack('!H6s16sH', body[4+i*26:30+i*26])
         node_type, address, uuid, state = r
-        address = _checkAddress(address)
-        node_type = _checkNodeType(node_type)
-        state = _checkNodeState(state)
-        uuid = _checkUUID(uuid)
+        address = _decodeAddress(address)
+        node_type = _decodeNodeType(node_type)
+        state = _decodeNodeState(state)
+        uuid = _decodeUUID(uuid)
         node_list.append((node_type, address, uuid, state))
     return (node_list,)
 decode_table[NOTIFY_NODE_INFORMATION] = _decodeNotifyNodeInformation
@@ -632,7 +632,7 @@ decode_table[ASK_LAST_IDS] = _decodeAskLastIDs
 @handle_errors
 def _decodeAnswerLastIDs(body):
     (loid, ltid, lptid) = unpack('!8s8s8s', body)
-    lptid = _checkPTID(lptid)
+    lptid = _decodePTID(lptid)
     return (loid, ltid, lptid)
 decode_table[ANSWER_LAST_IDS] = _decodeAnswerLastIDs
 
@@ -650,7 +650,7 @@ decode_table[ASK_PARTITION_TABLE] = _decodeAskPartitionTable
 def _decodeAnswerPartitionTable(body):
     index = 12
     (ptid, n) = unpack('!8sL', body[:index])
-    ptid = _checkPTID(ptid)
+    ptid = _decodePTID(ptid)
     row_list = []
     cell_list = []
     for i in xrange(n):
@@ -660,7 +660,7 @@ def _decodeAnswerPartitionTable(body):
             uuid, state = unpack('!16sH', body[index:index+18])
             index += 18
             state = partition_cell_states.get(state)
-            uuid = _checkUUID(uuid)
+            uuid = _decodeUUID(uuid)
             cell_list.append((uuid, state))
         row_list.append((offset, tuple(cell_list)))
         del cell_list[:]
@@ -671,7 +671,7 @@ decode_table[ANSWER_PARTITION_TABLE] = _decodeAnswerPartitionTable
 def _decodeSendPartitionTable(body):
     index = 12
     (ptid, n,) = unpack('!8sL', body[:index])
-    ptid = _checkPTID(ptid)
+    ptid = _decodePTID(ptid)
     row_list = []
     cell_list = []
     for i in xrange(n):
@@ -681,7 +681,7 @@ def _decodeSendPartitionTable(body):
             uuid, state = unpack('!16sH', body[index:index+18])
             index += 18
             state = partition_cell_states.get(state)
-            uuid = _checkUUID(uuid)
+            uuid = _decodeUUID(uuid)
             cell_list.append((uuid, state))
         row_list.append((offset, tuple(cell_list)))
         del cell_list[:]
@@ -691,12 +691,12 @@ decode_table[SEND_PARTITION_TABLE] = _decodeSendPartitionTable
 @handle_errors
 def _decodeNotifyPartitionChanges(body):
     (ptid, n) = unpack('!8sL', body[:12])
-    ptid = _checkPTID(ptid)
+    ptid = _decodePTID(ptid)
     cell_list = []
     for i in xrange(n):
         (offset, uuid, state) = unpack('!L16sH', body[12+i*22:34+i*22])
         state = partition_cell_states.get(state)
-        uuid = _checkUUID(uuid)
+        uuid = _decodeUUID(uuid)
         cell_list.append((offset, uuid, state))
     return ptid, cell_list
 decode_table[NOTIFY_PARTITION_CHANGES] = _decodeNotifyPartitionChanges
@@ -959,7 +959,7 @@ decode_table[ANSWER_OIDS] = _decodeAnswerOIDs
 @handle_errors
 def _decodeAskPartitionList(body):
     (min_offset, max_offset, uuid) =  unpack('!LL16s', body)
-    uuid = _checkUUID(uuid)
+    uuid = _decodeUUID(uuid)
     return (min_offset, max_offset, uuid)
 decode_table[ASK_PARTITION_LIST] = _decodeAskPartitionList
 
@@ -967,7 +967,7 @@ decode_table[ASK_PARTITION_LIST] = _decodeAskPartitionList
 def _decodeAnswerPartitionList(body):
     index = 12
     (ptid, n) = unpack('!8sL', body[:index])
-    ptid = _checkPTID(ptid)
+    ptid = _decodePTID(ptid)
     row_list = []
     cell_list = []
     for i in xrange(n):
@@ -977,7 +977,7 @@ def _decodeAnswerPartitionList(body):
             uuid, state = unpack('!16sH', body[index:index+18])
             index += 18
             state = partition_cell_states.get(state)
-            uuid = _checkUUID(uuid)
+            uuid = _decodeUUID(uuid)
             cell_list.append((uuid, state))
         row_list.append((offset, tuple(cell_list)))
         del cell_list[:]
@@ -987,7 +987,7 @@ decode_table[ANSWER_PARTITION_LIST] = _decodeAnswerPartitionList
 @handle_errors
 def _decodeAskNodeList(body):
     (node_type, ) = unpack('!H', body)
-    node_type = _checkNodeType(node_type)
+    node_type = _decodeNodeType(node_type)
     return (node_type,)
 decode_table[ASK_NODE_LIST] = _decodeAskNodeList
 
@@ -998,10 +998,10 @@ def _decodeAnswerNodeList(body):
     for i in xrange(n):
         r = unpack('!H6s16sH', body[4+i*26:30+i*26])
         node_type, address, uuid, state = r
-        address = _checkAddress(address)
-        node_type = _checkNodeType(node_type)
-        state = _checkNodeState(state)
-        uuid = _checkUUID(uuid)
+        address = _decodeAddress(address)
+        node_type = _decodeNodeType(node_type)
+        state = _decodeNodeState(state)
+        uuid = _decodeUUID(uuid)
         node_list.append((node_type, address, uuid, state))
     return (node_list,)
 decode_table[ANSWER_NODE_LIST] = _decodeAnswerNodeList
@@ -1009,16 +1009,16 @@ decode_table[ANSWER_NODE_LIST] = _decodeAnswerNodeList
 @handle_errors
 def _decodeSetNodeState(body):
     (uuid, state, modify) = unpack('!16sHB', body)
-    state = _checkNodeState(state)
-    uuid = _checkUUID(uuid)
+    state = _decodeNodeState(state)
+    uuid = _decodeUUID(uuid)
     return (uuid, state, modify)
 decode_table[SET_NODE_STATE] = _decodeSetNodeState
 
 @handle_errors
 def _decodeAnswerNodeState(body):
     (uuid, state) = unpack('!16sH', body)
-    state = _checkNodeState(state)
-    uuid = _checkUUID(uuid)
+    state = _decodeNodeState(state)
+    uuid = _decodeUUID(uuid)
     return (uuid, state)
 decode_table[ANSWER_NODE_STATE] = _decodeAnswerNodeState
 
@@ -1026,7 +1026,7 @@ decode_table[ANSWER_NODE_STATE] = _decodeAnswerNodeState
 def _decodeAddPendingNodes(body):
     (n, ) = unpack('!H', body[:2])
     uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
-    uuid_list = map(_checkUUID, uuid_list)
+    uuid_list = map(_decodeUUID, uuid_list)
     return (uuid_list, )
 decode_table[ADD_PENDING_NODES] = _decodeAddPendingNodes
 
@@ -1034,7 +1034,7 @@ decode_table[ADD_PENDING_NODES] = _decodeAddPendingNodes
 def _decodeAnswerNewNodes(body):
     (n, ) = unpack('!H', body[:2])
     uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
-    uuid_list = map(_checkUUID, uuid_list)
+    uuid_list = map(_decodeUUID, uuid_list)
     return (uuid_list, )
 decode_table[ANSWER_NEW_NODES] = _decodeAnswerNewNodes
 
@@ -1050,7 +1050,7 @@ decode_table[ASK_CLUSTER_STATE] = _decodeAskClusterState
 @handle_errors
 def _decodeAnswerClusterState(body):
     (state, ) = unpack('!H', body)
-    state = _checkClusterState(state)
+    state = _decodeClusterState(state)
     return (state, )
 decode_table[ANSWER_CLUSTER_STATE] = _decodeAnswerClusterState
 
@@ -1058,14 +1058,14 @@ decode_table[ANSWER_CLUSTER_STATE] = _decodeAnswerClusterState
 def _decodeSetClusterState(body):
     (state, ) = unpack('!H', body[:2])
     (name, _) = _readString(body, 'name', offset=2)
-    state = _checkClusterState(state)
+    state = _decodeClusterState(state)
     return (name, state)
 decode_table[SET_CLUSTER_STATE] = _decodeSetClusterState
 
 @handle_errors
 def _decodeNotifyClusterInformation(body):
     (state, ) = unpack('!H', body)
-    state = _checkClusterState(state)
+    state = _decodeClusterState(state)
     return (state, )
 decode_table[NOTIFY_CLUSTER_INFORMATION] = _decodeNotifyClusterInformation
 
