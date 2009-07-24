@@ -185,13 +185,6 @@ class NeoTestRunner(unittest.TestResult):
         t_success = 0
         # for each test case
         for k, v in sorted(self.modulesStats.items()):
-            # test case stats
-            t_success += v.success
-            run, success = v.run or '.', v.success or '.'
-            errors, failures = v.errors or '.', v.failures or '.'
-            name = k[-1].lstrip('test')
-            args = (name, run, success, errors, failures, v.time)
-            s += format % args
             # display group below its content
             _group = '.'.join(k[:-1])
             if group is None:
@@ -199,6 +192,13 @@ class NeoTestRunner(unittest.TestResult):
             if _group != group:
                 s += separator + group_f % group + separator
                 group = _group
+            # test case stats
+            t_success += v.success
+            run, success = v.run or '.', v.success or '.'
+            errors, failures = v.errors or '.', v.failures or '.'
+            name = k[-1].lstrip('test')
+            args = (name, run, success, errors, failures, v.time)
+            s += format % args
         # the last group
         s += separator  + group_f % group + separator
         # the final summary
