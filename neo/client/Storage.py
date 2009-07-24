@@ -156,9 +156,6 @@ class Storage(BaseStorage.BaseStorage,
         # seems to be only use by FileStorage
         raise NotImplementedError
 
-    def copyTransactionsFrom(self, other, verbose=0):
-        raise NotImplementedError
-
     def __len__(self):
         return self.app.getStorageSize()
 
