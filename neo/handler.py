@@ -236,7 +236,7 @@ class EventHandler(object):
     def handleCommitTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleAskBeginTransaction(self, conn, packet):
+    def handleAskBeginTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
     def handleAnswerBeginTransaction(self, conn, packet, tid):

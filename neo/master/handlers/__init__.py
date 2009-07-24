@@ -80,7 +80,7 @@ class MasterHandler(EventHandler):
     def handleOidNotFound(self, conn, packet, message):
         logging.error('ignoring OID Not Found in %s' % self.__class__.__name__)
 
-    def handleAskBeginTransaction(self, conn, packet):
+    def handleAskBeginTransaction(self, conn, packet, tid):
         logging.error('ignoring Ask New TID in %s' % self.__class__.__name__)
 
     def handleAskNewOIDs(self, conn, packet, num_oids):
