@@ -66,7 +66,7 @@ class ConnectionPool(object):
 
         # Loop until a connection is obtained.
         while True:
-            logging.info('trying to connect to %s - %s', node, node.getState())
+            logging.debug('trying to connect to %s - %s', node, node.getState())
             app.setNodeReady()
             conn = MTClientConnection(app.em, app.storage_event_handler, addr,
                                       connector_handler=app.connector_handler,
@@ -732,7 +732,7 @@ class Application(object):
         cell_list = self._getCellListForTID(self.local_var.tid, writable=True)
         self.local_var.voted_counter = 0
         for cell in cell_list:
-            logging.info("voting object %s %s" %(cell.getServer(), cell.getState()))
+            logging.debug("voting object %s %s" %(cell.getServer(), cell.getState()))
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
