@@ -94,15 +94,9 @@ class ClientServiceHandler(BaseServiceHandler):
         except KeyError:
             logging.warn('aborting transaction %s does not exist', dump(tid))
 
-    def handleAskBeginTransaction(self, conn, packet, tid):
+    def handleAskBeginTransaction(self, conn, packet):
         app = self.app
-        if tid is not None and tid < app.ltid:
-            # supplied TID is in the past
-            raise protocol.ProtocolError('invalid TID requested')
-        if tid is None:
-            # give a new transaction ID
-            tid = app.getNextTID()
-        app.ltid = tid
+        tid = app.getNextTID()
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
         conn.answer(protocol.answerBeginTransaction(tid), packet)
 

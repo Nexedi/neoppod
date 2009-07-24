@@ -172,10 +172,10 @@ packet_types = Enum({
     # Commit a transaction. PM -> S.
     'COMMIT_TRANSACTION': 0x0011,
 
-    # Ask to begin a new transaction. C -> PM.
+    # Ask a new transaction ID. C -> PM.
     'ASK_BEGIN_TRANSACTION': 0x0012,
 
-    # Answer when a transaction begin, give a TID if necessary. PM -> C.
+    # Answer a new transaction ID. PM -> C.
     'ANSWER_BEGIN_TRANSACTION': 0x8012,
 
     # Finish a transaction. C -> PM.
@@ -531,16 +531,6 @@ def _encodePTID(ptid):
         return INVALID_PTID
     return ptid
 
-def _decodeTID(tid):
-    if tid == INVALID_TID:
-        return None
-    return tid
-
-def _encodeTID(tid):
-    if tid is None:
-        return INVALID_TID
-    return tid
-
 def _readString(buf, name, offset=0):
     buf = buf[offset:]
     (size, ) = unpack('!L', buf[:4])
@@ -762,15 +752,12 @@ decode_table[COMMIT_TRANSACTION] = _decodeCommitTransaction
 
 @handle_errors
 def _decodeAskBeginTransaction(body):
-    (tid, ) = unpack('8s', body)
-    tid = _decodeTID(tid)
-    return (tid, )
+    pass
 decode_table[ASK_BEGIN_TRANSACTION] = _decodeAskBeginTransaction
 
 @handle_errors
 def _decodeAnswerBeginTransaction(body):
     (tid, ) = unpack('8s', body)
-    tid = _decodeTID(tid)
     return (tid, )
 decode_table[ANSWER_BEGIN_TRANSACTION] = _decodeAnswerBeginTransaction
 
@@ -883,7 +870,8 @@ def _decodeAskObject(body):
     (oid, serial, tid) = unpack('8s8s8s', body)
     if serial == INVALID_TID:
         serial = None
-    tid = _decodeTID(tid)
+    if tid == INVALID_TID:
+        tid = None
     return (oid, serial, tid)
 decode_table[ASK_OBJECT] = _decodeAskObject
 
@@ -1168,7 +1156,8 @@ def answerLastIDs(loid, ltid, lptid):
     # packet when no last IDs are known
     if loid is None:
         loid = INVALID_OID
-    ltid = _encodeTID(ltid)
+    if ltid is None:
+        ltid = INVALID_TID
     lptid = _encodePTID(lptid)
     return Packet(ANSWER_LAST_IDS, loid + ltid + lptid)
 
@@ -1237,12 +1226,10 @@ def deleteTransaction(tid):
 def commitTransaction(tid):
     return Packet(COMMIT_TRANSACTION, tid)
 
-def askBeginTransaction(tid):
-    tid = _encodeTID(tid)
-    return Packet(ASK_BEGIN_TRANSACTION, tid)
+def askBeginTransaction():
+    return Packet(ASK_BEGIN_TRANSACTION)
 
 def answerBeginTransaction(tid):
-    tid = _encodeTID(tid)
     return Packet(ANSWER_BEGIN_TRANSACTION, tid)
 
 def askNewOIDs(num_oids):
@@ -1310,8 +1297,11 @@ def answerStoreObject(conflicting, oid, serial):
     return Packet(ANSWER_STORE_OBJECT, body)
 
 def askObject(oid, serial, tid):
-    tid = _encodeTID(tid)
-    serial = _encodeTID(serial) # serial is the previous TID
+    if tid is None:
+        # tid can be unspecified
+        tid = INVALID_TID
+    if serial is None:
+        serial = INVALID_TID
     return Packet(ASK_OBJECT, pack('!8s8s8s', oid, serial, tid))
 
 def answerObject(oid, serial_start, serial_end, compression,
