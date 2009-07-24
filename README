@@ -48,6 +48,7 @@ Installation
           <NEOStorage>
                 master_nodes 127.0.0.1:10010 127.0.0.1:10011
                 name main
+                connector SocketConnector
           </NEOStorage>
           mount-point /
       </zodb_db>
