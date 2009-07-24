@@ -659,14 +659,13 @@ class Application(object):
         if self.local_var.txn is transaction:
             # We already begin the same transaction
             return
-        # Get a new transaction id if necessary
-        if tid is None:
-            self.local_var.tid = None
-            self._askPrimary(protocol.askBeginTransaction())
-            if self.local_var.tid is None:
-                raise NEOStorageError('tpc_begin failed')
-        else:
-            self.local_var.tid = tid
+        # ask the primary master to start a transaction, if no tid is supplied,
+        # the master will supply us one. Otherwise the requested tid will be
+        # used if possible.
+        self.local_var.tid = None
+        self._askPrimary(protocol.askBeginTransaction(tid))
+        if self.local_var.tid is None:
+            raise NEOStorageError('tpc_begin failed')
         self.local_var.txn = transaction            
 
 
