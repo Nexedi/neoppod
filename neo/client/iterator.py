@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from ZODB import BaseStorage
-from neo import util import
+from neo import util
 
 
 class Record(BaseStorage.DataRecord):
