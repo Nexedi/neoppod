@@ -23,9 +23,9 @@ class Dispatcher:
     def __init__(self):
         self.message_table = {}
 
-    def pop(self, conn, packet, default=MARKER):
+    def pop(self, conn, msg_id, default=MARKER):
         """Retrieve register-time provided payload."""
-        key = (id(conn), packet.getId())
+        key = (id(conn), msg_id)
         if default is MARKER:
             result = self.message_table.pop(key)
         else:
