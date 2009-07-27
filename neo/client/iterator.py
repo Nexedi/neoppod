@@ -105,3 +105,5 @@ class Iterator(object):
     def __str__(self):
         return 'NEO transactions iteratpr'
 
+    def close(self):
+        pass
