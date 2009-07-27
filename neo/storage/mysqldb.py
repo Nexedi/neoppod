@@ -185,23 +185,23 @@ class MySQLDatabaseManager(DatabaseManager):
             return None
 
     def setConfiguration(self, key, value):
-        q = self.query
-        e = self.escape
-        key = e(str(key))
-        value = e(str(value))
-        q("""REPLACE INTO config VALUES ('%s', '%s')""" % (key, value))
+        self.begin()
+        try:
+            q = self.query
+            e = self.escape
+            key = e(str(key))
+            value = e(str(value))
+            q("""REPLACE INTO config VALUES ('%s', '%s')""" % (key, value))
+        except:
+            self.rollback()
+            raise
+        self.commit()
 
     def getUUID(self):
         return self.getConfiguration('uuid')
 
     def setUUID(self, uuid):
-        self.begin()
-        try:
-            self.setConfiguration('uuid', uuid)
-        except:
-            self.rollback()
-            raise
-        self.commit()
+        self.setConfiguration('uuid', uuid)
 
     def getNumPartitions(self):
         n = self.getConfiguration('partitions')
@@ -209,13 +209,7 @@ class MySQLDatabaseManager(DatabaseManager):
             return int(n)
 
     def setNumPartitions(self, num_partitions):
-        self.begin()
-        try:
-            self.setConfiguration('partitions', num_partitions)
-        except:
-            self.rollback()
-            raise
-        self.commit()
+        self.setConfiguration('partitions', num_partitions)
 
     def getNumReplicas(self):
         n = self.getConfiguration('replicas')
@@ -223,37 +217,19 @@ class MySQLDatabaseManager(DatabaseManager):
             return int(n)
 
     def setNumReplicas(self, num_replicas):
-        self.begin()
-        try:
-            self.setConfiguration('replicas', num_replicas)
-        except:
-            self.rollback()
-            raise
-        self.commit()
+        self.setConfiguration('replicas', num_replicas)
 
     def getName(self):
         return self.getConfiguration('name')
 
     def setName(self, name):
-        self.begin()
-        try:
-            self.setConfiguration('name', name)
-        except:
-            self.rollback()
-            raise
-        self.commit()
+        self.setConfiguration('name', name)
 
     def getPTID(self):
         return self.getConfiguration('ptid')
 
     def setPTID(self, ptid):
-        self.begin()
-        try:
-            self.setConfiguration('ptid', ptid)
-        except:
-            self.rollback()
-            raise
-        self.commit()
+        self.setConfiguration('ptid', ptid)
 
     def getPartitionTable(self):
         q = self.query
