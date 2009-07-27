@@ -125,7 +125,7 @@ class Storage(BaseStorage.BaseStorage,
             raise POSException.POSKeyError (oid, tid)
 
     def iterator(self, start=None, stop=None):
-        raise NotImplementedError
+        return self.app.iterator(start, stop)
 
     # undo
     def undo(self, transaction_id, txn):

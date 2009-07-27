@@ -1,3 +1,4 @@
+#
 # Copyright (C) 2006-2009  Nexedi SA
 # 
 # This program is free software; you can redistribute it and/or
@@ -22,25 +23,28 @@ from Queue import Queue, Empty
 from random import shuffle
 from time import sleep
 
-from neo.client.mq import MQ
-from neo.node import NodeManager, MasterNode, StorageNode
-from neo.connection import MTClientConnection
+from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
+
 from neo import protocol
-from neo.client.handlers import storage, master
-from neo.client.exception import NEOStorageError, NEOStorageConflictError, \
-     NEOStorageNotFoundError
-from neo.exception import NeoException
+from neo.event import EventManager
 from neo.util import makeChecksum, dump
+from neo.locking import RLock, Lock
+from neo.connection import MTClientConnection
+from neo.node import NodeManager, MasterNode, StorageNode
 from neo.connector import getConnectorHandler
+from neo.client.exception import NEOStorageError, NEOStorageConflictError
+from neo.client.exception import NEOStorageNotFoundError
+from neo.exception import NeoException
+from neo.client.handlers import storage, master
 from neo.client.dispatcher import Dispatcher
 from neo.client.poll import ThreadedPoll
-from neo.event import EventManager
-from neo.locking import RLock, Lock
+from neo.client.iterator import Iterator
+from neo.client.mq import MQ
 
-from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 
 class ConnectionClosed(Exception): 
     pass
+
 
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
@@ -942,7 +946,9 @@ class Application(object):
                                     'be found' % (tid, )
 
             if filter is None or filter(self.local_var.txn_info):
-                self.local_var.txn_info.pop("oids")
+                # XXX: oids entry is not needed by undoLog but required for the
+                # iterator, this code should be splited then specialized
+                #self.local_var.txn_info.pop("oids")
                 append(self.local_var.txn_info)
                 if len(undo_info) >= last - first:
                     break
@@ -1017,6 +1023,9 @@ class Application(object):
                 history_list.append(self.local_var.txn_info)
 
         return history_list
+
+    def iterator(self, start=None, stop=None):
+        return Iterator(self, start, stop)
 
     def __del__(self):
         """Clear all connection."""
