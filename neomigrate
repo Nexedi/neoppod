@@ -1,0 +1,77 @@
+#! /usr/bin/env python
+#
+# neomaster - run a master node of NEO
+#
+# Copyright (C) 2006  Nexedi SA
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+from optparse import OptionParser
+import logging
+import time
+import os
+
+from ZODB.FileStorage import FileStorage
+#from ZEO.ClientStorage import ClientStorage as ZEOStorage
+from neo.client.Storage import Storage as NEOStorage
+
+
+# register options
+parser = OptionParser()
+parser.add_option('-v', '--verbose', action = 'store_true', 
+                  help = 'print verbose messages')
+parser.add_option('-s', '--source', help = 'the source database')
+parser.add_option('-d', '--destination', help = 'the destination database')
+parser.add_option('-c', '--connector', help = 'the NEO connector')
+parser.add_option('-n', '--name', help = 'the NEO cluster name')
+
+# parse options
+(options, args) = parser.parse_args()
+source = options.source or None
+destination = options.destination or None
+name = options.name or None
+connector = options.connector or 'SocketConnector'
+verbose = options.verbose or False
+
+# check options
+if source is None or destination is None:
+    raise RuntimeError('Source and destination databases must be supplied')
+if name is None:
+    raise RuntimeError('The NEO cluster name must be supplied')
+
+# set up logging
+if verbose:
+    logging.basicConfig(level=logging.DEBUG)
+else:
+    logging.basicConfig(level=logging.INFO)
+
+# open storages
+neo_args = { 'connector': connector, 'name': name, }
+if os.path.exists(source):
+    src = FileStorage(file_name=source)
+    dst = NEOStorage(master_nodes=destination, **neo_args)
+else:
+    src = NEOStorage(master_nodes=source, **neo_args)
+    dst = FileStorage(file_name=destination)
+
+# do the job
+print "Migrating from %s to %s" % (source, destination)
+start = time.time()
+dst.copyTransactionsFrom(src, verbose=0)
+elapsed = time.time() - start
+print "Migration done in %3.5f" % (elapsed, )
+if isinstance(dst, NEOStorage):
+    print "Don't forget to restart the whole NEO cluster."
+
