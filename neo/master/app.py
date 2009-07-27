@@ -309,19 +309,20 @@ class Application(object):
         logging.debug('broadcastPartitionChanges')
         self.pt.log()
         for c in self.em.getConnectionList():
-            if c.getUUID() is not None:
-                n = self.nm.getNodeByUUID(c.getUUID())
-                if n.isClient() or n.isStorage() or n.isAdmin():
-                    # Split the packet if too big.
-                    size = len(cell_list)
-                    start = 0
-                    while size:
-                        amt = min(10000, size)
-                        p = protocol.notifyPartitionChanges(ptid,
-                                                 cell_list[start:start+amt])
-                        c.notify(p)
-                        size -= amt
-                        start += amt
+            n = self.nm.getNodeByUUID(c.getUUID())
+            if n is None:
+                continue
+            if n.isClient() or n.isStorage() or n.isAdmin():
+                # Split the packet if too big.
+                size = len(cell_list)
+                start = 0
+                while size:
+                    amt = min(10000, size)
+                    cell_list = cell_list[start:start+amt]
+                    p = protocol.notifyPartitionChanges(ptid, cell_list)
+                    c.notify(p)
+                    size -= amt
+                    start += amt
 
     def outdateAndBroadcastPartition(self):
         " Outdate cell of non-working nodes and broadcast changes """
