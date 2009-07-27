@@ -16,71 +16,55 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from neo.handler import EventHandler
-from neo.protocol import UnexpectedPacketError
-from neo.exception import OperationFailure
-from neo.util import dump
+from neo import protocol
 
 class CommandEventHandler(EventHandler):
     """ Base handler for command """
 
-    def connectionAccepted(self, conn, s, addr):
-        """Called when a connection is accepted."""
-        raise UnexpectedPacketError
-
     def connectionCompleted(self, conn):
         # connected to admin node
-        self.app.trying_admin_node = False
+        self.app.connected = True
         EventHandler.connectionCompleted(self, conn)
 
-    def connectionFailed(self, conn):
-        EventHandler.connectionFailed(self, conn)
-        raise OperationFailure, "impossible to connect to admin node %s:%d" % conn.getAddress()
+    def __disconnected(self):
+        app = self.app
+        app.connected = False
+        app.connection = None
 
-    def timeoutExpired(self, conn):
-        EventHandler.timeoutExpired(self, conn)
-        raise OperationFailure, "connection to admin node %s:%d timeout" % conn.getAddress()
+    def __respond(self, response):
+        self.app.response_queue.append(response)
 
     def connectionClosed(self, conn):
-        if self.app.trying_admin_node:
-            raise OperationFailure, "cannot connect to admin node %s:%d" % conn.getAddress()
-        EventHandler.connectionClosed(self, conn)
+        super(CommandEventHandler, self).connectionClosed(conn)
+        self.__disconnected()
+
+    def connectionFailed(self, conn):
+        super(CommandEventHandler, self).connectionFailed(conn)
+        self.__disconnected()
+
+    def timeoutExpired(self, conn):
+        super(CommandEventHandler, self).timeoutExpired(conn)
+        self.__disconnected()
 
     def peerBroken(self, conn):
-        EventHandler.peerBroken(self, conn)
-        raise OperationFailure, "connect to admin node %s:%d broken" % conn.getAddress()
+        super(CommandEventHandler, self).peerBroken(conn)
+        self.__disconnected()
 
     def handleAnswerPartitionList(self, conn, packet, ptid, row_list):
-        data = ""
-        if len(row_list) == 0:
-            data = "No partition"
-        else:
-            for offset, cell_list in row_list:
-                data += "\n%s | " % offset
-                for uuid, state in cell_list:
-                    data += "%s - %s |" % (dump(uuid), state)
-        self.app.result = data
+        self.__respond((packet.getType(), ptid, row_list))
 
     def handleAnswerNodeList(self, conn, packet, node_list):
-        data = ""
-        if len(node_list) == 0:
-            data = "No Node"
-        else:
-            for node_type, address, uuid, state in node_list:
-                if address is None:
-                    address = (None, None)
-                ip, port = address
-                data += "\n%s - %s - %s:%s - %s" % (node_type, dump(uuid), ip, port, state)
-        self.app.result = data
+        self.__respond((packet.getType(), node_list))
 
     def handleAnswerNodeState(self, conn, packet, uuid, state):
-        self.app.result = "Node %s set to state %s" % (dump(uuid), state)
+        self.__respond((packet.getType(), uuid, state))
 
     def handleAnswerClusterState(self, conn, packet, state):
-        self.app.result = "Cluster state : %s" % state
+        self.__respond((packet.getType(), state))
 
     def handleAnswerNewNodes(self, conn, packet, uuid_list):
-        uuids = ', '.join([dump(uuid) for uuid in uuid_list])
-        self.app.result = 'New storage nodes : %s' % uuids
+        self.__respond((packet.getType(), uuid_list))
 
     def handleNoError(self, conn, packet, msg):
-        self.app.result = msg
+        self.__respond((packet.getType(), protocol.NO_ERROR_CODE, msg))
+

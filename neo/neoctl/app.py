@@ -15,195 +15,177 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import logging
-
-from neo.protocol import node_types, node_states
-from neo.event import EventManager
-from neo.connection import ClientConnection
-from neo.neoctl.handler import CommandEventHandler
-from neo.connector import getConnectorHandler
-from neo.util import bin
+from neo.neoctl.neoctl import NeoCTL
+from neo.util import bin, dump
 from neo import protocol
-
-class ActionError(Exception): 
-    pass
-
-def addAction(options):
-    """
-      Change node state from "pending" to "running".
-      Parameters:
-      node uuid
-        UUID of node to add, or "all".
-    """
-    if len(options) == 1 and options[0] == 'all':
-        uuid_list = []
-    else:
-        uuid_list = [bin(opt) for opt in options]
-    return protocol.addPendingNodes(uuid_list)
-
-def setClusterAction(options):
-    """
-      Set cluster of given name to given state.
-      Parameters:
-      cluster state
-        State to put the cluster in.
-    """
-    # XXX: why do we ask for a cluster name ?
-    # We connect to only one cluster that we get from configuration file,
-    # anyway.
-    name, state = options
-    state = protocol.cluster_states.getFromStr(state)
-    if state is None:
-        raise ActionError('unknown cluster state')
-    return protocol.setClusterState(name, state)
-
-def setNodeAction(options):
-    """
-      Put given node into given state.
-      Parameters:
-      node uuid
-        UUID of target node
-      node state
-        Node state to set.
-      change partition table (optional)
-        If given with a 1 value, allow partition table to be changed.
-    """
-    uuid = bin(options.pop(0))
-    state = options.pop(0) + '_STATE'
-    state = node_states.getFromStr(state)
-    if state is None:
-        raise ActionError('unknown state type')
-    if len(options):
-        modify = int(options.pop(0))
-    else:
-        modify = 0
-    return protocol.setNodeState(uuid, state, modify)
-
-def printClusterAction(options):
-    """
-      Print cluster state.
-    """
-    return protocol.askClusterState()
-
-def printNodeAction(options):
-    """
-      Print nodes of a given type.
-      Parameters:
-      node type
-        Print known nodes of given type.
-    """
-    node_type = options.pop(0) + '_NODE_TYPE'
-    node_type = node_types.getFromStr(node_type)
-    if node_type is None:
-        raise ActionError('unknown node type')
-    return protocol.askNodeList(node_type)
-
-def printPTAction(options):
-    """
-      Print the partition table.
-      Parameters:
-      range
-        all   Prints the entire partition table.
-        1 10  Prints rows 1 to 10 of partition table.
-        10 0  Prints rows from 10 to the end of partition table.
-      node uuid (optional)
-        If given, prints only the rows in which given node is used.
-    """
-    offset = options.pop(0)
-    if offset == "all":
-        min_offset = 0
-        max_offset = 0
-    else:
-        min_offset = int(offset)
-        max_offset = int(options.pop(0))
-    if len(options):
-        uuid = bin(options.pop(0))
-    else:
-        uuid = None
-    return protocol.askPartitionList(min_offset, max_offset, uuid)
-
-def startCluster(options):
-    """ 
-    Allow it to leave the recovery stage and accept the current partition 
-    table, or make an empty if nothing was found.
-    Parameter: Cluster name
-    """
-    name = options.pop(0)
-    return protocol.setClusterState(name, protocol.VERIFYING)
-
-def dropNode(options):
-    """
-    Drop one or more storage node from the partition table. Its content 
-    is definitely lost. Be carefull because currently there is no check 
-    about the cluster operational status, so you can drop a node with 
-    non-replicated data.
-    Parameter: UUID
-    """
-    uuid = bin(options.pop(0))
-    return protocol.setNodeState(uuid, protocol.DOWN_STATE, 1)
-
 
 action_dict = {
     'print': {
-        'pt': printPTAction,
-        'node': printNodeAction,
-        'cluster': printClusterAction,
+        'pt': 'getPartitionRowList',
+        'node': 'getNodeList',
+        'cluster': 'getClusterState',
     },
     'set': {
-        'node': setNodeAction,
-        'cluster': setClusterAction,
+        'node': 'setNodeState',
+        'cluster': 'setClusterState',
     },
     'start': {
-        'cluster': startCluster,
+        'cluster': 'startCluster',
     },
-    'add': addAction,
-    'drop': dropNode,
+    'add': 'enableStorageList',
+    'drop': 'dropNode',
 }
+
+class TerminalNeoCTL(object):
+    def __init__(self, ip, port, handler):
+        self.neoctl = NeoCTL(ip, port, handler)
+
+    # Utility methods (could be functions)
+    def asNodeState(self, value):
+        if not value.endswith('_NODE_STATE'):
+            value += '_NODE_STATE'
+        return protocol.node_states.getFromStr(value)
+
+    def asNodeType(self, value):
+        if not value.endswith('_NODE_TYPE'):
+            value += '_NODE_TYPE'
+        return protocol.node_types.getFromStr(value)
+
+    def asClusterState(self, value):
+        if not value.endswith('_CLUSTER_STATE'):
+            value += '_CLUSTER_STATE'
+        return protocol.cluster_states.getFromStr(value)
+
+    def asNode(self, value):
+        return bin(value)
+
+    def formatRowList(self, row_list):
+        return '\n'.join('%s | %s' % (offset,
+                                      ''.join('%s - %s |' % (dump(uuid), state)
+                                       for (uuid, state) in cell_list))
+                         for (offset, cell_list) in row_list)
+
+    def formatNodeList(self, node_list):
+        result = []
+        for node_type, address, uuid, state in node_list:
+            if address is None:
+                address = (None, None)
+            ip, port = address
+            result.append('%s - %s - %s:%s - %s' % (node_type, dump(uuid), ip,
+                                                    port, state))
+        return '\n'.join(result)
+
+    # Actual actions
+    def getPartitionRowList(self, params):
+        """
+          Get a list of partition rows, bounded by min & max and involving
+          given node.
+          Parameters: [min [max [node]]]
+            min: offset of the first row to fetch (starts at 0)
+            max: offset of the last row to fetch (0 for no limit)
+            node: filters the list of nodes serving a line to this node
+        """
+        params = params + [0, 0, None][len(params):]
+        min_offset, max_offset, node = params
+        min_offset = int(min_offset)
+        max_offset = int(max_offset)
+        if node is not None:
+            node = self.asNode(node)
+        ptid, row_list = self.neoctl.getPartitionRowList(min_offset=min_offset,
+                                                         max_offset=max_offset,
+                                                         node=node)
+        # TODO: return ptid
+        return self.formatRowList(row_list)
+
+    def getNodeList(self, params):
+        """
+          Get a list of nodes, filtering with given type.
+          Parameters: [type]
+            type: type of node to display
+        """
+        assert len(params) < 2
+        if len(params):
+            node_type = self.asNodeType(params[0])
+        else:
+            node_type = None
+        node_list = self.neoctl.getNodeList(node_type=node_type)
+        return self.formatNodeList(node_list)
+
+    def getClusterState(self, params):
+        """
+          Get cluster state.
+        """
+        assert len(params) == 0
+        return str(self.neoctl.getClusterState())
+
+    def setNodeState(self, params):
+        """
+          Set node state, and allow (or not) updating partition table.
+          Parameters: node state [update]
+            node: node to modify
+            state: state to put the node in
+            update: disallow (0, default) or allow (other integer) partition
+                    table to be updated
+        """
+        assert len(params) in (2, 3)
+        node = self.asNode(params[0])
+        state = self.asNodeState(params[1])
+        if len(params) == 3:
+            update_partition_table = not(not(int(params[2])))
+        else:
+            update_partition_table = False
+        self.neoctl.setNodeState(node, state,
+            update_partition_table=update_partition_table)
+
+    def setClusterState(self, params):
+        """
+          Set cluster state.
+          Parameters: state
+            state: state to put the cluster in
+        """
+        assert len(params) == 1
+        self.neoctl.setClusterState(self.asClusterState(params[0]))
+
+    def startCluster(self, params):
+        """
+          Starts cluster operation after a startup.
+          Equivalent to:
+            set cluster VERIFYING
+        """
+        assert len(params) == 0
+        self.neoctl.startCluster()
+
+    def enableStorageList(self, params):
+        """
+          Enable cluster to make use of pending storages.
+          Parameters: all
+                      node [node [...]]
+            node: if "all", add all pending storage nodes.
+                  otherwise, the list of storage nodes to enable.
+        """
+        if len(params) == 1 and params[0] == 'all':
+            node_list = self.neoctl.getNodeList(
+                node_type=protocol.STORAGE_NODE_TYPE)
+        else:
+            node_list = [self.asNode(x) for x in params]
+        self.neoctl.enableStorageList(node_list)
+
+    def dropNode(self, params):
+        """
+          Set node into DOWN state.
+          Parameters: node
+            node: node the pu into DOWN state
+          Equivalent to:
+            set node state (node) DOWN
+        """
+        assert len(params) == 1
+        self.neoctl.dropNode(self.asNode(params[0]))
 
 class Application(object):
     """The storage node application."""
 
-    conn = None
-
     def __init__(self, ip, port, handler):
-
-        self.connector_handler = getConnectorHandler(handler)
-        self.server = (ip, port)
-        self.em = EventManager()
-        self.ptid = None
-        self.trying_admin_node = False
-        self.result = ''
-
-    def getConnection(self):
-        if self.conn is None:
-            handler = CommandEventHandler(self)
-            # connect to admin node
-            self.trying_admin_node = True
-            conn = None
-            while self.trying_admin_node:
-                self.em.poll(1)
-                if conn is None:
-                    self.trying_admin_node = True
-                    logging.debug('connecting to address %s:%d', *(self.server))
-                    conn = ClientConnection(self.em, handler, \
-                                            addr = self.server,
-                                            connector_handler = self.connector_handler)
-            self.conn = conn
-        return self.conn
-
-    def doAction(self, packet):
-        conn = self.getConnection()
-
-        conn.ask(packet)
-        self.result = ""
-        while 1:
-            self.em.poll(1)
-            if len(self.result):
-                break
-
-    def __del__(self):
-        if self.conn is not None:
-            self.conn.close()
+        self.neoctl = TerminalNeoCTL(ip, port, handler)
 
     def execute(self, args):
         """Execute the command given."""
@@ -218,43 +200,49 @@ class Application(object):
               isinstance(current_action, dict):
             current_action = current_action.get(args[level])
             level += 1
-        if callable(current_action):
-            try:
-                p = current_action(args[level:])
-            except ActionError, message:
-                self.result = message
+        if isinstance(current_action, basestring):
+            action = getattr(self.neoctl, current_action, None)
+        else:
+            action = None
+        if action is None:
+            result = self.usage('unknown command')
+            if result is None:
+                result = 'Ok'
+        else:
+            result = action(args[level:])
+
+        return result
+
+    def _usage(self, action_dict, level=0):
+        result = []
+        append = result.append
+        sub_level = level + 1
+        for name, action in action_dict.iteritems():
+            append('%s%s' % ('  ' * level, name))
+            if isinstance(action, dict):
+                append(self._usage(action, level=sub_level))
             else:
-                self.doAction(p)
-        else:
-            self.result = usage('unknown command')
+                real_action = getattr(self.neoctl, action, None)
+                if real_action is None:
+                    continue
+                docstring = getattr(real_action, '__doc__', None)
+                if docstring is None:
+                    docstring = '(no docstring)'
+                docstring_line_list = docstring.split('\n')
+                # Strip empty lines at begining & end of line list
+                for end in (0, -1):
+                    while len(docstring_line_list) \
+                          and docstring_line_list[end] == '':
+                        docstring_line_list.pop(end)
+                # Get the indentation of first line, to preserve other lines
+                # relative indentation.
+                first_line = docstring_line_list[0]
+                base_indentation = len(first_line) - len(first_line.lstrip())
+                result.extend([('  ' * sub_level) + x[base_indentation:] \
+                               for x in docstring_line_list])
+        return '\n'.join(result)
 
-        return self.result
-
-def _usage(action_dict, level=0):
-    result = []
-    append = result.append
-    sub_level = level + 1
-    for name, action in action_dict.iteritems():
-        append('%s%s' % ('  ' * level, name))
-        if isinstance(action, dict):
-            append(_usage(action, level=sub_level))
-        else:
-            docstring_line_list = getattr(action, '__doc__',
-                                          '(no docstring)').split('\n')
-            # Strip empty lines at begining & end of line list
-            for end in (0, -1):
-                while len(docstring_line_list) \
-                      and docstring_line_list[end] == '':
-                    docstring_line_list.pop(end)
-            # Get the indentation of first line, to preserve other lines
-            # relative indentation.
-            first_line = docstring_line_list[0]
-            base_indentation = len(first_line) - len(first_line.lstrip())
-            result.extend([('  ' * sub_level) + x[base_indentation:] \
-                           for x in docstring_line_list])
-    return '\n'.join(result)
-
-def usage(message):
-    output_list = [message, 'Available commands:', _usage(action_dict)]
-    return '\n'.join(output_list)
+    def usage(self, message):
+        output_list = [message, 'Available commands:', self._usage(action_dict)]
+        return '\n'.join(output_list)
 
