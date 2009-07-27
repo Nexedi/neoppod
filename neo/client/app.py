@@ -36,7 +36,7 @@ from neo.client.exception import NEOStorageError, NEOStorageConflictError
 from neo.client.exception import NEOStorageNotFoundError
 from neo.exception import NeoException
 from neo.client.handlers import storage, master
-from neo.client.dispatcher import Dispatcher
+from neo.dispatcher import Dispatcher
 from neo.client.poll import ThreadedPoll
 from neo.client.iterator import Iterator
 from neo.client.mq import MQ
