@@ -69,8 +69,8 @@ class NeoCTL(object):
         """
         packet = protocol.setClusterState(state)
         response = self.__ask(packet)
-        assert response[0] == protocol.ANSWER_CLUSTER_STATE
-        assert state == response[1]
+        #assert response[0] == protocol.ANSWER_CLUSTER_STATE
+        #assert state == response[1]
 
     def setNodeState(self, node, state, update_partition_table=False):
         """
