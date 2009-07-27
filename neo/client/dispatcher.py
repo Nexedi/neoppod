@@ -15,26 +15,32 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+MARKER = []
+
 class Dispatcher:
-    """Dispatcher class use to redirect request to thread."""
+    """Register a packet, connection pair as expecting a response packet."""
 
     def __init__(self):
-        # This dict is used to associate conn/message id to client thread queue
-        # and thus redispatch answer to the original thread
         self.message_table = {}
 
-    def getQueue(self, conn, packet):
+    def pop(self, conn, packet, default=MARKER):
+        """Retrieve register-time provided payload."""
         key = (id(conn), packet.getId())
-        return self.message_table.pop(key, None)
+        if default is MARKER:
+            result = self.message_table.pop(key)
+        else:
+            result = self.message_table.pop(key, default)
+        return result
 
-    def register(self, conn, msg_id, queue):
+    def register(self, conn, msg_id, payload):
         """Register an expectation for a reply. Thanks to GIL, it is
         safe not to use a lock here."""
         key = (id(conn), msg_id)
-        self.message_table[key] = queue
+        self.message_table[key] = payload
 
     def registered(self, conn):
         """Check if a connection is registered into message table."""
+        # XXX: serch algorythm could be improved by improving data structure.
         searched_id = id(conn)
         for conn_id, msg_id in self.message_table.iterkeys():
             if searched_id == conn_id:
