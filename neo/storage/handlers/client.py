@@ -107,6 +107,11 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
     def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
+        if oid != protocol.INVALID_OID and oid > self.app.loid:
+            # TODO: notify the master to invalidate lower OIDs
+            args = dump(oid), dump(self.app.loid)
+            logging.warning('Greater OID used in StoreObject : %s > %s', *args)
+        # XXX: should check if the oid match with our partition table
         uuid = conn.getUUID()
         # First, check for the locking state.
         app = self.app

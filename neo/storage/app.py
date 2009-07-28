@@ -59,6 +59,7 @@ class Application(object):
         self.dm = MySQLDatabaseManager(database = config.getDatabase(),
                                        user = config.getUser(),
                                        password = config.getPassword())
+        self.loid = None
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None

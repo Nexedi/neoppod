@@ -231,22 +231,15 @@ class MySQLDatabaseManager(DatabaseManager):
     def setPTID(self, ptid):
         self.setConfiguration('ptid', ptid)
 
+    def getLastOID(self):
+        return self.getConfiguration('loid')
+
+    def setLastOID(self, loid):
+        self.setConfiguration('loid', loid)
+
     def getPartitionTable(self):
         q = self.query
         return q("""SELECT rid, uuid, state FROM pt""")
-
-    def getLastOID(self, all = True):
-        q = self.query
-        self.begin()
-        loid = q("""SELECT MAX(oid) FROM obj""")[0][0]
-        if all:
-            tmp_loid = q("""SELECT MAX(oid) FROM tobj""")[0][0]
-            if loid is None or (tmp_loid is not None and loid < tmp_loid):
-                loid = tmp_loid
-        self.commit()
-        if loid is not None:
-            loid = p64(loid)
-        return loid
 
     def getLastTID(self, all = True):
         # XXX this does not consider serials in obj.

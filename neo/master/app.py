@@ -359,6 +359,14 @@ class Application(object):
         if node_list:
             conn.notify(protocol.notifyNodeInformation(node_list))
 
+    def broadcastLastOID(self, oid):
+        logging.debug('Broadcast last OID to storages : %s' % dump(oid))
+        packet = protocol.notifyLastOID(oid)
+        for conn in self.em.getConnectionList():
+            node = self.nm.getNodeByUUID(conn.getUUID())
+            if node is not None and node.isStorage():
+                conn.notify(packet)
+
     def buildFromScratch(self):
         nm, em, pt = self.nm, self.em, self.pt
         logging.debug('creating a new partition table, wait for a storage node')
@@ -370,8 +378,8 @@ class Application(object):
         node.setState(protocol.RUNNING_STATE)
         self.broadcastNodeInformation(node)
         # resert IDs generators
-        self.loid = '\0'*8
-        self.ltid = '\0'*8
+        self.loid = '\0' * 8
+        self.ltid = '\0' * 8
         # build the partition with this node
         pt.setID(pack('!Q', 1))
         pt.make([node])
@@ -682,7 +690,8 @@ class Application(object):
             handler.connectionCompleted(conn)
         self.cluster_state = state
 
-
+    # XXX: switch this to private and optimize since it's used only to generate
+    # ranges of OIDs
     def getNextOID(self):
         if self.loid is None:
             raise RuntimeError, 'I do not know the last OID'
@@ -719,7 +728,9 @@ class Application(object):
         return unpack('!Q', oid_or_tid)[0] % self.pt.getPartitions()
 
     def getNewOIDList(self, num_oids):
-        return [self.getNextOID() for i in xrange(num_oids)]
+        oid_list = [self.getNextOID() for i in xrange(num_oids)]
+        self.broadcastLastOID(self.loid)
+        return oid_list
 
     def getNewUUID(self, node_type):
         # build an UUID

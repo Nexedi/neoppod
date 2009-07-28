@@ -107,8 +107,7 @@ class ClientServiceHandler(BaseServiceHandler):
         conn.answer(protocol.answerBeginTransaction(tid), packet)
 
     def handleAskNewOIDs(self, conn, packet, num_oids):
-        app = self.app
-        oid_list = app.getNewOIDList(num_oids)
+        oid_list = self.app.getNewOIDList(num_oids)
         conn.answer(protocol.answerNewOIDs(oid_list), packet)
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):

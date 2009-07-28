@@ -49,6 +49,10 @@ class BaseMasterHandler(BaseStorageHandler):
     def handleNotifyClusterInformation(self, conn, packet, state):
         logging.error('ignoring notify cluster information in %s' % self.__class__.__name__)
 
+    def handleNotifyLastOID(self, conn, packet, oid):
+        self.app.loid = oid
+        self.app.dm.setLastOID(oid)
+
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
