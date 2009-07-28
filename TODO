@@ -52,6 +52,7 @@ RC  - Migration scripts (FEATURE)
       If a client strats a transaction before it received an invalidation message caused by a transaction commited, it will use outdated data. This is a bug known in Zeo.
     - Factorise node initialisation for admin, client and storage (CODE)
       The same code to ask/receive node list and partition table exists in too many places.
+    - Clarify handler methods to call when a connection is accepted from a listening conenction and when remote node is identified (cf. neo/bootstrap.py).
 
     Storage
     - Implement incremental storage verification (BANDWITH)
