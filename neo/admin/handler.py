@@ -30,11 +30,6 @@ class AdminEventHandler(EventHandler):
         conn.answer(protocol.notReady('Not connected to a primary master.'),
                     packet)
 
-    def connectionAccepted(self, conn, s, addr):
-        """Called when a connection is accepted."""
-        # we only accept connection from command tool
-        EventHandler.connectionAccepted(self, conn, s, addr)
-
     def handleAskPartitionList(self, conn, packet, min_offset, max_offset, uuid):
         logging.info("ask partition list from %s to %s for %s" %(min_offset, max_offset, dump(uuid)))
         app = self.app
