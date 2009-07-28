@@ -237,8 +237,6 @@ class Application(object):
         while not self.has_node_information or not self.has_partition_table:
             self.em.poll(1)
         self.ready = True
-        # TODO: notify the master that I switch to operation state, so other
-        # nodes can now connect to me
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""

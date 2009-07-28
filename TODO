@@ -125,6 +125,7 @@ RC Known bugs
     - Decentralize primary master tasks as much as possible (consider distributed lock mechanisms, ...)
     - Make admin node able to monitor multiple clusters simultaneously
     - Choose how to compute the storage size
+    - Make storage check if the OID match with it's partitions during a store
     - When importing data, objects with non-allocated OIDs are stored. The
     storage can detect this and could notify the master to not allocatexd lower
     OIDs. But during import, each object stored trigger this notification and
