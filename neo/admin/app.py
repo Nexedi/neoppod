@@ -103,9 +103,6 @@ class Application(object):
                     self.em.poll(1)
             except PrimaryFailure:
                 logging.error('primary master is down')
-                # do not trust any longer our informations
-                self.pt.clear()
-                self.nm.clear(filter = lambda node: not node.isMaster())
 
 
     def connectToPrimaryMaster(self):

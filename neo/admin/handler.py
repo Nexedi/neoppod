@@ -35,7 +35,7 @@ class AdminEventHandler(EventHandler):
         logging.info("ask partition list from %s to %s for %s" %(min_offset, max_offset, dump(uuid)))
         app = self.app
         # check we have one pt otherwise ask it to PMN
-        if len(app.pt.getNodeList()) == 0:
+        if app.pt is None:
             master_conn = self.app.master_conn
             p = protocol.askPartitionTable([])
             msg_id = master_conn.ask(p)
