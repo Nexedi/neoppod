@@ -316,7 +316,7 @@ class EventHandler(object):
     def handleAnswerOIDs(self, conn, packet, oid_list):
         raise UnexpectedPacketError
 
-    def handleAskPartitionList(self, conn, packet, offset_list):
+    def handleAskPartitionList(self, conn, packet, min_offset, max_offset, uuid):
         raise UnexpectedPacketError
 
     def handleAnswerPartitionList(self, conn, packet, ptid, row_list):
