@@ -400,7 +400,6 @@ class Application(object):
 
         # collect the last partition table available
         while self.cluster_state == protocol.RECOVERING:
-            self.changeClusterState(protocol.VERIFYING)
             em.poll(1)
 
         logging.info('startup allowed')
