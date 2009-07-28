@@ -231,8 +231,6 @@ class NodeManager(object):
                 if node.getServer() != addr:
                     # address changed, update it
                     node.setServer(addr)
-                # XXX: detect conflicts, but this should not happened
-                assert node_by_addr is None or node_by_addr is node
                 logging.debug('update node %s %s %s %s' % log_args)
                 node.setState(state)
             else:

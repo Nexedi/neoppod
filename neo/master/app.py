@@ -592,10 +592,6 @@ class Application(object):
                         if node.getState() == TEMPORARILY_DOWN_STATE \
                                and node.getLastStateChange() + expiration < current_time:
                             logging.warning('%s is down, have to notify the admin' % (node, ))
-                            # XXX: here we should notify the administrator that
-                            # a node seems dead and should be dropped from the
-                            # partition table. This should not be done
-                            # automaticaly to avoid data lost.
                             node.setState(DOWN_STATE)
 
             except OperationFailure:
