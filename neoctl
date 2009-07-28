@@ -20,8 +20,8 @@
 
 from optparse import OptionParser
 from neo.neoctl.app import Application
-from neo import buildFormatString
-import logging
+from neo import setupLog
+
 parser = OptionParser()
 parser.add_option('-v', '--verbose', action = 'store_true', 
                   help = 'print verbose messages')
@@ -31,18 +31,13 @@ parser.add_option('-i', '--ip', help = 'specify the ip of admin node')
 parser.add_option('--handler', help = 'specify the connection handler')
 
 (options, args) = parser.parse_args()
-
 port = options.port or 5555
 ip = options.ip or '127.0.0.1'
 handler = options.handler or "SocketConnector"
 
-format = buildFormatString('neoctl')
-if options.verbose:
-    logging.basicConfig(level=logging.DEBUG, format=format)
-else:
-    logging.basicConfig(level=logging.INFO, format=format)
+setupLog('NEOCTL', options.verbose)
   
-  
+from neo.neoctl.app import Application
 app = Application(ip, port, handler)
 print app.execute(args)
 
