@@ -105,12 +105,6 @@ RC  - Review output of pylint (CODE)
       To be able to pipeline requests, waitMessage must be extended to allow responses to arrive out of order.
       The extreme case is when we must ask multiple nodes for object history (used to support undo) because different msg_ids are expected on different connections.
 
-RC Known bugs
-    Admin
-    - Fix primary master node reconnection
-      It happens that, once disconnected from primary master node, admin node becomes unable to re-establish the connection.
-      Make admin not re-ask partition table on reconnection to primary master.
-
   Later
     - Consider auto-generating cluster name upon initial startup (it might actualy be a partition property).
     - Consider ways to centralise the configuration file, or make the configuration updatable automaticaly on all nodes.
