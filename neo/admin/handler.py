@@ -28,7 +28,7 @@ class AdminEventHandler(EventHandler):
 
     def __notConnected(self, conn, packet):
         conn.answer(protocol.notReady('Not connected to a primary master.'),
-                    packet)
+                    packet.getId())
 
     def handleAskPartitionList(self, conn, packet, min_offset, max_offset, uuid):
         logging.info("ask partition list from %s to %s for %s" %(min_offset, max_offset, dump(uuid)))
@@ -64,7 +64,7 @@ class AdminEventHandler(EventHandler):
                 port = 0
             node_information_list.append((node.getNodeType(), (ip, port), node.getUUID(), node.getState()))
         p = protocol.answerNodeList(node_information_list)
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s" %(dump(uuid), state))
@@ -76,7 +76,7 @@ class AdminEventHandler(EventHandler):
         if node.getState() == state and modify_partition_table is False:
             # no change
             p = protocol.answerNodeState(node.getUUID(), node.getState())
-            conn.answer(p, packet)
+            conn.answer(p, packet.getId())
             return
         # forward to primary master node
         master_conn = self.app.master_conn
@@ -120,7 +120,7 @@ class AdminEventHandler(EventHandler):
                 msg_id = master_conn.ask(protocol.askClusterState())
                 self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
             return
-        conn.answer(protocol.answerClusterState(self.app.cluster_state), packet)
+        conn.answer(protocol.answerClusterState(self.app.cluster_state), packet.getId())
 
 
 class MasterEventHandler(EventHandler):

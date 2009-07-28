@@ -68,6 +68,6 @@ class IdentificationHandler(BaseStorageHandler):
         args = (protocol.STORAGE_NODE_TYPE, app.uuid, app.server, 
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         # accept the identification and trigger an event
-        conn.answer(protocol.acceptNodeIdentification(*args), packet)
+        conn.answer(protocol.acceptNodeIdentification(*args), packet.getId())
         handler.connectionCompleted(conn)
 

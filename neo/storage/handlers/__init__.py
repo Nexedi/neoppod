@@ -99,7 +99,7 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
 
         tid_list = app.dm.getTIDList(first, last - first,
                              app.pt.getPartitions(), partition_list)
-        conn.answer(protocol.answerTIDs(tid_list), packet)
+        conn.answer(protocol.answerTIDs(tid_list), packet.getId())
 
     def handleAskObjectHistory(self, conn, packet, oid, first, last):
         if first >= last:
@@ -110,7 +110,7 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
         if history_list is None:
             history_list = []
         p = protocol.answerObjectHistory(oid, history_list)
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
     def handleAskTransactionInformation(self, conn, packet, tid):
         app = self.app
@@ -119,7 +119,7 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
             p = protocol.tidNotFound('%s does not exist' % dump(tid))
         else:
             p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
     def handleAskObject(self, conn, packet, oid, serial, tid):
         app = self.app
@@ -138,5 +138,5 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
         else:
             logging.debug('oid = %s not found', dump(oid))
             p = protocol.oidNotFound('%s does not exist' % dump(oid))
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 

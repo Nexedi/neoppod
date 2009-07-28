@@ -104,11 +104,11 @@ class ClientServiceHandler(BaseServiceHandler):
             tid = app.getNextTID()
         app.ltid = tid
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
-        conn.answer(protocol.answerBeginTransaction(tid), packet)
+        conn.answer(protocol.answerBeginTransaction(tid), packet.getId())
 
     def handleAskNewOIDs(self, conn, packet, num_oids):
         oid_list = self.app.getNewOIDList(num_oids)
-        conn.answer(protocol.answerNewOIDs(oid_list), packet)
+        conn.answer(protocol.answerNewOIDs(oid_list), packet.getId())
 
     def handleFinishTransaction(self, conn, packet, oid_list, tid):
         app = self.app

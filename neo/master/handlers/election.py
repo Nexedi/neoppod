@@ -253,7 +253,7 @@ class ServerElectionHandler(MasterHandler):
 
         p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE, app.uuid, 
                 app.server, app.pt.getPartitions(), app.pt.getReplicas(), uuid)
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()

@@ -103,7 +103,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         app = self.app
         t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
         t.addTransaction(oid_list, user, desc, ext)
-        conn.answer(protocol.answerStoreTransaction(tid), packet)
+        conn.answer(protocol.answerStoreTransaction(tid), packet.getId())
 
     def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
@@ -127,7 +127,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                 # do not try to resolve a conflict, so return immediately.
                 logging.info('unresolvable conflict in %s', dump(oid))
                 p = protocol.answerStoreObject(1, oid, locking_tid)
-                conn.answer(p, packet)
+                conn.answer(p, packet.getId())
             return
 
         # Next, check if this is generated from the latest revision.
@@ -137,12 +137,12 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             if last_serial != serial:
                 logging.info('resolvable conflict in %s', dump(oid))
                 p = protocol.answerStoreObject(1, oid, last_serial)
-                conn.answer(p, packet)
+                conn.answer(p, packet.getId())
                 return
         # Now store the object.
         t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
         t.addObject(oid, compression, checksum, data)
         p = protocol.answerStoreObject(0, oid, serial)
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
         app.store_lock_dict[oid] = tid
 

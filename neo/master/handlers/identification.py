@@ -76,7 +76,7 @@ class IdentificationHandler(MasterHandler):
         # answer
         args = (protocol.MASTER_NODE_TYPE, app.uuid, app.server, 
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
-        conn.answer(protocol.acceptNodeIdentification(*args), packet)
+        conn.answer(protocol.acceptNodeIdentification(*args), packet.getId())
         # trigger the event
         handler.connectionCompleted(conn)
         app.broadcastNodeInformation(node)

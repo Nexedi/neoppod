@@ -242,7 +242,7 @@ class Connection(BaseConnection):
                 packet_type = packet.getType()
                 if packet_type == protocol.PING:
                     # Send a pong notification
-                    self.answer(protocol.pong(), packet)
+                    self.answer(protocol.pong(), packet.getId())
                 elif packet_type != protocol.PONG:
                     # Skip PONG packets, its only purpose is to drop IdleEvent
                     # generated upong ping.
@@ -400,9 +400,8 @@ class Connection(BaseConnection):
         return msg_id
 
     @not_closed
-    def answer(self, packet, answered_packet):
+    def answer(self, packet, msg_id):
         """ Answer to a packet by re-using its ID for the packet answer """
-        msg_id = answered_packet.getId()
         packet.setId(msg_id)
         self._addPacket(packet)
 

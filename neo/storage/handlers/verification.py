@@ -30,7 +30,7 @@ class VerificationHandler(BaseMasterHandler):
         oid = app.dm.getLastOID()
         tid = app.dm.getLastTID()
         p = protocol.answerLastIDs(oid, tid, app.ptid)
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
     def handleAskPartitionTable(self, conn, packet, offset_list):
         app, pt = self.app, self.app.pt
@@ -51,7 +51,7 @@ class VerificationHandler(BaseMasterHandler):
             raise protocol.ProtocolError('invalid partition table offset')
 
         p = protocol.answerPartitionTable(app.ptid, row_list)
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
@@ -75,7 +75,7 @@ class VerificationHandler(BaseMasterHandler):
     def handleAskUnfinishedTransactions(self, conn, packet):
         tid_list = self.app.dm.getUnfinishedTIDList()
         p = protocol.answerUnfinishedTransactions(tid_list)
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
     def handleAskTransactionInformation(self, conn, packet, tid):
         app = self.app
@@ -84,7 +84,7 @@ class VerificationHandler(BaseMasterHandler):
             p = protocol.tidNotFound('%s does not exist' % dump(tid))
         else:
             p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
     def handleAskObjectPresent(self, conn, packet, oid, tid):
         if self.app.dm.objectPresent(oid, tid):
@@ -92,7 +92,7 @@ class VerificationHandler(BaseMasterHandler):
         else:
             p = protocol.oidNotFound(
                           '%s:%s do not exist' % (dump(oid), dump(tid)))
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
     def handleDeleteTransaction(self, conn, packet, tid):
         self.app.dm.deleteTransaction(tid, all = True)

@@ -28,7 +28,7 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
         oid = app.dm.getLastOID()
         tid = app.dm.getLastTID()
         p = protocol.answerLastIDs(oid, tid, app.ptid)
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
     def handleAskOIDs(self, conn, packet, first, last, partition):
         # This method is complicated, because I must return OIDs only
@@ -51,5 +51,5 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
             partition_list = [partition]
         oid_list = app.dm.getOIDList(first, last - first,
                                      app.pt.getPartitions(), partition_list)
-        conn.answer(protocol.answerOIDs(oid_list), packet)
+        conn.answer(protocol.answerOIDs(oid_list), packet.getId())
 

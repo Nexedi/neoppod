@@ -78,22 +78,24 @@ class MasterHandler(EventHandler):
                 continue
             known_master_list.append((n.getServer(), n.getUUID(), ))
         conn.answer(protocol.answerPrimaryMaster(primary_uuid,
-                                                 known_master_list), packet)
+                                                 known_master_list),
+                    packet.getId())
 
     def handleAskClusterState(self, conn, packet):
         assert conn.getUUID() is not None
         state = self.app.getClusterState()
-        conn.answer(protocol.answerClusterState(state), packet)
+        conn.answer(protocol.answerClusterState(state), packet.getId())
 
     def handleAskNodeInformation(self, conn, packet):
         self.app.sendNodesInformations(conn)
-        conn.answer(protocol.answerNodeInformation([]), packet)
+        conn.answer(protocol.answerNodeInformation([]), packet.getId())
 
     def handleAskPartitionTable(self, conn, packet, offset_list):
         assert len(offset_list) == 0
         app = self.app
         app.sendPartitionTable(conn)
-        conn.answer(protocol.answerPartitionTable(app.pt.getID(), []), packet)
+        conn.answer(protocol.answerPartitionTable(app.pt.getID(), []),
+                    packet.getId())
 
 
 class BaseServiceHandler(MasterHandler):
@@ -101,10 +103,10 @@ class BaseServiceHandler(MasterHandler):
 
     def handleAskLastIDs(self, conn, packet):
         app = self.app
-        conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.pt.getID()), packet)
+        conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.pt.getID()), packet.getId())
 
     def handleAskUnfinishedTransactions(self, conn, packet):
         app = self.app
         p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
-        conn.answer(p, packet)
+        conn.answer(p, packet.getId())
 
