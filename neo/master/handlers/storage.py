@@ -71,7 +71,7 @@ class StorageServiceHandler(BaseServiceHandler):
                         if node.isClient():
                             if c is t.getConnection():
                                 p = protocol.notifyTransactionFinished(tid)
-                                c.notify(p, t.getMessageId())
+                                c.answer(p, t.getMessageId())
                             else:
                                 p = protocol.invalidateObjects(t.getOIDList(), tid)
                                 c.notify(p)
