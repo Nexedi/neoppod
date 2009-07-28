@@ -49,7 +49,7 @@ class EnumItem(int):
     def __repr__(self):
         return '<EnumItem %r (%r) of %r>' % (self.name, int(self), self.enum)
 
-class Enum(object):
+class Enum(dict):
     """
       C-style enumerated type support with extended typechecking.
       Instantiate with a dict whose keys are variable names and values are
@@ -62,7 +62,6 @@ class Enum(object):
     """
     def __init__(self, value_dict):
         global_dict = globals()
-        self.enum_dict = enum_dict = {}
         self.str_enum_dict = str_enum_dict = {}
         for key, value in value_dict.iteritems():
             # Only integer types are supported. This should be enough, and
@@ -71,17 +70,11 @@ class Enum(object):
             if not isinstance(value, int):
                 raise TypeError, 'Enum class only support integer values.'
             item = EnumItem(self, key, value)
-            global_dict[key] = enum_dict[value] = item
+            global_dict[key] = self[value] = item
             str_enum_dict[key] = item
-
-    def get(self, value, default=None):
-        return self.enum_dict.get(value, default)
 
     def getFromStr(self, value, default=None):
         return self.str_enum_dict.get(value, default)
-
-    def __getitem__(self, value):
-        return self.enum_dict[value]
 
 # The protocol version (major, minor).
 PROTOCOL_VERSION = (4, 0)
@@ -326,7 +319,6 @@ cluster_states = Enum({
     'RUNNING': 4,
     'STOPPING': 5,
 })
-VALID_CLUSTER_STATE_LIST = (BOOTING, RUNNING, STOPPING)
 
 # Node types.
 node_types = Enum({
@@ -335,8 +327,6 @@ node_types = Enum({
 'CLIENT_NODE_TYPE' : 3,
 'ADMIN_NODE_TYPE' : 4,
 })
-
-VALID_NODE_TYPE_LIST = (MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE)
 
 # Node states.
 node_states = Enum({
@@ -348,9 +338,6 @@ node_states = Enum({
 'PENDING_STATE': 5,
 })
 
-VALID_NODE_STATE_LIST = (RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE,
-        BROKEN_STATE, HIDDEN_STATE, PENDING_STATE)
-
 # Partition cell states.
 partition_cell_states = Enum({
 'UP_TO_DATE_STATE': 0,
@@ -358,9 +345,6 @@ partition_cell_states = Enum({
 'FEEDING_STATE': 2,
 'DISCARDED_STATE': 3,
 })
-
-VALID_CELL_STATE_LIST = (UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE,
-                         DISCARDED_STATE)
 
 # Other constants.
 INVALID_UUID = '\0' * 16

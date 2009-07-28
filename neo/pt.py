@@ -17,6 +17,7 @@
 
 from neo import logging
 
+from neo import protocol
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         BROKEN_STATE, HIDDEN_STATE, PENDING_STATE
@@ -98,7 +99,7 @@ class PartitionTable(object):
 
     def getCellList(self, offset, readable=False, writable=False):
         # allow all cell states
-        state_set = set(VALID_CELL_STATE_LIST)
+        state_set = set(protocol.partition_cell_states.values())
         if readable or writable:
             # except non readables
             state_set.remove(DISCARDED_STATE)
