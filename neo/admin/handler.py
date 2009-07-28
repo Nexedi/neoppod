@@ -129,6 +129,9 @@ class MasterEventHandler(EventHandler):
         app.master_conn = None
         app.master_node = None
         app.uuid = None
+        node = app.nm.getNodeByUUID(conn.getUUID())
+        assert node is not None
+        node.setState(protocol.TEMPORARILY_DOWN_STATE)
         raise PrimaryFailure
 
     def connectionFailed(self, conn):
