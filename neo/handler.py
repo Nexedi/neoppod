@@ -86,7 +86,6 @@ class EventHandler(object):
         """Called when a packet is received."""
         self.dispatch(conn, packet)
 
-    # XXX: what's the purpose of this method ?
     def peerBroken(self, conn):
         """Called when a peer is broken."""
         logging.error('%s:%d is broken', *(conn.getAddress()))
