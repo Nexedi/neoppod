@@ -68,3 +68,6 @@ class CommandEventHandler(EventHandler):
     def handleNoError(self, conn, packet, msg):
         self.__respond((packet.getType(), protocol.NO_ERROR_CODE, msg))
 
+    def handleNotReady(self, conn, packet, msg):
+        self.__respond((packet.getType(), protocol.NOT_READY_CODE, msg))
+

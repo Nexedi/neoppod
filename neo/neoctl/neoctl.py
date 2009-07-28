@@ -21,6 +21,9 @@ from neo.event import EventManager
 from neo.neoctl.handler import CommandEventHandler
 from neo import protocol
 
+class NotReadyException(Exception):
+    pass
+
 class NeoCTL(object):
 
     connection = None
@@ -52,7 +55,11 @@ class NeoCTL(object):
             self.em.poll(0)
             if not self.connected:
                 raise Exception, 'Connection closed'
-        return response_queue.pop()
+        response = response_queue.pop()
+        if response[0] == protocol.ERROR and \
+           response[1] == protocol.NOT_READY_CODE:
+            raise NotReadyException(response[2])
+        return response
 
     def enableStorageList(self, node_list):
         """
