@@ -74,6 +74,7 @@ class Application(object):
         self.ptid = None
         self.monitoring_handler = MasterMonitoringEventHandler(self)
         self.request_handler = MasterRequestEventHandler(self)
+        self.master_event_handler = MasterEventHandler(self)
         self.dispatcher = Dispatcher()
         self.cluster_state = None
         self.master_conn = None
@@ -140,7 +141,7 @@ class Application(object):
             raise RuntimeError('the number of replicas is inconsistent')
 
         # passive handler
-        self.master_conn.setHandler(MasterEventHandler(self))
+        self.master_conn.setHandler(self.master_event_handler)
         # XXX: Use an initialization module to ensure all nodes and the whole
         # partition table are received before process neoctl requests.
         self.master_conn.ask(protocol.askNodeInformation())
