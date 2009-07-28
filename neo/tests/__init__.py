@@ -19,7 +19,7 @@ import os
 import unittest
 import tempfile
 import MySQLdb
-import logging
+from neo import logging
 from mock import Mock
 from neo import protocol
 

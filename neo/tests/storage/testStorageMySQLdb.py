@@ -17,7 +17,7 @@
 
 import os
 import unittest
-import logging
+from neo import logging
 import MySQLdb
 from mock import Mock
 from neo.protocol import *

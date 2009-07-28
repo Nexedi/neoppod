@@ -17,7 +17,7 @@
 
 import os
 import unittest
-import logging
+from neo import logging
 from mock import Mock
 from neo.tests import NeoTestBase
 from neo import protocol

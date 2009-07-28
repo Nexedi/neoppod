@@ -19,10 +19,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from optparse import OptionParser
-from neo.master.app import Application
-from neo import buildFormatString
-import logging
-
+from neo import setupLog
 
 parser = OptionParser()
 parser.add_option('-v', '--verbose', action = 'store_true', 
@@ -32,16 +29,12 @@ parser.add_option('-s', '--section', help = 'specify a configuration section')
 parser.add_option('-l', '--logfile', help = 'specify a logging file')
 
 (options, args) = parser.parse_args()
-
 config = options.config or 'neo.conf'
 section = options.section or 'master'
+
 logfile = options.logfile or None
+setupLog(section, logfile, options.verbose)
 
-format = buildFormatString(section)
-if options.verbose:
-    logging.basicConfig(filename=logfile, level=logging.DEBUG, format=format)
-else:
-    logging.basicConfig(filename=logfile, level=logging.WARNING, format=format)
-
+from neo.master.app import Application
 app = Application(config, section)
 app.run()

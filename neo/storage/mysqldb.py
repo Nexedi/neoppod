@@ -18,7 +18,7 @@
 import MySQLdb
 from MySQLdb import OperationalError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
-import logging
+from neo import logging
 from array import array
 import string
 from struct import pack, unpack

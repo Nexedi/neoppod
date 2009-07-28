@@ -15,7 +15,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import logging
 from thread import get_ident
 from cPickle import dumps
 from zlib import compress, decompress
@@ -25,6 +24,10 @@ from time import sleep
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 
+from neo import setupLog
+setupLog('CLIENT', verbose=True)
+
+from neo import logging
 from neo import protocol
 from neo.event import EventManager
 from neo.util import makeChecksum, dump
@@ -235,9 +238,6 @@ class Application(object):
 
     def __init__(self, master_nodes, name, connector, **kw):
         # XXX: use a configuration entry
-        from neo import buildFormatString
-        fmt = buildFormatString('CLIENT')
-        logging.basicConfig(level=logging.DEBUG, format=fmt)
         em = EventManager()
         # Start polling thread
         self.poll_thread = ThreadedPoll(em)

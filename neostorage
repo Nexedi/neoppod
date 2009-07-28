@@ -19,9 +19,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from optparse import OptionParser
-from neo.storage.app import Application
-from neo import buildFormatString
-import logging
+from neo import setupLog
 
 
 parser = OptionParser()
@@ -34,16 +32,12 @@ parser.add_option('-R', '--reset', action = 'store_true',
                   help = 'remove an existing database if any')
 
 (options, args) = parser.parse_args()
-
 config = options.config or 'neo.conf'
 section = options.section or 'storage'
+
 logfile = options.logfile or None
+setupLog(section, logfile, options.verbose)
 
-format = buildFormatString(section)
-if options.verbose:
-    logging.basicConfig(filename=logfile, level=logging.DEBUG, format=format)
-else:
-    logging.basicConfig(filename=logfile, level=logging.WARNING, format=format)
-
+from neo.storage.app import Application
 app = Application(config, section, options.reset)
 app.run()

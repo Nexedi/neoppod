@@ -17,7 +17,7 @@
 
 import os
 import unittest
-import logging
+from neo import logging
 from struct import pack, unpack
 from mock import Mock
 from collections import deque

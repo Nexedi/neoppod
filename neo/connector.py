@@ -17,7 +17,7 @@
 
 import socket
 import errno
-import logging
+from neo import logging
 
 # Global connector registry.
 # Fill by calling registerConnectorHandler.

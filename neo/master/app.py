@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import logging
+from neo import logging
 import os, sys
 from time import time, gmtime
 from struct import pack, unpack
@@ -400,6 +400,7 @@ class Application(object):
 
         # collect the last partition table available
         while self.cluster_state == protocol.RECOVERING:
+            self.changeClusterState(protocol.VERIFYING)
             em.poll(1)
 
         logging.info('startup allowed')

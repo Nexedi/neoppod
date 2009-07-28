@@ -23,12 +23,10 @@ from persistent import Persistent
 from persistent.mapping import PersistentMapping
 import transaction
 
-from neo.client.Storage import Storage
 import os
 import sys
 import signal
 import MySQLdb
-import logging
 import tempfile
 import traceback
 
@@ -204,11 +202,13 @@ s1_log = os.path.join(temp_dir, 's1.log')
 s2_log = os.path.join(temp_dir, 's2.log')
 s3_log = os.path.join(temp_dir, 's3.log')
 s4_log = os.path.join(temp_dir, 's4.log')
-# override logging default handler
-from neo import buildFormatString
+
+
+from neo import setupLog
 client_log = os.path.join(temp_dir, 'c.log')
-format = buildFormatString('CLIENT')
-logging.basicConfig(filename=client_log, level=logging.DEBUG, format=format)
+setupLog('CLIENT', filename=client_log, verbose=True)
+from neo import logging
+from neo.client.Storage import Storage
 
 class ZODBTests(unittest.TestCase):
 

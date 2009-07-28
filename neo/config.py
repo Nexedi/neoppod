@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from ConfigParser import SafeConfigParser
-import logging
+from neo import logging
 
 class ConfigurationManager:
     """This class provides support for parsing a configuration file."""

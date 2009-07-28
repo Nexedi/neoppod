@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import logging
+from neo import logging
 
 from neo.storage.handlers import BaseMasterHandler
 from neo.protocol import BROKEN_STATE, STORAGE_NODE_TYPE, DOWN_STATE, \
