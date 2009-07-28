@@ -98,10 +98,7 @@ class AdminEventHandler(EventHandler):
             self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
     def handleAddPendingNodes(self, conn, packet, uuid_list):
-        uuids = ', '.join([dump(uuid) for uuid in uuid_list])
-        logging.info('Add nodes %s' % uuids)
-        uuid = conn.getUUID()
-        node = self.app.nm.getNodeByUUID(uuid)
+        logging.info('Add nodes %s' % [dump(uuid) for uuid in uuid_list])
         # forward the request to primary
         master_conn = self.app.master_conn
         if master_conn is None:
@@ -166,14 +163,14 @@ class MasterEventHandler(EventHandler):
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         logging.debug("handleAnswerPartitionTable")
 
-    def handleNotifyClusterInformation(self, con, packet, cluster_state):
+    def handleNotifyClusterInformation(self, conn, packet, cluster_state):
         logging.debug("handleNotifyClusterInformation")
 
 
 class MasterBaseEventHandler(EventHandler):
     """ This is the base class for connection to primary master node"""
 
-    def handleNotifyClusterInformation(self, con, packet, cluster_state):
+    def handleNotifyClusterInformation(self, conn, packet, cluster_state):
         self.app.cluster_state = cluster_state
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
