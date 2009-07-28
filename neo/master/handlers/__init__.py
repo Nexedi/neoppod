@@ -56,57 +56,6 @@ class MasterHandler(EventHandler):
     def handleProtocolError(self, conn, packet, message):
         logging.error('Protocol error %s %s' % (message, conn.getAddress()))
 
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
-        logging.error('ignoring Notify Node Information in %s', self.__class__.__name__)
-
-    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
-        logging.error('ignoring Answer Last IDs in %s' % self.__class__.__name__)
-
-    def handleAnswerPartitionTable(self, conn, packet, ptid, cell_list):
-        logging.error('ignoring Answer Partition Table in %s' % self.__class__.__name__)
-
-    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
-        logging.error('ignoring Answer Unfinished Transactions in %s' % self.__class__.__name__)
-
-    def handleAnswerTransactionInformation(self, conn, packet, tid, user, desc, ext, oid_list):
-        logging.error('ignoring Answer Transactin Information in %s' % self.__class__.__name__)
-
-    def handleTidNotFound(self, conn, packet, message):
-        logging.error('ignoring Answer OIDs By TID in %s' % self.__class__.__name__)
-
-    def handleAnswerObjectPresent(self, conn, packet, oid, tid):
-        logging.error('ignoring Answer Object Present in %s' % self.__class__.__name__)
-
-    def handleOidNotFound(self, conn, packet, message):
-        logging.error('ignoring OID Not Found in %s' % self.__class__.__name__)
-
-    def handleAskBeginTransaction(self, conn, packet, tid):
-        logging.error('ignoring Ask New TID in %s' % self.__class__.__name__)
-
-    def handleAskNewOIDs(self, conn, packet, num_oids):
-        logging.error('ignoring Ask New OIDs in %s' % self.__class__.__name__)
-
-    def handleFinishTransaction(self, conn, packet, oid_list, tid):
-        logging.error('ignoring Finish Transaction in %s' % self.__class__.__name__)
-
-    def handleNotifyInformationLocked(self, conn, packet, tid):
-        logging.error('ignoring Notify Information Locked in %s' % self.__class__.__name__)
-
-    def handleAbortTransaction(self, conn, packet, tid):
-        logging.error('ignoring Abort Transaction in %s' % self.__class__.__name__)
-
-    def handleAskLastIDs(self, conn, packet):
-        logging.error('ignoring Ask Last IDs in %s' % self.__class__.__name__)
-
-    def handleAskUnfinishedTransactions(self, conn, packet):
-        logging.error('ignoring ask unfinished transactions in %s' % self.__class__.__name__)
-
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        logging.error('ignoring notify partition changes in %s' % self.__class__.__name__)
-
-    def handleNotifyClusterInformation(self, conn, packet, state):
-        logging.error('ignoring notify cluster information in %s' % self.__class__.__name__)
-
     def handleAskPrimaryMaster(self, conn, packet):
         if conn.getConnector() is None:
             # Connection can be closed by peer after he sent AskPrimaryMaster
