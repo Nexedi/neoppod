@@ -220,7 +220,6 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
         app = self.app
         if ptid < app.ptid:
             # Ignore this packet.
-            # XXX: is it safe ?
             return
         app.ptid = ptid
         app.pt.update(cell_list, app.nm)
