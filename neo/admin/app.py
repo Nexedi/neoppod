@@ -160,4 +160,4 @@ class Application(object):
             conn.notify(p)
             return
         p = protocol.answerPartitionList(self.ptid, row_list)
-        conn.notify(p, msg_id)
+        conn.answer(p, msg_id)
