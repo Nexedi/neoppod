@@ -301,6 +301,10 @@ packet_types = Enum({
     
     # Notify being alive. Any -> Any.
     'PONG': 0x0029,
+
+    # Notify last OID generated
+    'NOTIFY_LAST_OID': 0x0030,
+
 })
 
 # Error codes.
@@ -1080,6 +1084,12 @@ def _decodeNotifyClusterInformation(body):
     return (state, )
 decode_table[NOTIFY_CLUSTER_INFORMATION] = _decodeNotifyClusterInformation
 
+@handle_errors
+def _decodeNotifyLastOID(body):
+    (loid, ) = unpack('8s', body)
+    return (loid, )
+decode_table[NOTIFY_LAST_OID] = _decodeNotifyLastOID
+
 
 # Packet encoding
 
@@ -1445,3 +1455,6 @@ def notifyClusterInformation(state):
     body = pack('!H', state)
     return Packet(NOTIFY_CLUSTER_INFORMATION, body)
 
+def notifyLastOID(oid):
+    body = pack('!8s', oid)
+    return Packet(NOTIFY_LAST_OID, body)

@@ -42,7 +42,8 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         INTERNAL_ERROR_CODE, ASK_PARTITION_LIST, ANSWER_PARTITION_LIST, ASK_NODE_LIST, \
         ANSWER_NODE_LIST, SET_NODE_STATE, ANSWER_NODE_STATE, SET_CLUSTER_STATE, \
         ASK_NODE_INFORMATION, ANSWER_NODE_INFORMATION, NO_ERROR_CODE, \
-        ASK_CLUSTER_STATE, ANSWER_CLUSTER_STATE, NOTIFY_CLUSTER_INFORMATION
+        ASK_CLUSTER_STATE, ANSWER_CLUSTER_STATE, NOTIFY_CLUSTER_INFORMATION, \
+        NOTIFY_LAST_OID
 
 
 class EventHandler(object):
@@ -357,6 +358,9 @@ class EventHandler(object):
     def handleNotifyClusterInformation(self, conn, packet, state):
         raise UnexpectedPacketError
 
+    def handleNotifyLastOID(self, conn, packet, oid):
+        raise UnexpectedPacketError
+
     # Error packet handlers.
 
     # XXX: why answer a protocolError to another protocolError ?
@@ -445,6 +449,7 @@ class EventHandler(object):
         d[ASK_CLUSTER_STATE] = self.handleAskClusterState
         d[ANSWER_CLUSTER_STATE] = self.handleAnswerClusterState
         d[NOTIFY_CLUSTER_INFORMATION] = self.handleNotifyClusterInformation
+        d[NOTIFY_LAST_OID] = self.handleNotifyLastOID
 
         return d
 
