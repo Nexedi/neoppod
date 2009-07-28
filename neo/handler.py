@@ -370,10 +370,11 @@ class EventHandler(object):
     handleTidNotFound = unexpectedPacket
 
     def handleProtocolError(self, conn, packet, message):
-        raise RuntimeError, 'protocol error: %s' % (message,)
+        # the connection should have been closed by the remote peer
+        logging.error('protocol error: %s' % (message,))
 
     def handleTimeoutError(self, conn, packet, message):
-        raise RuntimeError, 'timeout error: %s' % (message,)
+        logging.error('timeout error: %s' % (message,))
 
     def handleBrokenNodeDisallowedError(self, conn, packet, message):
         raise RuntimeError, 'broken node disallowed error: %s' % (message,)
