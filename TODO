@@ -29,7 +29,6 @@ RC  - Review output of pylint (CODE)
       NodeManager should provide indexes to quickly find nodes by type, UUID, and (ip, port).
     - Keep-alive (HIGH AVAILABILITY)
       Consider the need to implement a keep-alive system (packets sent automatically when there is no activity on the connection for a period of time).
-RC  - Nodes must not stop running when receiving an eroneous/unexpected packet. (HIGH AVAILABILITY)
     - Factorise packet data when sending partition table cells (BANDWITH)
       Currently, each cell in a partition table update contains UUIDs of all involved nodes.
       It must be changed to a correspondance table using shorter keys (sent in the packet) to avoid repeating the same UUIDs many times.
@@ -47,7 +46,6 @@ RC  - Nodes must not stop running when receiving an eroneous/unexpected packet. 
       The second handler must be possible to set on the connection when that connection is thread-safe (MT version of connection classes).
       Also, the code to detect wether a response is expected or not must be genericised and moved out of handlers.
     - Pack (FEATURE)
-RC  - Migration scripts (FEATURE)
     - Control that client processed all invalidations before starting a transaction (CONSISTENCY)
       If a client strats a transaction before it received an invalidation message caused by a transaction commited, it will use outdated data. This is a bug known in Zeo.
     - Factorise node initialisation for admin, client and storage (CODE)
@@ -102,7 +100,6 @@ RC  - Migration scripts (FEATURE)
     - Implement C version of mq.py (LOAD LATENCY)
     - Move object data replication task to storage nodes (COMMIT LATENCY)
       Currently the client node must send a single object data to all storage nodes in charge of the partition cell containing that object. This increases the time the client has to wait for storage reponse, and increases client-to-storage bandwith usage. It must be possible to send object data to only one stroage and that storage should automatically replicate on other storages. Locks on objects would then be released by storage nodes.
-RC  - Use Zope-logging-facility-friendly logging code (CODE)
     - Use generic bootstrap module (CODE)
     - Extend waitMessage to expect more than one response, on multiple connections (LATENCY)
       To be able to pipeline requests, waitMessage must be extended to allow responses to arrive out of order.
