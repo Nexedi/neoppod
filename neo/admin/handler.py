@@ -26,6 +26,10 @@ from neo.util import dump
 class AdminEventHandler(EventHandler):
     """This class deals with events for administrating cluster."""
 
+    def __notConnected(self, conn, packet):
+        conn.answer(protocol.notReady('Not connected to a primary master.'),
+                    packet)
+
     def connectionAccepted(self, conn, s, addr):
         """Called when a connection is accepted."""
         # we only accept connection from command tool
@@ -37,12 +41,16 @@ class AdminEventHandler(EventHandler):
         # check we have one pt otherwise ask it to PMN
         if app.pt is None:
             master_conn = self.app.master_conn
-            p = protocol.askPartitionTable([])
-            msg_id = master_conn.ask(p)
-            app.dispatcher.register(msg_id, conn, {'min_offset' : min_offset,
-                                                   'max_offset' : max_offset,
-                                                   'uuid' : uuid,
-                                                   'msg_id' : packet.getId()})
+            if master_conn is None:
+                self.__notConnected(conn, packet)
+            else:
+                p = protocol.askPartitionTable([])
+                msg_id = master_conn.ask(p)
+                app.dispatcher.register(msg_id, conn,
+                                        {'min_offset' : min_offset,
+                                         'max_offset' : max_offset,
+                                         'uuid' : uuid,
+                                         'msg_id' : packet.getId()})
         else:
             app.sendPartitionTable(conn, min_offset, max_offset, uuid, packet.getId())
 
@@ -77,16 +85,22 @@ class AdminEventHandler(EventHandler):
             return
         # forward to primary master node
         master_conn = self.app.master_conn
-        p = protocol.setNodeState(uuid, state, modify_partition_table)
-        msg_id = master_conn.ask(p)
-        self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
+        if master_conn is None:
+            self.__notConnected(conn, packet)
+        else:
+            p = protocol.setNodeState(uuid, state, modify_partition_table)
+            msg_id = master_conn.ask(p)
+            self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
     def handleSetClusterState(self, conn, packet, state):
         # forward to primary
         master_conn = self.app.master_conn
-        p = protocol.setClusterState(state)
-        msg_id = master_conn.ask(p)
-        self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
+        if master_conn is None:
+            self.__notConnected(conn, packet)
+        else:
+            p = protocol.setClusterState(state)
+            msg_id = master_conn.ask(p)
+            self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
     def handleAddPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
@@ -95,14 +109,21 @@ class AdminEventHandler(EventHandler):
         node = self.app.nm.getNodeByUUID(uuid)
         # forward the request to primary
         master_conn = self.app.master_conn
-        msg_id = master_conn.ask(protocol.addPendingNodes(uuid_list))
-        self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
+        if master_conn is None:
+            self.__notConnected(conn, packet)
+        else:
+            msg_id = master_conn.ask(protocol.addPendingNodes(uuid_list))
+            self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
     def handleAskClusterState(self, conn, packet):
         if self.app.cluster_state is None:
             # required it from PMN first
-            msg_id = self.app.master_conn.ask(protocol.askClusterState())
-            self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
+            master_conn = self.app.master_conn
+            if master_conn is None:
+                self.__notConnected(conn, packet)
+            else:
+                msg_id = master_conn.ask(protocol.askClusterState())
+                self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
             return
         conn.answer(protocol.answerClusterState(self.app.cluster_state), packet)
 
@@ -111,6 +132,11 @@ class MasterEventHandler(EventHandler):
     """ This class is just used to dispacth message to right handler"""
 
     def _connectionLost(self, conn):
+        app = self.app
+        assert app.master_conn is conn
+        app.master_conn = None
+        app.master_node = None
+        app.uuid = None
         raise PrimaryFailure
 
     def connectionFailed(self, conn):

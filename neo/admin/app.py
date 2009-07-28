@@ -114,11 +114,6 @@ class Application(object):
         Note that I do not accept any connection from non-master nodes
         at this stage."""
 
-        # First of all, make sure that I have no connection.
-        for conn in self.em.getConnectionList():
-            if not conn.isListeningConnection():
-                conn.close()
-
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, self.name, protocol.ADMIN_NODE_TYPE, 
                 self.uuid, self.server)
@@ -139,8 +134,6 @@ class Application(object):
 
         # passive handler
         self.master_conn.setHandler(self.master_event_handler)
-        # XXX: Use an initialization module to ensure all nodes and the whole
-        # partition table are received before process neoctl requests.
         self.master_conn.ask(protocol.askNodeInformation())
         self.master_conn.ask(protocol.askPartitionTable([]))
 
