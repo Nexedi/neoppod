@@ -186,9 +186,7 @@ class MasterRequestEventHandler(MasterBaseEventHandler):
 
     def __answerNeoCTL(self, msg_id, packet):
         client_conn, kw = self.app.dispatcher.pop(msg_id)
-        # XXX: Notify method is not intended for this use. This must be
-        # fixed !
-        client_conn.notify(packet, kw['msg_id'])
+        client_conn.answer(packet, kw['msg_id'])
 
     def handleAnswerClusterState(self, conn, packet, state):
         logging.info("handleAnswerClusterState for a conn")

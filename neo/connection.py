@@ -382,10 +382,9 @@ class Connection(BaseConnection):
         self.em.addIdleEvent(event)
 
     @not_closed
-    def notify(self, packet, msg_id=None):
+    def notify(self, packet):
         """ Then a packet with a new ID """
-        if msg_id is None:
-            msg_id = self._getNextId()
+        msg_id = self._getNextId()
         packet.setId(msg_id)
         self._addPacket(packet)
         return msg_id
