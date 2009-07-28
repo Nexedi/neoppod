@@ -33,6 +33,9 @@ class PartitionTable(neo.pt.PartitionTable):
         self.id = pack('!Q', last_id + 1)
         return self.id
 
+    def getPartition(self, oid_or_tid):
+        return unpack('!Q', oid_or_tid)[0] % self.getPartitions()
+
     def make(self, node_list):
         """Make a new partition table from scratch."""
         # start with the first PTID

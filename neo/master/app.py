@@ -424,7 +424,7 @@ class Application(object):
         uuid_set = set()
 
         # Determine to which nodes I should ask.
-        partition = self.getPartition(tid)
+        partition = self.pt.getPartition(tid)
         transaction_uuid_list = [cell.getUUID() for cell \
                 in self.pt.getCellList(partition, readable=True)]
         if len(transaction_uuid_list) == 0:
@@ -456,7 +456,7 @@ class Application(object):
             # Verify that all objects are present.
             for oid in self.unfinished_oid_set:
                 self.asking_uuid_dict.clear()
-                partition = self.getPartition(oid)
+                partition = self.pt.getPartition(oid)
                 object_uuid_list = [cell.getUUID() for cell \
                             in self.pt.getCellList(partition, readable=True)]
                 if len(object_uuid_list) == 0:
@@ -709,9 +709,6 @@ class Application(object):
             tid = pack('!LL', upper, lower)
         self.ltid = tid
         return tid
-
-    def getPartition(self, oid_or_tid):
-        return unpack('!Q', oid_or_tid)[0] % self.pt.getPartitions()
 
     def getNewOIDList(self, num_oids):
         if self.loid is None:

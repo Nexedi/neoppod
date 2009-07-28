@@ -118,7 +118,7 @@ class ClientServiceHandler(BaseServiceHandler):
             raise UnexpectedPacketError
 
         # Collect partitions related to this transaction.
-        getPartition = app.getPartition
+        getPartition = app.pt.getPartition
         partition_set = set()
         partition_set.add(getPartition(tid))
         partition_set.update((getPartition(oid) for oid in oid_list))
