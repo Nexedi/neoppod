@@ -136,19 +136,15 @@ class MasterEventHandler(EventHandler):
 
     def connectionFailed(self, conn):
         self._connectionLost(conn)
-        EventHandler.connectionFailed(self, conn)
 
     def timeoutExpired(self, conn):
         self._connectionLost(conn)
-        EventHandler.timeoutExpired(self, conn)
 
     def connectionClosed(self, conn):
         self._connectionLost(conn)
-        EventHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
         self._connectionLost(conn)
-        EventHandler.peerBroken(self, conn)
 
     def dispatch(self, conn, packet):
         if not packet.isResponse():
