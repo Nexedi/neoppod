@@ -40,8 +40,8 @@ class Dispatcher:
     def register(self, msg_id, conn, kw=None):
         self.message_table[msg_id] = conn, kw
 
-    def retrieve(self, msg_id):
-        return self.message_table.pop(msg_id, None)
+    def pop(self, msg_id):
+        return self.message_table.pop(msg_id)
 
     def registered(self, msg_id):
         return self.message_table.has_key(msg_id)

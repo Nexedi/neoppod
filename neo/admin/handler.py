@@ -167,37 +167,38 @@ class MasterBaseEventHandler(EventHandler):
 class MasterRequestEventHandler(MasterBaseEventHandler):
     """ This class handle all answer from primary master node"""
 
+    def __answerNeoCTL(self, msg_id, packet):
+        client_conn, kw = self.app.dispatcher.pop(msg_id)
+        # XXX: Notify method is not intended for this use. This must be
+        # fixed !
+        client_conn.notify(packet, kw['msg_id'])
+
     def handleAnswerClusterState(self, conn, packet, state):
         logging.info("handleAnswerClusterState for a conn")
         self.app.cluster_state = state
-        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
-        client_conn.notify(protocol.answerClusterState(state), kw['msg_id'])
+        self.__answerNeoCTL(packet.getId(),
+                            protocol.answerClusterState(state))
 
     def handleAnswerNewNodes(self, conn, packet, uuid_list):
         logging.info("handleAnswerNewNodes for a conn")
-        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
-        client_conn.notify(protocol.answerNewNodes(uuid_list), kw['msg_id'])
+        self.__answerNeoCTL(packet.getId(),
+                            protocol.answerNewNodes(uuid_list))
 
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         logging.info("handleAnswerPartitionTable for a conn")
-        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
+        client_conn, kw = self.app.dispatcher.pop(packet.getId())
         # sent client the partition table
         self.app.sendPartitionTable(client_conn, **kw)
 
     def handleAnswerNodeState(self, conn, packet, uuid, state):
-        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
-        p = protocol.answerNodeState(uuid, state)
-        client_conn.notify(p, kw['msg_id'])
+        self.__answerNeoCTL(packet.getId(),
+                            protocol.answerNodeState(uuid, state))
 
     def handleNoError(self, conn, packet, msg):
-        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
-        p = protocol.noError(msg)
-        client_conn.notify(p, kw['msg_id'])
+        self.__answerNeoCTL(packet.getId(), protocol.noError(msg))
 
     def handleProtocolError(self, conn, packet, msg):
-        client_conn, kw = self.app.dispatcher.retrieve(packet.getId())
-        p = protocol.protocolError(msg)
-        client_conn.notify(p, kw['msg_id'])
+        self.__answerNeoCTL(packet.getId(), protocol.protocolError(msg))
 
 
 class MasterMonitoringEventHandler(MasterBaseEventHandler):
