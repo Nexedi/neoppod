@@ -690,16 +690,6 @@ class Application(object):
             handler.connectionCompleted(conn)
         self.cluster_state = state
 
-    # XXX: switch this to private and optimize since it's used only to generate
-    # ranges of OIDs
-    def getNextOID(self):
-        if self.loid is None:
-            raise RuntimeError, 'I do not know the last OID'
-
-        oid = unpack('!Q', self.loid)[0]
-        self.loid = pack('!Q', oid + 1)
-        return self.loid
-
     def getNextTID(self):
         tm = time()
         gmt = gmtime(tm)
@@ -728,7 +718,11 @@ class Application(object):
         return unpack('!Q', oid_or_tid)[0] % self.pt.getPartitions()
 
     def getNewOIDList(self, num_oids):
-        oid_list = [self.getNextOID() for i in xrange(num_oids)]
+        if self.loid is None:
+            raise RuntimeError, 'I do not know the last OID'
+        oid = unpack('!Q', self.loid)[0]
+        oid_list = [pack('!Q', oid + i) for i in xrange(num_oids)]
+        self.loid = oid_list[-1]
         self.broadcastLastOID(self.loid)
         return oid_list
 
