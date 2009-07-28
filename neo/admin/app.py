@@ -133,8 +133,10 @@ class Application(object):
         if self.pt is None:
             self.pt = PartitionTable(num_partitions, num_replicas)
         elif self.pt.getPartitions() != num_partitions:
+            # XXX: shouldn't we recover instead of raising ?
             raise RuntimeError('the number of partitions is inconsistent')
         elif self.pt.getReplicas() != num_replicas:
+            # XXX: shouldn't we recover instead of raising ?
             raise RuntimeError('the number of replicas is inconsistent')
 
         # passive handler
