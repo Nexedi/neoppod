@@ -26,7 +26,8 @@ RC  - Review output of pylint (CODE)
     - Connections should be integrated to Node class instances (CODE)
       Currently, connections are managed separately from nodes, and the code very often needs to find one from the other. As all connections are to a node, and as all nods can be reperesented as Node class instances, such instance should directly contain associated connection for code simplicity.
     - Rework indexes in NodeManager class (CODE)
-      NodeManager should provide indexes to quickly find nodes by type, UUID, and (ip, port).
+      NodeManager should provide indexes to quickly find nodes by type, UUID, 
+      (ip, port), connection type (listening...) and state (identified...)
     - Keep-alive (HIGH AVAILABILITY)
       Consider the need to implement a keep-alive system (packets sent automatically when there is no activity on the connection for a period of time).
     - Factorise packet data when sending partition table cells (BANDWITH)
@@ -47,7 +48,7 @@ RC  - Review output of pylint (CODE)
       Also, the code to detect wether a response is expected or not must be genericised and moved out of handlers.
     - Pack (FEATURE)
     - Control that client processed all invalidations before starting a transaction (CONSISTENCY)
-      If a client strats a transaction before it received an invalidation message caused by a transaction commited, it will use outdated data. This is a bug known in Zeo.
+      If a client starts a transaction before it received an invalidation message caused by a transaction commited, it will use outdated data. This is a bug known in Zeo.
     - Factorise node initialisation for admin, client and storage (CODE)
       The same code to ask/receive node list and partition table exists in too many places.
     - Clarify handler methods to call when a connection is accepted from a listening conenction and when remote node is identified (cf. neo/bootstrap.py).
