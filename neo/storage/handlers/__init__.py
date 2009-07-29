@@ -27,9 +27,7 @@ from neo.exception import PrimaryFailure, OperationFailure
 
 class BaseStorageHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
-
-    def dealWithClientFailure(self, uuid):
-        pass
+    pass
 
 
 class BaseMasterHandler(BaseStorageHandler):
@@ -68,10 +66,6 @@ class BaseMasterHandler(BaseStorageHandler):
                     self.app.shutdown()
                 elif state == HIDDEN_STATE:
                     raise OperationFailure
-            elif node_type == CLIENT_NODE_TYPE and state != RUNNING_STATE:
-                # XXX: check why dealWithClientFailure is triggered with node
-                # notification and not only by client connection failure
-                self.dealWithClientFailure(uuid)
 
 
 class BaseClientAndStorageOperationHandler(BaseStorageHandler):
