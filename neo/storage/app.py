@@ -112,22 +112,14 @@ class Application(object):
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
-        nm = self.nm
-        pt = self.pt
-        pt.clear()
-        for offset, uuid, state in self.dm.getPartitionTable():
-            node = nm.getNodeByUUID(uuid)
-            if node is None:
-                node = StorageNode(uuid = uuid)
-                if uuid != self.uuid:
-                    # If this node is not self, assume that it is temporarily
-                    # down at the moment. This state will change once every
-                    # node starts to connect to a primary master node.
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                nm.add(node)
-            state = partition_cell_states.get(state)
-
-            pt.setCell(offset, node, state)
+        ptid = self.dm.getPTID()
+        cell_list = self.dm.getPartitionTable()
+        # dirty, but have to convert states from int to Enum
+        convert_states = lambda (offset, uuid, state): (offset, uuid,
+                protocol.partition_cell_states[state])
+        cell_list = map(convert_states, cell_list)
+        self.pt.clear()
+        self.pt.update(ptid, cell_list, self.nm)
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
