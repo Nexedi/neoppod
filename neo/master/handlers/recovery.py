@@ -39,7 +39,7 @@ class RecoveryHandler(MasterHandler):
             app.loid = loid
         if app.ltid < ltid:
             app.ltid = ltid
-        if lptid is not None and pt.getID() is None or pt.getID() < lptid:
+        if lptid > pt.getID():
             # something newer
             app.pt.setID(lptid)
             app.target_uuid = conn.getUUID()
