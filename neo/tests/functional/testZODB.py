@@ -23,8 +23,11 @@ from persistent import Persistent
 from persistent.mapping import PersistentMapping
 import transaction
 
+from neo.neoctl.neoctl import NeoCTL, NotReadyException
+from neo import protocol
 import os
 import sys
+import time
 import signal
 import MySQLdb
 import tempfile
@@ -99,6 +102,7 @@ def killallNeo():
 
 NEO_MASTER = 'neomaster'
 NEO_STORAGE = 'neostorage'
+NEO_ADMIN = 'neoadmin'
 NEO_PORT_BASE = 10010
 NEO_CLUSTER_NAME = 'test'
 NEO_MASTER_PORT_1 = NEO_PORT_BASE
@@ -108,6 +112,7 @@ NEO_STORAGE_PORT_1 = NEO_MASTER_PORT_3 + 1
 NEO_STORAGE_PORT_2 = NEO_STORAGE_PORT_1 + 1
 NEO_STORAGE_PORT_3 = NEO_STORAGE_PORT_2 + 1
 NEO_STORAGE_PORT_4 = NEO_STORAGE_PORT_3 + 1
+NEO_ADMIN_PORT = NEO_STORAGE_PORT_4 + 1
 NEO_MASTER_NODES = '127.0.0.1:%(port_1)s 127.0.0.1:%(port_2)s 127.0.0.1:%(port_3)s' % {
     'port_1': NEO_MASTER_PORT_1,
     'port_2': NEO_MASTER_PORT_2,
@@ -140,6 +145,10 @@ user: %(user)s
 password: %(password)s
 # The connector class used
 connector: SocketConnector
+
+# The admin node.
+[admin]
+server: 127.0.0.1:%(admin_port)s
 
 # The first master.
 [master1]
@@ -177,6 +186,7 @@ server: 127.0.0.1:%(storage4_port)s
     'name': NEO_CLUSTER_NAME,
     'user': NEO_SQL_USER,
     'password': NEO_SQL_PASSWORD,
+    'admin_port': NEO_ADMIN_PORT,
     'master1_port': NEO_MASTER_PORT_1,
     'master2_port': NEO_MASTER_PORT_2,
     'master3_port': NEO_MASTER_PORT_3,
@@ -202,6 +212,7 @@ s1_log = os.path.join(temp_dir, 's1.log')
 s2_log = os.path.join(temp_dir, 's2.log')
 s3_log = os.path.join(temp_dir, 's3.log')
 s4_log = os.path.join(temp_dir, 's4.log')
+a_log = os.path.join(temp_dir, 'a.log')
 
 
 from neo import setupLog
@@ -209,6 +220,8 @@ client_log = os.path.join(temp_dir, 'c.log')
 setupLog('CLIENT', filename=client_log, verbose=True)
 from neo import logging
 from neo.client.Storage import Storage
+
+neoctl = NeoCTL('127.0.0.1', NEO_ADMIN_PORT, 'SocketConnector')
 
 class ZODBTests(unittest.TestCase):
 
@@ -235,6 +248,23 @@ class ZODBTests(unittest.TestCase):
         NEOProcess(NEO_STORAGE, '-vRc', config_file_path, '-s', 'storage2', '-l', s2_log)
         NEOProcess(NEO_STORAGE, '-vRc', config_file_path, '-s', 'storage3', '-l', s3_log)
         NEOProcess(NEO_STORAGE, '-vRc', config_file_path, '-s', 'storage4', '-l', s4_log)
+        NEOProcess(NEO_ADMIN, '-vc', config_file_path, '-s', 'admin', '-l', a_log)
+        # Try to put cluster in running state. This will succeed as soon as
+        # admin node could connect to the primary master node.
+        while True:
+            try:
+                neoctl.startCluster()
+            except NotReadyException:
+                time.sleep(0.5)
+            else:
+                break
+        while True:
+            storage_node_list = neoctl.getNodeList(
+                node_type=protocol.STORAGE_NODE_TYPE)
+            if len(storage_node_list) == 4:
+                break
+            time.sleep(0.5)
+        neoctl.enableStorageList([x[2] for x in storage_node_list])
         # Send Storage output to a logfile
         self._storage = Storage(
             master_nodes=NEO_MASTER_NODES,
