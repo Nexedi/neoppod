@@ -1,4 +1,4 @@
-##
+#
 # Copyright (C) 2006-2009  Nexedi SA
 # 
 # This program is free software; you can redistribute it and/or
@@ -389,7 +389,7 @@ class Application(object):
         finally:
             self._connecting_to_master_node_release()
 
-    def getPartitionTable(self):
+    def _getPartitionTable(self):
         """ Return the partition table manager, reconnect the PMN if needed """
         # this ensure the master connection is established and the partition
         # table is up to date.
@@ -398,12 +398,12 @@ class Application(object):
 
     def _getCellListForOID(self, oid, readable=False, writable=False):
         """ Return the cells available for the specified OID """
-        pt = self.getPartitionTable()
+        pt = self._getPartitionTable()
         return pt.getCellListForOID(oid, readable, writable)
 
     def _getCellListForTID(self, tid, readable=False, writable=False):
         """ Return the cells available for the specified TID """
-        pt = self.getPartitionTable()
+        pt = self._getPartitionTable()
         return pt.getCellListForTID(tid, readable, writable)
 
     def _connectToPrimaryMasterNode(self):
@@ -731,7 +731,7 @@ class Application(object):
         ext = dumps(transaction._extension)
         oid_list = self.local_var.data_dict.keys()
         # Store data on each node
-        pt = self.getPartitionTable()
+        pt = self._getPartitionTable()
         cell_list = self._getCellListForTID(self.local_var.tid, writable=True)
         self.local_var.voted_counter = 0
         for cell in cell_list:
@@ -889,7 +889,7 @@ class Application(object):
         # First get a list of transactions from all storage nodes.
         # Each storage node will return TIDs only for UP_TO_DATE_STATE and
         # FEEDING_STATE cells
-        pt = self.getPartitionTable()
+        pt = self._getPartitionTable()
         storage_node_list = pt.getNodeList()
 
         self.local_var.node_tids = {}

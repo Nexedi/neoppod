@@ -150,13 +150,15 @@ class PrimaryNotificationsHandler(BaseHandler):
         finally:
             app._cache_lock_release()
 
+    # For the two methods below, we must not use app._getPartitionTable() 
+    # to avoid a dead lock. It is safe to not check the master connection
+    # because it's in the master handler, so the connection is already
+    # established.
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        pt = self.app.getPartitionTable()
-        pt.update(ptid, cell_list, self.app.nm)
+        self.app.pt.update(ptid, cell_list, self.app.nm)
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        pt = self.app.getPartitionTable()
-        pt.load(ptid, row_list, self.app.nm)
+        self.app.pt.load(ptid, row_list, self.app.nm)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
