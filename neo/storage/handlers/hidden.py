@@ -66,6 +66,7 @@ class HiddenHandler(BaseMasterHandler):
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
+        # XXX: this is a copy/paste from handlers/master.py
         app = self.app
         if app.ptid >= ptid:
             # Ignore this packet.

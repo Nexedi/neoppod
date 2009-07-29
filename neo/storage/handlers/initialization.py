@@ -36,23 +36,7 @@ class InitializationHandler(BaseMasterHandler):
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         """A primary master node sends this packet to synchronize a partition
         table. Note that the message can be split into multiple packets."""
-        app = self.app
-        nm = app.nm
-        pt = app.pt
-        if app.ptid != ptid:
-            app.ptid = ptid
-            pt.clear()
-
-        for offset, row in row_list:
-            for uuid, state in row:
-                node = nm.getNodeByUUID(uuid)
-                if node is None:
-                    node = StorageNode(uuid = uuid)
-                    if uuid != app.uuid:
-                        node.setState(TEMPORARILY_DOWN_STATE)
-                    nm.add(node)
-
-                pt.setCell(offset, node, state)
+        self.app.pt.load(ptid, row_list, self.app.nm)
 
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
         app = self.app

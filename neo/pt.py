@@ -162,9 +162,31 @@ class PartitionTable(object):
                         self.count_dict[node] = self.count_dict.get(node, 0) - 1
                     break
 
-    # XXX: node manager is given here just to verify that any node in the
-    # partition table is known, this will be removed when checked.
+    def load(self, ptid, row_list, nm):
+        """ 
+        Load the partition table with the specified PTID, discard all previous
+        content and can be done in multiple calls
+        """
+        if ptid != self.id:
+            self.id = ptid
+            self.clear()
+        for offset, row in row_list:
+            for uuid, state in row:
+                node = nm.getNodeByUUID(uuid) 
+                # XXX: the node should be known before we receive the partition
+                # table, so remove this assert when this is checked.
+                assert node is not None
+                self.setCell(offset, node, state)
+
     def update(self, ptid, cell_list, nm):
+        """
+        Update the partition with the cell list supplied. Ignore those changes
+        if the partition table ID is not greater than the current one. If a node
+        is not known, it is created in the node manager and set as unavailable
+        """
+        if ptid <= self.id:
+            logging.warning('ignoring older partition changes')
+            return
         self.id = ptid
         for offset, uuid, state in cell_list:
             node = nm.getNodeByUUID(uuid) 
