@@ -54,7 +54,7 @@ class NeoCTL(object):
         while len(response_queue) == 0:
             self.em.poll(0)
             if not self.connected:
-                raise Exception, 'Connection closed'
+                raise NotReadyException, 'Connection closed'
         response = response_queue.pop()
         if response[0] == protocol.ERROR and \
            response[1] == protocol.NOT_READY_CODE:
