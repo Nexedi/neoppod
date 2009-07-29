@@ -27,7 +27,7 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
         app = self.app
         oid = app.dm.getLastOID()
         tid = app.dm.getLastTID()
-        p = protocol.answerLastIDs(oid, tid, app.ptid)
+        p = protocol.answerLastIDs(oid, tid, app.pt.getID())
         conn.answer(p, packet.getId())
 
     def handleAskOIDs(self, conn, packet, first, last, partition):

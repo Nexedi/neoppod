@@ -35,15 +35,12 @@ class RecoveryHandler(MasterHandler):
         pt = app.pt
 
         # Get max values.
-        if app.loid < loid:
-            app.loid = loid
-        if app.ltid < ltid:
-            app.ltid = ltid
+        app.loid = max(loid, app.loid)
+        app.tid = max(ltid, app.ltid)
         if lptid > pt.getID():
             # something newer
-            app.pt.setID(lptid)
             app.target_uuid = conn.getUUID()
-            app.pt.clear()
+            app.pt.setID(lptid)
             conn.ask(protocol.askPartitionTable([]))
 
     def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
@@ -54,17 +51,5 @@ class RecoveryHandler(MasterHandler):
             logging.warn('got answer partition table from %s while waiting for %s',
                          dump(uuid), dump(app.target_uuid))
             return
-
-        for offset, cell_list in row_list:
-            if offset >= app.pt.getPartitions() or app.pt.hasOffset(offset):
-                # There must be something wrong.
-                raise UnexpectedPacketError
-
-            for uuid, state in cell_list:
-                n = app.nm.getNodeByUUID(uuid)
-                if n is None:
-                    n = StorageNode(uuid = uuid)
-                    n.setState(TEMPORARILY_DOWN_STATE)
-                    app.nm.add(n)
-                app.pt.setCell(offset, n, state)
+        self.app.pt.load(ptid, row_list, self.app.nm)
 

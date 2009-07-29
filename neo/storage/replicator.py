@@ -196,7 +196,7 @@ class Replicator(object):
             self.partition_dict.pop(self.current_partition.getRID())
             # Notify to a primary master node that my cell is now up-to-date.
             conn = self.primary_master_connection
-            p = protocol.notifyPartitionChanges( app.ptid, 
+            p = protocol.notifyPartitionChanges(app.pt.getID(), 
                  [(self.current_partition.getRID(), app.uuid, UP_TO_DATE_STATE)])
             conn.notify(p)
         except KeyError:

@@ -76,6 +76,7 @@ class PartitionTable(object):
 
     def clear(self):
         """Forget an existing partition table."""
+        self.id = None
         self.num_filled_rows = 0
         # Note: don't use [[]] * self.np construct, as it duplicates
         # instance *references*, so the outer list contains really just one
@@ -171,6 +172,7 @@ class PartitionTable(object):
             self.id = ptid
             self.clear()
         for offset, row in row_list:
+            assert offset < self.getPartitions() and not self.hasOffset(offset)
             for uuid, state in row:
                 node = nm.getNodeByUUID(uuid) 
                 # XXX: the node should be known before we receive the partition

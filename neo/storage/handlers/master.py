@@ -39,13 +39,16 @@ class MasterOperationHandler(BaseMasterHandler):
         """This is very similar to Send Partition Table, except that
        the information is only about changes from the previous."""
         app = self.app
-        if app.ptid >= ptid:
+        if ptid <= app.pt.getID():
             # Ignore this packet.
             logging.debug('ignoring older partition changes')
             return
 
-        # First, change the table on memory.
-        app.ptid = ptid
+        # update partition table in memory and the database
+        app.pt.update(ptid, cell_list, app.nm)
+        app.dm.changePartitionTable(ptid, cell_list)
+
+        # Check changes for replications
         for offset, uuid, state in cell_list:
             if uuid == app.uuid and app.replicator is not None:
                 # If this is for myself, this can affect replications.
@@ -53,10 +56,6 @@ class MasterOperationHandler(BaseMasterHandler):
                     app.replicator.removePartition(offset)
                 elif state == OUT_OF_DATE_STATE:
                     app.replicator.addPartition(offset)
-
-        # update partition table in memory and the database
-        app.pt.update(ptid, cell_list, app.nm)
-        app.dm.changePartitionTable(ptid, cell_list)
 
     def handleLockInformation(self, conn, packet, tid):
         app = self.app

@@ -29,7 +29,7 @@ class VerificationHandler(BaseMasterHandler):
         app = self.app
         oid = app.dm.getLastOID()
         tid = app.dm.getLastTID()
-        p = protocol.answerLastIDs(oid, tid, app.ptid)
+        p = protocol.answerLastIDs(oid, tid, app.pt.getID())
         conn.answer(p, packet.getId())
 
     def handleAskPartitionTable(self, conn, packet, offset_list):
@@ -50,18 +50,17 @@ class VerificationHandler(BaseMasterHandler):
         except IndexError:
             raise protocol.ProtocolError('invalid partition table offset')
 
-        p = protocol.answerPartitionTable(app.ptid, row_list)
+        p = protocol.answerPartitionTable(app.pt.getID(), row_list)
         conn.answer(p, packet.getId())
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
         app = self.app
-        if app.ptid >= ptid:
+        if ptid <= app.pt.getID():
             # Ignore this packet.
             logging.debug('ignoring older partition changes')
             return
-        app.ptid = ptid
         # update partition table in memory and the database
         app.pt.update(ptid, cell_list, app.nm)
         app.dm.changePartitionTable(ptid, cell_list)

@@ -63,8 +63,6 @@ class Application(object):
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
-        # XXX: shoud use self.pt.getID() instead
-        self.ptid = None
 
         self.replicator = None
         self.listening_conn = None
@@ -106,9 +104,10 @@ class Application(object):
             dm.setName(self.name)
         elif name != self.name:
             raise RuntimeError('name does not match with the database')
-        self.ptid = dm.getPTID()
-        logging.info("loaded configuration from db : uuid = %s, ptid = %s, name = %s, np = %s, nr = %s" \
-                     %(dump(self.uuid), dump(self.ptid), name, num_partitions, num_replicas))
+        ptid = dm.getPTID()
+        logging.info("Configuration: uuid=%s, ptid=%s, name=%s, np=%s, nr=%s" \
+                % (dump(self.uuid), dump(ptid), name, num_partitions, 
+                    num_replicas))
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
@@ -190,7 +189,6 @@ class Application(object):
         # table, because the table might be incomplete.
         if pt is not None:
             self.loadPartitionTable()
-            self.ptid = self.dm.getPTID()
             if num_partitions != pt.getPartitions():
                 raise RuntimeError('the number of partitions is inconsistent')
 
@@ -200,7 +198,6 @@ class Application(object):
             self.dm.setNumReplicas(num_replicas)
             self.pt = PartitionTable(num_partitions, num_replicas)
             self.loadPartitionTable()
-            self.ptid = self.dm.getPTID()
 
     def verifyData(self):
         """Verify data under the control by a primary master node.
