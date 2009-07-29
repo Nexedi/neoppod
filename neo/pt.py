@@ -215,9 +215,9 @@ class PartitionTable(object):
         node_list.sort()
         node_dict = {}
         for i, node in enumerate(node_list):
-            node_dict[node] = i
-        for node, i in node_dict.iteritems():
-            logging.debug('pt: node %d: %s, %s', i, dump(node.getUUID()),
+            uuid = node.getUUID()
+            node_dict[uuid] = i
+            logging.debug('pt: node %d: %s, %s', i, dump(uuid),
                           node_state_dict[node.getState()])
         line = []
         max_line_len = 20 # XXX: hardcoded number of partitions per line
@@ -230,7 +230,7 @@ class PartitionTable(object):
                 line.append('X' * len(node_list))
             else:
                 cell = []
-                cell_dict = dict([(node_dict[x.getNode()], x) for x in row])
+                cell_dict = dict([(node_dict[x.getUUID()], x) for x in row])
                 for node in xrange(len(node_list)):
                     if node in cell_dict:
                         cell.append(cell_state_dict[cell_dict[node].getState()])
