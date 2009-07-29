@@ -29,17 +29,9 @@ class MasterHandler(EventHandler):
         pass
 
     def _dropIt(self, conn, node, new_state):
-        if node is None or node.getState() == new_state:
-            return
-        if new_state != protocol.BROKEN_STATE and node.getState() == protocol.PENDING_STATE:
-            # was in pending state, so drop it from the node manager to forget
-            # it and do not set in running state when it comes back
-            logging.info('drop a pending node from the node manager')
-            self.app.nm.remove(node)
-        node.setState(new_state)
-        # clean node related data in specialized handlers
-        self.app.broadcastNodeInformation(node)
-        self._nodeLost(conn, node)
+        # This method provides a hook point overridable by service classes.
+        # It is triggered when a connection to a node gets lost.
+        pass
 
     def connectionClosed(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
@@ -100,6 +92,19 @@ class MasterHandler(EventHandler):
 
 class BaseServiceHandler(MasterHandler):
     """This class deals with events for a service phase."""
+
+    def _dropIt(self, conn, node, new_state):
+        if node is None or node.getState() == new_state:
+            return
+        if new_state != protocol.BROKEN_STATE and node.getState() == protocol.PENDING_STATE:
+            # was in pending state, so drop it from the node manager to forget
+            # it and do not set in running state when it comes back
+            logging.info('drop a pending node from the node manager')
+            self.app.nm.remove(node)
+        node.setState(new_state)
+        # clean node related data in specialized handlers
+        self.app.broadcastNodeInformation(node)
+        self._nodeLost(conn, node)
 
     def handleAskLastIDs(self, conn, packet):
         app = self.app
