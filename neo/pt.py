@@ -173,6 +173,7 @@ class PartitionTable(object):
                         dump(uuid))
                 from neo.node import StorageNode
                 node = StorageNode(uuid=uuid)
+                node.setState(protocol.TEMPORARILY_DOWN_STATE)
                 nm.add(node)
             self.setCell(offset, node, state)
         logging.debug('partition table updated')
