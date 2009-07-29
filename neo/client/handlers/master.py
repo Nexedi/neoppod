@@ -150,19 +150,13 @@ class PrimaryNotificationsHandler(BaseHandler):
         finally:
             app._cache_lock_release()
 
-
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        # XXX: delegate this test to the partition table and use the pt.getID()
-        # instead of app.ptid
-        app = self.app
-        if app.ptid >= ptid:
-            # Ignore this packet.
-            return 
-        app.ptid = ptid
-        self.app.pt.update(ptid, cell_list, self.app.nm)
+        pt = self.app.getPartitionTable()
+        pt.update(ptid, cell_list, self.app.nm)
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        self.app.pt.load(ptid, row_list, self.app.nm)
+        pt = self.app.getPartitionTable()
+        pt.load(ptid, row_list, self.app.nm)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
