@@ -36,32 +36,26 @@ class StorageEventHandler(BaseHandler):
                 queue = self.dispatcher.message_table.pop(key)
                 queue_set.add(queue)
         # Storage failure is notified to the primary master when the fake 
-        # packet if popped by a non-polling thread.
+        # packet is popped by a non-polling thread.
         for queue in queue_set:
             queue.put((conn, None))
 
-
-    def connectionClosed(self, conn):
+    def handleConnectionLost(self, conn, new_state):
         node = self.app.nm.getNodeByServer(conn.getAddress())
-        logging.info("connection to storage node %s closed", node.getServer())
         self._dealWithStorageFailure(conn, node)
         super(StorageEventHandler, self).connectionClosed(conn)
 
-    def timeoutExpired(self, conn):
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self._dealWithStorageFailure(conn, node)
-        super(StorageEventHandler, self).timeoutExpired(conn)
-
-    def peerBroken(self, conn):
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self._dealWithStorageFailure(conn, node)
-        super(StorageEventHandler, self).peerBroken(conn)
-
     def connectionFailed(self, conn):
+        # XXX: a connection failure is not like a connection lost, we should not
+        # have to clear the dispatcher because the connection was never
+        # established and so, no packet should have been send and thus, nothing
+        # must be expected. This should be well done if the first packet sent is
+        # done after the connectionCompleted event or a packet received.
         # Connection to a storage node failed
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self._dealWithStorageFailure(conn, node)
         super(StorageEventHandler, self).connectionFailed(conn)
+
 
 class StorageBootstrapHandler(AnswerBaseHandler):
     """ Handler used when connecting to a storage node """

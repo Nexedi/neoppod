@@ -192,13 +192,7 @@ class PartitionTable(object):
         self.id = ptid
         for offset, uuid, state in cell_list:
             node = nm.getNodeByUUID(uuid) 
-            if node is None:
-                logging.warning('Updating partition table with an unknown UUID : %s', 
-                        dump(uuid))
-                from neo.node import StorageNode
-                node = StorageNode(uuid=uuid)
-                node.setState(protocol.TEMPORARILY_DOWN_STATE)
-                nm.add(node)
+            assert node is not None
             self.setCell(offset, node, state)
         logging.debug('partition table updated')
         self.log()

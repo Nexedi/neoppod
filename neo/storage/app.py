@@ -113,12 +113,19 @@ class Application(object):
         """Load a partition table from the database."""
         ptid = self.dm.getPTID()
         cell_list = self.dm.getPartitionTable()
-        # dirty, but have to convert states from int to Enum
-        convert_states = lambda (offset, uuid, state): (offset, uuid,
-                protocol.partition_cell_states[state])
-        cell_list = map(convert_states, cell_list)
+        new_cell_list = []
+        for offset, uuid, state in cell_list:
+            # convert from int to Enum
+            state = protocol.partition_cell_states[state]
+            # register unknown nodes
+            if self.nm.getNodeByUUID(uuid) is None:
+                node = StorageNode(uuid=uuid)
+                node.setState(protocol.TEMPORARILY_DOWN_STATE)
+                self.nm.add(node)
+            new_cell_list.append((offset, uuid, state))
+        # load the partition table in manager
         self.pt.clear()
-        self.pt.update(ptid, cell_list, self.nm)
+        self.pt.update(ptid, new_cell_list, self.nm)
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
