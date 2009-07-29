@@ -43,7 +43,7 @@ class SecondaryMasterHandler(MasterHandler):
 class PrimaryMasterHandler(MasterHandler):
     """ Handler used by secondaries to handle primary master"""
 
-    def _nodeLost(self, conn, node):
+    def handleNodeLost(self, conn, node):
         # XXX: why in down state ?
         self.app.primary_master_node.setState(DOWN_STATE)
         raise PrimaryFailure, 'primary master is dead'

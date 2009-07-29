@@ -23,27 +23,20 @@ from neo.handler import EventHandler
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
-    def _nodeLost(self, conn, node):
+    # XXX: this may be defined/done in the generic handler
+    def _handleConnectionLost(self, conn, node, new_state):
         # override this method in sub-handlers to do specific actions when a
         # node is lost
         pass
 
-    def _dropIt(self, conn, node, new_state):
-        # This method provides a hook point overridable by service classes.
-        # It is triggered when a connection to a node gets lost.
-        pass
-
     def connectionClosed(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self._dropIt(conn, node, protocol.TEMPORARILY_DOWN_STATE)
+        self._handleConnectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
 
     def timeoutExpired(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self._dropIt(conn, node, protocol.TEMPORARILY_DOWN_STATE)
+        self._handleConnectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
 
     def peerBroken(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
-        self._dropIt(conn, node, protocol.BROKEN_STATE)
+        self._handleConnectionLost(conn, protocol.BROKEN_STATE)
 
     def handleProtocolError(self, conn, packet, message):
         logging.error('Protocol error %s %s' % (message, conn.getAddress()))
@@ -93,7 +86,13 @@ class MasterHandler(EventHandler):
 class BaseServiceHandler(MasterHandler):
     """This class deals with events for a service phase."""
 
-    def _dropIt(self, conn, node, new_state):
+    def handleNodeLost(self, conn, node):
+        # This method provides a hook point overridable by service classes.
+        # It is triggered when a connection to a node gets lost.
+        pass
+
+    def _handleConnectionLost(self, conn, new_state):
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node is None or node.getState() == new_state:
             return
         if new_state != protocol.BROKEN_STATE and node.getState() == protocol.PENDING_STATE:
@@ -102,9 +101,9 @@ class BaseServiceHandler(MasterHandler):
             logging.info('drop a pending node from the node manager')
             self.app.nm.remove(node)
         node.setState(new_state)
-        # clean node related data in specialized handlers
         self.app.broadcastNodeInformation(node)
-        self._nodeLost(conn, node)
+        # clean node related data in specialized handlers
+        self.handleNodeLost(conn, node)
 
     def handleAskLastIDs(self, conn, packet):
         app = self.app

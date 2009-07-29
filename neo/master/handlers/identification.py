@@ -23,7 +23,7 @@ from neo.master.handlers import MasterHandler
 class IdentificationHandler(MasterHandler):
     """This class deals with messages from the admin node only"""
 
-    def _nodeLost(self, conn, node):
+    def handleNodeLost(self, conn, node):
         logging.warning('lost a node in IdentificationHandler : %s' % node)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,

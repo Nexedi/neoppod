@@ -68,7 +68,7 @@ class ClientServiceHandler(BaseServiceHandler):
     def connectionCompleted(self, conn):
         pass
 
-    def _nodeLost(self, conn, node):
+    def handleNodeLost(self, conn, node):
         app = self.app
         for tid, t in app.finishing_transaction_dict.items():
             if t.getConnection() is conn:

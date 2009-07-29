@@ -34,7 +34,7 @@ class StorageServiceHandler(BaseServiceHandler):
         if node.getState() == protocol.RUNNING_STATE:
             conn.notify(protocol.startOperation())
 
-    def _nodeLost(self, conn, node):
+    def handleNodeLost(self, conn, node):
         logging.info('storage node lost')
         if not self.app.pt.operational():
             raise OperationFailure, 'cannot continue operation'

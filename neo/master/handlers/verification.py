@@ -27,7 +27,7 @@ class VerificationHandler(MasterHandler):
     def connectionCompleted(self, conn):
         pass
 
-    def _nodeLost(self, conn, node):
+    def handleNodeLost(self, conn, node):
         if not self.app.pt.operational():
             raise VerificationFailure, 'cannot continue verification'
 
