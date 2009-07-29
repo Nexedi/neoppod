@@ -51,6 +51,11 @@ RC  - Review output of pylint (CODE)
     - Factorise node initialisation for admin, client and storage (CODE)
       The same code to ask/receive node list and partition table exists in too many places.
     - Clarify handler methods to call when a connection is accepted from a listening conenction and when remote node is identified (cf. neo/bootstrap.py).
+    - Choose how to handle a storage integrity verification when it comes back.
+      Do the replication process, the verification stage, with or without
+      unfinished transactions, cells have to set as outdated, if yes, should the
+      partition table changes be broadcasted ?
+    
 
     Storage
     - Implement incremental storage verification (BANDWITH)
