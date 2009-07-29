@@ -20,9 +20,6 @@ from neo.storage.handlers import BaseClientAndStorageOperationHandler
 
 class StorageOperationHandler(BaseClientAndStorageOperationHandler):
 
-    def connectionCompleted(self, conn):
-        BaseClientAndStorageOperationHandler.connectionCompleted(self, conn)
-
     def handleAskLastIDs(self, conn, packet):
         app = self.app
         oid = app.dm.getLastOID()

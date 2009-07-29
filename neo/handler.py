@@ -22,6 +22,7 @@ from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
 from neo.connection import ServerConnection
 
+from neo import protocol
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
         ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
         REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION, START_OPERATION, \
@@ -54,6 +55,8 @@ class EventHandler(object):
         self.packet_dispatch_table = self.initPacketDispatchTable()
         self.error_dispatch_table = self.initErrorDispatchTable()
 
+    # XXX: there is an inconsistency between connection* and handle* names. As
+    # we are in an hander, I think that's redondant to prefix with 'handle'
     def connectionStarted(self, conn):
         """Called when a connection is started."""
         logging.debug('connection started for %s:%d', *(conn.getAddress()))
@@ -74,21 +77,29 @@ class EventHandler(object):
         # A request for a node identification should arrive.
         new_conn.expectMessage(timeout = 10, additional_timeout = 0)
 
+    def handleConnectionLost(self, conn, new_state):
+        """ this is a method to override in sub-handlers when there is no need
+        to make distinction from the kind event that closed the connection  """
+        pass
+
     def timeoutExpired(self, conn):
         """Called when a timeout event occurs."""
         logging.debug('timeout expired for %s:%d', *(conn.getAddress()))
+        self.handleConnectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
 
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
         logging.debug('connection closed for %s:%d', *(conn.getAddress()))
-
-    def packetReceived(self, conn, packet):
-        """Called when a packet is received."""
-        self.dispatch(conn, packet)
+        self.handleConnectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
 
     def peerBroken(self, conn):
         """Called when a peer is broken."""
         logging.error('%s:%d is broken', *(conn.getAddress()))
+        self.handleConnectionLost(conn, protocol.BROKEN_STATE)
+
+    def packetReceived(self, conn, packet):
+        """Called when a packet is received."""
+        self.dispatch(conn, packet)
 
     def packetMalformed(self, conn, packet, message='', *args):
         """Called when a packet is malformed."""

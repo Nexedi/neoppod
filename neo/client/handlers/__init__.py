@@ -45,7 +45,8 @@ class BaseHandler(EventHandler):
         else:
             self.dispatch(conn, packet)
 
-    def _notifyQueues(self, conn):
+
+    def handleConnectionLost(self, conn, new_state):
         """
           Put fake packets to task queues so that threads waiting for an
           answer get notified of the disconnection.
@@ -60,22 +61,16 @@ class BaseHandler(EventHandler):
         for queue in queue_set:
             queue.put((conn, None))
 
-    def connectionClosed(self, conn):
-        super(BaseHandler, self).connectionClosed(conn)
-        self._notifyQueues(conn)
-
     def timeoutExpired(self, conn):
         super(BaseHandler, self).timeoutExpired(conn)
+        # XXX: in event.py, the connection is closed after trigger this event, 
+        # so this should not be closed here, but the lock must remains...
         conn.lock()
         try:
             conn.close()
         finally:
             conn.release()
-        self._notifyQueues(conn)
 
-    def connectionFailed(self, conn):
-        super(BaseHandler, self).connectionFailed(conn)
-        self._notifyQueues(conn)
 
 def unexpectedInAnswerHandler(*args, **kw):
     raise Exception('Unexpected event in an answer handler')

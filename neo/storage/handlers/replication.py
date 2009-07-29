@@ -28,20 +28,12 @@ class ReplicationHandler(BaseStorageHandler):
         # Nothing to do.
         pass
 
+    def handleConnectionLost(self, conn, new_state):
+        logging.error('replication is stopped due to a connection lost')
+        self.app.replicator.reset()
+
     def connectionFailed(self, conn):
         logging.error('replication is stopped due to connection failure')
-        self.app.replicator.reset()
-
-    def timeoutExpired(self, conn):
-        logging.error('replication is stopped due to timeout')
-        self.app.replicator.reset()
-
-    def connectionClosed(self, conn):
-        logging.error('replication is stopped due to close')
-        self.app.replicator.reset()
-
-    def peerBroken(self, conn):
-        logging.error('replication is stopped due to breakage')
         self.app.replicator.reset()
 
     def handleAcceptNodeIdentification(self, conn, packet, node_type,

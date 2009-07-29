@@ -32,14 +32,8 @@ class BaseStorageHandler(EventHandler):
 
 class BaseMasterHandler(BaseStorageHandler):
 
-    def timeoutExpired(self, conn):
-        raise PrimaryFailure('times out')
-
-    def connectionClosed(self, conn):
-        raise PrimaryFailure('dead')
-
-    def peerBroken(self, conn):
-        raise PrimaryFailure('broken')
+    def handleConnectionLost(self, conn, new_state):
+        raise PrimaryFailure('connection lost')
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise PrimaryFailure('re-election occurs')

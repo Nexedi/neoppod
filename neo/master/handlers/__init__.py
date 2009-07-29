@@ -23,21 +23,6 @@ from neo.handler import EventHandler
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
-    # XXX: this may be defined/done in the generic handler
-    def _handleConnectionLost(self, conn, node, new_state):
-        # override this method in sub-handlers to do specific actions when a
-        # node is lost
-        pass
-
-    def connectionClosed(self, conn):
-        self._handleConnectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
-
-    def timeoutExpired(self, conn):
-        self._handleConnectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
-
-    def peerBroken(self, conn):
-        self._handleConnectionLost(conn, protocol.BROKEN_STATE)
-
     def handleProtocolError(self, conn, packet, message):
         logging.error('Protocol error %s %s' % (message, conn.getAddress()))
 
@@ -91,7 +76,7 @@ class BaseServiceHandler(MasterHandler):
         # It is triggered when a connection to a node gets lost.
         pass
 
-    def _handleConnectionLost(self, conn, new_state):
+    def handleConnectionLost(self, conn, new_state):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node is None or node.getState() == new_state:
             return

@@ -25,14 +25,8 @@ from neo.node import ClientNode
 class IdentificationHandler(BaseStorageHandler):
     """ Handler used for incoming connections during operation state """
 
-    def connectionClosed(self, conn):
-        logging.warning('lost a node in IdentificationEventHandler')
-
-    def timeoutExpired(self, conn):
-        logging.warning('lost a node in IdentificationEventHandler')
-
-    def peerBroken(self, conn):
-        logging.warning('lost a node in IdentificationEventHandler')
+    def handleConnectionLost(self, conn, new_state):
+        logging.warning('A connection was lost during identification')
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
