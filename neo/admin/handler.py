@@ -178,7 +178,6 @@ class MasterBaseEventHandler(EventHandler):
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         self.app.nm.update(node_list)
-        self.app.notified = True
 
 
 class MasterRequestEventHandler(MasterBaseEventHandler):
