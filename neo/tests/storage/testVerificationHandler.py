@@ -41,7 +41,6 @@ from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 class StorageVerificationHandlerTests(NeoTestBase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.ERROR)
         self.prepareDatabase(number=1)
         # create an application object
         config = self.getConfigFile(master_number=1)

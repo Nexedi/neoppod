@@ -44,7 +44,6 @@ class StorageClientHandlerTests(NeoTestBase):
         self.checkUnexpectedPacketRaised(_call, conn=conn, packet=packet, **kwargs)
 
     def setUp(self):
-        logging.basicConfig(level = logging.ERROR)
         self.prepareDatabase(number=1)
         # create an application object
         config = self.getConfigFile(master_number=1)

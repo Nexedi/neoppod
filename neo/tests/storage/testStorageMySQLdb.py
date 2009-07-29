@@ -31,7 +31,6 @@ NEO_SQL_USER = 'test'
 class StorageMySQSLdbTests(NeoTestBase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.ERROR)
         self.prepareDatabase(number=1, prefix=NEO_SQL_DATABASE[:-1])
         # db manager
         self.db = MySQLDatabaseManager(

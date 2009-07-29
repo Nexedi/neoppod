@@ -54,7 +54,6 @@ from neo.connection import ClientConnection
 class MasterRecoveryTests(NeoTestBase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.WARNING)
         # create an application object
         config = self.getConfigFile()
         self.app = Application(config, "master1")        

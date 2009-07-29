@@ -37,7 +37,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def setUp(self):
         # Silence all log messages
-        logging.basicConfig(level=logging.CRITICAL + 1)
+        pass
 
     def getConnection(self, uuid=None, port=10010, next_id=None, ip='127.0.0.1'):
         if uuid is None:

@@ -29,7 +29,6 @@ from neo.pt import PartitionTable
 class StorageAppTests(NeoTestBase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.WARNING)
         self.prepareDatabase(number=1)
         # create an application object
         config = self.getConfigFile(master_number=1)

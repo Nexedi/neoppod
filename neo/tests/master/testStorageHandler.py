@@ -40,7 +40,6 @@ from neo.node import MasterNode, StorageNode
 class MasterStorageHandlerTests(NeoTestBase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.WARNING)
         # create an application object
         config = self.getConfigFile(master_number=1, replicas=1)
         self.app = Application(config, "master1")

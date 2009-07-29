@@ -34,7 +34,6 @@ from neo.protocol import ANSWER_PRIMARY_MASTER
 class BootstrapManagerTests(NeoTestBase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.ERROR)
         self.prepareDatabase(number=1)
         # create an application object
         config = self.getConfigFile()

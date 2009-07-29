@@ -27,7 +27,6 @@ from neo.storage.mysqldb import p64, u64
 class MasterAppTests(NeoTestBase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.WARNING)
         # create an application object
         config = self.getConfigFile()
         self.app = Application(config, "master1")

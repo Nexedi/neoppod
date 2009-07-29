@@ -42,7 +42,6 @@ from neo.connection import ClientConnection
 class MasterVerificationTests(NeoTestBase):
 
     def setUp(self):
-        logging.basicConfig(level = logging.WARNING)
         # create an application object
         config = self.getConfigFile(master_number=2)
         self.app = Application(config, "master1")
