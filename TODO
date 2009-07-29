@@ -67,6 +67,8 @@ RC  - Review output of pylint (CODE)
       When a replication finishes, the connection is not closed currecntly. It should be closed (possibly asynchronously, and possibly by detecting that connection is idle - similar to keep-alive principle)
     - Notify master when storage becomes available for clients (LATENCY)
       Currently, storage presence is broadcasted to client nodes too early, as the storage node would refuse them until it has only up-to-date data (not only up-to-date cells, but also a partition table and node states).
+    - Create a specialized PartitionTable that know the database and replicator
+      to remove duplicates and remove logic from handlers (CODE)
     - Improve replication process (BANDWITH)
       Current implementation do this way to replicate objects (for a given TID) :
         S1 > S2 : Ask for a range of OIDs
