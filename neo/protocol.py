@@ -1275,10 +1275,8 @@ def abortTransaction(tid):
     return Packet(ABORT_TRANSACTION, tid)
 
 def askStoreTransaction(tid, user, desc, ext, oid_list):
-    user_len = len(user)
-    desc_len = len(desc)
-    ext_len = len(ext)
-    body = [pack('!8sLHHH', tid, len(oid_list), len(user), len(desc), len(ext))]
+    lengths = (len(oid_list), len(user), len(desc), len(ext))
+    body = [pack('!8sLHHH', tid, *length)]
     body.append(user)
     body.append(desc)
     body.append(ext)
