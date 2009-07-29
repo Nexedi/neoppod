@@ -18,10 +18,9 @@
 from neo import logging
 
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
-from neo.protocol import MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
-        RUNNING_STATE, TEMPORARILY_DOWN_STATE
-from neo.node import MasterNode, StorageNode
+from neo.node import MasterNode
 from neo.pt import MTPartitionTable as PartitionTable
+from neo import protocol
 from neo.util import dump
 
 class PrimaryBootstrapHandler(AnswerBaseHandler):
@@ -37,7 +36,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         app = self.app
         node = app.nm.getNodeByServer(conn.getAddress())
         # this must be a master node
-        if node_type != MASTER_NODE_TYPE:
+        if node_type != protocol.MASTER_NODE_TYPE:
             conn.close()
             return
         if conn.getAddress() != address:
@@ -162,24 +161,19 @@ class PrimaryNotificationsHandler(BaseHandler):
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
-        nm = app.nm
         self.app.nm.update(node_list)
         for node_type, addr, uuid, state in node_list:
-            if node_type != STORAGE_NODE_TYPE or state != RUNNING_STATE:
+            if node_type != protocol.STORAGE_NODE_TYPE \
+                    or state != protocol.RUNNING_STATE:
                 continue
             # close connection to this storage if no longer running
             conn = self.app.em.getConnectionByUUID(uuid)
             if conn is not None:
                 conn.close()
-                if node_type == STORAGE_NODE_TYPE:
+                if node_type == protocol.STORAGE_NODE_TYPE:
                     # Remove from pool connection
                     app.cp.removeConnection(n)
-                    # Put fake packets to task queues.
-                    # XXX: this should be done in MTClientConnection 
-                    for key in self.dispatcher.message_table.keys():
-                        if id(conn) == key[0]:
-                            queue = self.dispatcher.message_table.pop(key)
-                            queue.put((conn, None))
+                    self.dispatcher.unregister(conn)
 
 class PrimaryAnswersHandler(AnswerBaseHandler):
     """ Handle that process expected packets from the primary master """
