@@ -171,7 +171,7 @@ class Application(object):
 
         # First of all, make sure that I have no connection.
         for conn in self.em.getConnectionList():
-            if not isinstance(conn, ListeningConnection):
+            if not conn.isListeningConnection():
                 conn.close()
 
         # search, find, connect and identify to the primary master

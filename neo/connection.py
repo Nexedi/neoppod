@@ -33,6 +33,7 @@ def not_closed(func):
         return func(self, *args, **kw)
     return decorator
 
+
 def lockCheckWrapper(func):
     """
     This function is to be used as a wrapper around
@@ -52,6 +53,7 @@ def lockCheckWrapper(func):
         # Call anyway
         return func(self, *args, **kw)
     return wrapper
+
 
 class BaseConnection(object):
     """A base connection."""
@@ -119,13 +121,21 @@ class BaseConnection(object):
         return None
 
     def isListeningConnection(self):
-        raise NotImplementedError
+        return False
+
+    def isServerConnection(self):
+        return False
+
+    def isClientConnection(self):
+        return False
 
     def hasPendingMessages(self):
         return False
 
+
 class ListeningConnection(BaseConnection):
     """A listen connection."""
+
     def __init__(self, event_manager, handler, addr, connector_handler, **kw):
         logging.debug('listening to %s:%d', *addr)
         BaseConnection.__init__(self, event_manager, handler,
@@ -150,8 +160,10 @@ class ListeningConnection(BaseConnection):
     def isListeningConnection(self):
         return True
 
+
 class Connection(BaseConnection):
     """A connection."""
+
     def __init__(self, event_manager, handler,
                  connector = None, addr = None,
                  connector_handler = None):
@@ -412,14 +424,10 @@ class Connection(BaseConnection):
         self.expectMessage(msg_id, timeout, 0)
         self._addPacket(packet)
 
-    def isServerConnection(self):
-        raise NotImplementedError
-
-    def isListeningConnection(self):
-        return False
 
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
+
     def __init__(self, event_manager, handler, addr, connector_handler, **kw):
         self.connecting = True
         Connection.__init__(self, event_manager, handler, addr = addr,
@@ -460,16 +468,20 @@ class ClientConnection(Connection):
         else:
             Connection.writable(self)
 
-    def isServerConnection(self):
-        return False
+    def isClientConnection(self):
+        return True
+
 
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
+
     def isServerConnection(self):
         return True
 
+
 class MTClientConnection(ClientConnection):
     """A Multithread-safe version of ClientConnection."""
+
     def __init__(self, *args, **kwargs):
         # _lock is only here for lock debugging purposes. Do not use.
         self._lock = lock = RLock()
@@ -528,8 +540,10 @@ class MTClientConnection(ClientConnection):
         finally:
             self.release()
 
+
 class MTServerConnection(ServerConnection):
     """A Multithread-safe version of ServerConnection."""
+
     def __init__(self, *args, **kwargs):
         # _lock is only here for lock debugging purposes. Do not use.
         self._lock = lock = RLock()

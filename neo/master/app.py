@@ -197,7 +197,7 @@ class Application(object):
                     self.primary = True
                     logging.debug('I am the primary, so sending an announcement')
                     for conn in em.getConnectionList():
-                        if isinstance(conn, ClientConnection):
+                        if conn.isClientConnection():
                             conn.notify(protocol.announcePrimaryMaster())
                             conn.abort()
                     closed = False
@@ -206,12 +206,12 @@ class Application(object):
                         em.poll(1)
                         closed = True
                         for conn in em.getConnectionList():
-                            if isinstance(conn, ClientConnection):
+                            if conn.isClientConnection():
                                 closed = False
                                 break
                         if t + 10 < time():
                             for conn in em.getConnectionList():
-                                if isinstance(conn, ClientConnection):
+                                if conn.isClientConnection():
                                     conn.close()
                             closed = True
                 else:
@@ -227,15 +227,13 @@ class Application(object):
                     primary = self.primary_master_node
                     addr = primary.getServer()
                     for conn in em.getConnectionList():
-                        if isinstance(conn, ServerConnection) \
-                                or isinstance(conn, ClientConnection) \
+                        if conn.isServerConnection() or conn.isClientConnection() \
                                 and addr != conn.getAddress():
                             conn.close()
 
                     # But if there is no such connection, something wrong happened.
                     for conn in em.getConnectionList():
-                        if isinstance(conn, ClientConnection) \
-                                and addr == conn.getAddress():
+                        if conn.isClientConnection() and addr == conn.getAddress():
                             break
                     else:
                         raise ElectionFailure, 'no connection remains to the primary'
@@ -246,7 +244,7 @@ class Application(object):
 
                 # Ask all connected nodes to reelect a single primary master.
                 for conn in em.getConnectionList():
-                    if isinstance(conn, ClientConnection):
+                    if conn.isClientConnection():
                         conn.notify(protocol.reelectPrimaryMaster())
                         conn.abort()
 
@@ -263,7 +261,7 @@ class Application(object):
 
                     closed = True
                     for conn in em.getConnectionList():
-                        if isinstance(conn, ClientConnection):
+                        if conn.isClientConnection():
                             # Still not closed.
                             closed = False
                             break
