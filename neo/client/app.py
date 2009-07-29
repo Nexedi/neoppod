@@ -306,20 +306,6 @@ class Application(object):
         self._nm_acquire = lock.acquire
         self._nm_release = lock.release
 
-    def notifyDeadNode(self, conn):
-        """ Notify a storage failure to the primary master """
-        s_node = self.nm.getNodeByServer(conn.getAddress())
-        if s_node is None or not s_node.isStorage():
-            return
-        s_uuid = s_node.getUUID()
-        m_conn = self._getMasterConnection()
-        m_conn.lock()
-        try:
-            node_list = [(protocol.STORAGE_NODE_TYPE, s_node.getServer(), s_uuid, s_node.getState())]
-            m_conn.notify(protocol.notifyNodeInformation(node_list))
-        finally:
-            m_conn.unlock()
-
     def _waitMessage(self, target_conn = None, msg_id = None, handler=None):
         """Wait for a message returned by the dispatcher in queues."""
         local_queue = self.local_var.queue
