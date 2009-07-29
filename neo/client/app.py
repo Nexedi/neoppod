@@ -489,14 +489,14 @@ class Application(object):
                 conn.lock()
                 try:
                     msg_id = conn.ask(self.local_var.queue,
-                                      protocol.askPartitionTable([]))
+                                      protocol.askNodeInformation())
                 finally:
                     conn.unlock()
                 self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
                 conn.lock()
                 try:
                     msg_id = conn.ask(self.local_var.queue,
-                                      protocol.askNodeInformation())
+                                      protocol.askPartitionTable([]))
                 finally:
                     conn.unlock()
                 self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)

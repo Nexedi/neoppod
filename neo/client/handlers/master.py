@@ -152,41 +152,17 @@ class PrimaryNotificationsHandler(BaseHandler):
 
 
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+        # XXX: delegate this test to the partition table and use the pt.getID()
+        # instead of app.ptid
         app = self.app
         if app.ptid >= ptid:
             # Ignore this packet.
-            return
+            return 
         app.ptid = ptid
-        app.pt.update(ptid, cell_list, app.nm)
+        self.app.pt.update(ptid, cell_list, self.app.nm)
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
-        # This handler is in PrimaryBootstrapHandler, since this
-        # basicaly is an answer to askPrimaryMaster.
-        # Extract from P-NEO-Protocol.Description:
-        #  Connection to primary master node (PMN in service state)
-        #   CN -> PMN : askPrimaryMaster
-        #   PMN -> CN : answerPrimaryMaster containing primary uuid and no
-        #               known master list
-        #   PMN -> CN : notifyNodeInformation containing list of all
-        #   ASK_STORE_TRANSACTION#   PMN -> CN : sendPartitionTable containing partition table id and
-        #               list of rows
-        # notifyNodeInformation is valid as asynchrounous event, but
-        # sendPartitionTable is only triggered after askPrimaryMaster.
-        uuid = conn.getUUID()
-        app = self.app
-        nm = app.nm
-        pt = app.pt
-        if app.ptid != ptid:
-            app.ptid = ptid
-            pt.clear()
-        for offset, row in row_list:
-            for uuid, state in row:
-                node = nm.getNodeByUUID(uuid)
-                if node is None:
-                    node = StorageNode(uuid = uuid)
-                    node.setState(TEMPORARILY_DOWN_STATE)
-                    nm.add(node)
-                pt.setCell(offset, node, state)
+        self.app.pt.load(ptid, row_list, self.app.nm)
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
