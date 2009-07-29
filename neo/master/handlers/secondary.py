@@ -101,3 +101,6 @@ class PrimaryMasterHandler(MasterHandler):
 
     def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
         pass
+
+    def handleNotifyClusterInformation(self, conn, packet, state):
+        pass
