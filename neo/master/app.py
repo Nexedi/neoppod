@@ -713,7 +713,7 @@ class Application(object):
     def getNewOIDList(self, num_oids):
         if self.loid is None:
             raise RuntimeError, 'I do not know the last OID'
-        oid = unpack('!Q', self.loid)[0]
+        oid = unpack('!Q', self.loid)[0] + 1
         oid_list = [pack('!Q', oid + i) for i in xrange(num_oids)]
         self.loid = oid_list[-1]
         self.broadcastLastOID(self.loid)
