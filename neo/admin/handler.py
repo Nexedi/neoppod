@@ -225,7 +225,7 @@ class MasterMonitoringEventHandler(MasterBaseEventHandler):
             # Ignore this packet.
             return
         app.ptid = ptid
-        app.pt.update(cell_list, app.nm)
+        app.pt.update(ptid, cell_list, app.nm)
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()

@@ -55,7 +55,7 @@ class MasterOperationHandler(BaseMasterHandler):
                     app.replicator.addPartition(offset)
 
         # update partition table in memory and the database
-        app.pt.update(cell_list, app.nm)
+        app.pt.update(ptid, cell_list, app.nm)
         app.dm.changePartitionTable(ptid, cell_list)
 
     def handleLockInformation(self, conn, packet, tid):

@@ -164,7 +164,8 @@ class PartitionTable(object):
 
     # XXX: node manager is given here just to verify that any node in the
     # partition table is known, this will be removed when checked.
-    def update(self, cell_list, nm):
+    def update(self, ptid, cell_list, nm):
+        self.id = ptid
         for offset, uuid, state in cell_list:
             node = nm.getNodeByUUID(uuid) 
             if node is None:

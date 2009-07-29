@@ -83,7 +83,7 @@ class HiddenHandler(BaseMasterHandler):
                     app.replicator.addPartition(offset)
 
         # update partition table in memory and the database
-        app.pt.update(cell_list, app.nm)
+        app.pt.update(ptid, cell_list, app.nm)
         app.dm.changePartitionTable(ptid, cell_list)
 
     def handleStartOperation(self, conn, packet):
