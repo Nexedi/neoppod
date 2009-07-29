@@ -60,7 +60,7 @@ class NEOProcess:
                 print traceback.format_exc()
             # If we reach this line, exec call failed (is it possible to reach
             # it without going through above "except" branch ?).
-            print 'Error executing %r.' % (command + ' '.join(args), )
+            print 'Error executing %r.' % (command + ' ' + ' '.join(args), )
             # KeyboardInterrupt is not intercepted by test runner (it is still
             # above us in the stack), and we do want to exit.
             # To avoid polluting test foreground output with induced
