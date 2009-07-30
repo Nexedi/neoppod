@@ -101,7 +101,7 @@ if VERBOSE_LOCKING:
 
     class RLock(VerboseLock):
         def __init__(self, verbose=None):
-            VerboseLock.__init__(self)#, reentrant=True)
+            VerboseLock.__init__(self, reentrant=True)
             self.lock = threading_RLock()
 
         def _locked(self):
