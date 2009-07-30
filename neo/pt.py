@@ -129,12 +129,13 @@ class PartitionTable(object):
         if node.getState() in (protocol.BROKEN_STATE, protocol.DOWN_STATE):
             return
 
+        self.count_dict.setdefault(node, 0)
         row = self.partition_list[offset]
         if len(row) == 0:
             # Create a new row.
             row = [Cell(node, state), ]
             if state != protocol.FEEDING_STATE:
-                self.count_dict[node] = self.count_dict.get(node, 0) + 1
+                self.count_dict[node] += 1
             self.partition_list[offset] = row
 
             self.num_filled_rows += 1
@@ -145,11 +146,11 @@ class PartitionTable(object):
                 if cell.getNode() == node:
                     row.remove(cell)
                     if cell.getState() != protocol.FEEDING_STATE:
-                        self.count_dict[node] = self.count_dict.get(node, 0) - 1
+                        self.count_dict[node] -= 1
                     break
             row.append(Cell(node, state))
             if state != protocol.FEEDING_STATE:
-                self.count_dict[node] = self.count_dict.get(node, 0) + 1
+                self.count_dict[node] += 1
 
     def removeCell(self, offset, node):
         row = self.partition_list[offset]
@@ -158,7 +159,7 @@ class PartitionTable(object):
                 if cell.getNode() == node:
                     row.remove(cell)
                     if cell.getState() != protocol.FEEDING_STATE:
-                        self.count_dict[node] = self.count_dict.get(node, 0) - 1
+                        self.count_dict[node] -= 1
                     break
 
     def load(self, ptid, row_list, nm):
