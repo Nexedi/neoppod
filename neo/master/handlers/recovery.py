@@ -51,5 +51,14 @@ class RecoveryHandler(MasterHandler):
             logging.warn('got answer partition table from %s while waiting for %s',
                          dump(uuid), dump(app.target_uuid))
             return
+        # load unknown storage nodes
+        for offset, row in row_list:
+            for uuid, state in row:
+                node = app.nm.getNodeByUUID(uuid) 
+                if node is None:
+                    node = StorageNode(uuid=uuid)
+                    node.setState(protocol.TEMPORARILY_DOWN_STATE)
+                    app.nm.add(node)
+        # load partition in memory
         self.app.pt.load(ptid, row_list, self.app.nm)
 
