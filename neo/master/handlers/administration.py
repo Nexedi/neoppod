@@ -26,7 +26,8 @@ from neo.util import dump
 class AdministrationHandler(MasterHandler):
     """This class deals with messages from the admin node only"""
 
-    def handleNodeLost(self, conn, node):
+    def handleConnectionLost(self, conn, new_state):
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
         self.app.nm.remove(node)
 
     def handleAskPrimaryMaster(self, conn, packet):
