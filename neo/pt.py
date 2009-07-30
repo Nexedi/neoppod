@@ -167,8 +167,8 @@ class PartitionTable(object):
         content and can be done in multiple calls
         """
         if ptid != self.id:
-            self.id = ptid
             self.clear()
+            self.id = ptid
         for offset, row in row_list:
             assert offset < self.getPartitions() and not self.hasOffset(offset)
             for uuid, state in row:
