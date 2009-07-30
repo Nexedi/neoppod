@@ -136,10 +136,6 @@ class ConnectionPool(object):
         if conn is None:
             return None
 
-        # add node to node manager
-        if self.app.nm.getNodeByServer(node.getServer()) is None:
-            n = StorageNode(node.getServer())
-            self.app.nm.add(n)
         self.connection_dict[node.getUUID()] = conn
         conn.lock()
         return conn
