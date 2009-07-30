@@ -154,7 +154,9 @@ class PrimaryNotificationsHandler(BaseHandler):
     # because it's in the master handler, so the connection is already
     # established.
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        self.app.pt.update(ptid, cell_list, self.app.nm)
+        pt = self.app.pt
+        if pt.filled():
+            pt.update(ptid, cell_list, self.app.nm)
 
     def handleSendPartitionTable(self, conn, packet, ptid, row_list):
         self.app.pt.load(ptid, row_list, self.app.nm)
