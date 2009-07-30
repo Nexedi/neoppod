@@ -41,6 +41,7 @@ class Dispatcher:
     def unregister(self, conn):
         """ Unregister a connection and put fake packet in queues to unlock
         threads bloking it them """
+        # XXX: not thread-safe !
         for key in self.message_table.keys():
             if id(conn) == key[0]:
                 queue = self.message_table.pop(key)
@@ -48,9 +49,9 @@ class Dispatcher:
 
     def registered(self, conn):
         """Check if a connection is registered into message table."""
-        # XXX: serch algorythm could be improved by improving data structure.
         searched_id = id(conn)
         for conn_id, msg_id in self.message_table.iterkeys():
             if searched_id == conn_id:
                 return True
         return False
+

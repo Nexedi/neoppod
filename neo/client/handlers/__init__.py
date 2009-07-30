@@ -47,19 +47,10 @@ class BaseHandler(EventHandler):
 
 
     def handleConnectionLost(self, conn, new_state):
-        """
-          Put fake packets to task queues so that threads waiting for an
-          answer get notified of the disconnection.
-        """
-        # XXX: not thread-safe !
-        queue_set = set()
-        conn_id = id(conn)
-        for key in self.dispatcher.message_table.keys():
-            if conn_id == key[0]:
-                queue = self.dispatcher.message_table.pop(key)
-                queue_set.add(queue)
-        for queue in queue_set:
-            queue.put((conn, None))
+        self.app.dispatcher.unregister(conn)
+
+    def connectionFailed(self, conn):
+        self.app.dispatcher.unregister(conn)
 
 
 def unexpectedInAnswerHandler(*args, **kw):
