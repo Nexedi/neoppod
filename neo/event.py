@@ -52,8 +52,8 @@ class IdleEvent(object):
             try:
                 logging.info('timeout for %r with %s:%d', 
                              self._id, *(conn.getAddress()))
-                conn.getHandler().timeoutExpired(conn)
                 conn.close()
+                conn.getHandler().timeoutExpired(conn)
                 return True
             finally:
                 conn.unlock()

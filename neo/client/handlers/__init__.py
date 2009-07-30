@@ -61,16 +61,6 @@ class BaseHandler(EventHandler):
         for queue in queue_set:
             queue.put((conn, None))
 
-    def timeoutExpired(self, conn):
-        super(BaseHandler, self).timeoutExpired(conn)
-        # XXX: in event.py, the connection is closed after trigger this event, 
-        # so this should not be closed here, but the lock must remains...
-        conn.lock()
-        try:
-            conn.close()
-        finally:
-            conn.release()
-
 
 def unexpectedInAnswerHandler(*args, **kw):
     raise Exception('Unexpected event in an answer handler')
