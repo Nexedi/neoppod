@@ -56,6 +56,8 @@ RC  - Review output of pylint (CODE)
       Do the replication process, the verification stage, with or without
       unfinished transactions, cells have to set as outdated, if yes, should the
       partition table changes be broadcasted ?
+    - Review PENDING/HIDDEN/SHUTDOWN states, avoid use of notifyNodeInformation 
+      to do a state-switch, use a exception-based mechanism ?
     
 
     Storage

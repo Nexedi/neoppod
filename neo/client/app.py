@@ -891,7 +891,6 @@ class Application(object):
                 conn.unlock()
 
         # Wait for answers from all storages.
-        # FIXME this is a busy loop.
         while len(self.local_var.node_tids) != len(storage_node_list):
             try:
                 self._waitMessage(handler=self.storage_handler)

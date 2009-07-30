@@ -792,7 +792,6 @@ class Application(object):
                 state = protocol.PENDING_STATE
             handler = storage.StorageServiceHandler
         elif self.cluster_state == protocol.STOPPING:
-            # FIXME: raise a ShuttingDownError ?
             raise protocol.NotReadyError
         else:
             raise RuntimeError('unhandled cluster state')
