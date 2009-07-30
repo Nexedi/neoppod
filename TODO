@@ -58,6 +58,8 @@ RC  - Review output of pylint (CODE)
       partition table changes be broadcasted ?
     - Review PENDING/HIDDEN/SHUTDOWN states, avoid use of notifyNodeInformation 
       to do a state-switch, use a exception-based mechanism ?
+    - Ensure that registered timeout are canceled if the related connection was
+      closed.
     
 
     Storage
