@@ -247,22 +247,10 @@ class NodeManager(object):
                 logging.info('create node %s %s %s %s' % log_args)
 
     def log(self):
-        node_state_dict = { RUNNING_STATE: 'R',
-                            TEMPORARILY_DOWN_STATE: 'T',
-                            DOWN_STATE: 'D',
-                            BROKEN_STATE: 'B',
-                            HIDDEN_STATE: 'H',
-                            PENDING_STATE: 'P'}
-        node_type_dict = {
-                MASTER_NODE_TYPE: 'M',
-                STORAGE_NODE_TYPE: 'S',
-                CLIENT_NODE_TYPE: 'C',
-                ADMIN_NODE_TYPE: 'A',
-        }
         for uuid, node in sorted(self.uuid_dict.items()):
             args = (
                     dump(uuid), 
-                    node_type_dict[node.getType()],
-                    node_state_dict[node.getState()]
+                    protocol.node_type_prefix_dict[node.getType()],
+                    protocol.node_state_prefix_dict[node.getState()]
             )
             logging.debug('nm: %s : %s/%s' % args)

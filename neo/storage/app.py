@@ -22,7 +22,7 @@ from collections import deque
 from neo.config import ConfigurationManager
 from neo import protocol
 from neo.protocol import TEMPORARILY_DOWN_STATE, \
-        partition_cell_states, HIDDEN_STATE
+        cell_states, HIDDEN_STATE
 from neo.node import NodeManager, MasterNode, StorageNode
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
@@ -116,7 +116,7 @@ class Application(object):
         new_cell_list = []
         for offset, uuid, state in cell_list:
             # convert from int to Enum
-            state = protocol.partition_cell_states[state]
+            state = protocol.cell_states[state]
             # register unknown nodes
             if self.nm.getNodeByUUID(uuid) is None:
                 node = StorageNode(uuid=uuid)

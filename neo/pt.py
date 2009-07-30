@@ -18,9 +18,6 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
-        DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        BROKEN_STATE, HIDDEN_STATE, PENDING_STATE
 from neo.util import dump, u64
 from neo.locking import RLock
 
@@ -28,7 +25,7 @@ from neo.locking import RLock
 class Cell(object):
     """This class represents a cell in a partition table."""
 
-    def __init__(self, node, state = UP_TO_DATE_STATE):
+    def __init__(self, node, state = protocol.UP_TO_DATE_STATE):
         self.node = node
         self.state = state
 
@@ -50,6 +47,7 @@ class Cell(object):
 
     def getServer(self):
         return self.node.getServer()
+
 
 class PartitionTable(object):
     """This class manages a partition table."""
@@ -100,13 +98,13 @@ class PartitionTable(object):
 
     def getCellList(self, offset, readable=False, writable=False):
         # allow all cell states
-        state_set = set(protocol.partition_cell_states.values())
+        state_set = set(protocol.cell_states.values())
         if readable or writable:
             # except non readables
-            state_set.remove(DISCARDED_STATE)
+            state_set.remove(protocol.DISCARDED_STATE)
         if readable:
             # except non writables
-            state_set.remove(OUT_OF_DATE_STATE)
+            state_set.remove(protocol.OUT_OF_DATE_STATE)
         allowed_states = tuple(state_set)
         try:
             return [cell for cell in self.partition_list[offset] \
@@ -126,16 +124,16 @@ class PartitionTable(object):
         return index % self.np
 
     def setCell(self, offset, node, state):
-        if state == DISCARDED_STATE:
+        if state == protocol.DISCARDED_STATE:
             return self.removeCell(offset, node)
-        if node.getState() in (BROKEN_STATE, DOWN_STATE):
+        if node.getState() in (protocol.BROKEN_STATE, protocol.DOWN_STATE):
             return
 
         row = self.partition_list[offset]
         if len(row) == 0:
             # Create a new row.
             row = [Cell(node, state), ]
-            if state != FEEDING_STATE:
+            if state != protocol.FEEDING_STATE:
                 self.count_dict[node] = self.count_dict.get(node, 0) + 1
             self.partition_list[offset] = row
 
@@ -146,11 +144,11 @@ class PartitionTable(object):
             for cell in row:
                 if cell.getNode() == node:
                     row.remove(cell)
-                    if cell.getState() != FEEDING_STATE:
+                    if cell.getState() != protocol.FEEDING_STATE:
                         self.count_dict[node] = self.count_dict.get(node, 0) - 1
                     break
             row.append(Cell(node, state))
-            if state != FEEDING_STATE:
+            if state != protocol.FEEDING_STATE:
                 self.count_dict[node] = self.count_dict.get(node, 0) + 1
 
     def removeCell(self, offset, node):
@@ -159,7 +157,7 @@ class PartitionTable(object):
             for cell in row:
                 if cell.getNode() == node:
                     row.remove(cell)
-                    if cell.getState() != FEEDING_STATE:
+                    if cell.getState() != protocol.FEEDING_STATE:
                         self.count_dict[node] = self.count_dict.get(node, 0) - 1
                     break
 
@@ -219,16 +217,6 @@ class PartitionTable(object):
         partition on the line (here, line length is 9 to keep the docstring
         width under 80 column).
         """
-        node_state_dict = { RUNNING_STATE: 'R',
-                            TEMPORARILY_DOWN_STATE: 'T',
-                            DOWN_STATE: 'D',
-                            BROKEN_STATE: 'B',
-                            HIDDEN_STATE: 'H',
-                            PENDING_STATE: 'P'}
-        cell_state_dict = { UP_TO_DATE_STATE: 'U', 
-                            OUT_OF_DATE_STATE: 'O', 
-                            FEEDING_STATE: 'F',
-                            DISCARDED_STATE: 'D'}
         node_list = self.count_dict.keys()
         node_list.sort()
         node_dict = {}
@@ -236,9 +224,10 @@ class PartitionTable(object):
             uuid = node.getUUID()
             node_dict[uuid] = i
             logging.debug('pt: node %d: %s, %s', i, dump(uuid),
-                          node_state_dict[node.getState()])
+                protocol.node_state_prefix_dict[node.getState()])
         line = []
         max_line_len = 20 # XXX: hardcoded number of partitions per line
+        cell_state_dict = protocol.cell_state_prefix_dict
         for offset, row in enumerate(self.partition_list):
             if len(line) == max_line_len:
                 logging.debug('pt: %08d: %s', offset - max_line_len,
@@ -269,8 +258,9 @@ class PartitionTable(object):
         # a node state, and record which rows are ready.
         for row in self.partition_list:
             for cell in row:
-                if cell.getState() in (UP_TO_DATE_STATE, FEEDING_STATE) \
-                        and cell.getNodeState() == RUNNING_STATE:
+                if cell.getState() in (protocol.UP_TO_DATE_STATE, \
+                        protocol.FEEDING_STATE) \
+                        and cell.getNodeState() == protocol.RUNNING_STATE:
                     break
             else:
                 return False
