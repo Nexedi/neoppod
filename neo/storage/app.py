@@ -178,7 +178,7 @@ class Application(object):
 
         # First of all, make sure that I have no connection.
         for conn in self.em.getConnectionList():
-            if not conn.isListeningConnection():
+            if not conn.isListening():
                 conn.close()
 
         # search, find, connect and identify to the primary master
@@ -296,6 +296,6 @@ class Application(object):
     def shutdown(self):
         """Close all connections and exit"""
         for c in self.em.getConnectionList():
-            if not c.isListeningConnection():
+            if not c.isListening():
                 c.close()
         sys.exit("Application has been asked to shut down")

@@ -33,7 +33,7 @@ class StorageStorageHandlerTests(NeoTestBase):
     def checkHandleUnexpectedPacket(self, _call, _msg_type, _listening=True, **kwargs):
         conn = Mock({ 
             "getAddress" : ("127.0.0.1", self.master_port), 
-            "isServerConnection": _listening,    
+            "isServer": _listening,    
         })
         packet = Packet(msg_type=_msg_type)
         # hook

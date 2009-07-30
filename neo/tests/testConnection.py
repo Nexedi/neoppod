@@ -186,7 +186,7 @@ class ConnectionTests(unittest.TestCase):
         # test abort
         bc.abort()
         self.assertEqual(bc.aborted, True)
-        self.assertRaises(NotImplementedError, bc.isServerConnection)
+        self.assertRaises(NotImplementedError, bc.isServer)
 
     def test_04_Connection_pending(self):
         em = Mock()
@@ -763,7 +763,7 @@ class ConnectionTests(unittest.TestCase):
                               addr=("127.0.0.7", 93413))
         # check connector created and connection initialize
         self.assertFalse(bc.connecting)
-        self.assertFalse(bc.isServerConnection())
+        self.assertFalse(bc.isServer())
         self.assertNotEqual(bc.getConnector(), None)
         conn = bc.getConnector()
         self.assertEquals(len(conn.mockGetNamedCalls("makeClientConnection")), 1)
@@ -794,7 +794,7 @@ class ConnectionTests(unittest.TestCase):
             DoNothingConnector.makeClientConnection = makeClientConnection_org
         # check connector created and connection initialize
         self.assertTrue(bc.connecting)
-        self.assertFalse(bc.isServerConnection())
+        self.assertFalse(bc.isServer())
         self.assertNotEqual(bc.getConnector(), None)
         conn = bc.getConnector()
         self.assertEquals(len(conn.mockGetNamedCalls("makeClientConnection")), 1)
@@ -992,7 +992,7 @@ class ConnectionTests(unittest.TestCase):
         # test abort
         bc.abort()
         self.assertEqual(bc.aborted, True)
-        self.assertTrue(bc.isServerConnection())
+        self.assertTrue(bc.isServer())
         
 
     def test_15_MTClientConnection(self):
@@ -1007,7 +1007,7 @@ class ConnectionTests(unittest.TestCase):
                               addr=("127.0.0.7", 93413), dispatcher=dispatcher)
         # check connector created and connection initialize
         self.assertFalse(bc.connecting)
-        self.assertFalse(bc.isServerConnection())
+        self.assertFalse(bc.isServer())
         self.assertNotEqual(bc.getConnector(), None)
         conn = bc.getConnector()
         self.assertEquals(len(conn.mockGetNamedCalls("makeClientConnection")), 1)
@@ -1037,7 +1037,7 @@ class ConnectionTests(unittest.TestCase):
             DoNothingConnector.makeClientConnection = makeClientConnection_org
         # check connector created and connection initialize
         self.assertTrue(bc.connecting)
-        self.assertFalse(bc.isServerConnection())
+        self.assertFalse(bc.isServer())
         self.assertNotEqual(bc.getConnector(), None)
         conn = bc.getConnector()
         self.assertEquals(len(conn.mockGetNamedCalls("makeClientConnection")), 1)
@@ -1116,7 +1116,7 @@ class ConnectionTests(unittest.TestCase):
         # test abort
         bc.abort()
         self.assertEqual(bc.aborted, True)
-        self.assertTrue(bc.isServerConnection())
+        self.assertTrue(bc.isServer())
 
         # XXX check locking ???
 

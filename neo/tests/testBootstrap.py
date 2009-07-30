@@ -100,7 +100,7 @@ class BootstrapManagerTests(NeoTestBase):
 
     def test_04_timeoutExpired(self):
         conn = Mock({
-            "isServerConnection": False, 
+            "isServer": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         # pmn connection has expired
@@ -120,7 +120,7 @@ class BootstrapManagerTests(NeoTestBase):
 
     def test_05_connectionClosed(self):
         conn = Mock({
-            "isServerConnection": False, 
+            "isServer": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         # pmn connection is closed
@@ -140,7 +140,7 @@ class BootstrapManagerTests(NeoTestBase):
 
     def test_06_peerBroken(self):
         conn = Mock({
-            "isServerConnection": False, 
+            "isServer": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         # the primary is broken 
@@ -161,7 +161,7 @@ class BootstrapManagerTests(NeoTestBase):
     def test_07_handleNotReady(self):
         # the primary is not ready 
         conn = Mock({
-            "isServerConnection": False, 
+            "isServer": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         self.app.trying_master_node = self.trying_master_node
@@ -172,7 +172,7 @@ class BootstrapManagerTests(NeoTestBase):
         self.checkClosed(conn)
         # another master is not ready
         conn = Mock({
-            "isServerConnection": False, 
+            "isServer": False, 
             "getAddress" : ("127.0.0.1", self.master_port),
         })
         self.app.trying_master_node = self.trying_master_node
@@ -186,7 +186,7 @@ class BootstrapManagerTests(NeoTestBase):
 
     def test_09_handleAcceptNodeIdentification2(self):
         # not a master node -> rejected
-        conn = Mock({"isServerConnection": False,
+        conn = Mock({"isServer": False,
                     "getAddress" : ("127.0.0.1", self.storage_port), })
         self.app.trying_master_node = self.trying_master_node
         packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
@@ -209,7 +209,7 @@ class BootstrapManagerTests(NeoTestBase):
 
     def test_09_handleAcceptNodeIdentification3(self):
         # bad address -> rejected
-        conn = Mock({"isServerConnection": False,
+        conn = Mock({"isServer": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
         packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
@@ -229,7 +229,7 @@ class BootstrapManagerTests(NeoTestBase):
 
     def test_09_handleAcceptNodeIdentification4(self):
         # bad number of replicas/partitions 
-        conn = Mock({"isServerConnection": False,
+        conn = Mock({"isServer": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
         packet = Packet(msg_type=ACCEPT_NODE_IDENTIFICATION)
@@ -261,7 +261,7 @@ class BootstrapManagerTests(NeoTestBase):
         self.assertNotEquals(uuid, your_uuid)
         self.app.num_partitions = None # will create a partition table
         self.app.num_replicas = None
-        conn = Mock({"isServerConnection": False,
+        conn = Mock({"isServer": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         self.app.trying_master_node = self.trying_master_node
         self.assertNotEquals(self.app.trying_master_node.getUUID(), uuid)
@@ -295,7 +295,7 @@ class BootstrapManagerTests(NeoTestBase):
         existing_master = ('127.0.0.1', self.master_port, self.getNewUUID(), )
         new_master = ('192.168.0.1', 10001, self.getNewUUID(), )
         known_masters = (existing_master, new_master, )
-        conn = Mock({"isServerConnection": False,
+        conn = Mock({"isServer": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         self.assertTrue(existing_master[:2] in self.app.nm.server_dict)
@@ -318,7 +318,7 @@ class BootstrapManagerTests(NeoTestBase):
         
     def test_10_handleAnswerPrimaryMaster03(self):
         # invalid primary master uuid -> close connection
-        conn = Mock({"isServerConnection": False,
+        conn = Mock({"isServer": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
@@ -338,7 +338,7 @@ class BootstrapManagerTests(NeoTestBase):
 
     def test_10_handleAnswerPrimaryMaster04(self):
         # trying_master_node is not pmn -> close connection
-        conn = Mock({"isServerConnection": False,
+        conn = Mock({"isServer": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
@@ -360,7 +360,7 @@ class BootstrapManagerTests(NeoTestBase):
 
     def test_10_handleAnswerPrimaryMaster05(self):
         # trying_master_node is pmn -> set verification handler
-        conn = Mock({"isServerConnection": False,
+        conn = Mock({"isServer": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         pmn = self.app.nm.getNodeByServer(('127.0.0.1', self.master_port))
@@ -380,7 +380,7 @@ class BootstrapManagerTests(NeoTestBase):
 
     def test_10_handleAnswerPrimaryMaster06(self):
         # primary_uuid not known -> nothing happen
-        conn = Mock({"isServerConnection": False,
+        conn = Mock({"isServer": False,
                     "getAddress" : ("127.0.0.1", self.master_port), })
         packet = Packet(msg_type=ANSWER_PRIMARY_MASTER)
         self.app.primary_master_node = None

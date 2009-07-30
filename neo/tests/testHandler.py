@@ -118,11 +118,11 @@ class HandlerDecoratorsTests(NeoTestBase):
         handler = Mock({})
         wrapped = decorators.client_connection_required(handler)
         # server connection -> fail
-        conn = Mock({ 'isServerConnection': True, })
+        conn = Mock({ 'isServer': True, })
         self.assertRaises(UnexpectedPacketError, wrapped, self, conn, packet)
         self.checkHandlerNotCalled(handler)
         # client connection -> ok
-        conn = Mock({ 'isServerConnection': False, })
+        conn = Mock({ 'isServer': False, })
         wrapped(self, conn, packet)
         self.checkHandlerCalled(handler)
 
@@ -131,11 +131,11 @@ class HandlerDecoratorsTests(NeoTestBase):
         handler = Mock({})
         wrapped = decorators.server_connection_required(handler)
         # client connection -> fail
-        conn = Mock({ 'isServerConnection': False, })
+        conn = Mock({ 'isServer': False, })
         self.assertRaises(UnexpectedPacketError, wrapped, self, conn, packet)
         self.checkHandlerNotCalled(handler)
         # server connection -> ok
-        conn = Mock({ 'isServerConnection': True, })
+        conn = Mock({ 'isServer': True, })
         wrapped(self, conn, packet)
         self.checkHandlerCalled(handler)
 

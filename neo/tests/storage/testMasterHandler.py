@@ -35,7 +35,7 @@ class StorageMasterHandlerTests(NeoTestBase):
     def checkHandleUnexpectedPacket(self, _call, _msg_type, _listening=True, **kwargs):
         conn = Mock({ 
             "getAddress" : ("127.0.0.1", self.master_port), 
-            "isServerConnection": _listening,    
+            "isServer": _listening,    
         })
         packet = Packet(msg_type=_msg_type)
         # hook
@@ -100,7 +100,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         # old partition change -> do nothing
         app = self.app
         conn = Mock({
-            "isServerConnection": False,
+            "isServer": False,
             "getAddress" : ("127.0.0.1", self.master_port), 
         })
         app.replicator = Mock({})
@@ -125,7 +125,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         )
         # context
         conn = Mock({
-            "isServerConnection": False,
+            "isServer": False,
             "getAddress" : ("127.0.0.1", self.master_port), 
         })
         packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
@@ -163,13 +163,13 @@ class StorageMasterHandlerTests(NeoTestBase):
 
     def test_16_handleStopOperation1(self):
         # OperationFailure
-        conn = Mock({ 'isServerConnection': False })
+        conn = Mock({ 'isServer': False })
         packet = Packet(msg_type=STOP_OPERATION)
         self.assertRaises(OperationFailure, self.operation.handleStopOperation, conn, packet)
 
     def test_22_handleLockInformation2(self):
         # load transaction informations
-        conn = Mock({ 'isServerConnection': False, })
+        conn = Mock({ 'isServer': False, })
         self.app.dm = Mock({ })
         packet = Packet(msg_type=LOCK_INFORMATION)
         transaction = Mock({ 'getObjectList': ((0, ), ), })
@@ -181,13 +181,13 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.checkNotifyInformationLocked(conn, answered_packet=packet)
         # transaction not in transaction_dict -> KeyError
         transaction = Mock({ 'getObjectList': ((0, ), ), })
-        conn = Mock({ 'isServerConnection': False, })
+        conn = Mock({ 'isServer': False, })
         self.operation.handleLockInformation(conn, packet, '\x01' * 8)
         self.checkNotifyInformationLocked(conn, answered_packet=packet)
 
     def test_23_handleUnlockInformation2(self):
         # delete transaction informations
-        conn = Mock({ 'isServerConnection': False, })
+        conn = Mock({ 'isServer': False, })
         self.app.dm = Mock({ })
         packet = Packet(msg_type=LOCK_INFORMATION)
         transaction = Mock({ 'getObjectList': ((0, ), ), })
@@ -203,7 +203,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         calls[0].checkArgs(INVALID_TID)
         # transaction not in transaction_dict -> KeyError
         transaction = Mock({ 'getObjectList': ((0, ), ), })
-        conn = Mock({ 'isServerConnection': False, })
+        conn = Mock({ 'isServer': False, })
         self.operation.handleLockInformation(conn, packet, '\x01' * 8)
         self.checkNotifyInformationLocked(conn, answered_packet=packet)
 

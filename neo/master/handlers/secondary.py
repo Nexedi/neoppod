@@ -49,7 +49,7 @@ class PrimaryMasterHandler(MasterHandler):
         raise PrimaryFailure, 'primary master is dead'
 
     def packetReceived(self, conn, packet):
-        if not conn.isServerConnection():
+        if not conn.isServer():
             node = self.app.nm.getNodeByServer(conn.getAddress())
             if node.getState() != BROKEN_STATE:
                 node.setState(RUNNING_STATE)

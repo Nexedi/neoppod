@@ -70,7 +70,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : False})
+                     "isServer" : False})
         self.assertRaises(PrimaryFailure, self.verification.timeoutExpired, conn,)
         # nothing happens
         self.checkNoPacketSent(conn)
@@ -80,7 +80,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : False})
+                     "isServer" : False})
         self.assertRaises(PrimaryFailure, self.verification.connectionClosed, conn,)
         # nothing happens
         self.checkNoPacketSent(conn)
@@ -90,7 +90,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : False})
+                     "isServer" : False})
         self.assertRaises(PrimaryFailure, self.verification.peerBroken, conn,)
         # nothing happens
         self.checkNoPacketSent(conn)
@@ -101,7 +101,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         # send a table
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServerConnection" : False})
+                     "isServer" : False})
 
         self.app.pt = PartitionTable(3, 2)
         node_1 = self.getNewUUID()

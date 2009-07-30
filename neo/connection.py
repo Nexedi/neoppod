@@ -120,13 +120,13 @@ class BaseConnection(object):
     def getUUID(self):
         return None
 
-    def isListeningConnection(self):
+    def isListening(self):
         return False
 
-    def isServerConnection(self):
+    def isServer(self):
         return False
 
-    def isClientConnection(self):
+    def isClient(self):
         return False
 
     def hasPendingMessages(self):
@@ -157,7 +157,7 @@ class ListeningConnection(BaseConnection):
     def writable(self):
         return False
 
-    def isListeningConnection(self):
+    def isListening(self):
         return True
 
 
@@ -468,14 +468,14 @@ class ClientConnection(Connection):
         else:
             Connection.writable(self)
 
-    def isClientConnection(self):
+    def isClient(self):
         return True
 
 
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
 
-    def isServerConnection(self):
+    def isServer(self):
         return True
 
 

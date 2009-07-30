@@ -122,7 +122,7 @@ class Application(object):
             except (ElectionFailure, PrimaryFailure):
                 # Forget all connections.
                 for conn in self.em.getConnectionList():
-                    if not conn.isListeningConnection():
+                    if not conn.isListening():
                         conn.close()
                 # Reelect a new primary master.
                 self.electPrimary(bootstrap = False)
@@ -197,7 +197,7 @@ class Application(object):
                     self.primary = True
                     logging.debug('I am the primary, so sending an announcement')
                     for conn in em.getConnectionList():
-                        if conn.isClientConnection():
+                        if conn.isClient():
                             conn.notify(protocol.announcePrimaryMaster())
                             conn.abort()
                     closed = False
@@ -206,12 +206,12 @@ class Application(object):
                         em.poll(1)
                         closed = True
                         for conn in em.getConnectionList():
-                            if conn.isClientConnection():
+                            if conn.isClient():
                                 closed = False
                                 break
                         if t + 10 < time():
                             for conn in em.getConnectionList():
-                                if conn.isClientConnection():
+                                if conn.isClient():
                                     conn.close()
                             closed = True
                 else:
@@ -227,13 +227,13 @@ class Application(object):
                     primary = self.primary_master_node
                     addr = primary.getServer()
                     for conn in em.getConnectionList():
-                        if conn.isServerConnection() or conn.isClientConnection() \
+                        if conn.isServer() or conn.isClient() \
                                 and addr != conn.getAddress():
                             conn.close()
 
                     # But if there is no such connection, something wrong happened.
                     for conn in em.getConnectionList():
-                        if conn.isClientConnection() and addr == conn.getAddress():
+                        if conn.isClient() and addr == conn.getAddress():
                             break
                     else:
                         raise ElectionFailure, 'no connection remains to the primary'
@@ -244,7 +244,7 @@ class Application(object):
 
                 # Ask all connected nodes to reelect a single primary master.
                 for conn in em.getConnectionList():
-                    if conn.isClientConnection():
+                    if conn.isClient():
                         conn.notify(protocol.reelectPrimaryMaster())
                         conn.abort()
 
@@ -261,7 +261,7 @@ class Application(object):
 
                     closed = True
                     for conn in em.getConnectionList():
-                        if conn.isClientConnection():
+                        if conn.isClient():
                             # Still not closed.
                             closed = False
                             break
@@ -272,7 +272,7 @@ class Application(object):
 
                 # Close all connections.
                 for conn in em.getConnectionList():
-                    if not conn.isListeningConnection():
+                    if not conn.isListening():
                         conn.close()
                 bootstrap = False
 
@@ -666,7 +666,7 @@ class Application(object):
         notification_packet = protocol.notifyClusterInformation(state)
         for conn in em.getConnectionList():
             node = nm.getNodeByUUID(conn.getUUID())
-            if conn.isListeningConnection() or node is None:
+            if conn.isListening() or node is None:
                 # not identified or listening, keep the identification handler
                 continue
             conn.notify(notification_packet)

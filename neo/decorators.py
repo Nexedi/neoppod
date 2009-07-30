@@ -52,7 +52,7 @@ def restrict_node_types(*node_types):
 def client_connection_required(handler):
     """ Raise UnexpectedPacketError if the packet comes from a client connection """
     def wrapper(self, conn, packet, *args, **kwargs):
-        if conn.isServerConnection():
+        if conn.isServer():
             raise protocol.UnexpectedPacketError
         # it's a client connection, call the handler
         handler(self, conn, packet, *args, **kwargs)
@@ -61,7 +61,7 @@ def client_connection_required(handler):
 def server_connection_required(handler):
     """ Raise UnexpectedPacketError if the packet comes from a server connection """
     def wrapper(self, conn, packet, *args, **kwargs):
-        if not conn.isServerConnection():
+        if not conn.isServer():
             raise protocol.UnexpectedPacketError
         # it's a server connection, call the handler
         handler(self, conn, packet, *args, **kwargs)
