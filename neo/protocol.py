@@ -508,6 +508,12 @@ def _decodeNodeType(original_node_type):
         raise PacketMalformedError('invalid node type %d' % original_node_type)
     return node_type
 
+def _decodeErrorCode(original_error_code):
+    error_code = error_codes.get(original_error_code)
+    if error_code is None:
+        raise PacketMalformedError('invalid error code %d' % original_error_code)
+    return error_code
+
 def _decodeAddress(address):
     if address == '\0' * 6:
         return None
@@ -561,6 +567,7 @@ def _readString(buf, name, offset=0):
 @handle_errors
 def _decodeError(body):
     (code, ) = unpack('!H', body[:2])
+    code = _decodeErrorCode(code)
     (message, _) = _readString(body, 'message', offset=2)
     return (code, message)
 decode_table[ERROR] = _decodeError
