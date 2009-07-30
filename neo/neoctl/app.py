@@ -166,9 +166,10 @@ class TerminalNeoCTL(object):
         if len(params) == 1 and params[0] == 'all':
             node_list = self.neoctl.getNodeList(
                 node_type=protocol.STORAGE_NODE_TYPE)
+            uuid_list = [node[2] for node in node_list]
         else:
-            node_list = [self.asNode(x) for x in params]
-        self.neoctl.enableStorageList(node_list)
+            uuid_list = [self.asNode(x) for x in params]
+        self.neoctl.enableStorageList(uuid_list)
 
     def dropNode(self, params):
         """

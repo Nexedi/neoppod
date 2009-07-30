@@ -61,11 +61,11 @@ class NeoCTL(object):
             raise NotReadyException(response[2])
         return response
 
-    def enableStorageList(self, node_list):
+    def enableStorageList(self, uuid_list):
         """
           Put all given storage nodes in "running" state.
         """
-        packet = protocol.addPendingNodes(node_list)
+        packet = protocol.addPendingNodes(uuid_list)
         response = self.__ask(packet)
         assert response[0] == protocol.ERROR
         assert response[1] == protocol.NO_ERROR_CODE
