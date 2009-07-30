@@ -38,7 +38,8 @@ if VERBOSE_LOCKING:
             # limit=3 returns execution position in caller's caller
             # Additionnal level value (should be positive only) can be used when
             # more intermediate calls are involved
-            path, line_number, func_name, line = traceback.extract_stack(limit=3 + level)[0]
+            self.stack = stack = traceback.extract_stack()[:-(2 + level)]
+            path, line_number, func_name, line = stack[-1]
             # Simplify path. Only keep 3 last path elements. It is enough for
             # current Neo directory structure.
             path = os.path.join('...', *path.split(os.path.sep)[-3:])
@@ -50,8 +51,12 @@ if VERBOSE_LOCKING:
         def __repr__(self):
             return '%s@%s:%s %s' % (self.ident, self.caller[0], self.caller[1], self.caller[3])
 
+        def formatStack(self):
+            return ''.join(traceback.format_list(self.stack))
+
     class VerboseLock(object):
-        def __init__(self):
+        def __init__(self, reentrant=False):
+            self.reentrant = reentrant
             self.owner = None
             self.waiting = []
             self._note('%s@%X created by %r', self.__class__.__name__, id(self), LockUser(1))
@@ -71,8 +76,10 @@ if VERBOSE_LOCKING:
             me = LockUser()
             owner = self._getOwner()
             self._note('[%r]%s.acquire(%s) Waiting for lock. Owned by:%r Waiting:%r', me, self, blocking, owner, self.waiting)
-            if blocking and me == owner:
+            if not self.reentrant and blocking and me == owner:
                 self._note('[%r]%s.acquire(%s): Deadlock detected: I already own this lock:%r', me, self, blocking, owner)
+                self._note('Owner traceback:\n%s', owner.formatStack())
+                self._note('My traceback:\n%s', me.formatStack())
             self.waiting.append(me)
             try:
                 return self.lock.acquire(blocking)
@@ -94,7 +101,7 @@ if VERBOSE_LOCKING:
 
     class RLock(VerboseLock):
         def __init__(self, verbose=None):
-            VerboseLock.__init__(self)
+            VerboseLock.__init__(self)#, reentrant=True)
             self.lock = threading_RLock()
 
         def _locked(self):
