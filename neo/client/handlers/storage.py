@@ -43,7 +43,6 @@ class StorageEventHandler(BaseHandler):
     def handleConnectionLost(self, conn, new_state):
         node = self.app.nm.getNodeByServer(conn.getAddress())
         self._dealWithStorageFailure(conn, node)
-        super(StorageEventHandler, self).connectionClosed(conn)
 
     def connectionFailed(self, conn):
         # XXX: a connection failure is not like a connection lost, we should not
