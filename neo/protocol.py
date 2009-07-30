@@ -47,7 +47,7 @@ class EnumItem(int):
         return self.name
 
     def __repr__(self):
-        return '<EnumItem %r (%r) of %r>' % (self.name, int(self), self.enum)
+        return '<EnumItem %r (%r)>' % (self.name, int(self))
 
 class Enum(dict):
     """
