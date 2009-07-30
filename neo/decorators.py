@@ -42,7 +42,7 @@ def restrict_node_types(*node_types):
             node = self.app.nm.getNodeByUUID(uuid)
             if node is None:
                 raise protocol.UnexpectedPacketError
-            if node.getNodeType() not in node_types:
+            if node.getType() not in node_types:
                 raise protocol.UnexpectedPacketError
             # all is ok, call the handler
             handler(self, conn, packet, *args, **kwargs)

@@ -72,7 +72,7 @@ class Node(object):
     def getUUID(self):
         return self.uuid
 
-    def getNodeType(self):
+    def getType(self):
         raise NotImplementedError
 
     def __str__(self):
@@ -100,7 +100,7 @@ class Node(object):
 class MasterNode(Node):
     """This class represents a master node."""
 
-    def getNodeType(self):
+    def getType(self):
         return MASTER_NODE_TYPE
 
     def isMaster(self):
@@ -110,7 +110,7 @@ class MasterNode(Node):
 class StorageNode(Node):
     """This class represents a storage node."""
 
-    def getNodeType(self):
+    def getType(self):
         return STORAGE_NODE_TYPE
 
     def isStorage(self):
@@ -120,7 +120,7 @@ class StorageNode(Node):
 class ClientNode(Node):
     """This class represents a client node."""
 
-    def getNodeType(self):
+    def getType(self):
         return CLIENT_NODE_TYPE
 
     def isClient(self):
@@ -130,7 +130,7 @@ class ClientNode(Node):
 class AdminNode(Node):
     """This class represents an admin node."""
 
-    def getNodeType(self):
+    def getType(self):
         return ADMIN_NODE_TYPE
 
     def isAdmin(self):
@@ -262,7 +262,7 @@ class NodeManager(object):
         for uuid, node in sorted(self.uuid_dict.items()):
             args = (
                     dump(uuid), 
-                    node_type_dict[node.getNodeType()],
+                    node_type_dict[node.getType()],
                     node_state_dict[node.getState()]
             )
             logging.debug('nm: %s : %s/%s' % args)

@@ -53,7 +53,7 @@ class AdminEventHandler(EventHandler):
     def handleAskNodeList(self, conn, packet, node_type):
         logging.info("ask node list for %s" %(node_type))
         def node_filter(n):
-            return n.getNodeType() is node_type
+            return n.getType() is node_type
         node_list = self.app.nm.getNodeList(node_filter)
         node_information_list = []
         for node in node_list:
@@ -62,7 +62,7 @@ class AdminEventHandler(EventHandler):
             except TypeError:
                 ip = "0.0.0.0"
                 port = 0
-            node_information_list.append((node.getNodeType(), (ip, port), node.getUUID(), node.getState()))
+            node_information_list.append((node.getType(), (ip, port), node.getUUID(), node.getState()))
         p = protocol.answerNodeList(node_information_list)
         conn.answer(p, packet.getId())
 

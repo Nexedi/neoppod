@@ -279,7 +279,7 @@ class Application(object):
     def broadcastNodeInformation(self, node):
         """Broadcast a Notify Node Information packet."""
         logging.debug('broadcasting node information')
-        node_type = node.getNodeType()
+        node_type = node.getType()
         state = node.getState()
         uuid = node.getUUID()
 
@@ -349,7 +349,7 @@ class Application(object):
                     address = n.getServer()
                 except TypeError:
                     address = None
-                node_list.append((n.getNodeType(), address, n.getUUID(), n.getState()))
+                node_list.append((n.getType(), address, n.getUUID(), n.getState()))
                 # Split the packet if too huge.
                 if len(node_list) == 10000:
                     conn.notify(protocol.notifyNodeInformation(node_list))

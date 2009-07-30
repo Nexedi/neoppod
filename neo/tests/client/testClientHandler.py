@@ -94,7 +94,7 @@ class ClientHandlerTests(NeoTestBase):
         storage_ip = '127.0.0.1'
         storage_port = 10011
         fake_storage_node_uuid = self.getNewUUID()
-        fake_storage_node = Mock({'getUUID': fake_storage_node_uuid, 'getServer': (storage_ip, storage_port), 'getNodeType': STORAGE_NODE_TYPE})
+        fake_storage_node = Mock({'getUUID': fake_storage_node_uuid, 'getServer': (storage_ip, storage_port), 'getType': STORAGE_NODE_TYPE})
         master_node_next_packet_id = 1
         class App:
             primary_master_node = Mock({'getUUID': self.getNewUUID()})
@@ -276,7 +276,7 @@ class ClientHandlerTests(NeoTestBase):
     # Master node handler
     def test_nonMasterAnswerPrimaryMaster(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
-            node = Mock({'getNodeType': node_type})
+            node = Mock({'getType': node_type})
             class App:
                 nm = Mock({'getNodeByUUID': node, 'getNodeByServer': None, 'add': None})
                 trying_master_node = None
@@ -289,7 +289,7 @@ class ClientHandlerTests(NeoTestBase):
             self.assertEqual(len(app.nm.mockGetNamedCalls('add')), 0)
 
     def test_unknownNodeAnswerPrimaryMaster(self):
-        node = Mock({'getNodeType': MASTER_NODE_TYPE})
+        node = Mock({'getType': MASTER_NODE_TYPE})
         class App:
             nm = Mock({'getNodeByServer': None, 'add': None})
             primary_master_node = None
@@ -314,7 +314,7 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEquals(app.primary_master_node, None)
 
     def test_knownNodeUnknownUUIDNodeAnswerPrimaryMaster(self):
-        node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': None, 'setUUID': None})
+        node = Mock({'getType': MASTER_NODE_TYPE, 'getUUID': None, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByServer': node, 'add': None})
             primary_master_node = None
@@ -341,7 +341,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def test_knownNodeKnownUUIDNodeAnswerPrimaryMaster(self):
         test_node_uuid = self.getNewUUID()
-        node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
+        node = Mock({'getType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByServer': node, 'add': None})
             primary_master_node = None
@@ -375,7 +375,7 @@ class ClientHandlerTests(NeoTestBase):
         while test_primary_node_uuid == test_node_uuid:
             test_primary_node_uuid = self.getNewUUID()
         test_primary_master_node = Mock({'getUUID': test_primary_node_uuid})
-        node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
+        node = Mock({'getType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': node, 'add': None})
             primary_master_node = test_primary_master_node
@@ -398,7 +398,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def test_alreadySamePrimaryAnswerPrimaryMaster(self):
         test_node_uuid = self.getNewUUID()
-        node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
+        node = Mock({'getType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': node, 'add': None})
             primary_master_node = node
@@ -415,7 +415,7 @@ class ClientHandlerTests(NeoTestBase):
         test_primary_node_uuid = test_node_uuid
         while test_primary_node_uuid == test_node_uuid:
             test_primary_node_uuid = self.getNewUUID()
-        node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
+        node = Mock({'getType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': None, 'getNodeByServer': node, 'add': None})
             primary_master_node = None
@@ -433,7 +433,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def test_AnswerPrimaryMaster(self):
         test_node_uuid = self.getNewUUID()
-        node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
+        node = Mock({'getType': MASTER_NODE_TYPE, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
             nm = Mock({'getNodeByUUID': node, 'getNodeByServer': node, 'add': None})
             primary_master_node = None
@@ -462,7 +462,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def test_nonMasterSendPartitionTable(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
-            node = Mock({'getNodeType': node_type})
+            node = Mock({'getType': node_type})
             class App:
                 nm = Mock({'getNodeByUUID': node})
                 pt = Mock()
@@ -475,7 +475,7 @@ class ClientHandlerTests(NeoTestBase):
             self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
 
     def test_newSendPartitionTable(self):
-        node = Mock({'getNodeType': MASTER_NODE_TYPE})
+        node = Mock({'getType': MASTER_NODE_TYPE})
         test_ptid = 0
         class App:
             nm = Mock({'getNodeByUUID': node})
@@ -490,7 +490,7 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEquals(len(app.pt.mockGetNamedCalls('clear')), 1)
 
     def test_unknownNodeSendPartitionTable(self):
-        test_node = Mock({'getNodeType': MASTER_NODE_TYPE})
+        test_node = Mock({'getType': MASTER_NODE_TYPE})
         test_ptid = 0
         class App:
             nm = Mock({'getNodeByUUID': ReturnValues(test_node, None), 'add': None})
@@ -515,7 +515,7 @@ class ClientHandlerTests(NeoTestBase):
                 test_row_list[0][1][0][1])
 
     def test_knownNodeSendPartitionTable(self):
-        test_node = Mock({'getNodeType': MASTER_NODE_TYPE})
+        test_node = Mock({'getType': MASTER_NODE_TYPE})
         test_ptid = 0
         class App:
             nm = Mock({'getNodeByUUID': test_node, 'add': None})
@@ -539,7 +539,7 @@ class ClientHandlerTests(NeoTestBase):
     def test_nonMasterNotifyNodeInformation(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
             test_master_uuid = self.getNewUUID()
-            node = Mock({'getNodeType': node_type})
+            node = Mock({'getType': node_type})
             class App:
                 nm = Mock({'getNodeByUUID': node})
             app = App()
@@ -553,7 +553,7 @@ class ClientHandlerTests(NeoTestBase):
         # by making a valid call with a non-iterable parameter given as
         # node_list value.
         test_master_uuid = self.getNewUUID()
-        node = Mock({'getNodeType': MASTER_NODE_TYPE})
+        node = Mock({'getType': MASTER_NODE_TYPE})
         class App:
             nm = Mock({'getNodeByUUID': node})
         app = App()
@@ -567,7 +567,7 @@ class ClientHandlerTests(NeoTestBase):
                                  INVALID_UUID, test_node[4])
         test_node_list = [test_node, invalid_uid_test_node]
         test_master_uuid = self.getNewUUID()
-        node = Mock({'getNodeType': MASTER_NODE_TYPE})
+        node = Mock({'getType': MASTER_NODE_TYPE})
         if getNodeByUUID is not MARKER:
             getNodeByUUID = ReturnValues(node, getNodeByUUID)
         class App:
@@ -656,7 +656,7 @@ class ClientHandlerTests(NeoTestBase):
     def test_nonMasterNotifyPartitionChanges(self):
         for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
             test_master_uuid = self.getNewUUID()
-            node = Mock({'getNodeType': node_type, 'getUUID': test_master_uuid})
+            node = Mock({'getType': node_type, 'getUUID': test_master_uuid})
             class App:
                 nm = Mock({'getNodeByUUID': node})
                 pt = Mock()
@@ -671,7 +671,7 @@ class ClientHandlerTests(NeoTestBase):
             self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
 
     def test_noPrimaryMasterNotifyPartitionChanges(self):
-        node = Mock({'getNodeType': MASTER_NODE_TYPE})
+        node = Mock({'getType': MASTER_NODE_TYPE})
         class App:
             nm = Mock({'getNodeByUUID': node})
             pt = Mock()
@@ -690,7 +690,7 @@ class ClientHandlerTests(NeoTestBase):
         test_sender_uuid = test_master_uuid
         while test_sender_uuid == test_master_uuid:
             test_sender_uuid = self.getNewUUID()
-        node = Mock({'getNodeType': MASTER_NODE_TYPE})
+        node = Mock({'getType': MASTER_NODE_TYPE})
         test_master_node = Mock({'getUUID': test_master_uuid})
         class App:
             nm = Mock({'getNodeByUUID': node})
@@ -707,7 +707,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def test_ignoreOutdatedPTIDNotifyPartitionChanges(self):
         test_master_uuid = self.getNewUUID()
-        node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_master_uuid})
+        node = Mock({'getType': MASTER_NODE_TYPE, 'getUUID': test_master_uuid})
         test_ptid = 1
         class App:
             nm = Mock({'getNodeByUUID': node})
@@ -725,7 +725,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def test_unknownNodeNotifyPartitionChanges(self):
         test_master_uuid = self.getNewUUID()
-        test_node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': test_master_uuid})
+        test_node = Mock({'getType': MASTER_NODE_TYPE, 'getUUID': test_master_uuid})
         test_ptid = 1
         class App:
             nm = Mock({'getNodeByUUID': ReturnValues(None)})
@@ -756,7 +756,7 @@ class ClientHandlerTests(NeoTestBase):
         test_ptid = 1
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
         uuid3, uuid4 = self.getNewUUID(), self.getNewUUID()
-        test_node = Mock({'getNodeType': MASTER_NODE_TYPE, 'getUUID': uuid1})
+        test_node = Mock({'getType': MASTER_NODE_TYPE, 'getUUID': uuid1})
         class App:
             nm = Mock({'getNodeByUUID': ReturnValues(test_node, None, None, None), 'add': None})
             pt = Mock({'setCell': None})

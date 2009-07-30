@@ -50,7 +50,7 @@ class NodesTests(unittest.TestCase):
         self.assertEqual(node.getState(), RUNNING_STATE)
         self.assertEqual(node.getServer(), server)
         self.assertEqual(node.getUUID(), uuid)
-        self.assertRaises(NotImplementedError, node.getNodeType)
+        self.assertRaises(NotImplementedError, node.getType)
         self.assertNotEqual(node.getLastStateChange(), None)
         last_change = node.getLastStateChange()
         self.failUnless(isinstance(last_change, float))
@@ -105,7 +105,7 @@ class NodesTests(unittest.TestCase):
         self.assertEqual(node.getState(), RUNNING_STATE)
         self.assertEqual(node.getServer(), server)
         self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(MASTER_NODE_TYPE, node.getNodeType())
+        self.assertEqual(MASTER_NODE_TYPE, node.getType())
         
     def test_02_storage_node(self):
         server = ("127.0.0.1", 10000)
@@ -117,7 +117,7 @@ class NodesTests(unittest.TestCase):
         self.assertEqual(node.getState(), RUNNING_STATE)
         self.assertEqual(node.getServer(), server)
         self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(STORAGE_NODE_TYPE, node.getNodeType())
+        self.assertEqual(STORAGE_NODE_TYPE, node.getType())
 
     def test_04_client_node(self):
         server = ("127.0.0.1", 10000)
@@ -129,7 +129,7 @@ class NodesTests(unittest.TestCase):
         self.assertEqual(node.getState(), RUNNING_STATE)
         self.assertEqual(node.getServer(), server)
         self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(CLIENT_NODE_TYPE, node.getNodeType())
+        self.assertEqual(CLIENT_NODE_TYPE, node.getType())
 
 
     def test_05_node_manager(self):
