@@ -23,7 +23,7 @@ from persistent import Persistent
 from persistent.mapping import PersistentMapping
 import transaction
 
-from neo.tests.functional import startNeo, getNeoStorage, killallNeo
+from neo.tests.functional import NEOCluster
 
 class P(Persistent):
     pass
@@ -38,11 +38,17 @@ class DecoyIndependent(Persistent):
     def _p_independent(self):
         return 0
 
+neo = NEOCluster(['test_neo1', 'test_neo2', 'test_neo3', 'test_neo4'],
+                 partitions=1009, replicas=1, port_base=20000,
+                 master_node_count=3)
+
 class ZODBTests(unittest.TestCase):
 
     def setUp(self):
-        startNeo()
-        self._storage = getNeoStorage()
+        neo.stop()
+        neo.setupDB()
+        neo.start()
+        self._storage = neo.getStorage()
         self._db = ZODB.DB(self._storage)
 
     def populate(self):
@@ -59,7 +65,7 @@ class ZODBTests(unittest.TestCase):
     def tearDown(self):
         self._db.close()
         self._storage.cleanup()
-        killallNeo()
+        neo.stop()
 
     def checkExportImport(self, abort_it=False):
         self.populate()
