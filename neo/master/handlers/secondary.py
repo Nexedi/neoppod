@@ -27,6 +27,12 @@ from neo.node import MasterNode
 class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
 
+    def handleConnectionLost(self, conn, new_state):
+        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        assert node is not None
+        node.setState(DOWN_STATE)
+        self.app.broadcastNodeInformation(node)
+
     def connectionCompleted(self, conn):
         pass
 
@@ -44,7 +50,6 @@ class PrimaryMasterHandler(MasterHandler):
     """ Handler used by secondaries to handle primary master"""
 
     def handleNodeLost(self, conn, node):
-        # XXX: why in down state ?
         self.app.primary_master_node.setState(DOWN_STATE)
         raise PrimaryFailure, 'primary master is dead'
 
