@@ -78,7 +78,8 @@ class BaseServiceHandler(MasterHandler):
 
     def handleConnectionLost(self, conn, new_state):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
-        if node is None or node.getState() == new_state:
+        assert node is not None
+        if node.getState() == new_state:
             return
         if new_state != protocol.BROKEN_STATE and node.getState() == protocol.PENDING_STATE:
             # was in pending state, so drop it from the node manager to forget
