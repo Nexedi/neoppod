@@ -23,26 +23,16 @@ from neo import protocol
 
 class StorageEventHandler(BaseHandler):
 
-    def _dealWithStorageFailure(self, conn, node):
+    def _dealWithStorageFailure(self, conn):
         app = self.app
-
+        node = app.nm.getNodeByServer(conn.getAddress())
+        assert node is not None
         # Remove from pool connection
         app.cp.removeConnection(node)
-
-        # Put fake packets to task queues.
-        queue_set = set()
-        for key in self.dispatcher.message_table.keys():
-            if id(conn) == key[0]:
-                queue = self.dispatcher.message_table.pop(key)
-                queue_set.add(queue)
-        # Storage failure is notified to the primary master when the fake 
-        # packet is popped by a non-polling thread.
-        for queue in queue_set:
-            queue.put((conn, None))
+        app.dispatcher.unregister(conn) 
 
     def handleConnectionLost(self, conn, new_state):
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self._dealWithStorageFailure(conn, node)
+        self._dealWithStorageFailure(conn)
 
     def connectionFailed(self, conn):
         # XXX: a connection failure is not like a connection lost, we should not
@@ -51,8 +41,7 @@ class StorageEventHandler(BaseHandler):
         # must be expected. This should be well done if the first packet sent is
         # done after the connectionCompleted event or a packet received.
         # Connection to a storage node failed
-        node = self.app.nm.getNodeByServer(conn.getAddress())
-        self._dealWithStorageFailure(conn, node)
+        self._dealWithStorageFailure(conn)
         super(StorageEventHandler, self).connectionFailed(conn)
 
 
