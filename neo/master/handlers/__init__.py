@@ -68,6 +68,10 @@ class MasterHandler(EventHandler):
                     packet.getId())
 
 
+DISCONNECTED_STATE_DICT = {
+    protocol.STORAGE_NODE_TYPE: protocol.TEMPORARILY_DOWN_STATE,
+}
+
 class BaseServiceHandler(MasterHandler):
     """This class deals with events for a service phase."""
 
@@ -79,6 +83,8 @@ class BaseServiceHandler(MasterHandler):
     def handleConnectionLost(self, conn, new_state):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         assert node is not None
+        if new_state != protocol.BROKEN_STATE:
+            new_state = DISCONNECTED_STATE_DICT.get(node.getType(), protocol.DOWN_STATE)
         if node.getState() == new_state:
             return
         if new_state != protocol.BROKEN_STATE and node.getState() == protocol.PENDING_STATE:
