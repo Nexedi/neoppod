@@ -66,7 +66,9 @@ RC  - Review output of pylint (CODE)
     - Split protocol.py in a 'protocol' module, gather packet related data
       (encoder, decoder, definition), don't use magic code to defined packet
       types, group, consider using one class per paquet, extract patterns.
-    
+    - Review handler split (CODE)
+      The current handler split is the result of small incremental changes. A
+      global review is required to make them square.
 
     Storage
     - Implement incremental storage verification (BANDWITH)
