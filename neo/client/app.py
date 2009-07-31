@@ -407,6 +407,7 @@ class Application(object):
                     try:
                         self.trying_master_node = master_list[index]
                     except IndexError:
+                        sleep(1)
                         index = 0
                         self.trying_master_node = master_list[0]
                     index += 1
@@ -465,7 +466,7 @@ class Application(object):
                     # - needlessly bother the primary master every 5 seconds
                     #   (...per client)
                     # - have a sleep in the code (yuck !)
-                    sleep(5)
+                    sleep(1)
             if self.uuid is not None:
                 conn.lock()
                 try:
