@@ -53,13 +53,14 @@ class SocketConnector:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             self.socket = s
+        # always use non-blocking sockets
+        self.socket.setblocking(0)
     
     def makeClientConnection(self, addr):
         self.is_closed = False
         self.remote_addr = addr
         try:
             try:
-                self.socket.setblocking(0)
                 self.socket.connect(addr)
             except socket.error, (err, errmsg):
                 if err == errno.EINPROGRESS:
@@ -76,7 +77,6 @@ class SocketConnector:
         self.is_closed = False
         self.is_listening = True
         try:
-            self.socket.setblocking(0)
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self.socket.bind(addr)
             self.socket.listen(5)
