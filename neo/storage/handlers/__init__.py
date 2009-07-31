@@ -49,8 +49,6 @@ class BaseMasterHandler(BaseStorageHandler):
         """Store information on nodes, only if this is sent by a primary
         master node."""
         self.app.nm.update(node_list)
-        # XXX: iterate over the list to keep previous logic for now, but
-        # notification must not be used to change a node state
         for node_type, addr, uuid, state in node_list:
             if uuid == self.app.uuid:
                 # This is me, do what the master tell me

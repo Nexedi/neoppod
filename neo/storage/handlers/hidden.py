@@ -33,7 +33,6 @@ class HiddenHandler(BaseMasterHandler):
         master node."""
         app = self.app
         self.app.nm.update(node_list)
-        # XXX: notification must not be used to change a node state
         for node_type, addr, uuid, state in node_list:
             if node_type == STORAGE_NODE_TYPE:
                 if uuid == self.app.uuid:
@@ -66,7 +65,6 @@ class HiddenHandler(BaseMasterHandler):
     def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
-        # XXX: this is a copy/paste from handlers/master.py
         app = self.app
         if ptid <= app.pt.getID():
             # Ignore this packet.

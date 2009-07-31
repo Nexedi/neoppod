@@ -394,12 +394,6 @@ class MySQLDatabaseManager(DatabaseManager):
 
         self.begin()
         try:
-            # XXX it might be more efficient to insert multiple objects
-            # at a time, but it is potentially dangerous, because
-            # a packet to MySQL can exceed the maximum packet size.
-            # However, I do not think this would be a big problem, because 
-            # tobj has no index, so inserting one by one should not be
-            # significantly different from inserting many at a time.
             for oid, compression, checksum, data in object_list:
                 oid = u64(oid)
                 data = e(data)

@@ -56,10 +56,13 @@ RC  - Review output of pylint (CODE)
       Do the replication process, the verification stage, with or without
       unfinished transactions, cells have to set as outdated, if yes, should the
       partition table changes be broadcasted ?
-    - Review PENDING/HIDDEN/SHUTDOWN states, avoid use of notifyNodeInformation 
+    - Review PENDING/HIDDEN/SHUTDOWN states, don't use notifyNodeInformation() 
       to do a state-switch, use a exception-based mechanism ?
     - Ensure that registered timeout are canceled if the related connection was
       closed.
+    - Clarify big packet handling, is it needed to split them at connection
+      level, application level, use the ask/send/answer scheme ? Currently it's
+      not consistent, essentially with ask/answer/send partition table.
     
 
     Storage
@@ -79,6 +82,10 @@ RC  - Review output of pylint (CODE)
       Currently, storage presence is broadcasted to client nodes too early, as the storage node would refuse them until it has only up-to-date data (not only up-to-date cells, but also a partition table and node states).
     - Create a specialized PartitionTable that know the database and replicator
       to remove duplicates and remove logic from handlers (CODE)
+    - Consider insert multiple objects at time in the database, with taking care
+      of maximum SQL request size allowed.
+    - Prevent from SQL injection, escape() from MySQLdb api is not sufficient,
+      consider using query(request, arg_list) instead of query(request % arg_list)
     - Improve replication process (BANDWITH)
       Current implementation do this way to replicate objects (for a given TID) :
         S1 > S2 : Ask for a range of OIDs
@@ -130,7 +137,7 @@ RC  - Review output of pylint (CODE)
     - Make storage check if the OID match with it's partitions during a store
     - Send notifications when a storage node is lost
     - When importing data, objects with non-allocated OIDs are stored. The
-    storage can detect this and could notify the master to not allocatexd lower
+    storage can detect this and could notify the master to not allocated lower
     OIDs. But during import, each object stored trigger this notification and
     may cause a big network overhead. It would be better to refuse any client 
     connection and thus no OID allocation during import. It may be interesting 
