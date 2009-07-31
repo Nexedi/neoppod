@@ -36,6 +36,8 @@ from neo.master.pt import PartitionTable
 from neo.util import dump
 from neo.connector import getConnectorHandler
 
+REQUIRED_NODE_NUMBER = 1
+
 class Application(object):
     """The master node application."""
 
@@ -276,6 +278,7 @@ class Application(object):
                         conn.close()
                 bootstrap = False
 
+    # XXX: should accept a node list and send at most one packet per peer
     def broadcastNodeInformation(self, node):
         """Broadcast a Notify Node Information packet."""
         logging.debug('broadcasting node information')
@@ -369,18 +372,19 @@ class Application(object):
         nm, em, pt = self.nm, self.em, self.pt
         logging.debug('creating a new partition table, wait for a storage node')
         # wait for some empty storage nodes, their are accepted
-        while len(nm.getStorageNodeList()) == 0:
+        while len(nm.getStorageNodeList()) < REQUIRED_NODE_NUMBER:
             em.poll(1)
         # take the first node available
-        node = nm.getStorageNodeList()[0]
-        node.setState(protocol.RUNNING_STATE)
-        self.broadcastNodeInformation(node)
+        node_list = nm.getStorageNodeList()[:REQUIRED_NODE_NUMBER]
+        for node in node_list:
+            node.setState(protocol.RUNNING_STATE)
+            self.broadcastNodeInformation(node)
         # resert IDs generators
         self.loid = '\0' * 8
         self.ltid = '\0' * 8
         # build the partition with this node
         pt.setID(pack('!Q', 1))
-        pt.make([node])
+        pt.make(node_list)
 
     def recoverStatus(self):
         """Recover the status about the cluster. Obtain the last OID, the last TID,
