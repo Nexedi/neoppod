@@ -1441,7 +1441,6 @@ def askNodeInformation():
     return Packet(ASK_NODE_INFORMATION)
 
 def answerNodeInformation(node_list):
-    # XXX: copy-paste from notifyNodeInformation
     body = [pack('!L', len(node_list))]
     for node_type, address, uuid, state in node_list:
         uuid = _encodeUUID(uuid)

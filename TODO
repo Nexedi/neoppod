@@ -63,6 +63,9 @@ RC  - Review output of pylint (CODE)
     - Clarify big packet handling, is it needed to split them at connection
       level, application level, use the ask/send/answer scheme ? Currently it's
       not consistent, essentially with ask/answer/send partition table.
+    - Split protocol.py in a 'protocol' module, gather packet related data
+      (encoder, decoder, definition), don't use magic code to defined packet
+      types, group, consider using one class per paquet, extract patterns.
     
 
     Storage
