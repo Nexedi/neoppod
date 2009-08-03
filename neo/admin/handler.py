@@ -119,6 +119,14 @@ class AdminEventHandler(EventHandler):
             return
         conn.answer(protocol.answerClusterState(self.app.cluster_state), packet.getId())
 
+    def handleAskPrimaryMaster(self, conn, packet):
+        master_node = self.app.master_node
+        if master_node is None:
+            self.__notConnected(conn, packet)
+        else:
+            conn.answer(
+                protocol.answerPrimaryMaster(master_node.getUUID(), []),
+                packet.getId())
 
 class MasterEventHandler(EventHandler):
     """ This class is just used to dispacth message to right handler"""
@@ -177,7 +185,13 @@ class MasterBaseEventHandler(EventHandler):
         self.app.cluster_state = cluster_state
 
     def handleNotifyNodeInformation(self, conn, packet, node_list):
-        self.app.nm.update(node_list)
+        app = self.app
+        app.nm.update(node_list)
+        if not app.pt.filled():
+            # Re-ask partition table, in case node change filled it.
+            # XXX: we should only ask it if received states indicates it is
+            # possible (ignore TEMPORARILY_DOWN for example)
+            conn.ask(protocol.askPartitionTable([]))
 
 
 class MasterRequestEventHandler(MasterBaseEventHandler):

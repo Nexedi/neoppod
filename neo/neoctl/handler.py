@@ -64,3 +64,4 @@ class CommandEventHandler(EventHandler):
     handleAnswerNodeState = __handleAnswer
     handleAnswerClusterState = __handleAnswer
     handleAnswerNewNodes = __handleAnswer
+    handleAnswerPrimaryMaster = __handleAnswer

@@ -133,3 +133,12 @@ class NeoCTL(object):
         """
         self.setNodeState(node, protocol.DOWN_STATE, update_partition_table=1)
 
+    def getPrimaryMaster(self):
+        """
+          Return the primary master UUID.
+        """
+        packet = protocol.askPrimaryMaster()
+        response = self.__ask(packet)
+        assert response[0] == protocol.ANSWER_PRIMARY_MASTER
+        return response[1]
+

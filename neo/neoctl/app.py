@@ -24,6 +24,7 @@ action_dict = {
         'pt': 'getPartitionRowList',
         'node': 'getNodeList',
         'cluster': 'getClusterState',
+        'primary': 'getPrimaryMaster',
     },
     'set': {
         'node': 'setNodeState',
@@ -74,6 +75,9 @@ class TerminalNeoCTL(object):
             result.append('%s - %s - %s:%s - %s' % (node_type, dump(uuid), ip,
                                                     port, state))
         return '\n'.join(result)
+
+    def formatUUID(self, uuid):
+        return dump(uuid)
 
     # Actual actions
     def getPartitionRowList(self, params):
@@ -181,6 +185,12 @@ class TerminalNeoCTL(object):
         """
         assert len(params) == 1
         self.neoctl.dropNode(self.asNode(params[0]))
+
+    def getPrimaryMaster(self, params):
+        """
+          Get primary master node.
+        """
+        return self.formatUUID(self.neoctl.getPrimaryMaster())
 
 class Application(object):
     """The storage node application."""
