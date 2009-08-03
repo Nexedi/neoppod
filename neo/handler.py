@@ -57,6 +57,73 @@ class EventHandler(object):
 
     # XXX: there is an inconsistency between connection* and handle* names. As
     # we are in an hander, I think that's redondant to prefix with 'handle'
+
+    def _packetMalformed(self, conn, packet, message='', *args):
+        """Called when a packet is malformed."""
+        args = (conn.getAddress()[0], conn.getAddress()[1], message)
+        if packet is None:
+            # if decoding fail, there's no packet instance 
+            logging.error('malformed packet from %s:%d: %s', *args)
+        else:
+            logging.error('malformed packet %s from %s:%d: %s', packet.getType(), *args)
+        response = protocol.protocolError(message)
+        if packet is not None:
+            conn.answer(response, packet.getId())
+        else:
+            conn.notify(response)
+        conn.abort()
+        self.peerBroken(conn)
+
+    def _unexpectedPacket(self, conn, packet, message=None):
+        """Handle an unexpected packet."""
+        if message is None:
+            message = 'unexpected packet type %s in %s' % (packet.getType(),
+                    self.__class__.__name__)
+        else:
+            message = 'unexpected packet: %s in %s' % (message,
+                    self.__class__.__name__)
+        logging.error(message)
+        conn.answer(protocol.protocolError(message), packet.getId())
+        conn.abort()
+        self.peerBroken(conn)
+
+    def dispatch(self, conn, packet):
+        """This is a helper method to handle various packet types."""
+        try:
+            try:
+                method = self.packet_dispatch_table[packet.getType()]
+            except KeyError:
+                raise UnexpectedPacketError('no handler found')
+            args = packet.decode() or ()
+            method(conn, packet, *args)
+        except UnexpectedPacketError, e:
+            self._unexpectedPacket(conn, packet, *e.args)
+        except PacketMalformedError, e:
+            self._packetMalformed(conn, packet, *e.args)
+        except BrokenNodeDisallowedError:
+            answer_packet = protocol.brokenNodeDisallowedError('go away')
+            conn.answer(answer_packet, packet.getId())
+            conn.abort()
+        except NotReadyError:
+            conn.answer(protocol.notReady('retry later'), packet.getId())
+            conn.abort()
+        except ProtocolError, message:
+            conn.answer(protocol.protocolError(message), packet.getId())
+            conn.abort()
+
+    def checkClusterName(self, name):
+        # raise an exception if the fiven name mismatch the current cluster name
+        if self.app.name != name:
+            logging.error('reject an alien cluster')
+            raise protocol.ProtocolError('invalid cluster name')
+
+
+    # Network level handlers
+
+    def packetReceived(self, conn, packet):
+        """Called when a packet is received."""
+        self.dispatch(conn, packet)
+
     def connectionStarted(self, conn):
         """Called when a connection is started."""
         logging.debug('connection started for %s:%d', *(conn.getAddress()))
@@ -73,14 +140,9 @@ class EventHandler(object):
         """Called when a connection is accepted."""
         logging.debug('connection accepted from %s:%d', *addr)
         new_conn = ServerConnection(conn.getEventManager(), conn.getHandler(),
-                                    connector = connector, addr = addr)
+                                    connector=connector, addr=addr)
         # A request for a node identification should arrive.
         new_conn.expectMessage(timeout = 10, additional_timeout = 0)
-
-    def handleConnectionLost(self, conn, new_state):
-        """ this is a method to override in sub-handlers when there is no need
-        to make distinction from the kind event that closed the connection  """
-        pass
 
     def timeoutExpired(self, conn):
         """Called when a timeout event occurs."""
@@ -97,89 +159,13 @@ class EventHandler(object):
         logging.error('%s:%d is broken', *(conn.getAddress()))
         self.handleConnectionLost(conn, protocol.BROKEN_STATE)
 
-    def packetReceived(self, conn, packet):
-        """Called when a packet is received."""
-        self.dispatch(conn, packet)
+    def handleConnectionLost(self, conn, new_state):
+        """ this is a method to override in sub-handlers when there is no need
+        to make distinction from the kind event that closed the connection  """
+        pass
 
-    def packetMalformed(self, conn, packet, message='', *args):
-        """Called when a packet is malformed."""
-        args = (conn.getAddress()[0], conn.getAddress()[1], message)
-        if packet is None:
-            # if decoding fail, there's no packet instance 
-            logging.error('malformed packet from %s:%d: %s', *args)
-        else:
-            logging.error('malformed packet %s from %s:%d: %s', packet.getType(), *args)
-        response = protocol.protocolError(message)
-        if packet is not None:
-            conn.answer(response, packet.getId())
-        else:
-            conn.notify(response)
-        conn.abort()
-        self.peerBroken(conn)
-
-    def unexpectedPacket(self, conn, packet, message=None):
-        """Handle an unexpected packet."""
-        if message is None:
-            message = 'unexpected packet type %s in %s' % (packet.getType(),
-                    self.__class__.__name__)
-        else:
-            message = 'unexpected packet: %s in %s' % (message,
-                    self.__class__.__name__)
-        logging.error('%s', message)
-        conn.answer(protocol.protocolError(message), packet.getId())
-        conn.abort()
-        self.peerBroken(conn)
-
-    def brokenNodeDisallowedError(self, conn, packet, *args):
-        """ Called when a broken node send packets """
-        conn.answer(protocol.brokenNodeDisallowedError('go away'), packet.getId())
-        conn.abort()
-
-    def notReadyError(self, conn, packet, *args):
-        """ Called when the node is not ready """
-        conn.answer(protocol.notReady('retry later'), packet.getId())
-        conn.abort()
-
-    def protocolError(self, conn, packet, message='', *args):
-        """ Called for any other protocol error """
-        conn.answer(protocol.protocolError(message), packet.getId())
-        conn.abort()
-
-    def dispatch(self, conn, packet):
-        """This is a helper method to handle various packet types."""
-        t = packet.getType()
-        try:
-            try:
-                method = self.packet_dispatch_table[t]
-            except KeyError:
-                raise UnexpectedPacketError('no handler found')
-            args = packet.decode() or ()
-            method(conn, packet, *args)
-        except UnexpectedPacketError, e:
-            self.unexpectedPacket(conn, packet, *e.args)
-        except PacketMalformedError, e:
-            self.packetMalformed(conn, packet, *e.args)
-        except BrokenNodeDisallowedError, e:
-            self.brokenNodeDisallowedError(conn, packet, *e.args)
-        except NotReadyError, e:
-            self.notReadyError(conn, packet, *e.args)
-        except ProtocolError, e:
-            self.protocolError(conn, packet, *e.args)
-
-    def checkClusterName(self, name):
-        # raise an exception if the fiven name mismatch the current cluster name
-        if self.app.name != name:
-            logging.error('reject an alien cluster')
-            raise protocol.ProtocolError('invalid cluster name')
 
     # Packet handlers.
-
-    def handleError(self, conn, packet, code, message):
-        try:
-            method = self.error_dispatch_table[code]
-            method(conn, packet, message)
-        except ValueError:
-            raise UnexpectedPacketError(message)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
@@ -371,7 +357,15 @@ class EventHandler(object):
     def handleNotifyLastOID(self, conn, packet, oid):
         raise UnexpectedPacketError
 
+
     # Error packet handlers.
+
+    def handleError(self, conn, packet, code, message):
+        try:
+            method = self.error_dispatch_table[code]
+            method(conn, packet, message)
+        except ValueError:
+            raise UnexpectedPacketError(message)
 
     def handleNotReady(self, conn, packet, message):
         raise UnexpectedPacketError
@@ -399,6 +393,8 @@ class EventHandler(object):
     def handleNoError(self, conn, packet, message):
         logging.debug("no error message : %s" % (message))
 
+
+    # Fetch tables initialization
 
     def initPacketDispatchTable(self):
         d = {}
