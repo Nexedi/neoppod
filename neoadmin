@@ -20,6 +20,7 @@
 
 from optparse import OptionParser
 from neo import setupLog
+from neo.util import bin
 
 parser = OptionParser()
 parser.add_option('-u', '--uuid', help='specify an UUID to use for this ' \

@@ -20,6 +20,7 @@
 
 from optparse import OptionParser
 from neo import setupLog
+from neo.util import bin
 
 
 parser = OptionParser()
