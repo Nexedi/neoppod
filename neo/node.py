@@ -16,19 +16,16 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from time import time
-from neo import logging
 
+from neo import logging
 from neo import protocol
-from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        BROKEN_STATE, PENDING_STATE, HIDDEN_STATE, MASTER_NODE_TYPE, \
-        STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, ADMIN_NODE_TYPE
 from neo.util import dump
 
 class Node(object):
     """This class represents a node."""
 
     def __init__(self, server = None, uuid = None):
-        self.state = RUNNING_STATE
+        self.state = protocol.RUNNING_STATE
         self.server = server
         self.uuid = uuid
         self.manager = None
@@ -49,25 +46,17 @@ class Node(object):
             self.last_state_change = time()
 
     def setServer(self, server):
-        if self.server != server:
-            if self.server is not None and self.manager is not None:
-                self.manager.unregisterServer(self)
-
-            self.server = server
-            if server is not None and self.manager is not None:
-                self.manager.registerServer(self)
+        self.manager.unregisterServer(self)
+        self.server = server
+        self.manager.registerServer(self)
 
     def getServer(self):
         return self.server
 
     def setUUID(self, uuid):
-        if self.uuid != uuid:
-            if self.uuid is not None and self.manager is not None:
-                self.manager.unregisterUUID(self)
-
-            self.uuid = uuid
-            if uuid is not None and self.manager is not None:
-                self.manager.registerUUID(self)
+        self.manager.unregisterUUID(self)
+        self.uuid = uuid
+        self.manager.registerUUID(self)
 
     def getUUID(self):
         return self.uuid
@@ -101,7 +90,7 @@ class MasterNode(Node):
     """This class represents a master node."""
 
     def getType(self):
-        return MASTER_NODE_TYPE
+        return protocol.MASTER_NODE_TYPE
 
     def isMaster(self):
         return True
@@ -111,7 +100,7 @@ class StorageNode(Node):
     """This class represents a storage node."""
 
     def getType(self):
-        return STORAGE_NODE_TYPE
+        return protocol.STORAGE_NODE_TYPE
 
     def isStorage(self):
         return True
@@ -121,7 +110,7 @@ class ClientNode(Node):
     """This class represents a client node."""
 
     def getType(self):
-        return CLIENT_NODE_TYPE
+        return protocol.CLIENT_NODE_TYPE
 
     def isClient(self):
         return True
@@ -131,7 +120,7 @@ class AdminNode(Node):
     """This class represents an admin node."""
 
     def getType(self):
-        return ADMIN_NODE_TYPE
+        return protocol.ADMIN_NODE_TYPE
 
     def isAdmin(self):
         return True
@@ -168,18 +157,26 @@ class NodeManager(object):
         self.unregisterUUID(node)
 
     def registerServer(self, node):
+        if node.getServer() is None:
+            return
         self.server_dict[node.getServer()] = node
 
     def unregisterServer(self, node):
+        if node.getServer() is None:
+            return
         try:
             del self.server_dict[node.getServer()]
         except KeyError:
             pass
 
     def registerUUID(self, node):
+        if node.getUUID() is None:
+            return
         self.uuid_dict[node.getUUID()] = node
 
     def unregisterUUID(self, node):
+        if node.getUUID() is None:
+            return
         try:
             del self.uuid_dict[node.getUUID()]
         except KeyError:
