@@ -50,16 +50,7 @@ class BootstrapManager(EventHandler):
         EventHandler.connectionFailed(self, conn)
         self.current = None
 
-    def connectionClosed(self, conn):
-        EventHandler.connectionClosed(self, conn)
-        self.current = None
-
-    def timeoutExpired(self, conn):
-        EventHandler.timeoutExpired(self, conn)
-        self.current = None
-
-    def peerBroken(self, conn):
-        EventHandler.peerBroken(self, conn)
+    def handleConnectionLost(self, conn, new_state):
         self.current = None
 
     def handleNotReady(self, conn, packet, message):
