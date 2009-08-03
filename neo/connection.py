@@ -369,9 +369,7 @@ class Connection(BaseConnection):
             self.write_buf += packet.encode()
         except PacketMalformedError, m:
             logging.critical('trying to send a too big message')
-            packet = protocol.internalError(m)
-            assert len(packet.body) < protocol.MAX_PACKET_SIZE
-            return self.notify(packet)
+            raise
 
         # If this is the first time, enable polling for writing.
         if self.write_buf:
