@@ -19,7 +19,6 @@ from neo import logging
 from neo import protocol
 from neo.protocol import CLIENT_NODE_TYPE
 from neo.master.handlers import BaseServiceHandler
-from neo import decorators
 
 class ShutdownHandler(BaseServiceHandler):
     """This class deals with events for a shutting down phase."""
@@ -34,13 +33,10 @@ class ShutdownHandler(BaseServiceHandler):
         logging.error('reject any new demand for primary master')
         raise protocol.ProtocolError('cluster is shutting down')
 
-    @decorators.identification_required
-    @decorators.restrict_node_types(CLIENT_NODE_TYPE)
     def handleAskBeginTransaction(self, conn, packet, tid):
         logging.error('reject any new demand for new tid')
         raise protocol.ProtocolError('cluster is shutting down')
 
-    @decorators.identification_required
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         # don't care about notifications since we are shutdowning
         pass
