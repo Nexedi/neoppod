@@ -49,6 +49,14 @@ DB_ADMIN = 'root'
 DB_PASSWD = None
 DB_USER = 'test'
 
+def getNewUUID():
+    """ Return a valid UUID """
+    uuid = protocol.INVALID_UUID
+    while uuid == protocol.INVALID_UUID:
+        uuid = os.urandom(16)
+    self.uuid = uuid
+    return uuid
+
 class NeoTestBase(unittest.TestCase):
     """ Base class for neo tests, implements common checks """
 
@@ -108,12 +116,7 @@ class NeoTestBase(unittest.TestCase):
     # XXX: according to changes with namespaced UUIDs, it would be better to 
     # implement get<NodeType>UUID() methods 
     def getNewUUID(self):
-        """ Return a valid UUID """
-        uuid = protocol.INVALID_UUID
-        while uuid == protocol.INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
+        return getNewUUID()
 
     def getTwoIDs(self):
         """ Return a tuple of two sorted UUIDs """
