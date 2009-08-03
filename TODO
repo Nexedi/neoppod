@@ -55,11 +55,11 @@ RC  - Review output of pylint (CODE)
     - Choose how to handle a storage integrity verification when it comes back.
       Do the replication process, the verification stage, with or without
       unfinished transactions, cells have to set as outdated, if yes, should the
-      partition table changes be broadcasted ?
+      partition table changes be broadcasted ? (BANDWITH, SPEED)
     - Review PENDING/HIDDEN/SHUTDOWN states, don't use notifyNodeInformation() 
-      to do a state-switch, use a exception-based mechanism ?
+      to do a state-switch, use a exception-based mechanism ? (CODE)
     - Ensure that registered timeout are canceled if the related connection was
-      closed.
+      closed. (CODE)
     - Clarify big packet handling, is it needed to split them at connection
       level, application level, use the ask/send/answer scheme ? Currently it's
       not consistent, essentially with ask/answer/send partition table.
@@ -82,13 +82,16 @@ RC  - Review output of pylint (CODE)
     - Flush objects from partition cells not served (DISK SPACE)
       Currently, when a node stops serving a partition cell, the objects from that cell are kept in MySQL. They should be removed (possibly asynchronously, to avoid performance impact).
     - Close connections to other storage nodes (SYSTEM RESOURCE USAGE)
-      When a replication finishes, the connection is not closed currecntly. It should be closed (possibly asynchronously, and possibly by detecting that connection is idle - similar to keep-alive principle)
+      When a replication finishes, the connection is not closed currently. It should be closed (possibly asynchronously, and possibly by detecting that connection is idle - similar to keep-alive principle)
+    - When a cell replication finish, notifyPartitionChange packet is used to
+      notify the master node but it should be sent by the master only for
+      protocol isolation and consistency (CODE)
     - Notify master when storage becomes available for clients (LATENCY)
       Currently, storage presence is broadcasted to client nodes too early, as the storage node would refuse them until it has only up-to-date data (not only up-to-date cells, but also a partition table and node states).
     - Create a specialized PartitionTable that know the database and replicator
       to remove duplicates and remove logic from handlers (CODE)
     - Consider insert multiple objects at time in the database, with taking care
-      of maximum SQL request size allowed.
+      of maximum SQL request size allowed. (SPEED)
     - Prevent from SQL injection, escape() from MySQLdb api is not sufficient,
       consider using query(request, arg_list) instead of query(request % arg_list)
     - Improve replication process (BANDWITH)
