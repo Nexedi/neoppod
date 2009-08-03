@@ -50,20 +50,8 @@ class CommandEventHandler(EventHandler):
         super(CommandEventHandler, self).peerBroken(conn)
         self.__disconnected()
 
-    def handleAnswerPartitionList(self, conn, packet, ptid, row_list):
-        self.__respond((packet.getType(), ptid, row_list))
-
-    def handleAnswerNodeList(self, conn, packet, node_list):
-        self.__respond((packet.getType(), node_list))
-
-    def handleAnswerNodeState(self, conn, packet, uuid, state):
-        self.__respond((packet.getType(), uuid, state))
-
-    def handleAnswerClusterState(self, conn, packet, state):
-        self.__respond((packet.getType(), state))
-
-    def handleAnswerNewNodes(self, conn, packet, uuid_list):
-        self.__respond((packet.getType(), uuid_list))
+    def __handleAnswer(self, conn, packet, *args):
+        self.__respond((packet.getType(), ) + args)
 
     def handleNoError(self, conn, packet, msg):
         self.__respond((packet.getType(), protocol.NO_ERROR_CODE, msg))
@@ -71,3 +59,8 @@ class CommandEventHandler(EventHandler):
     def handleNotReady(self, conn, packet, msg):
         self.__respond((packet.getType(), protocol.NOT_READY_CODE, msg))
 
+    handleAnswerPartitionList = __handleAnswer
+    handleAnswerNodeList = __handleAnswer
+    handleAnswerNodeState = __handleAnswer
+    handleAnswerClusterState = __handleAnswer
+    handleAnswerNewNodes = __handleAnswer
