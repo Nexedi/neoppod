@@ -578,24 +578,9 @@ class Application(object):
         self.finishing_transaction_dict = {}
 
         # Now everything is passive.
-        expiration = 10
-        while 1:
-            t = 0
+        while True:
             try:
                 em.poll(1)
-                # implement an expiration of temporary down nodes.
-                # If a temporary down storage node is expired, it moves to
-                # down state, and the partition table must drop the node,
-                # thus repartitioning must be performed.
-                current_time = time()
-                if current_time >= t + 1:
-                    t = current_time
-                    for node in nm.getStorageNodeList():
-                        if node.getState() == TEMPORARILY_DOWN_STATE \
-                               and node.getLastStateChange() + expiration < current_time:
-                            logging.warning('%s is down, have to notify the admin' % (node, ))
-                            node.setState(DOWN_STATE)
-
             except OperationFailure:
                 # If not operational, send Stop Operation packets to storage nodes
                 # and client nodes. Abort connections to client nodes.
