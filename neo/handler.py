@@ -373,11 +373,14 @@ class EventHandler(object):
 
     # Error packet handlers.
 
-    # XXX: why answer a protocolError to another protocolError ?
-    handleNotReady = unexpectedPacket
-    handleOidNotFound = unexpectedPacket
-    handleSerialNotFound = unexpectedPacket
-    handleTidNotFound = unexpectedPacket
+    def handleNotReady(self, conn, packet, message):
+        raise UnexpectedPacketError
+
+    def handleOidNotFound(self, conn, packet, message):
+        raise UnexpectedPacketError
+
+    def handleTidNotFound(self, conn, packet, message):
+        raise UnexpectedPacketError
 
     def handleProtocolError(self, conn, packet, message):
         # the connection should have been closed by the remote peer
@@ -394,7 +397,8 @@ class EventHandler(object):
         conn.close()
 
     def handleNoError(self, conn, packet, message):
-        logging.debug("no error message : %s" %(message))
+        logging.debug("no error message : %s" % (message))
+
 
     def initPacketDispatchTable(self):
         d = {}
@@ -470,7 +474,6 @@ class EventHandler(object):
         d[NO_ERROR_CODE] = self.handleNoError
         d[NOT_READY_CODE] = self.handleNotReady
         d[OID_NOT_FOUND_CODE] = self.handleOidNotFound
-        d[SERIAL_NOT_FOUND_CODE] = self.handleSerialNotFound
         d[TID_NOT_FOUND_CODE] = self.handleTidNotFound
         d[PROTOCOL_ERROR_CODE] = self.handleProtocolError
         d[TIMEOUT_ERROR_CODE] = self.handleTimeoutError
