@@ -245,9 +245,15 @@ class NodeManager(object):
 
     def log(self):
         logging.debug('Node manager : %d nodes' % len(self.node_list))
-        for uuid, node in sorted(self.uuid_dict.items()):
+        node_with_uuid = set(sorted(self.uuid_dict.values()))
+        node_without_uuid = set(self.node_list) - node_with_uuid
+        for node in node_with_uuid | node_without_uuid:
+            if node.getUUID() is not None:
+                uuid = dump(node.getUUID())
+            else:
+                uuid = '-' * 32
             args = (
-                    dump(uuid), 
+                    uuid,
                     protocol.node_type_prefix_dict[node.getType()],
                     protocol.node_state_prefix_dict[node.getState()]
             )
