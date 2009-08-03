@@ -49,16 +49,16 @@ class SecondaryMasterHandler(MasterHandler):
 class PrimaryMasterHandler(MasterHandler):
     """ Handler used by secondaries to handle primary master"""
 
-    def handleNodeLost(self, conn, node):
-        self.app.primary_master_node.setState(DOWN_STATE)
-        raise PrimaryFailure, 'primary master is dead'
-
     def packetReceived(self, conn, packet):
         if not conn.isServer():
             node = self.app.nm.getNodeByServer(conn.getAddress())
             if node.getState() != BROKEN_STATE:
                 node.setState(RUNNING_STATE)
         MasterHandler.packetReceived(self, conn, packet)
+
+    def connectionLost(self, conn, new_state):
+        self.app.primary_master_node.setState(DOWN_STATE)
+        raise PrimaryFailure, 'primary master is dead'
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
         raise UnexpectedPacketError
