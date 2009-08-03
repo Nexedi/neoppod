@@ -137,7 +137,7 @@ class NEOProcess:
           Note: for this change to take effect, the node must be restarted.
         """
         self.uuid = uuid
-        self.arg_dict['-u'] = uuid
+        self.arg_dict['-u'] = dump(uuid)
 
 class NEOCluster(object):
     def __init__(self, db_list, master_node_count=1,
@@ -197,7 +197,7 @@ class NEOCluster(object):
     def __newProcess(self, command, section):
         uuid = self.__allocateUUID()
         self.process_dict.setdefault(command, []).append(
-            NEOProcess(command, dump(uuid), {
+            NEOProcess(command, uuid, {
                 '-v': None,
                 '-c': self.config_file_path,
                 '-s': section,
