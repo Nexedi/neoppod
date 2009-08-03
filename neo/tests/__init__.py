@@ -333,16 +333,18 @@ class NeoTestBase(unittest.TestCase):
 
 connector_cpt = 0
 
+# XXX This function is specific to a primary master test, I think.
+# It should not be here (as it shadows a more generic getNewUUID above).
 # master node with the highest uuid will be declared as PMN
 previous_uuid = None
 def getNewUUID():
+    global previous_uuid
     uuid = protocol.INVALID_UUID
-    previous = globals()["previous_uuid"]
-    while uuid == protocol.INVALID_UUID or (previous is \
-              not None and uuid > previous):
+    while uuid == protocol.INVALID_UUID or (previous_uuid is \
+              not None and uuid > previous_uuid):
         uuid = os.urandom(16)
-    logging.info("previous > uuid %s"%(previous > uuid)) 
-    globals()["previous_uuid"] = uuid
+    logging.info("previous_uuid > uuid %s"%(previous_uuid > uuid))
+    previous_uuid = uuid
     return uuid
 
 class DoNothingConnector(Mock):
