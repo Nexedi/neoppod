@@ -58,9 +58,6 @@ class ElectionHandler(MasterHandler):
                 if state in (node.getState(), RUNNING_STATE):
                     # No change. Don't care.
                     continue
-                if state == RUNNING_STATE:
-                    # No problem.
-                    continue
 
                 # Something wrong happened possibly. Cut the connection to
                 # this node, if any, and notify the information to others.
