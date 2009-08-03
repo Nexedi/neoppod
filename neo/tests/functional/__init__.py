@@ -243,8 +243,6 @@ class NEOCluster(object):
         return self.neoctl
 
     def getStorage(self):
-        #setupLog('CLIENT', filename=os.path.join(self.temp_dir, 'client.log'),
-        #    verbose=True)
         return Storage(
             master_nodes=self.master_nodes,
             name=self.cluster_name,
