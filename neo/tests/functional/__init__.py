@@ -26,9 +26,9 @@ import MySQLdb
 import tempfile
 import traceback
 
-from neo import setupLog
-from neo import logging
 from neo.client.Storage import Storage
+from neo.tests import getNewUUID
+from neo.util import dump
 
 NEO_CONFIG_HEADER = """
 [DEFAULT]
@@ -71,16 +71,21 @@ class AlreadyStopped(Exception):
 class NEOProcess:
     pid = 0
 
-    def __init__(self, command, *args):
+    def __init__(self, command, uuid, arg_dict):
         self.command = command
-        self.args = args
+        self.arg_dict = arg_dict
+        self.setUUID(uuid)
 
     def start(self):
         # Prevent starting when already forked and wait wasn't called.
         if self.pid != 0:
             raise AlreadyRunning, 'Already running with PID %r' % (self.pid, )
         command = self.command
-        args = self.args
+        args = []
+        for arg, param in self.arg_dict.iteritems():
+            args.append(arg)
+            if param is not None:
+                args.append(param)
         self.pid = os.fork()
         if self.pid == 0:
             # Child
@@ -124,6 +129,16 @@ class NEOProcess:
         self.pid = 0
         return result
 
+    def getUUID(self):
+        return self.uuid
+
+    def setUUID(self, uuid):
+        """
+          Note: for this change to take effect, the node must be restarted.
+        """
+        self.uuid = uuid
+        self.arg_dict['-u'] = uuid
+
 class NEOCluster(object):
     def __init__(self, db_list, master_node_count=1,
                  partitions=1, replicas=0, port_base=10000,
@@ -131,16 +146,17 @@ class NEOCluster(object):
                  db_super_user='root', db_super_password=None,
                  cleanup_on_delete=False):
         self.cleanup_on_delete = cleanup_on_delete
+        self.uuid_set = set()
         self.db_super_user = db_super_user
         self.db_super_password = db_super_password
         self.db_user = db_user
         self.db_password = db_password
         self.db_list = db_list
-        self.process_list = []
+        self.process_dict = {}
         self.last_port = port_base
         self.temp_dir = temp_dir = tempfile.mkdtemp(prefix='neo_')
         print 'Using temp directory %r.' % (temp_dir, )
-        config_file_path = os.path.join(temp_dir, 'neo.conf')
+        self.config_file_path = config_file_path = os.path.join(temp_dir, 'neo.conf')
         config_file = open(config_file_path, 'w')
         neo_admin_port = self.__allocatePort()
         self.cluster_name = cluster_name = 'neo_%s' % (random.randint(0, 100), )
@@ -159,16 +175,13 @@ class NEOCluster(object):
             'password': db_password,
             'port': neo_admin_port,
         })
-        self.__newProcess(NEO_ADMIN, '-vc', config_file_path, '-s', 'admin',
-                          '-l', os.path.join(temp_dir, 'admin.log'))
+        self.__newProcess(NEO_ADMIN, 'admin')
         for config_id, port in master_node_dict.iteritems():
             config_file.write(NEO_CONFIG_MASTER % {
                 'id': config_id,
                 'port': port,
             })
-            self.__newProcess(NEO_MASTER, '-vc', config_file_path, '-s',
-                config_id, '-l',
-                os.path.join(temp_dir, '%s.log' % (config_id)))
+            self.__newProcess(NEO_MASTER, config_id)
         for storage, db in enumerate(db_list):
             config_id = NEO_STORAGE_ID % (storage, )
             config_file.write(NEO_CONFIG_STORAGE % {
@@ -176,20 +189,33 @@ class NEOCluster(object):
                 'db': db,
                 'port': self.__allocatePort(),
             })
-            self.__newProcess(NEO_STORAGE, '-vc', config_file_path, '-s',
-                config_id, '-l',
-                os.path.join(temp_dir, '%s.log' % (config_id)))
+            self.__newProcess(NEO_STORAGE, config_id)
         config_file.close()
         self.neoctl = NeoCTL('127.0.0.1', neo_admin_port,
                              'SocketConnector')
 
-    def __newProcess(self, command, *args):
-        self.process_list.append(NEOProcess(command, *args))
+    def __newProcess(self, command, section):
+        uuid = self.__allocateUUID()
+        self.process_dict.setdefault(command, []).append(
+            NEOProcess(command, dump(uuid), {
+                '-v': None,
+                '-c': self.config_file_path,
+                '-s': section,
+                '-l': os.path.join(self.temp_dir, '%s.log' % (section, ))
+            }))
 
     def __allocatePort(self):
         port = self.last_port
         self.last_port += 1
         return port
+
+    def __allocateUUID(self):
+        uuid_set = self.uuid_set
+        uuid = None
+        while uuid is None or uuid in uuid_set:
+            uuid = getNewUUID()
+        uuid_set.add(uuid)
+        return uuid
 
     def setupDB(self):
         # Cleanup or bootstrap databases
@@ -210,9 +236,10 @@ class NEOCluster(object):
 
     def start(self):
         neoctl = self.neoctl
-        assert len(self.process_list)
-        for process in self.process_list:
-            process.start()
+        assert len(self.process_dict)
+        for process_list in self.process_dict.itervalues():
+            for process in process_list:
+                process.start()
         # Try to put cluster in running state. This will succeed as soon as
         # admin node could connect to the primary master node.
         while True:
@@ -232,12 +259,13 @@ class NEOCluster(object):
         neoctl.enableStorageList([x[2] for x in storage_node_list])
 
     def stop(self):
-        for process in self.process_list:
-            try:
-                process.kill()
-                process.wait()
-            except AlreadyStopped:
-                pass
+        for process_list in self.process_dict.itervalues():
+            for process in process_list:
+                try:
+                    process.kill()
+                    process.wait()
+                except AlreadyStopped:
+                    pass
 
     def getNEOCTL(self):
         return self.neoctl
@@ -247,6 +275,18 @@ class NEOCluster(object):
             master_nodes=self.master_nodes,
             name=self.cluster_name,
             connector='SocketConnector')
+
+    def _getProcessList(self, type):
+        return self.process_dict.get(type)
+
+    def getMasterProcessList(self):
+        return self._getProcessList(NEO_MASTER)
+
+    def getStorageProcessList(self):
+        return self._getProcessList(NEO_STORAGE)
+
+    def getAdminProcessList(self):
+        return self._getProcessList(NEO_ADMIN)
 
     def __del__(self):
         if self.cleanup_on_delete:
