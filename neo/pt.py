@@ -249,14 +249,9 @@ class PartitionTable(object):
             logging.debug('pt: %08d: %s', offset - len(line) + 1,
                           '|'.join(line))
 
-
     def operational(self):        
         if not self.filled():
             return False
-
-        # FIXME it is better to optimize this code, as this could be extremely
-        # slow. The possible fix is to have a handler to notify a change on
-        # a node state, and record which rows are ready.
         for row in self.partition_list:
             for cell in row:
                 if cell.getState() in (protocol.UP_TO_DATE_STATE, \
@@ -265,7 +260,6 @@ class PartitionTable(object):
                     break
             else:
                 return False
-
         return True
 
     def getRow(self, offset):

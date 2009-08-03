@@ -121,6 +121,8 @@ RC  - Review output of pylint (CODE)
       When a storage asks for current partition table (when it connects to a cluster in service state), it must update its knowledge of the partition table. Currently it's done by fetching the entire table. If the master keeps a history of a few last changes to partition table, it would be able to only send a differential update (via the incremental update mechanism)
     - During recovery phase, store multiple partition tables (ADMINISTATION)
       When storage nodes know different version of the partition table, the master should be abdle to present them to admin to allow him to choose one when moving on to next phase.
+    - Optimize operational status check by recording which rows are ready
+      instead of parsing the whole partition table. (SPEED)
 
     Client
     - Client should prefer storage nodes it's already connected to when retrieving objects (LOAD LATENCY)
