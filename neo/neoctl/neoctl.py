@@ -37,18 +37,19 @@ class NeoCTL(object):
         self.response_queue = []
 
     def __getConnection(self):
-        self.connection = ClientConnection(
-            self.em, self.handler, addr=self.server,
-            connector_handler=self.connector_handler)
-        while not self.connected and self.connection is not None:
-            self.em.poll(0)
+        if not self.connected:
+            self.connection = ClientConnection(
+                self.em, self.handler, addr=self.server,
+                connector_handler=self.connector_handler)
+            while not self.connected and self.connection is not None:
+                self.em.poll(0)
+            if self.connection is None:
+                raise NotReadyException
         return self.connection
 
     def __ask(self, packet):
         # TODO: make thread-safe
         connection = self.__getConnection()
-        if connection is None:
-            raise NotReadyException("Can't connect to admin node")
         connection.ask(packet)
         response_queue = self.response_queue
         assert len(response_queue) == 0
