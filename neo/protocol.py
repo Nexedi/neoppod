@@ -328,6 +328,13 @@ node_types = Enum({
     'ADMIN_NODE_TYPE' : 4,
 })
 
+node_type_prefix_dict = {
+    MASTER_NODE_TYPE: 'M',
+    STORAGE_NODE_TYPE: 'S',
+    CLIENT_NODE_TYPE: 'C',
+    ADMIN_NODE_TYPE: 'A',
+}
+
 # Node states.
 node_states = Enum({
     'RUNNING_STATE': 0,

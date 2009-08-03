@@ -244,6 +244,7 @@ class NodeManager(object):
                 logging.info('create node %s %s %s %s' % log_args)
 
     def log(self):
+        logging.debug('Node manager : %d nodes' % len(self.node_list))
         for uuid, node in sorted(self.uuid_dict.items()):
             args = (
                     dump(uuid), 
