@@ -23,6 +23,9 @@ from neo import setupLog
 
 
 parser = OptionParser()
+parser.add_option('-u', '--uuid', help='specify an UUID to use for this ' \
+                  'process. Previously assigned UUID takes precedence (ie ' \
+                  'you should always use -R with this switch)')
 parser.add_option('-v', '--verbose', action = 'store_true', 
                   help = 'print verbose messages')
 parser.add_option('-c', '--config', help = 'specify a configuration file')
@@ -34,10 +37,13 @@ parser.add_option('-R', '--reset', action = 'store_true',
 (options, args) = parser.parse_args()
 config = options.config or 'neo.conf'
 section = options.section or 'storage'
+uuid = options.uuid
+if uuid is not None:
+    uuid = bin(uuid)
 
 logfile = options.logfile or None
 setupLog(section, logfile, options.verbose)
 
 from neo.storage.app import Application
-app = Application(config, section, options.reset)
+app = Application(config, section, options.reset, uuid=uuid)
 app.run()

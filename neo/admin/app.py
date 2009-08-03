@@ -50,7 +50,7 @@ class Dispatcher:
 class Application(object):
     """The storage node application."""
 
-    def __init__(self, filename, section):
+    def __init__(self, filename, section, uuid=None):
         config = ConfigurationManager(filename, section)
 
         self.name = config.getName()
@@ -69,7 +69,7 @@ class Application(object):
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
-        self.uuid = None
+        self.uuid = uuid
         self.primary_master_node = None
         self.ptid = None
         self.monitoring_handler = MasterMonitoringEventHandler(self)

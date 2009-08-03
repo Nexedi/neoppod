@@ -41,7 +41,7 @@ REQUIRED_NODE_NUMBER = 1
 class Application(object):
     """The master node application."""
 
-    def __init__(self, filename, section):
+    def __init__(self, filename, section, uuid=None):
 
         config = ConfigurationManager(filename, section)
         self.connector_handler = getConnectorHandler(config.getConnector())
@@ -77,7 +77,9 @@ class Application(object):
         self.cluster_state = None
 
         # Generate an UUID for self
-        self.uuid = self.getNewUUID(protocol.MASTER_NODE_TYPE)
+        if uuid is None:
+            uuid = self.getNewUUID(protocol.MASTER_NODE_TYPE)
+        self.uuid = uuid
 
         # The last OID.
         self.loid = None

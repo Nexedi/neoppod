@@ -22,6 +22,8 @@ from optparse import OptionParser
 from neo import setupLog
 
 parser = OptionParser()
+parser.add_option('-u', '--uuid', help='specify an UUID to use for this ' \
+                  'process')
 parser.add_option('-v', '--verbose', action = 'store_true', 
                   help = 'print verbose messages')
 parser.add_option('-c', '--config', help = 'specify a configuration file')
@@ -31,10 +33,13 @@ parser.add_option('-l', '--logfile', help = 'specify a logging file')
 (options, args) = parser.parse_args()
 config = options.config or 'neo.conf'
 section = options.section or 'admin'
+uuid = options.uuid
+if uuid is not None:
+    uuid = bin(uuid)
 
 logfile = options.logfile or None
 setupLog(section, logfile, options.verbose)
 
 from neo.admin.app import Application
-app = Application(config, section)
+app = Application(config, section, uuid)
 app.run()

@@ -39,10 +39,10 @@ from neo.bootstrap import BootstrapManager
 class Application(object):
     """The storage node application."""
 
-    def __init__(self, filename, section, reset=False):
+    def __init__(self, filename, section, reset=False, uuid=None):
         config = ConfigurationManager(filename, section)
 
-        self.uuid = None
+        self.uuid = uuid
         self.name = config.getName()
         logging.debug('the name is %s', self.name)
         self.connector_handler = getConnectorHandler(config.getConnector())
