@@ -32,7 +32,7 @@ class BaseStorageHandler(EventHandler):
 
 class BaseMasterHandler(BaseStorageHandler):
 
-    def handleConnectionLost(self, conn, new_state):
+    def connectionLost(self, conn, new_state):
         raise PrimaryFailure('connection lost')
 
     def handleReelectPrimaryMaster(self, conn, packet):

@@ -68,7 +68,8 @@ RC  - Review output of pylint (CODE)
       types, group, consider using one class per paquet, extract patterns.
     - Review handler split (CODE)
       The current handler split is the result of small incremental changes. A
-      global review is required to make them square.
+      global review is required to make them square. Consider rename handler
+      methods without the 'handle' prefix.
 
     Storage
     - Implement incremental storage verification (BANDWITH)

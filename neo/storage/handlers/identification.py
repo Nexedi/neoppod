@@ -25,7 +25,7 @@ from neo.node import ClientNode
 class IdentificationHandler(BaseStorageHandler):
     """ Handler used for incoming connections during operation state """
 
-    def handleConnectionLost(self, conn, new_state):
+    def connectionLost(self, conn, new_state):
         logging.warning('A connection was lost during identification')
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,

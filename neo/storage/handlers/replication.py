@@ -28,7 +28,7 @@ class ReplicationHandler(BaseStorageHandler):
         # Nothing to do.
         pass
 
-    def handleConnectionLost(self, conn, new_state):
+    def connectionLost(self, conn, new_state):
         logging.error('replication is stopped due to a connection lost')
         self.app.replicator.reset()
 

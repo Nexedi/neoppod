@@ -31,7 +31,7 @@ class StorageEventHandler(BaseHandler):
         app.cp.removeConnection(node)
         app.dispatcher.unregister(conn) 
 
-    def handleConnectionLost(self, conn, new_state):
+    def connectionLost(self, conn, new_state):
         self._dealWithStorageFailure(conn)
 
     def connectionFailed(self, conn):

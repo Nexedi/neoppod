@@ -147,19 +147,19 @@ class EventHandler(object):
     def timeoutExpired(self, conn):
         """Called when a timeout event occurs."""
         logging.debug('timeout expired for %s:%d', *(conn.getAddress()))
-        self.handleConnectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
+        self.connectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
 
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
         logging.debug('connection closed for %s:%d', *(conn.getAddress()))
-        self.handleConnectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
+        self.connectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
 
     def peerBroken(self, conn):
         """Called when a peer is broken."""
         logging.error('%s:%d is broken', *(conn.getAddress()))
-        self.handleConnectionLost(conn, protocol.BROKEN_STATE)
+        self.connectionLost(conn, protocol.BROKEN_STATE)
 
-    def handleConnectionLost(self, conn, new_state):
+    def connectionLost(self, conn, new_state):
         """ this is a method to override in sub-handlers when there is no need
         to make distinction from the kind event that closed the connection  """
         pass

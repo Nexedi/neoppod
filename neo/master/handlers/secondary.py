@@ -27,7 +27,7 @@ from neo.node import MasterNode
 class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
 
-    def handleConnectionLost(self, conn, new_state):
+    def connectionLost(self, conn, new_state):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         assert node is not None
         node.setState(DOWN_STATE)

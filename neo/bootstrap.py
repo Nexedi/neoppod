@@ -50,7 +50,7 @@ class BootstrapManager(EventHandler):
         EventHandler.connectionFailed(self, conn)
         self.current = None
 
-    def handleConnectionLost(self, conn, new_state):
+    def connectionLost(self, conn, new_state):
         self.current = None
 
     def handleNotReady(self, conn, packet, message):

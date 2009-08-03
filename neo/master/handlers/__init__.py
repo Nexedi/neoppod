@@ -80,7 +80,7 @@ class BaseServiceHandler(MasterHandler):
         # It is triggered when a connection to a node gets lost.
         pass
 
-    def handleConnectionLost(self, conn, new_state):
+    def connectionLost(self, conn, new_state):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         assert node is not None
         if new_state != protocol.BROKEN_STATE:

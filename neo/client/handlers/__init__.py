@@ -46,7 +46,7 @@ class BaseHandler(EventHandler):
             self.dispatch(conn, packet)
 
 
-    def handleConnectionLost(self, conn, new_state):
+    def connectionLost(self, conn, new_state):
         self.app.dispatcher.unregister(conn)
 
     def connectionFailed(self, conn):
