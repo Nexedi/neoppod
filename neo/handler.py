@@ -108,6 +108,7 @@ class EventHandler(object):
             conn.answer(protocol.notReady('retry later'), packet.getId())
             conn.abort()
         except ProtocolError, message:
+            message = str(message)
             conn.answer(protocol.protocolError(message), packet.getId())
             conn.abort()
 
