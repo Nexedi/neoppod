@@ -2,27 +2,6 @@ This is the second prototype of NEO. The design is described in:
 
     http://www.nexedi.org/workspaces/neo
 
-TODO
-
-    - Handling connection timeouts.
-
-    - Handling write timeouts.
-
-    - IdleEvent for a certain message type as well as a message ID.
-
-    - Flushing write buffers only without reading packets.
-
-    - Garbage collection of unused nodes.
-
-    - Stopping packet processing by returning a boolean value from
-      a handler, otherwise too tricky to exchange a handler with another.
-
-    - History.
-
-    - Multiple undo.
-
-    - Expiration of temporariry down nodes.
-
 Requirements
 
     - Python 2.4 or later
@@ -63,6 +42,7 @@ Installation
 
    b. Just create the storage object and play with it:
 
-   from neo.client.NEOStorare import NEOStorage
-   s = NEOStorage(master_addr="127.0.0.1", master_port=10010, name="main")
+   from neo.client.Storare import Storage
+       s = Storage(master_nodes="127.0.0.1:10010", name="main",
+               connector="SocketConnector")
    ...
