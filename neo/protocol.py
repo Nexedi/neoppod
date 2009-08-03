@@ -1189,8 +1189,8 @@ def askLastIDs():
     return Packet(ASK_LAST_IDS)
 
 def answerLastIDs(loid, ltid, lptid):
-    # XXX: this is a valid oid, an error should be returned instead of this
-    # packet when no last IDs are known
+    # in this case, loid is a valid OID but considered as invalid. This is not
+    # an issue because the OID 0 is hard coded and will never be generated
     if loid is None:
         loid = INVALID_OID
     ltid = _encodeTID(ltid)
