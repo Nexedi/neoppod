@@ -160,7 +160,7 @@ class MQ(object):
         data = self._data[key]
         if data.level >= 0:
             value = data.value
-            self._size -= sizeof(value) # XXX inaccurate
+            self._size -= sizeof(value)
             self.store(key, value)
             return value
         raise KeyError(key)
@@ -178,7 +178,7 @@ class MQ(object):
           Evict an element to the history buffer.
         """
         data = self._data[key]
-        self._size -= sizeof(data.value) # XXX inaccurate
+        self._size -= sizeof(data.value)
         del self._cache_buffers[data.level][data.element]
         element = self._history_buffer.append()
         data.level = -1
@@ -215,7 +215,7 @@ class MQ(object):
         data.counter = counter
         element.data = data
         self._data[key] = data
-        self._size += sizeof(value) # XXX inaccurate
+        self._size += sizeof(value)
         del value
         
         self._time += 1
@@ -249,7 +249,7 @@ class MQ(object):
                         break
                     data = element.data
                     del self._data[data.key]
-                    size -= sizeof(data.value) # XXX inaccurate
+                    size -= sizeof(data.value)
                     del data.value
                 if size <= max_size:
                     break
