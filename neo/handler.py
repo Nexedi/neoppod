@@ -55,10 +55,7 @@ class EventHandler(object):
         self.packet_dispatch_table = self.initPacketDispatchTable()
         self.error_dispatch_table = self.initErrorDispatchTable()
 
-    # XXX: there is an inconsistency between connection* and handle* names. As
-    # we are in an hander, I think that's redondant to prefix with 'handle'
-
-    def _packetMalformed(self, conn, packet, message='', *args):
+    def __packetMalformed(self, conn, packet, message='', *args):
         """Called when a packet is malformed."""
         args = (conn.getAddress()[0], conn.getAddress()[1], message)
         if packet is None:
@@ -74,7 +71,7 @@ class EventHandler(object):
         conn.abort()
         self.peerBroken(conn)
 
-    def _unexpectedPacket(self, conn, packet, message=None):
+    def __unexpectedPacket(self, conn, packet, message=None):
         """Handle an unexpected packet."""
         if message is None:
             message = 'unexpected packet type %s in %s' % (packet.getType(),
@@ -97,9 +94,9 @@ class EventHandler(object):
             args = packet.decode() or ()
             method(conn, packet, *args)
         except UnexpectedPacketError, e:
-            self._unexpectedPacket(conn, packet, *e.args)
+            self.__unexpectedPacket(conn, packet, *e.args)
         except PacketMalformedError, e:
-            self._packetMalformed(conn, packet, *e.args)
+            self.__packetMalformed(conn, packet, *e.args)
         except BrokenNodeDisallowedError:
             answer_packet = protocol.brokenNodeDisallowedError('go away')
             conn.answer(answer_packet, packet.getId())
