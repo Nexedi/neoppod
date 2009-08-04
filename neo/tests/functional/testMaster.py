@@ -52,6 +52,11 @@ class MasterTests(unittest.TestCase):
     def killSecondaryMaster(self, all=False):
         return self._killMaster(primary=False, all=all)
 
+    def killMasters(self):
+        secondary_list = self.killSecondaryMaster(all=True)
+        primary_list = self.killPrimaryMaster()
+        return secondary_list + primary_list
+
     def getMasterNodeList(self):
         return self.neoctl.getNodeList(protocol.MASTER_NODE_TYPE)
 
@@ -121,13 +126,12 @@ class MasterTests(unittest.TestCase):
         self.assertNotEqual(new_uuid, uuid)
 
     def testMasterSequentialStart(self):
-        # Stop the cluster (so we can start processes manually)
-        neo.stop()
         master_list = neo.getMasterProcessList()
         # Test sanity check.
         self.assertEqual(len(master_list), 3)
-        # Start the admin node.
-        neo.getAdminProcessList()[0].start()
+
+        # Stop the cluster (so we can start processes manually)
+        self.killMasters()
 
         # Start the first master.
         first_master = master_list[0]
