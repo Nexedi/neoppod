@@ -71,10 +71,11 @@ class AlreadyStopped(Exception):
 class NEOProcess:
     pid = 0
 
-    def __init__(self, command, uuid, arg_dict):
+    def __init__(self, command, uuid, port, arg_dict):
         self.command = command
         self.arg_dict = arg_dict
         self.setUUID(uuid)
+        self.port = port
 
     def start(self):
         # Prevent starting when already forked and wait wasn't called.
@@ -139,6 +140,9 @@ class NEOProcess:
         self.uuid = uuid
         self.arg_dict['-u'] = dump(uuid)
 
+    def getPort(self):
+        return self.port
+
 class NEOCluster(object):
     def __init__(self, db_list, master_node_count=1,
                  partitions=1, replicas=0, port_base=10000,
@@ -175,29 +179,30 @@ class NEOCluster(object):
             'password': db_password,
             'port': neo_admin_port,
         })
-        self.__newProcess(NEO_ADMIN, 'admin')
+        self.__newProcess(NEO_ADMIN, 'admin', neo_admin_port)
         for config_id, port in master_node_dict.iteritems():
             config_file.write(NEO_CONFIG_MASTER % {
                 'id': config_id,
                 'port': port,
             })
-            self.__newProcess(NEO_MASTER, config_id)
+            self.__newProcess(NEO_MASTER, config_id, port)
         for storage, db in enumerate(db_list):
             config_id = NEO_STORAGE_ID % (storage, )
+            port = self.__allocatePort()
             config_file.write(NEO_CONFIG_STORAGE % {
                 'id': config_id,
                 'db': db,
-                'port': self.__allocatePort(),
+                'port': port,
             })
-            self.__newProcess(NEO_STORAGE, config_id)
+            self.__newProcess(NEO_STORAGE, config_id, port)
         config_file.close()
         self.neoctl = NeoCTL('127.0.0.1', neo_admin_port,
                              'SocketConnector')
 
-    def __newProcess(self, command, section):
+    def __newProcess(self, command, section, port):
         uuid = self.__allocateUUID()
         self.process_dict.setdefault(command, []).append(
-            NEOProcess(command, uuid, {
+            NEOProcess(command, uuid, port, {
                 '-v': None,
                 '-c': self.config_file_path,
                 '-s': section,
