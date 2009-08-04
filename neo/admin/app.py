@@ -85,9 +85,6 @@ class Application(object):
         if len(self.name) == 0:
             raise RuntimeError, 'cluster name must be non-empty'
 
-        for server in self.master_node_list:
-            self.nm.add(MasterNode(server = server))
-
         # Make a listening port.
         handler = AdminEventHandler(self)
         ListeningConnection(self.em, handler, addr = self.server,
@@ -113,6 +110,11 @@ class Application(object):
 
         Note that I do not accept any connection from non-master nodes
         at this stage."""
+
+        nm = self.nm
+        nm.clear()
+        for server in self.master_node_list:
+            nm.add(MasterNode(server = server))
 
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, self.name, protocol.ADMIN_NODE_TYPE, 
