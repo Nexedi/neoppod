@@ -161,7 +161,6 @@ class Application(object):
 
             try:
                 while 1:
-                    em.poll(1)
                     current_time = time()
                     if current_time >= t + 1:
                         t = current_time
@@ -187,6 +186,7 @@ class Application(object):
                             for addr in list(self.unconnected_master_node_set):
                                 ClientConnection(em, client_handler, addr = addr,
                                                  connector_handler = self.connector_handler)
+                    em.poll(1)
                     if (len(self.unconnected_master_node_set) == 0 \
                             and len(self.negotiating_master_node_set) == 0) \
                        or self.primary is not None:
