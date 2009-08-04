@@ -639,12 +639,21 @@ class Application(object):
         logging.info('play the secondary role with %s (%s:%d)', 
                 dump(self.uuid), *(self.server))
 
-        handler = secondary.PrimaryMasterHandler(self)
+
+        primary_master_handler = secondary.PrimaryMasterHandler(self)
+        handler = identification.IdentificationHandler(self)
         em = self.em
 
         # Make sure that every connection has the secondary event handler.
+        connection_list = em.getConnectionList()
+        primary_master_found = False
         for conn in em.getConnectionList():
-            conn.setHandler(handler)
+            if (not conn.isListening()) and conn.isClient():
+                assert not primary_master_found
+                primary_master_found = True
+                conn.setHandler(primary_master_handler)
+            else:
+                conn.setHandler(handler)
 
         while 1:
             em.poll(1)
