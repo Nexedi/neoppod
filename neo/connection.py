@@ -150,7 +150,10 @@ class ListeningConnection(BaseConnection):
         try:
             new_s, addr = self.connector.getNewConnection()
             logging.debug('accepted a connection from %s:%d', *addr)
-            self.handler.connectionAccepted(self, new_s, addr)
+            handler = self.getHandler()
+            new_conn = ServerConnection(self.getEventManager(), handler,
+                                        connector=new_s, addr=addr)
+            handler.connectionAccepted(new_conn)
         except ConnectorTryAgainException:
             pass
 
