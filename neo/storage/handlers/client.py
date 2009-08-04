@@ -28,6 +28,13 @@ class TransactionInformation(object):
         self._uuid = uuid
         self._object_dict = {}
         self._transaction = None
+        self._last_oid_changed = False
+
+    def lastOIDLchange(self):
+        self._last_oid_changed = True
+
+    def isLastOIDChanged(self):
+        return self._last_oid_changed
 
     def getUUID(self):
         return self._uuid
@@ -102,14 +109,13 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         uuid = conn.getUUID()
         app = self.app
         t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
+        if t.isLastOIDChanged():
+            self.app.dm.setLastOID(self.app.loid)
         t.addTransaction(oid_list, user, desc, ext)
         conn.answer(protocol.answerStoreTransaction(tid), packet.getId())
 
     def handleAskStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
-        if oid != protocol.INVALID_OID and oid > self.app.loid:
-            args = dump(oid), dump(self.app.loid)
-            logging.warning('Greater OID used in StoreObject : %s > %s', *args)
         uuid = conn.getUUID()
         # First, check for the locking state.
         app = self.app
@@ -143,4 +149,11 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         p = protocol.answerStoreObject(0, oid, serial)
         conn.answer(p, packet.getId())
         app.store_lock_dict[oid] = tid
+
+        # check if a greater OID last the last generated was used
+        if oid != protocol.INVALID_OID and oid > self.app.loid:
+            args = dump(oid), dump(self.app.loid)
+            logging.warning('Greater OID used in StoreObject : %s > %s', *args)
+            self.app.loid = oid
+            t.lastOIDLchange()
 

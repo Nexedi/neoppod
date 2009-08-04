@@ -32,6 +32,7 @@ class StorageServiceHandler(BaseServiceHandler):
     def connectionCompleted(self, conn):
         node = self.app.nm.getNodeByUUID(conn.getUUID())
         if node.getState() == protocol.RUNNING_STATE:
+            conn.notify(protocol.notifyLastOID(self.app.loid))
             conn.notify(protocol.startOperation())
 
     def handleNodeLost(self, conn, node):

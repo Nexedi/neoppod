@@ -420,7 +420,8 @@ class Application(object):
             node.setState(protocol.PENDING_STATE)
             self.broadcastNodeInformation(node)
 
-        logging.debug('cluster starts with this partition table :')
+        logging.debug('cluster starts with loid=%s and this partition table :',
+                dump(self.loid))
         self.pt.log()
 
     def verifyTransaction(self, tid):
