@@ -70,6 +70,12 @@ RC  - Review output of pylint (CODE)
       The current handler split is the result of small incremental changes. A
       global review is required to make them square. Consider rename handler
       methods without the 'handle' prefix.
+    - Make handler instances become singletons (SPEED, MEMORY)
+      In some places handlers are instanciated outside of App.__init__ . As a
+      handler is completely re-entrant (no modifiable properties) it can and
+      should be made a singleton (saves the CPU time needed to instanciates all
+      the copies - often when a connection is established, saves the memory
+      used by each copy).
 
     Storage
     - Implement incremental storage verification (BANDWITH)
