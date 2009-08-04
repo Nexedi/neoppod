@@ -34,7 +34,7 @@ class EnumItem(int):
           Raise if compared type doesn't match.
         """
         if not isinstance(other, EnumItem):
-            raise TypeError, 'Comparing an enum with an int.'
+            raise TypeError, 'Comparing an enum with %r.' % (other, )
         if other.enum is not self.enum:
             raise TypeError, 'Comparing enums of incompatible types: %s ' \
                              'and %s' % (self, other)
