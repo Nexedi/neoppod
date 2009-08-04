@@ -79,9 +79,8 @@ class PrimaryMasterHandler(MasterHandler):
                 continue
             else:
                 n = app.nm.getNodeByServer(addr)
-                if n is None:
-                    n = MasterNode(server = addr)
-                    app.nm.add(n)
+                # master node must be known
+                assert n is not None
 
                 if uuid is not None:
                     # If I don't know the UUID yet, believe what the peer

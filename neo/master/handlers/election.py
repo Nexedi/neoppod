@@ -44,10 +44,8 @@ class ElectionHandler(MasterHandler):
                 continue
             else:
                 node = app.nm.getNodeByServer(addr)
-                if node is None:
-                    node = MasterNode(server = addr)
-                    app.nm.add(node)
-                    app.unconnected_master_node_set.add(addr)
+                # The master must be known
+                assert node is not None
 
                 if uuid is not None:
                     # If I don't know the UUID yet, believe what the peer
@@ -168,10 +166,8 @@ class ClientElectionHandler(MasterHandler):
                 continue
             else:
                 n = app.nm.getNodeByServer(address)
-                if n is None:
-                    n = MasterNode(server=address)
-                    app.nm.add(n)
-                    app.unconnected_master_node_set.add(address)
+                # master node must be known
+                assert n is not None
 
                 if uuid is not None:
                     # If I don't know the UUID yet, believe what the peer
@@ -232,14 +228,12 @@ class ServerElectionHandler(MasterHandler):
             raise protocol.NotReadyError
         node = app.nm.getNodeByServer(address)
         if node is None:
-            node = MasterNode(server=address, uuid=uuid)
-            app.nm.add(node)
-            app.unconnected_master_node_set.add(address)
-        else:
-            # If this node is broken, reject it.
-            if node.getUUID() == uuid:
-                if node.getState() == BROKEN_STATE:
-                    raise protocol.BrokenNodeDisallowedError
+            logging.error('unknown master node: %s' % (address, ))
+            raise protocol.ProtocolError('unknown master node')
+        # If this node is broken, reject it.
+        if node.getUUID() == uuid:
+            if node.getState() == BROKEN_STATE:
+                raise protocol.BrokenNodeDisallowedError
 
         # supplied another uuid in case of conflict
         while not app.isValidUUID(uuid, address):

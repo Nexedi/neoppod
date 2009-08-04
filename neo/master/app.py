@@ -813,6 +813,9 @@ class Application(object):
             handler = administration.AdministrationHandler
             logging.info('Accept an admin %s' % dump(uuid))
         elif node_type == protocol.MASTER_NODE_TYPE:
+            if node is None:
+                # unknown master, rejected
+                raise protocol.ProtocolError('Reject an unknown master node')
             # always put other master in waiting state
             klass = MasterNode
             handler = secondary.SecondaryMasterHandler
@@ -820,7 +823,7 @@ class Application(object):
         elif node_type == protocol.CLIENT_NODE_TYPE:
             # refuse any client before running
             if self.cluster_state != protocol.RUNNING:
-                logging.info('reject a connection from a client')
+                logging.info('Reject a connection from a client')
                 raise protocol.NotReadyError
             klass = ClientNode
             handler = client.ClientServiceHandler
