@@ -242,6 +242,7 @@ class NodeManager(object):
                 node.setState(state)
                 self.add(node)
                 logging.info('create node %s %s %s %s' % log_args)
+            self.log()
 
     def log(self):
         logging.debug('Node manager : %d nodes' % len(self.node_list))
@@ -254,7 +255,15 @@ class NodeManager(object):
                 uuid = '-' * 32
             args = (
                     uuid,
-                    protocol.node_type_prefix_dict[node.getType()],
-                    protocol.node_state_prefix_dict[node.getState()]
+                    node.getType(),
+                    node.getState()
             )
             logging.debug('nm: %s : %s/%s' % args)
+        for address, node in sorted(self.server_dict.items()):
+            args = (
+                    address,
+                    node.getType(),
+                    node.getState()
+            )
+            logging.debug('nm: %s : %s/%s' % args)
+
