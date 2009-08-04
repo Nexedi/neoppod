@@ -864,7 +864,7 @@ class Application(object):
                                     data = data)
         return self.local_var.tid, oid_list
 
-    def undoLog(self, first, last, filter=None, block=0):
+    def __undoLog(self, first, last, filter=None, block=0, with_oids=False):
         if last < 0:
             # See FileStorage.py for explanation
             last = first - last
@@ -927,9 +927,8 @@ class Application(object):
                                     'be found' % (tid, )
 
             if filter is None or filter(self.local_var.txn_info):
-                # XXX: oids entry is not needed by undoLog but required for the
-                # iterator, this code should be splited then specialized
-                #self.local_var.txn_info.pop("oids")
+                if not with_oids:
+                    self.local_var.txn_info.pop("oids")
                 append(self.local_var.txn_info)
                 if len(undo_info) >= last - first:
                     break
@@ -938,6 +937,12 @@ class Application(object):
         if len(undo_info) == 0 and not block:
             undo_info = self.undoLog(first=first, last=last*5, filter=filter, block=1)
         return undo_info
+
+    def undoLog(self, first, last, filter=None, block=0):
+        return self.__undoLog(self, first, last, filter, block)
+
+    def transactionLog(self, first, last):
+        return self.__undoLog(self, first, last, with_oids=True)
 
     def history(self, oid, version=None, length=1, filter=None, object_only=0):
         # Get history informations for object first

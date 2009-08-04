@@ -89,7 +89,7 @@ class Iterator(object):
         app = self.app
         if not self.txn_list:
             # ask some transactions
-            self.txn_list = app.undoLog(self.index, self.index + 100)
+            self.txn_list = app.transactionLog(self.index, self.index + 100)
             if not self.txn_list:
                 # scan finished
                 raise StopIteration
