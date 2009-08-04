@@ -604,9 +604,23 @@ class Application(object):
         # all incoming connections identify through this handler
         self.listening_conn.setHandler(identification.IdentificationHandler(self))
 
+        handler = secondary.SecondaryMasterHandler(self)
+        em = self.em
+        nm = self.nm
+
+        # Make sure that every connection has the secondary event handler.
+        for conn in em.getConnectionList():
+            conn_uuid = conn.getUUID()
+            if conn_uuid is not None:
+                node = nm.getNodeByUUID(conn_uuid)
+                assert node is not None
+                assert node.getType() == protocol.MASTER_NODE_TYPE
+                conn.setHandler(handler)
+
+
         # If I know any storage node, make sure that they are not in the running state,
         # because they are not connected at this stage.
-        for node in self.nm.getStorageNodeList():
+        for node in nm.getStorageNodeList():
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
 
