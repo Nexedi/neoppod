@@ -22,8 +22,8 @@ from neo.node import NodeManager, MasterNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection
 from neo.exception import PrimaryFailure
-from neo.admin.handler import MasterMonitoringEventHandler, AdminEventHandler, \
-     MasterEventHandler, MasterRequestEventHandler
+from neo.admin.handler import AdminEventHandler, MasterEventHandler, \
+    MasterRequestEventHandler
 from neo.connector import getConnectorHandler
 from neo.bootstrap import BootstrapManager
 from neo.pt import PartitionTable
@@ -72,7 +72,6 @@ class Application(object):
         self.uuid = uuid
         self.primary_master_node = None
         self.ptid = None
-        self.monitoring_handler = MasterMonitoringEventHandler(self)
         self.request_handler = MasterRequestEventHandler(self)
         self.master_event_handler = MasterEventHandler(self)
         self.dispatcher = Dispatcher()
