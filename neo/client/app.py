@@ -939,10 +939,10 @@ class Application(object):
         return undo_info
 
     def undoLog(self, first, last, filter=None, block=0):
-        return self.__undoLog(self, first, last, filter, block)
+        return self.__undoLog(first, last, filter, block)
 
     def transactionLog(self, first, last):
-        return self.__undoLog(self, first, last, with_oids=True)
+        return self.__undoLog(first, last, with_oids=True)
 
     def history(self, oid, version=None, length=1, filter=None, object_only=0):
         # Get history informations for object first
