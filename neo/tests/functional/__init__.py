@@ -20,6 +20,7 @@ from neo import protocol
 import os
 import sys
 import time
+import ZODB
 import signal
 import random
 import MySQLdb
@@ -285,6 +286,12 @@ class NEOCluster(object):
             master_nodes=self.master_nodes,
             name=self.cluster_name,
             connector='SocketConnector')
+
+    def getConnection(self):
+        """ Return a tuple with the database and a connection """
+        storage = self.getStorage()
+        db = ZODB.DB(storage=self.getStorage())
+        return (db, db.open())
 
     def _getProcessList(self, type):
         return self.process_dict.get(type)

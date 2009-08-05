@@ -46,21 +46,14 @@ class StorageTests(unittest.TestCase):
         result = db.store_result().fetch_row()[0][0]
         return result
 
-    def populate(self, storage):
-        db = ZODB.DB(storage=storage)
-        conn = db.open()
+    def populate(self, neo):
+        db, conn = neo.getConnection()
         root = conn.root()
         for i in xrange(OBJECT_NUMBER):
             root[i] = PObject(i) 
         transaction.commit()
         conn.close()
-        storage.close()
-
-    def getNeoStorage(self, neo):
-        return NEOStorage(master_nodes=neo.master_nodes, 
-            connector='SocketConnector', 
-            name=neo.cluster_name,
-        )
+        db.close()
 
     def checkDatabase(self, neo, db_name):
         db = MySQLdb.connect(db=db_name, user='test')
@@ -102,7 +95,7 @@ class StorageTests(unittest.TestCase):
         neo.start()
 
         # populate the cluster and check
-        self.populate(self.getNeoStorage(neo))
+        self.populate(neo)
         self.__checkReplicationDone(neo, databases)
 
     def testReplicationWithNewStorage(self):
@@ -118,7 +111,7 @@ class StorageTests(unittest.TestCase):
         # populate one storage
         new_storage = neo.getStorageProcessList()[-1]
         neo.start(except_storages=[new_storage])
-        self.populate(self.getNeoStorage(neo))
+        self.populate(neo)
 
         # start the second
         new_storage.start()
