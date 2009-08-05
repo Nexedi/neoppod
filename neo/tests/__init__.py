@@ -49,14 +49,6 @@ DB_ADMIN = 'root'
 DB_PASSWD = None
 DB_USER = 'test'
 
-def getNewUUID():
-    """ Return a valid UUID """
-    uuid = protocol.INVALID_UUID
-    while uuid == protocol.INVALID_UUID:
-        uuid = os.urandom(16)
-    self.uuid = uuid
-    return uuid
-
 class NeoTestBase(unittest.TestCase):
     """ Base class for neo tests, implements common checks """
 
@@ -116,7 +108,12 @@ class NeoTestBase(unittest.TestCase):
     # XXX: according to changes with namespaced UUIDs, it would be better to 
     # implement get<NodeType>UUID() methods 
     def getNewUUID(self):
-        return getNewUUID()
+        """ Return a valid UUID """
+        uuid = protocol.INVALID_UUID
+        while uuid == protocol.INVALID_UUID:
+            uuid = os.urandom(16)
+        self.uuid = uuid
+        return uuid
 
     def getTwoIDs(self):
         """ Return a tuple of two sorted UUIDs """
@@ -332,20 +329,6 @@ class NeoTestBase(unittest.TestCase):
 # XXX: imported from neo.master.test.connector since it's used at many places
 
 connector_cpt = 0
-
-# XXX This function is specific to a primary master test, I think.
-# It should not be here (as it shadows a more generic getNewUUID above).
-# master node with the highest uuid will be declared as PMN
-previous_uuid = None
-def getNewUUID():
-    global previous_uuid
-    uuid = protocol.INVALID_UUID
-    while uuid == protocol.INVALID_UUID or (previous_uuid is \
-              not None and uuid > previous_uuid):
-        uuid = os.urandom(16)
-    logging.info("previous_uuid > uuid %s"%(previous_uuid > uuid))
-    previous_uuid = uuid
-    return uuid
 
 class DoNothingConnector(Mock):
   def __init__(self, s=None):

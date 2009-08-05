@@ -38,13 +38,6 @@ class StorageAppTests(NeoTestBase):
     def tearDown(self):
         NeoTestBase.tearDown(self)
 
-    def getNewUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
-
     def test_01_loadPartitionTable(self):
       self.assertEqual(len(self.app.dm.getPartitionTable()), 0)
       self.assertEqual(self.app.pt, None)

@@ -162,17 +162,6 @@ class MasterServerElectionTests(NeoTestBase):
         ClientConnection._addPacket = self._addPacket
         ClientConnection.expectMessage = self.expectMessage
 
-    # Common methods
-    def getNewUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
-
-    def getLastUUID(self):
-        return self.uuid
-
     def identifyToMasterNode(self, node_type=STORAGE_NODE_TYPE, ip="127.0.0.1",
                              port=10021):
         """Do first step of identification to MN

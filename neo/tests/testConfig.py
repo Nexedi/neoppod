@@ -20,22 +20,16 @@ from mock import Mock
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
         MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, INVALID_UUID
 from neo.config import ConfigurationManager
+from neo.tests import NeoTestBase
 from tempfile import mkstemp
 
 
-class ConfigurationManagerTests(unittest.TestCase):
+class ConfigurationManagerTests(NeoTestBase):
 
     def setUp(self):
         pass
     def tearDown(self):
         pass
-
-    def getNewUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
 
     def test_01_configuration_manager(self):      
         # initialisation

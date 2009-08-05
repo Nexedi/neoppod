@@ -19,9 +19,10 @@ import unittest, os
 from mock import Mock
 from neo import protocol
 from neo.protocol import *
+from neo.tests import NeoTestBase
 from time import time, gmtime
 
-class ProtocolTests(unittest.TestCase):
+class ProtocolTests(NeoTestBase):
 
     def setUp(self):
         self.ltid = INVALID_TID
@@ -52,13 +53,6 @@ class ProtocolTests(unittest.TestCase):
             tid = pack('!LL', upper, lower)
         self.ltid = tid
         return tid
-
-    def getNewUUID(self):
-        uuid = INVALID_UUID
-        while uuid == INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
 
     def test_01_Packet_init(self):
         p = Packet(msg_type=ASK_PRIMARY_MASTER, body=None)

@@ -31,14 +31,9 @@ from neo.connector import ConnectorException, ConnectorTryAgainException, \
 from neo.protocol import Packet, ProtocolError, PROTOCOL_ERROR_CODE, ERROR,INTERNAL_ERROR_CODE, \
      ANSWER_PRIMARY_MASTER
 from neo import protocol
+from neo.tests import NeoTestBase
 
-def getNewUUID():
-    uuid = INVALID_UUID
-    while uuid == INVALID_UUID:
-        uuid = os.urandom(16)
-    return uuid
-
-class ConnectionTests(unittest.TestCase):
+class ConnectionTests(NeoTestBase):
 
     def setUp(self):
         pass
