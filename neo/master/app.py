@@ -147,17 +147,19 @@ class Application(object):
         em = self.em
         nm = self.nm
 
+        for node in nm.getMasterNodeList():
+            # For now, believe that every node should be available,
+            # since down or broken nodes may be already repaired.
+            node.setState(RUNNING_STATE)
+
         while 1:
             t = 0
             self.primary = None
             self.primary_master_node = None
 
             for node in nm.getMasterNodeList():
-                self.unconnected_master_node_set.add(node.getServer())
-                # For now, believe that every node should be available,
-                # since down or broken nodes may be already repaired.
-                node.setState(RUNNING_STATE)
-            self.negotiating_master_node_set.clear()
+                if node.getState() == RUNNING_STATE:
+                    self.unconnected_master_node_set.add(node.getServer())
 
             # Expire temporarily down nodes. For now, assume that a node
             # which is down for 60 seconds is really down, if this is a
