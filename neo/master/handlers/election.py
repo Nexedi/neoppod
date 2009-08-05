@@ -192,6 +192,13 @@ class ClientElectionHandler(ElectionHandler):
                     # Whatever the situation is, I trust this master.
                     app.primary = False
                     app.primary_master_node = primary_node
+                    # Stop waiting for connections than primary master's to
+                    # complete to exit election phase ASAP.
+                    primary_server = primary_node.getServer()
+                    app.unconnected_master_node_set.intersection_update(
+                        [primary_server])
+                    app.negotiating_master_node_set.intersection_update(
+                        [primary_server])
 
         # Request a node idenfitication.
         conn.ask(protocol.requestNodeIdentification(MASTER_NODE_TYPE,

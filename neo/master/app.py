@@ -190,9 +190,8 @@ class Application(object):
                                 ClientConnection(em, client_handler, addr = addr,
                                                  connector_handler = self.connector_handler)
                     em.poll(1)
-                    if (len(self.unconnected_master_node_set) == 0 \
-                            and len(self.negotiating_master_node_set) == 0) \
-                       or self.primary is not None:
+                    if len(self.unconnected_master_node_set) == 0 \
+                       and len(self.negotiating_master_node_set) == 0:
                         break
 
                 # Now there are three situations:
