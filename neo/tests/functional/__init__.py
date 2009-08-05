@@ -324,6 +324,16 @@ class NEOCluster(object):
         primary_list = self.killPrimaryMaster()
         return secondary_list + primary_list
 
+    def killStorage(self, all=False):
+        killed_uuid_list = []
+        for storage in self.getStorageProcessList():
+            killed_uuid_list.append(storage.getUUID())
+            storage.kill()
+            storage.wait()
+            if not all:
+                break
+        return killed_uuid_list
+
     def __getNodeList(self, node_type, state=None):
         return [x for x in self.neoctl.getNodeList(node_type)
                 if state is None or x[3] == state]
@@ -402,6 +412,11 @@ class NEOCluster(object):
             return uuid is None or uuid == current_try, current_try
         self.expectCondition(callback, timeout, delay)
 
+    def expectClusterState(self, state, timeout=0, delay=1):
+        def callback(last_try):
+            current_try = self.neoctl.getClusterState()
+            return current_try == state, current_try
+        self.expectCondition(callback, timeout, delay)
 
     def __del__(self):
         if self.cleanup_on_delete:
