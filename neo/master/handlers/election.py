@@ -65,7 +65,7 @@ class ElectionHandler(MasterHandler):
                         c.close()
                 node.setState(state)
 
-class ClientElectionHandler(MasterHandler):
+class ClientElectionHandler(ElectionHandler):
 
     def packetReceived(self, conn, packet):
         node = self.app.nm.getNodeByServer(conn.getAddress())
@@ -198,7 +198,7 @@ class ClientElectionHandler(MasterHandler):
                  app.uuid, app.server, app.name))
 
 
-class ServerElectionHandler(MasterHandler):
+class ServerElectionHandler(ElectionHandler):
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
