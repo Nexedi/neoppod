@@ -77,6 +77,13 @@ class MasterTests(unittest.TestCase):
             state = None
         return state
 
+    def getPrimaryMaster(self):
+        try:
+            current_try = self.neoctl.getPrimaryMaster()
+        except NotReadyException:
+            current_try = None
+        return current_try
+
     def expectCondition(self, condition, timeout, delay):
         end = time() + timeout + DELAY_SAFETY_MARGIN
         opaque = None
@@ -111,10 +118,7 @@ class MasterTests(unittest.TestCase):
 
     def expectPrimaryMaster(self, uuid=None, timeout=0, delay=1):
         def callback(last_try):
-            try:
-                current_try = self.neoctl.getPrimaryMaster()
-            except NotReadyException:
-                current_try = None
+            current_try = self.getPrimaryMaster()
             if None not in (uuid, current_try) and uuid != current_try:
                 raise AssertionError, 'An unexpected primary arised: %r, ' \
                     'expected %r' % (dump(current_try), dump(uuid))
