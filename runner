@@ -290,7 +290,10 @@ class NeoTestRunner(unittest.TestResult):
         s.connect(*SMTP_SERVER)
         mail = msg.as_string()
         for recipient in RECIPIENTS:
-            s.sendmail(SENDER, recipient, mail)
+            try:
+                s.sendmail(SENDER, recipient, mail)
+            except smtplib.SMTPRecipientsRefused:
+                print "Mail for %s fails" % recipient
         s.close()
 
 if __name__ == "__main__":
@@ -305,9 +308,9 @@ if __name__ == "__main__":
     if FUNCTIONAL_TESTS:
         runner.run('Functional tests', FUNC_TEST_MODULES)
     runner.build()
-    # send a mail
-    if SEND_REPORT:
-        runner.sendReport()
     print runner.errors
     print runner.warnings
     print runner.summary
+    # send a mail
+    if SEND_REPORT:
+        runner.sendReport()
