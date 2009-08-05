@@ -15,14 +15,17 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import time
+from time import sleep, time
 import unittest
 from neo.tests.functional import NEOCluster
+from neo.neoctl.neoctl import NotReadyException
 from neo import protocol
-
-neo = NEOCluster([], port_base=20000, master_node_count=3)
+from neo.util import dump
 
 DELAY_SAFETY_MARGIN = 5
+MASTER_NODE_COUNT = 3
+
+neo = NEOCluster([], port_base=20000, master_node_count=MASTER_NODE_COUNT)
 
 class MasterTests(unittest.TestCase):
 
@@ -61,8 +64,9 @@ class MasterTests(unittest.TestCase):
         primary_list = self.killPrimaryMaster()
         return secondary_list + primary_list
 
-    def getMasterNodeList(self):
-        return self.neoctl.getNodeList(protocol.MASTER_NODE_TYPE)
+    def getMasterNodeList(self, state=None):
+        return [x for x in self.neoctl.getNodeList(protocol.MASTER_NODE_TYPE)
+                if state is None or x[3] == state]
 
     def getMasterNodeState(self, uuid):
         node_list = self.getMasterNodeList()
@@ -73,66 +77,104 @@ class MasterTests(unittest.TestCase):
             state = None
         return state
 
+    def expectCondition(self, condition, timeout, delay):
+        end = time() + timeout + DELAY_SAFETY_MARGIN
+        opaque = None
+        opaque_history = []
+        while time() < end:
+            reached, opaque = condition(opaque)
+            if reached:
+                break
+            else:
+                opaque_history.append(opaque)
+                sleep(delay)
+        else:
+          raise AssertionError, 'Timeout while expecting condition. ' \
+                                'History: %s' % (opaque_history, )
+
+    def expectAllMasters(self, state=None, timeout=0, delay=1):
+        def callback(last_try):
+            current_try = len(self.getMasterNodeList(state=state))
+            if last_try is not None and current_try < last_try:
+                raise AssertionError, 'Regression: %s became %s' % \
+                    (last_try, current_try)
+            return (current_try == MASTER_NODE_COUNT, current_try)
+        self.expectCondition(callback, timeout, delay)
+
+    def expectMasterState(self, uuid, state, timeout=0, delay=1):
+        if not isinstance(state, (tuple, list)):
+            state = (state, )
+        def callback(last_try):
+            current_try = self.getMasterNodeState(uuid)
+            return current_try in state, current_try
+        self.expectCondition(callback, timeout, delay)
+
+    def expectPrimaryMaster(self, uuid=None, timeout=0, delay=1):
+        def callback(last_try):
+            try:
+                current_try = self.neoctl.getPrimaryMaster()
+            except NotReadyException:
+                current_try = None
+            if None not in (uuid, current_try) and uuid != current_try:
+                raise AssertionError, 'An unexpected primary arised: %r, ' \
+                    'expected %r' % (dump(current_try), dump(uuid))
+            return uuid is None or uuid == current_try, current_try
+        self.expectCondition(callback, timeout, delay)
+
     def testStoppingSecondaryMaster(self):
+        # Wait for masters to stabilize
+        self.expectAllMasters()
+
+        # Kill
         killed_uuid_list = self.killSecondaryMaster()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
-        # Leave some time for the primary master to notice the disconnection.
-        time.sleep(DELAY_SAFETY_MARGIN)
         # Check node state has changed.
-        self.assertEqual(self.getMasterNodeState(uuid), None)
+        self.expectMasterState(uuid, None)
 
     def testStoppingPrimaryMasterWithTwoSecondaries(self):
+        # Wait for masters to stabilize
+        self.expectAllMasters()
+
+        # Kill
         killed_uuid_list = self.killPrimaryMaster()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
-        # Leave some time for the disconnection to be noticed by the admin
-        # node.
-        time.sleep(DELAY_SAFETY_MARGIN)
         # Check the state of the primary we just killed
-        self.assertEqual(self.getMasterNodeState(uuid),
-                         protocol.TEMPORARILY_DOWN_STATE)
-        # Leave some time for the other masters to elect a new primary.
-        time.sleep(10)
+        self.expectMasterState(uuid, (None, protocol.UNKNOWN_STATE))
         # Check that a primary master arised.
-        # (raises if admin node is not connected to a primary master)
-        new_uuid = self.neoctl.getPrimaryMaster()
+        self.expectPrimaryMaster(timeout=10)
         # Check that the uuid really changed.
+        new_uuid = self.neoctl.getPrimaryMaster()
         self.assertNotEqual(new_uuid, uuid)
 
     def testStoppingPrimaryMasterWithOneSecondary(self):
+        self.expectAllMasters(state=protocol.RUNNING_STATE)
+
         # Kill one secondary master.
         killed_uuid_list = self.killSecondaryMaster()
         # Test sanity checks.
         self.assertEqual(len(killed_uuid_list), 1)
-        time.sleep(DELAY_SAFETY_MARGIN)
-        self.assertEqual(self.getMasterNodeState(killed_uuid_list[0]), None)
+        self.expectMasterState(killed_uuid_list[0], None)
         self.assertEqual(len(self.getMasterNodeList()), 2)
 
         killed_uuid_list = self.killPrimaryMaster()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
-        # Leave some time for the disconnection to be noticed by the admin
-        # node.
-        time.sleep(DELAY_SAFETY_MARGIN)
         # Check the state of the primary we just killed
-        self.assertEqual(self.getMasterNodeState(uuid),
-                         protocol.TEMPORARILY_DOWN_STATE)
-        # Leave some time for the other masters to elect a new primary.
-        time.sleep(10)
+        self.expectMasterState(uuid, (None, protocol.UNKNOWN_STATE))
         # Check that a primary master arised.
-        # (raises if admin node is not connected to a primary master)
-        new_uuid = self.neoctl.getPrimaryMaster()
+        self.expectPrimaryMaster(timeout=10)
         # Check that the uuid really changed.
+        new_uuid = self.neoctl.getPrimaryMaster()
         self.assertNotEqual(new_uuid, uuid)
 
     def testMasterSequentialStart(self):
+        self.expectAllMasters(state=protocol.RUNNING_STATE)
         master_list = neo.getMasterProcessList()
-        # Test sanity check.
-        self.assertEqual(len(master_list), 3)
 
         # Stop the cluster (so we can start processes manually)
         self.killMasters()
@@ -140,39 +182,25 @@ class MasterTests(unittest.TestCase):
         # Start the first master.
         first_master = master_list[0]
         first_master.start()
-        # Leave some time for the master to elect itself without any other
-        # master.
-        time.sleep(60 + DELAY_SAFETY_MARGIN)
+        first_master_uuid = first_master.getUUID()
         # Check that the master node we started elected itself.
-        self.assertEqual(self.neoctl.getPrimaryMaster(),
-                         first_master.getUUID())
-        # Check that no other master node is known as running.
-        self.assertEqual(len(self.neoctl.getNodeList(
-            protocol.MASTER_NODE_TYPE)), 1)
+        self.expectPrimaryMaster(first_master_uuid, timeout=60)
 
         # Start a second master.
         second_master = master_list[1]
         second_master.start()
-        # Leave the second master some time to connect to the primary master.
-        time.sleep(DELAY_SAFETY_MARGIN)
         # Check that the second master is running under his known UUID.
-        self.assertEqual(self.getMasterNodeState(second_master.getUUID()),
-                         protocol.RUNNING_STATE)
+        self.expectMasterState(second_master.getUUID(), protocol.RUNNING_STATE)
         # Check that the primary master didn't change.
-        self.assertEqual(self.neoctl.getPrimaryMaster(),
-                         first_master.getUUID())
+        self.assertEqual(self.neoctl.getPrimaryMaster(), first_master_uuid)
 
         # Start a third master.
         third_master = master_list[2]
         third_master.start()
-        # Leave the third master some time to connect to the primary master.
-        time.sleep(DELAY_SAFETY_MARGIN)
         # Check that the third master is running under his known UUID.
-        self.assertEqual(self.getMasterNodeState(third_master.getUUID()),
-                         protocol.RUNNING_STATE)
+        self.expectMasterState(third_master.getUUID(), protocol.RUNNING_STATE)
         # Check that the primary master didn't change.
-        self.assertEqual(self.neoctl.getPrimaryMaster(),
-                         first_master.getUUID())
+        self.assertEqual(self.neoctl.getPrimaryMaster(), first_master_uuid)
 
 def test_suite():
     return unittest.makeSuite(MasterTests)
