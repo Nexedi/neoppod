@@ -56,10 +56,14 @@ UNIT_TEST_MODULES = [
 ]
 
 FUNC_TEST_MODULES = [
-    'neo.tests.functional.testZODB',
+    ('neo.tests.functional.testZODB', 'check'),
+    'neo.tests.functional.testMaster',
+    'neo.tests.functional.testStorage',
+    'neo.tests.functional.testImportExport',
 ]
 
 # configuration 
+UNIT_TESTS = True
 FUNCTIONAL_TESTS = True
 SEND_REPORT = False
 CONSOLE_LOG = False
@@ -89,17 +93,24 @@ class NeoTestRunner(unittest.TestResult):
     def __init__(self):
         unittest.TestResult.__init__(self)
         self.modulesStats = {}
+        self.failedImports = {}
         self.lastStart = None
 
-    def run(self, name, modules, prefix='test'):
+    def run(self, name, modules):
         suite = unittest.TestSuite()
         loader = unittest.defaultTestLoader
-        loader.testMethodPrefix = prefix
         for test_module in modules:
+            # load prefix if supplied
+            if isinstance(test_module, tuple):
+                test_module, prefix = test_module
+                loader.testMethodPrefix = prefix
+            else:
+                loader.testMethodPrefix = 'test'
             try:
                 test_module = __import__(test_module, globals(), locals(), ['*'])
             except ImportError, err:
                 # TODO: include import errors in report
+                self.failedImports[test_module] = err
                 print "Import of %s failed : %s" % (test_module, err)
                 continue
             suite.addTests(loader.loadTestsFromModule(test_module))
@@ -227,12 +238,22 @@ class NeoTestRunner(unittest.TestResult):
                 s += '\n'
         return s
 
+    def _buildWarnings(self):
+        s = '\n'
+        if self.failedImports:
+            s += 'Failed imports :\n'
+            for module, err in self.failedImports.items():
+                s += '%s:\n%s' % (module, err)
+        s += '\n'
+        return s
+
     def build(self):
         self.time = sum([s.time for s in self.modulesStats.values()])
         args = (self.testsRun, len(self.errors), len(self.failures))
         self.subject = "Neo : %s Tests, %s Errors, %s Failures" % args
         self.summary = self._buildSummary()
         self.errors = self._buildErrors()
+        self.warnings = self._buildWarnings()
 
     def sendReport(self):
         """ Send a mail with the report summary """
@@ -273,15 +294,20 @@ class NeoTestRunner(unittest.TestResult):
         s.close()
 
 if __name__ == "__main__":
+
+    if not UNIT_TESTS and not FUNCTIONAL_TESTS:
+        raise RuntimeError('Nothing to run')
     
     # run and build the report
     runner = NeoTestRunner()
-    runner.run('Unit tests', UNIT_TEST_MODULES)
+    if UNIT_TESTS:
+        runner.run('Unit tests', UNIT_TEST_MODULES)
     if FUNCTIONAL_TESTS:
-        runner.run('Functional tests', FUNC_TEST_MODULES, prefix='check')
+        runner.run('Functional tests', FUNC_TEST_MODULES)
     runner.build()
     # send a mail
     if SEND_REPORT:
         runner.sendReport()
     print runner.errors
+    print runner.warnings
     print runner.summary
