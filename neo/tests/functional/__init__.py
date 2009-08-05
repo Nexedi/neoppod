@@ -108,7 +108,6 @@ class NEOProcess:
         if self.pid:
             try:
                 os.kill(self.pid, sig)
-                self.pid = 0
             except OSError:
                 traceback.print_last()
         else:
@@ -295,6 +294,52 @@ class NEOCluster(object):
 
     def getAdminProcessList(self):
         return self._getProcessList(NEO_ADMIN)
+
+    def _killMaster(self, primary=False, all=False):
+        killed_uuid_list = []
+        primary_uuid = self.neoctl.getPrimaryMaster()
+        for master in self.getMasterProcessList():
+            master_uuid = master.getUUID()
+            is_primary = master_uuid == primary_uuid
+            if primary and is_primary or \
+               not (primary or is_primary):
+                 killed_uuid_list.append(master_uuid)
+                 master.kill()
+                 master.wait()
+                 if not all:
+                     break
+        return killed_uuid_list
+
+    def killPrimaryMaster(self):
+        return self._killMaster(primary=True)
+
+    def killSecondaryMaster(self, all=False):
+        return self._killMaster(primary=False, all=all)
+
+    def killMasters(self):
+        secondary_list = self.killSecondaryMaster(all=True)
+        primary_list = self.killPrimaryMaster()
+        return secondary_list + primary_list
+
+    def getMasterNodeList(self, state=None):
+        return [x for x in self.neoctl.getNodeList(protocol.MASTER_NODE_TYPE)
+                if state is None or x[3] == state]
+
+    def getMasterNodeState(self, uuid):
+        node_list = self.getMasterNodeList()
+        for node_type, address, node_uuid, state in node_list:
+            if node_uuid == uuid:
+                break
+        else:
+            state = None
+        return state
+
+    def getPrimaryMaster(self):
+        try:
+            current_try = self.neoctl.getPrimaryMaster()
+        except NotReadyException:
+            current_try = None
+        return current_try
 
     def __del__(self):
         if self.cleanup_on_delete:

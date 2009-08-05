@@ -38,52 +38,6 @@ class MasterTests(unittest.TestCase):
     def tearDown(self):
         neo.stop()
 
-    def _killMaster(self, primary=False, all=False):
-        killed_uuid_list = []
-        primary_uuid = self.neoctl.getPrimaryMaster()
-        for master in neo.getMasterProcessList():
-            master_uuid = master.getUUID()
-            is_primary = master_uuid == primary_uuid
-            if primary and is_primary or \
-               not (primary or is_primary):
-                 killed_uuid_list.append(master_uuid)
-                 master.kill()
-                 master.wait()
-                 if not all:
-                     break
-        return killed_uuid_list
-
-    def killPrimaryMaster(self):
-        return self._killMaster(primary=True)
-
-    def killSecondaryMaster(self, all=False):
-        return self._killMaster(primary=False, all=all)
-
-    def killMasters(self):
-        secondary_list = self.killSecondaryMaster(all=True)
-        primary_list = self.killPrimaryMaster()
-        return secondary_list + primary_list
-
-    def getMasterNodeList(self, state=None):
-        return [x for x in self.neoctl.getNodeList(protocol.MASTER_NODE_TYPE)
-                if state is None or x[3] == state]
-
-    def getMasterNodeState(self, uuid):
-        node_list = self.getMasterNodeList()
-        for node_type, address, node_uuid, state in node_list:
-            if node_uuid == uuid:
-                break
-        else:
-            state = None
-        return state
-
-    def getPrimaryMaster(self):
-        try:
-            current_try = self.neoctl.getPrimaryMaster()
-        except NotReadyException:
-            current_try = None
-        return current_try
-
     def expectCondition(self, condition, timeout, delay):
         end = time() + timeout + DELAY_SAFETY_MARGIN
         opaque = None
@@ -101,7 +55,7 @@ class MasterTests(unittest.TestCase):
 
     def expectAllMasters(self, state=None, timeout=0, delay=1):
         def callback(last_try):
-            current_try = len(self.getMasterNodeList(state=state))
+            current_try = len(neo.getMasterNodeList(state=state))
             if last_try is not None and current_try < last_try:
                 raise AssertionError, 'Regression: %s became %s' % \
                     (last_try, current_try)
@@ -112,13 +66,13 @@ class MasterTests(unittest.TestCase):
         if not isinstance(state, (tuple, list)):
             state = (state, )
         def callback(last_try):
-            current_try = self.getMasterNodeState(uuid)
+            current_try = neo.getMasterNodeState(uuid)
             return current_try in state, current_try
         self.expectCondition(callback, timeout, delay)
 
     def expectPrimaryMaster(self, uuid=None, timeout=0, delay=1):
         def callback(last_try):
-            current_try = self.getPrimaryMaster()
+            current_try = neo.getPrimaryMaster()
             if None not in (uuid, current_try) and uuid != current_try:
                 raise AssertionError, 'An unexpected primary arised: %r, ' \
                     'expected %r' % (dump(current_try), dump(uuid))
@@ -130,7 +84,7 @@ class MasterTests(unittest.TestCase):
         self.expectAllMasters()
 
         # Kill
-        killed_uuid_list = self.killSecondaryMaster()
+        killed_uuid_list = neo.killSecondaryMaster()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
@@ -142,7 +96,7 @@ class MasterTests(unittest.TestCase):
         self.expectAllMasters()
 
         # Kill
-        killed_uuid_list = self.killPrimaryMaster()
+        killed_uuid_list = neo.killPrimaryMaster()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
@@ -159,13 +113,13 @@ class MasterTests(unittest.TestCase):
         self.expectAllMasters(state=protocol.RUNNING_STATE)
 
         # Kill one secondary master.
-        killed_uuid_list = self.killSecondaryMaster()
+        killed_uuid_list = neo.killSecondaryMaster()
         # Test sanity checks.
         self.assertEqual(len(killed_uuid_list), 1)
         self.expectMasterState(killed_uuid_list[0], None)
-        self.assertEqual(len(self.getMasterNodeList()), 2)
+        self.assertEqual(len(neo.getMasterNodeList()), 2)
 
-        killed_uuid_list = self.killPrimaryMaster()
+        killed_uuid_list = neo.killPrimaryMaster()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
@@ -183,7 +137,7 @@ class MasterTests(unittest.TestCase):
         master_list = neo.getMasterProcessList()
 
         # Stop the cluster (so we can start processes manually)
-        self.killMasters()
+        neo.killMasters()
 
         # Start the first master.
         first_master = master_list[0]
@@ -198,7 +152,7 @@ class MasterTests(unittest.TestCase):
         # Check that the second master is running under his known UUID.
         self.expectMasterState(second_master.getUUID(), protocol.RUNNING_STATE)
         # Check that the primary master didn't change.
-        self.assertEqual(self.getPrimaryMaster(), first_master_uuid)
+        self.assertEqual(neo.getPrimaryMaster(), first_master_uuid)
 
         # Start a third master.
         third_master = master_list[2]
