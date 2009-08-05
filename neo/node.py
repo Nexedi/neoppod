@@ -25,7 +25,7 @@ class Node(object):
     """This class represents a node."""
 
     def __init__(self, server = None, uuid = None):
-        self.state = protocol.RUNNING_STATE
+        self.state = protocol.UNKNOWN_STATE
         self.server = server
         self.uuid = uuid
         self.manager = None

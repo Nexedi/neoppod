@@ -339,6 +339,7 @@ node_states = Enum({
     'BROKEN_STATE': 3,
     'HIDDEN_STATE' : 4,
     'PENDING_STATE': 5,
+    'UNKNOWN_STATE': 6,
 })
 
 # used for logging
@@ -349,6 +350,7 @@ node_state_prefix_dict = {
     BROKEN_STATE: 'B',
     HIDDEN_STATE: 'H',
     PENDING_STATE: 'P',
+    UNKNOWN_STATE: 'U',
 }
 
 # Partition cell states.
