@@ -34,7 +34,7 @@ class VerificationHandler(MasterHandler):
     def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
         app = self.app
         # If I get a bigger value here, it is dangerous.
-        if app.loid < loid or app.ltid < ltid or app.lptid < lptid:
+        if app.loid < loid or app.ltid < ltid or app.pt.getID() < lptid:
             logging.critical('got later information in verification')
             raise VerificationFailure
 
