@@ -101,8 +101,11 @@ class EventHandler(object):
             answer_packet = protocol.brokenNodeDisallowedError('go away')
             conn.answer(answer_packet, packet.getId())
             conn.abort()
-        except NotReadyError:
-            conn.answer(protocol.notReady('retry later'), packet.getId())
+        except NotReadyError, message:
+            if not message.args:
+                message = 'Retry Later'
+            message = str(message)
+            conn.answer(protocol.notReady(message), packet.getId())
             conn.abort()
         except ProtocolError, message:
             message = str(message)
