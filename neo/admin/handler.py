@@ -137,12 +137,6 @@ class MasterEventHandler(EventHandler):
         app.master_conn = None
         app.master_node = None
         app.uuid = None
-        nm = app.nm
-        uuid = conn.getUUID()
-        node = nm.getNodeByUUID(uuid)
-        assert node is not None
-        nm.update([(node.getType(), node.getServer(), uuid,
-                    protocol.DOWN_STATE)])
         raise PrimaryFailure
 
     def connectionFailed(self, conn):
