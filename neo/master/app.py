@@ -159,21 +159,22 @@ class Application(object):
                 node.setState(RUNNING_STATE)
             self.negotiating_master_node_set.clear()
 
+            # Expire temporarily down nodes. For now, assume that a node
+            # which is down for 60 seconds is really down, if this is a
+            # bootstrap. 60 seconds may sound too long, but this is reasonable
+            # when rebooting many cluster machines. Otherwise, wait for only
+            # 10 seconds, because stopping the whole cluster for a long time
+            # is a bad idea.
+            if bootstrap:
+                expiration = 60
+            else:
+                expiration = 10
+
             try:
                 while 1:
                     current_time = time()
                     if current_time >= t + 1:
                         t = current_time
-                        # Expire temporarily down nodes. For now, assume that a node
-                        # which is down for 60 seconds is really down, if this is a
-                        # bootstrap. 60 seconds may sound too long, but this is reasonable
-                        # when rebooting many cluster machines. Otherwise, wait for only
-                        # 10 seconds, because stopping the whole cluster for a long time
-                        # is a bad idea.
-                        if bootstrap:
-                            expiration = 60
-                        else:
-                            expiration = 10
                         for node in nm.getMasterNodeList():
                             if node.getState() == TEMPORARILY_DOWN_STATE \
                                     and node.getLastStateChange() + expiration < current_time:
