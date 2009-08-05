@@ -108,6 +108,7 @@ class NEOProcess:
         if self.pid:
             try:
                 os.kill(self.pid, sig)
+                self.pid = 0
             except OSError:
                 traceback.print_last()
         else:
@@ -144,6 +145,7 @@ class NEOProcess:
         return self.port
 
 class NEOCluster(object):
+
     def __init__(self, db_list, master_node_count=1,
                  partitions=1, replicas=0, port_base=10000,
                  db_user='neo', db_password='neo',
@@ -239,12 +241,13 @@ class NEOCluster(object):
         cursor.close()
         sql_connection.close()
 
-    def start(self):
+    def start(self, except_storages=[]):
         neoctl = self.neoctl
         assert len(self.process_dict)
         for process_list in self.process_dict.itervalues():
             for process in process_list:
-                process.start()
+                if process not in except_storages:
+                    process.start()
         # Try to put cluster in running state. This will succeed as soon as
         # admin node could connect to the primary master node.
         while True:
@@ -254,7 +257,7 @@ class NEOCluster(object):
                 time.sleep(0.5)
             else:
                 break
-        target_count = len(self.db_list)
+        target_count = len(self.db_list) - len(except_storages)
         while True:
             storage_node_list = neoctl.getNodeList(
                 node_type=protocol.STORAGE_NODE_TYPE)
