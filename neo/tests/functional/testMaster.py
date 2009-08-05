@@ -148,10 +148,11 @@ class MasterTests(unittest.TestCase):
         uuid = killed_uuid_list[0]
         # Check the state of the primary we just killed
         self.expectMasterState(uuid, (None, protocol.UNKNOWN_STATE))
+        self.assertEqual(self.getPrimaryMaster(), None)
         # Check that a primary master arised.
         self.expectPrimaryMaster(timeout=10)
         # Check that the uuid really changed.
-        new_uuid = self.neoctl.getPrimaryMaster()
+        new_uuid = self.getPrimaryMaster()
         self.assertNotEqual(new_uuid, uuid)
 
     def testStoppingPrimaryMasterWithOneSecondary(self):
@@ -170,10 +171,11 @@ class MasterTests(unittest.TestCase):
         uuid = killed_uuid_list[0]
         # Check the state of the primary we just killed
         self.expectMasterState(uuid, (None, protocol.UNKNOWN_STATE))
+        self.assertEqual(self.getPrimaryMaster(), None)
         # Check that a primary master arised.
         self.expectPrimaryMaster(timeout=10)
         # Check that the uuid really changed.
-        new_uuid = self.neoctl.getPrimaryMaster()
+        new_uuid = self.getPrimaryMaster()
         self.assertNotEqual(new_uuid, uuid)
 
     def testMasterSequentialStart(self):
@@ -196,7 +198,7 @@ class MasterTests(unittest.TestCase):
         # Check that the second master is running under his known UUID.
         self.expectMasterState(second_master.getUUID(), protocol.RUNNING_STATE)
         # Check that the primary master didn't change.
-        self.assertEqual(self.neoctl.getPrimaryMaster(), first_master_uuid)
+        self.assertEqual(self.getPrimaryMaster(), first_master_uuid)
 
         # Start a third master.
         third_master = master_list[2]
@@ -204,7 +206,7 @@ class MasterTests(unittest.TestCase):
         # Check that the third master is running under his known UUID.
         self.expectMasterState(third_master.getUUID(), protocol.RUNNING_STATE)
         # Check that the primary master didn't change.
-        self.assertEqual(self.neoctl.getPrimaryMaster(), first_master_uuid)
+        self.assertEqual(self.getPrimaryMaster(), first_master_uuid)
 
 def test_suite():
     return unittest.makeSuite(MasterTests)
