@@ -167,7 +167,7 @@ class MasterTests(unittest.TestCase):
         # Check that the third master is running under his known UUID.
         self.expectMasterState(third_master.getUUID(), protocol.RUNNING_STATE)
         # Check that the primary master didn't change.
-        self.assertEqual(self.getPrimaryMaster(), first_master_uuid)
+        self.assertEqual(neo.getPrimaryMaster(), first_master_uuid)
 
 def test_suite():
     return unittest.makeSuite(MasterTests)
