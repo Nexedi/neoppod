@@ -42,7 +42,6 @@ class Application(object):
     def __init__(self, filename, section, reset=False, uuid=None):
         config = ConfigurationManager(filename, section)
 
-        self.uuid = uuid
         self.name = config.getName()
         logging.debug('the name is %s', self.name)
         self.connector_handler = getConnectorHandler(config.getConnector())
@@ -83,6 +82,10 @@ class Application(object):
 
         self.dm.setup(reset)
         self.loadConfiguration()
+
+        # force node uuid from command line argument, for testing purpose only
+        if uuid is not None:
+            self.uuid = uuid
 
     def loadConfiguration(self):
         """Load persistent configuration data from the database.
