@@ -119,6 +119,7 @@ class NEOProcess:
         # If we get killed, kill subprocesses aswell.
         try:
             self.kill(signal.SIGKILL)
+            self.wait()
         except:
             # We can ignore all exceptions at this point, since there is no
             # garanteed way to handle them (other objects we would depend on
@@ -333,14 +334,17 @@ class NEOCluster(object):
     def getStorageNodeList(self, state=None):
         return self.__getNodeList(protocol.STORAGE_NODE_TYPE, state)
 
-    def getMasterNodeState(self, uuid):
-        node_list = self.getMasterNodeList()
+    def __getNodeState(self, node_type, uuid):
+        node_list = self.__getNodeList(node_type)
         for node_type, address, node_uuid, state in node_list:
             if node_uuid == uuid:
                 break
         else:
             state = None
         return state
+
+    def getMasterNodeState(self, uuid):
+        return self.__getNodeState(protocol.MASTER_NODE_TYPE, uuid)
 
     def getPrimaryMaster(self):
         try:
@@ -373,13 +377,21 @@ class NEOCluster(object):
             return (current_try == node_count, current_try)
         self.expectCondition(callback, timeout, delay)
 
-    def expectMasterState(self, uuid, state, timeout=0, delay=1):
+    def __expectNodeState(self, node_type, uuid, state, timeout=0, delay=1):
         if not isinstance(state, (tuple, list)):
             state = (state, )
         def callback(last_try):
-            current_try = self.getMasterNodeState(uuid)
+            current_try = self.__getNodeState(node_type, uuid)
             return current_try in state, current_try
         self.expectCondition(callback, timeout, delay)
+        
+    def expectMasterState(self, uuid, state, timeout=0, delay=1):
+        self.__expectNodeState(protocol.MASTER_NODE_TYPE, uuid, state, timeout,
+                delay)
+
+    def expectStorageState(self, uuid, state, timeout=0, delay=1):
+        self.__expectNodeState(protocol.STORAGE_NODE_TYPE, uuid, state, 
+                timeout,delay)
 
     def expectPrimaryMaster(self, uuid=None, timeout=0, delay=1):
         def callback(last_try):
