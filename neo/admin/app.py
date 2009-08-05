@@ -121,6 +121,8 @@ class Application(object):
                 self.uuid, self.server)
         data = bootstrap.getPrimaryConnection(self.connector_handler)
         (node, conn, uuid, num_partitions, num_replicas) = data
+        nm.update([(node.getType(), node.getServer(), node.getUUID(),
+                    protocol.RUNNING_STATE)])
         self.master_node = node
         self.master_conn = conn
         self.uuid = uuid
