@@ -49,6 +49,13 @@ DB_ADMIN = 'root'
 DB_PASSWD = None
 DB_USER = 'test'
 
+def getNewUUID():
+    """ Return a valid UUID """
+    uuid = protocol.INVALID_UUID
+    while uuid == protocol.INVALID_UUID:
+        uuid = os.urandom(16)
+    return uuid
+
 class NeoTestBase(unittest.TestCase):
     """ Base class for neo tests, implements common checks """
 
@@ -108,19 +115,14 @@ class NeoTestBase(unittest.TestCase):
     # XXX: according to changes with namespaced UUIDs, it would be better to 
     # implement get<NodeType>UUID() methods 
     def getNewUUID(self):
-        """ Return a valid UUID """
-        uuid = protocol.INVALID_UUID
-        while uuid == protocol.INVALID_UUID:
-            uuid = os.urandom(16)
-        self.uuid = uuid
-        return uuid
+        self.uuid = getNewUUID()
+        return self.uuid
 
     def getTwoIDs(self):
         """ Return a tuple of two sorted UUIDs """
         # generate two ptid, first is lower
-        ptids = self.getNewUUID(), self.getNewUUID()
-        return min(ptids), max(ptids)
-        ptid = min(ptids)
+        uuids = self.getNewUUID(), self.getNewUUID()
+        return min(uuids), max(uuids)
 
     def getFakeConnection(self, uuid=None, address=('127.0.0.1', 10000)):
         return Mock({

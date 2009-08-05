@@ -337,8 +337,8 @@ class MasterServerElectionTests(NeoTestBase):
     def test_09_handleAnswerPrimaryMaster1(self):
         # test with master node and greater uuid
         uuid = self.getNewUUID()
-        while uuid < self.app.uuid:
-            uuid = self.getNewUUID()
+        if uuid < self.app.uuid:
+            self.app.uuid, uuid = self.app.uuid, uuid
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
@@ -358,8 +358,8 @@ class MasterServerElectionTests(NeoTestBase):
     def test_09_handleAnswerPrimaryMaster2(self):
         # test with master node and lesser uuid
         uuid = self.getNewUUID()
-        while uuid > self.app.uuid:
-            uuid = self.getNewUUID()
+        if uuid > self.app.uuid:
+            self.app.uuid, uuid = self.app.uuid, uuid
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
