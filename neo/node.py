@@ -209,7 +209,7 @@ class NodeManager(object):
     
     def clear(self, filter=None):
         for node in self.getNodeList():
-            if filter is not None and filter(node):
+            if filter is None or filter(node):
                 self.remove(node)
 
     def update(self, node_list):
