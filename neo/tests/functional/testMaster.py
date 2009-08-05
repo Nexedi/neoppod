@@ -145,9 +145,14 @@ class MasterTests(unittest.TestCase):
         first_master_uuid = first_master.getUUID()
         # Check that the master node we started elected itself.
         self.expectPrimaryMaster(first_master_uuid, timeout=60)
+        # Check that no other node is known as running.
+        self.assertEqual(len(neo.getMasterNodeList(
+            state=protocol.RUNNING_STATE)), 1)
 
         # Start a second master.
         second_master = master_list[1]
+        # Check that the second master is known as being down.
+        self.assertEqual(neo.getMasterNodeState(second_master.getUUID()), None)
         second_master.start()
         # Check that the second master is running under his known UUID.
         self.expectMasterState(second_master.getUUID(), protocol.RUNNING_STATE)
@@ -156,6 +161,8 @@ class MasterTests(unittest.TestCase):
 
         # Start a third master.
         third_master = master_list[2]
+        # Check that the third master is known as being down.
+        self.assertEqual(neo.getMasterNodeState(third_master.getUUID()), None)
         third_master.start()
         # Check that the third master is running under his known UUID.
         self.expectMasterState(third_master.getUUID(), protocol.RUNNING_STATE)
