@@ -62,6 +62,8 @@ NEO_MASTER = 'neomaster'
 NEO_STORAGE = 'neostorage'
 NEO_ADMIN = 'neoadmin'
 
+DELAY_SAFETY_MARGIN = 5
+
 class AlreadyRunning(Exception):
     pass
 
@@ -321,9 +323,15 @@ class NEOCluster(object):
         primary_list = self.killPrimaryMaster()
         return secondary_list + primary_list
 
-    def getMasterNodeList(self, state=None):
-        return [x for x in self.neoctl.getNodeList(protocol.MASTER_NODE_TYPE)
+    def __getNodeList(self, node_type, state=None):
+        return [x for x in self.neoctl.getNodeList(node_type)
                 if state is None or x[3] == state]
+
+    def getMasterNodeList(self, state=None):
+        return self.__getNodeList(protocol.MASTER_NODE_TYPE, state)
+
+    def getStorageNodeList(self, state=None):
+        return self.__getNodeList(protocol.STORAGE_NODE_TYPE, state)
 
     def getMasterNodeState(self, uuid):
         node_list = self.getMasterNodeList()
@@ -340,6 +348,48 @@ class NEOCluster(object):
         except NotReadyException:
             current_try = None
         return current_try
+
+    def expectCondition(self, condition, timeout, delay):
+        end = time.time() + timeout + DELAY_SAFETY_MARGIN
+        opaque = None
+        opaque_history = []
+        while time.time() < end:
+            reached, opaque = condition(opaque)
+            if reached:
+                break
+            else:
+                opaque_history.append(opaque)
+                time.sleep(delay)
+        else:
+          raise AssertionError, 'Timeout while expecting condition. ' \
+                                'History: %s' % (opaque_history, )
+
+    def expectAllMasters(self, node_count, state=None, timeout=0, delay=1):
+        def callback(last_try):
+            current_try = len(self.getMasterNodeList(state=state))
+            if last_try is not None and current_try < last_try:
+                raise AssertionError, 'Regression: %s became %s' % \
+                    (last_try, current_try)
+            return (current_try == node_count, current_try)
+        self.expectCondition(callback, timeout, delay)
+
+    def expectMasterState(self, uuid, state, timeout=0, delay=1):
+        if not isinstance(state, (tuple, list)):
+            state = (state, )
+        def callback(last_try):
+            current_try = self.getMasterNodeState(uuid)
+            return current_try in state, current_try
+        self.expectCondition(callback, timeout, delay)
+
+    def expectPrimaryMaster(self, uuid=None, timeout=0, delay=1):
+        def callback(last_try):
+            current_try = self.getPrimaryMaster()
+            if None not in (uuid, current_try) and uuid != current_try:
+                raise AssertionError, 'An unexpected primary arised: %r, ' \
+                    'expected %r' % (dump(current_try), dump(uuid))
+            return uuid is None or uuid == current_try, current_try
+        self.expectCondition(callback, timeout, delay)
+
 
     def __del__(self):
         if self.cleanup_on_delete:
