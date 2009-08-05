@@ -412,6 +412,16 @@ class NEOCluster(object):
             return uuid is None or uuid == current_try, current_try
         self.expectCondition(callback, timeout, delay)
 
+    def expectNoOudatedCells(self, timeout=0, delay=1):
+        def callback(last_try):
+            row_list = self.neoctl.getPartitionRowList()[1]
+            for row in row_list:
+                for cell in row[1]:
+                    if cell[1] != protocol.UP_TO_DATE_STATE:
+                        return False, last_try
+            return True, last_try
+        self.expectCondition(callback, timeout, delay)
+
     def expectClusterState(self, state, timeout=0, delay=1):
         def callback(last_try):
             current_try = self.neoctl.getClusterState()
