@@ -71,6 +71,9 @@ class AdministrationHandler(MasterHandler):
             p = protocol.noError('node state changed')
             conn.answer(p, packet.getId())
         else:
+            # FIXME: this is wrong, what about a disconnected node to set in 
+            # down state ? we can't get a connection to it but still set the 
+            # state.
             # first make sure to have a connection to the node
             node_conn = None
             conn_found = False
