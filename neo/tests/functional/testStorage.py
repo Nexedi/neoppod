@@ -49,8 +49,8 @@ class StorageTests(unittest.TestCase):
 
     def __setup(self, storage_number=2, pending_number=0, replicas=1, partitions=10):
         # create a neo cluster
-        storage_number = ['test_neo%d' % i for i in xrange(storage_number)]
-        self.neo = NEOCluster(storage_number, port_base=20000, 
+        self.neo = NEOCluster(['test_neo%d' % i for i in xrange(storage_number)],
+            port_base=20000, 
             master_node_count=2,
             partitions=10, replicas=replicas,
         )
