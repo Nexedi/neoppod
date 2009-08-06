@@ -69,7 +69,7 @@ class AdminEventHandler(EventHandler):
             return
         if node.getState() == state and modify_partition_table is False:
             # no change
-            p = protocol.answerNodeState(node.getUUID(), node.getState())
+            p = protocol.noError('no change')
             conn.answer(p, packet.getId())
             return
         # forward to primary master node

@@ -91,9 +91,8 @@ class NeoCTL(object):
             update_partition_table = 0
         packet = protocol.setNodeState(node, state, update_partition_table)
         response = self.__ask(packet)
-        assert response[0] == protocol.ANSWER_NODE_STATE
-        assert node == response[1]
-        assert state == response[2]
+        assert response[0] == protocol.ERROR
+        assert response[1] == protocol.NO_ERROR_CODE
 
     def getClusterState(self):
         """
