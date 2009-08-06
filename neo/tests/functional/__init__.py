@@ -296,6 +296,11 @@ class NEOCluster(object):
         db = ZODB.DB(storage=self.getZODBStorage())
         return (db, db.open())
 
+    def getSQLConnection(self, db):
+        assert db in self.db_list
+        return MySQLdb.Connect(user=self.db_user, passwd=self.db_password,
+                               db=db)
+
     def _getProcessList(self, type):
         return self.process_dict.get(type)
 

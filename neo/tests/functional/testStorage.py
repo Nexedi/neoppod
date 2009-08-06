@@ -16,7 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import ZODB
-import MySQLdb
 import unittest
 import transaction
 from Persistence import Persistent
@@ -75,7 +74,7 @@ class StorageTests(unittest.TestCase):
         db.close()
 
     def __checkDatabase(self, db_name):
-        db = MySQLdb.connect(db=db_name, user='test')
+        db = self.neo.getSQLConnection(db_name)
         # wait for the sql transaction to be commited
         def callback(last_try):
             object_number = self.queryCount(db, 'select count(*) from obj')
