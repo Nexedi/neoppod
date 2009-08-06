@@ -799,13 +799,14 @@ class Application(object):
             if uuid is None or node is None:
                 # if node is unknown, it has been forget when the current
                 # partition was validated by the admin
-                uuid = None
+                # Here the uuid is not cleared to allow lookup pending nodes by
+                # uuid from the test framework. It's safe since nodes with a 
+                # conflicting UUID are rejected in the identification handler.
                 state = protocol.PENDING_STATE
             handler = verification.VerificationHandler
         elif self.cluster_state == protocol.RUNNING:
             if uuid is None or node is None:
                 # same as for verification
-                uuid = None
                 state = protocol.PENDING_STATE
             handler = storage.StorageServiceHandler
         elif self.cluster_state == protocol.STOPPING:
