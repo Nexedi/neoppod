@@ -112,6 +112,7 @@ class Application(object):
 
         nm = self.nm
         nm.clear()
+        self.cluster_state = None
         for server in self.master_node_list:
             nm.add(MasterNode(server = server))
 
