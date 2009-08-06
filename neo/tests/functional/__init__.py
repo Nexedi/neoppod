@@ -134,6 +134,10 @@ class NEOProcess:
         self.pid = 0
         return result
 
+    def stop(self):
+        self.kill()
+        self.wait()
+
     def getUUID(self):
         return self.uuid
 
@@ -419,14 +423,15 @@ class NEOCluster(object):
             return uuid is None or uuid == current_try, current_try
         self.expectCondition(callback, timeout, delay)
 
-    def expectNoOudatedCells(self, timeout=0, delay=1):
+    def expectOudatedCells(self, number, timeout=0, delay=1):
         def callback(last_try):
             row_list = self.neoctl.getPartitionRowList()[1]
+            number_of_oudated = 0
             for row in row_list:
                 for cell in row[1]:
-                    if cell[1] != protocol.UP_TO_DATE_STATE:
-                        return False, last_try
-            return True, last_try
+                    if cell[1] == protocol.OUT_OF_DATE_STATE:
+                        number_of_oudated += 1
+            return number_of_oudated == number, number_of_oudated
         self.expectCondition(callback, timeout, delay)
 
     def expectClusterState(self, state, timeout=0, delay=1):
@@ -434,6 +439,15 @@ class NEOCluster(object):
             current_try = self.neoctl.getClusterState()
             return current_try == state, current_try
         self.expectCondition(callback, timeout, delay)
+
+    def expectClusterRecovering(self, timeout=0, delay=1):
+        self.expectClusterState(protocol.RECOVERING)
+
+    def expectClusterVeryfing(self, timeout=0, delay=1):
+        self.expectClusterState(protocol.VERIFYING)
+
+    def expectClusterRunning(self, timeout=0, delay=1):
+        self.expectClusterState(protocol.RUNNING)
 
     def __del__(self):
         if self.cleanup_on_delete:
