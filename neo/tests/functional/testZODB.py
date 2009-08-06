@@ -38,9 +38,9 @@ class DecoyIndependent(Persistent):
     def _p_independent(self):
         return 0
 
-neo = NEOCluster(['test_neo1', 'test_neo2', 'test_neo3', 'test_neo4'],
-                 partitions=1009, replicas=1, port_base=20000,
-                 master_node_count=3)
+neo = NEOCluster(['test_neo1'],
+                 partitions=1, replicas=0, port_base=20000,
+                 master_node_count=1)
 
 class ZODBTests(unittest.TestCase):
 
