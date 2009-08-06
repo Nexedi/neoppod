@@ -100,7 +100,7 @@ class VerboseLockBase(object):
 
 class VerboseRLock(VerboseLockBase):
     def __init__(self, verbose=None):
-        VerboseLock.__init__(self, reentrant=True)
+        super(VerboseRLock, self).__init__(reentrant=True)
         self.lock = threading_RLock()
 
     def _locked(self):
@@ -111,7 +111,7 @@ class VerboseRLock(VerboseLockBase):
 
 class VerboseLock(VerboseLockBase):
     def __init__(self, verbose=None):
-        VerboseLock.__init__(self)
+        super(VerboseLock, self).__init__()
         self.lock = threading_Lock()
 
     def locked(self):
