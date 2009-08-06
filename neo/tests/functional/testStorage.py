@@ -56,8 +56,7 @@ class StorageTests(unittest.TestCase):
         )
         self.neo.setupDB()
         # too many pending storage nodes requested
-        if pending_number > storage_number:
-            pending_number = storage_number
+        assert pending_number <= storage_number:
         storage_processes  = self.neo.getStorageProcessList()
         start_storage_number = len(storage_processes) - pending_number
         # return a tuple of storage processes lists
