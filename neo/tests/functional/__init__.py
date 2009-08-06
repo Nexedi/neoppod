@@ -63,7 +63,7 @@ NEO_MASTER = 'neomaster'
 NEO_STORAGE = 'neostorage'
 NEO_ADMIN = 'neoadmin'
 
-DELAY_SAFETY_MARGIN = 5
+DELAY_SAFETY_MARGIN = 10
 
 class AlreadyRunning(Exception):
     pass
