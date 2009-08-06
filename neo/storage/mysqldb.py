@@ -369,6 +369,18 @@ class MySQLDatabaseManager(DatabaseManager):
     def setPartitionTable(self, ptid, cell_list):
         self.doSetPartitionTable(ptid, cell_list, True)
 
+    def dropPartition(self, num_partitions, offset):
+        q = self.query
+        self.begin()
+        try:
+            q("""DELETE FROM obj WHERE MOD(oid, %d) = %d""" % 
+                (num_partitions, offset))
+            q("""DELETE FROM trans WHERE MOD(oid, %d) = %d""" % 
+                (num_partitions, offset))
+        except:
+            self.rollback()
+        self.commit()
+
     def dropUnfinishedData(self):
         q = self.query
         self.begin()

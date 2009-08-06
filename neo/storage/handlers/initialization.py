@@ -48,8 +48,16 @@ class InitializationHandler(BaseMasterHandler):
         # Install the partition table into the database for persistency.
         cell_list = []
         for offset in xrange(app.pt.getPartitions()):
+            assigned_to_me = False
             for cell in pt.getCellList(offset):
                 cell_list.append((offset, cell.getUUID(), cell.getState()))
+                if cell.getUUID() == app.uuid:
+                    assigned_to_me = True
+            if not assigned_to_me:
+                logging.warning('drop data for partition %d' % offset)
+                # not for me, delete objects database
+                app.dm.dropPartition(app.pt.getPartitions(), offset)
+
         app.dm.setPartitionTable(ptid, cell_list)
         self.app.has_partition_table = True
 

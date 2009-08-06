@@ -127,6 +127,12 @@ class DatabaseManager(object):
         thrown away."""
         raise NotImplementedError('this method must be overridden')
 
+    def dropPartition(self, offset):
+        """ Drop objects and transactions assigned to a partition table,
+        this should be called only during storage initialization, to clear
+        existing data that could be stored by a previous cluster life """
+        raise NotImplementedError('this method must be overriden')
+
     def dropUnfinishedData(self):
         """Drop any unfinished data from a database."""
         raise NotImplementedError('this method must be overridden')
