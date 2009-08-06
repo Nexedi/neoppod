@@ -174,7 +174,7 @@ class PrimaryNotificationsHandler(BaseHandler):
                 conn.close()
                 if node_type == protocol.STORAGE_NODE_TYPE:
                     # Remove from pool connection
-                    app.cp.removeConnection(n)
+                    app.cp.removeConnection(conn)
                     self.dispatcher.unregister(conn)
 
 class PrimaryAnswersHandler(AnswerBaseHandler):
