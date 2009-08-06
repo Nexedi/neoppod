@@ -87,16 +87,6 @@ class AdministrationHandler(MasterHandler):
                 conn.notify(p)
                 return
 
-            node.setState(state)
-            p = protocol.noError('state changed')
-            conn.answer(p, packet.getId())
-            app.broadcastNodeInformation(node)
-            # If this is a storage node, ask it to start.
-            if node.isStorage() and state == RUNNING_STATE  \
-                   and self.app.cluster_state == RUNNING:
-                logging.info("asking sn to start operation")
-                node_conn.notify(protocol.startOperation())
-
         # modify the partition table if required
         if modify_partition_table and node.isStorage():
             if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE):
@@ -114,6 +104,17 @@ class AdministrationHandler(MasterHandler):
             if len(cell_list) != 0:
                 ptid = app.pt.setNextID()
                 app.broadcastPartitionChanges(ptid, cell_list)
+
+        if node.getState() != state:
+            node.setState(state)
+            p = protocol.noError('state changed')
+            conn.answer(p, packet.getId())
+            app.broadcastNodeInformation(node)
+            # If this is a storage node, ask it to start.
+            if node.isStorage() and state == RUNNING_STATE  \
+                   and self.app.cluster_state == RUNNING:
+                logging.info("asking sn to start operation")
+                node_conn.notify(protocol.startOperation())
 
     def handleAddPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
