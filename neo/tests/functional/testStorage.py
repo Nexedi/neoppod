@@ -67,7 +67,7 @@ class StorageTests(unittest.TestCase):
         return (started_processes, stopped_processes)
 
     def __populate(self):
-        db, conn = self.neo.getConnection()
+        db, conn = self.neo.getZODBConnection()
         root = conn.root()
         for i in xrange(OBJECT_NUMBER):
             root[i] = PObject(i) 

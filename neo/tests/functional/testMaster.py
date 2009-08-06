@@ -31,7 +31,7 @@ class MasterTests(unittest.TestCase):
     def setUp(self):
         neo.stop()
         neo.start()
-        self.storage = neo.getStorage()
+        self.storage = neo.getZODBStorage()
         self.neoctl = neo.getNEOCTL()
 
     def tearDown(self):

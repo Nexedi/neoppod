@@ -48,7 +48,7 @@ class ZODBTests(unittest.TestCase):
         neo.stop()
         neo.setupDB()
         neo.start()
-        self._storage = neo.getStorage()
+        self._storage = neo.getZODBStorage()
         self._db = ZODB.DB(self._storage)
 
     def populate(self):

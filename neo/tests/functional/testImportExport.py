@@ -47,20 +47,24 @@ class ImportExportTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp(prefix='neo_import_export_')
         print "using the temp directory %s" % self.temp_dir
+        # create a neo cluster
+        databases = ['test_neo1', 'test_neo2']
+        self.neo = NEOCluster(databases, port_base=20000, master_node_count=2)
+        self.neo.setupDB()
 
     def tearDown(self):
-        pass
+        self.neo.stop()
 
-    def checkTree(self, tree, depth=TREE_SIZE):
+    def __checkTree(self, tree, depth=TREE_SIZE):
         self.assertTrue(isinstance(tree, Tree))
         self.assertEqual(depth, tree.depth)
         depth -= 1
         if depth <= 0:
             return
-        self.checkTree(tree.right, depth)
-        self.checkTree(tree.left, depth)
+        self.__checkTree(tree.right, depth)
+        self.__checkTree(tree.left, depth)
 
-    def getDataFS(self, reset=False):
+    def __getDataFS(self, reset=False):
         name = os.path.join(self.temp_dir, 'data.fs')
         if reset and os.path.exists(name):
             os.remove(name)
@@ -68,7 +72,7 @@ class ImportExportTests(unittest.TestCase):
         db = ZODB.DB(storage=storage)
         return (db, storage)
     
-    def populate(self, db, tree_size=TREE_SIZE):
+    def __populate(self, db, tree_size=TREE_SIZE):
         conn = db.open()
         root = conn.root()
         root['trees'] = Tree(tree_size)
@@ -78,52 +82,37 @@ class ImportExportTests(unittest.TestCase):
     def testImport(self):
 
         # source database
-        dfs_db, dfs_storage  = self.getDataFS()
-        self.populate(dfs_db)
-
-        # create a neo cluster
-        databases = ['test_neo1', 'test_neo2']
-        neo = NEOCluster(databases, port_base=20000, master_node_count=2)
-        neo.setupDB()
-        neo.start()
+        dfs_db, dfs_storage  = self.__getDataFS()
+        self.__populate(dfs_db)
 
         # create a neo storage
-        neo_args = {'connector': 'SocketConnector', 'name': neo.cluster_name}
-        neo_storage = NEOStorage(master_nodes=neo.master_nodes, **neo_args)
+        self.neo.start()
+        neo_storage = self.neo.getZODBStorage()
 
         # copy data fs to neo
         neo_storage.copyTransactionsFrom(dfs_storage, verbose=0)
 
         # check neo content
-        neo_db = ZODB.DB(storage=neo_storage)
-        conn = neo_db.open()
-        root = conn.root()
-
-        self.checkTree(root['trees'])
+        (neo_db, neo_conn) = self.neo.getZODBConnection()
+        self.__checkTree(neo_conn.root()['trees'])
 
     def testExport(self):
 
-        # create a neo cluster
-        databases = ['test_neo1', 'test_neo2']
-        neo = NEOCluster(databases, port_base=20000, master_node_count=2)
-        neo.setupDB()
-        neo.start()
-
         # create a neo storage
-        neo_args = {'connector': 'SocketConnector', 'name': neo.cluster_name}
-        neo_storage = NEOStorage(master_nodes=neo.master_nodes, **neo_args)
-        neo_db = ZODB.DB(storage=neo_storage)
-        self.populate(neo_db)
+        self.neo.start()
+        (neo_db, neo_conn) = self.neo.getZODBConnection()
+        self.__populate(neo_db)
 
         # copy neo to data fs
-        dfs_db, dfs_storage  = self.getDataFS(reset=True)
+        dfs_db, dfs_storage  = self.__getDataFS(reset=True)
+        neo_storage = self.neo.getZODBStorage()
         dfs_storage.copyTransactionsFrom(neo_storage, verbose=0)
 
         # check data fs content
         conn = dfs_db.open()
         root = conn.root()
 
-        self.checkTree(root['trees'])
+        self.__checkTree(root['trees'])
         
 
 if __name__ == "__main__":

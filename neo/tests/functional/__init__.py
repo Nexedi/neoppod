@@ -285,16 +285,15 @@ class NEOCluster(object):
     def getNEOCTL(self):
         return self.neoctl
 
-    def getStorage(self):
+    def getZODBStorage(self):
         return Storage(
             master_nodes=self.master_nodes,
             name=self.cluster_name,
             connector='SocketConnector')
 
-    def getConnection(self):
+    def getZODBConnection(self):
         """ Return a tuple with the database and a connection """
-        storage = self.getStorage()
-        db = ZODB.DB(storage=self.getStorage())
+        db = ZODB.DB(storage=self.getZODBStorage())
         return (db, db.open())
 
     def _getProcessList(self, type):
