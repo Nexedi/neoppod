@@ -23,23 +23,16 @@ from neo import protocol
 from neo.exception import PrimaryFailure
 from neo.util import dump
 
-def master_connection_required(handler):
-    """ Check if the master connection is established """
-    def decorator(self, *args, **kwargs):
-        if self.app.master_conn is None:
-            raise protocol.NotReadyError('Not connected to a primary master.')
-        handler(self, *args, **kwargs)
-    return decorator
-
 class AdminEventHandler(EventHandler):
     """This class deals with events for administrating cluster."""
 
-    @master_connection_required
     def handleAskPartitionList(self, conn, packet, min_offset, max_offset, uuid):
         logging.info("ask partition list from %s to %s for %s" %(min_offset, max_offset, dump(uuid)))
         app = self.app
         # check we have one pt otherwise ask it to PMN
         if app.pt is None:
+            if self.app.master_conn is None:
+                raise protocol.NotReadyError('Not connected to a primary master.')
             p = protocol.askPartitionTable([])
             msg_id = self.app.master_conn.ask(p)
             app.dispatcher.register(msg_id, conn,
@@ -67,7 +60,6 @@ class AdminEventHandler(EventHandler):
         p = protocol.answerNodeList(node_information_list)
         conn.answer(p, packet.getId())
 
-    @master_connection_required
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s" %(dump(uuid), state))
         node = self.app.nm.getNodeByUUID(uuid)
@@ -81,27 +73,32 @@ class AdminEventHandler(EventHandler):
             conn.answer(p, packet.getId())
             return
         # forward to primary master node
+        if self.app.master_conn is None:
+            raise protocol.NotReadyError('Not connected to a primary master.')
         p = protocol.setNodeState(uuid, state, modify_partition_table)
         msg_id = self.app.master_conn.ask(p)
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
-    @master_connection_required
     def handleSetClusterState(self, conn, packet, state):
         # forward to primary
+        if self.app.master_conn is None:
+            raise protocol.NotReadyError('Not connected to a primary master.')
         p = protocol.setClusterState(state)
         msg_id = self.app.master_conn.ask(p)
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
-    @master_connection_required
     def handleAddPendingNodes(self, conn, packet, uuid_list):
+        if self.app.master_conn is None:
+            raise protocol.NotReadyError('Not connected to a primary master.')
         logging.info('Add nodes %s' % [dump(uuid) for uuid in uuid_list])
         # forward the request to primary
         msg_id = self.app.master_conn.ask(protocol.addPendingNodes(uuid_list))
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
-    @master_connection_required
     def handleAskClusterState(self, conn, packet):
         if self.app.cluster_state is None:
+            if self.app.master_conn is None:
+                raise protocol.NotReadyError('Not connected to a primary master.')
             # required it from PMN first
             msg_id = self.app.master_conn.ask(protocol.askClusterState())
             self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
@@ -109,8 +106,9 @@ class AdminEventHandler(EventHandler):
             conn.answer(protocol.answerClusterState(self.app.cluster_state), 
                 packet.getId())
 
-    @master_connection_required
     def handleAskPrimaryMaster(self, conn, packet):
+        if self.app.master_conn is None:
+            raise protocol.NotReadyError('Not connected to a primary master.')
         master_node = self.app.master_node
         conn.answer(protocol.answerPrimaryMaster(master_node.getUUID(), []),
             packet.getId())
