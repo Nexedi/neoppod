@@ -287,7 +287,7 @@ packet_types = Enum({
     'SET_CLUSTER_STATE': 0x0026,
 
     # Notify information about the cluster
-    'NOTIFY_CLUSTER_INFORMATION': 0x8027,
+    'NOTIFY_CLUSTER_INFORMATION': 0x0027,
 
     # Ask state of the cluster
     'ASK_CLUSTER_STATE': 0x0028,
