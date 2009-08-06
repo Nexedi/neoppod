@@ -33,6 +33,32 @@ class ClusterTests(unittest.TestCase):
         finally:
             neo.stop()
 
+    def testClusterBreaksWithTwoNodes(self):
+        neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
+                         partitions=2, master_node_count=1)
+        neoctl = neo.getNEOCTL()
+        neo.setupDB()
+        neo.start()
+        try:
+            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING)
+            neo.killStorage()
+            neo.expectClusterState(protocol.VERIFYING)
+        finally:
+            neo.stop()
+
+    def testClusterDoesntBreakWithTwoNodesOneReplica(self):
+        neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
+                         partitions=2, replicas=1, master_node_count=1)
+        neoctl = neo.getNEOCTL()
+        neo.setupDB()
+        neo.start()
+        try:
+            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING)
+            neo.killStorage()
+            neo.expectClusterState(protocol.RUNNING)
+        finally:
+            neo.stop()
+
 def test_suite():
     return unittest.makeSuite(ClusterTests)
 
