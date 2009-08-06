@@ -106,6 +106,12 @@ class SelectEventManager(object):
         self.connection_dict[conn.getConnector()] = conn
 
     def unregister(self, conn):
+        new_pending_processing = [x for x in self._pending_processing
+                                  if x is not conn]
+        # Check that we removed at most one entry from
+        # self._pending_processing .
+        assert len(new_pending_processing) > len(self._pending_processing) - 2
+        self._pending_processing = new_pending_processing
         del self.connection_dict[conn.getConnector()]
 
     def _getPendingConnection(self):
@@ -229,6 +235,12 @@ class EpollEventManager(object):
         self.epoll.register(fd)
 
     def unregister(self, conn):
+        new_pending_processing = [x for x in self._pending_processing
+                                  if x is not conn]
+        # Check that we removed at most one entry from
+        # self._pending_processing .
+        assert len(new_pending_processing) > len(self._pending_processing) - 2
+        self._pending_processing = new_pending_processing
         fd = conn.getConnector().getDescriptor()
         self.epoll.unregister(fd)
         del self.connection_dict[fd]
