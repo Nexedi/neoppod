@@ -79,7 +79,7 @@ class StorageTests(unittest.TestCase):
         def callback(last_try):
             object_number = self.queryCount(db, 'select count(*) from obj')
             return object_number == OBJECT_NUMBER + 2, object_number
-        self.neo.expectCondition(callback, 0, 1)
+        self.neo.expectCondition(callback)
         # no more temporarily objects
         t_objects = self.queryCount(db, 'select count(*) from tobj')
         self.assertEqual(t_objects, 0)
@@ -93,6 +93,10 @@ class StorageTests(unittest.TestCase):
 
     def __checkReplicationDone(self):
         # wait for replication to finish
+        def expect_all_storages(last_try):
+            storage_number = len(self.neo.getStorageNodeList())
+            return storage_number == len(self.neo.db_list), storage_number
+        self.neo.expectCondition(expect_all_storages, timeout=10)
         self.neo.expectOudatedCells(number=0, timeout=10)
         # check databases
         for db_name in self.neo.db_list:
@@ -219,7 +223,27 @@ class StorageTests(unittest.TestCase):
         self.__expectUnavailable(started[2])
         self.neo.expectOudatedCells(number=20)
         self.neo.expectClusterVeryfing()
-    
+
+    def testConflictingStorageRejected(self):
+
+        # start with one storage
+        (started, stopped) = self.__setup(storage_number=2, pending_number=1)
+        self.__expectRunning(started[0])
+        self.neo.expectClusterRunning()
+
+        # start the second with the same UUID as the first
+        stopped[0].setUUID(started[0].getUUID())
+        stopped[0].start()
+
+        # check the first and the cluster are still running
+        self.__expectRunning(started[0])
+        self.neo.expectClusterRunning()
+
+        # XXX: should wait for the storage rejection
+
+        # check that no node were added
+        storage_number = len(self.neo.getStorageNodeList())
+        self.assertEqual(storage_number, 1)
 
 if __name__ == "__main__":
     unittest.main()
