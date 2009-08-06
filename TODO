@@ -76,6 +76,9 @@ RC  - Review output of pylint (CODE)
       should be made a singleton (saves the CPU time needed to instanciates all
       the copies - often when a connection is established, saves the memory
       used by each copy).
+    - Fix packet types (CODE)
+      Some packets are of response type but have a name starting with 'notify'.
+      Decide wether they are notifications or responses, and fix the right one.
 
     Storage
     - Implement incremental storage verification (BANDWITH)
