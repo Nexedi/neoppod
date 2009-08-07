@@ -311,6 +311,7 @@ class Application(object):
 
     def broadcastPartitionChanges(self, ptid, cell_list):
         """Broadcast a Notify Partition Changes packet."""
+        # XXX: don't send if cell_list is empty, to have an unique check
         logging.debug('broadcastPartitionChanges')
         self.pt.log()
         for c in self.em.getConnectionList():

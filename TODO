@@ -79,6 +79,9 @@ RC  - Review output of pylint (CODE)
     - Fix packet types (CODE)
       Some packets are of response type but have a name starting with 'notify'.
       Decide wether they are notifications or responses, and fix the right one.
+    - Consider replace setNodeState admin packet by one per action, like
+      dropNode to reduce packet processing complexity and reduce bad actions
+      like set a node in TEMPORARILY_DOWN state.
 
     Storage
     - Implement incremental storage verification (BANDWITH)

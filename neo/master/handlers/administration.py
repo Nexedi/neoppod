@@ -48,20 +48,12 @@ class AdministrationHandler(MasterHandler):
         app = self.app
         node = app.nm.getNodeByUUID(uuid)
         if node is None:
-            p = protocol.protocolError('invalid uuid')
-            conn.answer(p, packet.getId())
-            return
+            raise protocol.ProtocolError('unknown node')
 
         if uuid == app.uuid:
+            node.setState(state)
             # get message for self
-            if state == RUNNING_STATE:
-                # yes I know
-                p = protocol.noError('node state changed')
-                conn.answer(p, packet.getId())
-                return
-            else:
-                # I was asked to shutdown
-                node.setState(state)
+            if state != RUNNING_STATE:
                 p = protocol.noError('node state changed')
                 conn.answer(p, packet.getId())
                 app.shutdown()
@@ -70,51 +62,36 @@ class AdministrationHandler(MasterHandler):
             # no change, just notify admin node
             p = protocol.noError('node state changed')
             conn.answer(p, packet.getId())
-        else:
-            # FIXME: this is wrong, what about a disconnected node to set in 
-            # down state ? we can't get a connection to it but still set the 
-            # state.
+            return
+
+        if state == protocol.RUNNING_STATE:
             # first make sure to have a connection to the node
             node_conn = None
-            conn_found = False
             for node_conn in app.em.getConnectionList():
                 if node_conn.getUUID() == node.getUUID():
-                    conn_found = True
                     break
-            if conn_found is False:
+            else:
                 # no connection to the node
-                p = protocol.protocolError('no connection to the node')
-                conn.notify(p)
-                return
+                raise protocol.ProtocolError('no connection to the node')
 
-        # modify the partition table if required
-        if modify_partition_table and node.isStorage():
-            if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE):
+        elif state == protocol.DOWN_STATE and node.isStorage():
+            # modify the partition table if required
+            cell_list = []
+            if modify_partition_table:
                 # remove from pt
                 cell_list = app.pt.dropNode(node)
             else:
-                # add to pt
-                cell_list = app.pt.addNode(node)
-            if len(cell_list) != 0:
-                ptid = app.pt.setNextID()
-                app.broadcastPartitionChanges(ptid, cell_list)
-        else:
-            # outdate node in partition table
-            cell_list = app.pt.outdate()
+                # outdate node in partition table
+                cell_list = app.pt.outdate()
             if len(cell_list) != 0:
                 ptid = app.pt.setNextID()
                 app.broadcastPartitionChanges(ptid, cell_list)
 
-        if node.getState() != state:
-            node.setState(state)
-            p = protocol.noError('state changed')
-            conn.answer(p, packet.getId())
-            app.broadcastNodeInformation(node)
-            # If this is a storage node, ask it to start.
-            if node.isStorage() and state == RUNNING_STATE  \
-                   and self.app.cluster_state == RUNNING:
-                logging.info("asking sn to start operation")
-                node_conn.notify(protocol.startOperation())
+        # /!\ send the node information *after* the partition table change
+        node.setState(state)
+        p = protocol.noError('state changed')
+        conn.answer(p, packet.getId())
+        app.broadcastNodeInformation(node)
 
     def handleAddPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
