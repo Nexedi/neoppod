@@ -126,7 +126,7 @@ class NeoCTL(object):
         """
           Set cluster into "verifying" state.
         """
-        self.setClusterState(protocol.VERIFYING)
+        self.setClusterState(protocol.VERIFYING_CLUSTER_STATE)
 
     def dropNode(self, node):
         """

@@ -20,7 +20,7 @@ from neo import logging
 from neo import protocol
 from neo.master.handlers import MasterHandler
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        HIDDEN_STATE, PENDING_STATE, RUNNING
+        HIDDEN_STATE, PENDING_STATE, RUNNING_CLUSTER_STATE
 from neo.util import dump
 
 class AdministrationHandler(MasterHandler):
@@ -39,7 +39,7 @@ class AdministrationHandler(MasterHandler):
         self.app.changeClusterState(state)
         p = protocol.noError('cluster state changed')
         conn.answer(p, packet.getId())
-        if state == protocol.STOPPING:
+        if state == protocol.STOPPING_CLUSTER_STATE:
             self.app.cluster_state = state
             self.app.shutdown()
 

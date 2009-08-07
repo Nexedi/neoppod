@@ -27,9 +27,9 @@ class ClusterTests(unittest.TestCase):
         neo.setupDB()
         neo.start()
         try:
-            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING)
+            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING_CLUSTER_STATE)
             neo.killStorage()
-            neo.expectClusterState(protocol.VERIFYING)
+            neo.expectClusterState(protocol.VERIFYING_CLUSTER_STATE)
         finally:
             neo.stop()
 
@@ -40,9 +40,9 @@ class ClusterTests(unittest.TestCase):
         neo.setupDB()
         neo.start()
         try:
-            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING)
+            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING_CLUSTER_STATE)
             neo.killStorage()
-            neo.expectClusterState(protocol.VERIFYING)
+            neo.expectClusterState(protocol.VERIFYING_CLUSTER_STATE)
         finally:
             neo.stop()
 
@@ -53,9 +53,9 @@ class ClusterTests(unittest.TestCase):
         neo.setupDB()
         neo.start()
         try:
-            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING)
+            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING_CLUSTER_STATE)
             neo.killStorage()
-            neo.expectClusterState(protocol.RUNNING)
+            neo.expectClusterState(protocol.RUNNING_CLUSTER_STATE)
         finally:
             neo.stop()
 

@@ -23,7 +23,7 @@ from struct import pack, unpack
 from neo.config import ConfigurationManager
 from neo import protocol
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        UUID_NAMESPACES, BOOTING, INVALID_UUID
+        UUID_NAMESPACES, BOOTING_CLUSTER_STATE, INVALID_UUID
 from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
@@ -111,7 +111,7 @@ class Application(object):
         self.listening_conn = ListeningConnection(self.em, None, 
             addr = self.server, connector_handler = self.connector_handler)
 
-        self.cluster_state = BOOTING
+        self.cluster_state = BOOTING_CLUSTER_STATE
         # Start the election of a primary master node.
         self.electPrimary()
 
@@ -397,7 +397,7 @@ class Application(object):
         partition table or make a new table from scratch, if this is the first time."""
         logging.info('begin the recovery of the status')
 
-        self.changeClusterState(protocol.RECOVERING)
+        self.changeClusterState(protocol.RECOVERING_CLUSTER_STATE)
         em = self.em
     
         self.loid = None
@@ -406,7 +406,7 @@ class Application(object):
         self.target_uuid = None
 
         # collect the last partition table available
-        while self.cluster_state == protocol.RECOVERING:
+        while self.cluster_state == protocol.RECOVERING_CLUSTER_STATE:
             em.poll(1)
 
         logging.info('startup allowed')
@@ -495,7 +495,7 @@ class Application(object):
         """Verify the data in storage nodes and clean them up, if necessary."""
 
         em, nm = self.em, self.nm
-        self.changeClusterState(protocol.VERIFYING)
+        self.changeClusterState(protocol.VERIFYING_CLUSTER_STATE)
 
         # wait for any missing node
         logging.debug('waiting for the cluster to be operational')
@@ -578,7 +578,7 @@ class Application(object):
         em = self.em
         nm = self.nm
 
-        self.changeClusterState(protocol.RUNNING)
+        self.changeClusterState(protocol.RUNNING_CLUSTER_STATE)
 
         # This dictionary is used to hold information on transactions being finished.
         self.finishing_transaction_dict = {}
@@ -669,13 +669,13 @@ class Application(object):
         nm, em = self.nm, self.em
 
         # select the storage handler
-        if state == protocol.BOOTING:
+        if state == protocol.BOOTING_CLUSTER_STATE:
             storage_handler = recovery.RecoveryHandler
-        elif state == protocol.RECOVERING:
+        elif state == protocol.RECOVERING_CLUSTER_STATE:
             storage_handler = recovery.RecoveryHandler
-        elif state == protocol.VERIFYING:
+        elif state == protocol.VERIFYING_CLUSTER_STATE:
             storage_handler = verification.VerificationHandler
-        elif state == protocol.RUNNING:
+        elif state == protocol.RUNNING_CLUSTER_STATE:
             storage_handler = storage.StorageServiceHandler
         else:
             RuntimeError('Unexpected node type')
@@ -692,7 +692,7 @@ class Application(object):
                 # those node types keep their own handler
                 continue
             if node.isClient():
-                if state != protocol.RUNNING:
+                if state != protocol.RUNNING_CLUSTER_STATE:
                     conn.close()
                 handler = client.ClientServiceHandler
             elif node.isStorage():
@@ -766,7 +766,7 @@ class Application(object):
         while 1:
             self.em.poll(1)
             if len(self.finishing_transaction_dict) == 0:
-                if self.cluster_state == protocol.RUNNING:
+                if self.cluster_state == protocol.RUNNING_CLUSTER_STATE:
                     sys.exit("Application has been asked to shut down")
                 else:
                     # no more transaction, ask clients to shutdown
@@ -791,12 +791,12 @@ class Application(object):
     def identifyStorageNode(self, uuid, node):
         state = protocol.RUNNING_STATE
         handler = None
-        if self.cluster_state == protocol.RECOVERING:
+        if self.cluster_state == protocol.RECOVERING_CLUSTER_STATE:
             if uuid is None:
                 logging.info('reject empty storage node')
                 raise protocol.NotReadyError
             handler = recovery.RecoveryHandler
-        elif self.cluster_state == protocol.VERIFYING:
+        elif self.cluster_state == protocol.VERIFYING_CLUSTER_STATE:
             if uuid is None or node is None:
                 # if node is unknown, it has been forget when the current
                 # partition was validated by the admin
@@ -805,12 +805,12 @@ class Application(object):
                 # conflicting UUID are rejected in the identification handler.
                 state = protocol.PENDING_STATE
             handler = verification.VerificationHandler
-        elif self.cluster_state == protocol.RUNNING:
+        elif self.cluster_state == protocol.RUNNING_CLUSTER_STATE:
             if uuid is None or node is None:
                 # same as for verification
                 state = protocol.PENDING_STATE
             handler = storage.StorageServiceHandler
-        elif self.cluster_state == protocol.STOPPING:
+        elif self.cluster_state == protocol.STOPPING_CLUSTER_STATE:
             raise protocol.NotReadyError
         else:
             raise RuntimeError('unhandled cluster state')
@@ -836,7 +836,7 @@ class Application(object):
             logging.info('Accept a master %s' % dump(uuid))
         elif node_type == protocol.CLIENT_NODE_TYPE:
             # refuse any client before running
-            if self.cluster_state != protocol.RUNNING:
+            if self.cluster_state != protocol.RUNNING_CLUSTER_STATE:
                 logging.info('Reject a connection from a client')
                 raise protocol.NotReadyError
             klass = ClientNode

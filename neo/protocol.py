@@ -316,11 +316,11 @@ error_codes = Enum({
 
 # Cluster states
 cluster_states = Enum({
-    'BOOTING': 1,
-    'RECOVERING': 2,
-    'VERIFYING': 3,
-    'RUNNING': 4,
-    'STOPPING': 5,
+    'BOOTING_CLUSTER_STATE': 1,
+    'RECOVERING_CLUSTER_STATE': 2,
+    'VERIFYING_CLUSTER_STATE': 3,
+    'RUNNING_CLUSTER_STATE': 4,
+    'STOPPING_CLUSTER_STATE': 5,
 })
 
 # Node types.

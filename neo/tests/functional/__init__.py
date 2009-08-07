@@ -456,13 +456,13 @@ class NEOCluster(object):
         self.expectCondition(callback, timeout, delay)
 
     def expectClusterRecovering(self, timeout=0, delay=1):
-        self.expectClusterState(protocol.RECOVERING)
+        self.expectClusterState(protocol.RECOVERING_CLUSTER_STATE)
 
     def expectClusterVeryfing(self, timeout=0, delay=1):
-        self.expectClusterState(protocol.VERIFYING)
+        self.expectClusterState(protocol.VERIFYING_CLUSTER_STATE)
 
     def expectClusterRunning(self, timeout=0, delay=1):
-        self.expectClusterState(protocol.RUNNING)
+        self.expectClusterState(protocol.RUNNING_CLUSTER_STATE)
 
     def __del__(self):
         if self.cleanup_on_delete:

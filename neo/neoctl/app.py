@@ -154,7 +154,7 @@ class TerminalNeoCTL(object):
         """
           Starts cluster operation after a startup.
           Equivalent to:
-            set cluster VERIFYING
+            set cluster VERIFYING_CLUSTER_STATE
         """
         assert len(params) == 0
         self.neoctl.startCluster()
