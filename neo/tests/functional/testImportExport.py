@@ -64,7 +64,7 @@ class ImportExportTests(NEOFunctionalTest):
         self.__checkTree(tree.left, depth)
 
     def __getDataFS(self, reset=False):
-        name = os.path.join(self.temp_dir, 'data.fs')
+        name = os.path.join(self.getTempDirectory(), 'data.fs')
         if reset and os.path.exists(name):
             os.remove(name)
         storage = FileStorage(file_name=name)
