@@ -46,12 +46,12 @@ class StorageTests(NEOFunctionalTest):
         result = db.store_result().fetch_row()[0][0]
         return result
 
-    def __setup(self, storage_number=2, pending_number=0, replicas=1, partitions=10):
+    def __setup(self, storage_number=2, pending_number=0, replicas=1, 
+            partitions=10, master_node_count=2):
         # create a neo cluster
         self.neo = NEOCluster(['test_neo%d' % i for i in xrange(storage_number)],
-            port_base=20000, 
-            master_node_count=2,
-            partitions=10, replicas=replicas,
+            port_base=20000, master_node_count=master_node_count,
+            partitions=partitions, replicas=replicas,
             temp_dir=self.getTempDirectory(),
         )
         self.neo.setupDB()
@@ -372,18 +372,12 @@ class StorageTests(NEOFunctionalTest):
         self.__checkDatabase(self.neo.db_list[1])
 
     def testStartWithManyPartitions(self):
-        neo = NEOCluster(['test_neo1'], port_base=20000,
-                         partitions=5000, master_node_count=1)
-        neoctl = neo.getNEOCTL()
-        neo.setupDB()
-        neo.start()
-        try:
-            # Just tests that cluster can start with more than 1000 partitions.
-            # 1000, because currently there is an arbitrary packet split at
-            # every 1000 partition when sending a partition table.
-            neo.expectClusterState(protocol.RUNNING_CLUSTER_STATE)
-        finally:
-            neo.stop()
+        self.__setup(storage_number=2, partitions=5000, master_node_count=1)
+        neoctl = self.neo.getNEOCTL()
+        # Just tests that cluster can start with more than 1000 partitions.
+        # 1000, because currently there is an arbitrary packet split at
+        # every 1000 partition when sending a partition table.
+        self.neo.expectClusterState(protocol.RUNNING_CLUSTER_STATE)
 
 if __name__ == "__main__":
     unittest.main()

@@ -38,17 +38,17 @@ class DecoyIndependent(Persistent):
     def _p_independent(self):
         return 0
 
-neo = NEOCluster(['test_neo1'],
-                 partitions=1, replicas=0, port_base=20000,
-                 master_node_count=1)
-
 class ZODBTests(NEOFunctionalTest):
 
     def setUp(self):
-        neo.stop()
-        neo.setupDB()
-        neo.start()
-        self._storage = neo.getZODBStorage()
+
+        self.neo = NEOCluster(['test_neo1'],
+                         partitions=1, replicas=0, port_base=20000,
+                         master_node_count=1, temp_dir=self.getTempDirectory())
+        self.neo.stop()
+        self.neo.setupDB()
+        self.neo.start()
+        self._storage = self.neo.getZODBStorage()
         self._db = ZODB.DB(self._storage)
 
     def populate(self):
@@ -65,7 +65,7 @@ class ZODBTests(NEOFunctionalTest):
     def tearDown(self):
         self._db.close()
         self._storage.cleanup()
-        neo.stop()
+        self.neo.stop()
 
     def checkExportImport(self, abort_it=False):
         self.populate()
