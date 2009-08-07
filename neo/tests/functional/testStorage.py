@@ -370,7 +370,19 @@ class StorageTests(unittest.TestCase):
         self.neo.expectAssignedCells(stopped[0].getUUID(), 10)
         self.__checkDatabase(self.neo.db_list[1])
 
-        
+    def testStartWithManyPartitions(self):
+        neo = NEOCluster(['test_neo1'], port_base=20000,
+                         partitions=5000, master_node_count=1)
+        neoctl = neo.getNEOCTL()
+        neo.setupDB()
+        neo.start()
+        try:
+            # Just tests that cluster can start with more than 1000 partitions.
+            # 1000, because currently there is an arbitrary packet split at
+            # every 1000 partition when sending a partition table.
+            neo.expectClusterState(protocol.RUNNING_CLUSTER_STATE)
+        finally:
+            neo.stop()
 
 if __name__ == "__main__":
     unittest.main()
