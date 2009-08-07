@@ -248,7 +248,7 @@ class NEOCluster(object):
         cursor.close()
         sql_connection.close()
 
-    def start(self, except_storages=[]):
+    def start(self, except_storages=()):
         neoctl = self.neoctl
         assert len(self.process_dict)
         for process_list in self.process_dict.itervalues():
