@@ -17,115 +17,123 @@
 
 from time import sleep, time
 import unittest
-from neo.tests.functional import NEOCluster
+from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo.neoctl.neoctl import NotReadyException
 from neo import protocol
 from neo.util import dump
 
 MASTER_NODE_COUNT = 3
 
-neo = NEOCluster([], port_base=20000, master_node_count=MASTER_NODE_COUNT)
 
-class MasterTests(unittest.TestCase):
+class MasterTests(NEOFunctionalTest):
 
     def setUp(self):
-        neo.stop()
-        neo.start()
-        self.storage = neo.getZODBStorage()
-        self.neoctl = neo.getNEOCTL()
+        self.neo = NEOCluster([], port_base=20000, 
+                master_node_count=MASTER_NODE_COUNT,
+                temp_dir=self.getTempDirectory())
+        self.neo.stop()
+        self.neo.start()
+        self.storage = self.neo.getZODBStorage()
+        self.neoctl = self.neo.getNEOCTL()
 
     def tearDown(self):
-        neo.stop()
+        self.neo.stop()
 
     def testStoppingSecondaryMaster(self):
         # Wait for masters to stabilize
-        neo.expectAllMasters(MASTER_NODE_COUNT)
+        self.neo.expectAllMasters(MASTER_NODE_COUNT)
 
         # Kill
-        killed_uuid_list = neo.killSecondaryMaster()
+        killed_uuid_list = self.neo.killSecondaryMaster()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
         # Check node state has changed.
-        neo.expectMasterState(uuid, None)
+        self.neo.expectMasterState(uuid, None)
 
     def testStoppingPrimaryMasterWithTwoSecondaries(self):
         # Wait for masters to stabilize
-        neo.expectAllMasters(MASTER_NODE_COUNT)
+        self.neo.expectAllMasters(MASTER_NODE_COUNT)
 
         # Kill
-        killed_uuid_list = neo.killPrimaryMaster()
+        killed_uuid_list = self.neo.killPrimaryMaster()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
         # Check the state of the primary we just killed
-        neo.expectMasterState(uuid, (None, protocol.UNKNOWN_STATE))
-        self.assertEqual(neo.getPrimaryMaster(), None)
+        self.neo.expectMasterState(uuid, (None, protocol.UNKNOWN_STATE))
+        self.assertEqual(self.neo.getPrimaryMaster(), None)
         # Check that a primary master arised.
-        neo.expectPrimaryMaster(timeout=10)
+        self.neo.expectPrimaryMaster(timeout=10)
         # Check that the uuid really changed.
-        new_uuid = neo.getPrimaryMaster()
+        new_uuid = self.neo.getPrimaryMaster()
         self.assertNotEqual(new_uuid, uuid)
 
     def testStoppingPrimaryMasterWithOneSecondary(self):
-        neo.expectAllMasters(MASTER_NODE_COUNT, state=protocol.RUNNING_STATE)
+        self.neo.expectAllMasters(MASTER_NODE_COUNT, 
+                state=protocol.RUNNING_STATE)
 
         # Kill one secondary master.
-        killed_uuid_list = neo.killSecondaryMaster()
+        killed_uuid_list = self.neo.killSecondaryMaster()
         # Test sanity checks.
         self.assertEqual(len(killed_uuid_list), 1)
-        neo.expectMasterState(killed_uuid_list[0], None)
-        self.assertEqual(len(neo.getMasterNodeList()), 2)
+        self.neo.expectMasterState(killed_uuid_list[0], None)
+        self.assertEqual(len(self.neo.getMasterNodeList()), 2)
 
-        killed_uuid_list = neo.killPrimaryMaster()
+        killed_uuid_list = self.neo.killPrimaryMaster()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
         # Check the state of the primary we just killed
-        neo.expectMasterState(uuid, (None, protocol.UNKNOWN_STATE))
-        self.assertEqual(neo.getPrimaryMaster(), None)
+        self.neo.expectMasterState(uuid, (None, protocol.UNKNOWN_STATE))
+        self.assertEqual(self.neo.getPrimaryMaster(), None)
         # Check that a primary master arised.
-        neo.expectPrimaryMaster(timeout=10)
+        self.neo.expectPrimaryMaster(timeout=10)
         # Check that the uuid really changed.
-        new_uuid = neo.getPrimaryMaster()
+        new_uuid = self.neo.getPrimaryMaster()
         self.assertNotEqual(new_uuid, uuid)
 
     def testMasterSequentialStart(self):
-        neo.expectAllMasters(MASTER_NODE_COUNT, state=protocol.RUNNING_STATE)
-        master_list = neo.getMasterProcessList()
+        self.neo.expectAllMasters(MASTER_NODE_COUNT, 
+                state=protocol.RUNNING_STATE)
+        master_list = self.neo.getMasterProcessList()
 
         # Stop the cluster (so we can start processes manually)
-        neo.killMasters()
+        self.neo.killMasters()
 
         # Start the first master.
         first_master = master_list[0]
         first_master.start()
         first_master_uuid = first_master.getUUID()
         # Check that the master node we started elected itself.
-        neo.expectPrimaryMaster(first_master_uuid, timeout=60)
+        self.neo.expectPrimaryMaster(first_master_uuid, timeout=60)
         # Check that no other node is known as running.
-        self.assertEqual(len(neo.getMasterNodeList(
+        self.assertEqual(len(self.neo.getMasterNodeList(
             state=protocol.RUNNING_STATE)), 1)
 
         # Start a second master.
         second_master = master_list[1]
         # Check that the second master is known as being down.
-        self.assertEqual(neo.getMasterNodeState(second_master.getUUID()), None)
+        self.assertEqual(self.neo.getMasterNodeState(second_master.getUUID()), 
+                None)
         second_master.start()
         # Check that the second master is running under his known UUID.
-        neo.expectMasterState(second_master.getUUID(), protocol.RUNNING_STATE)
+        self.neo.expectMasterState(second_master.getUUID(), 
+                protocol.RUNNING_STATE)
         # Check that the primary master didn't change.
-        self.assertEqual(neo.getPrimaryMaster(), first_master_uuid)
+        self.assertEqual(self.neo.getPrimaryMaster(), first_master_uuid)
 
         # Start a third master.
         third_master = master_list[2]
         # Check that the third master is known as being down.
-        self.assertEqual(neo.getMasterNodeState(third_master.getUUID()), None)
+        self.assertEqual(self.neo.getMasterNodeState(third_master.getUUID()), 
+                None)
         third_master.start()
         # Check that the third master is running under his known UUID.
-        neo.expectMasterState(third_master.getUUID(), protocol.RUNNING_STATE)
+        self.neo.expectMasterState(third_master.getUUID(), 
+                protocol.RUNNING_STATE)
         # Check that the primary master didn't change.
-        self.assertEqual(neo.getPrimaryMaster(), first_master_uuid)
+        self.assertEqual(self.neo.getPrimaryMaster(), first_master_uuid)
 
 def test_suite():
     return unittest.makeSuite(MasterTests)

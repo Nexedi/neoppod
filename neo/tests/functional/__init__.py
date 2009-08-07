@@ -24,6 +24,7 @@ import ZODB
 import signal
 import random
 import MySQLdb
+import unittest
 import tempfile
 import traceback
 
@@ -157,7 +158,7 @@ class NEOCluster(object):
                  partitions=1, replicas=0, port_base=10000,
                  db_user='neo', db_password='neo',
                  db_super_user='root', db_super_password=None,
-                 cleanup_on_delete=False):
+                 cleanup_on_delete=False, temp_dir=None):
         self.cleanup_on_delete = cleanup_on_delete
         self.uuid_set = set()
         self.db_super_user = db_super_user
@@ -167,10 +168,12 @@ class NEOCluster(object):
         self.db_list = db_list
         self.process_dict = {}
         self.last_port = port_base
-        self.temp_dir = temp_dir = tempfile.mkdtemp(prefix='neo_')
-        print 'Using temp directory %r.' % (temp_dir, )
-        self.config_file_path = config_file_path = os.path.join(temp_dir, 'neo.conf')
-        config_file = open(config_file_path, 'w')
+        if temp_dir is None:
+            temp_dir = tempfile.mkdtemp(prefix='neo_')
+            print 'Using temp directory %r.' % (temp_dir, )
+        self.temp_dir = temp_dir
+        self.config_file_path = os.path.join(temp_dir, 'neo.conf')
+        config_file = open(self.config_file_path, 'w')
         neo_admin_port = self.__allocatePort()
         self.cluster_name = cluster_name = 'neo_%s' % (random.randint(0, 100), )
         master_node_dict = {}
@@ -467,4 +470,23 @@ class NEOCluster(object):
     def __del__(self):
         if self.cleanup_on_delete:
             os.removedirs(self.temp_dir)
+
+
+class NEOFunctionalTest(unittest.TestCase):
+
+    def getTempDirectory(self):
+        # get the current temp directory or a new one
+        temp_dir = os.environ.get('TEMP', None)
+        if temp_dir is None:
+            temp_dir = tempfile.mkdtemp(prefix='neo_')
+        # build the full path based on test case and current test method
+        test_case_name = self.__class__.__name__
+        test_method_name = self._TestCase__testMethodName
+        temp_dir = os.path.join(temp_dir, test_case_name)
+        temp_dir = os.path.join(temp_dir, test_method_name)
+        # build the path if needed
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir)
+        return temp_dir
+        
 

@@ -23,7 +23,7 @@ from persistent import Persistent
 from persistent.mapping import PersistentMapping
 import transaction
 
-from neo.tests.functional import NEOCluster
+from neo.tests.functional import NEOCluster, NEOFunctionalTest
 
 class P(Persistent):
     pass
@@ -42,7 +42,7 @@ neo = NEOCluster(['test_neo1'],
                  partitions=1, replicas=0, port_base=20000,
                  master_node_count=1)
 
-class ZODBTests(unittest.TestCase):
+class ZODBTests(NEOFunctionalTest):
 
     def setUp(self):
         neo.stop()

@@ -20,7 +20,7 @@ import unittest
 import transaction
 from Persistence import Persistent
 
-from neo.tests.functional import NEOCluster
+from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo.client.Storage import Storage as NEOStorage
 from neo import protocol
 
@@ -32,7 +32,7 @@ class PObject(Persistent):
 
 OBJECT_NUMBER = 100
 
-class StorageTests(unittest.TestCase):
+class StorageTests(NEOFunctionalTest):
 
     def setUp(self):
         self.neo = None
@@ -52,6 +52,7 @@ class StorageTests(unittest.TestCase):
             port_base=20000, 
             master_node_count=2,
             partitions=10, replicas=replicas,
+            temp_dir=self.getTempDirectory(),
         )
         self.neo.setupDB()
         # too many pending storage nodes requested

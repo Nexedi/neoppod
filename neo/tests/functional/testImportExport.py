@@ -24,7 +24,7 @@ import ZODB
 from ZODB.FileStorage import FileStorage
 from Persistence import Persistent
 
-from neo.tests.functional import NEOCluster
+from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo.client.Storage import Storage as NEOStorage
 
 
@@ -42,14 +42,13 @@ class Tree(Persistent):
         self.left = Tree(depth)
 
 
-class ImportExportTests(unittest.TestCase):
+class ImportExportTests(NEOFunctionalTest):
 
     def setUp(self):
-        self.temp_dir = tempfile.mkdtemp(prefix='neo_import_export_')
-        print "using the temp directory %s" % self.temp_dir
         # create a neo cluster
         databases = ['test_neo1', 'test_neo2']
-        self.neo = NEOCluster(databases, port_base=20000, master_node_count=2)
+        self.neo = NEOCluster(databases, port_base=20000, master_node_count=2,
+                temp_dir=self.getTempDirectory())
         self.neo.setupDB()
 
     def tearDown(self):

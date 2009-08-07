@@ -16,13 +16,14 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import unittest
-from neo.tests.functional import NEOCluster
+from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo import protocol
 
-class ClusterTests(unittest.TestCase):
+class ClusterTests(NEOFunctionalTest):
 
     def testClusterBreaks(self):
-        neo = NEOCluster(['test_neo1'], port_base=20000, master_node_count=1)
+        neo = NEOCluster(['test_neo1'], port_base=20000, master_node_count=1,
+                temp_dir=self.getTempDirectory())
         neoctl = neo.getNEOCTL()
         neo.setupDB()
         neo.start()
@@ -35,7 +36,8 @@ class ClusterTests(unittest.TestCase):
 
     def testClusterBreaksWithTwoNodes(self):
         neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
-                         partitions=2, master_node_count=1)
+                 partitions=2, master_node_count=1,
+                 temp_dir=self.getTempDirectory())
         neoctl = neo.getNEOCTL()
         neo.setupDB()
         neo.start()
@@ -48,7 +50,8 @@ class ClusterTests(unittest.TestCase):
 
     def testClusterDoesntBreakWithTwoNodesOneReplica(self):
         neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
-                         partitions=2, replicas=1, master_node_count=1)
+                         partitions=2, replicas=1, master_node_count=1,
+                         temp_dir=self.getTempDirectory())
         neoctl = neo.getNEOCTL()
         neo.setupDB()
         neo.start()
