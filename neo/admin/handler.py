@@ -64,9 +64,7 @@ class AdminEventHandler(EventHandler):
         logging.info("set node state for %s-%s" %(dump(uuid), state))
         node = self.app.nm.getNodeByUUID(uuid)
         if node is None:
-            p = protocol.protocolError('invalid uuid')
-            conn.notify(p)
-            return
+            raise protocol.ProtocolError('invalid uuid')
         if node.getState() == state and modify_partition_table is False:
             # no change
             p = protocol.noError('no change')
