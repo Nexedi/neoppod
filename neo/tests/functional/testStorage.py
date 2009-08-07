@@ -115,8 +115,19 @@ class StorageTests(unittest.TestCase):
     def __expectUnavailable(self, process):
         self.neo.expectStorageState(process.getUUID(),
                 protocol.TEMPORARILY_DOWN_STATE)
+
+    def __expectNotKnown(self, process):
+        def expected_storage_not_known(last_try):
+            storage_list = self.neo.getStorageNodeList()
+            for storage in storage_list:
+                if storage[2] == process.getUUID():
+                    return False, storage
+            return True, None
+        self.neo.expectCondition(expected_storage_not_known)
     
     def testReplicationWithoutBreak(self):
+        """ Start a cluster with two storage, one replicas, the two databasqes
+        must have the same content """
 
         # populate the cluster then check the databases
         self.__setup(storage_number=2, replicas=1)
@@ -124,6 +135,8 @@ class StorageTests(unittest.TestCase):
         self.__checkReplicationDone()
 
     def testNewNodesInPendingState(self):
+        """ Check that new storage nodes are set as pending, the cluster remains
+        running """
 
         # start with the first storage
         processes = self.__setup(storage_number=3, replicas=1, pending_number=2)
@@ -140,12 +153,17 @@ class StorageTests(unittest.TestCase):
         self.neo.expectClusterRunning()
 
     def testReplicationWithNewStorage(self):
+        """ create a cluster with one storage, populate it, add a new storage
+        then check the database content to ensure the replication process is
+        well done """
 
         # populate one storage
-        processes = self.__setup(storage_number=2, replicas=1, pending_number=1)
+        processes = self.__setup(storage_number=2, replicas=1, pending_number=1,
+                partitions=10)
         started, stopped = processes
         self.__populate()
         self.neo.expectClusterRunning()
+        self.neo.expectAssignedCells(started[0].getUUID(), number=10)
 
         # start the second
         stopped[0].start()
@@ -155,6 +173,7 @@ class StorageTests(unittest.TestCase):
         # add it to the partition table
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
         self.__expectRunning(stopped[0])
+        self.neo.expectAssignedCells(stopped[0].getUUID(), number=10)
         self.neo.expectClusterRunning()
 
         # wait for replication to finish then check 
@@ -162,6 +181,8 @@ class StorageTests(unittest.TestCase):
         self.neo.expectClusterRunning()
 
     def testOudatedCellsOnDownStorage(self):
+        """ Check that the storage cells are set as oudated when the node is
+        down, the cluster remains up since there is a replica """
 
         # populate the two storages
         (started, _) = self.__setup(storage_number=2, replicas=1)
@@ -175,6 +196,9 @@ class StorageTests(unittest.TestCase):
         self.neo.expectClusterRunning()
 
     def testVerificationTriggered(self):
+        """ Check that the verification stage is executed when a storage node
+        required to be operationnal is lost, and the cluster come back in
+        running state when the storage is up again """
 
         # start neo with one storages
         (started, _) = self.__setup(replicas=0, storage_number=1)
@@ -191,6 +215,8 @@ class StorageTests(unittest.TestCase):
         self.neo.expectClusterRunning()
 
     def testSequentialStorageKill(self):
+        """ Check that the cluster remains running until the last storage node
+        died when all are replicas """
 
         # start neo with three storages / two replicas
         (started, _) = self.__setup(replicas=2, storage_number=3, partitions=10)
@@ -225,6 +251,8 @@ class StorageTests(unittest.TestCase):
         self.neo.expectClusterVeryfing()
 
     def testConflictingStorageRejected(self):
+        """ Check that a storage coming after the recovery process with the same
+        UUID as another already running is refused """
 
         # start with one storage
         (started, stopped) = self.__setup(storage_number=2, pending_number=1)
@@ -244,6 +272,56 @@ class StorageTests(unittest.TestCase):
         # check that no node were added
         storage_number = len(self.neo.getStorageNodeList())
         self.assertEqual(storage_number, 1)
+
+    def testPartitionTableReorganizedWithNewStorage(self):
+        """ Check if the partition change when adding a new storage to a cluster
+        with one storage and no replicas """
+
+        # start with one storage and no replicas
+        (started, stopped) = self.__setup(storage_number=2, pending_number=1, 
+            partitions=10, replicas=0)
+        self.__expectRunning(started[0])
+        self.neo.expectClusterRunning()
+        self.neo.expectAssignedCells(started[0].getUUID(), 10)
+
+        # start the second and add it to the partition table
+        stopped[0].start()
+        self.__expectPending(stopped[0])
+        self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
+        self.__expectRunning(stopped[0])
+        self.neo.expectClusterRunning()
+
+        # the partition table must change, each node should be assigned to 
+        # five partitions
+        self.neo.expectAssignedCells(started[0].getUUID(), 5) 
+        self.neo.expectAssignedCells(stopped[0].getUUID(), 5) 
+
+    def testPartitionTableReorganizedAfterDrop(self):
+        """ Check that the partition change when dropping a replicas from a
+        cluster with two storages """
+
+        # start with two storage / one replicas
+        (started, stopped) = self.__setup(storage_number=2, replicas=1,
+                partitions=10, pending_number=0)
+        self.__expectRunning(started[0])
+        self.__expectRunning(started[1])
+        self.neo.expectAssignedCells(started[0].getUUID(), 10)
+        self.neo.expectAssignedCells(started[1].getUUID(), 10)
+
+        # kill one storage, it should be set as unavailable
+        started[0].stop()
+        self.__expectUnavailable(started[0])
+        self.__expectRunning(started[1])
+        # and the partition table must not change
+        self.neo.expectAssignedCells(started[0].getUUID(), 10)
+        self.neo.expectAssignedCells(started[1].getUUID(), 10)
+    
+        # ask neoctl to drop it
+        self.neo.neoctl.dropNode(started[0].getUUID())
+        self.__expectNotKnown(started[0])
+        self.neo.expectAssignedCells(started[0].getUUID(), 0)
+        self.neo.expectAssignedCells(started[1].getUUID(), 10)
+
 
 if __name__ == "__main__":
     unittest.main()
