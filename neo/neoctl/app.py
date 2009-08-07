@@ -43,8 +43,8 @@ class TerminalNeoCTL(object):
 
     # Utility methods (could be functions)
     def asNodeState(self, value):
-        if not value.endswith('_NODE_STATE'):
-            value += '_NODE_STATE'
+        if not value.endswith('_STATE'):
+            value += '_STATE'
         return protocol.node_states.getFromStr(value)
 
     def asNodeType(self, value):
