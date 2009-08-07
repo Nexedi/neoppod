@@ -54,8 +54,9 @@ class LockUser(object):
         return ''.join(traceback.format_list(self.stack))
 
 class VerboseLockBase(object):
-    def __init__(self, reentrant=False):
+    def __init__(self, reentrant=False, debug_lock=False):
         self.reentrant = reentrant
+        self.debug_lock = debug_lock
         self.owner = None
         self.waiting = []
         self._note('%s@%X created by %r', self.__class__.__name__, id(self), LockUser(1))
@@ -75,8 +76,11 @@ class VerboseLockBase(object):
         me = LockUser()
         owner = self._getOwner()
         self._note('[%r]%s.acquire(%s) Waiting for lock. Owned by:%r Waiting:%r', me, self, blocking, owner, self.waiting)
-        if not self.reentrant and blocking and me == owner:
-            self._note('[%r]%s.acquire(%s): Deadlock detected: I already own this lock:%r', me, self, blocking, owner)
+        if (self.debug_lock and owner is not None) or (not self.reentrant and blocking and me == owner):
+            if me == owner:
+                self._note('[%r]%s.acquire(%s): Deadlock detected: I already own this lock:%r', me, self, blocking, owner)
+            else:
+                self._note('[%r]%s.acquire(%s): debug lock triggered: %r', me, self, blocking, owner)
             self._note('Owner traceback:\n%s', owner.formatStack())
             self._note('My traceback:\n%s', me.formatStack())
         self.waiting.append(me)
@@ -99,8 +103,8 @@ class VerboseLockBase(object):
         return '<%s@%X>' % (self.__class__.__name__, id(self))
 
 class VerboseRLock(VerboseLockBase):
-    def __init__(self, verbose=None):
-        super(VerboseRLock, self).__init__(reentrant=True)
+    def __init__(self, verbose=None, debug_lock=False):
+        super(VerboseRLock, self).__init__(reentrant=True, debug_lock=debug_lock)
         self.lock = threading_RLock()
 
     def _locked(self):
@@ -110,8 +114,8 @@ class VerboseRLock(VerboseLockBase):
         return self.lock._is_owned()
 
 class VerboseLock(VerboseLockBase):
-    def __init__(self, verbose=None):
-        super(VerboseLock, self).__init__()
+    def __init__(self, verbose=None, debug_lock=False):
+        super(VerboseLock, self).__init__(debug_lock=debug_lock)
         self.lock = threading_Lock()
 
     def locked(self):
