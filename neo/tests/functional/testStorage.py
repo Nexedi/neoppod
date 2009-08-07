@@ -322,6 +322,55 @@ class StorageTests(unittest.TestCase):
         self.neo.expectAssignedCells(started[0].getUUID(), 0)
         self.neo.expectAssignedCells(started[1].getUUID(), 10)
 
+    def testReplicationThenRunningWithReplicas(self):
+        """ Add a replicas to a cluster, wait for the replication to finish,
+        shutdown the first storage then check the new storage content """
+
+        # start with one storage 
+        (started, stopped) = self.__setup(storage_number=2, replicas=1,
+                pending_number=1, partitions=10)
+        self.__expectRunning(started[0])
+        self.__expectNotKnown(stopped[0])
+
+        # populate the cluster with some data
+        self.__populate()
+        self.neo.expectClusterRunning()
+        self.neo.expectOudatedCells(number=0)
+        self.neo.expectAssignedCells(started[0].getUUID(), 10)
+        self.__checkDatabase(self.neo.db_list[0])
+
+        # add a second storage
+        stopped[0].start()
+        self.__expectPending(stopped[0])
+        self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
+        self.__expectRunning(stopped[0])
+        self.neo.expectClusterRunning()
+        self.neo.expectAssignedCells(started[0].getUUID(), 10)
+        self.neo.expectAssignedCells(stopped[0].getUUID(), 10)
+
+        # wait for replication to finish
+        self.neo.expectOudatedCells(number=0)
+        self.neo.expectClusterRunning()
+        self.__checkReplicationDone()
+
+        # kill the first storage
+        started[0].stop()
+        self.__expectUnavailable(started[0])
+        self.neo.expectOudatedCells(number=10)
+        self.neo.expectAssignedCells(started[0].getUUID(), 10)
+        self.neo.expectAssignedCells(stopped[0].getUUID(), 10)
+        self.neo.expectClusterRunning()
+        self.__checkDatabase(self.neo.db_list[0])
+
+        # drop it from partition table
+        self.neo.neoctl.dropNode(started[0].getUUID())
+        self.__expectNotKnown(started[0])
+        self.__expectRunning(stopped[0])
+        self.neo.expectAssignedCells(started[0].getUUID(), 0)
+        self.neo.expectAssignedCells(stopped[0].getUUID(), 10)
+        self.__checkDatabase(self.neo.db_list[1])
+
+        
 
 if __name__ == "__main__":
     unittest.main()
