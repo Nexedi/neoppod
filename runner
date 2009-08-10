@@ -17,8 +17,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import unittest
+import tempfile
 import logging
 import time
+import os
 
 # list of test modules
 # each of them have to import its TestCase classes
@@ -96,6 +98,9 @@ class NeoTestRunner(unittest.TestResult):
         self.modulesStats = {}
         self.failedImports = {}
         self.lastStart = None
+        self.temp_directory = tempfile.mkdtemp(prefix='neo_')
+        os.environ['TEMP'] = self.temp_directory
+        print "Base directory : %s" % (self.temp_directory, )
 
     def run(self, name, modules):
         suite = unittest.TestSuite()
@@ -172,6 +177,7 @@ class NeoTestRunner(unittest.TestResult):
     Node        : %s
     Processor   : %s (%s)
     System      : %s (%s)
+    Directory   : %s
         """ % (
             datetime.date.today().isoformat(),
             platform.node(),
@@ -179,6 +185,7 @@ class NeoTestRunner(unittest.TestResult):
             platform.architecture()[0],
             platform.system(),
             platform.release(),
+            self.temp_directory,
         )
         return s
 
@@ -277,7 +284,7 @@ class NeoTestRunner(unittest.TestResult):
           msg['X-ERP5-Tests-Status'] = 'OK'
 
         # write the body
-        body = MIMEText(self.summary + self.errors, 'text')
+        body = MIMEText(self.summary + self.warnings + self.errors, 'text')
         msg.attach(body)
 
         # attach the log file
