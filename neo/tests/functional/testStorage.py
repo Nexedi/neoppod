@@ -395,11 +395,14 @@ class StorageTests(NEOFunctionalTest):
         self.__expectNotKnown(started[0])
         self.__expectRunning(started[1])
 
-        # restart all nodes
+        # restart all nodes except the dropped, it must not be known
         self.neo.stop()
-        self.neo.start()
+        self.neo.start(except_storages=[started[0]])
+        self.__expectNotKnown(started[0])
+        self.__expectRunning(started[1])
 
-        # the stopped node must start in pending state
+        # then restart it, it must be in pending state
+        started[0].start()
         self.__expectPending(started[0])
         self.__expectRunning(started[1])
 
