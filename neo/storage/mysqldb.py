@@ -26,6 +26,7 @@ from struct import pack, unpack
 from neo.storage.database import DatabaseManager
 from neo.exception import DatabaseFailure
 from neo.protocol import DISCARDED_STATE
+from neo import util
 
 LOG_QUERIES = False
 
@@ -198,9 +199,11 @@ class MySQLDatabaseManager(DatabaseManager):
         self.commit()
 
     def getUUID(self):
-        return self.getConfiguration('uuid')
+        uuid = self.getConfiguration('uuid')
+        return util.bin(uuid)
 
     def setUUID(self, uuid):
+        uuid = util.dump(uuid)
         self.setConfiguration('uuid', uuid)
 
     def getNumPartitions(self):
@@ -226,20 +229,29 @@ class MySQLDatabaseManager(DatabaseManager):
         self.setConfiguration('name', name)
 
     def getPTID(self):
-        return self.getConfiguration('ptid')
+        ptid = self.getConfiguration('ptid')
+        return util.bin(ptid)
 
     def setPTID(self, ptid):
+        ptid = util.dump(ptid)
         self.setConfiguration('ptid', ptid)
 
     def getLastOID(self):
-        return self.getConfiguration('loid')
+        loid = self.getConfiguration('loid')
+        return util.bin(loid)
 
     def setLastOID(self, loid):
+        loid = util.dump(loid)
         self.setConfiguration('loid', loid)
 
     def getPartitionTable(self):
         q = self.query
-        return q("""SELECT rid, uuid, state FROM pt""")
+        cell_list = q("""SELECT rid, uuid, state FROM pt""")
+        pt = []
+        for offset, uuid, state in cell_list:
+            uuid = util.bin(uuid)
+            pt.append((offset, uuid, state))
+        return pt
 
     def getLastTID(self, all = True):
         # XXX this does not consider serials in obj.
@@ -349,7 +361,7 @@ class MySQLDatabaseManager(DatabaseManager):
             if reset:
                 q("""TRUNCATE pt""")
             for offset, uuid, state in cell_list:
-                uuid = e(uuid)
+                uuid = e(util.dump(uuid))
                 if state == DISCARDED_STATE:
                     q("""DELETE FROM pt WHERE rid = %d AND uuid = '%s'""" \
                             % (offset, uuid))
