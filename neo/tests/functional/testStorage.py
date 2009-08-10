@@ -372,12 +372,39 @@ class StorageTests(NEOFunctionalTest):
         self.__checkDatabase(self.neo.db_list[1])
 
     def testStartWithManyPartitions(self):
+        """ Just tests that cluster can start with more than 1000 partitions.
+        1000, because currently there is an arbitrary packet split at
+        every 1000 partition when sending a partition table. """
         self.__setup(storage_number=2, partitions=5000, master_node_count=1)
         neoctl = self.neo.getNEOCTL()
-        # Just tests that cluster can start with more than 1000 partitions.
-        # 1000, because currently there is an arbitrary packet split at
-        # every 1000 partition when sending a partition table.
         self.neo.expectClusterState(protocol.RUNNING_CLUSTER_STATE)
+
+    def testDropNodeThenRestartCluster(self):
+        """ Start a cluster with more than one storage, down one, shutdown the
+        cluster then restart it. The partition table recovered must not include
+        the dropped node """
+
+        # start with two storage / one replica
+        (started, stopped) = self.__setup(storage_number=2, replicas=1,
+                master_node_count=1)
+        self.__expectRunning(started[0])
+        self.__expectRunning(started[1])
+
+        # drop one
+        self.neo.neoctl.dropNode(started[0].getUUID())
+        self.__expectNotKnown(started[0])
+        self.__expectRunning(started[1])
+
+        # restart all nodes
+        self.neo.stop()
+        self.neo.start()
+
+        # the stopped node must start in pending state
+        self.__expectPending(started[0])
+        self.__expectRunning(started[1])
+
+        
+
 
 if __name__ == "__main__":
     unittest.main()
