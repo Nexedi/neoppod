@@ -27,6 +27,8 @@ def p64(n):
 
 def dump(s):
     """Dump a binary string in hex."""
+    if s is None:
+        return None
     if isinstance(s, str):
         ret = []
         for c in s:
@@ -38,6 +40,8 @@ def dump(s):
 
 def bin(s):
     """Inverse of dump method."""
+    if s is None:
+        return None
     ret = []
     while len(s):
         ret.append(chr(int(s[:2], 16)))
