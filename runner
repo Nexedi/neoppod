@@ -284,7 +284,7 @@ class NeoTestRunner(unittest.TestResult):
           msg['X-ERP5-Tests-Status'] = 'OK'
 
         # write the body
-        body = MIMEText(self.summary + self.warnings + self.errors, 'text')
+        body = MIMEText(self.summary + self.warnings + self.errors)
         msg.attach(body)
 
         # attach the log file
