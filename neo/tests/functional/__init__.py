@@ -65,6 +65,7 @@ NEO_STORAGE = 'neostorage'
 NEO_ADMIN = 'neoadmin'
 
 DELAY_SAFETY_MARGIN = 10
+MAX_START_TIME = 30
 
 class AlreadyRunning(Exception):
     pass
@@ -260,7 +261,10 @@ class NEOCluster(object):
                     process.start()
         # Try to put cluster in running state. This will succeed as soon as
         # admin node could connect to the primary master node.
+        end_time = time.time() + MAX_START_TIME
         while True:
+            if time.time() > end_time:
+                raise AssertionError, 'Timeout when starting cluster'
             try:
                 neoctl.startCluster()
             except NotReadyException:
