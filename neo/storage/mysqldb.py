@@ -29,7 +29,6 @@ from neo.protocol import DISCARDED_STATE
 from neo import util
 
 LOG_QUERIES = False
-LOG_QUERIES = True
 
 def p64(n):
     return pack('!Q', n)
