@@ -29,6 +29,7 @@ from neo.protocol import DISCARDED_STATE
 from neo import util
 
 LOG_QUERIES = False
+LOG_QUERIES = True
 
 def p64(n):
     return pack('!Q', n)
@@ -133,7 +134,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "pt" stores a partition table.
         q("""CREATE TABLE IF NOT EXISTS pt (
                  rid INT UNSIGNED NOT NULL,
-                 uuid BINARY(16) NOT NULL,
+                 uuid CHAR(32) NOT NULL,
                  state TINYINT UNSIGNED NOT NULL,
                  PRIMARY KEY (rid, uuid)
              ) ENGINE = InnoDB""")
