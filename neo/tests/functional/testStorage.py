@@ -132,6 +132,7 @@ class StorageTests(NEOFunctionalTest):
 
         # populate the cluster then check the databases
         self.__setup(storage_number=2, replicas=1)
+        self.neo.expectOudatedCells(number=0)
         self.__populate()
         self.__checkReplicationDone()
 
@@ -162,6 +163,7 @@ class StorageTests(NEOFunctionalTest):
         processes = self.__setup(storage_number=2, replicas=1, pending_number=1,
                 partitions=10)
         started, stopped = processes
+        self.neo.expectOudatedCells(number=0)
         self.__populate()
         self.neo.expectClusterRunning()
         self.neo.expectAssignedCells(started[0].getUUID(), number=10)
@@ -187,6 +189,7 @@ class StorageTests(NEOFunctionalTest):
 
         # populate the two storages
         (started, _) = self.__setup(storage_number=2, replicas=1)
+        self.neo.expectOudatedCells(number=0)
         self.__populate()
         self.__checkReplicationDone()
         self.neo.expectClusterRunning()
@@ -204,6 +207,7 @@ class StorageTests(NEOFunctionalTest):
         # start neo with one storages
         (started, _) = self.__setup(replicas=0, storage_number=1)
         self.__expectRunning(started[0])
+        self.neo.expectOudatedCells(number=0)
 
         # stop it, the cluster must switch to verification
         started[0].stop()
@@ -259,10 +263,12 @@ class StorageTests(NEOFunctionalTest):
         (started, stopped) = self.__setup(storage_number=2, pending_number=1)
         self.__expectRunning(started[0])
         self.neo.expectClusterRunning()
+        self.neo.expectOudatedCells(number=0)
 
         # start the second with the same UUID as the first
         stopped[0].setUUID(started[0].getUUID())
         stopped[0].start()
+        self.neo.expectOudatedCells(number=0)
 
         # check the first and the cluster are still running
         self.__expectRunning(started[0])
@@ -284,6 +290,7 @@ class StorageTests(NEOFunctionalTest):
         self.__expectRunning(started[0])
         self.neo.expectClusterRunning()
         self.neo.expectAssignedCells(started[0].getUUID(), 10)
+        self.neo.expectOudatedCells(number=0)
 
         # start the second and add it to the partition table
         stopped[0].start()
@@ -291,6 +298,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
         self.__expectRunning(stopped[0])
         self.neo.expectClusterRunning()
+        self.neo.expectOudatedCells(number=0)
 
         # the partition table must change, each node should be assigned to 
         # five partitions
@@ -306,6 +314,7 @@ class StorageTests(NEOFunctionalTest):
                 partitions=10, pending_number=0)
         self.__expectRunning(started[0])
         self.__expectRunning(started[1])
+        self.neo.expectOudatedCells(number=0)
         self.neo.expectAssignedCells(started[0].getUUID(), 10)
         self.neo.expectAssignedCells(started[1].getUUID(), 10)
 
@@ -332,6 +341,7 @@ class StorageTests(NEOFunctionalTest):
                 pending_number=1, partitions=10)
         self.__expectRunning(started[0])
         self.__expectNotKnown(stopped[0])
+        self.neo.expectOudatedCells(number=0)
 
         # populate the cluster with some data
         self.__populate()
@@ -386,7 +396,7 @@ class StorageTests(NEOFunctionalTest):
 
         # start with two storage / one replica
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
-                master_node_count=1)
+                master_node_count=1, partitions=10)
         self.__expectRunning(started[0])
         self.__expectRunning(started[1])
 
@@ -407,7 +417,5 @@ class StorageTests(NEOFunctionalTest):
         self.__expectRunning(started[1])
 
         
-
-
 if __name__ == "__main__":
     unittest.main()

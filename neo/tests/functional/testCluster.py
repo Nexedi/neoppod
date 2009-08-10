@@ -21,46 +21,47 @@ from neo import protocol
 
 class ClusterTests(NEOFunctionalTest):
 
+    def setUp(self):
+        self.neo = None
+
+    def tearDown(self):
+        if self.neo is not None:
+            self.neo.stop()
+
     def testClusterBreaks(self):
-        neo = NEOCluster(['test_neo1'], port_base=20000, master_node_count=1,
-                temp_dir=self.getTempDirectory())
-        neoctl = neo.getNEOCTL()
-        neo.setupDB()
-        neo.start()
-        try:
-            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING_CLUSTER_STATE)
-            neo.killStorage()
-            neo.expectClusterState(protocol.VERIFYING_CLUSTER_STATE)
-        finally:
-            neo.stop()
+        self.neo = NEOCluster(['test_neo1'], port_base=20000, 
+                master_node_count=1, temp_dir=self.getTempDirectory())
+        neoctl = self.neo.getNEOCTL()
+        self.neo.setupDB()
+        self.neo.start()
+        self.neo.expectClusterRunning()
+        self.neo.expectOudatedCells(number=0)
+        self.neo.killStorage()
+        self.neo.expectClusterVeryfing()
 
     def testClusterBreaksWithTwoNodes(self):
-        neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
-                 partitions=2, master_node_count=1,
+        self.neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
+                 partitions=2, master_node_count=1, replicas=0,
                  temp_dir=self.getTempDirectory())
-        neoctl = neo.getNEOCTL()
-        neo.setupDB()
-        neo.start()
-        try:
-            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING_CLUSTER_STATE)
-            neo.killStorage()
-            neo.expectClusterState(protocol.VERIFYING_CLUSTER_STATE)
-        finally:
-            neo.stop()
+        neoctl = self.neo.getNEOCTL()
+        self.neo.setupDB()
+        self.neo.start()
+        self.neo.expectClusterRunning()
+        self.neo.expectOudatedCells(number=0)
+        self.neo.killStorage()
+        self.neo.expectClusterVeryfing()
 
     def testClusterDoesntBreakWithTwoNodesOneReplica(self):
-        neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
+        self.neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
                          partitions=2, replicas=1, master_node_count=1,
                          temp_dir=self.getTempDirectory())
-        neoctl = neo.getNEOCTL()
-        neo.setupDB()
-        neo.start()
-        try:
-            self.assertEqual(neoctl.getClusterState(), protocol.RUNNING_CLUSTER_STATE)
-            neo.killStorage()
-            neo.expectClusterState(protocol.RUNNING_CLUSTER_STATE)
-        finally:
-            neo.stop()
+        neoctl = self.neo.getNEOCTL()
+        self.neo.setupDB()
+        self.neo.start()
+        self.neo.expectClusterRunning()
+        self.neo.expectOudatedCells(number=0)
+        self.neo.killStorage()
+        self.neo.expectClusterRunning()
 
 def test_suite():
     return unittest.makeSuite(ClusterTests)
