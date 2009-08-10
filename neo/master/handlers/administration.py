@@ -124,6 +124,7 @@ class AdministrationHandler(MasterHandler):
         # start nodes
         for s_conn in em.getConnectionList():
             if s_conn.getUUID() in uuid_set:
+                s_conn.notify(protocol.notifyLastOID(app.loid))
                 s_conn.notify(protocol.startOperation())
         # broadcast the new partition table
         app.broadcastPartitionChanges(app.pt.setNextID(), cell_list)
