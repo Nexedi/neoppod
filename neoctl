@@ -39,8 +39,6 @@ else:
 handler = options.handler or "SocketConnector"
 
 setupLog('NEOCTL', options.verbose)
-  
-from neo.neoctl.app import Application
 app = Application(address, port, handler)
 print app.execute(args)
 
