@@ -39,7 +39,8 @@ class HiddenHandler(BaseMasterHandler):
                     # This is me, do what the master tell me
                     if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE):
                         conn.close()
-                        self.app.shutdown()
+                        erase_db = state == DOWN_STATE
+                        self.app.shutdown(erase=erase_db)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
                                         uuid, address, name):

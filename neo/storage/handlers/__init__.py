@@ -55,7 +55,8 @@ class BaseMasterHandler(BaseStorageHandler):
                 logging.info("I was told I'm %s" %(state))
                 if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE):
                     conn.close()
-                    self.app.shutdown()
+                    erase = state == DOWN_STATE
+                    self.app.shutdown(erase=erase)
                 elif state == HIDDEN_STATE:
                     raise OperationFailure
 

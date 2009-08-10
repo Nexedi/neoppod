@@ -296,9 +296,11 @@ class Application(object):
             some_callable, args, kwargs = p()
             some_callable(*args, **kwargs)
 
-    def shutdown(self):
+    def shutdown(self, erase=False):
         """Close all connections and exit"""
         for c in self.em.getConnectionList():
             if not c.isListening():
                 c.close()
+        # clear database to avoid polluting the cluster at restart
+        self.dm.setup(reset=True)
         sys.exit("Application has been asked to shut down")
