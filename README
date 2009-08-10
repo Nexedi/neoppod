@@ -1,8 +1,9 @@
-This is the second prototype of NEO. The design is described in:
-
-    http://www.nexedi.org/workspaces/neo
+NEO is a distributed, redundant and scalable implementation of ZODB API.
+NEO stands for Nexedi Enterprise Object.
 
 Requirements
+
+    - Linux 2.6 or later
 
     - Python 2.4 or later
 
@@ -12,14 +13,67 @@ Requirements
 
     - Zope 2.8 or later
 
+Overview
+
+    A NEO cluster is composed of the following types of nodes:
+
+    - "master" nodes (mandatory, 1 or more)
+       Take care of transactionality. Only one master node is really active
+       (the active master node is called "primary master") at any given time,
+       extra masters are spares (they are called "secondary masters").
+
+    - "storage" nodes (mandatory, 1 or more)
+       Stores data in a MySQL database. All available storage nodes are in use
+       simultaneously. This offers redundancy and data distribution.
+
+    - "admin" nodes (mandatory for startup, optional after)
+       Accepts commands from neoctl tool and transmits them to the
+       primary master, and monitors cluster state.
+
+    - "client" nodes
+       Well... Something needing to store/load data in a NEO cluster. 
+
+Disclaimer
+
+    In addition of the disclaimer contained in the licence this code is
+    released under, please consider the following.
+
+    NEO does not implement any authentication mechanism between its nodes, and
+    does not encrypts data exchanged between nodes either.
+    If you want to protect your cluster from malicious nodes, or your data from
+    being snooped, please consider encrypted tunelling (such as openvpn).
+
 Installation
+
+    a. Make neo directory available for python to import (for example, by
+       adding its container directory to the PYTHONPATH environment variable).
+
+    b. Create a configuration file for your cluster. You should have received
+       a self-describing configuration file along with the code, named
+       neo.conf .
+
+    c. Start all required nodes :
+
+       neomaster -c <your_neo.conf> -s <master_section_name>
+       neostorage -c <your_neo.conf> -s <storage_section_name>
+       neomaster -c <your_neo.conf>
+
+    d. Tell the cluster it can provide service.
+
+       neoctl -a <ip:port of admin node> start cluster
+
+       This must be done each time the primary master changes. This will be
+       addressed in a future release.
+
+How to use
 
 1. In zope:
 
    a. Copy neo directory to /path/to/your/zope/lib/python
 
-   b. Edit your zope.conf,  remove the `zodb_zb` section that refers to
-      FileStorage, and replace it with :
+   b. Edit your zope.conf, add a neo import and edit the `zodb_db` section by
+      replacing its filestorage subsection by a NEOStorage one.
+      It should look like :
 
       %import neo
       <zodb_db main>
@@ -38,11 +92,13 @@ Installation
 
    a. Set your PYTHONPATH in order to be able to import Zope lib:
 
-     $ export PYTHONPATH=/path/to/your/zope/lib/python:$PYTHONPATH
+      $ export PYTHONPATH=/path/to/your/zope/lib/python:$PYTHONPATH
 
    b. Just create the storage object and play with it:
 
-   from neo.client.Storare import Storage
-       s = Storage(master_nodes="127.0.0.1:10010", name="main",
-               connector="SocketConnector")
-   ...
+      from neo.client.Storare import Storage
+          s = Storage(master_nodes="127.0.0.1:10010", name="main")
+      ...
+
+      "name" and "master_nodes" parameters have the same meaning as in
+      configuration file.
