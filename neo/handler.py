@@ -16,13 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from neo import logging
-
+from neo.connection import ServerConnection
 from neo import protocol
 from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
-from neo.connection import ServerConnection
-
-from neo import protocol
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
         ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
         REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION, START_OPERATION, \
