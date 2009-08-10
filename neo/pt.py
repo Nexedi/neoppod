@@ -219,6 +219,7 @@ class PartitionTable(object):
         width under 80 column).
         """
         node_list = self.count_dict.keys()
+        node_list = [k for k, v in self.count_dict.items() if v != 0]
         node_list.sort()
         node_dict = {}
         for i, node in enumerate(node_list):
