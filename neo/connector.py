@@ -23,11 +23,14 @@ from neo import logging
 # Fill by calling registerConnectorHandler.
 # Read by calling getConnectorHandler.
 connector_registry = {}
+DEFAULT_CONNECTOR = 'SocketConnector'
 
 def registerConnectorHandler(connector_handler):
     connector_registry[connector_handler.__name__] = connector_handler
 
-def getConnectorHandler(connector):
+def getConnectorHandler(connector=None):
+    if connector is None:
+        connector = DEFAULT_CONNECTOR
     if isinstance(connector, basestring):
         connector_handler = connector_registry.get(connector)
     else:

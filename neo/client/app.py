@@ -232,7 +232,7 @@ class ThreadContext(object):
 class Application(object):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, connector, **kw):
+    def __init__(self, master_nodes, name, connector=None, **kw):
         # XXX: use a configuration entry
         em = EventManager()
         # Start polling thread

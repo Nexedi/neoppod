@@ -26,7 +26,8 @@ class Storage(BaseStorage.BaseStorage,
 
     __name__ = 'NEOStorage'
 
-    def __init__(self, master_nodes, name, connector, read_only=False, **kw):
+    def __init__(self, master_nodes, name, connector=None, read_only=False,
+                 **kw):
         BaseStorage.BaseStorage.__init__(self, name)
         self._is_read_only = read_only
         self.app = Application(master_nodes, name, connector)
