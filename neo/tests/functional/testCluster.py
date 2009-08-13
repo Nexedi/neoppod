@@ -22,6 +22,7 @@ from neo import protocol
 class ClusterTests(NEOFunctionalTest):
 
     def setUp(self):
+        NEOFunctionalTest.setUp(self)
         self.neo = None
 
     def tearDown(self):

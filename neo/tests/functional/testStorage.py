@@ -35,6 +35,7 @@ OBJECT_NUMBER = 100
 class StorageTests(NEOFunctionalTest):
 
     def setUp(self):
+        NEOFunctionalTest.setUp(self)
         self.neo = None
 
     def tearDown(self):

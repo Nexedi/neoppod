@@ -45,6 +45,7 @@ class Tree(Persistent):
 class ImportExportTests(NEOFunctionalTest):
 
     def setUp(self):
+        NEOFunctionalTest.setUp(self)
         # create a neo cluster
         databases = ['test_neo1', 'test_neo2']
         self.neo = NEOCluster(databases, port_base=20000, master_node_count=2,
