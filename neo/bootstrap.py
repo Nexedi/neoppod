@@ -105,7 +105,6 @@ class BootstrapManager(EventHandler):
             if self.current is None:
                 # conn closed 
                 conn = None
-            if self.current is None:
                 # select a master
                 master_list = nm.getMasterNodeList()
                 index = (index + 1) % len(master_list)
