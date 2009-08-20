@@ -598,6 +598,8 @@ class Application(object):
                 self.mq_cache[oid] = start_serial, data
             finally:
                 self._cache_lock_release()
+        if data == '':
+            data = None
         return data, start_serial, end_serial
 
 
@@ -665,9 +667,12 @@ class Application(object):
         cell_list = self._getCellListForOID(oid, writable=True)
         if len(cell_list) == 0:
             raise NEOStorageError
-        # Store data on each node
+        if data is None:
+            # this is a George Bailey object, stored as an empty string
+            data = ''
         compressed_data = compress(data)
         checksum = makeChecksum(compressed_data)
+        # Store data on each node
         self.local_var.object_stored_counter = 0
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
