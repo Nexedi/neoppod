@@ -60,9 +60,9 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(len(p), PACKET_HEADER_SIZE)
 
     def test_02_error(self):
-        p = protocol._error(10, "error message")
+        p = protocol._error(0, "error message")
         code, msg = protocol._decodeError(p._body)
-        self.assertEqual(code, 10)
+        self.assertEqual(code, protocol.NO_ERROR_CODE)
         self.assertEqual(msg, "error message")
 
     def test_03_protocolError(self):
@@ -282,8 +282,14 @@ class ProtocolTests(NeoTestBase):
 
 
     def test_32_askBeginTransaction(self):
-        p = protocol.askBeginTransaction()
-        self.assertEqual(p.decode(), None)
+        # try with an invalid TID, None must be returned
+        tid = '\0' * 8
+        p = protocol.askBeginTransaction(tid)
+        self.assertEqual(p.decode(), (None, ))
+        # and with another TID
+        tid = '\1' * 8
+        p = protocol.askBeginTransaction(tid)
+        self.assertEqual(p.decode(), (tid, ))
 
     def test_33_answerBeginTransaction(self):
         tid = self.getNextTID()

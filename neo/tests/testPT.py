@@ -19,7 +19,7 @@ import unittest, os
 from mock import Mock
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
         DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        BROKEN_STATE, INVALID_UUID
+        BROKEN_STATE, INVALID_UUID, UNKNOWN_STATE
 from neo.pt import Cell, PartitionTable
 from neo.node import StorageNode
 from neo.tests import NeoTestBase
@@ -39,7 +39,7 @@ class PartitionTableTests(NeoTestBase):
         # check getter
         self.assertEquals(cell.getNode(), sn)
         self.assertEquals(cell.getState(), OUT_OF_DATE_STATE)
-        self.assertEquals(cell.getNodeState(), RUNNING_STATE)
+        self.assertEquals(cell.getNodeState(), UNKNOWN_STATE)
         self.assertEquals(cell.getUUID(), uuid)
         self.assertEquals(cell.getServer(), server)
         # check state setter
@@ -332,6 +332,7 @@ class PartitionTableTests(NeoTestBase):
             pt.setCell(x, sn1, UP_TO_DATE_STATE)
         self.assertTrue(pt.filled())
         # it's up to date and running, so operational
+        sn1.setState(RUNNING_STATE)
         self.assertTrue(pt.operational())
         # same with feeding state
         pt.clear()
@@ -344,7 +345,8 @@ class PartitionTableTests(NeoTestBase):
         for x in xrange(num_partitions):
             pt.setCell(x, sn1, FEEDING_STATE)
         self.assertTrue(pt.filled())
-        # it's up to date and running, so operational
+        # it's feeding and running, so operational
+        sn1.setState(RUNNING_STATE)
         self.assertTrue(pt.operational())
 
         # same with feeding state but non running node

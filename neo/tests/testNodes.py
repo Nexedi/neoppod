@@ -17,8 +17,9 @@
 
 import unittest, os
 from mock import Mock
-from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, BROKEN_STATE, \
-        MASTER_NODE_TYPE, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, INVALID_UUID
+from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
+        BROKEN_STATE, UNKNOWN_STATE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
+        CLIENT_NODE_TYPE, INVALID_UUID
 from neo.node import Node, MasterNode, StorageNode, ClientNode, NodeManager
 from neo.tests import NeoTestBase
 from time import time
@@ -36,13 +37,15 @@ class NodesTests(NeoTestBase):
         server = ("127.0.0.1", 10000)
         uuid = self.getNewUUID()
         node = Node(server, uuid)
-        self.assertEqual(node.state, RUNNING_STATE)
+        manager = Mock()
+        node.setManager(manager)
+        self.assertEqual(node.state, UNKNOWN_STATE)
         self.assertEqual(node.server, server)
         self.assertEqual(node.uuid, uuid)
-        self.assertEqual(node.manager, None)
+        self.assertEqual(node.manager, manager)
         self.assertNotEqual(node.last_state_change, None)
         # test getter
-        self.assertEqual(node.getState(), RUNNING_STATE)
+        self.assertEqual(node.getState(), UNKNOWN_STATE)
         self.assertEqual(node.getServer(), server)
         self.assertEqual(node.getUUID(), uuid)
         self.assertRaises(NotImplementedError, node.getType)
