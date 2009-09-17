@@ -163,7 +163,7 @@ class ConnectionTests(NeoTestBase):
         # test uuid
         self.assertEqual(bc.uuid, None)
         self.assertEqual(bc.getUUID(), None)
-        uuid = getNewUUID()
+        uuid = self.getNewUUID()
         bc.setUUID(uuid)
         self.assertEqual(bc.getUUID(), uuid)
         # test next id
@@ -181,7 +181,7 @@ class ConnectionTests(NeoTestBase):
         # test abort
         bc.abort()
         self.assertEqual(bc.aborted, True)
-        self.assertRaises(NotImplementedError, bc.isServer)
+        self.assertFalse(bc.isServer())
 
     def test_04_Connection_pending(self):
         em = Mock()
@@ -498,11 +498,16 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(len(bc.event_dict), 0)
 
         # give some data to analyse
-        master_list = ((("127.0.0.1", 2135), getNewUUID()), (("127.0.0.1", 2135), getNewUUID()),
-                       (("127.0.0.1", 2235), getNewUUID()), (("127.0.0.1", 2134), getNewUUID()),
-                       (("127.0.0.1", 2335), getNewUUID()),(("127.0.0.1", 2133), getNewUUID()),
-                       (("127.0.0.1", 2435), getNewUUID()),(("127.0.0.1", 2132), getNewUUID()))
-        p = protocol.answerPrimaryMaster(getNewUUID(), master_list)
+        master_list = (
+                (("127.0.0.1", 2135), self.getNewUUID()), 
+                (("127.0.0.1", 2135), self.getNewUUID()),       
+                (("127.0.0.1", 2235), self.getNewUUID()), 
+                (("127.0.0.1", 2134), self.getNewUUID()),       
+                (("127.0.0.1", 2335), self.getNewUUID()),
+                (("127.0.0.1", 2133), self.getNewUUID()),
+                (("127.0.0.1", 2435), self.getNewUUID()),
+                (("127.0.0.1", 2132), self.getNewUUID()))
+        p = protocol.answerPrimaryMaster(self.getNewUUID(), master_list)
         p.setId(1)
         data = p.encode()
         bc.read_buf += data
@@ -526,20 +531,30 @@ class ConnectionTests(NeoTestBase):
                         connector=connector, addr=("127.0.0.7", 93413))
         bc._queue = Mock()
         # packet 1
-        master_list = ((("127.0.0.1", 2135), getNewUUID()), (("127.0.0.1", 2135), getNewUUID()),
-                       (("127.0.0.1", 2235), getNewUUID()), (("127.0.0.1", 2134), getNewUUID()),
-                       (("127.0.0.1", 2335), getNewUUID()),(("127.0.0.1", 2133), getNewUUID()),
-                       (("127.0.0.1", 2435), getNewUUID()),(("127.0.0.1", 2132), getNewUUID()))
-        p1 = protocol.answerPrimaryMaster(getNewUUID(), master_list)
+        master_list = (
+                (("127.0.0.1", 2135), self.getNewUUID()), 
+                (("127.0.0.1", 2135), self.getNewUUID()),
+                (("127.0.0.1", 2235), self.getNewUUID()), 
+                (("127.0.0.1", 2134), self.getNewUUID()),
+                (("127.0.0.1", 2335), self.getNewUUID()),
+                (("127.0.0.1", 2133), self.getNewUUID()),
+                (("127.0.0.1", 2435), self.getNewUUID()),
+                (("127.0.0.1", 2132), self.getNewUUID()))
+        p1 = protocol.answerPrimaryMaster(self.getNewUUID(), master_list)
         p1.setId(1)
         data = p1.encode()
         bc.read_buf += data
         # packet 2
-        master_list = ((("127.0.0.1", 2135), getNewUUID()), (("127.0.0.1", 2135), getNewUUID()),
-                       (("127.0.0.1", 2235), getNewUUID()), (("127.0.0.1", 2134), getNewUUID()),
-                       (("127.0.0.1", 2335), getNewUUID()),(("127.0.0.1", 2133), getNewUUID()),
-                       (("127.0.0.1", 2435), getNewUUID()),(("127.0.0.1", 2132), getNewUUID()))
-        p2 = protocol.answerPrimaryMaster( getNewUUID(), master_list)
+        master_list = (
+                (("127.0.0.1", 2135), self.getNewUUID()), 
+                (("127.0.0.1", 2135), self.getNewUUID()),
+                (("127.0.0.1", 2235), self.getNewUUID()), 
+                (("127.0.0.1", 2134), self.getNewUUID()),
+                (("127.0.0.1", 2335), self.getNewUUID()),
+                (("127.0.0.1", 2133), self.getNewUUID()),
+                (("127.0.0.1", 2435), self.getNewUUID()),
+                (("127.0.0.1", 2132), self.getNewUUID()))
+        p2 = protocol.answerPrimaryMaster( self.getNewUUID(), master_list)
         p2.setId(2)
         data = p2.encode()
         bc.read_buf += data
@@ -585,11 +600,16 @@ class ConnectionTests(NeoTestBase):
                         connector=connector, addr=("127.0.0.7", 93413))
         bc._queue = Mock()
         
-        master_list = ((("127.0.0.1", 2135), getNewUUID()), (("127.0.0.1", 2135), getNewUUID()),
-                       (("127.0.0.1", 2235), getNewUUID()), (("127.0.0.1", 2134), getNewUUID()),
-                       (("127.0.0.1", 2335), getNewUUID()),(("127.0.0.1", 2133), getNewUUID()),
-                       (("127.0.0.1", 2435), getNewUUID()),(("127.0.0.1", 2132), getNewUUID()))
-        p = protocol.answerPrimaryMaster(getNewUUID(), master_list)
+        master_list = (
+                (("127.0.0.1", 2135), self.getNewUUID()), 
+                (("127.0.0.1", 2135), self.getNewUUID()),
+                (("127.0.0.1", 2235), self.getNewUUID()), 
+                (("127.0.0.1", 2134), self.getNewUUID()),
+                (("127.0.0.1", 2335), self.getNewUUID()),
+                (("127.0.0.1", 2133), self.getNewUUID()),
+                (("127.0.0.1", 2435), self.getNewUUID()),
+                (("127.0.0.1", 2132), self.getNewUUID()))
+        p = protocol.answerPrimaryMaster(self.getNewUUID(), master_list)
         p.setId(1)
         data = p.encode()
         bc.read_buf += data
@@ -711,11 +731,15 @@ class ConnectionTests(NeoTestBase):
         handler = Mock()
         # patch receive method to return data
         def receive(self):
-            master_list = ((("127.0.0.1", 2135), getNewUUID()), (("127.0.0.1", 2136), getNewUUID()),
-                           (("127.0.0.1", 2235), getNewUUID()), (("127.0.0.1", 2134), getNewUUID()),
-                           (("127.0.0.1", 2335), getNewUUID()),(("127.0.0.1", 2133), getNewUUID()),
-                           (("127.0.0.1", 2435), getNewUUID()),(("127.0.0.1", 2132), getNewUUID()))
-            uuid = getNewUUID()
+            master_list = ((("127.0.0.1", 2135), self.getNewUUID()), 
+               (("127.0.0.1", 2136), self.getNewUUID()),
+               (("127.0.0.1", 2235), self.getNewUUID()), 
+               (("127.0.0.1", 2134), self.getNewUUID()),
+               (("127.0.0.1", 2335), self.getNewUUID()),
+               (("127.0.0.1", 2133), self.getNewUUID()),
+               (("127.0.0.1", 2435), self.getNewUUID()),
+               (("127.0.0.1", 2132), self.getNewUUID()))
+            uuid = self.getNewUUID()
             p = protocol.answerPrimaryMaster(uuid, master_list)
             p.setId(1)
             data = p.encode()
@@ -969,7 +993,7 @@ class ConnectionTests(NeoTestBase):
         # test uuid
         self.assertEqual(bc.uuid, None)
         self.assertEqual(bc.getUUID(), None)
-        uuid = getNewUUID()
+        uuid = self.getNewUUID()
         bc.setUUID(uuid)
         self.assertEqual(bc.getUUID(), uuid)
         # test next id
@@ -1092,7 +1116,7 @@ class ConnectionTests(NeoTestBase):
         # test uuid
         self.assertEqual(bc.uuid, None)
         self.assertEqual(bc.getUUID(), None)
-        uuid = getNewUUID()
+        uuid = self.getNewUUID()
         bc.setUUID(uuid)
         self.assertEqual(bc.getUUID(), uuid)
         # test next id
