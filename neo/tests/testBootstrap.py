@@ -36,8 +36,8 @@ class BootstrapManagerTests(NeoTestBase):
     def setUp(self):
         self.prepareDatabase(number=1)
         # create an application object
-        config = self.getConfigFile()
-        self.app = Application(config, "master1")
+        config = self.getStorageConfiguration()
+        self.app = Application(**config)
         for server in self.app.master_node_list:
             self.app.nm.add(MasterNode(server=server))
         self.trying_master_node = self.app.nm.getMasterNodeList()[0]
@@ -94,7 +94,7 @@ class BootstrapManagerTests(NeoTestBase):
         })
         connector = Mock({ })
         addr = ("127.0.0.1", self.master_port)
-        self.bootstrap.connectionAccepted(conn, connector, addr)
+        self.bootstrap.connectionAccepted(conn)
         self.assertEquals(len(connector.mockGetNamedCalls('getEventManager')), 0)
         self.checkNoPacketSent(conn)
 
