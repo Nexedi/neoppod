@@ -28,8 +28,8 @@ class MasterAppTests(NeoTestBase):
 
     def setUp(self):
         # create an application object
-        config = self.getConfigFile()
-        self.app = Application(config, "master1")
+        config = self.getMasterConfiguration()
+        self.app = Application(**config)
         self.app.pt.clear()
 
     def tearDown(self):

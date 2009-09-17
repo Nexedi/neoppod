@@ -76,11 +76,10 @@ class AlreadyStopped(Exception):
 class NEOProcess:
     pid = 0
 
-    def __init__(self, command, uuid, port, arg_dict):
+    def __init__(self, command, uuid, arg_dict):
         self.command = command
         self.arg_dict = arg_dict
         self.setUUID(uuid)
-        self.port = port
 
     def start(self):
         # Prevent starting when already forked and wait wasn't called.
@@ -91,7 +90,7 @@ class NEOProcess:
         for arg, param in self.arg_dict.iteritems():
             args.append(arg)
             if param is not None:
-                args.append(param)
+                args.append(str(param))
         self.pid = os.fork()
         if self.pid == 0:
             # Child
@@ -148,10 +147,8 @@ class NEOProcess:
           Note: for this change to take effect, the node must be restarted.
         """
         self.uuid = uuid
-        self.arg_dict['-u'] = dump(uuid)
+        self.arg_dict['--uuid'] = dump(uuid)
 
-    def getPort(self):
-        return self.port
 
 class NEOCluster(object):
 
@@ -173,54 +170,49 @@ class NEOCluster(object):
             temp_dir = tempfile.mkdtemp(prefix='neo_')
             print 'Using temp directory %r.' % (temp_dir, )
         self.temp_dir = temp_dir
-        self.config_file_path = os.path.join(temp_dir, 'neo.conf')
-        config_file = open(self.config_file_path, 'w')
-        neo_admin_port = self.__allocatePort()
-        self.cluster_name = cluster_name = 'neo_%s' % (random.randint(0, 100), )
-        master_node_dict = {}
-        for master in xrange(master_node_count):
-            master_node_dict[NEO_MASTER_ID % (master, )] = \
-                self.__allocatePort()
-        self.master_nodes = master_nodes = ' '.join('127.0.0.1:%s' % 
-            (x, ) for x in master_node_dict.itervalues())
-        config_file.write(NEO_CONFIG_HEADER % {
-            'master_nodes': master_nodes,
-            'replicas': replicas,
-            'partitions': partitions,
-            'name': cluster_name,
-            'user': db_user,
-            'password': db_password,
-            'port': neo_admin_port,
+        self.cluster_name = 'neo_%s' % (random.randint(0, 100), )
+        master_node_list = [self.__allocatePort() for i in xrange(master_node_count)]
+        self.master_nodes = ' '.join('127.0.0.1:%s' % (x, ) for x in master_node_list)
+        # create admin node
+        admin_port = self.__allocatePort()
+        self.__newProcess(NEO_ADMIN, {
+            '--cluster': self.cluster_name,
+            '--name': 'admin',
+            '--bind': '127.0.0.1:%d' % (admin_port, ),
+            '--masters': self.master_nodes,
         })
-        self.__newProcess(NEO_ADMIN, 'admin', neo_admin_port)
-        for config_id, port in master_node_dict.iteritems():
-            config_file.write(NEO_CONFIG_MASTER % {
-                'id': config_id,
-                'port': port,
+        # create master nodes
+        for index, port in enumerate(master_node_list):
+            self.__newProcess(NEO_MASTER, {
+                '--cluster': self.cluster_name,
+                '--name': 'master_%d' % index,
+                '--bind': '127.0.0.1:%d' % (port, ),
+                '--masters': self.master_nodes,
+                '--replicas': replicas,
+                '--partitions': partitions,
             })
-            self.__newProcess(NEO_MASTER, config_id, port)
-        for storage, db in enumerate(db_list):
-            config_id = NEO_STORAGE_ID % (storage, )
+        # create storage nodes
+        for index, db in enumerate(db_list):
             port = self.__allocatePort()
-            config_file.write(NEO_CONFIG_STORAGE % {
-                'id': config_id,
-                'db': db,
-                'port': port,
+            self.__newProcess(NEO_STORAGE, {
+                '--cluster': self.cluster_name,
+                '--name': 'storage_%d' % index,
+                '--bind': '127.0.0.1:%d' % (port, ),
+                '--masters': self.master_nodes,
+                '--database': '%s:%s@%s' % (db_user, db_password, db),
             })
-            self.__newProcess(NEO_STORAGE, config_id, port)
-        config_file.close()
-        self.neoctl = NeoCTL('127.0.0.1', neo_admin_port,
+        # create neoctl
+        self.neoctl = NeoCTL('127.0.0.1', admin_port,
                              'SocketConnector')
 
-    def __newProcess(self, command, section, port):
+    def __newProcess(self, command, arguments):
         uuid = self.__allocateUUID()
-        self.process_dict.setdefault(command, []).append(
-            NEOProcess(command, uuid, port, {
-                '-v': None,
-                '-c': self.config_file_path,
-                '-s': section,
-                '-l': os.path.join(self.temp_dir, '%s.log' % (section, ))
-            }))
+        arguments['--uuid'] = uuid
+        arguments['--verbose'] = None
+        logfile = arguments['--name']
+        arguments['--logfile'] = os.path.join(self.temp_dir, '%s.log' % (logfile, ))
+        self.process_dict.setdefault(command, []).append( 
+            NEOProcess(command, uuid, arguments))
 
     def __allocatePort(self):
         port = self.last_port

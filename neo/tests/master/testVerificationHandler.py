@@ -43,8 +43,8 @@ class MasterVerificationTests(NeoTestBase):
 
     def setUp(self):
         # create an application object
-        config = self.getConfigFile(master_number=2)
-        self.app = Application(config, "master1")
+        config = self.getMasterConfiguration()
+        self.app = Application(**config)
         self.app.pt.clear()
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:

@@ -72,13 +72,44 @@ class NeoTestBase(unittest.TestCase):
         cursor = sql_connection.cursor()
         # drop and create each database
         for i in xrange(number):
-            database = "%s%d" % (prefix, i+1)
+            database = "%s%d" % (prefix, i)
             cursor.execute('DROP DATABASE IF EXISTS %s' % (database, ))
             cursor.execute('CREATE DATABASE %s' % (database, ))
             cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' % 
                 (database, user))
         cursor.close()
         sql_connection.close()
+
+    def getMasterConfiguration(self, cluster='main', master_number=2, 
+            replicas=2, partitions=1009, uuid=None):
+        assert master_number >= 1 and master_number <= 10
+        masters = ['127.0.0.1:1001%d' % i for i in xrange(master_number)]
+        return {
+                'cluster': cluster,
+                'bind': masters[0],
+                'masters': ' '.join(masters),
+                'replicas': replicas,
+                'partitions': partitions,
+                'uuid': uuid,
+        }
+
+    def getStorageConfiguration(self, cluster='main', master_number=2, 
+            index=0, prefix=DB_PREFIX, uuid=None):
+        assert master_number >= 1 and master_number <= 10
+        assert index >= 0 and index <= 9
+        masters = ['127.0.0.1:1001%d' % i for i in xrange(master_number)]
+        if DB_PASSWD is None:
+            database = '%s:@%s%d' % (DB_USER, prefix, index)
+        else:
+            database = '%s:%s@%s%d' % (DB_USER, DB_PASSWD, prefix, index)
+        return {
+                'cluster': cluster,
+                'bind': '127.0.0.1:1002%d' % (index, ),
+                'masters': ' '.join(masters),
+                'database': database,
+                'uuid': uuid,
+                'reset': False,
+        }
 
     def getConfigFile(self, master_number=2, storage_number=2, user=DB_USER,
             replicas=2, partitions=1009, database=DB_PREFIX):

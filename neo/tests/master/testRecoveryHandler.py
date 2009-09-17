@@ -55,8 +55,8 @@ class MasterRecoveryTests(NeoTestBase):
 
     def setUp(self):
         # create an application object
-        config = self.getConfigFile()
-        self.app = Application(config, "master1")        
+        config = self.getMasterConfiguration()
+        self.app = Application(**config)
         self.app.pt.clear()
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:

@@ -27,7 +27,6 @@ import os
 UNIT_TEST_MODULES = [ 
     # generic parts
     'neo.tests.testBootstrap',
-    'neo.tests.testConfig',
     'neo.tests.testConnection',
     'neo.tests.testEvent',
     'neo.tests.testHandler',

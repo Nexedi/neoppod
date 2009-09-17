@@ -45,8 +45,8 @@ class StorageMasterHandlerTests(NeoTestBase):
     def setUp(self):
         self.prepareDatabase(number=1)
         # create an application object
-        config = self.getConfigFile(master_number=1)
-        self.app = Application(config, "storage1")
+        config = self.getStorageConfiguration(master_number=1)
+        self.app = Application(**config)
         self.app.num_partitions = 1
         self.app.num_replicas = 1
         self.app.transaction_dict = {}

@@ -43,8 +43,8 @@ class StorageVerificationHandlerTests(NeoTestBase):
     def setUp(self):
         self.prepareDatabase(number=1)
         # create an application object
-        config = self.getConfigFile(master_number=1)
-        self.app = Application(config, "storage1")
+        config = self.getStorageConfiguration(master_number=1)
+        self.app = Application(**config)
         self.verification = VerificationHandler(self.app)
         # define some variable to simulate client and storage node
         self.master_port = 10010
