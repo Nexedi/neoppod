@@ -17,7 +17,7 @@
 
 import unittest
 
-from neo.client.dispatcher import Dispatcher
+from neo.dispatcher import Dispatcher
 
 class DispatcherTests(unittest.TestCase):
 
