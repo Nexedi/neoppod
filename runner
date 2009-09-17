@@ -172,12 +172,14 @@ class NeoTestRunner(unittest.TestResult):
     def _buildSystemInfo(self):
         import platform
         import datetime
+        success = self.testsRun - len(self.errors) - len(self.failures)
         s = """
     Date        : %s
     Node        : %s
     Processor   : %s (%s)
     System      : %s (%s)
     Directory   : %s
+    Status      : %7.3f%%
         """ % (
             datetime.date.today().isoformat(),
             platform.node(),
@@ -186,6 +188,7 @@ class NeoTestRunner(unittest.TestResult):
             platform.system(),
             platform.release(),
             self.temp_directory,
+            success * 100.0 / self.testsRun,
         )
         return s
 
