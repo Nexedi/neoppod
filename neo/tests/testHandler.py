@@ -27,7 +27,8 @@ from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
 class HandlerTests(NeoTestBase):
 
     def setUp(self):
-        self.handler = EventHandler()
+        app = Mock()
+        self.handler = EventHandler(app)
         self.fake_type = 'FAKE_PACKET_TYPE'
 
     def setFakeMethod(self, method):
@@ -47,17 +48,6 @@ class HandlerTests(NeoTestBase):
         # all is ok
         self.setFakeMethod(lambda c, p: None)
         self.handler.dispatch(conn, packet)
-        # raise KeyError and ValueError
-        conn.mockCalledMethods = {} 
-        def fake(c, p): raise KeyError
-        self.setFakeMethod(fake)
-        self.handler.dispatch(conn, packet)
-        self.checkErrorPacket(conn)
-        conn.mockCalledMethods = {} 
-        def fake(c, p): raise ValueError
-        self.setFakeMethod(fake)
-        self.handler.dispatch(conn, packet)
-        self.checkErrorPacket(conn)
         # raise UnexpectedPacketError 
         conn.mockCalledMethods = {} 
         def fake(c, p): raise UnexpectedPacketError('fake packet')
