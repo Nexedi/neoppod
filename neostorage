@@ -24,27 +24,36 @@ from neo.util import bin
 
 
 parser = OptionParser()
+parser.add_option('-v', '--verbose', action = 'store_true', 
+                  help = 'print verbose messages')
 parser.add_option('-u', '--uuid', help='specify an UUID to use for this ' \
                   'process. Previously assigned UUID takes precedence (ie ' \
                   'you should always use -R with this switch)')
-parser.add_option('-v', '--verbose', action = 'store_true', 
-                  help = 'print verbose messages')
-parser.add_option('-c', '--config', help = 'specify a configuration file')
-parser.add_option('-s', '--section', help = 'specify a configuration section')
 parser.add_option('-l', '--logfile', help = 'specify a logging file')
 parser.add_option('-R', '--reset', action = 'store_true',
                   help = 'remove an existing database if any')
 
+parser.add_option('-n', '--name', help = 'the node name (impove logging)')
+parser.add_option('-b', '--bind', help = 'the local address to bind to')
+parser.add_option('-c', '--cluster', help = 'the cluster name')
+parser.add_option('-m', '--masters', help = 'master node list')
+parser.add_option('-d', '--database', help = 'database connections string')
+
 (options, args) = parser.parse_args()
-config = options.config or 'neo.conf'
-section = options.section or 'storage'
-uuid = options.uuid
-if uuid is not None:
-    uuid = bin(uuid)
+config = {
+    'uuid': options.uuid,
+    'bind': options.bind or '127.0.0.1:20000',
+    'cluster': options.cluster,
+    'masters': options.masters or '127.0.0.1:10000',
+    'database': options.database,
+    'reset': options.reset,
+}
+config['uuid'] = bin(config['uuid'])
 
-logfile = options.logfile or None
-setupLog(section, logfile, options.verbose)
+# setup custom logging
+setupLog(options.name or 'storage', options.logfile or None, options.verbose)
 
+# and then, load and run the application
 from neo.storage.app import Application
-app = Application(config, section, options.reset, uuid=uuid)
+app = Application(**config)
 app.run()

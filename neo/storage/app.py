@@ -19,7 +19,6 @@ from neo import logging
 import sys
 from collections import deque
 
-from neo.config import ConfigurationManager
 from neo import protocol
 from neo.protocol import TEMPORARILY_DOWN_STATE, \
         cell_states, HIDDEN_STATE
@@ -39,29 +38,46 @@ from neo.bootstrap import BootstrapManager
 class Application(object):
     """The storage node application."""
 
-    def __init__(self, filename, section, reset=False, uuid=None):
-        config = ConfigurationManager(filename, section)
+    def __init__(self, cluster, bind, masters, database, uuid, reset):
 
-        self.name = config.getName()
-        logging.debug('the name is %s', self.name)
-        self.connector_handler = getConnectorHandler(config.getConnector())
+        # always use default connector for now
+        self.connector_handler = getConnectorHandler()
 
-        self.server = config.getServer()
+        # set the cluster name
+        if cluster is None:
+            raise RuntimeError, 'cluster name must be non-empty'
+        self.name = cluster
+        
+        # set the bind address
+        ip_address, port = bind.split(':')
+        self.server = (ip_address, int(port))
         logging.debug('IP address is %s, port is %d', *(self.server))
 
-        self.master_node_list = config.getMasterNodeList()
+        # load master node list
+        self.master_node_list = []
+        for node in masters.split():
+            ip_address, port = node.split(':')
+            server = (ip_address, int(port))
+            if (server != self.server):
+                self.master_node_list.append(server)
         logging.debug('master nodes are %s', self.master_node_list)
 
+        # load database connection credentials, from user:password@database
+        if database is None:
+            raise RuntimeError, 'database connection required'
+        (ident, dbname) = database.split('@')
+        (username, password) = ident.split(':')
+            
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
-        self.dm = MySQLDatabaseManager(database = config.getDatabase(),
-                                       user = config.getUser(),
-                                       password = config.getPassword())
-        self.loid = None
+        self.dm = MySQLDatabaseManager(database=dbname, user=username,
+                password=password)
+
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
+        self.loid = None
 
         self.replicator = None
         self.listening_conn = None

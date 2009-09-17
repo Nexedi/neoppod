@@ -20,7 +20,6 @@ import os, sys
 from time import time, gmtime
 from struct import pack, unpack
 
-from neo.config import ConfigurationManager
 from neo import protocol
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         UUID_NAMESPACES, BOOTING_CLUSTER_STATE, INVALID_UUID
@@ -41,20 +40,28 @@ REQUIRED_NODE_NUMBER = 1
 class Application(object):
     """The master node application."""
 
-    def __init__(self, filename, section, uuid=None):
+    def __init__(self, cluster, bind, masters, replicas, partitions, uuid):
 
-        config = ConfigurationManager(filename, section)
-        self.connector_handler = getConnectorHandler(config.getConnector())
+        # always use default connector for now
+        self.connector_handler = getConnectorHandler()
 
-        self.name = config.getName()
-        if len(self.name) == 0:
+        # set the cluster name
+        if cluster is None:
             raise RuntimeError, 'cluster name must be non-empty'
+        self.name = cluster
 
-        self.server = config.getServer()
+        # set the bind address
+        ip_address, port = bind.split(':')
+        self.server = (ip_address, int(port))
         logging.debug('IP address is %s, port is %d', *(self.server))
 
-        # Exclude itself from the list.
-        self.master_node_list = [n for n in config.getMasterNodeList() if n != self.server]
+        # load master node list
+        self.master_node_list = []
+        for node in masters.split():
+            ip_address, port = node.split(':')
+            server = (ip_address, int(port))
+            if (server != self.server):
+                self.master_node_list.append(server)
         logging.debug('master nodes are %s', self.master_node_list)
 
         # Internal attributes.
@@ -62,7 +69,6 @@ class Application(object):
         self.nm = NodeManager()
 
         # Partition table
-        replicas, partitions = config.getReplicas(), config.getPartitions()
         if replicas < 0:
             raise RuntimeError, 'replicas must be a positive integer'
         if partitions <= 0:
