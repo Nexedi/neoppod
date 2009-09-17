@@ -18,8 +18,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import sys
 from optparse import OptionParser
-from neo.neoctl.app import Application
 from neo import setupLog
 
 parser = OptionParser()
@@ -39,7 +39,11 @@ else:
 handler = options.handler or "SocketConnector"
 
 setupLog('NEOCTL', options.verbose)
+from neo.neoctl.app import Application
 app = Application(address, port, handler)
-print app.execute(args)
-
+result = app.execute(args)
+if result is None:
+    print "failure"
+    sys.exit(1)    
+print result
 
