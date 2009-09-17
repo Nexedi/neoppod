@@ -37,12 +37,12 @@ class NodesTests(NeoTestBase):
         server = ("127.0.0.1", 10000)
         uuid = self.getNewUUID()
         node = Node(server, uuid)
-        manager = Mock()
+        manager = Mock({'__repr__':'Fake Manager'})
         node.setManager(manager)
         self.assertEqual(node.state, UNKNOWN_STATE)
         self.assertEqual(node.server, server)
         self.assertEqual(node.uuid, uuid)
-        self.assertEqual(node.manager, manager)
+        self.assertTrue(node.manager is manager)
         self.assertNotEqual(node.last_state_change, None)
         # test getter
         self.assertEqual(node.getState(), UNKNOWN_STATE)
@@ -100,7 +100,7 @@ class NodesTests(NeoTestBase):
         self.assertEqual(node.manager, None)
         self.assertNotEqual(node.last_state_change, None)
         # test getter
-        self.assertEqual(node.getState(), RUNNING_STATE)
+        self.assertEqual(node.getState(), UNKNOWN_STATE)
         self.assertEqual(node.getServer(), server)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(MASTER_NODE_TYPE, node.getType())
@@ -112,7 +112,7 @@ class NodesTests(NeoTestBase):
         self.assertEqual(node.manager, None)
         self.assertNotEqual(node.last_state_change, None)
         # test getter
-        self.assertEqual(node.getState(), RUNNING_STATE)
+        self.assertEqual(node.getState(), UNKNOWN_STATE)
         self.assertEqual(node.getServer(), server)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(STORAGE_NODE_TYPE, node.getType())
@@ -124,7 +124,7 @@ class NodesTests(NeoTestBase):
         self.assertEqual(node.manager, None)
         self.assertNotEqual(node.last_state_change, None)
         # test getter
-        self.assertEqual(node.getState(), RUNNING_STATE)
+        self.assertEqual(node.getState(), UNKNOWN_STATE)
         self.assertEqual(node.getServer(), server)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(CLIENT_NODE_TYPE, node.getType())
