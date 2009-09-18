@@ -21,7 +21,7 @@ from neo import protocol
 from neo.protocol import HIDDEN_STATE
 from neo.master.handlers import BaseServiceHandler
 from neo.protocol import UnexpectedPacketError
-from neo.util import dump
+from neo.util import dump, getNextTID
 
 class FinishingTransaction(object):
     """This class describes a finishing transaction."""
@@ -87,7 +87,7 @@ class ClientServiceHandler(BaseServiceHandler):
             raise protocol.ProtocolError('invalid TID requested')
         if tid is None:
             # give a new transaction ID
-            tid = app.getNextTID()
+            tid = getNextTID(app.ltid)
         app.ltid = tid
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
         conn.answer(protocol.answerBeginTransaction(tid), packet.getId())

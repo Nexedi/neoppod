@@ -708,30 +708,6 @@ class Application(object):
             handler.connectionCompleted(conn)
         self.cluster_state = state
 
-    def getNextTID(self):
-        tm = time()
-        gmt = gmtime(tm)
-        upper = ((((gmt.tm_year - 1900) * 12 + gmt.tm_mon - 1) * 31 \
-                  + gmt.tm_mday - 1) * 24 + gmt.tm_hour) * 60 + gmt.tm_min
-        lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / (60.0 / 65536.0 / 65536.0))
-        tid = pack('!LL', upper, lower)
-        if tid <= self.ltid:
-            upper, lower = unpack('!LL', self.ltid)
-            if lower == 0xffffffff:
-                # This should not happen usually.
-                from datetime import timedelta, datetime
-                d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday, 
-                             gmt.tm_hour, gmt.tm_min) \
-                        + timedelta(0, 60)
-                upper = ((((d.year - 1900) * 12 + d.month - 1) * 31 \
-                          + d.day - 1) * 24 + d.hour) * 60 + d.minute
-                lower = 0
-            else:
-                lower += 1
-            tid = pack('!LL', upper, lower)
-        self.ltid = tid
-        return tid
-
     def getNewOIDList(self, num_oids):
         if self.loid is None:
             raise RuntimeError, 'I do not know the last OID'
