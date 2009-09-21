@@ -70,8 +70,8 @@ class SocketConnector:
                     raise ConnectorInProgressException
                 if err == errno.ECONNREFUSED:
                     raise ConnectorConnectionRefusedException
-                raise ConnectorException, 'makeClientConnection failed: ' \
-                    '%s:%s' % (err, errmsg)
+                raise ConnectorException, 'makeClientConnection to %s failed: ' \
+                    '%s:%s' % (addr, err, errmsg)
         finally:
             logging.debug('%r connecting to %r', self.socket.getsockname(),
                           addr)
@@ -85,8 +85,8 @@ class SocketConnector:
             self.socket.listen(5)
         except socket.error, (err, errmsg):
             self.socket.close()
-            raise ConnectorException, 'makeListeningConnection failed: %s:%s' % \
-                (err, errmsg)
+            raise ConnectorException, 'makeListeningConnection on %s failed: %s:%s' % \
+                (addr, err, errmsg)
 
     def getError(self):
         return self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
