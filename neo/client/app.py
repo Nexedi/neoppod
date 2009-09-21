@@ -43,6 +43,7 @@ from neo.dispatcher import Dispatcher
 from neo.client.poll import ThreadedPoll
 from neo.client.iterator import Iterator
 from neo.client.mq import MQ
+from neo.util import u64, parseMasterList
 
 
 class ConnectionClosed(Exception): 
@@ -249,21 +250,13 @@ class Application(object):
         self.master_conn = None
         self.primary_master_node = None
         self.trying_master_node = None
-        # XXX: this code duplicates neo.config.ConfigurationManager.getMasterNodeList
-        logging.debug('master node address are %s' % (master_nodes,))
-        self.master_node_list = master_node_list = []
-        for node in master_nodes.split():
-            if not node:
-                continue
-            if ':' in node:
-                ip_address, port = node.split(':')
-                port = int(port)
-            else:
-                ip_address = node
-                port = 10100 # XXX: default_master_port
-            server = (ip_address, port)
-            master_node_list.append(server)
+
+        # load master node list
+        self.master_node_list = parseMasterList(master_nodes)
+        logging.debug('master nodes are %s', self.master_node_list)
+        for server in self.master_node_list:
             self.nm.add(MasterNode(server=server))
+
         # no self-assigned UUID, primary master will supply us one
         self.uuid = None
         self.mq_cache = MQ()
@@ -512,7 +505,6 @@ class Application(object):
 
     def getStorageSize(self):
         # return the last OID used, this is innacurate
-        from neo.util import u64
         return int(u64(self.last_oid))
 
     def getSerial(self, oid):

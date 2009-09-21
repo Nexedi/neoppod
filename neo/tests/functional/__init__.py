@@ -172,7 +172,7 @@ class NEOCluster(object):
         self.temp_dir = temp_dir
         self.cluster_name = 'neo_%s' % (random.randint(0, 100), )
         master_node_list = [self.__allocatePort() for i in xrange(master_node_count)]
-        self.master_nodes = ' '.join('127.0.0.1:%s' % (x, ) for x in master_node_list)
+        self.master_nodes = '/'.join('127.0.0.1:%s' % (x, ) for x in master_node_list)
         # create admin node
         admin_port = self.__allocatePort()
         self.__newProcess(NEO_ADMIN, {

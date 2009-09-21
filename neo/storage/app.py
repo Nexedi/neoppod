@@ -32,7 +32,7 @@ from neo.storage.handlers import master, hidden
 from neo.storage.replicator import Replicator
 from neo.connector import getConnectorHandler
 from neo.pt import PartitionTable
-from neo.util import dump
+from neo.util import dump, parseMasterList
 from neo.bootstrap import BootstrapManager
 
 class Application(object):
@@ -54,12 +54,7 @@ class Application(object):
         logging.debug('IP address is %s, port is %d', *(self.server))
 
         # load master node list
-        self.master_node_list = []
-        for node in masters.split():
-            ip_address, port = node.split(':')
-            server = (ip_address, int(port))
-            if (server != self.server):
-                self.master_node_list.append(server)
+        self.master_node_list = parseMasterList(masters)
         logging.debug('master nodes are %s', self.master_node_list)
 
         # load database connection credentials, from user:password@database

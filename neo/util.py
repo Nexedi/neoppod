@@ -77,3 +77,15 @@ def getNextTID(ltid):
             lower += 1
         tid = pack('!LL', upper, lower)
     return tid
+
+def parseMasterList(masters, except_node=None):
+    # load master node list
+    master_node_list = []
+    for node in masters.split('/'):
+        ip_address, port = node.split(':')
+        server = (ip_address, int(port))
+        if (server != except_node):
+            master_node_list.append(server)
+    return master_node_list
+
+

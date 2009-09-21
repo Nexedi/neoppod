@@ -87,7 +87,7 @@ class NeoTestBase(unittest.TestCase):
         return {
                 'cluster': cluster,
                 'bind': masters[0],
-                'masters': ' '.join(masters),
+                'masters': '/'.join(masters),
                 'replicas': replicas,
                 'partitions': partitions,
                 'uuid': uuid,
@@ -105,7 +105,7 @@ class NeoTestBase(unittest.TestCase):
         return {
                 'cluster': cluster,
                 'bind': '127.0.0.1:1002%d' % (index, ),
-                'masters': ' '.join(masters),
+                'masters': '/'.join(masters),
                 'database': database,
                 'uuid': uuid,
                 'reset': False,
