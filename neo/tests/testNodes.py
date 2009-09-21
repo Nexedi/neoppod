@@ -15,259 +15,303 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import unittest, os
+import unittest
 from mock import Mock
-from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        BROKEN_STATE, UNKNOWN_STATE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
-        CLIENT_NODE_TYPE, INVALID_UUID
-from neo.node import Node, MasterNode, StorageNode, ClientNode, NodeManager
+from neo import protocol
+from neo.protocol import RUNNING_STATE, DOWN_STATE, \
+        UNKNOWN_STATE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
+        CLIENT_NODE_TYPE, ADMIN_NODE_TYPE
+from neo.node import Node, MasterNode, StorageNode, ClientNode, AdminNode, \
+        NodeManager
 from neo.tests import NeoTestBase
 from time import time
 
 class NodesTests(NeoTestBase):
 
     def setUp(self):
-        pass
+        self.manager = Mock()
 
-    def tearDown(self):
-        pass
+    def _updatedByServer(self, node, index=0):
+        calls = self.manager.mockGetNamedCalls('unregisterServer')
+        self.assertEqual(len(calls), index + 1)
+        self.assertEqual(calls[index].getParam(0), node)
+        calls = self.manager.mockGetNamedCalls('registerServer')
+        self.assertEqual(len(calls), index + 1)
+        self.assertEqual(calls[index].getParam(0), node)
 
-    def test_01_node(self):
-        # initialisation
-        server = ("127.0.0.1", 10000)
+    def _updatedByUUID(self, node, index=0):
+        calls = self.manager.mockGetNamedCalls('unregisterUUID')
+        self.assertEqual(len(calls), index + 1)
+        self.assertEqual(calls[index].getParam(0), node)
+        calls = self.manager.mockGetNamedCalls('registerUUID')
+        self.assertEqual(len(calls), index + 1)
+        self.assertEqual(calls[index].getParam(0), node)
+
+    def testInit(self):
+        """ Check the node initialization """
+        server = ('127.0.0.1', 10000)
         uuid = self.getNewUUID()
-        node = Node(server, uuid)
-        manager = Mock({'__repr__':'Fake Manager'})
-        node.setManager(manager)
-        self.assertEqual(node.state, UNKNOWN_STATE)
-        self.assertEqual(node.server, server)
-        self.assertEqual(node.uuid, uuid)
-        self.assertTrue(node.manager is manager)
-        self.assertNotEqual(node.last_state_change, None)
-        # test getter
-        self.assertEqual(node.getState(), UNKNOWN_STATE)
+        node = Node(server=server, uuid=uuid)
+        self.assertEqual(node.getState(), protocol.UNKNOWN_STATE)
         self.assertEqual(node.getServer(), server)
         self.assertEqual(node.getUUID(), uuid)
-        self.assertRaises(NotImplementedError, node.getType)
-        self.assertNotEqual(node.getLastStateChange(), None)
-        last_change = node.getLastStateChange()
-        self.failUnless(isinstance(last_change, float))
-        now = time()
-        self.failUnless(last_change < now)
-        # change the state
-        node.setState(DOWN_STATE)
-        self.assertEqual(node.getState(), DOWN_STATE)
-        # tmie of change must be updated
-        self.failUnless(node.getLastStateChange() > now)
-        # set new uuid
-        new_uuid = self.getNewUUID()
-        self.assertNotEqual(new_uuid, uuid)
-        node.setUUID(new_uuid)
-        self.assertEqual(node.getUUID(), new_uuid)
-        # set new server
-        new_server = ("127.0.0.1", 10001)
-        self.assertNotEqual(new_server, server)
-        node.setServer(new_server)
-        self.assertEqual(node.getServer(), new_server)
-        # add manager
-        manager = Mock()
-        node.setManager(manager)
-        self.assertNotEqual(node.manager, None)
-        # set server and uuid and check method are well called on manager
-        self.assertNotEqual(node.getUUID(), uuid)
-        node.setUUID(uuid)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertNotEqual(node.getServer(), server)
+        self.assertEqual(node.getManager(), None)
+        self.assertTrue(time() - 1 < node.getLastStateChange() < time()) 
+
+    def testManager(self):
+        """ Check if the node manager is well binded to the node """
+        node = Node()
+        self.assertEqual(node.getManager(), None)
+        node.setManager(self.manager)
+        self.assertTrue(node.getManager() is self.manager)
+        # XXX: the manager should index the node by uuid and address 
+
+    def testState(self):
+        """ Check if the last changed time is updated when state is changed """
+        node = Node()
+        self.assertEqual(node.getState(), protocol.UNKNOWN_STATE)
+        self.assertTrue(time() - 1 < node.getLastStateChange() < time())
+        previous_time = node.getLastStateChange()
+        node.setState(protocol.RUNNING_STATE)
+        self.assertEqual(node.getState(), protocol.RUNNING_STATE)
+        self.assertTrue(previous_time < node.getLastStateChange())
+        self.assertTrue(time() - 1 < node.getLastStateChange() < time())
+
+    def testServer(self):
+        """ Check if the manager is updated when a node change it's address """
+        node = Node()
+        self.assertEqual(node.getServer(), None)
+        node.setManager(self.manager)
+        server = ('127.0.0.1', 10000)
         node.setServer(server)
-        self.assertEqual(node.getServer(), server)
-        self.assertEqual(len(manager.mockGetNamedCalls("unregisterServer")), 1)
-        call = manager.mockGetNamedCalls("unregisterServer")[0]
-        self.assertEqual(call.getParam(0), node)
-        self.assertEqual(len(manager.mockGetNamedCalls("registerServer")), 1)
-        call = manager.mockGetNamedCalls("registerServer")[0]
-        self.assertEqual(call.getParam(0), node)
-        self.assertEqual(len(manager.mockGetNamedCalls("unregisterUUID")), 1)
-        call = manager.mockGetNamedCalls("unregisterUUID")[0]
-        self.assertEqual(call.getParam(0), node)
-        self.assertEqual(len(manager.mockGetNamedCalls("registerUUID")), 1)
-        call = manager.mockGetNamedCalls("registerUUID")[0]
-        self.assertEqual(call.getParam(0), node)
+        self._updatedByServer(node)
 
-    def test_02_master_node(self):
-        server = ("127.0.0.1", 10000)
+    def testUUID(self):
+        """ As for Server but UUID """
+        node = Node()
+        self.assertEqual(node.getServer(), None)
+        node.setManager(self.manager)
         uuid = self.getNewUUID()
-        node = MasterNode(server, uuid)
-        self.assertEqual(node.manager, None)
-        self.assertNotEqual(node.last_state_change, None)
-        # test getter
-        self.assertEqual(node.getState(), UNKNOWN_STATE)
-        self.assertEqual(node.getServer(), server)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(MASTER_NODE_TYPE, node.getType())
+        node.setUUID(uuid)
+        self._updatedByUUID(node)
+
+    def testTypes(self):
+        """ Check that the abstract node has no type """
+        node = Node()
+        self.assertRaises(NotImplementedError, node.getType)
+        self.assertFalse(node.isStorage())
+        self.assertFalse(node.isMaster())
+        self.assertFalse(node.isClient())
+        self.assertFalse(node.isAdmin())
+
+    def testMaster(self):
+        """ Check Master sub class """
+        node = MasterNode()
+        self.assertEqual(node.getType(), protocol.MASTER_NODE_TYPE)
+        self.assertTrue(node.isMaster())
+        self.assertFalse(node.isStorage())
+        self.assertFalse(node.isClient())
+        self.assertFalse(node.isAdmin())
+
+    def testStorage(self):
+        """ Check Storage sub class """
+        node = StorageNode()
+        self.assertEqual(node.getType(), protocol.STORAGE_NODE_TYPE)
+        self.assertTrue(node.isStorage())
+        self.assertFalse(node.isMaster())
+        self.assertFalse(node.isClient())
+        self.assertFalse(node.isAdmin())
+
+    def testClient(self):
+        """ Check Client sub class """
+        node = ClientNode()
+        self.assertEqual(node.getType(), protocol.CLIENT_NODE_TYPE)
+        self.assertTrue(node.isClient())
+        self.assertFalse(node.isMaster())
+        self.assertFalse(node.isStorage())
+        self.assertFalse(node.isAdmin())
+
+    def testAdmin(self):
+        """ Check Admin sub class """
+        node = AdminNode()
+        self.assertEqual(node.getType(), protocol.ADMIN_NODE_TYPE)
+        self.assertTrue(node.isAdmin())
+        self.assertFalse(node.isMaster())
+        self.assertFalse(node.isStorage())
+        self.assertFalse(node.isClient())
+
+
+
+
+class NodeManagerTests(NeoTestBase):
+
+    def setUp(self):
+        self.manager = NodeManager()
+        self.storage = StorageNode(('127.0.0.1', 1000), self.getNewUUID())
+        self.master = MasterNode(('127.0.0.1', 2000), self.getNewUUID())
+        self.client = ClientNode(None, self.getNewUUID())
+        self.admin = AdminNode(('127.0.0.1', 4000), self.getNewUUID())
+
+    def checkNodes(self, node_list):
+        manager = self.manager
+        self.assertEqual(sorted(manager.getNodeList()), sorted(node_list))
+
+    def checkMasters(self, master_list):
+        manager = self.manager
+        self.assertEqual(manager.getMasterNodeList(), master_list)
+
+    def checkStorages(self, storage_list):
+        manager = self.manager
+        self.assertEqual(manager.getStorageNodeList(), storage_list)
+
+    def checkClients(self, client_list):
+        manager = self.manager
+        self.assertEqual(manager.getClientNodeList(), client_list)
+
+    def checkByServer(self, node):
+        node_found = self.manager.getNodeByServer(node.getServer())
+        self.assertEqual(node_found, node)
         
-    def test_02_storage_node(self):
-        server = ("127.0.0.1", 10000)
+    def checkByUUID(self, node):
+        node_found = self.manager.getNodeByUUID(node.getUUID())
+        self.assertEqual(node_found, node)
+
+    def testInit(self):
+        """ Check the manager is empty when started """
+        manager = self.manager
+        self.checkNodes([])
+        self.checkMasters([])
+        self.checkStorages([])
+        self.checkClients([])
+        server = ('127.0.0.1', 10000)
+        self.assertEqual(manager.getNodeByServer(server), None)
+        self.assertEqual(manager.getNodeByServer(None), None)
         uuid = self.getNewUUID()
-        node = StorageNode(server, uuid)
-        self.assertEqual(node.manager, None)
-        self.assertNotEqual(node.last_state_change, None)
-        # test getter
-        self.assertEqual(node.getState(), UNKNOWN_STATE)
-        self.assertEqual(node.getServer(), server)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(STORAGE_NODE_TYPE, node.getType())
+        self.assertEqual(manager.getNodeByUUID(uuid), None)
+        self.assertEqual(manager.getNodeByUUID(None), None)
 
-    def test_04_client_node(self):
-        server = ("127.0.0.1", 10000)
-        uuid = self.getNewUUID()
-        node = ClientNode(server, uuid)
-        self.assertEqual(node.manager, None)
-        self.assertNotEqual(node.last_state_change, None)
-        # test getter
-        self.assertEqual(node.getState(), UNKNOWN_STATE)
-        self.assertEqual(node.getServer(), server)
-        self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(CLIENT_NODE_TYPE, node.getType())
+    def testAdd(self):
+        """ Check if new nodes are registered in the manager """
+        manager = self.manager
+        self.checkNodes([])
+        # storage
+        manager.add(self.storage)
+        self.checkNodes([self.storage])
+        self.checkStorages([self.storage])
+        self.checkMasters([])
+        self.checkClients([])
+        self.checkByServer(self.storage)
+        self.checkByUUID(self.storage)
+        # master
+        manager.add(self.master)
+        self.checkNodes([self.storage, self.master])
+        self.checkStorages([self.storage])
+        self.checkMasters([self.master])
+        self.checkClients([])
+        self.checkByServer(self.master)
+        self.checkByUUID(self.master)
+        # client
+        manager.add(self.client)
+        self.checkNodes([self.storage, self.master, self.client])
+        self.checkStorages([self.storage])
+        self.checkMasters([self.master])
+        self.checkClients([self.client])
+        # client node has no server
+        self.assertEqual(manager.getNodeByServer(self.client.getServer()), None)
+        self.checkByUUID(self.client)
+        # admin
+        manager.add(self.admin)
+        self.checkNodes([self.storage, self.master, self.client, self.admin])
+        self.checkStorages([self.storage])
+        self.checkMasters([self.master])
+        self.checkClients([self.client])
+        self.checkByServer(self.admin)
+        self.checkByUUID(self.admin)
 
+    def testClear(self):
+        """ Check that the manager clear all its content """
+        manager = self.manager
+        self.checkNodes([])
+        self.checkStorages([])
+        self.checkMasters([])
+        self.checkClients([])
+        manager.add(self.master)
+        self.checkMasters([self.master])
+        manager.clear()
+        self.checkNodes([])
+        self.checkMasters([])
+        manager.add(self.storage)
+        self.checkStorages([self.storage])
+        manager.clear()
+        self.checkNodes([])
+        self.checkStorages([])
+        manager.add(self.client)
+        self.checkClients([self.client])
+        manager.clear()
+        self.checkNodes([])
+        self.checkClients([])
 
-    def test_05_node_manager(self):
-        nm = NodeManager()
-        self.assertEqual(len(nm.node_list), 0) 
-        self.assertEqual(len(nm.server_dict), 0)
-        self.assertEqual(len(nm.uuid_dict), 0)
-        self.assertEqual(len(nm.getNodeList()), 0)
-        self.assertEqual(len(nm.getMasterNodeList()), 0)        
-        self.assertEqual(len(nm.getStorageNodeList()), 0)
-        self.assertEqual(len(nm.getClientNodeList()), 0)
-        # Create some node and add them to node manager
-        # add a storage node
-        sn_server = ("127.0.0.1", 10000)
-        sn_uuid = self.getNewUUID()
-        sn = StorageNode(sn_server, sn_uuid)
-        nm.add(sn)
-        self.assertEqual(sn.manager, nm)
-        self.assertTrue(nm.server_dict.has_key(sn_server))
-        self.assertEqual(nm.server_dict[sn_server], sn)
-        self.assertTrue(nm.uuid_dict.has_key(sn_uuid))
-        self.assertEqual(nm.uuid_dict[sn_uuid], sn)
-        self.assertEqual(len(nm.getNodeList()), 1)
-        self.assertEqual(len(nm.getMasterNodeList()), 0)
-        self.assertEqual(len(nm.getClientNodeList()), 0)
-        self.assertEqual(len(nm.getStorageNodeList()), 1)
-        sn_list = nm.getStorageNodeList()
-        self.assertEqual(sn_list[0], sn)
-        # add a Master node
-        mn_server = ("127.0.0.1", 10001)
-        mn_uuid = self.getNewUUID()
-        mn = MasterNode(mn_server, mn_uuid)
-        nm.add(mn)
-        self.assertEqual(mn.manager, nm)
-        self.assertTrue(nm.server_dict.has_key(mn_server))
-        self.assertEqual(nm.server_dict[mn_server], mn)
-        self.assertTrue(nm.uuid_dict.has_key(mn_uuid))
-        self.assertEqual(nm.uuid_dict[mn_uuid], mn)
-        self.assertEqual(len(nm.getNodeList()), 2)
-        self.assertEqual(len(nm.getMasterNodeList()), 1)        
-        self.assertEqual(len(nm.getClientNodeList()), 0)
-        self.assertEqual(len(nm.getStorageNodeList()), 1)
-        mn_list = nm.getMasterNodeList()
-        self.assertEqual(mn_list[0], mn)
-        sn_list = nm.getStorageNodeList()
-        self.assertEqual(sn_list[0], sn)
-        # add a Client node
-        cn_server = ("127.0.0.1", 10002)
-        cn_uuid = self.getNewUUID()
-        cn = ClientNode(cn_server, cn_uuid)
-        nm.add(cn)
-        self.assertEqual(cn.manager, nm)
-        self.assertTrue(nm.server_dict.has_key(cn_server))
-        self.assertEqual(nm.server_dict[cn_server], cn)
-        self.assertTrue(nm.uuid_dict.has_key(cn_uuid))
-        self.assertEqual(nm.uuid_dict[cn_uuid], cn)
-        self.assertEqual(len(nm.getNodeList()), 3)
-        self.assertEqual(len(nm.getMasterNodeList()), 1)        
-        self.assertEqual(len(nm.getClientNodeList()), 1)
-        self.assertEqual(len(nm.getStorageNodeList()), 1)
-        cn_list = nm.getClientNodeList()
-        self.assertEqual(cn_list[0], cn)
-        mn_list = nm.getMasterNodeList()
-        self.assertEqual(mn_list[0], mn)
-        sn_list = nm.getStorageNodeList()
-        self.assertEqual(sn_list[0], sn)
-        # check we can get the nodes
-        self.assertEqual(len(nm.server_dict), 3)
-        self.assertEqual(len(nm.uuid_dict), 3)
-        node_list = nm.getNodeList()
-        self.failUnless(cn in node_list)
-        self.failUnless(mn in node_list)
-        self.failUnless(sn in node_list)
-        node = nm.getNodeByServer(cn_server)
-        self.assertEqual(node, cn)
-        node = nm.getNodeByUUID(cn_uuid)
-        self.assertEqual(node, cn)
-        node = nm.getNodeByServer(sn_server)
-        self.assertEqual(node, sn)
-        node = nm.getNodeByUUID(sn_uuid)
-        self.assertEqual(node, sn)
-        node = nm.getNodeByServer(mn_server)
-        self.assertEqual(node, mn)
-        node = nm.getNodeByUUID(mn_uuid)
-        self.assertEqual(node, mn)
-        # remove the nodes
-        # remove the storage node
-        nm.remove(sn)
-        self.assertFalse(nm.server_dict.has_key(sn_server))
-        self.assertFalse(nm.uuid_dict.has_key(sn_uuid))
-        self.assertEqual(len(nm.getNodeList()), 2)
-        self.assertEqual(len(nm.getMasterNodeList()), 1)
-        self.assertEqual(len(nm.getClientNodeList()), 1)
-        self.assertEqual(len(nm.getStorageNodeList()), 0)
-        node = nm.getNodeByServer(sn_server)
-        self.assertEqual(node, None)
-        node = nm.getNodeByUUID(sn_uuid)
-        self.assertEqual(node, None)
-        # remove the client node
-        nm.remove(cn)
-        self.assertFalse(nm.server_dict.has_key(cn_server))
-        self.assertFalse(nm.uuid_dict.has_key(cn_uuid))
-        self.assertEqual(len(nm.getNodeList()), 1)
-        self.assertEqual(len(nm.getMasterNodeList()), 1)
-        self.assertEqual(len(nm.getClientNodeList()), 0)
-        self.assertEqual(len(nm.getStorageNodeList()), 0)
-        node = nm.getNodeByServer(cn_server)
-        self.assertEqual(node, None)
-        node = nm.getNodeByUUID(cn_uuid)
-        self.assertEqual(node, None)
-        # remove the master node
-        nm.remove(mn)
-        self.assertFalse(nm.server_dict.has_key(mn_server))
-        self.assertFalse(nm.uuid_dict.has_key(mn_uuid))
-        self.assertEqual(len(nm.getNodeList()), 0)
-        self.assertEqual(len(nm.getMasterNodeList()), 0)
-        self.assertEqual(len(nm.getClientNodeList()), 0)
-        self.assertEqual(len(nm.getStorageNodeList()), 0)
-        node = nm.getNodeByServer(mn_server)
-        self.assertEqual(node, None)
-        node = nm.getNodeByUUID(mn_uuid)
-        self.assertEqual(node, None)
-        # test method to register uuid/server
-        self.assertEqual(len(nm.server_dict), 0)
-        nm.registerServer(cn)
-        self.assertEqual(len(nm.server_dict), 1)
-        self.assertTrue(nm.server_dict.has_key(cn_server))        
-        self.assertEqual(len(nm.uuid_dict), 0)
-        nm.registerUUID(cn)
-        self.assertEqual(len(nm.uuid_dict), 1)
-        self.assertTrue(nm.uuid_dict.has_key(cn_uuid))
-        # test for unregister methods
-        self.assertEqual(len(nm.server_dict), 1)
-        nm.unregisterServer(cn)
-        self.assertEqual(len(nm.server_dict), 0)
-        self.assertFalse(nm.server_dict.has_key(cn_server))        
-        self.assertEqual(len(nm.uuid_dict), 1)
-        nm.unregisterUUID(cn)
-        self.assertEqual(len(nm.uuid_dict), 0)
-        self.assertFalse(nm.uuid_dict.has_key(cn_uuid))
+    def testFilteredClear(self):
+        """ Check the clear filter works well """
+        manager = self.manager
+        manager.add(self.master)
+        manager.add(self.storage)
+        manager.add(self.client)
+        self.checkNodes([self.master, self.storage, self.client])
+        drop_clients = lambda node: isinstance(node, ClientNode)
+        manager.clear(filter=drop_clients)
+        self.checkNodes([self.master, self.storage])
+        self.checkClients([])
+        drop_masters = lambda node: isinstance(node, MasterNode)
+        manager.clear(filter=drop_masters)
+        self.checkNodes([self.storage])
+        self.checkMasters([])
+        drop_storage = lambda node: node is self.storage
+        manager.clear(filter=drop_storage)
+        self.checkNodes([])
+        self.checkStorages([])
+
+    def testUpdate(self):
+        """ Check manager content update """
+        # set up four nodes
+        manager = self.manager
+        manager.add(self.master)
+        manager.add(self.storage)
+        manager.add(self.client)
+        manager.add(self.admin)
+        self.checkNodes([self.master, self.storage, self.client, self.admin])
+        self.checkMasters([self.master])
+        self.checkStorages([self.storage])
+        self.checkClients([self.client])
+        # build changes
+        old_address = self.master.getServer()
+        new_address = ('127.0.0.1', 2001)
+        new_uuid = self.getNewUUID()
+        node_list = (
+            (CLIENT_NODE_TYPE, None, self.client.getUUID(), DOWN_STATE),
+            (MASTER_NODE_TYPE, new_address, self.master.getUUID(), RUNNING_STATE),
+            (STORAGE_NODE_TYPE, self.storage.getServer(), new_uuid, RUNNING_STATE),
+            (ADMIN_NODE_TYPE, self.admin.getServer(), self.admin.getUUID(), UNKNOWN_STATE),
+        )
+        # update manager content
+        manager.update(node_list)
+        # - the client gets down
+        self.checkClients([])
+        # - master change it's address
+        self.checkMasters([self.master])
+        self.assertEqual(manager.getNodeByServer(old_address), None)
+        self.master.setServer(new_address)
+        self.checkByServer(self.master)
+        # a new storage replaced the old one
+        self.assertNotEqual(manager.getStorageNodeList(), [self.storage])
+        self.assertTrue(len(manager.getStorageNodeList()), 1)
+        new_storage = manager.getStorageNodeList()[0]
+        self.assertEqual(new_storage.getState(), RUNNING_STATE)
+        self.assertNotEqual(new_storage, self.storage)
+        # admin is still here but in UNKNOWN_STATE
+        self.checkNodes([self.master, self.admin, new_storage])
+        self.assertEqual(self.admin.getState(), UNKNOWN_STATE)
+
         
 if __name__ == '__main__':
     unittest.main()

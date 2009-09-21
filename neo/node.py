@@ -21,6 +21,11 @@ from neo import logging
 from neo import protocol
 from neo.util import dump
 
+# TODO: 
+# Node requires a manager
+# Index nodes per node type, server, uuid and state 
+# A subclass should not tell it's own type
+
 class Node(object):
     """This class represents a node."""
 
@@ -33,6 +38,9 @@ class Node(object):
 
     def setManager(self, manager):
         self.manager = manager
+
+    def getManager(self):
+        return self.manager
 
     def getLastStateChange(self):
         return self.last_state_change
