@@ -23,27 +23,6 @@ from neo import logging
 from mock import Mock
 from neo import protocol
 
-base_config = """
-[DEFAULT]
-master_nodes: %(master_nodes)s
-replicas: %(replicas)d
-partitions: %(partitions)d
-name: main
-user: %(user)s
-connector: SocketConnector
-"""
-
-master_config = """
-[master%(id)d]
-server: 127.0.0.1:1001%(index)d
-"""
-
-storage_config = """
-[storage%(id)d]
-database: %(db)s%(id)d
-server: 127.0.0.1:1002%(index)d
-"""
-
 DB_PREFIX = 'test_neo_'
 DB_ADMIN = 'root'
 DB_PASSWD = None
@@ -58,8 +37,6 @@ def getNewUUID():
 
 class NeoTestBase(unittest.TestCase):
     """ Base class for neo tests, implements common checks """
-
-    config_file = None
 
     def prepareDatabase(self, number, admin=DB_ADMIN, password=DB_PASSWD,
             user=DB_USER, prefix=DB_PREFIX):
@@ -110,39 +87,7 @@ class NeoTestBase(unittest.TestCase):
                 'uuid': uuid,
                 'reset': False,
         }
-
-    def getConfigFile(self, master_number=2, storage_number=2, user=DB_USER,
-            replicas=2, partitions=1009, database=DB_PREFIX):
-        # if already called 
-        if self.config_file is not None:
-            os.remove(self.config_file)
-        # global config
-        master_nodes = ''
-        for i in xrange(master_number):
-            master_nodes += '127.0.0.1:1001%d ' % i
-        config = base_config % {
-            'master_nodes': master_nodes,
-            'replicas': replicas,
-            'partitions': partitions,
-            'user':user,
-        }
-        # append masters
-        for i in xrange(master_number):
-            config += master_config % {'index':i, 'id':i+1}
-        # and storages
-        for i in xrange(storage_number):
-            config += storage_config % { 'index':i, 'id':i+1, 'db':database}
-        tmp_id, self.config_file = tempfile.mkstemp()
-        tmp_file = os.fdopen(tmp_id, "w+b")
-        tmp_file.write(config)
-        tmp_file.close()
-        return self.config_file
         
-    def tearDown(self):
-        if self.config_file is not None:
-            os.remove(self.config_file)
-
-
     # XXX: according to changes with namespaced UUIDs, it would be better to 
     # implement get<NodeType>UUID() methods 
     def getNewUUID(self):
