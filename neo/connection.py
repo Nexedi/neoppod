@@ -288,7 +288,7 @@ class Connection(BaseConnection):
           Process a pending packet.
         """
         packet = self._dequeue()
-        self.logPacket('from', packet)
+        PACKET_LOGGER.log(self, packet, 'from')
         self.handler.packetReceived(self, packet)
 
     def pending(self):
@@ -349,25 +349,12 @@ class Connection(BaseConnection):
             self.handler.connectionClosed(self)
             raise 
 
-    def logPacket(self, direction, packet):
-        packet_type = packet.getType()
-        ip, port = self.getAddress()
-        if packet_type == protocol.ERROR:
-            code, message = packet.decode()
-            logging.debug('#0x%08x ERROR %-24s %s %s (%s:%d) %s',
-                packet.getId(), code, direction, dump(self.uuid),
-                ip, port, message)
-        else:
-            logging.debug('#0x%08x %-30s %s %s (%s:%d)', packet.getId(),
-                packet_type, direction, dump(self.uuid),
-                ip, port)
-
     def _addPacket(self, packet):
         """Add a packet into the write buffer."""
         if self.connector is None:
             return
 
-        self.logPacket(' to ', packet)
+        PACKET_LOGGER.log(self, packet, ' to ')
         try:
             self.write_buf += packet.encode()
         except PacketMalformedError, m:
