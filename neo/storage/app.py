@@ -61,7 +61,10 @@ class Application(object):
         if database is None:
             raise RuntimeError, 'database connection required'
         (ident, dbname) = database.split('@')
-        (username, password) = ident.split(':')
+        if ':' in ident:
+            (username, password) = ident.split(':')
+        else:
+            (username, password) = (ident, None)
             
         # Internal attributes.
         self.em = EventManager()
