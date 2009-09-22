@@ -79,6 +79,8 @@ def getNextTID(ltid):
     return tid
 
 def parseMasterList(masters, except_node=None):
+    if not masters:
+        return []
     # load master node list
     master_node_list = []
     for node in masters.split('/'):
