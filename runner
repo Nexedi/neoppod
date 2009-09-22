@@ -67,8 +67,6 @@ FUNC_TEST_MODULES = [
 # configuration 
 UNIT_TESTS = True
 FUNCTIONAL_TESTS = True
-FUNCTIONAL_TESTS = False
-SEND_REPORT = True
 SEND_REPORT = False
 CONSOLE_LOG = False
 ATTACH_LOG = False # for ZODB test, only the client side is logged
