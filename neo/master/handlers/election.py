@@ -113,6 +113,9 @@ class ClientElectionHandler(ElectionHandler):
         app.negotiating_master_node_set.discard(addr)
         MasterHandler.peerBroken(self, conn)
 
+    def handleNotifyClusterInformation(self, conn, packet, state):
+        logging.warning('Ignore cluster information notification')
+
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, address, num_partitions,
                                        num_replicas, your_uuid):

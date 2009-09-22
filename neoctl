@@ -26,7 +26,7 @@ parser = OptionParser()
 parser.add_option('-v', '--verbose', action = 'store_true', 
                   help = 'print verbose messages')
 parser.add_option('-a', '--address', help = 'specify the address (ip:port) ' \
-    'of an admin node', default = '127.0.0.1:5555')
+    'of an admin node', default = '127.0.0.1:9999')
 parser.add_option('--handler', help = 'specify the connection handler')
 
 (options, args) = parser.parse_args()
@@ -35,7 +35,7 @@ if ':' in address:
     address, port = address.split(':', 1)
     port = int(port)
 else:
-    port = 5555
+    port = 9999
 handler = options.handler or "SocketConnector"
 
 setupLog('NEOCTL', options.verbose)

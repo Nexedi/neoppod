@@ -25,6 +25,7 @@ from neo.connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
         ConnectorConnectionClosedException
 from neo.util import dump
+from neo.logger import PACKET_LOGGER
 
 def not_closed(func):
     def decorator(self, *args, **kw):
@@ -357,6 +358,11 @@ class Connection(BaseConnection):
             logging.debug('#0x%08x ERROR %-24s %s %s (%s:%d) %s',
                 packet.getId(), code, direction, dump(self.uuid),
                 ip, port, message)
+        elif packet_type == protocol.ANSWER_PRIMARY_MASTER:
+            primary, masters = packet.decode()
+            logging.debug('#0x%08x ANSWER_PRIMARY_MASTER : %s/%s  %s %s (%s:%d)' % 
+                    (packet.getId(), dump(primary), masters, direction, 
+                        dump(self.uuid), ip, port))
         else:
             logging.debug('#0x%08x %-30s %s %s (%s:%d)', packet.getId(),
                 packet_type, direction, dump(self.uuid),
@@ -367,7 +373,8 @@ class Connection(BaseConnection):
         if self.connector is None:
             return
 
-        self.logPacket(' to ', packet)
+        PACKET_LOGGER.log(self, packet, ' to ')
+        #self.logPacket(' to ', packet)
         try:
             self.write_buf += packet.encode()
         except PacketMalformedError, m:
