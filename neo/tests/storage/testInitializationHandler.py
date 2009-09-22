@@ -52,11 +52,9 @@ class StorageInitializationHandlerTests(NeoTestBase):
         self.client_port = 11011
         self.num_partitions = 1009
         self.num_replicas = 2
-        self.app.num_partitions = 1009
-        self.app.num_replicas = 2
         self.app.operational = False
         self.app.load_lock_dict = {}
-        self.app.pt = PartitionTable(self.app.num_partitions, self.app.num_replicas)
+        self.app.pt = PartitionTable(self.num_partitions, self.num_replicas)
 
     def tearDown(self):
         NeoTestBase.tearDown(self)
@@ -107,31 +105,33 @@ class StorageInitializationHandlerTests(NeoTestBase):
         node_1 = self.getNewUUID()
         node_2 = self.getNewUUID()
         node_3 = self.getNewUUID()
-        # SN already known one of the node
+        # SN already know all nodes 
         self.app.nm.add(StorageNode(uuid=node_1))
+        self.app.nm.add(StorageNode(uuid=node_2))
+        self.app.nm.add(StorageNode(uuid=node_3))
         self.app.ptid = 1
-        self.app.num_partitions = 3
-        self.app.num_replicas =2 
-        self.assertEqual(self.app.dm.getPartitionTable(), ())
+        self.assertEqual(self.app.dm.getPartitionTable(), [])
         row_list = [(0, ((node_1, UP_TO_DATE_STATE), (node_2, UP_TO_DATE_STATE))),
                     (1, ((node_3, UP_TO_DATE_STATE), (node_1, UP_TO_DATE_STATE))),
                     (2, ((node_2, UP_TO_DATE_STATE), (node_3, UP_TO_DATE_STATE)))]
         self.assertFalse(self.app.pt.filled())
         # send part of the table, won't be filled
-        self.verification.handleSendPartitionTable(conn, packet, "1", row_list[:1])
+        self.verification.handleSendPartitionTable(conn, packet, 1, row_list[:1])
         self.assertFalse(self.app.pt.filled())
-        self.assertEqual(self.app.ptid, "1")
-        self.assertEqual(self.app.dm.getPartitionTable(), ())
-        # send remaining of the table
-        self.verification.handleSendPartitionTable(conn, packet, "1", row_list[1:])
+        self.assertEqual(self.app.pt.getID(), 1)
+        self.assertEqual(self.app.dm.getPartitionTable(), [])
+        # send remaining of the table (ack with AnswerPartitionTable)
+        self.verification.handleSendPartitionTable(conn, packet, 1, row_list[1:])
+        self.verification.handleAnswerPartitionTable(conn, packet, 1, [])
         self.assertTrue(self.app.pt.filled())
-        self.assertEqual(self.app.ptid, "1")
-        self.assertNotEqual(self.app.dm.getPartitionTable(), ())
-        # send a complete new table
-        self.verification.handleSendPartitionTable(conn, packet, "2", row_list)
+        self.assertEqual(self.app.pt.getID(), 1)
+        self.assertNotEqual(self.app.dm.getPartitionTable(), [])
+        # send a complete new table and ack
+        self.verification.handleSendPartitionTable(conn, packet, 2, row_list)
+        self.verification.handleAnswerPartitionTable(conn, packet, 2, [])
         self.assertTrue(self.app.pt.filled())
-        self.assertEqual(self.app.ptid, "2")
-        self.assertNotEqual(self.app.dm.getPartitionTable(), ())
+        self.assertEqual(self.app.pt.getID(), 2)
+        self.assertNotEqual(self.app.dm.getPartitionTable(), [])
 
     
 if __name__ == "__main__":

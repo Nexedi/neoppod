@@ -192,9 +192,8 @@ class NeoTestBase(unittest.TestCase):
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEquals(packet.getType(), packet_type)
         if answered_packet is not None:
-            a_packet = calls[0].getParam(1)
-            self.assertEquals(a_packet, answered_packet)
-            self.assertEquals(a_packet.getId(), answered_packet.getId())
+            msg_id = calls[0].getParam(1)
+            self.assertEqual(msg_id, answered_packet.getId())
         if decode:
             return protocol.decode_table[packet.getType()](packet._body)
         return packet

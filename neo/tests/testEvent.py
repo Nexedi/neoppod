@@ -168,11 +168,9 @@ class EventTests(NeoTestBase):
       self.assertEquals(len(conn.mockGetNamedCalls("getHandler")), 0)
       self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
       self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 1)
-      self.assertEquals(len(conn.mockGetNamedCalls("ask")), 1)
+      self.assertEquals(len(conn.mockGetNamedCalls("ping")), 1)
       self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
       self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
-      # check ping packet sent
-      self.checkAskPacket(conn, PING)
       
       # call with time < critical_time < t
       t = critical_time + 5
@@ -183,7 +181,7 @@ class EventTests(NeoTestBase):
       self.assertEquals(len(conn.mockGetNamedCalls("getHandler")), 1)
       self.assertEquals(len(conn.mockGetNamedCalls("close")), 1)
       self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 2)
-      self.assertEquals(len(conn.mockGetNamedCalls("ask")), 1)
+      self.assertEquals(len(conn.mockGetNamedCalls("ping")), 1)
       self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
       self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 1)
 

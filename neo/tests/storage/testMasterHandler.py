@@ -47,8 +47,6 @@ class StorageMasterHandlerTests(NeoTestBase):
         # create an application object
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(**config)
-        self.app.num_partitions = 1
-        self.app.num_replicas = 1
         self.app.transaction_dict = {}
         self.app.store_lock_dict = {}
         self.app.load_lock_dict = {}
@@ -105,10 +103,10 @@ class StorageMasterHandlerTests(NeoTestBase):
         })
         app.replicator = Mock({})
         packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
-        self.app.ptid = 1
+        self.app.pt = Mock({'getID': 1})
         count = len(self.app.nm.getNodeList())
         self.operation.handleNotifyPartitionChanges(conn, packet, 0, ())
-        self.assertEquals(self.app.ptid, 1)
+        self.assertEquals(self.app.pt.getID(), 1)
         self.assertEquals(len(self.app.nm.getNodeList()), count)
         calls = self.app.replicator.mockGetNamedCalls('removePartition')
         self.assertEquals(len(calls), 0)
@@ -117,11 +115,11 @@ class StorageMasterHandlerTests(NeoTestBase):
 
     def test_14_handleNotifyPartitionChanges2(self):
         # cases :
-        uuid = self.getNewUUID()
+        uuid1, uuid2, uuid3 = [self.getNewUUID() for i in range(3)]
         cells = (
-            (0, uuid, UP_TO_DATE_STATE),
-            (1, self.app.uuid, DISCARDED_STATE),
-            (2, self.app.uuid, OUT_OF_DATE_STATE),
+            (0, uuid1, UP_TO_DATE_STATE),
+            (1, uuid2, DISCARDED_STATE),
+            (2, uuid3, OUT_OF_DATE_STATE),
         )
         # context
         conn = Mock({
@@ -130,32 +128,19 @@ class StorageMasterHandlerTests(NeoTestBase):
         })
         packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
         app = self.app
-        ptid1, ptid2 = self.getTwoIDs()
+        # register nodes
+        app.nm.add(StorageNode(uuid=uuid1))
+        app.nm.add(StorageNode(uuid=uuid2))
+        app.nm.add(StorageNode(uuid=uuid3))
+        ptid1, ptid2 = (1, 2)
         self.assertNotEquals(ptid1, ptid2)
-        app.ptid = ptid1
         app.pt = PartitionTable(3, 1)
-        app.pt = Mock({ })
         app.dm = Mock({ })
         app.replicator = Mock({})
         count = len(app.nm.getNodeList())
         self.operation.handleNotifyPartitionChanges(conn, packet, ptid2, cells)
         # ptid set
-        self.assertEquals(app.ptid, ptid2)
-        # two nodes added 
-        self.assertEquals(len(app.nm.getNodeList()), count + 2)
-        # uuid != app.uuid -> TEMPORARILY_DOWN_STATE
-        self.assertEquals(app.nm.getNodeByUUID(uuid).getState(), TEMPORARILY_DOWN_STATE)
-        # pt calls
-        calls = self.app.pt.mockGetNamedCalls('setCell')
-        self.assertEquals(len(calls), 3)
-        calls[0].checkArgs(0, app.nm.getNodeByUUID(uuid), UP_TO_DATE_STATE)
-        calls[1].checkArgs(1, app.nm.getNodeByUUID(app.uuid), DISCARDED_STATE)
-        calls[2].checkArgs(2, app.nm.getNodeByUUID(app.uuid), OUT_OF_DATE_STATE)
-        # replicator calls
-        calls = self.app.replicator.mockGetNamedCalls('removePartition')
-        self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(1)
-        calls = self.app.replicator.mockGetNamedCalls('addPartition')
+        self.assertEquals(app.pt.getID(), ptid2)
         # dm call
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
         self.assertEquals(len(calls), 1)
@@ -172,6 +157,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         conn = Mock({ 'isServer': False, })
         self.app.dm = Mock({ })
         packet = Packet(msg_type=LOCK_INFORMATION)
+        packet.setId(1)
         transaction = Mock({ 'getObjectList': ((0, ), ), })
         self.app.transaction_dict[INVALID_TID] = transaction
         self.operation.handleLockInformation(conn, packet, INVALID_TID)
@@ -190,6 +176,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         conn = Mock({ 'isServer': False, })
         self.app.dm = Mock({ })
         packet = Packet(msg_type=LOCK_INFORMATION)
+        packet.setId(1)
         transaction = Mock({ 'getObjectList': ((0, ), ), })
         self.app.transaction_dict[INVALID_TID] = transaction
         self.app.load_lock_dict[0] = transaction

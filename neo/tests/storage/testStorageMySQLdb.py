@@ -20,6 +20,7 @@ import unittest
 from neo import logging
 import MySQLdb
 from mock import Mock
+from neo.util import dump
 from neo.protocol import *
 from neo.tests import NeoTestBase
 from neo.exception import DatabaseFailure
@@ -223,26 +224,16 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.db.setup()
         rid, uuid, state = '\x00' * 8, '\x00' * 16, 0
         self.db.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                (u64(rid), uuid, state))
+                (dump(rid), dump(uuid), state))
         pt = self.db.getPartitionTable()
-        self.assertEquals(pt, ((0L, uuid, state), ))
+        self.assertEquals(pt, [(0L, uuid, state)])
 
     def test_17_getLastOID(self):
-        # should search in obj table only
         self.db.setup()
-        self.db.query("""insert into obj (oid, serial, compression,
-                checksum, value) values (3, 'A', 0, 0, '')""")
-        self.db.query("""insert into obj (oid, serial, compression,
-                checksum, value) values (1, 'A', 0, 0, '')""")
-        self.db.query("""insert into obj (oid, serial, compression,
-                checksum, value) values (2, 'A', 0, 0, '')""")
+        an_oid = '\x01' * 8
+        self.db.setLastOID(an_oid)
         result = self.db.getLastOID()
-        self.assertEquals(result, '\x00' * 7 + '\x03')
-        # should look in temporary table too
-        self.db.query("""insert into tobj (oid, serial, compression,
-                checksum, value) values (5, 'A', 0, 0, '')""")
-        result = self.db.getLastOID(all=True)
-        self.assertEquals(result, '\x00' * 7 + '\x05')
+        self.assertEquals(result, an_oid)
 
     def test_18_getLastTID(self):
         # max TID is in obj table
@@ -346,20 +337,20 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.db.changePartitionTable(ptid, cells)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (1, uuid2, 0))
+        self.assertEquals(result[0], (1, dump(uuid2), 0))
         self.assertEquals(self.db.getPTID(), ptid)
         # delete previous entries for a DISCARDED_STATE node
         self.db.query("delete from pt")
-        args = (0, uuid1, DISCARDED_STATE)
+        args = (0, dump(uuid1), DISCARDED_STATE)
         self.db.query('insert into pt (rid, uuid, state) values (%d, "%s", %d)' % args)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (0, uuid1, 3))
+        self.assertEquals(result[0], (0, dump(uuid1), 3))
         self.assertEquals(self.db.getPTID(), ptid)
         self.db.changePartitionTable(ptid, cells)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (1, uuid2, 0))
+        self.assertEquals(result[0], (1, dump(uuid2), 0))
         self.assertEquals(self.db.getPTID(), ptid)
         # raise exception (config not set), check rollback
         self.db.query("drop table config") # will generate the exception
@@ -386,7 +377,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.db.setPartitionTable(ptid, cells)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (1, uuid2, 0))
+        self.assertEquals(result[0], (1, dump(uuid2), 0))
         self.assertEquals(self.db.getPTID(), ptid)
         # delete previous entries for a DISCARDED_STATE node
         self.db.query("delete from pt")
@@ -399,7 +390,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.db.setPartitionTable(ptid, cells)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (1, uuid2, 0))
+        self.assertEquals(result[0], (1, dump(uuid2), 0))
         self.assertEquals(self.db.getPTID(), ptid)
         # raise exception (config not set), check rollback
         self.db.query("drop table config") # will generate the exception

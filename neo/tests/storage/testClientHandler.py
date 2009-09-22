@@ -48,8 +48,6 @@ class StorageClientHandlerTests(NeoTestBase):
         # create an application object
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(**config)
-        self.app.num_partitions = 1
-        self.app.num_replicas = 1
         self.app.transaction_dict = {}
         self.app.store_lock_dict = {}
         self.app.load_lock_dict = {}
@@ -92,7 +90,9 @@ class StorageClientHandlerTests(NeoTestBase):
         # check if client's transaction are cleaned
         uuid = self.getNewUUID()
         from neo.node import ClientNode
+        manager = Mock()
         client = ClientNode(('127.0.0.1', 10010))
+        client.setManager(manager)
         client.setUUID(uuid)
         self.app.nm.add(client)
         self.app.store_lock_dict[0] = object()
@@ -183,7 +183,7 @@ class StorageClientHandlerTests(NeoTestBase):
         # well case => answer
         conn = Mock({})
         packet = Packet(msg_type=ASK_TIDS)
-        self.app.num_partitions = 1
+        self.app.pt = Mock({'getPartitions': 1})
         self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
         self.operation.handleAskTIDs(conn, packet, 1, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
@@ -195,10 +195,9 @@ class StorageClientHandlerTests(NeoTestBase):
         # invalid partition => answer usable partitions
         conn = Mock({})
         packet = Packet(msg_type=ASK_TIDS)
-        self.app.num_partitions = 1
         cell = Mock({'getUUID':self.app.uuid})
         self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
-        self.app.pt = Mock({'getCellList': (cell, )})
+        self.app.pt = Mock({'getCellList': (cell, ), 'getPartitions': 1})
         self.operation.handleAskTIDs(conn, packet, 1, 2, INVALID_PARTITION)
         self.assertEquals(len(self.app.pt.mockGetNamedCalls('getCellList')), 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')

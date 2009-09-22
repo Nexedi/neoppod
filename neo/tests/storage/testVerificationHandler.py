@@ -52,11 +52,9 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.client_port = 11011
         self.num_partitions = 1009
         self.num_replicas = 2
-        self.app.num_partitions = 1009
-        self.app.num_replicas = 2
         self.app.operational = False
         self.app.load_lock_dict = {}
-        self.app.pt = PartitionTable(self.app.num_partitions, self.app.num_replicas)
+        self.app.pt = PartitionTable(self.num_partitions, self.num_replicas)
 
         
     def tearDown(self):
@@ -104,11 +102,14 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServer" : False})
+        last_ptid = '\x01' * 8
+        last_oid = '\x02' * 8
+        self.app.pt = Mock({'getID': last_ptid})
         self.verification.handleAskLastIDs(conn, packet)
         oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
         self.assertEqual(oid, INVALID_OID)
         self.assertEqual(tid, INVALID_TID)
-        self.assertEqual(ptid, self.app.ptid)
+        self.assertEqual(ptid, last_ptid)
 
         # return value stored in db
         # insert some oid
@@ -135,12 +136,13 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.app.dm.query("""insert into tobj (oid, serial, compression,
                 checksum, value) values (0, 4, 0, 0, '')""")
         self.app.dm.commit()
+        self.app.dm.setLastOID(last_oid)
         self.verification.handleAskLastIDs(conn, packet)
         self.checkAnswerLastIDs(conn)
         oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
-        self.assertEqual(u64(oid), 5)
+        self.assertEqual(oid, last_oid)
         self.assertEqual(u64(tid), 4)
-        self.assertEqual(ptid, self.app.ptid)
+        self.assertEqual(ptid, self.app.pt.getID())
         
     def test_08_handleAskPartitionTable(self):
         uuid = self.getNewUUID()
@@ -190,14 +192,14 @@ class StorageVerificationHandlerTests(NeoTestBase):
             "getAddress" : ("127.0.0.1", self.master_port), 
         })
         packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
-        cell = (0, self.getNewUUID(), UP_TO_DATE_STATE)
-        count = len(self.app.nm.getNodeList())
+        new_uuid = self.getNewUUID()
+        cell = (0, new_uuid, UP_TO_DATE_STATE)
+        self.app.nm.add(StorageNode(uuid=new_uuid))
         self.app.pt = PartitionTable(1, 1)
         self.app.dm = Mock({ })
         ptid, self.ptid = self.getTwoIDs()
         # pt updated
         self.verification.handleNotifyPartitionChanges(conn, packet, ptid, (cell, ))
-        self.assertEquals(len(self.app.nm.getNodeList()), count + 1)
         # check db update
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
         self.assertEquals(len(calls), 1)
@@ -298,7 +300,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': True })
         packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
-        self.verification.handleAskTransactionInformation(conn, packet, p64(3))
+        self.verification.handleAskTransactionInformation(conn, packet, p64(2))
         code, message = self.checkErrorPacket(conn, decode=True)     
         self.assertEqual(code, TID_NOT_FOUND_CODE)
 

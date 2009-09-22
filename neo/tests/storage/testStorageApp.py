@@ -25,6 +25,7 @@ from neo.node import MasterNode, ClientNode, StorageNode
 from neo.storage.mysqldb import p64, u64, MySQLDatabaseManager
 from collections import deque
 from neo.pt import PartitionTable
+from neo.util import dump
 
 class StorageAppTests(NeoTestBase):
 
@@ -92,17 +93,20 @@ class StorageAppTests(NeoTestBase):
         else:
           self.assertFalse(self.app.pt.hasOffset(x))
       # fill partition table
+      self.app.dm.setPTID(1)
+      self.app.dm.query('delete from pt;')
       self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                        (0, client_uuid, UP_TO_DATE_STATE))
+                        (0, dump(client_uuid), UP_TO_DATE_STATE))
       self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                        (1, client_uuid, UP_TO_DATE_STATE))
+                        (1, dump(client_uuid), UP_TO_DATE_STATE))
       self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                        (1, storage_uuid, UP_TO_DATE_STATE))
+                        (1, dump(storage_uuid), UP_TO_DATE_STATE))
       self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                        (2, storage_uuid, UP_TO_DATE_STATE))
+                        (2, dump(storage_uuid), UP_TO_DATE_STATE))
       self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                        (2, master_uuid, UP_TO_DATE_STATE))
+                        (2, dump(master_uuid), UP_TO_DATE_STATE))
       self.assertEqual(len(self.app.dm.getPartitionTable()), 5)
+      self.app.pt.clear()
       self.app.loadPartitionTable()
       self.assertTrue(self.app.pt.filled())
       for x in xrange(num_partitions):        
@@ -142,15 +146,6 @@ class StorageAppTests(NeoTestBase):
       self.assertEqual(params, "test")
       params = call.kwparams
       self.assertEqual(params, {'key': 'value'})
-    
-    def test_04_getPartition(self):
-      self.app.num_partitions = 3
-      p = self.app.getPartition(p64(1))
-      self.assertEqual(p, 1)
-      p = self.app.getPartition(p64(2))
-      self.assertEqual(p, 2)
-      p = self.app.getPartition(p64(3))
-      self.assertEqual(p, 0)
 
 if __name__ == '__main__':
     unittest.main()
