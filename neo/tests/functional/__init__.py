@@ -156,7 +156,8 @@ class NEOCluster(object):
                  partitions=1, replicas=0, port_base=10000,
                  db_user='neo', db_password='neo',
                  db_super_user='root', db_super_password=None,
-                 cleanup_on_delete=False, temp_dir=None):
+                 cleanup_on_delete=False, temp_dir=None, 
+                 clear_databases=True):
         self.cleanup_on_delete = cleanup_on_delete
         self.uuid_set = set()
         self.db_super_user = db_super_user
@@ -164,17 +165,19 @@ class NEOCluster(object):
         self.db_user = db_user
         self.db_password = db_password
         self.db_list = db_list
+        if clear_databases:
+            self.setupDB()
         self.process_dict = {}
         self.last_port = port_base
         if temp_dir is None:
             temp_dir = tempfile.mkdtemp(prefix='neo_')
             print 'Using temp directory %r.' % (temp_dir, )
         self.temp_dir = temp_dir
+        admin_port = self.__allocatePort()
         self.cluster_name = 'neo_%s' % (random.randint(0, 100), )
         master_node_list = [self.__allocatePort() for i in xrange(master_node_count)]
         self.master_nodes = '/'.join('127.0.0.1:%s' % (x, ) for x in master_node_list)
         # create admin node
-        admin_port = self.__allocatePort()
         self.__newProcess(NEO_ADMIN, {
             '--cluster': self.cluster_name,
             '--name': 'admin',

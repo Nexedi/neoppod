@@ -400,6 +400,7 @@ class StorageTests(NEOFunctionalTest):
                 master_node_count=1, partitions=10)
         self.__expectRunning(started[0])
         self.__expectRunning(started[1])
+        self.neo.expectOudatedCells(number=0)
 
         # drop one
         self.neo.neoctl.dropNode(started[0].getUUID())
