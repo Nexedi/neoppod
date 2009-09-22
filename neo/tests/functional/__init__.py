@@ -268,6 +268,8 @@ class NEOCluster(object):
                 break
         target_count = len(self.db_list) - len(except_storages)
         while True:
+            if time.time() > end_time:
+                raise AssertionError, 'Timeout when starting cluster'
             storage_node_list = neoctl.getNodeList(
                 node_type=protocol.STORAGE_NODE_TYPE)
             if len(storage_node_list) == target_count:
