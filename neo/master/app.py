@@ -162,14 +162,13 @@ class Application(object):
                 if node.getState() == RUNNING_STATE:
                     self.unconnected_master_node_set.add(node.getServer())
 
-            # Expire temporarily down nodes. For now, assume that a node
-            # which is down for 60 seconds is really down, if this is a
-            # bootstrap. 60 seconds may sound too long, but this is reasonable
-            # when rebooting many cluster machines. Otherwise, wait for only
-            # 10 seconds, because stopping the whole cluster for a long time
-            # is a bad idea.
+            # Wait at most 20 seconds at bootstrap. Otherwise, wait at most 
+            # 10 seconds to avoid stopping the whole cluster for a long time.
+            # Note that even if not all master are up in the first 20 seconds
+            # this is not an issue because the first up will timeout and take
+            # the primary role.
             if bootstrap:
-                expiration = 60
+                expiration = 20
             else:
                 expiration = 10
 

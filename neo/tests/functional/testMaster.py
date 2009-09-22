@@ -107,7 +107,7 @@ class MasterTests(NEOFunctionalTest):
         first_master.start()
         first_master_uuid = first_master.getUUID()
         # Check that the master node we started elected itself.
-        self.neo.expectPrimaryMaster(first_master_uuid, timeout=60)
+        self.neo.expectPrimaryMaster(first_master_uuid, timeout=30)
         # Check that no other node is known as running.
         self.assertEqual(len(self.neo.getMasterNodeList(
             state=protocol.RUNNING_STATE)), 1)
