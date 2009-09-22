@@ -25,6 +25,7 @@ from neo.connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
         ConnectorConnectionClosedException
 from neo.util import dump
+from neo.logger import PACKET_LOGGER
 
 def not_closed(func):
     def decorator(self, *args, **kw):
