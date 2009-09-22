@@ -245,6 +245,7 @@ class NEOCluster(object):
                            'IDENTIFIED BY "%s"' % (database, self.db_user,
                            self.db_password))
         cursor.close()
+        sql_connection.commit()
         sql_connection.close()
 
     def start(self, except_storages=()):
