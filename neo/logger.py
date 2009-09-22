@@ -149,7 +149,7 @@ class PacketLogger(object):
                              compression, checksum, data, tid):
         pass
 
-    def answerStoreObject(self, conn, packet, status, oid):
+    def answerStoreObject(self, conn, packet, conflicting, oid, serial):
         pass
 
     def abortTransaction(self, conn, packet, tid):

@@ -262,7 +262,7 @@ class EventHandler(object):
                              compression, checksum, data, tid):
         raise UnexpectedPacketError
 
-    def handleAnswerStoreObject(self, conn, packet, status, oid):
+    def handleAnswerStoreObject(self, conn, packet, conflicting, oid, serial):
         raise UnexpectedPacketError
 
     def handleAbortTransaction(self, conn, packet, tid):
