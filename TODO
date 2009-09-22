@@ -16,7 +16,8 @@ RC  - write ZODB-API-level tests
 
   Code
 
-    Code changes often impact more than just one node. They are categorised by node where the most important changes are needed.
+    Code changes often impact more than just one node. They are categorised by 
+    node where the most important changes are needed.
 
     General
 RC  - Review XXX in the code (CODE)
@@ -24,34 +25,61 @@ RC  - Review TODO in the code (CODE)
 RC  - Review FIXME in the code (CODE)
 RC  - Review output of pylint (CODE)
     - Connections should be integrated to Node class instances (CODE)
-      Currently, connections are managed separately from nodes, and the code very often needs to find one from the other. As all connections are to a node, and as all nods can be reperesented as Node class instances, such instance should directly contain associated connection for code simplicity.
+      Currently, connections are managed separately from nodes, and the code 
+      very often needs to find one from the other. As all connections are to 
+      a node, and as all nods can be reperesented as Node class instances, 
+      such instance should directly contain associated connection for code 
+      simplicity.
     - Rework indexes in NodeManager class (CODE)
       NodeManager should provide indexes to quickly find nodes by type, UUID, 
       (ip, port), connection type (listening...) and state (identified...)
     - Keep-alive (HIGH AVAILABILITY)
-      Consider the need to implement a keep-alive system (packets sent automatically when there is no activity on the connection for a period of time).
+      Consider the need to implement a keep-alive system (packets sent 
+      automatically when there is no activity on the connection for a period 
+      of time).
     - Factorise packet data when sending partition table cells (BANDWITH)
-      Currently, each cell in a partition table update contains UUIDs of all involved nodes.
-      It must be changed to a correspondance table using shorter keys (sent in the packet) to avoid repeating the same UUIDs many times.
+      Currently, each cell in a partition table update contains UUIDs of all 
+      involved nodes.
+      It must be changed to a correspondance table using shorter keys (sent 
+      in the packet) to avoid repeating the same UUIDs many times.
     - Make IdleEvent know what message they are expecting (DEBUGABILITY)
-      If a PING packet is sent, there is currently no way to know which request created associated IdleEvent, nor which response is expected (knowing either should be enough).
+      If a PING packet is sent, there is currently no way to know which 
+      request created associated IdleEvent, nor which response is expected 
+      (knowing either should be enough).
     - Consider using multicast for cluster-wide notifications. (BANDWITH)
-      Currently, multi-receivers notifications are sent in unicast to each receiver. Multicast should be used.
+      Currently, multi-receivers notifications are sent in unicast to each 
+      receiver. Multicast should be used.
     - Remove sleeps (LATENCY, CPU WASTE)
-      Code still contains many delays (explicit sleeps or polling timeouts). They must be removed to be either infinite (sleep until some condition becomes true, without waking up needlessly in the meantime) or null (don't wait at all).
-      There is such delay somewhere in master node startup (near the end of the election phase).
+      Code still contains many delays (explicit sleeps or polling timeouts). 
+      They must be removed to be either infinite (sleep until some condition 
+      becomes true, without waking up needlessly in the meantime) or null 
+      (don't wait at all).
+      There is such delay somewhere in master node startup (near the end of 
+      the election phase).
     - Connections must support 2 simultaneous handlers (CODE)
-      Connections currently define only one handler, which is enough for monothreaded code. But when using multithreaded code, there are 2 possible handlers involved in a packet reception:
-      - The first one handles notifications only (nothing special to do regarding multithreading)
-      - The second one handles expected messages (such message must be directed to the right thread)
-      The second handler must be possible to set on the connection when that connection is thread-safe (MT version of connection classes).
-      Also, the code to detect wether a response is expected or not must be genericised and moved out of handlers.
+      Connections currently define only one handler, which is enough for 
+      monothreaded code. But when using multithreaded code, there are 2 
+      possible handlers involved in a packet reception:
+      - The first one handles notifications only (nothing special to do 
+        regarding multithreading)
+      - The second one handles expected messages (such message must be 
+        directed to the right thread)
+      The second handler must be possible to set on the connection when that 
+      connection is thread-safe (MT version of connection classes).
+      Also, the code to detect wether a response is expected or not must be 
+      genericised and moved out of handlers.
     - Pack (FEATURE)
-    - Control that client processed all invalidations before starting a transaction (CONSISTENCY)
-      If a client starts a transaction before it received an invalidation message caused by a transaction commited, it will use outdated data. This is a bug known in Zeo.
+    - Control that client processed all invalidations before starting a 
+      transaction (CONSISTENCY)
+      If a client starts a transaction before it received an invalidation 
+      message caused by a transaction commited, it will use outdated data. 
+      This is a bug known in Zeo.
     - Factorise node initialisation for admin, client and storage (CODE)
-      The same code to ask/receive node list and partition table exists in too many places.
-    - Clarify handler methods to call when a connection is accepted from a listening conenction and when remote node is identified (cf. neo/bootstrap.py).
+      The same code to ask/receive node list and partition table exists in too
+      many places.
+    - Clarify handler methods to call when a connection is accepted from a 
+      listening conenction and when remote node is identified 
+      (cf. neo/bootstrap.py).
     - Choose how to handle a storage integrity verification when it comes back.
       Do the replication process, the verification stage, with or without
       unfinished transactions, cells have to set as outdated, if yes, should the
@@ -85,30 +113,43 @@ RC  - Review output of pylint (CODE)
 
     Storage
     - Implement incremental storage verification (BANDWITH)
-      When a partition cell is in out-of-date state, the entire transition history is checked.
-      This is because there might be gaps in cell tid history, as an out-of-date node is writable (although non-readable).
-      It should use an incremental mechanism to only check transaction past a certain TID known to have no gap.
-    - Use embeded MySQL database instead of a stand-alone MySQL server. (LATENCY)
-      (to be discussed)
-    - Make replication work even in non-operational cluster state (HIGH AVAILABILITY)
-      When a master decided a partition change triggering replication, replication should happen independently of cluster state. (Maybe we still need a primary master, to void replicating from an outdated partition table setup.)
+      When a partition cell is in out-of-date state, the entire transition 
+      history is checked.
+      This is because there might be gaps in cell tid history, as an out-of-date
+      node is writable (although non-readable).
+      It should use an incremental mechanism to only check transaction past a 
+      certain TID known to have no gap.
+    - Use embeded MySQL database instead of a stand-alone MySQL server. 
+      (LATENCY)(to be discussed)
+    - Make replication work even in non-operational cluster state 
+      (HIGH AVAILABILITY)
+      When a master decided a partition change triggering replication, 
+      replication should happen independently of cluster state. (Maybe we still 
+      need a primary master, to void replicating from an outdated partition 
+      table setup.)
     - Flush objects from partition cells not served (DISK SPACE)
-      Currently, when a node stops serving a partition cell, the objects from that cell are kept in MySQL. They should be removed (possibly asynchronously, to avoid performance impact).
+      Currently, when a node stops serving a partition cell, the objects from 
+      that cell are kept in MySQL. They should be removed (possibly 
+      asynchronously, to avoid performance impact).
     - Close connections to other storage nodes (SYSTEM RESOURCE USAGE)
-      When a replication finishes, the connection is not closed currently. It should be closed (possibly asynchronously, and possibly by detecting that connection is idle - similar to keep-alive principle)
+      When a replication finishes, the connection is not closed currently. It 
+      should be closed (possibly asynchronously, and possibly by detecting that
+      connection is idle - similar to keep-alive principle)
     - When a cell replication finish, notifyPartitionChange packet is used to
       notify the master node but it should be sent by the master only for
       protocol isolation and consistency (CODE)
     - Notify master when storage becomes available for clients (LATENCY)
-      Currently, storage presence is broadcasted to client nodes too early, as the storage node would refuse them until it has only up-to-date data (not only up-to-date cells, but also a partition table and node states).
+      Currently, storage presence is broadcasted to client nodes too early, as 
+      the storage node would refuse them until it has only up-to-date data (not 
+      only up-to-date cells, but also a partition table and node states).
     - Create a specialized PartitionTable that know the database and replicator
       to remove duplicates and remove logic from handlers (CODE)
     - Consider insert multiple objects at time in the database, with taking care
       of maximum SQL request size allowed. (SPEED)
     - Prevent from SQL injection, escape() from MySQLdb api is not sufficient,
-      consider using query(request, arg_list) instead of query(request % arg_list)
+      consider using query(request, args) instead of query(request % args)
     - Improve replication process (BANDWITH)
-      Current implementation do this way to replicate objects (for a given TID) :
+      Current implementation do this way to replicate objects (for a given TID):
         S1 > S2 : Ask for a range of OIDs
         S1 < S2 : Answer the range fo OIDs
         For each OID :
@@ -125,36 +166,65 @@ RC  - Review output of pylint (CODE)
 
     Master
     - Master node data redundancy (HIGH AVAILABILITY)
-      Secondary master nodes should replicate primary master data (ie, primary master should inform them of such changes).
-      This data takes too long to extract from storage nodes, and loosing it increases the risk of starting from underestimated values.
-      This risk is (currently) unavoidable when all nodes stop running, but this case must be avoided.
+      Secondary master nodes should replicate primary master data (ie, primary 
+      master should inform them of such changes).
+      This data takes too long to extract from storage nodes, and loosing it 
+      increases the risk of starting from underestimated values.
+      This risk is (currently) unavoidable when all nodes stop running, but this
+      case must be avoided.
     - Don't reject peers during startup phases (STARTUP LATENCY)
-      When (for example) a client sends a RequestNodeIdentification to the primary master node while the cluster is not yet operational, the primary master should postpone the node acceptance until the cluster is operational, instead of closing the connection immediately. This would avoid the need to poll the master to know when it is ready.
+      When (for example) a client sends a RequestNodeIdentification to the 
+      primary master node while the cluster is not yet operational, the primary 
+      master should postpone the node acceptance until the cluster is 
+      operational, instead of closing the connection immediately. This would 
+      avoid the need to poll the master to know when it is ready.
     - Differential partition table updates (BANDWITH)
-      When a storage asks for current partition table (when it connects to a cluster in service state), it must update its knowledge of the partition table. Currently it's done by fetching the entire table. If the master keeps a history of a few last changes to partition table, it would be able to only send a differential update (via the incremental update mechanism)
+      When a storage asks for current partition table (when it connects to a 
+      cluster in service state), it must update its knowledge of the partition 
+      table. Currently it's done by fetching the entire table. If the master 
+      keeps a history of a few last changes to partition table, it would be able
+      to only send a differential update (via the incremental update mechanism)
     - During recovery phase, store multiple partition tables (ADMINISTATION)
-      When storage nodes know different version of the partition table, the master should be abdle to present them to admin to allow him to choose one when moving on to next phase.
+      When storage nodes know different version of the partition table, the 
+      master should be abdle to present them to admin to allow him to choose one
+      when moving on to next phase.
     - Optimize operational status check by recording which rows are ready
       instead of parsing the whole partition table. (SPEED)
 
     Client
-    - Client should prefer storage nodes it's already connected to when retrieving objects (LOAD LATENCY)
+    - Client should prefer storage nodes it's already connected to when 
+      retrieving objects (LOAD LATENCY)
     - Implement C version of mq.py (LOAD LATENCY)
     - Move object data replication task to storage nodes (COMMIT LATENCY)
-      Currently the client node must send a single object data to all storage nodes in charge of the partition cell containing that object. This increases the time the client has to wait for storage reponse, and increases client-to-storage bandwith usage. It must be possible to send object data to only one stroage and that storage should automatically replicate on other storages. Locks on objects would then be released by storage nodes.
+      Currently the client node must send a single object data to all storage 
+      nodes in charge of the partition cell containing that object. This 
+      increases the time the client has to wait for storage reponse, and 
+      increases client-to-storage bandwith usage. It must be possible to send 
+      object data to only one stroage and that storage should automatically 
+      replicate on other storages. Locks on objects would then be released by 
+      storage nodes.
     - Use generic bootstrap module (CODE)
-    - Extend waitMessage to expect more than one response, on multiple connections (LATENCY)
-      To be able to pipeline requests, waitMessage must be extended to allow responses to arrive out of order.
-      The extreme case is when we must ask multiple nodes for object history (used to support undo) because different msg_ids are expected on different connections.
+    - Extend waitMessage to expect more than one response, on multiple 
+      connections (LATENCY)
+      To be able to pipeline requests, waitMessage must be extended to allow 
+      responses to arrive out of order.
+      The extreme case is when we must ask multiple nodes for object history 
+      (used to support undo) because different msg_ids are expected on different
+      connections.
     - Find a way to make ask() from the thread poll to allow send initial packet
       (requestNodeIdentification) from the connectionCompleted() event instead
       of app. This requires to know to what thread will wait for the answer.
 
   Later
-    - Consider auto-generating cluster name upon initial startup (it might actualy be a partition property).
-    - Consider ways to centralise the configuration file, or make the configuration updatable automaticaly on all nodes.
-    - Consider storing some metadata on master nodes (partition table [version], ...). This data should be treated non-authoritatively, as a way to lower the probability to use an outdated partition table.
-    - Decentralize primary master tasks as much as possible (consider distributed lock mechanisms, ...)
+    - Consider auto-generating cluster name upon initial startup (it might 
+      actualy be a partition property).
+    - Consider ways to centralise the configuration file, or make the 
+      configuration updatable automaticaly on all nodes.
+    - Consider storing some metadata on master nodes (partition table [version],
+      ...). This data should be treated non-authoritatively, as a way to lower 
+      the probability to use an outdated partition table.
+    - Decentralize primary master tasks as much as possible (consider 
+      distributed lock mechanisms, ...)
     - Make admin node able to monitor multiple clusters simultaneously
     - Choose how to compute the storage size
     - Make storage check if the OID match with it's partitions during a store
