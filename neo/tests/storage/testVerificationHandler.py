@@ -182,9 +182,9 @@ class StorageVerificationHandlerTests(NeoTestBase):
             "getAddress" : ("127.0.0.1", self.master_port), 
         })
         packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
-        self.app.ptid = 1
+        self.verification.handleNotifyPartitionChanges(conn, packet, 1, ())
         self.verification.handleNotifyPartitionChanges(conn, packet, 0, ())
-        self.assertEquals(self.app.ptid, 1)
+        self.assertEqual(self.app.pt.getID(), 1)
 
         # new node
         conn = Mock({

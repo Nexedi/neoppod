@@ -81,6 +81,7 @@ class MasterClientHandlerTests(NeoTestBase):
             node = ClientNode(address, uuid)
         else:
             node = StorageNode(address, uuid)
+        node.setState(protocol.RUNNING_STATE)
         self.app.nm.add(node)
         return uuid
 

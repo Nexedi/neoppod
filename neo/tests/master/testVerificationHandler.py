@@ -79,6 +79,11 @@ class MasterVerificationTests(NeoTestBase):
         """Do first step of identification to MN
         """
         uuid = self.getNewUUID()
+        if node_type == STORAGE_NODE_TYPE:
+            node = StorageNode(uuid=uuid)
+        else:
+            node = MasterNode(uuid=uuid)
+        self.app.nm.add(node)
         return uuid
 
     # Tests
@@ -121,57 +126,6 @@ class MasterVerificationTests(NeoTestBase):
         self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
         self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
 
-    def test_08_handleNotifyNodeInformation(self):
-        verification = self.verification
-        uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = Packet(msg_type=NOTIFY_NODE_INFORMATION)
-        # tell about a client node, do nothing
-        conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(CLIENT_NODE_TYPE, ('127.0.0.1', self.client_port), self.getNewUUID(), DOWN_STATE),]
-        self.assertEqual(len(self.app.nm.getClientNodeList()), 0)
-        verification.handleNotifyNodeInformation(conn, packet, node_list)
-        self.assertEqual(len(self.app.nm.getClientNodeList()), 0)
-
-        # tell the master node about itself, if running must do nothing
-        conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(MASTER_NODE_TYPE, ('127.0.0.1', self.master_port-1), self.app.uuid, RUNNING_STATE),]
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port-1))
-        self.assertEqual(node, None)
-        verification.handleNotifyNodeInformation(conn, packet, node_list)
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port-1))
-
-        # tell the master node about itself, if down must raise
-        conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(MASTER_NODE_TYPE, ('127.0.0.1', self.master_port-1), self.app.uuid, DOWN_STATE),]
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port-1))
-        self.assertEqual(node, None)
-        self.assertRaises(RuntimeError, verification.handleNotifyNodeInformation, conn, packet, node_list)
-
-        # tell about an unknown storage node, do nothing
-        conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', self.master_port - 1), self.getNewUUID(), DOWN_STATE),]
-        self.assertEqual(len(self.app.nm.getStorageNodeList()), 0)
-        verification.handleNotifyNodeInformation(conn, packet, node_list)
-        self.assertEqual(len(self.app.nm.getStorageNodeList()), 0)
-
-        # tell about a known node but different address
-        conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(MASTER_NODE_TYPE, ('127.0.0.2', self.master_port), uuid, DOWN_STATE),]
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port))
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        verification.handleNotifyNodeInformation(conn, packet, node_list)
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port))
-        self.assertEqual(node.getState(), RUNNING_STATE)
-
-        # tell about a known node
-        conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(MASTER_NODE_TYPE, ('127.0.0.1', self.master_port), uuid, DOWN_STATE),]
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port))
-        self.assertEqual(node.getState(), RUNNING_STATE)
-        verification.handleNotifyNodeInformation(conn, packet, node_list)
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port))
-        self.assertEqual(node.getState(), DOWN_STATE)
-
     def test_09_handleAnswerLastIDs(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
@@ -195,14 +149,6 @@ class MasterVerificationTests(NeoTestBase):
         self.assertNotEquals(new_oid, self.app.loid)
         self.assertNotEquals(new_tid, self.app.ltid)
         self.assertNotEquals(new_ptid, self.app.pt.getID())
-
-    def test_10_handleAnswerPartitionTable(self):
-        verification = self.verification
-        uuid = self.identifyToMasterNode(MASTER_NODE_TYPE, port=self.master_port)
-        packet = Packet(msg_type=ANSWER_PARTITION_TABLE, )
-        conn = self.getFakeConnection(uuid, self.master_address)
-        verification.handleAnswerPartitionTable(conn, packet, None, [])
-        self.assertEqual(len(conn.mockGetAllCalls()), 0)
 
     def test_11_handleAnswerUnfinishedTransactions(self):
         verification = self.verification

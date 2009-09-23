@@ -109,7 +109,6 @@ class StorageInitializationHandlerTests(NeoTestBase):
         self.app.nm.add(StorageNode(uuid=node_1))
         self.app.nm.add(StorageNode(uuid=node_2))
         self.app.nm.add(StorageNode(uuid=node_3))
-        self.app.ptid = 1
         self.assertEqual(self.app.dm.getPartitionTable(), [])
         row_list = [(0, ((node_1, UP_TO_DATE_STATE), (node_2, UP_TO_DATE_STATE))),
                     (1, ((node_3, UP_TO_DATE_STATE), (node_1, UP_TO_DATE_STATE))),

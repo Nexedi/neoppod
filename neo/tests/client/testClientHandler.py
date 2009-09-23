@@ -21,6 +21,7 @@ import threading
 from mock import Mock, ReturnValues
 from neo.tests import NeoTestBase
 from neo import protocol
+from neo.pt import PartitionTable
 from neo.protocol import UnexpectedPacketError, INVALID_UUID
 from neo.protocol import \
      INVALID_PTID, STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, MASTER_NODE_TYPE, \
@@ -348,12 +349,12 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
-        test_master_list = [('127.0.0.1', 10010, test_node_uuid)]
+        test_master_list = [(('127.0.0.1', 10010), test_node_uuid)]
         client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
         # Test sanity checks
         getNodeByServer_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         self.assertEqual(len(getNodeByServer_call_list), 1)
-        self.assertEqual(getNodeByServer_call_list[0].getParam(0), test_master_list[0][:2])
+        self.assertEqual(getNodeByServer_call_list[0].getParam(0), test_master_list[0][0])
         # Check that known master node did not get added
         add_call_list = app.nm.mockGetNamedCalls('add')
         self.assertEqual(len(add_call_list), 0)
@@ -453,41 +454,18 @@ class ClientHandlerTests(NeoTestBase):
         # Check that primary master was updated to known node
         self.assertTrue(app.primary_master_node is node)
 
-    def test_initialSendPartitionTable(self):
-        client_handler = PrimaryBootstrapHandler(None)
-        conn = Mock({'getUUID': None})
-        self._testHandleUnexpectedPacketCalledWithMedhod(
-            client_handler.handleSendPartitionTable,
-            args=(conn, None, None, None))
-
-    def test_nonMasterSendPartitionTable(self):
-        for node_type in (CLIENT_NODE_TYPE, STORAGE_NODE_TYPE):
-            node = Mock({'getType': node_type})
-            class App:
-                nm = Mock({'getNodeByUUID': node})
-                pt = Mock()
-            app = App()
-            client_handler = PrimaryBootstrapHandler(app)
-            conn = self.getConnection()
-            client_handler.handleSendPartitionTable(conn, None, 0, [])
-            # Check that nothing happened
-            self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
-            self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
-
     def test_newSendPartitionTable(self):
         node = Mock({'getType': MASTER_NODE_TYPE})
         test_ptid = 0
         class App:
             nm = Mock({'getNodeByUUID': node})
-            pt = Mock({'clear': None})
-            ptid = test_ptid
+            pt = PartitionTable(1, 1)
         app = App()
-        client_handler = PrimaryBootstrapHandler(app)
+        client_handler = PrimaryNotificationsHandler(app, Mock())
         conn = self.getConnection()
         client_handler.handleSendPartitionTable(conn, None, test_ptid + 1, [])
         # Check that partition table got cleared and ptid got updated
-        self.assertEquals(app.ptid, test_ptid + 1)
-        self.assertEquals(len(app.pt.mockGetNamedCalls('clear')), 1)
+        self.assertEquals(app.pt.getID(), 1)
 
     def test_unknownNodeSendPartitionTable(self):
         test_node = Mock({'getType': MASTER_NODE_TYPE})
