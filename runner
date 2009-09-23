@@ -230,10 +230,15 @@ class NeoTestRunner(unittest.TestResult):
 
     def _buildErrors(self):
         s = '\n'
+        test_formatter = lambda t: '%s.py %s.%s' % (
+            t.__class__.__module__.replace('.', '/'),
+            t.__class__.__name__,
+            t._TestCase__testMethodName,
+        )
         if len(self.errors):
             s += '\nERRORS:\n'
             for test, trace in self.errors:
-                s += "%s\n" % test
+                s += "%s\n" % test_formatter(test)
                 s += "-------------------------------------------------------------\n"
                 s += trace
                 s += "-------------------------------------------------------------\n"
@@ -241,7 +246,7 @@ class NeoTestRunner(unittest.TestResult):
         if len(self.failures):
             s += '\nFAILURES:\n'
             for test, trace in self.failures:
-                s += "%s\n" % test
+                s += "%s\n" % test_formatter(test)
                 s += "-------------------------------------------------------------\n"
                 s += trace
                 s += "-------------------------------------------------------------\n"
