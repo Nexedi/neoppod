@@ -32,6 +32,7 @@ UNIT_TEST_MODULES = [
     'neo.tests.testHandler',
     'neo.tests.testNodes',
     'neo.tests.testProtocol',
+    'neo.tests.testDispatcher',
     'neo.tests.testPT',
     # master application
     'neo.tests.master.testClientHandler',
@@ -53,7 +54,6 @@ UNIT_TEST_MODULES = [
     'neo.tests.client.testClientApp',
     'neo.tests.client.testClientHandler',
     'neo.tests.client.testConnectionPool',
-    'neo.tests.client.testDispatcher',
 ]
 
 FUNC_TEST_MODULES = [

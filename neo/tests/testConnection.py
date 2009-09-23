@@ -421,40 +421,6 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(bc.write_buf, "testdata")
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 1)
 
-        # packet witch raise protocol error
-        # change the max packet size and create a to big message
-        # be careful not to set the max packet size < error message 
-        # this part of the test is disabled because the case where a too big
-        # message is send is handled in protocol.Packet.encode
-#        master_list = (("127.0.0.1", 2135, getNewUUID()), ("127.0.0.1", 2135, getNewUUID()),
-#                       ("127.0.0.1", 2235, getNewUUID()), ("127.0.0.1", 2134, getNewUUID()),
-#                       ("127.0.0.1", 2335, getNewUUID()),("127.0.0.1", 2133, getNewUUID()),
-#                       ("127.0.0.1", 2435, getNewUUID()),("127.0.0.1", 2132, getNewUUID()))
-#        p = protocol.answerPrimaryMaster(getNewUUID(), master_list)
-#        p.setId(1)
-#        OLD_MAX_PACKET_SIZE = protocol.MAX_PACKET_SIZE
-#        protocol.MAX_PACKET_SIZE = 0x55
-#        
-#        connector = DoNothingConnector()
-#        bc = Connection(em, handler, connector_handler=DoNothingConnector,
-#                        connector=connector, addr=("127.0.0.7", 93413))
-#        self.assertEqual(bc.write_buf, '')
-#        self.assertNotEqual(bc.getConnector(), None)
-#        import pdb
-#        pdb.set_trace()
-#        bc._addPacket(p)
-#        self.assertNotEqual(bc.write_buf, "testdata")
-#        self.assertRaises(ProtocolError, p.encode)
-#        self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 2)
-#        # check it sends error packet
-#        packet = Packet.parse(bc.write_buf)
-#        self.assertEqual(packet.getType(), ERROR)
-#        code, message = packet.decode()
-#        self.assertEqual(code, INTERNAL_ERROR_CODE)
-#        self.assertEqual(message, "internal error: message too big (206)")
-#        # reset value
-#        protocol.MAX_PACKET_SIZE = OLD_MAX_PACKET_SIZE
-
 
     def test_08_Connection_expectMessage(self):
         # no connector -> nothing is done
