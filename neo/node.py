@@ -82,16 +82,16 @@ class Node(object):
         return '%s (%s:%s)' % (dump(uuid), address, port)
 
     def isMaster(self):
-        return False
+        return isinstance(self, MasterNode)
 
     def isStorage(self):
-        return False
+        return isinstance(self, StorageNode)
 
     def isClient(self):
-        return False
+        return isinstance(self, ClientNode)
 
     def isAdmin(self):
-        return False
+        return isinstance(self, AdminNode)
 
 
 class MasterNode(Node):
@@ -100,19 +100,11 @@ class MasterNode(Node):
     def getType(self):
         return protocol.MASTER_NODE_TYPE
 
-    def isMaster(self):
-        return True
-
-
 class StorageNode(Node):
     """This class represents a storage node."""
 
     def getType(self):
         return protocol.STORAGE_NODE_TYPE
-
-    def isStorage(self):
-        return True
-
 
 class ClientNode(Node):
     """This class represents a client node."""
@@ -120,18 +112,11 @@ class ClientNode(Node):
     def getType(self):
         return protocol.CLIENT_NODE_TYPE
 
-    def isClient(self):
-        return True
-
-
 class AdminNode(Node):
     """This class represents an admin node."""
 
     def getType(self):
         return protocol.ADMIN_NODE_TYPE
-
-    def isAdmin(self):
-        return True
 
 
 NODE_TYPE_MAPPING = {
