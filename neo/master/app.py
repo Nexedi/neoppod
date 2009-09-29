@@ -618,7 +618,7 @@ class Application(object):
             if conn_uuid is not None:
                 node = nm.getNodeByUUID(conn_uuid)
                 assert node is not None
-                assert node.getType() == protocol.MASTER_NODE_TYPE
+                assert node.isMaster()
                 conn.setHandler(handler)
 
 
