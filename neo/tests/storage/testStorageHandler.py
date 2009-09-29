@@ -22,8 +22,7 @@ from struct import pack, unpack
 from mock import Mock
 from collections import deque
 from neo.tests import NeoTestBase
-from neo.master.app import MasterNode
-from neo.storage.app import Application, StorageNode
+from neo.storage.app import Application
 from neo.storage.handlers.storage import StorageOperationHandler
 from neo import protocol
 from neo.protocol import *
@@ -50,8 +49,7 @@ class StorageStorageHandlerTests(NeoTestBase):
         self.app.load_lock_dict = {}
         self.app.event_queue = deque()
         for server in self.app.master_node_list:
-            master = MasterNode(server = server)
-            self.app.nm.add(master)
+            self.app.nm.createMaster(server=server)
         # handler
         self.operation = StorageOperationHandler(self.app)
         # set pmn

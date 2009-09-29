@@ -29,8 +29,8 @@ from neo.util import dump
 class Node(object):
     """This class represents a node."""
 
-    def __init__(self, server = None, uuid = None):
-        self.state = protocol.UNKNOWN_STATE
+    def __init__(self, server=None, uuid=None, state=protocol.UNKNOWN_STATE):
+        self.state = state
         self.server = server
         self.uuid = uuid
         self.manager = None
@@ -199,6 +199,39 @@ class NodeManager(object):
         if uuid is None:
             return None
         return self.uuid_dict.get(uuid)
+
+    def _createNode(self, klass, *args, **kw):
+        node = klass(*args, **kw)
+        self.add(node)
+        return node
+
+    def createMaster(self, *args, **kw):
+        """ Create and register a new master """
+        return self._createNode(MasterNode, *args, **kw)
+
+    def createStorage(self, *args, **kw):
+        """ Create and register a new storage """
+        return self._createNode(StorageNode, *args, **kw)
+
+    def createClient(self, *args, **kw):
+        """ Create and register a new client """
+        return self._createNode(ClientNode, *args, **kw)
+    
+    def createAdmin(self, *args, **kw):
+        """ Create and register a new admin """
+        return self._createNode(AdminNode, *args, **kw)
+
+    def createFromNodeType(self, node_type, *args, **kw):
+        # XXX: use a static dict or drop this
+        klass = {
+            protocol.MASTER_NODE_TYPE: self.createMaster,
+            protocol.STORAGE_NODE_TYPE: self.createStorage,
+            protocol.CLIENT_NODE_TYPE: self.createClient,
+            protocol.ADMIN_NODE_TYPE: self.createAdmin,
+        }.get(node_type)
+        if klass is None:
+            raise RuntimeError('Unknown node type : %s' % node_type)
+        return self._createNode(klass, *args, **kw)
     
     def clear(self, filter=None):
         for node in self.getNodeList():

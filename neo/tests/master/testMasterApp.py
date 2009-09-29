@@ -21,7 +21,6 @@ from neo.tests import NeoTestBase
 from neo.master.app import Application
 from neo.protocol import INVALID_PTID, INVALID_OID, INVALID_TID, \
      INVALID_UUID, Packet, NOTIFY_NODE_INFORMATION
-from neo.node import MasterNode, ClientNode, StorageNode
 from neo.storage.mysqldb import p64, u64
 
 class MasterAppTests(NeoTestBase):
@@ -78,12 +77,11 @@ class MasterAppTests(NeoTestBase):
     def test_06_broadcastNodeInformation(self):
       # defined some nodes to which data will be send
       master_uuid = self.getNewUUID()      
-      master = MasterNode(uuid=master_uuid)
+      self.app.nm.createMaster(uuid=master_uuid)
       storage_uuid = self.getNewUUID()      
-      storage = StorageNode(uuid=storage_uuid)
+      storage = self.app.nm.createStorage(uuid=storage_uuid)
       client_uuid = self.getNewUUID()      
-      client = ClientNode(uuid=client_uuid)
-      self.app.nm.add(master)
+      client = self.app.nm.createClient(uuid=client_uuid)
       self.app.nm.add(storage)
       self.app.nm.add(client)
       # create conn and patch em
@@ -93,7 +91,7 @@ class MasterAppTests(NeoTestBase):
       self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
 
       # no address defined, not send to client node
-      c_node = ClientNode(uuid = self.getNewUUID())
+      c_node = self.app.nm.createClient(uuid = self.getNewUUID())
       self.app.broadcastNodeInformation(c_node)
       # check conn
       self.checkNoPacketSent(client_conn)
@@ -105,7 +103,10 @@ class MasterAppTests(NeoTestBase):
       storage_conn = Mock({"getUUID" : storage_uuid})
       client_conn = Mock({"getUUID" : client_uuid})
       self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
-      s_node = ClientNode(uuid = self.getNewUUID(), server=("127.1.0.1", 3361))
+      s_node = self.app.nm.createClient(
+            uuid = self.getNewUUID(), 
+            server=("127.1.0.1", 3361)
+      )
       self.app.broadcastNodeInformation(c_node)
       # check conn
       self.checkNoPacketSent(client_conn)
@@ -117,7 +118,11 @@ class MasterAppTests(NeoTestBase):
       storage_conn = Mock({"getUUID" : storage_uuid})
       client_conn = Mock({"getUUID" : client_uuid})
       self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
-      s_node = StorageNode(uuid = self.getNewUUID(), server=("127.0.0.1", 1351))
+      s_node = self.app.nm.createStorage(
+            uuid=self.getNewUUID(), 
+            server=("127.0.0.1", 1351)
+      )
+
       self.app.broadcastNodeInformation(s_node)
       # check conn
       self.checkNotifyNodeInformation(client_conn)

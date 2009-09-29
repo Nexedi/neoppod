@@ -22,8 +22,7 @@ from struct import pack, unpack
 from mock import Mock
 from collections import deque
 from neo.tests import NeoTestBase
-from neo.master.app import MasterNode
-from neo.storage.app import Application, StorageNode
+from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.pt import PartitionTable
@@ -52,8 +51,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.app.load_lock_dict = {}
         self.app.event_queue = deque()
         for server in self.app.master_node_list:
-            master = MasterNode(server = server)
-            self.app.nm.add(master)
+            self.app.nm.createMaster(server=server)
         # handler
         self.operation = MasterOperationHandler(self.app)
         # set pmn
@@ -129,9 +127,9 @@ class StorageMasterHandlerTests(NeoTestBase):
         packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
         app = self.app
         # register nodes
-        app.nm.add(StorageNode(uuid=uuid1))
-        app.nm.add(StorageNode(uuid=uuid2))
-        app.nm.add(StorageNode(uuid=uuid3))
+        app.nm.createStorage(uuid=uuid1)
+        app.nm.createStorage(uuid=uuid2)
+        app.nm.createStorage(uuid=uuid3)
         ptid1, ptid2 = (1, 2)
         self.assertNotEquals(ptid1, ptid2)
         app.pt = PartitionTable(3, 1)

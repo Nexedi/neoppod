@@ -20,7 +20,6 @@ from neo import logging
 from neo import protocol
 from neo.master.handlers import MasterHandler
 from neo.protocol import UnexpectedPacketError, TEMPORARILY_DOWN_STATE
-from neo.node import StorageNode
 from neo.util import dump
 
 class RecoveryHandler(MasterHandler):
@@ -56,9 +55,10 @@ class RecoveryHandler(MasterHandler):
             for uuid, state in row:
                 node = app.nm.getNodeByUUID(uuid) 
                 if node is None:
-                    node = StorageNode(uuid=uuid)
-                    node.setState(protocol.TEMPORARILY_DOWN_STATE)
-                    app.nm.add(node)
+                    app.nm.createStorage(
+                        uuid=uuid,
+                        state=protocol.TEMPORARILY_DOWN_STATE,
+                    )
         # load partition in memory
         self.app.pt.load(ptid, row_list, self.app.nm)
 

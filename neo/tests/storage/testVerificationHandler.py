@@ -21,9 +21,8 @@ from neo import logging
 from mock import Mock
 from neo.tests import NeoTestBase
 from neo import protocol
-from neo.node import MasterNode
 from neo.pt import PartitionTable
-from neo.storage.app import Application, StorageNode
+from neo.storage.app import Application
 from neo.storage.handlers.verification import VerificationHandler
 from neo.protocol import STORAGE_NODE_TYPE, MASTER_NODE_TYPE, CLIENT_NODE_TYPE
 from neo.protocol import BROKEN_STATE, RUNNING_STATE, Packet, INVALID_UUID, \
@@ -162,7 +161,10 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.assertEqual(len(rows), 0)
 
         # try to get known offset
-        node = StorageNode(("127.7.9.9", 1), self.getNewUUID())
+        node = self.app.nm.createStorage(
+            server=("127.7.9.9", 1), 
+            uuid=self.getNewUUID()
+        )
         self.app.pt.setCell(1, node, UP_TO_DATE_STATE)
         self.assertTrue(self.app.pt.hasOffset(1))
         conn = Mock({"getUUID" : uuid,
@@ -194,7 +196,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
         new_uuid = self.getNewUUID()
         cell = (0, new_uuid, UP_TO_DATE_STATE)
-        self.app.nm.add(StorageNode(uuid=new_uuid))
+        self.app.nm.createStorage(uuid=new_uuid)
         self.app.pt = PartitionTable(1, 1)
         self.app.dm = Mock({ })
         ptid, self.ptid = self.getTwoIDs()

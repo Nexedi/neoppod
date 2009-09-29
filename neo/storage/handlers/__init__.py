@@ -22,7 +22,6 @@ from neo import protocol
 from neo.protocol import RUNNING_STATE, BROKEN_STATE, CLIENT_NODE_TYPE, \
         DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE
 from neo.util import dump
-from neo.node import MasterNode, StorageNode, ClientNode
 from neo.exception import PrimaryFailure, OperationFailure
 
 class BaseStorageHandler(EventHandler):

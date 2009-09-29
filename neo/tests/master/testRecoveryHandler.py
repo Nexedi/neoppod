@@ -47,7 +47,6 @@ from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIF
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import OperationFailure, ElectionFailure     
-from neo.node import MasterNode, StorageNode
 from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
 
@@ -60,7 +59,7 @@ class MasterRecoveryTests(NeoTestBase):
         self.app.pt.clear()
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
-            self.app.nm.add(MasterNode(server = server))
+            self.app.nm.createMaster(server=server)
         self.recovery = RecoveryHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()

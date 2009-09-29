@@ -22,8 +22,7 @@ from struct import pack, unpack
 from mock import Mock
 from collections import deque
 from neo.tests import NeoTestBase
-from neo.master.app import MasterNode
-from neo.storage.app import Application, StorageNode
+from neo.storage.app import Application
 from neo.storage.handlers.client import TransactionInformation
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.exception import PrimaryFailure, OperationFailure
@@ -53,8 +52,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.app.load_lock_dict = {}
         self.app.event_queue = deque()
         for server in self.app.master_node_list:
-            master = MasterNode(server = server)
-            self.app.nm.add(master)
+            self.app.nm.createMaster(server=server)
         # handler
         self.operation = ClientOperationHandler(self.app)
         # set pmn
@@ -89,12 +87,10 @@ class StorageClientHandlerTests(NeoTestBase):
     def test_05_dealWithClientFailure(self):
         # check if client's transaction are cleaned
         uuid = self.getNewUUID()
-        from neo.node import ClientNode
-        manager = Mock()
-        client = ClientNode(('127.0.0.1', 10010))
-        client.setManager(manager)
-        client.setUUID(uuid)
-        self.app.nm.add(client)
+        client = self.app.nm.createClient(
+            uuid=uuid,
+            server=('127.0.0.1', 10010)
+        )
         self.app.store_lock_dict[0] = object()
         transaction = Mock({
             'getUUID': uuid,

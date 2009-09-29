@@ -34,7 +34,6 @@ from neo.protocol import ERROR, ANNOUNCE_PRIMARY_MASTER, \
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import OperationFailure, ElectionFailure, VerificationFailure     
-from neo.node import MasterNode, StorageNode
 from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
 
@@ -48,7 +47,7 @@ class MasterVerificationTests(NeoTestBase):
         self.app.pt.clear()
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
-            self.app.nm.add(MasterNode(server = server))
+            self.app.nm.createMaster(server=server)
         self.verification = VerificationHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
@@ -79,11 +78,11 @@ class MasterVerificationTests(NeoTestBase):
         """Do first step of identification to MN
         """
         uuid = self.getNewUUID()
-        if node_type == STORAGE_NODE_TYPE:
-            node = StorageNode(uuid=uuid)
-        else:
-            node = MasterNode(uuid=uuid)
-        self.app.nm.add(node)
+        self.app.nm.createFromNodeType(
+            node_type, 
+            server=(ip, port),
+            uuid=uuid,
+        )
         return uuid
 
     # Tests

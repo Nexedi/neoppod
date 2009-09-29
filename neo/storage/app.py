@@ -22,7 +22,7 @@ from collections import deque
 from neo import protocol
 from neo.protocol import TEMPORARILY_DOWN_STATE, \
         cell_states, HIDDEN_STATE
-from neo.node import NodeManager, MasterNode, StorageNode
+from neo.node import NodeManager
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
 from neo.connection import ListeningConnection
@@ -136,9 +136,10 @@ class Application(object):
             state = protocol.cell_states[state]
             # register unknown nodes
             if self.nm.getNodeByUUID(uuid) is None:
-                node = StorageNode(uuid=uuid)
-                node.setState(protocol.TEMPORARILY_DOWN_STATE)
-                self.nm.add(node)
+                self.nm.createStorage(
+                    uuid=uuid,
+                    state=protocol.TEMPORARILY_DOWN_STATE,
+                )
             new_cell_list.append((offset, uuid, state))
         # load the partition table in manager
         self.pt.clear()
@@ -150,7 +151,7 @@ class Application(object):
             raise RuntimeError, 'cluster name must be non-empty'
 
         for server in self.master_node_list:
-            self.nm.add(MasterNode(server = server))
+            self.nm.createMaster(server=server)
 
         # Make a listening port
         handler = identification.IdentificationHandler(self)

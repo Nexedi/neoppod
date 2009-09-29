@@ -22,7 +22,6 @@ from neo.protocol import MASTER_NODE_TYPE, \
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure, PrimaryFailure
 from neo.protocol import UnexpectedPacketError
-from neo.node import MasterNode
 
 class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""

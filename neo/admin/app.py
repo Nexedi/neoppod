@@ -17,7 +17,7 @@
 
 from neo import logging
 
-from neo.node import NodeManager, MasterNode
+from neo.node import NodeManager
 from neo.event import EventManager
 from neo.connection import ListeningConnection
 from neo.exception import PrimaryFailure
@@ -120,7 +120,7 @@ class Application(object):
         nm.clear()
         self.cluster_state = None
         for server in self.master_node_list:
-            nm.add(MasterNode(server = server))
+            nm.createMaster(server=server)
 
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, self.name, protocol.ADMIN_NODE_TYPE, 

@@ -18,7 +18,6 @@
 from neo import logging
 
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
-from neo.node import MasterNode
 from neo.pt import MTPartitionTable as PartitionTable
 from neo import protocol
 from neo.util import dump
@@ -65,8 +64,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         for address, uuid in known_master_list:
             n = app.nm.getNodeByServer(address)
             if n is None:
-                n = MasterNode(server=address)
-                app.nm.add(n)
+                app.nm.createMaster(server=address)
             if uuid is not None:
                 # If I don't know the UUID yet, believe what the peer
                 # told me at the moment.

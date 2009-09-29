@@ -21,9 +21,8 @@ from neo import logging
 from mock import Mock
 from neo.tests import NeoTestBase
 from neo import protocol
-from neo.node import MasterNode
 from neo.pt import PartitionTable
-from neo.storage.app import Application, StorageNode
+from neo.storage.app import Application
 from neo.storage.handlers.initialization import InitializationHandler
 from neo.protocol import STORAGE_NODE_TYPE, MASTER_NODE_TYPE, CLIENT_NODE_TYPE
 from neo.protocol import BROKEN_STATE, RUNNING_STATE, Packet, INVALID_UUID, \
@@ -106,9 +105,9 @@ class StorageInitializationHandlerTests(NeoTestBase):
         node_2 = self.getNewUUID()
         node_3 = self.getNewUUID()
         # SN already know all nodes 
-        self.app.nm.add(StorageNode(uuid=node_1))
-        self.app.nm.add(StorageNode(uuid=node_2))
-        self.app.nm.add(StorageNode(uuid=node_3))
+        self.app.nm.createStorage(uuid=node_1)
+        self.app.nm.createStorage(uuid=node_2)
+        self.app.nm.createStorage(uuid=node_3)
         self.assertEqual(self.app.dm.getPartitionTable(), [])
         row_list = [(0, ((node_1, UP_TO_DATE_STATE), (node_2, UP_TO_DATE_STATE))),
                     (1, ((node_3, UP_TO_DATE_STATE), (node_1, UP_TO_DATE_STATE))),

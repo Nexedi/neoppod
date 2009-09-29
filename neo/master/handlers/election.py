@@ -23,7 +23,6 @@ from neo.protocol import MASTER_NODE_TYPE, \
         DOWN_STATE
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
-from neo.node import MasterNode
 
 class ElectionHandler(MasterHandler):
     """This class deals with events for a primary master election."""

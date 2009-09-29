@@ -47,7 +47,6 @@ from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIF
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import OperationFailure, ElectionFailure     
-from neo.node import MasterNode, StorageNode
 from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
 
@@ -71,7 +70,7 @@ class MasterClientElectionTests(NeoTestBase):
         self.app.em = Mock({"getConnectionList" : []})
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
-            self.app.nm.add(MasterNode(server = server))
+            self.app.nm.createMaster(server=server)
         self.election = ClientElectionHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
@@ -97,9 +96,8 @@ class MasterClientElectionTests(NeoTestBase):
     def identifyToMasterNode(self, port=10000, ip='127.0.0.1'):
         uuid = self.getNewUUID()
         address = (ip, port)
-        node = MasterNode(address, uuid)
-        node.setState(protocol.RUNNING_STATE)
-        self.app.nm.add(node)
+        self.app.nm.createMaster(server=address, uuid=uuid,
+                state=protocol.RUNNING_STATE)
         return uuid
 
     def test_01_connectionStarted(self):
@@ -200,7 +198,7 @@ class MasterClientElectionTests(NeoTestBase):
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
         p = protocol.askPrimaryMaster()
-        self.app.nm.add(MasterNode(("127.0.0.1", self.master_port), uuid))
+        self.app.nm.createMaster(server=("127.0.0.1", self.master_port), uuid=uuid)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
@@ -243,7 +241,7 @@ class MasterClientElectionTests(NeoTestBase):
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
         p = protocol.askPrimaryMaster()
-        self.app.nm.add(MasterNode(("127.0.0.1", self.master_port), uuid))
+        self.app.nm.createMaster(server=("127.0.0.1", self.master_port), uuid=uuid)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
@@ -273,7 +271,7 @@ class MasterServerElectionTests(NeoTestBase):
         self.app.em = Mock({"getConnectionList" : []})
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
-            self.app.nm.add(MasterNode(server = server))
+            self.app.nm.createMaster(server=server)
         self.election = ServerElectionHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()

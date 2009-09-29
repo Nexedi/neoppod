@@ -20,7 +20,6 @@ from neo import logging
 from neo.storage.handlers import BaseStorageHandler
 from neo import protocol
 from neo.util import dump
-from neo.node import ClientNode
 
 class IdentificationHandler(BaseStorageHandler):
     """ Handler used for incoming connections during operation state """
@@ -41,8 +40,7 @@ class IdentificationHandler(BaseStorageHandler):
             from neo.storage.handlers.client import ClientOperationHandler 
             handler = ClientOperationHandler
             if node is None:
-                node = ClientNode()
-                app.nm.add(node)
+                node = app.nm.createClient()
         elif node_type == protocol.STORAGE_NODE_TYPE:
             from neo.storage.handlers.storage import StorageOperationHandler
             handler = StorageOperationHandler

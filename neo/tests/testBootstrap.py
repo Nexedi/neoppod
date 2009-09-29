@@ -20,9 +20,8 @@ import unittest
 from neo import logging
 from mock import Mock
 from neo.tests import NeoTestBase
-from neo.master.app import MasterNode
 from neo.pt import PartitionTable
-from neo.storage.app import Application, StorageNode
+from neo.storage.app import Application
 from neo.bootstrap import BootstrapManager
 from neo import protocol
 from neo.protocol import STORAGE_NODE_TYPE, MASTER_NODE_TYPE
@@ -39,7 +38,7 @@ class BootstrapManagerTests(NeoTestBase):
         config = self.getStorageConfiguration()
         self.app = Application(**config)
         for server in self.app.master_node_list:
-            self.app.nm.add(MasterNode(server=server))
+            self.app.nm.createMaster(server=server)
         self.bootstrap = BootstrapManager(self.app, 'main', protocol.STORAGE_NODE_TYPE)
         # define some variable to simulate client and storage node
         self.master_port = 10010

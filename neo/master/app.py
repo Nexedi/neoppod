@@ -23,7 +23,7 @@ from struct import pack, unpack
 from neo import protocol
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
         UUID_NAMESPACES, BOOTING_CLUSTER_STATE, INVALID_UUID
-from neo.node import NodeManager, MasterNode, StorageNode, ClientNode, AdminNode
+from neo.node import NodeManager
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection, ServerConnection
 from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure, \
@@ -106,7 +106,7 @@ class Application(object):
     def run(self):
         """Make sure that the status is sane and start a loop."""
         for server in self.master_node_list:
-            self.nm.add(MasterNode(server = server))
+            self.nm.createMaster(server=server)
 
         # Make a listening port.
         self.listening_conn = ListeningConnection(self.em, None, 
@@ -799,7 +799,7 @@ class Application(object):
 
         if node_type == protocol.ADMIN_NODE_TYPE:
             # always accept admin nodes
-            klass = AdminNode
+            node_ctor = self.nm.createAdmin
             handler = administration.AdministrationHandler
             logging.info('Accept an admin %s' % dump(uuid))
         elif node_type == protocol.MASTER_NODE_TYPE:
@@ -807,7 +807,7 @@ class Application(object):
                 # unknown master, rejected
                 raise protocol.ProtocolError('Reject an unknown master node')
             # always put other master in waiting state
-            klass = MasterNode
+            node_ctor = self.nm.createMaster
             handler = secondary.SecondaryMasterHandler
             logging.info('Accept a master %s' % dump(uuid))
         elif node_type == protocol.CLIENT_NODE_TYPE:
@@ -815,13 +815,13 @@ class Application(object):
             if self.cluster_state != protocol.RUNNING_CLUSTER_STATE:
                 logging.info('Reject a connection from a client')
                 raise protocol.NotReadyError
-            klass = ClientNode
+            node_ctor = self.nm.createClient
             handler = client.ClientServiceHandler
             logging.info('Accept a client %s' % dump(uuid))
         elif node_type == protocol.STORAGE_NODE_TYPE:
-            klass = StorageNode
+            node_ctor = self.nm.createStorage
             (uuid, state, handler) = self.identifyStorageNode(uuid, node)
             logging.info('Accept a storage (%s)' % state)
-        return (uuid, node, state, handler, klass)
+        return (uuid, node, state, handler, node_ctor)
 
 

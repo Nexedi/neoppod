@@ -19,7 +19,6 @@ from neo import logging
 from time import sleep
 
 from neo.handler import EventHandler
-from neo.node import MasterNode
 from neo import protocol
 from neo.util import dump
 from neo.connection import ClientConnection
@@ -65,8 +64,7 @@ class BootstrapManager(EventHandler):
         for address, uuid in known_master_list:
             node = nm.getNodeByServer(address)
             if node is None:
-                node = MasterNode(server=address)
-                nm.add(node)
+                nm.createMaster(server=address)
             node.setUUID(uuid)
 
         self.primary = nm.getNodeByUUID(primary_uuid)

@@ -33,7 +33,7 @@ from neo.event import EventManager
 from neo.util import makeChecksum, dump
 from neo.locking import RLock, Lock
 from neo.connection import MTClientConnection
-from neo.node import NodeManager, MasterNode, StorageNode
+from neo.node import NodeManager
 from neo.connector import getConnectorHandler
 from neo.client.exception import NEOStorageError, NEOStorageConflictError
 from neo.client.exception import NEOStorageNotFoundError
@@ -255,7 +255,7 @@ class Application(object):
         self.master_node_list = parseMasterList(master_nodes)
         logging.debug('master nodes are %s', self.master_node_list)
         for server in self.master_node_list:
-            self.nm.add(MasterNode(server=server))
+            self.nm.createMaster(server=server)
 
         # no self-assigned UUID, primary master will supply us one
         self.uuid = None

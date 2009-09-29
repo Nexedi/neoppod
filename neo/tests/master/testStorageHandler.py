@@ -35,7 +35,6 @@ from neo.protocol import ERROR, PING, PONG, ANNOUNCE_PRIMARY_MASTER, \
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import OperationFailure, ElectionFailure     
-from neo.node import MasterNode, StorageNode
 
 class MasterStorageHandlerTests(NeoTestBase):
 
@@ -48,7 +47,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.app.em = Mock({"getConnectionList" : []})
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
-            self.app.nm.add(MasterNode(server = server))
+            self.app.nm.createMaster(server=server)
         self.service = StorageServiceHandler(self.app)
         # define some variable to simulate client and storage node
         self.client_port = 11022
@@ -101,7 +100,10 @@ class MasterStorageHandlerTests(NeoTestBase):
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify about a known node but with bad address, don't care
-        self.app.nm.add(StorageNode(("127.0.0.1", 11011), self.getNewUUID()))
+        self.app.nm.createStorage(
+            server=("127.0.0.1", 11011), 
+            uuid=self.getNewUUID(),
+        )
         conn = self.getFakeConnection(uuid, self.storage_address)
         node_list = [(STORAGE_NODE_TYPE, '127.0.0.1', 11012, uuid, BROKEN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)

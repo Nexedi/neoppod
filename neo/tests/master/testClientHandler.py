@@ -35,7 +35,6 @@ from neo.protocol import ERROR, PING, PONG, ANNOUNCE_PRIMARY_MASTER, \
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import OperationFailure, ElectionFailure     
-from neo.node import MasterNode, StorageNode, ClientNode
 
 class MasterClientHandlerTests(NeoTestBase):
 
@@ -50,7 +49,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.app.ltid = '\0' * 8
         self.app.finishing_transaction_dict = {}
         for server in self.app.master_node_list:
-            self.app.nm.add(MasterNode(server = server))
+            self.app.nm.createMaster(server=server)
         self.service = ClientServiceHandler(self.app)
         # define some variable to simulate client and storage node
         self.client_port = 11022
@@ -61,7 +60,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.storage_address = ('127.0.0.1', self.storage_port)
         # register the storage
         kw = {'uuid':self.getNewUUID(), 'server': self.master_address}
-        self.app.nm.add(StorageNode(**kw))
+        self.app.nm.createStorage(**kw)
         
     def tearDown(self):
         NeoTestBase.tearDown(self)
@@ -74,15 +73,12 @@ class MasterClientHandlerTests(NeoTestBase):
         """Do first step of identification to MN """
         # register the master itself
         uuid = self.getNewUUID()
-        address = (ip, port)
-        if node_type == MASTER_NODE_TYPE:
-            node = MasterNode(address, uuid)
-        elif node_type == CLIENT_NODE_TYPE:
-            node = ClientNode(address, uuid)
-        else:
-            node = StorageNode(address, uuid)
-        node.setState(protocol.RUNNING_STATE)
-        self.app.nm.add(node)
+        self.app.nm.createFromNodeType(
+            node_type,
+            server=(ip, port), 
+            uuid=uuid,
+            state=protocol.RUNNING_STATE,
+        )
         return uuid
 
     # Tests
@@ -114,7 +110,10 @@ class MasterClientHandlerTests(NeoTestBase):
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify about a known node but with bad address, don't care
-        self.app.nm.add(StorageNode(("127.0.0.1", 11011), self.getNewUUID()))
+        self.app.nm.createStorage(
+            server=("127.0.0.1", 11011), 
+            uuid=self.getNewUUID(),
+        )
         conn = self.getFakeConnection(uuid, self.storage_address)
         node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', 11012), uuid, BROKEN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)

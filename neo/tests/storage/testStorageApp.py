@@ -21,7 +21,6 @@ from neo.tests import NeoTestBase
 from neo.storage.app import Application
 from neo.protocol import INVALID_PTID, INVALID_TID, \
      INVALID_UUID, Packet, NOTIFY_NODE_INFORMATION, UP_TO_DATE_STATE
-from neo.node import MasterNode, ClientNode, StorageNode
 from neo.storage.mysqldb import p64, u64, MySQLDatabaseManager
 from collections import deque
 from neo.pt import PartitionTable
@@ -59,11 +58,11 @@ class StorageAppTests(NeoTestBase):
 
       # add some node, will be remove when loading table
       master_uuid = self.getNewUUID()      
-      master = MasterNode(uuid=master_uuid)
+      master = self.app.nm.createMaster(uuid=master_uuid)
       storage_uuid = self.getNewUUID()      
-      storage = StorageNode(uuid=storage_uuid)
+      storage = self.app.nm.createStorage(uuid=storage_uuid)
       client_uuid = self.getNewUUID()      
-      client = ClientNode(uuid=client_uuid)
+      client = self.app.nm.createClient(uuid=client_uuid)
 
       self.app.pt.setCell(0, master, UP_TO_DATE_STATE)
       self.app.pt.setCell(0, storage, UP_TO_DATE_STATE)
