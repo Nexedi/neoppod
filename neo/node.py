@@ -29,18 +29,12 @@ from neo.util import dump
 class Node(object):
     """This class represents a node."""
 
-    def __init__(self, server=None, uuid=None, state=protocol.UNKNOWN_STATE):
+    def __init__(self, manager, server=None, uuid=None, state=protocol.UNKNOWN_STATE):
         self.state = state
         self.server = server
         self.uuid = uuid
-        self.manager = None
-        self.last_state_change = time()
-
-    def setManager(self, manager):
         self.manager = manager
-
-    def getManager(self):
-        return self.manager
+        self.last_state_change = time()
 
     def getLastStateChange(self):
         return self.last_state_change
@@ -135,7 +129,6 @@ class NodeManager(object):
         self.uuid_dict = {}
 
     def add(self, node):
-        node.setManager(self)
         self.node_list.append(node)   
         if node.getServer() is not None:
             self.registerServer(node)
@@ -200,38 +193,38 @@ class NodeManager(object):
             return None
         return self.uuid_dict.get(uuid)
 
-    def _createNode(self, klass, *args, **kw):
-        node = klass(*args, **kw)
+    def _createNode(self, klass, **kw):
+        node = klass(self, **kw)
         self.add(node)
         return node
 
-    def createMaster(self, *args, **kw):
+    def createMaster(self, **kw):
         """ Create and register a new master """
-        return self._createNode(MasterNode, *args, **kw)
+        return self._createNode(MasterNode, **kw)
 
     def createStorage(self, *args, **kw):
         """ Create and register a new storage """
-        return self._createNode(StorageNode, *args, **kw)
+        return self._createNode(StorageNode, **kw)
 
     def createClient(self, *args, **kw):
         """ Create and register a new client """
-        return self._createNode(ClientNode, *args, **kw)
+        return self._createNode(ClientNode, **kw)
     
     def createAdmin(self, *args, **kw):
         """ Create and register a new admin """
-        return self._createNode(AdminNode, *args, **kw)
+        return self._createNode(AdminNode, **kw)
 
-    def createFromNodeType(self, node_type, *args, **kw):
+    def createFromNodeType(self, node_type, **kw):
         # XXX: use a static dict or drop this
         klass = {
-            protocol.MASTER_NODE_TYPE: self.createMaster,
-            protocol.STORAGE_NODE_TYPE: self.createStorage,
-            protocol.CLIENT_NODE_TYPE: self.createClient,
-            protocol.ADMIN_NODE_TYPE: self.createAdmin,
+            protocol.MASTER_NODE_TYPE: MasterNode,
+            protocol.STORAGE_NODE_TYPE: StorageNode,
+            protocol.CLIENT_NODE_TYPE: ClientNode,
+            protocol.ADMIN_NODE_TYPE: AdminNode,
         }.get(node_type)
         if klass is None:
             raise RuntimeError('Unknown node type : %s' % node_type)
-        return self._createNode(klass, *args, **kw)
+        return self._createNode(klass, **kw)
     
     def clear(self, filter=None):
         for node in self.getNodeList():
@@ -264,7 +257,7 @@ class NodeManager(object):
                 klass = NODE_TYPE_MAPPING.get(node_type, None)
                 if klass is None:
                     raise RuntimeError('Unknown node type')
-                node = klass(server=addr, uuid=uuid)
+                node = klass(self, server=addr, uuid=uuid)
                 node.setState(state)
                 self.add(node)
                 logging.info('create node %s %s %s %s' % log_args)

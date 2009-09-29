@@ -51,24 +51,15 @@ class NodesTests(NeoTestBase):
         """ Check the node initialization """
         server = ('127.0.0.1', 10000)
         uuid = self.getNewUUID()
-        node = Node(server=server, uuid=uuid)
+        node = Node(self.manager, server=server, uuid=uuid)
         self.assertEqual(node.getState(), protocol.UNKNOWN_STATE)
         self.assertEqual(node.getServer(), server)
         self.assertEqual(node.getUUID(), uuid)
-        self.assertEqual(node.getManager(), None)
         self.assertTrue(time() - 1 < node.getLastStateChange() < time()) 
-
-    def testManager(self):
-        """ Check if the node manager is well binded to the node """
-        node = Node()
-        self.assertEqual(node.getManager(), None)
-        node.setManager(self.manager)
-        self.assertTrue(node.getManager() is self.manager)
-        # XXX: the manager should index the node by uuid and address 
 
     def testState(self):
         """ Check if the last changed time is updated when state is changed """
-        node = Node()
+        node = Node(self.manager)
         self.assertEqual(node.getState(), protocol.UNKNOWN_STATE)
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
         previous_time = node.getLastStateChange()
@@ -78,26 +69,24 @@ class NodesTests(NeoTestBase):
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
 
     def testServer(self):
-        """ Check if the manager is updated when a node change it's address """
-        node = Node()
+        """ Check if the node is indexed by server """
+        node = Node(self.manager)
         self.assertEqual(node.getServer(), None)
-        node.setManager(self.manager)
         server = ('127.0.0.1', 10000)
         node.setServer(server)
         self._updatedByServer(node)
 
     def testUUID(self):
         """ As for Server but UUID """
-        node = Node()
+        node = Node(self.manager)
         self.assertEqual(node.getServer(), None)
-        node.setManager(self.manager)
         uuid = self.getNewUUID()
         node.setUUID(uuid)
         self._updatedByUUID(node)
 
     def testTypes(self):
         """ Check that the abstract node has no type """
-        node = Node()
+        node = Node(self.manager)
         self.assertRaises(NotImplementedError, node.getType)
         self.assertFalse(node.isStorage())
         self.assertFalse(node.isMaster())
@@ -106,7 +95,7 @@ class NodesTests(NeoTestBase):
 
     def testMaster(self):
         """ Check Master sub class """
-        node = MasterNode()
+        node = MasterNode(self.manager)
         self.assertEqual(node.getType(), protocol.MASTER_NODE_TYPE)
         self.assertTrue(node.isMaster())
         self.assertFalse(node.isStorage())
@@ -115,7 +104,7 @@ class NodesTests(NeoTestBase):
 
     def testStorage(self):
         """ Check Storage sub class """
-        node = StorageNode()
+        node = StorageNode(self.manager)
         self.assertEqual(node.getType(), protocol.STORAGE_NODE_TYPE)
         self.assertTrue(node.isStorage())
         self.assertFalse(node.isMaster())
@@ -124,7 +113,7 @@ class NodesTests(NeoTestBase):
 
     def testClient(self):
         """ Check Client sub class """
-        node = ClientNode()
+        node = ClientNode(self.manager)
         self.assertEqual(node.getType(), protocol.CLIENT_NODE_TYPE)
         self.assertTrue(node.isClient())
         self.assertFalse(node.isMaster())
@@ -133,7 +122,7 @@ class NodesTests(NeoTestBase):
 
     def testAdmin(self):
         """ Check Admin sub class """
-        node = AdminNode()
+        node = AdminNode(self.manager)
         self.assertEqual(node.getType(), protocol.ADMIN_NODE_TYPE)
         self.assertTrue(node.isAdmin())
         self.assertFalse(node.isMaster())
@@ -141,16 +130,14 @@ class NodesTests(NeoTestBase):
         self.assertFalse(node.isClient())
 
 
-
-
 class NodeManagerTests(NeoTestBase):
 
     def setUp(self):
-        self.manager = NodeManager()
-        self.storage = StorageNode(('127.0.0.1', 1000), self.getNewUUID())
-        self.master = MasterNode(('127.0.0.1', 2000), self.getNewUUID())
-        self.client = ClientNode(None, self.getNewUUID())
-        self.admin = AdminNode(('127.0.0.1', 4000), self.getNewUUID())
+        self.manager = nm = NodeManager()
+        self.storage = StorageNode(nm, ('127.0.0.1', 1000), self.getNewUUID())
+        self.master = MasterNode(nm, ('127.0.0.1', 2000), self.getNewUUID())
+        self.client = ClientNode(nm, None, self.getNewUUID())
+        self.admin = AdminNode(nm, ('127.0.0.1', 4000), self.getNewUUID())
 
     def checkNodes(self, node_list):
         manager = self.manager
