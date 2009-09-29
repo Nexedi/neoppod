@@ -130,10 +130,8 @@ class NodeManager(object):
 
     def add(self, node):
         self.node_list.append(node)   
-        if node.getServer() is not None:
-            self.registerServer(node)
-        if node.getUUID() is not None:
-            self.registerUUID(node)
+        self.registerServer(node)
+        self.registerUUID(node)
 
     def remove(self, node):
         if node is None:
