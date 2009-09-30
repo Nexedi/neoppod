@@ -17,8 +17,7 @@
 
 import neo.pt
 from struct import pack, unpack
-from neo.protocol import OUT_OF_DATE_STATE, FEEDING_STATE, \
-        DISCARDED_STATE, RUNNING_STATE, BROKEN_STATE
+from neo.protocol import OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 
 class PartitionTable(neo.pt.PartitionTable):
     """This class manages a partition table for the primary master node"""
@@ -83,7 +82,7 @@ class PartitionTable(neo.pt.PartitionTable):
             if row is not None:
                 for cell in row:
                     if cell.getNode() is node:
-                        if cell.getState() != FEEDING_STATE:
+                        if not cell.isFeeding():
                             # If this cell is not feeding, find another node
                             # to be added.
                             node_list = [c.getNode() for c in row]
@@ -122,7 +121,7 @@ class PartitionTable(neo.pt.PartitionTable):
                 if cell.getNode() == node:
                     skip = True
                     break
-                if cell.getState() == FEEDING_STATE:
+                if cell.isFeeding():
                     feeding_cell = cell
                 else:
                     num_cells += 1
@@ -140,8 +139,7 @@ class PartitionTable(neo.pt.PartitionTable):
                 node_count += 1
             else:
                 if max_count - node_count > 1:
-                    if feeding_cell is not None \
-                            or max_cell.getState() == OUT_OF_DATE_STATE:
+                    if feeding_cell is not None or max_cell.isOutOfDate():
                         # If there is a feeding cell already or it is
                         # out-of-date, just drop the node.
                         row.remove(max_cell)
@@ -175,16 +173,16 @@ class PartitionTable(neo.pt.PartitionTable):
             out_of_date_cell_list = []
             up_to_date_cell_list = []
             for cell in row:
-                if cell.getNodeState() == BROKEN_STATE:
+                if cell.getNode().isBroken():
                     # Remove a broken cell.
                     removed_cell_list.append(cell)
-                elif cell.getState() == FEEDING_STATE:
+                elif cell.isFeeding():
                     if feeding_cell is None:
                         feeding_cell = cell
                     else:
                         # Remove an excessive feeding cell.
                         removed_cell_list.append(cell)
-                elif cell.getState() == OUT_OF_DATE_STATE:
+                elif cell.isOutOfDate():
                     out_of_date_cell_list.append(cell)
                 else:
                     up_to_date_cell_list.append(cell)
@@ -220,7 +218,7 @@ class PartitionTable(neo.pt.PartitionTable):
             # Now remove cells really.
             for cell in removed_cell_list:
                 row.remove(cell)
-                if cell.getState() != FEEDING_STATE:
+                if not cell.isFeeding():
                     self.count_dict[cell.getNode()] -= 1
                 changed_cell_list.append((offset, cell.getUUID(), DISCARDED_STATE))
 
@@ -228,7 +226,7 @@ class PartitionTable(neo.pt.PartitionTable):
         for offset, row in enumerate(self.partition_list):
             num_cells = 0
             for cell in row:
-                if cell.getState() != FEEDING_STATE:
+                if not cell.isFeeding():
                     num_cells += 1
             while num_cells <= self.nr:
                 node = self.findLeastUsedNode([cell.getNode() for cell in row])
@@ -251,8 +249,7 @@ class PartitionTable(neo.pt.PartitionTable):
         cell_list = []
         for offset, row in enumerate(self.partition_list):
             for cell in row:
-                if cell.getNodeState() != RUNNING_STATE \
-                        and cell.getState() != OUT_OF_DATE_STATE:
+                if not cell.getNode().isRunning() and not cell.isOutOfDate():
                     cell.setState(OUT_OF_DATE_STATE)
                     cell_list.append((offset, cell.getUUID(), OUT_OF_DATE_STATE))
         return cell_list

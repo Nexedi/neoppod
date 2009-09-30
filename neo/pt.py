@@ -35,6 +35,15 @@ class Cell(object):
     def setState(self, state):
         self.state = state
 
+    def isUpToDate(self):
+        return self.state == protocol.UP_TO_DATE_STATE
+
+    def isOutOfDate(self):
+        return self.state == protocol.OUT_OF_DATE_STATE
+
+    def isFeeding(self):
+        return self.state == protocol.FEEDING_STATE
+
     def getNode(self):
         return self.node
 
@@ -145,7 +154,7 @@ class PartitionTable(object):
             for cell in row:
                 if cell.getNode() == node:
                     row.remove(cell)
-                    if cell.getState() != protocol.FEEDING_STATE:
+                    if not cell.isFeeding():
                         self.count_dict[node] -= 1
                     break
             row.append(Cell(node, state))
@@ -158,7 +167,7 @@ class PartitionTable(object):
             for cell in row:
                 if cell.getNode() == node:
                     row.remove(cell)
-                    if cell.getState() != protocol.FEEDING_STATE:
+                    if not cell.isFeeding():
                         self.count_dict[node] -= 1
                     break
 
@@ -255,9 +264,8 @@ class PartitionTable(object):
             return False
         for row in self.partition_list:
             for cell in row:
-                if cell.getState() in (protocol.UP_TO_DATE_STATE, \
-                        protocol.FEEDING_STATE) \
-                        and cell.getNodeState() == protocol.RUNNING_STATE:
+                if (cell.isUpToDate() or cell.isFeeding()) and \
+                        cell.getNode().isRunning():
                     break
             else:
                 return False
