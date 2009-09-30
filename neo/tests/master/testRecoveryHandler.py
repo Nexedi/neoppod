@@ -118,9 +118,9 @@ class MasterRecoveryTests(NeoTestBase):
         # tell about a client node, do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(CLIENT_NODE_TYPE, '127.0.0.1', self.client_port, self.getNewUUID(), DOWN_STATE),]
-        self.assertEqual(len(self.app.nm.getNodeList()), 0)
+        self.assertEqual(len(self.app.nm.getList()), 0)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
-        self.assertEqual(len(self.app.nm.getNodeList()), 0)
+        self.assertEqual(len(self.app.nm.getList()), 0)
 
         # tell the master node about itself, if running must do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
