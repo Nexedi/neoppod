@@ -125,9 +125,8 @@ class Application(object):
                 raise RuntimeError, 'should not reach here'
             except (ElectionFailure, PrimaryFailure):
                 # Forget all connections.
-                for conn in self.em.getConnectionList():
-                    if not conn.isListening():
-                        conn.close()
+                for conn in self.em.getClientList():
+                    conn.close()
                 # Reelect a new primary master.
                 self.electPrimary(bootstrap = False)
 
@@ -201,24 +200,16 @@ class Application(object):
                     # I am the primary.
                     self.primary = True
                     logging.debug('I am the primary, so sending an announcement')
-                    for conn in em.getConnectionList():
-                        if conn.isClient():
-                            conn.notify(protocol.announcePrimaryMaster())
-                            conn.abort()
-                    closed = False
+                    for conn in em.getClientList():
+                        conn.notify(protocol.announcePrimaryMaster())
+                        conn.abort()
                     t = time()
-                    while not closed:
+                    while em.getClientList():
                         em.poll(1)
-                        closed = True
-                        for conn in em.getConnectionList():
-                            if conn.isClient():
-                                closed = False
-                                break
                         if t + 10 < time():
-                            for conn in em.getConnectionList():
-                                if conn.isClient():
-                                    conn.close()
-                            closed = True
+                            for conn in em.getClientList():
+                                conn.close()
+                            break
                 else:
                     # Wait for an announcement. If this is too long, probably
                     # the primary master is down.
@@ -231,14 +222,15 @@ class Application(object):
                     # Now I need only a connection to the primary master node.
                     primary = self.primary_master_node
                     addr = primary.getAddress()
-                    for conn in em.getConnectionList():
-                        if conn.isServer() or conn.isClient() \
-                                and addr != conn.getAddress():
+                    for conn in em.getServerList():
+                        conn.close()
+                    for conn in em.getClientList():
+                        if conn.getAddress() != addr:
                             conn.close()
 
                     # But if there is no such connection, something wrong happened.
-                    for conn in em.getConnectionList():
-                        if conn.isClient() and addr == conn.getAddress():
+                    for conn in em.getClientList():
+                        if conn.getAddress() == addr:
                             break
                     else:
                         raise ElectionFailure, 'no connection remains to the primary'
@@ -248,37 +240,28 @@ class Application(object):
                 logging.error('election failed; %s' % m)
 
                 # Ask all connected nodes to reelect a single primary master.
-                for conn in em.getConnectionList():
-                    if conn.isClient():
-                        conn.notify(protocol.reelectPrimaryMaster())
-                        conn.abort()
+                for conn in em.getClientList():
+                    conn.notify(protocol.reelectPrimaryMaster())
+                    conn.abort()
 
                 # Wait until the connections are closed.
                 self.primary = None
                 self.primary_master_node = None
-                closed = False
                 t = time()
-                while not closed:
+                while em.getClientList():
                     try:
                         em.poll(1)
                     except ElectionFailure:
                         pass
-
-                    closed = True
-                    for conn in em.getConnectionList():
-                        if conn.isClient():
-                            # Still not closed.
-                            closed = False
-                            break
-
                     if time() > t + 10:
                         # If too long, do not wait.
                         break
 
                 # Close all connections.
-                for conn in em.getConnectionList():
-                    if not conn.isListening():
-                        conn.close()
+                for conn in em.getClientList():
+                    conn.close()
+                for conn in em.getServerList():
+                    conn.close()
                 bootstrap = False
 
     # XXX: should accept a node list and send at most one packet per peer
@@ -639,23 +622,17 @@ class Application(object):
                 dump(self.uuid), *(self.server))
 
 
-        primary_master_handler = secondary.PrimaryMasterHandler(self)
-        handler = identification.IdentificationHandler(self)
-        em = self.em
+        # apply the new handler to the primary connection
+        client_list = self.em.getClientList()
+        assert len(client_list) == 1
+        client_list[0].setHandler(secondary.PrimaryMasterHandler(self))
 
-        # Make sure that every connection has the secondary event handler.
-        connection_list = em.getConnectionList()
-        primary_master_found = False
-        for conn in em.getConnectionList():
-            if (not conn.isListening()) and conn.isClient():
-                assert not primary_master_found
-                primary_master_found = True
-                conn.setHandler(primary_master_handler)
-            else:
-                conn.setHandler(handler)
+        # and another for the future incoming connections
+        handler = identification.IdentificationHandler(self)
+        self.listening_conn.setHandler(handler)
 
         while 1:
-            em.poll(1)
+            self.em.poll(1)
 
     def changeClusterState(self, state):
         """ Change the cluster state and apply right handler on each connections """
@@ -819,5 +796,4 @@ class Application(object):
             (uuid, state, handler) = self.identifyStorageNode(uuid, node)
             logging.info('Accept a storage (%s)' % state)
         return (uuid, node, state, handler, node_ctor)
-
 

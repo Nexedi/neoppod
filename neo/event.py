@@ -221,6 +221,12 @@ class EpollEventManager(object):
     def getConnectionList(self):
         return self.connection_dict.values()
 
+    def getClientList(self):
+        return [c for c in self.connection_dict.values() if c.isClient()]
+
+    def getServerList(self):
+        return [c for c in self.connection_dict.values() if c.isServer()]
+
     def getConnectionByUUID(self, uuid):
         """ Return the connection associated to the UUID, None if the UUID is
         None, invalid or not found"""
