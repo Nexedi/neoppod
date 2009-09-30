@@ -57,7 +57,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.operation = ClientOperationHandler(self.app)
         # set pmn
         self.master_uuid = self.getNewUUID()
-        pmn = self.app.nm.getMasterNodeList()[0]
+        pmn = self.app.nm.getMasterList()[0]
         pmn.setUUID(self.master_uuid)
         self.app.primary_master_node = pmn
         self.master_port = 10010

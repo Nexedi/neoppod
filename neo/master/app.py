@@ -148,7 +148,7 @@ class Application(object):
         em = self.em
         nm = self.nm
 
-        for node in nm.getMasterNodeList():
+        for node in nm.getMasterList():
             # For now, believe that every node should be available,
             # since down or broken nodes may be already repaired.
             node.setState(RUNNING_STATE)
@@ -158,7 +158,7 @@ class Application(object):
             self.primary = None
             self.primary_master_node = None
 
-            for node in nm.getMasterNodeList():
+            for node in nm.getMasterList():
                 if node.getState() == RUNNING_STATE:
                     self.unconnected_master_node_set.add(node.getServer())
 
@@ -177,7 +177,7 @@ class Application(object):
                     current_time = time()
                     if current_time >= t + 1:
                         t = current_time
-                        for node in nm.getMasterNodeList():
+                        for node in nm.getMasterList():
                             if node.getState() == TEMPORARILY_DOWN_STATE \
                                     and node.getLastStateChange() + expiration < current_time:
                                 logging.info('%s is down' % (node, ))
@@ -351,7 +351,7 @@ class Application(object):
     def sendNodesInformations(self, conn):
         """ Send informations on all nodes through the given connection """
         node_list = []
-        for n in self.nm.getNodeList():
+        for n in self.nm.getList():
             if not n.isAdmin():
                 try:
                     address = n.getServer()
@@ -377,10 +377,10 @@ class Application(object):
         nm, em, pt = self.nm, self.em, self.pt
         logging.debug('creating a new partition table, wait for a storage node')
         # wait for some empty storage nodes, their are accepted
-        while len(nm.getStorageNodeList()) < REQUIRED_NODE_NUMBER:
+        while len(nm.getStorageList()) < REQUIRED_NODE_NUMBER:
             em.poll(1)
         # take the first node available
-        node_list = nm.getStorageNodeList()[:REQUIRED_NODE_NUMBER]
+        node_list = nm.getStorageList()[:REQUIRED_NODE_NUMBER]
         for node in node_list:
             node.setState(protocol.RUNNING_STATE)
             self.broadcastNodeInformation(node)
@@ -418,7 +418,7 @@ class Application(object):
         # collect node that are connected but not in the selected partition
         # table and set them in pending state
         allowed_node_set = set(self.pt.getNodeList())
-        refused_node_set = set(self.nm.getStorageNodeList()) - allowed_node_set
+        refused_node_set = set(self.nm.getStorageList()) - allowed_node_set
         for node in refused_node_set:
             node.setState(protocol.PENDING_STATE)
             self.broadcastNodeInformation(node)
@@ -624,7 +624,7 @@ class Application(object):
 
         # If I know any storage node, make sure that they are not in the running state,
         # because they are not connected at this stage.
-        for node in nm.getStorageNodeList():
+        for node in nm.getStorageList():
             if node.getState() == RUNNING_STATE:
                 node.setState(TEMPORARILY_DOWN_STATE)
 

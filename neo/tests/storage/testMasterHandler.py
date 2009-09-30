@@ -56,7 +56,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.operation = MasterOperationHandler(self.app)
         # set pmn
         self.master_uuid = self.getNewUUID()
-        pmn = self.app.nm.getMasterNodeList()[0]
+        pmn = self.app.nm.getMasterList()[0]
         pmn.setUUID(self.master_uuid)
         self.app.primary_master_node = pmn
         self.master_port = 10010
@@ -102,10 +102,10 @@ class StorageMasterHandlerTests(NeoTestBase):
         app.replicator = Mock({})
         packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
         self.app.pt = Mock({'getID': 1})
-        count = len(self.app.nm.getNodeList())
+        count = len(self.app.nm.getList())
         self.operation.handleNotifyPartitionChanges(conn, packet, 0, ())
         self.assertEquals(self.app.pt.getID(), 1)
-        self.assertEquals(len(self.app.nm.getNodeList()), count)
+        self.assertEquals(len(self.app.nm.getList()), count)
         calls = self.app.replicator.mockGetNamedCalls('removePartition')
         self.assertEquals(len(calls), 0)
         calls = self.app.replicator.mockGetNamedCalls('addPartition')
@@ -135,7 +135,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         app.pt = PartitionTable(3, 1)
         app.dm = Mock({ })
         app.replicator = Mock({})
-        count = len(app.nm.getNodeList())
+        count = len(app.nm.getList())
         self.operation.handleNotifyPartitionChanges(conn, packet, ptid2, cells)
         # ptid set
         self.assertEquals(app.pt.getID(), ptid2)

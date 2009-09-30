@@ -132,7 +132,7 @@ class MasterClientHandlerTests(NeoTestBase):
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
-        sn = self.app.nm.getStorageNodeList()[0]
+        sn = self.app.nm.getStorageList()[0]
         self.assertEquals(sn.getState(), TEMPORARILY_DOWN_STATE)
         self.assertEquals(ptid, self.app.pt.getID())
         # notify node is broken, must be taken into account and partition must changed
@@ -141,7 +141,7 @@ class MasterClientHandlerTests(NeoTestBase):
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
-        sn = self.app.nm.getStorageNodeList()[0]
+        sn = self.app.nm.getStorageList()[0]
         self.assertEquals(sn.getState(), BROKEN_STATE)
         self.failUnless(ptid < self.app.pt.getID())
 
@@ -304,7 +304,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.identifyToMasterNode(port = self.storage_port+2)
         storage_uuid = self.identifyToMasterNode(port = self.storage_port+1)
         # filled the pt
-        self.app.pt.make(self.app.nm.getStorageNodeList())
+        self.app.pt.make(self.app.nm.getStorageList())
         self.assertTrue(self.app.pt.filled())
         self.assertTrue(self.app.pt.operational())
         conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))
@@ -345,7 +345,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.identifyToMasterNode(port = self.storage_port+2)
         storage_uuid = self.identifyToMasterNode(port = self.storage_port+1)
         # filled the pt
-        self.app.pt.make(self.app.nm.getStorageNodeList())
+        self.app.pt.make(self.app.nm.getStorageList())
         self.assertTrue(self.app.pt.filled())
         self.assertTrue(self.app.pt.operational())
         conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))
@@ -386,7 +386,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.identifyToMasterNode(port = self.storage_port+2)
         storage_uuid = self.identifyToMasterNode(port = self.storage_port+1)
         # filled the pt
-        self.app.pt.make(self.app.nm.getStorageNodeList())
+        self.app.pt.make(self.app.nm.getStorageList())
         self.assertTrue(self.app.pt.filled())
         self.assertTrue(self.app.pt.operational())
         conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))

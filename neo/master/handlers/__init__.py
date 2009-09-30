@@ -43,7 +43,7 @@ class MasterHandler(EventHandler):
             primary_uuid = None
 
         known_master_list = [(app.server, app.uuid, )]
-        for n in app.nm.getMasterNodeList():
+        for n in app.nm.getMasterList():
             if n.getState() == protocol.BROKEN_STATE:
                 continue
             known_master_list.append((n.getServer(), n.getUUID(), ))

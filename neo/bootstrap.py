@@ -96,7 +96,7 @@ class BootstrapManager(EventHandler):
         logging.info('connecting to a primary master node')
         em, nm = self.app.em, self.app.nm
         index = 0
-        self.current = nm.getMasterNodeList()[0]
+        self.current = nm.getMasterList()[0]
         conn = None
         # retry until identified to the primary
         while self.primary is None or conn.getUUID() != self.primary.getUUID():
@@ -104,7 +104,7 @@ class BootstrapManager(EventHandler):
                 # conn closed 
                 conn = None
                 # select a master
-                master_list = nm.getMasterNodeList()
+                master_list = nm.getMasterList()
                 index = (index + 1) % len(master_list)
                 self.current = master_list[index]
                 if index == 0:

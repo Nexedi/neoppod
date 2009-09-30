@@ -325,9 +325,3 @@ class NodeManager(object):
             )
             logging.debug('nm: %s : %s/%s' % args)
 
-    # XXX: backward compatibility, to be removed
-    getNodeList = getList
-    getMasterNodeList = getMasterList
-    getStorageNodeList = getStorageList
-    getClientNodeList = getClientList
-    getAdminNodeList = getAdminList

@@ -135,19 +135,19 @@ class NodeManagerTests(NeoTestBase):
 
     def checkNodes(self, node_list):
         manager = self.manager
-        self.assertEqual(sorted(manager.getNodeList()), sorted(node_list))
+        self.assertEqual(sorted(manager.getList()), sorted(node_list))
 
     def checkMasters(self, master_list):
         manager = self.manager
-        self.assertEqual(manager.getMasterNodeList(), master_list)
+        self.assertEqual(manager.getMasterList(), master_list)
 
     def checkStorages(self, storage_list):
         manager = self.manager
-        self.assertEqual(manager.getStorageNodeList(), storage_list)
+        self.assertEqual(manager.getStorageList(), storage_list)
 
     def checkClients(self, client_list):
         manager = self.manager
-        self.assertEqual(manager.getClientNodeList(), client_list)
+        self.assertEqual(manager.getClientList(), client_list)
 
     def checkByServer(self, node):
         node_found = self.manager.getByAddress(node.getServer())
@@ -264,9 +264,9 @@ class NodeManagerTests(NeoTestBase):
         self.master.setServer(new_address)
         self.checkByServer(self.master)
         # a new storage replaced the old one
-        self.assertNotEqual(manager.getStorageNodeList(), [self.storage])
-        self.assertTrue(len(manager.getStorageNodeList()), 1)
-        new_storage = manager.getStorageNodeList()[0]
+        self.assertNotEqual(manager.getStorageList(), [self.storage])
+        self.assertTrue(len(manager.getStorageList()), 1)
+        new_storage = manager.getStorageList()[0]
         self.assertEqual(new_storage.getState(), RUNNING_STATE)
         self.assertNotEqual(new_storage, self.storage)
         # admin is still here but in UNKNOWN_STATE

@@ -96,7 +96,7 @@ class StorageTests(NEOFunctionalTest):
     def __checkReplicationDone(self):
         # wait for replication to finish
         def expect_all_storages(last_try):
-            storage_number = len(self.neo.getStorageNodeList())
+            storage_number = len(self.neo.getStorageList())
             return storage_number == len(self.neo.db_list), storage_number
         self.neo.expectCondition(expect_all_storages, timeout=10)
         self.neo.expectOudatedCells(number=0, timeout=10)
@@ -105,7 +105,7 @@ class StorageTests(NEOFunctionalTest):
             self.__checkDatabase(db_name)
 
         # check storages state
-        storage_list = self.neo.getStorageNodeList(protocol.RUNNING_STATE)
+        storage_list = self.neo.getStorageList(protocol.RUNNING_STATE)
         self.assertEqual(len(storage_list), 2)
 
     def __expectRunning(self, process):
@@ -120,7 +120,7 @@ class StorageTests(NEOFunctionalTest):
 
     def __expectNotKnown(self, process):
         def expected_storage_not_known(last_try):
-            storage_list = self.neo.getStorageNodeList()
+            storage_list = self.neo.getStorageList()
             for storage in storage_list:
                 if storage[2] == process.getUUID():
                     return False, storage
@@ -278,7 +278,7 @@ class StorageTests(NEOFunctionalTest):
         # XXX: should wait for the storage rejection
 
         # check that no node were added
-        storage_number = len(self.neo.getStorageNodeList())
+        storage_number = len(self.neo.getStorageList())
         self.assertEqual(storage_number, 1)
 
     def testPartitionTableReorganizedWithNewStorage(self):

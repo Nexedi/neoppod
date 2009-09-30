@@ -79,7 +79,7 @@ class MasterTests(NEOFunctionalTest):
         # Test sanity checks.
         self.assertEqual(len(killed_uuid_list), 1)
         self.neo.expectMasterState(killed_uuid_list[0], None)
-        self.assertEqual(len(self.neo.getMasterNodeList()), 2)
+        self.assertEqual(len(self.neo.getMasterList()), 2)
 
         killed_uuid_list = self.neo.killPrimaryMaster()
         # Test sanity check.
@@ -109,7 +109,7 @@ class MasterTests(NEOFunctionalTest):
         # Check that the master node we started elected itself.
         self.neo.expectPrimaryMaster(first_master_uuid, timeout=30)
         # Check that no other node is known as running.
-        self.assertEqual(len(self.neo.getMasterNodeList(
+        self.assertEqual(len(self.neo.getMasterList(
             state=protocol.RUNNING_STATE)), 1)
 
         # Start a second master.

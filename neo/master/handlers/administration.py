@@ -100,7 +100,7 @@ class AdministrationHandler(MasterHandler):
         cell_list = []
         uuid_set = set()
         # take all pending nodes
-        for node in nm.getStorageNodeList():
+        for node in nm.getStorageList():
             if node.getState() == PENDING_STATE:
                 uuid_set.add(node.getUUID())
         # keep only selected nodes

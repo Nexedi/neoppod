@@ -47,7 +47,7 @@ class AdminEventHandler(EventHandler):
         logging.info("ask node list for %s" %(node_type))
         def node_filter(n):
             return n.getType() is node_type
-        node_list = self.app.nm.getNodeList(node_filter)
+        node_list = self.app.nm.getList(node_filter)
         node_information_list = []
         for node in node_list:
             try:

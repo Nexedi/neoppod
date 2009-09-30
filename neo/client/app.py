@@ -396,7 +396,7 @@ class Application(object):
                     self.primary_master_node = None
                 else:
                     # Otherwise, check one by one.
-                    master_list = nm.getMasterNodeList()
+                    master_list = nm.getMasterList()
                     try:
                         self.trying_master_node = master_list[index]
                     except IndexError:

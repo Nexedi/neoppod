@@ -358,10 +358,10 @@ class NEOCluster(object):
         return [x for x in self.neoctl.getNodeList(node_type)
                 if state is None or x[3] == state]
 
-    def getMasterNodeList(self, state=None):
+    def getMasterList(self, state=None):
         return self.__getNodeList(protocol.MASTER_NODE_TYPE, state)
 
-    def getStorageNodeList(self, state=None):
+    def getStorageList(self, state=None):
         return self.__getNodeList(protocol.STORAGE_NODE_TYPE, state)
 
     def __getNodeState(self, node_type, uuid):
@@ -400,7 +400,7 @@ class NEOCluster(object):
 
     def expectAllMasters(self, node_count, state=None, timeout=0, delay=1):
         def callback(last_try):
-            current_try = len(self.getMasterNodeList(state=state))
+            current_try = len(self.getMasterList(state=state))
             if last_try is not None and current_try < last_try:
                 raise AssertionError, 'Regression: %s became %s' % \
                     (last_try, current_try)

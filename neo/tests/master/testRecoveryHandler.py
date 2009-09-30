@@ -63,7 +63,7 @@ class MasterRecoveryTests(NeoTestBase):
         self.recovery = RecoveryHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
-        for node in self.app.nm.getMasterNodeList():
+        for node in self.app.nm.getMasterList():
             self.app.unconnected_master_node_set.add(node.getServer())
             node.setState(RUNNING_STATE)
 
@@ -140,9 +140,9 @@ class MasterRecoveryTests(NeoTestBase):
         # tell about an unknown storage node, do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(STORAGE_NODE_TYPE, '127.0.0.1', self.master_port - 1, self.getNewUUID(), DOWN_STATE),]
-        self.assertEqual(len(self.app.nm.getStorageNodeList()), 0)
+        self.assertEqual(len(self.app.nm.getStorageList()), 0)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
-        self.assertEqual(len(self.app.nm.getStorageNodeList()), 0)
+        self.assertEqual(len(self.app.nm.getStorageList()), 0)
 
         # tell about a known node but different address
         conn = self.getFakeConnection(uuid, self.master_address)

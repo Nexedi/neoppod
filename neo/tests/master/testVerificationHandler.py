@@ -55,7 +55,7 @@ class MasterVerificationTests(NeoTestBase):
         self.app.unfinished_tid_set = set()
         self.app.loid = '\0' * 8
         self.app.ltid = '\0' * 8
-        for node in self.app.nm.getMasterNodeList():
+        for node in self.app.nm.getMasterList():
             self.app.unconnected_master_node_set.add(node.getServer())
             node.setState(RUNNING_STATE)
 
