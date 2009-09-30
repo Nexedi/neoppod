@@ -19,7 +19,7 @@ from neo import logging
 
 from neo import protocol
 from neo.master.handlers import MasterHandler
-from neo.protocol import RUNNING_STATE, PENDING_STATE
+from neo.protocol import RUNNING_STATE
 from neo.util import dump
 
 class AdministrationHandler(MasterHandler):
@@ -100,7 +100,7 @@ class AdministrationHandler(MasterHandler):
         uuid_set = set()
         # take all pending nodes
         for node in nm.getStorageList():
-            if node.getState() == PENDING_STATE:
+            if node.isPending():
                 uuid_set.add(node.getUUID())
         # keep only selected nodes
         if uuid_list:
@@ -118,7 +118,7 @@ class AdministrationHandler(MasterHandler):
             node = nm.getByUUID(uuid)
             new_cells = pt.addNode(node)
             cell_list.extend(new_cells)
-            node.setState(RUNNING_STATE)
+            node.setRunning()
             app.broadcastNodeInformation(node)
         # start nodes
         for s_conn in em.getConnectionList():

@@ -50,7 +50,7 @@ class IdentificationHandler(BaseStorageHandler):
             logging.error('reject an unknown node %s', dump(uuid))
             raise protocol.NotReadyError
         # If this node is broken, reject it.
-        if node.getState() == protocol.BROKEN_STATE:
+        if node.isBroken():
             raise protocol.BrokenNodeDisallowedError
         # apply the handler and set up the connection
         handler = handler(self.app)

@@ -17,11 +17,9 @@
 
 from neo import logging
 
-from neo.protocol import MASTER_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, DOWN_STATE
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure, PrimaryFailure
-from neo.protocol import UnexpectedPacketError
+from neo import protocol
 
 class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
@@ -29,7 +27,7 @@ class SecondaryMasterHandler(MasterHandler):
     def connectionLost(self, conn, new_state):
         node = self.app.nm.getByUUID(conn.getUUID())
         assert node is not None
-        node.setState(DOWN_STATE)
+        node.setDown()
         self.app.broadcastNodeInformation(node)
 
     def connectionCompleted(self, conn):
@@ -51,16 +49,16 @@ class PrimaryMasterHandler(MasterHandler):
     def packetReceived(self, conn, packet):
         if not conn.isServer():
             node = self.app.nm.getByAddress(conn.getAddress())
-            if node.getState() != BROKEN_STATE:
-                node.setState(RUNNING_STATE)
+            if not node.isBroken():
+                node.setRunning()
         MasterHandler.packetReceived(self, conn, packet)
 
     def connectionLost(self, conn, new_state):
-        self.app.primary_master_node.setState(DOWN_STATE)
+        self.app.primary_master_node.setDown()
         raise PrimaryFailure, 'primary master is dead'
 
     def handleAnnouncePrimaryMaster(self, conn, packet):
-        raise UnexpectedPacketError
+        raise protocol.UnexpectedPacketError
 
     def handleReelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
@@ -68,7 +66,7 @@ class PrimaryMasterHandler(MasterHandler):
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
         for node_type, addr, uuid, state in node_list:
-            if node_type != MASTER_NODE_TYPE:
+            if node_type != protocol.MASTER_NODE_TYPE:
                 # No interest.
                 continue
 
@@ -92,7 +90,7 @@ class PrimaryMasterHandler(MasterHandler):
                                        num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
-        assert node_type == MASTER_NODE_TYPE
+        assert node_type == protocol.MASTER_NODE_TYPE
         assert conn.getAddress() == address
 
         if your_uuid != app.uuid:

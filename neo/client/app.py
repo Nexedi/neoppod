@@ -147,7 +147,7 @@ class ConnectionPool(object):
     def getConnForNode(self, node):
         """Return a locked connection object to a given node
         If no connection exists, create a new one"""
-        if node.getState() != protocol.RUNNING_STATE:
+        if not node.isRunning():
             return None
         uuid = node.getUUID()
         self.connection_lock_acquire()

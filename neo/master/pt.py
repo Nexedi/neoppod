@@ -41,8 +41,8 @@ class PartitionTable(neo.pt.PartitionTable):
         # start with the first PTID
         self.id = pack('!Q', 1)
         # First, filter the list of nodes.
-        node_list = [n for n in node_list \
-                if n.getState() == RUNNING_STATE and n.getUUID() is not None]
+        node_list = [n for n in node_list if n.isRunning() \
+                and n.getUUID() is not None]
         if len(node_list) == 0:
             # Impossible.
             raise RuntimeError, \
@@ -71,7 +71,7 @@ class PartitionTable(neo.pt.PartitionTable):
         for node, count in self.count_dict.iteritems():
             if min_count > count \
                     and node not in excluded_node_list \
-                    and node.getState() == RUNNING_STATE:
+                    and node.isRunning():
                 min_node = node
                 min_count = count
         return min_node

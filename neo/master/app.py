@@ -21,8 +21,7 @@ from time import time
 from struct import pack, unpack
 
 from neo import protocol
-from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        UUID_NAMESPACES, BOOTING_CLUSTER_STATE
+from neo.protocol import UUID_NAMESPACES, BOOTING_CLUSTER_STATE
 from neo.node import NodeManager
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection
@@ -151,7 +150,7 @@ class Application(object):
         for node in nm.getMasterList():
             # For now, believe that every node should be available,
             # since down or broken nodes may be already repaired.
-            node.setState(RUNNING_STATE)
+            node.setRunning()
 
         while 1:
             t = 0
@@ -159,7 +158,7 @@ class Application(object):
             self.primary_master_node = None
 
             for node in nm.getMasterList():
-                if node.getState() == RUNNING_STATE:
+                if node.isRunning():
                     self.unconnected_master_node_set.add(node.getAddress())
 
             # Wait at most 20 seconds at bootstrap. Otherwise, wait at most 
@@ -178,10 +177,10 @@ class Application(object):
                     if current_time >= t + 1:
                         t = current_time
                         for node in nm.getMasterList():
-                            if node.getState() == TEMPORARILY_DOWN_STATE \
+                            if node.isTemporarilyDown() \
                                     and node.getLastStateChange() + expiration < current_time:
                                 logging.info('%s is down' % (node, ))
-                                node.setState(DOWN_STATE)
+                                node.setDown()
                                 self.unconnected_master_node_set.discard(node.getAddress())
 
                         # Try to connect to master nodes.
@@ -382,7 +381,7 @@ class Application(object):
         # take the first node available
         node_list = nm.getStorageList()[:REQUIRED_NODE_NUMBER]
         for node in node_list:
-            node.setState(protocol.RUNNING_STATE)
+            node.setRunning()
             self.broadcastNodeInformation(node)
         # resert IDs generators
         self.loid = '\0' * 8
@@ -420,7 +419,7 @@ class Application(object):
         allowed_node_set = set(self.pt.getNodeList())
         refused_node_set = set(self.nm.getStorageList()) - allowed_node_set
         for node in refused_node_set:
-            node.setState(protocol.PENDING_STATE)
+            node.setPending()
             self.broadcastNodeInformation(node)
 
         logging.debug('cluster starts with loid=%s and this partition table :',
@@ -625,8 +624,8 @@ class Application(object):
         # If I know any storage node, make sure that they are not in the running state,
         # because they are not connected at this stage.
         for node in nm.getStorageList():
-            if node.getState() == RUNNING_STATE:
-                node.setState(TEMPORARILY_DOWN_STATE)
+            if node.isRunning():
+                node.setTemporarilyDown()
 
         # recover the cluster status at startup
         self.recoverStatus()
@@ -752,7 +751,7 @@ class Application(object):
                         node = self.nm.getByUUID(c.getUUID())
                         if node.isClient():
                             node_list = [(node.getType(), node.getAddress(), 
-                                node.getUUID(), DOWN_STATE)]
+                                node.getUUID(), protocol.DOWN_STATE)]
                             c.notify(protocol.notifyNodeInformation(node_list))
                     # then ask storages and master nodes to shutdown
                     logging.info("asking all remaining nodes to shutdown")
@@ -760,7 +759,7 @@ class Application(object):
                         node = self.nm.getByUUID(c.getUUID())
                         if node.isStorage() or node.isMaster():
                             node_list = [(node.getType(), node.getAddress(), 
-                                node.getUUID(), DOWN_STATE)]
+                                node.getUUID(), protocol.DOWN_STATE)]
                             c.notify(protocol.notifyNodeInformation(node_list))
                     # then shutdown
                     sys.exit("Cluster has been asked to shut down")

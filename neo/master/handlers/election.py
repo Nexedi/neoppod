@@ -18,9 +18,6 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import MASTER_NODE_TYPE, \
-        RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
-        DOWN_STATE
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
 
@@ -33,7 +30,7 @@ class ElectionHandler(MasterHandler):
             raise protocol.UnexpectedPacketError
         app = self.app
         for node_type, addr, uuid, state in node_list:
-            if node_type != MASTER_NODE_TYPE:
+            if node_type != protocol.MASTER_NODE_TYPE:
                 # No interest.
                 continue
 
@@ -52,7 +49,7 @@ class ElectionHandler(MasterHandler):
                     if node.getUUID() is None:
                         node.setUUID(uuid)
 
-                if state in (node.getState(), RUNNING_STATE):
+                if state in (node.getState(), protocol.RUNNING_STATE):
                     # No change. Don't care.
                     continue
 
@@ -68,8 +65,8 @@ class ClientElectionHandler(ElectionHandler):
 
     def packetReceived(self, conn, packet):
         node = self.app.nm.getByAddress(conn.getAddress())
-        if node.getState() != BROKEN_STATE:
-            node.setState(RUNNING_STATE)
+        if not node.isBroken():
+            node.setRunning()
         MasterHandler.packetReceived(self, conn, packet)
 
     def connectionStarted(self, conn):
@@ -96,10 +93,10 @@ class ClientElectionHandler(ElectionHandler):
         addr = conn.getAddress()
         app.negotiating_master_node_set.discard(addr)
         node = app.nm.getByAddress(addr)
-        if node.getState() == RUNNING_STATE:
+        if node.isRunning():
             app.unconnected_master_node_set.add(addr)
-            node.setState(TEMPORARILY_DOWN_STATE)
-        elif node.getState() == TEMPORARILY_DOWN_STATE:
+            node.setTemporarilyDown()
+        elif node.isTemporarilyDown():
             app.unconnected_master_node_set.add(addr)
         MasterHandler.connectionFailed(self, conn)
 
@@ -108,7 +105,7 @@ class ClientElectionHandler(ElectionHandler):
         addr = conn.getAddress()
         node = app.nm.getByAddress(addr)
         if node is not None:
-            node.setState(DOWN_STATE)
+            node.setDown()
         app.negotiating_master_node_set.discard(addr)
         MasterHandler.peerBroken(self, conn)
 
@@ -117,7 +114,7 @@ class ClientElectionHandler(ElectionHandler):
                                        num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
-        if node_type != MASTER_NODE_TYPE:
+        if node_type != protocol.MASTER_NODE_TYPE:
             # The peer is not a master node!
             logging.error('%s:%d is not a master node', *address)
             app.nm.remove(node)
@@ -200,8 +197,12 @@ class ClientElectionHandler(ElectionHandler):
                         [primary_server])
 
         # Request a node idenfitication.
-        conn.ask(protocol.requestNodeIdentification(MASTER_NODE_TYPE,
-                 app.uuid, app.server, app.name))
+        conn.ask(protocol.requestNodeIdentification(
+            protocol.MASTER_NODE_TYPE,
+            app.uuid, 
+            app.server, 
+            app.name
+        ))
 
 
 class ServerElectionHandler(ElectionHandler):
@@ -214,7 +215,7 @@ class ServerElectionHandler(ElectionHandler):
         addr = conn.getAddress()
         node = app.nm.getByAddress(addr)
         if node is not None and node.getUUID() is not None:
-            node.setState(BROKEN_STATE)
+            node.setBroken()
         MasterHandler.peerBroken(self, conn)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,
@@ -229,7 +230,7 @@ class ServerElectionHandler(ElectionHandler):
             return
         self.checkClusterName(name)
         app = self.app
-        if node_type != MASTER_NODE_TYPE:
+        if node_type != protocol.MASTER_NODE_TYPE:
             logging.info('reject a connection from a non-master')
             raise protocol.NotReadyError
         node = app.nm.getByAddress(address)
@@ -238,7 +239,7 @@ class ServerElectionHandler(ElectionHandler):
             raise protocol.ProtocolError('unknown master node')
         # If this node is broken, reject it.
         if node.getUUID() == uuid:
-            if node.getState() == BROKEN_STATE:
+            if node.isBroken():
                 raise protocol.BrokenNodeDisallowedError
 
         # supplied another uuid in case of conflict
@@ -248,8 +249,14 @@ class ServerElectionHandler(ElectionHandler):
         node.setUUID(uuid)
         conn.setUUID(uuid)
 
-        p = protocol.acceptNodeIdentification(MASTER_NODE_TYPE, app.uuid, 
-                app.server, app.pt.getPartitions(), app.pt.getReplicas(), uuid)
+        p = protocol.acceptNodeIdentification(
+            protocol.MASTER_NODE_TYPE, 
+            app.uuid, 
+            app.server, 
+            app.pt.getPartitions(), 
+            app.pt.getReplicas(), 
+            uuid
+        )
         conn.answer(p, packet.getId())
 
     def handleAnnouncePrimaryMaster(self, conn, packet):

@@ -31,7 +31,7 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def connectionCompleted(self, conn):
         node = self.app.nm.getByUUID(conn.getUUID())
-        if node.getState() == protocol.RUNNING_STATE:
+        if node.isRunning():
             conn.notify(protocol.notifyLastOID(self.app.loid))
             conn.notify(protocol.startOperation())
 

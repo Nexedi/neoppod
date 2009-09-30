@@ -20,7 +20,6 @@ import sys
 from collections import deque
 
 from neo import protocol
-from neo.protocol import HIDDEN_STATE
 from neo.node import NodeManager
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
@@ -166,7 +165,7 @@ class Application(object):
                     try:
                         # check my state
                         node = self.nm.getByUUID(self.uuid)
-                        if node is not None and node.getState() == HIDDEN_STATE:
+                        if node is not None and node.isHidden():
                             self.wait()
                         self.verifyData()
                         self.initialize()
@@ -294,7 +293,7 @@ class Application(object):
         node = self.nm.getByUUID(self.uuid)
         while 1:
             self.em.poll(1)
-            if node.getState() != HIDDEN_STATE:
+            if not node.isHidden():
                 break
 
     def queueEvent(self, some_callable, *args, **kwargs):

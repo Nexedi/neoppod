@@ -44,12 +44,14 @@ class MasterHandler(EventHandler):
 
         known_master_list = [(app.server, app.uuid, )]
         for n in app.nm.getMasterList():
-            if n.getState() == protocol.BROKEN_STATE:
+            if n.isBroken():
                 continue
             known_master_list.append((n.getAddress(), n.getUUID(), ))
-        conn.answer(protocol.answerPrimaryMaster(primary_uuid,
-                                                 known_master_list),
-                    packet.getId())
+        conn.answer(protocol.answerPrimaryMaster(
+            primary_uuid,
+            known_master_list),
+            packet.getId(),
+        )
 
     def handleAskClusterState(self, conn, packet):
         assert conn.getUUID() is not None
@@ -87,7 +89,7 @@ class BaseServiceHandler(MasterHandler):
             new_state = DISCONNECTED_STATE_DICT.get(node.getType(), protocol.DOWN_STATE)
         if node.getState() == new_state:
             return
-        if new_state != protocol.BROKEN_STATE and node.getState() == protocol.PENDING_STATE:
+        if new_state != protocol.BROKEN_STATE and node.isPending():
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
             logging.info('drop a pending node from the node manager')

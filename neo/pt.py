@@ -126,7 +126,7 @@ class PartitionTable(object):
     def setCell(self, offset, node, state):
         if state == protocol.DISCARDED_STATE:
             return self.removeCell(offset, node)
-        if node.getState() in (protocol.BROKEN_STATE, protocol.DOWN_STATE):
+        if node.isBroken() or node.isDown():
             return
 
         self.count_dict.setdefault(node, 0)
