@@ -352,11 +352,12 @@ class Application(object):
         node_list = []
         for n in self.nm.getList():
             if not n.isAdmin():
-                try:
-                    address = n.getAddress()
-                except TypeError:
-                    address = None
-                node_list.append((n.getType(), address, n.getUUID(), n.getState()))
+                node_list.append((
+                    n.getType(), 
+                    n.getAddress(), 
+                    n.getUUID(), 
+                    n.getState()
+                ))
                 # Split the packet if too huge.
                 if len(node_list) == 10000:
                     conn.notify(protocol.notifyNodeInformation(node_list))
