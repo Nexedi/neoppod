@@ -85,6 +85,45 @@ class Node(object):
     def isAdmin(self):
         return isinstance(self, AdminNode)
 
+    def isRunning(self):
+        # FIXME: is it like 'connected' ?
+        return self._state == protocol.RUNNING_STATE
+
+    def isTemporarilyDown(self):
+        # FIXME: is it like 'unconnected' or UNKNOWN_STATE ?
+        return self._state == protocol.TEMPORARILY_DOWN_STATE
+
+    def isDown(self):
+        # FIXME: is it like 'unconnected' or 'forgotten' ?
+        return self._state == protocol.DOWN_STATE
+        
+    def isBroken(self):
+        return self._state == protocol.BROKEN_STATE
+
+    def isHidden(self):
+        return self._state == protocol.HIDDEN_STATE
+
+    def isPending(self):
+        return self._state == protocol.PENDING_STATE
+
+    def setRunning(self):
+        self.setState(protocol.RUNNING_STATE)
+
+    def setTemporarilyDown(self):
+        self.setState(protocol.TEMPORARILY_DOWN_STATE)
+
+    def setDown(self):
+        self.setState(protocol.DOWN_STATE)
+
+    def setBroken(self):
+        self.setState(protocol.BROKEN_STATE)
+
+    def setHidden(self):
+        self.setState(protocol.HIDDEN_STATE)
+
+    def setPending(self):
+        self.setState(protocol.PENDING_STATE)
+
     # XXX: for comptatibility, to be removed
     def getType(self):
         try:
