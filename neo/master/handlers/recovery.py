@@ -53,7 +53,7 @@ class RecoveryHandler(MasterHandler):
         # load unknown storage nodes
         for offset, row in row_list:
             for uuid, state in row:
-                node = app.nm.getNodeByUUID(uuid) 
+                node = app.nm.getByUUID(uuid) 
                 if node is None:
                     app.nm.createStorage(
                         uuid=uuid,

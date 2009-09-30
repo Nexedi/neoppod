@@ -331,6 +331,3 @@ class NodeManager(object):
     getStorageNodeList = getStorageList
     getClientNodeList = getClientList
     getAdminNodeList = getAdminList
-    getNodeByUUID = getByUUID
-    def getNodeByServer(self, server):
-        return self.getByAddress(address=server)

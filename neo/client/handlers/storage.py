@@ -25,7 +25,7 @@ class StorageEventHandler(BaseHandler):
 
     def _dealWithStorageFailure(self, conn):
         app = self.app
-        node = app.nm.getNodeByServer(conn.getAddress())
+        node = app.nm.getByAddress(conn.getAddress())
         assert node is not None
         # Remove from pool connection
         app.cp.removeConnection(node)
@@ -55,7 +55,7 @@ class StorageBootstrapHandler(AnswerBaseHandler):
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
            uuid, address, num_partitions, num_replicas, your_uuid):
         app = self.app
-        node = app.nm.getNodeByServer(conn.getAddress())
+        node = app.nm.getByAddress(conn.getAddress())
         # It can be eiter a master node or a storage node
         if node_type != protocol.STORAGE_NODE_TYPE:
             conn.close()

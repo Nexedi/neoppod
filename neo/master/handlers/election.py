@@ -42,7 +42,7 @@ class ElectionHandler(MasterHandler):
                 # This is self.
                 continue
             else:
-                node = app.nm.getNodeByServer(addr)
+                node = app.nm.getByAddress(addr)
                 # The master must be known
                 assert node is not None
 
@@ -67,7 +67,7 @@ class ElectionHandler(MasterHandler):
 class ClientElectionHandler(ElectionHandler):
 
     def packetReceived(self, conn, packet):
-        node = self.app.nm.getNodeByServer(conn.getAddress())
+        node = self.app.nm.getByAddress(conn.getAddress())
         if node.getState() != BROKEN_STATE:
             node.setState(RUNNING_STATE)
         MasterHandler.packetReceived(self, conn, packet)
@@ -95,7 +95,7 @@ class ClientElectionHandler(ElectionHandler):
         app = self.app
         addr = conn.getAddress()
         app.negotiating_master_node_set.discard(addr)
-        node = app.nm.getNodeByServer(addr)
+        node = app.nm.getByAddress(addr)
         if node.getState() == RUNNING_STATE:
             app.unconnected_master_node_set.add(addr)
             node.setState(TEMPORARILY_DOWN_STATE)
@@ -106,7 +106,7 @@ class ClientElectionHandler(ElectionHandler):
     def peerBroken(self, conn):
         app = self.app
         addr = conn.getAddress()
-        node = app.nm.getNodeByServer(addr)
+        node = app.nm.getByAddress(addr)
         if node is not None:
             node.setState(DOWN_STATE)
         app.negotiating_master_node_set.discard(addr)
@@ -116,7 +116,7 @@ class ClientElectionHandler(ElectionHandler):
                                        uuid, address, num_partitions,
                                        num_replicas, your_uuid):
         app = self.app
-        node = app.nm.getNodeByServer(conn.getAddress())
+        node = app.nm.getByAddress(conn.getAddress())
         if node_type != MASTER_NODE_TYPE:
             # The peer is not a master node!
             logging.error('%s:%d is not a master node', *address)
@@ -164,7 +164,7 @@ class ClientElectionHandler(ElectionHandler):
                 # This is self.
                 continue
             else:
-                n = app.nm.getNodeByServer(address)
+                n = app.nm.getByAddress(address)
                 # master node must be known
                 assert n is not None
 
@@ -181,7 +181,7 @@ class ClientElectionHandler(ElectionHandler):
                 # There are multiple primary master nodes. This is
                 # dangerous.
                 raise ElectionFailure, 'multiple primary master nodes'
-            primary_node = app.nm.getNodeByUUID(primary_uuid)
+            primary_node = app.nm.getByUUID(primary_uuid)
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
@@ -212,7 +212,7 @@ class ServerElectionHandler(ElectionHandler):
     def peerBroken(self, conn):
         app = self.app
         addr = conn.getAddress()
-        node = app.nm.getNodeByServer(addr)
+        node = app.nm.getByAddress(addr)
         if node is not None and node.getUUID() is not None:
             node.setState(BROKEN_STATE)
         MasterHandler.peerBroken(self, conn)
@@ -232,7 +232,7 @@ class ServerElectionHandler(ElectionHandler):
         if node_type != MASTER_NODE_TYPE:
             logging.info('reject a connection from a non-master')
             raise protocol.NotReadyError
-        node = app.nm.getNodeByServer(address)
+        node = app.nm.getByAddress(address)
         if node is None:
             logging.error('unknown master node: %s' % (address, ))
             raise protocol.ProtocolError('unknown master node')
@@ -260,7 +260,7 @@ class ServerElectionHandler(ElectionHandler):
         if app.primary:
             # I am also the primary... So restart the election.
             raise ElectionFailure, 'another primary arises'
-        node = app.nm.getNodeByUUID(uuid)
+        node = app.nm.getByUUID(uuid)
         app.primary = False
         app.primary_master_node = node
         logging.info('%s is the primary', node)

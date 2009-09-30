@@ -315,7 +315,7 @@ class Application(object):
             # Guess the handler to use based on the type of node on the
             # connection
             if handler is None:
-                node = self.nm.getNodeByServer(conn.getAddress())
+                node = self.nm.getByAddress(conn.getAddress())
                 if node is None:
                     raise ValueError, 'Expecting an answer from a node ' \
                         'which type is not known... Is this right ?'

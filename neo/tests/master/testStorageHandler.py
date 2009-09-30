@@ -163,7 +163,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         upper, lower = unpack('!LL', self.app.ltid)
         new_tid = pack('!LL', upper, lower + 10)
         self.checkUnexpectedPacketRaised(service.handleNotifyInformationLocked, conn, packet, new_tid)
-        old_node = self.app.nm.getNodeByUUID(uuid)
+        old_node = self.app.nm.getByUUID(uuid)
         # job done through dispatch -> peerBroken
         self.app.nm.remove(old_node)
         self.app.pt.dropNode(old_node)
@@ -282,7 +282,7 @@ class MasterStorageHandlerTests(NeoTestBase):
             self.assertEquals(state, OUT_OF_DATE_STATE)
         # mark the second storage node as feeding and say we are up to date
         # second node must go to discarded state and first one to up to date state
-        self.app.pt.setCell(offset, self.app.nm.getNodeByUUID(storage_uuid), FEEDING_STATE)
+        self.app.pt.setCell(offset, self.app.nm.getByUUID(storage_uuid), FEEDING_STATE)
         cell_list = [(offset, uuid, UP_TO_DATE_STATE),]
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
@@ -306,9 +306,9 @@ class MasterStorageHandlerTests(NeoTestBase):
         uuid = self.identifyToMasterNode()
         # do nothing if no uuid
         conn = self.getFakeConnection(None, self.storage_address)
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), RUNNING_STATE)
         service.peerBroken(conn)
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), RUNNING_STATE)
         # add a second storage node and then declare it as broken
         self.identifyToMasterNode(port = self.storage_port+2)
         storage_uuid = self.identifyToMasterNode(port = self.storage_port+1)
@@ -318,16 +318,16 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.assertTrue(self.app.pt.operational())
         conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))
         lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(storage_uuid).getState(), RUNNING_STATE)
         service.peerBroken(conn)
-        self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), BROKEN_STATE) 
+        self.assertEquals(self.app.nm.getByUUID(storage_uuid).getState(), BROKEN_STATE) 
         self.failUnless(lptid < self.app.pt.getID())        
         # give an uuid, must raise as no other storage node available
         conn = self.getFakeConnection(uuid, self.storage_address)
         lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE) 
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), RUNNING_STATE) 
         self.assertRaises(OperationFailure, service.peerBroken, conn)
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), BROKEN_STATE) 
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), BROKEN_STATE) 
         self.failUnless(lptid < self.app.pt.getID())
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
@@ -338,11 +338,11 @@ class MasterStorageHandlerTests(NeoTestBase):
         service.handleAskBeginTransaction(conn, packet)
         service.handleAskBeginTransaction(conn, packet)
         service.handleAskBeginTransaction(conn, packet)
-        self.assertEquals(self.app.nm.getNodeByUUID(client_uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(client_uuid).getState(), RUNNING_STATE)
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 3)
         service.peerBroken(conn)
         # node must be have been remove, and no more transaction must remains
-        self.assertEquals(self.app.nm.getNodeByUUID(client_uuid), None) 
+        self.assertEquals(self.app.nm.getByUUID(client_uuid), None) 
         self.assertEquals(lptid, self.app.pt.getID())
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 0)
         
@@ -352,9 +352,9 @@ class MasterStorageHandlerTests(NeoTestBase):
         uuid = self.identifyToMasterNode()
         # do nothing if no uuid
         conn = self.getFakeConnection(None, self.storage_address)
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), RUNNING_STATE)
         service.timeoutExpired(conn)
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), RUNNING_STATE)
         # add a second storage node and then declare it as temp down
         self.identifyToMasterNode(port = self.storage_port+2)
         storage_uuid = self.identifyToMasterNode(port = self.storage_port+1)
@@ -364,16 +364,16 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.assertTrue(self.app.pt.operational())
         conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))
         lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(storage_uuid).getState(), RUNNING_STATE)
         service.timeoutExpired(conn)
-        self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), TEMPORARILY_DOWN_STATE) 
+        self.assertEquals(self.app.nm.getByUUID(storage_uuid).getState(), TEMPORARILY_DOWN_STATE) 
         self.assertEquals(lptid, self.app.pt.getID())        
         # give an uuid, must raise as no other storage node available
         conn = self.getFakeConnection(uuid, self.storage_address)
         lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE) 
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), RUNNING_STATE) 
         self.assertRaises(OperationFailure, service.timeoutExpired, conn)
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), TEMPORARILY_DOWN_STATE) 
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), TEMPORARILY_DOWN_STATE) 
         self.assertEquals(lptid, self.app.pt.getID())
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
@@ -384,11 +384,11 @@ class MasterStorageHandlerTests(NeoTestBase):
         service.handleAskBeginTransaction(conn, packet)
         service.handleAskBeginTransaction(conn, packet)
         service.handleAskBeginTransaction(conn, packet)
-        self.assertEquals(self.app.nm.getNodeByUUID(client_uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(client_uuid).getState(), RUNNING_STATE)
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 3)
         service.timeoutExpired(conn)
         # node must be have been remove, and no more transaction must remains
-        self.assertEquals(self.app.nm.getNodeByUUID(client_uuid), None) 
+        self.assertEquals(self.app.nm.getByUUID(client_uuid), None) 
         self.assertEquals(lptid, self.app.pt.getID())
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 0)
 
@@ -398,9 +398,9 @@ class MasterStorageHandlerTests(NeoTestBase):
         uuid = self.identifyToMasterNode()
         # do nothing if no uuid
         conn = self.getFakeConnection(None, self.storage_address)
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), RUNNING_STATE)
         service.connectionClosed(conn)
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), RUNNING_STATE)
         # add a second storage node and then declare it as temp down
         self.identifyToMasterNode(port = self.storage_port+2)
         storage_uuid = self.identifyToMasterNode(port = self.storage_port+1)
@@ -410,16 +410,16 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.assertTrue(self.app.pt.operational())
         conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))
         lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(storage_uuid).getState(), RUNNING_STATE)
         service.connectionClosed(conn)
-        self.assertEquals(self.app.nm.getNodeByUUID(storage_uuid).getState(), TEMPORARILY_DOWN_STATE) 
+        self.assertEquals(self.app.nm.getByUUID(storage_uuid).getState(), TEMPORARILY_DOWN_STATE) 
         self.assertEquals(lptid, self.app.pt.getID())        
         # give an uuid, must raise as no other storage node available
         conn = self.getFakeConnection(uuid, self.storage_address)
         lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), RUNNING_STATE) 
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), RUNNING_STATE) 
         self.assertRaises(OperationFailure, service.connectionClosed, conn)
-        self.assertEquals(self.app.nm.getNodeByUUID(uuid).getState(), TEMPORARILY_DOWN_STATE) 
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), TEMPORARILY_DOWN_STATE) 
         self.assertEquals(lptid, self.app.pt.getID())
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
@@ -430,11 +430,11 @@ class MasterStorageHandlerTests(NeoTestBase):
         service.handleAskBeginTransaction(conn, packet)
         service.handleAskBeginTransaction(conn, packet)
         service.handleAskBeginTransaction(conn, packet)
-        self.assertEquals(self.app.nm.getNodeByUUID(client_uuid).getState(), RUNNING_STATE)
+        self.assertEquals(self.app.nm.getByUUID(client_uuid).getState(), RUNNING_STATE)
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 3)
         service.connectionClosed(conn)
         # node must be have been remove, and no more transaction must remains
-        self.assertEquals(self.app.nm.getNodeByUUID(client_uuid), None) 
+        self.assertEquals(self.app.nm.getByUUID(client_uuid), None) 
         self.assertEquals(lptid, self.app.pt.getID())
         self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 0)
 

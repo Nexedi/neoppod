@@ -173,7 +173,7 @@ class PartitionTable(object):
         for offset, row in row_list:
             assert offset < self.getPartitions() and not self.hasOffset(offset)
             for uuid, state in row:
-                node = nm.getNodeByUUID(uuid) 
+                node = nm.getByUUID(uuid) 
                 # XXX: the node should be known before we receive the partition
                 # table, so remove this assert when this is checked.
                 assert node is not None
@@ -190,7 +190,7 @@ class PartitionTable(object):
             return
         self.id = ptid
         for offset, uuid, state in cell_list:
-            node = nm.getNodeByUUID(uuid) 
+            node = nm.getByUUID(uuid) 
             assert node is not None
             self.setCell(offset, node, state)
         logging.debug('partition table updated')

@@ -34,7 +34,7 @@ class IdentificationHandler(BaseStorageHandler):
         if not self.app.ready:
             raise protocol.NotReadyError
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
+        node = app.nm.getByUUID(uuid)
         # choose the handler according to the node type
         if node_type == protocol.CLIENT_NODE_TYPE:
             from neo.storage.handlers.client import ClientOperationHandler 

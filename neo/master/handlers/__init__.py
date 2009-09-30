@@ -81,7 +81,7 @@ class BaseServiceHandler(MasterHandler):
         pass
 
     def connectionLost(self, conn, new_state):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        node = self.app.nm.getByUUID(conn.getUUID())
         assert node is not None
         if new_state != protocol.BROKEN_STATE:
             new_state = DISCONNECTED_STATE_DICT.get(node.getType(), protocol.DOWN_STATE)

@@ -150,11 +150,11 @@ class NodeManagerTests(NeoTestBase):
         self.assertEqual(manager.getClientNodeList(), client_list)
 
     def checkByServer(self, node):
-        node_found = self.manager.getNodeByServer(node.getServer())
+        node_found = self.manager.getByAddress(node.getServer())
         self.assertEqual(node_found, node)
         
     def checkByUUID(self, node):
-        node_found = self.manager.getNodeByUUID(node.getUUID())
+        node_found = self.manager.getByUUID(node.getUUID())
         self.assertEqual(node_found, node)
 
     def testInit(self):
@@ -165,11 +165,11 @@ class NodeManagerTests(NeoTestBase):
         self.checkStorages([])
         self.checkClients([])
         server = ('127.0.0.1', 10000)
-        self.assertEqual(manager.getNodeByServer(server), None)
-        self.assertEqual(manager.getNodeByServer(None), None)
+        self.assertEqual(manager.getByAddress(server), None)
+        self.assertEqual(manager.getByAddress(None), None)
         uuid = self.getNewUUID()
-        self.assertEqual(manager.getNodeByUUID(uuid), None)
-        self.assertEqual(manager.getNodeByUUID(None), None)
+        self.assertEqual(manager.getByUUID(uuid), None)
+        self.assertEqual(manager.getByUUID(None), None)
 
     def testAdd(self):
         """ Check if new nodes are registered in the manager """
@@ -198,7 +198,7 @@ class NodeManagerTests(NeoTestBase):
         self.checkMasters([self.master])
         self.checkClients([self.client])
         # client node has no server
-        self.assertEqual(manager.getNodeByServer(self.client.getServer()), None)
+        self.assertEqual(manager.getByAddress(self.client.getServer()), None)
         self.checkByUUID(self.client)
         # admin
         manager.add(self.admin)
@@ -260,7 +260,7 @@ class NodeManagerTests(NeoTestBase):
         self.checkClients([])
         # - master change it's address
         self.checkMasters([self.master])
-        self.assertEqual(manager.getNodeByServer(old_address), None)
+        self.assertEqual(manager.getByAddress(old_address), None)
         self.master.setServer(new_address)
         self.checkByServer(self.master)
         # a new storage replaced the old one

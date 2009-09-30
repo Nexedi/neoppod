@@ -31,8 +31,8 @@ class IdentificationHandler(MasterHandler):
 
         self.checkClusterName(name)
         app, nm = self.app, self.app.nm
-        node_by_uuid = nm.getNodeByUUID(uuid)
-        node_by_addr = nm.getNodeByServer(address)
+        node_by_uuid = nm.getByUUID(uuid)
+        node_by_addr = nm.getByAddress(address)
 
         # handle conflicts and broken nodes
         node = node_by_uuid or node_by_addr

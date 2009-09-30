@@ -135,7 +135,7 @@ class Application(object):
             # convert from int to Enum
             state = protocol.cell_states[state]
             # register unknown nodes
-            if self.nm.getNodeByUUID(uuid) is None:
+            if self.nm.getByUUID(uuid) is None:
                 self.nm.createStorage(
                     uuid=uuid,
                     state=protocol.TEMPORARILY_DOWN_STATE,
@@ -169,7 +169,7 @@ class Application(object):
                 while 1:
                     try:
                         # check my state
-                        node = self.nm.getNodeByUUID(self.uuid)
+                        node = self.nm.getByUUID(self.uuid)
                         if node is not None and node.getState() == HIDDEN_STATE:
                             self.wait()
                         self.verifyData()
@@ -295,7 +295,7 @@ class Application(object):
         for conn in self.em.getConnectionList():
             conn.setHandler(handler)
 
-        node = self.nm.getNodeByUUID(self.uuid)
+        node = self.nm.getByUUID(self.uuid)
         while 1:
             self.em.poll(1)
             if node.getState() != HIDDEN_STATE:

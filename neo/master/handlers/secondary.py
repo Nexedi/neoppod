@@ -27,7 +27,7 @@ class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
 
     def connectionLost(self, conn, new_state):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        node = self.app.nm.getByUUID(conn.getUUID())
         assert node is not None
         node.setState(DOWN_STATE)
         self.app.broadcastNodeInformation(node)
@@ -50,7 +50,7 @@ class PrimaryMasterHandler(MasterHandler):
 
     def packetReceived(self, conn, packet):
         if not conn.isServer():
-            node = self.app.nm.getNodeByServer(conn.getAddress())
+            node = self.app.nm.getByAddress(conn.getAddress())
             if node.getState() != BROKEN_STATE:
                 node.setState(RUNNING_STATE)
         MasterHandler.packetReceived(self, conn, packet)
@@ -77,7 +77,7 @@ class PrimaryMasterHandler(MasterHandler):
                 # This is self.
                 continue
             else:
-                n = app.nm.getNodeByServer(addr)
+                n = app.nm.getByAddress(addr)
                 # master node must be known
                 assert n is not None
 
@@ -91,7 +91,7 @@ class PrimaryMasterHandler(MasterHandler):
                                        uuid, address, num_partitions,
                                        num_replicas, your_uuid):
         app = self.app
-        node = app.nm.getNodeByServer(conn.getAddress())
+        node = app.nm.getByAddress(conn.getAddress())
         assert node_type == MASTER_NODE_TYPE
         assert conn.getAddress() == address
 

@@ -27,7 +27,7 @@ class AdministrationHandler(MasterHandler):
     """This class deals with messages from the admin node only"""
 
     def connectionLost(self, conn, new_state):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        node = self.app.nm.getByUUID(conn.getUUID())
         self.app.nm.remove(node)
 
     def handleAskPrimaryMaster(self, conn, packet):
@@ -46,7 +46,7 @@ class AdministrationHandler(MasterHandler):
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s : %s" % (dump(uuid), state, modify_partition_table))
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
+        node = app.nm.getByUUID(uuid)
         if node is None:
             raise protocol.ProtocolError('unknown node')
 
@@ -116,7 +116,7 @@ class AdministrationHandler(MasterHandler):
         logging.info('Adding nodes %s' % uuids)
         # switch nodes to running state
         for uuid in uuid_set:
-            node = nm.getNodeByUUID(uuid)
+            node = nm.getByUUID(uuid)
             new_cells = pt.addNode(node)
             cell_list.extend(new_cells)
             node.setState(RUNNING_STATE)

@@ -89,41 +89,41 @@ class MasterVerificationTests(NeoTestBase):
     def test_01_connectionClosed(self):
         uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.verification.connectionClosed(conn)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
         # test a storage, must raise as cluster no longer op
         uuid = self.identifyToMasterNode()
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
 
     def test_02_timeoutExpired(self):
         uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.verification.timeoutExpired(conn)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)                
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)                
         # test a storage, must raise as cluster no longer op
         uuid = self.identifyToMasterNode()
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
 
     def test_03_peerBroken(self):
         uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.verification.peerBroken(conn)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), BROKEN_STATE)                
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), BROKEN_STATE)                
         # test a storage, must raise as cluster no longer op
         uuid = self.identifyToMasterNode()
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
 
     def test_09_handleAnswerLastIDs(self):
         verification = self.verification

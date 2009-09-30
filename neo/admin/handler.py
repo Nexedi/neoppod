@@ -61,7 +61,7 @@ class AdminEventHandler(EventHandler):
 
     def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s" %(dump(uuid), state))
-        node = self.app.nm.getNodeByUUID(uuid)
+        node = self.app.nm.getByUUID(uuid)
         if node is None:
             raise protocol.ProtocolError('invalid uuid')
         if node.getState() == state and modify_partition_table is False:
@@ -165,13 +165,13 @@ class MasterEventHandler(EventHandler):
         app = self.app
         nm = app.nm
         pt = app.pt
-        node = app.nm.getNodeByUUID(uuid)
+        node = app.nm.getByUUID(uuid)
         if app.ptid != ptid:
             app.ptid = ptid
             pt.clear()
         for offset, row in row_list:
             for uuid, state in row:
-                node = nm.getNodeByUUID(uuid)
+                node = nm.getByUUID(uuid)
                 if node is None:
                     nm.createStorage(
                         uuid=uuid,

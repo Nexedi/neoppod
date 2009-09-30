@@ -92,24 +92,24 @@ class MasterRecoveryTests(NeoTestBase):
     def test_01_connectionClosed(self):
         uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.recovery.connectionClosed(conn)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)                
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)                
 
     def test_02_timeoutExpired(self):
         uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.recovery.timeoutExpired(conn)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)                
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)                
 
 
     def test_03_peerBroken(self):
         uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.recovery.peerBroken(conn)
-        self.assertEqual(self.app.nm.getNodeByServer(conn.getAddress()).getState(), BROKEN_STATE)                
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), BROKEN_STATE)                
 
     def test_08_handleNotifyNodeInformation(self):
         recovery = self.recovery
@@ -125,15 +125,15 @@ class MasterRecoveryTests(NeoTestBase):
         # tell the master node about itself, if running must do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(MASTER_NODE_TYPE, '127.0.0.1', self.master_port-1, self.app.uuid, RUNNING_STATE),]
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port-1))
+        node = self.app.nm.getByAddress(("127.0.0.1", self.master_port-1))
         self.assertEqual(node, None)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port-1))
+        node = self.app.nm.getByAddress(("127.0.0.1", self.master_port-1))
 
         # tell the master node about itself, if down must raise
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(MASTER_NODE_TYPE, '127.0.0.1', self.master_port-1, self.app.uuid, DOWN_STATE),]
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port-1))
+        node = self.app.nm.getByAddress(("127.0.0.1", self.master_port-1))
         self.assertEqual(node, None)
         self.assertRaises(RuntimeError, recovery.handleNotifyNodeInformation, conn, packet, node_list)
 
@@ -147,19 +147,19 @@ class MasterRecoveryTests(NeoTestBase):
         # tell about a known node but different address
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(MASTER_NODE_TYPE, '127.0.0.2', self.master_port, uuid, DOWN_STATE),]
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port))
+        node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
         self.assertEqual(node.getState(), RUNNING_STATE)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port))
+        node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
         self.assertEqual(node.getState(), RUNNING_STATE)
 
         # tell about a known node
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(MASTER_NODE_TYPE, '127.0.0.1', self.master_port, uuid, DOWN_STATE),]
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port))
+        node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
         self.assertEqual(node.getState(), RUNNING_STATE)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
-        node = self.app.nm.getNodeByServer(("127.0.0.1", self.master_port))
+        node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
         self.assertEqual(node.getState(), DOWN_STATE)
         
 

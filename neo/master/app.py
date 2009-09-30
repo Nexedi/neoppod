@@ -297,7 +297,7 @@ class Application(object):
             # Only to master nodes and storage nodes.
             for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
-                    n = self.nm.getNodeByUUID(c.getUUID())
+                    n = self.nm.getByUUID(c.getUUID())
                     if n.isMaster() or n.isStorage() or n.isAdmin():
                         node_list = [(node_type, address, uuid, state)]
                         c.notify(protocol.notifyNodeInformation(node_list))
@@ -315,7 +315,7 @@ class Application(object):
         logging.debug('broadcastPartitionChanges')
         self.pt.log()
         for c in self.em.getConnectionList():
-            n = self.nm.getNodeByUUID(c.getUUID())
+            n = self.nm.getByUUID(c.getUUID())
             if n is None:
                 continue
             if n.isClient() or n.isStorage() or n.isAdmin():
@@ -369,7 +369,7 @@ class Application(object):
         logging.debug('Broadcast last OID to storages : %s' % dump(oid))
         packet = protocol.notifyLastOID(oid)
         for conn in self.em.getConnectionList():
-            node = self.nm.getNodeByUUID(conn.getUUID())
+            node = self.nm.getByUUID(conn.getUUID())
             if node is not None and node.isStorage():
                 conn.notify(packet)
 
@@ -525,7 +525,7 @@ class Application(object):
         for conn in em.getConnectionList():
             uuid = conn.getUUID()
             if uuid is not None:
-                node = nm.getNodeByUUID(uuid)
+                node = nm.getByUUID(uuid)
                 if node.isStorage():
                     self.asking_uuid_dict[uuid] = False
                     conn.ask(protocol.askUnfinishedTransactions())
@@ -547,7 +547,7 @@ class Application(object):
                 for conn in em.getConnectionList():
                     uuid = conn.getUUID()
                     if uuid is not None:
-                        node = nm.getNodeByUUID(uuid)
+                        node = nm.getByUUID(uuid)
                         if node.isStorage():
                             conn.notify(protocol.deleteTransaction(tid))
             else:
@@ -592,7 +592,7 @@ class Application(object):
                 # and client nodes. Abort connections to client nodes.
                 logging.critical('No longer operational, so stopping the service')
                 for conn in em.getConnectionList():
-                    node = nm.getNodeByUUID(conn.getUUID())
+                    node = nm.getByUUID(conn.getUUID())
                     if node is not None and (node.isStorage() or node.isClient()):
                         conn.notify(protocol.stopOperation())
                         if node.isClient():
@@ -616,7 +616,7 @@ class Application(object):
         for conn in em.getConnectionList():
             conn_uuid = conn.getUUID()
             if conn_uuid is not None:
-                node = nm.getNodeByUUID(conn_uuid)
+                node = nm.getByUUID(conn_uuid)
                 assert node is not None
                 assert node.isMaster()
                 conn.setHandler(handler)
@@ -683,7 +683,7 @@ class Application(object):
         # change handlers
         notification_packet = protocol.notifyClusterInformation(state)
         for conn in em.getConnectionList():
-            node = nm.getNodeByUUID(conn.getUUID())
+            node = nm.getByUUID(conn.getUUID())
             if conn.isListening() or node is None:
                 # not identified or listening, keep the identification handler
                 continue
@@ -723,7 +723,7 @@ class Application(object):
         return prefix + uuid
 
     def isValidUUID(self, uuid, addr):
-        node = self.nm.getNodeByUUID(uuid)
+        node = self.nm.getByUUID(uuid)
         if node is not None and node.getServer() is not None and node.getServer() != addr:
             return False
         return uuid != self.uuid and uuid is not None
@@ -748,7 +748,7 @@ class Application(object):
                     # no more transaction, ask clients to shutdown
                     logging.info("asking all clients to shutdown")
                     for c in self.em.getConnectionList():
-                        node = self.nm.getNodeByUUID(c.getUUID())
+                        node = self.nm.getByUUID(c.getUUID())
                         if node.isClient():
                             node_list = [(node.getType(), node.getServer(), 
                                 node.getUUID(), DOWN_STATE)]
@@ -756,7 +756,7 @@ class Application(object):
                     # then ask storages and master nodes to shutdown
                     logging.info("asking all remaining nodes to shutdown")
                     for c in self.em.getConnectionList():
-                        node = self.nm.getNodeByUUID(c.getUUID())
+                        node = self.nm.getByUUID(c.getUUID())
                         if node.isStorage() or node.isMaster():
                             node_list = [(node.getType(), node.getServer(), 
                                 node.getUUID(), DOWN_STATE)]

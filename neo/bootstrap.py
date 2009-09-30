@@ -62,12 +62,12 @@ class BootstrapManager(EventHandler):
 
         # Register new master nodes.
         for address, uuid in known_master_list:
-            node = nm.getNodeByServer(address)
+            node = nm.getByAddress(address)
             if node is None:
                 nm.createMaster(server=address)
             node.setUUID(uuid)
 
-        self.primary = nm.getNodeByUUID(primary_uuid)
+        self.primary = nm.getByUUID(primary_uuid)
         if self.primary is None or self.current is not self.primary:
             # three cases here:
             # - something goes wrong (unknown UUID)
@@ -116,7 +116,7 @@ class BootstrapManager(EventHandler):
                 conn = ClientConnection(em, self, addr, connector_handler)
             # still processing 
             em.poll(1)
-        node = nm.getNodeByUUID(conn.getUUID())
+        node = nm.getByUUID(conn.getUUID())
         return (node, conn, self.uuid, self.num_partitions, self.num_replicas)
 
 

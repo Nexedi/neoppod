@@ -30,7 +30,7 @@ class StorageServiceHandler(BaseServiceHandler):
     """ Handler dedicated to storages during service state """
 
     def connectionCompleted(self, conn):
-        node = self.app.nm.getNodeByUUID(conn.getUUID())
+        node = self.app.nm.getByUUID(conn.getUUID())
         if node.getState() == protocol.RUNNING_STATE:
             conn.notify(protocol.notifyLastOID(self.app.loid))
             conn.notify(protocol.startOperation())
@@ -46,7 +46,7 @@ class StorageServiceHandler(BaseServiceHandler):
     def handleNotifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
+        node = app.nm.getByUUID(uuid)
 
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
@@ -64,7 +64,7 @@ class StorageServiceHandler(BaseServiceHandler):
                 for c in app.em.getConnectionList():
                     uuid = c.getUUID()
                     if uuid is not None:
-                        node = app.nm.getNodeByUUID(uuid)
+                        node = app.nm.getByUUID(uuid)
                         if node.isClient():
                             if c is t.getConnection():
                                 p = protocol.notifyTransactionFinished(tid)
@@ -86,7 +86,7 @@ class StorageServiceHandler(BaseServiceHandler):
         # a replication has finished.
         uuid = conn.getUUID()
         app = self.app
-        node = app.nm.getNodeByUUID(uuid)
+        node = app.nm.getByUUID(uuid)
 
         new_cell_list = []
         for cell in cell_list:

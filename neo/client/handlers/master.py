@@ -33,7 +33,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
     def handleAcceptNodeIdentification(self, conn, packet, node_type,
                    uuid, address, num_partitions, num_replicas, your_uuid):
         app = self.app
-        node = app.nm.getNodeByServer(conn.getAddress())
+        node = app.nm.getByAddress(conn.getAddress())
         # this must be a master node
         if node_type != protocol.MASTER_NODE_TYPE:
             conn.close()
@@ -62,9 +62,9 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         app = self.app
         # Register new master nodes.
         for address, uuid in known_master_list:
-            n = app.nm.getNodeByServer(address)
+            n = app.nm.getByAddress(address)
             if n is None:
-                app.nm.createMaster(server=address)
+                app.nm.createMaster(address)
             if uuid is not None:
                 # If I don't know the UUID yet, believe what the peer
                 # told me at the moment.
@@ -72,7 +72,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
                     n.setUUID(uuid)
 
         if primary_uuid is not None:
-            primary_node = app.nm.getNodeByUUID(primary_uuid)
+            primary_node = app.nm.getByUUID(primary_uuid)
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
