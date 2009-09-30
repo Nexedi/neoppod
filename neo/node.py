@@ -128,6 +128,10 @@ class Node(object):
     def setPending(self):
         self.setState(protocol.PENDING_STATE)
 
+    def asTuple(self):
+        """ Returned tuple is intented to be used in procotol encoders """
+        return (self.getType(), self._address, self._uuid, self._state)
+
     # XXX: for comptatibility, to be removed
     def getType(self):
         try:

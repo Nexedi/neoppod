@@ -48,14 +48,7 @@ class AdminEventHandler(EventHandler):
         def node_filter(n):
             return n.getType() is node_type
         node_list = self.app.nm.getList(node_filter)
-        node_information_list = []
-        for node in node_list:
-            try:
-                ip, port = node.getAddress()
-            except TypeError:
-                ip = "0.0.0.0"
-                port = 0
-            node_information_list.append((node.getType(), (ip, port), node.getUUID(), node.getState()))
+        node_information_list = [node.asTuple() for node in node_list ]
         p = protocol.answerNodeList(node_information_list)
         conn.answer(p, packet.getId())
 

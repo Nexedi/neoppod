@@ -352,12 +352,7 @@ class Application(object):
         node_list = []
         for n in self.nm.getList():
             if not n.isAdmin():
-                node_list.append((
-                    n.getType(), 
-                    n.getAddress(), 
-                    n.getUUID(), 
-                    n.getState()
-                ))
+                node_list.append(n.asTuple())
                 # Split the packet if too huge.
                 if len(node_list) == 10000:
                     conn.notify(protocol.notifyNodeInformation(node_list))
