@@ -295,28 +295,21 @@ class NodeManager(object):
                 node.setState(state)
                 self.add(node)
                 logging.info('create node %s %s %s %s' % log_args)
-            self.log()
+        self.log()
 
     def log(self):
         logging.debug('Node manager : %d nodes' % len(self._node_set))
-        node_with_uuid = set(sorted(self._uuid_dict.values()))
-        node_without_uuid = self._node_set - node_with_uuid
-        for node in node_with_uuid | node_without_uuid:
-            if node.getUUID() is not None:
-                uuid = dump(node.getUUID())
-            else:
-                uuid = '-' * 32
-            args = (
-                    uuid,
-                    node.getType(),
-                    node.getState()
-            )
-            logging.debug('nm: %s : %s/%s' % args)
-        for address, node in sorted(self._address_dict.items()):
-            args = (
-                    address,
-                    node.getType(),
-                    node.getState()
-            )
-            logging.debug('nm: %s : %s/%s' % args)
+        for node in sorted(list(self._node_set)):
+            uuid = dump(node.getUUID()) or '-' * 32
+            address = node.getAddress() or ''
+            if address:
+                address = '%s:%d' % address
+            logging.debug(' * %32s | %17s | %22s | %s' % (
+                uuid, node.getType(), address, node.getState()))
+
+    def __gt__(self, node):
+        # sort per UUID if defined
+        if self._uuid is not None:
+            return self._uuid > node.uuid
+        return self._address > node._address
 
