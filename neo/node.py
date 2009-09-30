@@ -85,6 +85,10 @@ class Node(object):
     def isAdmin(self):
         return isinstance(self, AdminNode)
 
+    def isIdentified(self):
+        # XXX: knowing the node's UUID is sufficient ?
+        return self._uuid is not Node
+
     def isRunning(self):
         # FIXME: is it like 'connected' ?
         return self._state == protocol.RUNNING_STATE
