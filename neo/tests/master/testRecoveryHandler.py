@@ -58,13 +58,13 @@ class MasterRecoveryTests(NeoTestBase):
         self.app = Application(**config)
         self.app.pt.clear()
         self.app.finishing_transaction_dict = {}
-        for server in self.app.master_node_list:
-            self.app.nm.createMaster(server=server)
+        for address in self.app.master_node_list:
+            self.app.nm.createMaster(address=address)
         self.recovery = RecoveryHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
         for node in self.app.nm.getMasterList():
-            self.app.unconnected_master_node_set.add(node.getServer())
+            self.app.unconnected_master_node_set.add(node.getAddress())
             node.setState(RUNNING_STATE)
 
         # define some variable to simulate client and storage node
@@ -118,9 +118,9 @@ class MasterRecoveryTests(NeoTestBase):
         # tell about a client node, do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(CLIENT_NODE_TYPE, '127.0.0.1', self.client_port, self.getNewUUID(), DOWN_STATE),]
-        self.assertEqual(len(self.app.nm.getClientNodeList()), 0)
+        self.assertEqual(len(self.app.nm.getNodeList()), 0)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
-        self.assertEqual(len(self.app.nm.getClientNodeList()), 0)
+        self.assertEqual(len(self.app.nm.getNodeList()), 0)
 
         # tell the master node about itself, if running must do nothing
         conn = self.getFakeConnection(uuid, self.master_address)

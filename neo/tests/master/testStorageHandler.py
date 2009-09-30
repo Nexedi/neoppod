@@ -46,8 +46,8 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.app.pt.setID(pack('!Q', 1))
         self.app.em = Mock({"getConnectionList" : []})
         self.app.finishing_transaction_dict = {}
-        for server in self.app.master_node_list:
-            self.app.nm.createMaster(server=server)
+        for address in self.app.master_node_list:
+            self.app.nm.createMaster(address=address)
         self.service = StorageServiceHandler(self.app)
         # define some variable to simulate client and storage node
         self.client_port = 11022
@@ -101,7 +101,7 @@ class MasterStorageHandlerTests(NeoTestBase):
             self.assertEquals(call.getName(), "getUUID")
         # notify about a known node but with bad address, don't care
         self.app.nm.createStorage(
-            server=("127.0.0.1", 11011), 
+            address=("127.0.0.1", 11011), 
             uuid=self.getNewUUID(),
         )
         conn = self.getFakeConnection(uuid, self.storage_address)

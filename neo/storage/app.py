@@ -150,8 +150,8 @@ class Application(object):
         if len(self.name) == 0:
             raise RuntimeError, 'cluster name must be non-empty'
 
-        for server in self.master_node_list:
-            self.nm.createMaster(server=server)
+        for address in self.master_node_list:
+            self.nm.createMaster(address=address)
 
         # Make a listening port
         handler = identification.IdentificationHandler(self)

@@ -45,8 +45,8 @@ class Cell(object):
     def getUUID(self):
         return self.node.getUUID()
 
-    def getServer(self):
-        return self.node.getServer()
+    def getAddress(self):
+        return self.node.getAddress()
 
 
 class PartitionTable(object):

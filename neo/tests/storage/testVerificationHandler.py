@@ -162,7 +162,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
 
         # try to get known offset
         node = self.app.nm.createStorage(
-            server=("127.7.9.9", 1), 
+            address=("127.7.9.9", 1), 
             uuid=self.getNewUUID()
         )
         self.app.pt.setCell(1, node, UP_TO_DATE_STATE)

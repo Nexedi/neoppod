@@ -37,23 +37,23 @@ class IdentificationHandler(MasterHandler):
         # handle conflicts and broken nodes
         node = node_by_uuid or node_by_addr
         if node_by_uuid is not None:
-            if node.getServer() == address:
+            if node.getAddress() == address:
                 if node.getState() == protocol.BROKEN_STATE:
                     raise protocol.BrokenNodeDisallowedError
                 # the node is still alive
                 node.setState(protocol.RUNNING_STATE)
-            if node.getServer() != address:
+            if node.getAddress() != address:
                 if node.getState() == protocol.RUNNING_STATE:
                     # still running, reject this new node
                     raise protocol.ProtocolError('invalid server address')
                 # this node has changed its address
-                node.setServer(address)
+                node.setAddress(address)
                 node.setState(protocol.RUNNING_STATE)
         if node_by_uuid is None and node_by_addr is not None:
             if node.getState() == protocol.RUNNING_STATE:
                 # still running, reject this new node
                 raise protocol.ProtocolError('invalid server address')
-            node.setServer(address)
+            node.setAddress(address)
             node.setState(protocol.RUNNING_STATE)
 
         # ask the app the node identification, if refused, an exception is raised
@@ -64,7 +64,7 @@ class IdentificationHandler(MasterHandler):
             uuid = app.getNewUUID(node_type)
         if node is None:
             # new node
-            node = node_ctor(uuid=uuid, server=address)
+            node = node_ctor(uuid=uuid, address=address)
         handler = handler(self.app)
         # set up the node
         node.setUUID(uuid)

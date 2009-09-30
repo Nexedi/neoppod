@@ -105,8 +105,8 @@ class Application(object):
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
-        for server in self.master_node_list:
-            self.nm.createMaster(server=server)
+        for address in self.master_node_list:
+            self.nm.createMaster(address=address)
 
         # Make a listening port.
         self.listening_conn = ListeningConnection(self.em, None, 
@@ -160,7 +160,7 @@ class Application(object):
 
             for node in nm.getMasterList():
                 if node.getState() == RUNNING_STATE:
-                    self.unconnected_master_node_set.add(node.getServer())
+                    self.unconnected_master_node_set.add(node.getAddress())
 
             # Wait at most 20 seconds at bootstrap. Otherwise, wait at most 
             # 10 seconds to avoid stopping the whole cluster for a long time.
@@ -182,7 +182,7 @@ class Application(object):
                                     and node.getLastStateChange() + expiration < current_time:
                                 logging.info('%s is down' % (node, ))
                                 node.setState(DOWN_STATE)
-                                self.unconnected_master_node_set.discard(node.getServer())
+                                self.unconnected_master_node_set.discard(node.getAddress())
 
                         # Try to connect to master nodes.
                         if self.unconnected_master_node_set:
@@ -231,7 +231,7 @@ class Application(object):
 
                     # Now I need only a connection to the primary master node.
                     primary = self.primary_master_node
-                    addr = primary.getServer()
+                    addr = primary.getAddress()
                     for conn in em.getConnectionList():
                         if conn.isServer() or conn.isClient() \
                                 and addr != conn.getAddress():
@@ -291,7 +291,7 @@ class Application(object):
         uuid = node.getUUID()
 
         # The server address may be None.
-        address = node.getServer()
+        address = node.getAddress()
 
         if node.isClient():
             # Only to master nodes and storage nodes.
@@ -354,7 +354,7 @@ class Application(object):
         for n in self.nm.getList():
             if not n.isAdmin():
                 try:
-                    address = n.getServer()
+                    address = n.getAddress()
                 except TypeError:
                     address = None
                 node_list.append((n.getType(), address, n.getUUID(), n.getState()))
@@ -724,7 +724,8 @@ class Application(object):
 
     def isValidUUID(self, uuid, addr):
         node = self.nm.getByUUID(uuid)
-        if node is not None and node.getServer() is not None and node.getServer() != addr:
+        if node is not None and node.getAddress() is not None \
+                and node.getAddress() != addr:
             return False
         return uuid != self.uuid and uuid is not None
 
@@ -750,7 +751,7 @@ class Application(object):
                     for c in self.em.getConnectionList():
                         node = self.nm.getByUUID(c.getUUID())
                         if node.isClient():
-                            node_list = [(node.getType(), node.getServer(), 
+                            node_list = [(node.getType(), node.getAddress(), 
                                 node.getUUID(), DOWN_STATE)]
                             c.notify(protocol.notifyNodeInformation(node_list))
                     # then ask storages and master nodes to shutdown
@@ -758,7 +759,7 @@ class Application(object):
                     for c in self.em.getConnectionList():
                         node = self.nm.getByUUID(c.getUUID())
                         if node.isStorage() or node.isMaster():
-                            node_list = [(node.getType(), node.getServer(), 
+                            node_list = [(node.getType(), node.getAddress(), 
                                 node.getUUID(), DOWN_STATE)]
                             c.notify(protocol.notifyNodeInformation(node_list))
                     # then shutdown

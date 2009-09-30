@@ -64,7 +64,7 @@ class BootstrapManager(EventHandler):
         for address, uuid in known_master_list:
             node = nm.getByAddress(address)
             if node is None:
-                nm.createMaster(server=address)
+                nm.createMaster(address=address)
             node.setUUID(uuid)
 
         self.primary = nm.getByUUID(primary_uuid)
@@ -112,7 +112,7 @@ class BootstrapManager(EventHandler):
                     sleep(1)
             if conn is None:
                 # open the connection
-                addr = self.current.getServer()
+                addr = self.current.getAddress()
                 conn = ClientConnection(em, self, addr, connector_handler)
             # still processing 
             em.poll(1)

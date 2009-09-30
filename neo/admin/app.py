@@ -119,15 +119,15 @@ class Application(object):
         nm = self.nm
         nm.clear()
         self.cluster_state = None
-        for server in self.master_node_list:
-            nm.createMaster(server=server)
+        for address in self.master_node_list:
+            nm.createMaster(address=address)
 
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, self.name, protocol.ADMIN_NODE_TYPE, 
                 self.uuid, self.server)
         data = bootstrap.getPrimaryConnection(self.connector_handler)
         (node, conn, uuid, num_partitions, num_replicas) = data
-        nm.update([(node.getType(), node.getServer(), node.getUUID(),
+        nm.update([(node.getType(), node.getAddress(), node.getUUID(),
                     protocol.RUNNING_STATE)])
         self.master_node = node
         self.master_conn = conn

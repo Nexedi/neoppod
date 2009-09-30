@@ -51,7 +51,7 @@ class AdminEventHandler(EventHandler):
         node_information_list = []
         for node in node_list:
             try:
-                ip, port = node.getServer()
+                ip, port = node.getAddress()
             except TypeError:
                 ip = "0.0.0.0"
                 port = 0

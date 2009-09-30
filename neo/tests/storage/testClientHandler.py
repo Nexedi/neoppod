@@ -51,8 +51,8 @@ class StorageClientHandlerTests(NeoTestBase):
         self.app.store_lock_dict = {}
         self.app.load_lock_dict = {}
         self.app.event_queue = deque()
-        for server in self.app.master_node_list:
-            self.app.nm.createMaster(server=server)
+        for address in self.app.master_node_list:
+            self.app.nm.createMaster(address=address)
         # handler
         self.operation = ClientOperationHandler(self.app)
         # set pmn
@@ -89,7 +89,7 @@ class StorageClientHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         client = self.app.nm.createClient(
             uuid=uuid,
-            server=('127.0.0.1', 10010)
+            address=('127.0.0.1', 10010)
         )
         self.app.store_lock_dict[0] = object()
         transaction = Mock({

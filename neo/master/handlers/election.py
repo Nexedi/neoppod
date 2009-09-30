@@ -121,7 +121,7 @@ class ClientElectionHandler(ElectionHandler):
             # The peer is not a master node!
             logging.error('%s:%d is not a master node', *address)
             app.nm.remove(node)
-            app.negotiating_master_node_set.discard(node.getServer())
+            app.negotiating_master_node_set.discard(node.getAddress())
             conn.close()
             return
         if conn.getAddress() != address:
@@ -130,7 +130,7 @@ class ClientElectionHandler(ElectionHandler):
             logging.error('%s:%d is waiting for %s:%d', 
                           conn.getAddress()[0], conn.getAddress()[1], *address)
             app.nm.remove(node)
-            app.negotiating_master_node_set.discard(node.getServer())
+            app.negotiating_master_node_set.discard(node.getAddress())
             conn.close()
             return
 
@@ -193,7 +193,7 @@ class ClientElectionHandler(ElectionHandler):
                     app.primary_master_node = primary_node
                     # Stop waiting for connections than primary master's to
                     # complete to exit election phase ASAP.
-                    primary_server = primary_node.getServer()
+                    primary_server = primary_node.getAddress()
                     app.unconnected_master_node_set.intersection_update(
                         [primary_server])
                     app.negotiating_master_node_set.intersection_update(

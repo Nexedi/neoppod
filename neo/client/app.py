@@ -66,7 +66,7 @@ class ConnectionPool(object):
 
     def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
-        addr = node.getServer()
+        addr = node.getAddress()
         if addr is None:
             return None
 
@@ -254,8 +254,8 @@ class Application(object):
         # load master node list
         self.master_node_list = parseMasterList(master_nodes)
         logging.debug('master nodes are %s', self.master_node_list)
-        for server in self.master_node_list:
-            self.nm.createMaster(server=server)
+        for address in self.master_node_list:
+            self.nm.createMaster(address=address)
 
         # no self-assigned UUID, primary master will supply us one
         self.uuid = None
@@ -406,7 +406,7 @@ class Application(object):
                     index += 1
                 # Connect to master
                 conn = MTClientConnection(self.em, self.notifications_handler,
-                                          addr=self.trying_master_node.getServer(),
+                                          addr=self.trying_master_node.getAddress(),
                                           connector_handler=self.connector_handler,
                                           dispatcher=self.dispatcher)
                 # Query for primary master node
@@ -556,13 +556,13 @@ class Application(object):
             if noid != oid:
                 # Oops, try with next node
                 logging.error('got wrong oid %s instead of %s from node %s',
-                              noid, dump(oid), cell.getServer())
+                              noid, dump(oid), cell.getAddress())
                 self.local_var.asked_object = -1
                 continue
             elif checksum != makeChecksum(data):
                 # Check checksum.
                 logging.error('wrong checksum from node %s for oid %s',
-                              cell.getServer(), dump(oid))
+                              cell.getAddress(), dump(oid))
                 self.local_var.asked_object = -1
                 continue
             else:
@@ -715,7 +715,7 @@ class Application(object):
         cell_list = self._getCellListForTID(self.local_var.tid, writable=True)
         self.local_var.voted_counter = 0
         for cell in cell_list:
-            logging.debug("voting object %s %s" %(cell.getServer(), cell.getState()))
+            logging.debug("voting object %s %s" %(cell.getAddress(), cell.getState()))
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue

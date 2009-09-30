@@ -46,8 +46,8 @@ class MasterVerificationTests(NeoTestBase):
         self.app = Application(**config)
         self.app.pt.clear()
         self.app.finishing_transaction_dict = {}
-        for server in self.app.master_node_list:
-            self.app.nm.createMaster(server=server)
+        for address in self.app.master_node_list:
+            self.app.nm.createMaster(address=address)
         self.verification = VerificationHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
@@ -56,7 +56,7 @@ class MasterVerificationTests(NeoTestBase):
         self.app.loid = '\0' * 8
         self.app.ltid = '\0' * 8
         for node in self.app.nm.getMasterList():
-            self.app.unconnected_master_node_set.add(node.getServer())
+            self.app.unconnected_master_node_set.add(node.getAddress())
             node.setState(RUNNING_STATE)
 
         # define some variable to simulate client and storage node
@@ -80,7 +80,7 @@ class MasterVerificationTests(NeoTestBase):
         uuid = self.getNewUUID()
         self.app.nm.createFromNodeType(
             node_type, 
-            server=(ip, port),
+            address=(ip, port),
             uuid=uuid,
         )
         return uuid

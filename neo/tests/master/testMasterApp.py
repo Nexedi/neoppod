@@ -105,7 +105,7 @@ class MasterAppTests(NeoTestBase):
       self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
       s_node = self.app.nm.createClient(
             uuid = self.getNewUUID(), 
-            server=("127.1.0.1", 3361)
+            address=("127.1.0.1", 3361)
       )
       self.app.broadcastNodeInformation(c_node)
       # check conn
@@ -120,7 +120,7 @@ class MasterAppTests(NeoTestBase):
       self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
       s_node = self.app.nm.createStorage(
             uuid=self.getNewUUID(), 
-            server=("127.0.0.1", 1351)
+            address=("127.0.0.1", 1351)
       )
 
       self.app.broadcastNodeInformation(s_node)

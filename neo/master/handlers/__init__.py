@@ -46,7 +46,7 @@ class MasterHandler(EventHandler):
         for n in app.nm.getMasterList():
             if n.getState() == protocol.BROKEN_STATE:
                 continue
-            known_master_list.append((n.getServer(), n.getUUID(), ))
+            known_master_list.append((n.getAddress(), n.getUUID(), ))
         conn.answer(protocol.answerPrimaryMaster(primary_uuid,
                                                  known_master_list),
                     packet.getId())

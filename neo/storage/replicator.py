@@ -163,7 +163,7 @@ class Replicator(object):
             self.current_partition = None
             return
 
-        addr = node.getServer()
+        addr = node.getAddress()
         if addr is None:
             logging.error("no address known for the selected node %s" %(dump(node.getUUID())))
             return

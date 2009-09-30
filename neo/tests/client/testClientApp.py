@@ -113,7 +113,7 @@ class ClientApplicationTests(NeoTestBase):
         obj = (oid, tid, 'DATA', '', app.local_var.txn)
         packet = protocol.answerStoreObject(conflicting=0, oid=oid, serial=tid)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
-        cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
+        cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
         app.cp = Mock({ 'getConnForCell': conn})
         app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
         return oid
@@ -123,7 +123,7 @@ class ClientApplicationTests(NeoTestBase):
         txn = app.local_var.txn
         packet = protocol.answerStoreTransaction(tid=tid)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
-        cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
+        cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
         app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
         app.tpc_vote(txn)
@@ -207,7 +207,7 @@ class ClientApplicationTests(NeoTestBase):
         packet = protocol.oidNotFound('')
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({'getUUID': '\x10' * 16,
-                     'getServer': ('127.0.0.1', 0),
+                     'getAddress': ('127.0.0.1', 0),
                      'fakeReceived': packet,    
                      })
         app.local_var.queue = Mock({'get_nowait' : (conn, None)})
@@ -223,7 +223,7 @@ class ClientApplicationTests(NeoTestBase):
         packet = protocol.oidNotFound('')
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({ 
-            'getServer': ('127.0.0.1', 0),
+            'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
         app.pt = Mock({ 'getCellListForOID': (cell, ), })
@@ -234,7 +234,7 @@ class ClientApplicationTests(NeoTestBase):
         # object found on storage nodes and put in cache
         packet = protocol.answerObject(*an_object[1:])
         conn = Mock({ 
-            'getServer': ('127.0.0.1', 0),
+            'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
         app.cp = Mock({ 'getConnForCell' : conn})
@@ -245,7 +245,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertTrue(oid in mq)
         # object is now cached, try to reload it 
         conn = Mock({ 
-            'getServer': ('127.0.0.1', 0),
+            'getAddress': ('127.0.0.1', 0),
         })
         app.cp = Mock({ '_getConnForCell' : conn})
         result = app.load(oid)
@@ -263,7 +263,7 @@ class ClientApplicationTests(NeoTestBase):
         packet = protocol.oidNotFound('')
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({ 
-            'getServer': ('127.0.0.1', 0),
+            'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
         app.pt = Mock({ 'getCellListForID': (cell, ), })
@@ -279,7 +279,7 @@ class ClientApplicationTests(NeoTestBase):
         another_object = (1, oid, tid2, INVALID_SERIAL, 0, makeChecksum('RIGHT'), 'RIGHT')
         packet = protocol.answerObject(*another_object[1:])
         conn = Mock({ 
-            'getServer': ('127.0.0.1', 0),
+            'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
         app.cp = Mock({ 'getConnForCell' : conn})
@@ -300,7 +300,7 @@ class ClientApplicationTests(NeoTestBase):
         packet = protocol.oidNotFound('')
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({ 
-            'getServer': ('127.0.0.1', 0),
+            'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
         app.pt = Mock({ 'getCellListForID': (cell, ), })
@@ -312,7 +312,7 @@ class ClientApplicationTests(NeoTestBase):
         an_object = (1, oid, tid2, INVALID_SERIAL, 0, makeChecksum(''), '')
         packet = protocol.answerObject(*an_object[1:])
         conn = Mock({ 
-            'getServer': ('127.0.0.1', 0),
+            'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
         app.cp = Mock({ 'getConnForCell' : conn})
@@ -327,7 +327,7 @@ class ClientApplicationTests(NeoTestBase):
         another_object = (1, oid, tid1, tid2, 0, makeChecksum('RIGHT'), 'RIGHT')
         packet = protocol.answerObject(*another_object[1:])
         conn = Mock({ 
-            'getServer': ('127.0.0.1', 0),
+            'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
         app.cp = Mock({ 'getConnForCell' : conn})
@@ -407,7 +407,7 @@ class ClientApplicationTests(NeoTestBase):
             'fakeReceived': packet,    
         })
         cell = Mock({
-            'getServer': 'FakeServer',
+            'getAddress': 'FakeServer',
             'getState': 'FakeState',
         })
         app.pt = Mock({ 'getCellListForID': (cell, cell, )})
@@ -437,7 +437,7 @@ class ClientApplicationTests(NeoTestBase):
         })
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn, ) })
         cell = Mock({
-            'getServer': 'FakeServer',
+            'getAddress': 'FakeServer',
             'getState': 'FakeState',
         })
         app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
@@ -476,7 +476,7 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': ('127.0.0.1', 0),
         })
         cell = Mock({
-            'getServer': 'FakeServer',
+            'getAddress': 'FakeServer',
             'getState': 'FakeState',
         })
         app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
@@ -504,7 +504,7 @@ class ClientApplicationTests(NeoTestBase):
             'fakeReceived': packet,    
         })
         cell = Mock({
-            'getServer': 'FakeServer',
+            'getAddress': 'FakeServer',
             'getState': 'FakeState',
         })
         app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
@@ -705,7 +705,7 @@ class ClientApplicationTests(NeoTestBase):
             'fakeReceived': ReturnValues(*packets),
             'getAddress': ('127.0.0.1', 10010),
         })
-        cell = Mock({ 'getServer': 'FakeServer', 'getState': 'FakeState', })
+        cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
         app.pt = Mock({ 'getCellListForID': (cell, ) })
         app.cp = Mock({ 'getConnForCell': conn})
         wrapper = Mock({'tryToResolveConflict': None})
@@ -813,7 +813,7 @@ class ClientApplicationTests(NeoTestBase):
         # fourth iteration : connection to primary master succeeded
         def _waitMessage5(self, conn=None, msg_id=None, handler=None):
             app.trying_master_node = app.primary_master_node = Mock({
-                'getServer': ('192.168.1.1', 10000),
+                'getAddress': ('192.168.1.1', 10000),
                 '__str__': 'Fake master node',
             })
             Application._waitMessage = _waitMessage6
@@ -825,7 +825,7 @@ class ClientApplicationTests(NeoTestBase):
         # second iteration : master node changed
         def _waitMessage3(app, conn=None, msg_id=None, handler=None):
             app.primary_master_node = Mock({
-                'getServer': ('192.168.1.1', 10000),
+                'getAddress': ('192.168.1.1', 10000),
                 '__str__': 'Fake master node',
             })
             Application._waitMessage = _waitMessage4

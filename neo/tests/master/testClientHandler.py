@@ -48,8 +48,8 @@ class MasterClientHandlerTests(NeoTestBase):
         self.app.loid = '\0' * 8
         self.app.ltid = '\0' * 8
         self.app.finishing_transaction_dict = {}
-        for server in self.app.master_node_list:
-            self.app.nm.createMaster(server=server)
+        for address in self.app.master_node_list:
+            self.app.nm.createMaster(address=address)
         self.service = ClientServiceHandler(self.app)
         # define some variable to simulate client and storage node
         self.client_port = 11022
@@ -59,7 +59,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.client_address = ('127.0.0.1', self.client_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
         # register the storage
-        kw = {'uuid':self.getNewUUID(), 'server': self.master_address}
+        kw = {'uuid':self.getNewUUID(), 'address': self.master_address}
         self.app.nm.createStorage(**kw)
         
     def tearDown(self):
@@ -75,7 +75,7 @@ class MasterClientHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         self.app.nm.createFromNodeType(
             node_type,
-            server=(ip, port), 
+            address=(ip, port), 
             uuid=uuid,
             state=protocol.RUNNING_STATE,
         )
@@ -111,7 +111,7 @@ class MasterClientHandlerTests(NeoTestBase):
             self.assertEquals(call.getName(), "getUUID")
         # notify about a known node but with bad address, don't care
         self.app.nm.createStorage(
-            server=("127.0.0.1", 11011), 
+            address=("127.0.0.1", 11011), 
             uuid=self.getNewUUID(),
         )
         conn = self.getFakeConnection(uuid, self.storage_address)

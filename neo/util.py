@@ -85,9 +85,9 @@ def parseMasterList(masters, except_node=None):
     master_node_list = []
     for node in masters.split('/'):
         ip_address, port = node.split(':')
-        server = (ip_address, int(port))
-        if (server != except_node):
-            master_node_list.append(server)
+        address = (ip_address, int(port))
+        if (address != except_node):
+            master_node_list.append(address)
     return master_node_list
 
 

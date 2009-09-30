@@ -95,7 +95,7 @@ class ClientHandlerTests(NeoTestBase):
         storage_ip = '127.0.0.1'
         storage_port = 10011
         fake_storage_node_uuid = self.getNewUUID()
-        fake_storage_node = Mock({'getUUID': fake_storage_node_uuid, 'getServer': (storage_ip, storage_port), 'getType': STORAGE_NODE_TYPE})
+        fake_storage_node = Mock({'getUUID': fake_storage_node_uuid, 'getAddress': (storage_ip, storage_port), 'getType': STORAGE_NODE_TYPE})
         master_node_next_packet_id = 1
         class App:
             primary_master_node = Mock({'getUUID': self.getNewUUID()})
@@ -606,7 +606,7 @@ class ClientHandlerTests(NeoTestBase):
         # Likewise for server address and node uuid.
 
     def test_knownStorageNotifyNodeInformation(self):
-        node = Mock({'setState': None, 'setServer': None})
+        node = Mock({'setState': None, 'setAddress': None})
         test_node = (STORAGE_NODE_TYPE, '127.0.0.1', 10010, self.getNewUUID(),
                      RUNNING_STATE)
         nm = self._testNotifyNodeInformation(test_node, getByUUID=node)

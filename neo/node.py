@@ -24,11 +24,8 @@ from neo.util import dump
 class Node(object):
     """This class represents a node."""
 
-    def __init__(self, manager, address=None, uuid=None,
-            state=protocol.UNKNOWN_STATE, server=None):
-        # XXX: backward compatibility
-        if server is not None:
-            address = server
+    def __init__(self, manager, address=None, uuid=None, 
+            state=protocol.UNKNOWN_STATE):
         self._state = state
         self._address = address
         self._uuid = uuid
@@ -94,8 +91,6 @@ class Node(object):
             return NODE_CLASS_MAPPING[self.__class__]
         except KeyError:
             raise NotImplementedError
-    getServer = getAddress
-    setServer = setAddress
 
 
 class MasterNode(Node):
@@ -170,8 +165,8 @@ class NodeManager(object):
         if new_key is not None:
             index_dict[new_key] = node
 
-    def _updateAddress(self, node, old_server):
-        self.__update(self._address_dict, old_server, node.getAddress(), node)
+    def _updateAddress(self, node, old_address):
+        self.__update(self._address_dict, old_address, node.getAddress(), node)
 
     def _updateUUID(self, node, old_uuid):
         self.__update(self._uuid_dict, old_uuid, node.getUUID(), node)

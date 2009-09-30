@@ -41,7 +41,7 @@ class PartitionTableTests(NeoTestBase):
         self.assertEquals(cell.getState(), OUT_OF_DATE_STATE)
         self.assertEquals(cell.getNodeState(), UNKNOWN_STATE)
         self.assertEquals(cell.getUUID(), uuid)
-        self.assertEquals(cell.getServer(), server)
+        self.assertEquals(cell.getAddress(), server)
         # check state setter
         cell.setState(FEEDING_STATE)
         self.assertEquals(cell.getState(), FEEDING_STATE)

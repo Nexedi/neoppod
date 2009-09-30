@@ -37,8 +37,8 @@ class BootstrapManagerTests(NeoTestBase):
         # create an application object
         config = self.getStorageConfiguration()
         self.app = Application(**config)
-        for server in self.app.master_node_list:
-            self.app.nm.createMaster(server=server)
+        for address in self.app.master_node_list:
+            self.app.nm.createMaster(address=address)
         self.bootstrap = BootstrapManager(self.app, 'main', protocol.STORAGE_NODE_TYPE)
         # define some variable to simulate client and storage node
         self.master_port = 10010

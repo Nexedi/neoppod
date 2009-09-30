@@ -43,11 +43,11 @@ class NodesTests(NeoTestBase):
 
     def testInit(self):
         """ Check the node initialization """
-        server = ('127.0.0.1', 10000)
+        address = ('127.0.0.1', 10000)
         uuid = self.getNewUUID()
-        node = Node(self.manager, server=server, uuid=uuid)
+        node = Node(self.manager, address=address, uuid=uuid)
         self.assertEqual(node.getState(), protocol.UNKNOWN_STATE)
-        self.assertEqual(node.getServer(), server)
+        self.assertEqual(node.getAddress(), address)
         self.assertEqual(node.getUUID(), uuid)
         self.assertTrue(time() - 1 < node.getLastStateChange() < time()) 
 
@@ -62,18 +62,18 @@ class NodesTests(NeoTestBase):
         self.assertTrue(previous_time < node.getLastStateChange())
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
 
-    def testServer(self):
-        """ Check if the node is indexed by server """
+    def testAddress(self):
+        """ Check if the node is indexed by address """
         node = Node(self.manager)
-        self.assertEqual(node.getServer(), None)
-        server = ('127.0.0.1', 10000)
-        node.setServer(server)
+        self.assertEqual(node.getAddress(), None)
+        address = ('127.0.0.1', 10000)
+        node.setAddress(address)
         self._updatedByAddress(node)
 
     def testUUID(self):
-        """ As for Server but UUID """
+        """ As for Address but UUID """
         node = Node(self.manager)
-        self.assertEqual(node.getServer(), None)
+        self.assertEqual(node.getAddress(), None)
         uuid = self.getNewUUID()
         node.setUUID(uuid)
         self._updatedByUUID(node)
@@ -150,7 +150,7 @@ class NodeManagerTests(NeoTestBase):
         self.assertEqual(manager.getClientList(), client_list)
 
     def checkByServer(self, node):
-        node_found = self.manager.getByAddress(node.getServer())
+        node_found = self.manager.getByAddress(node.getAddress())
         self.assertEqual(node_found, node)
         
     def checkByUUID(self, node):
@@ -164,8 +164,8 @@ class NodeManagerTests(NeoTestBase):
         self.checkMasters([])
         self.checkStorages([])
         self.checkClients([])
-        server = ('127.0.0.1', 10000)
-        self.assertEqual(manager.getByAddress(server), None)
+        address = ('127.0.0.1', 10000)
+        self.assertEqual(manager.getByAddress(address), None)
         self.assertEqual(manager.getByAddress(None), None)
         uuid = self.getNewUUID()
         self.assertEqual(manager.getByUUID(uuid), None)
@@ -197,8 +197,8 @@ class NodeManagerTests(NeoTestBase):
         self.checkStorages([self.storage])
         self.checkMasters([self.master])
         self.checkClients([self.client])
-        # client node has no server
-        self.assertEqual(manager.getByAddress(self.client.getServer()), None)
+        # client node has no address
+        self.assertEqual(manager.getByAddress(self.client.getAddress()), None)
         self.checkByUUID(self.client)
         # admin
         manager.add(self.admin)
@@ -245,14 +245,14 @@ class NodeManagerTests(NeoTestBase):
         self.checkStorages([self.storage])
         self.checkClients([self.client])
         # build changes
-        old_address = self.master.getServer()
+        old_address = self.master.getAddress()
         new_address = ('127.0.0.1', 2001)
         new_uuid = self.getNewUUID()
         node_list = (
             (CLIENT_NODE_TYPE, None, self.client.getUUID(), DOWN_STATE),
             (MASTER_NODE_TYPE, new_address, self.master.getUUID(), RUNNING_STATE),
-            (STORAGE_NODE_TYPE, self.storage.getServer(), new_uuid, RUNNING_STATE),
-            (ADMIN_NODE_TYPE, self.admin.getServer(), self.admin.getUUID(), UNKNOWN_STATE),
+            (STORAGE_NODE_TYPE, self.storage.getAddress(), new_uuid, RUNNING_STATE),
+            (ADMIN_NODE_TYPE, self.admin.getAddress(), self.admin.getUUID(), UNKNOWN_STATE),
         )
         # update manager content
         manager.update(node_list)
@@ -261,7 +261,7 @@ class NodeManagerTests(NeoTestBase):
         # - master change it's address
         self.checkMasters([self.master])
         self.assertEqual(manager.getByAddress(old_address), None)
-        self.master.setServer(new_address)
+        self.master.setAddress(new_address)
         self.checkByServer(self.master)
         # a new storage replaced the old one
         self.assertNotEqual(manager.getStorageList(), [self.storage])
