@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
+import re
 from zlib import adler32
 from struct import pack, unpack
 from time import time, gmtime
@@ -90,4 +91,44 @@ def parseMasterList(masters, except_node=None):
             master_node_list.append(address)
     return master_node_list
 
+
+class Enum(dict):
+    """
+    Simulate an enumeration, define them as follow :
+        class MyEnum(Enum):
+          ITEM1 = Enum.Item(0)
+          ITEM2 = Enum.Item(1)
+    Enum items must be written in full upper case 
+    """
+
+    class Item(int):
+
+        def __new__(cls, value):
+            instance = super(Enum.Item, cls).__new__(cls, value)
+            instance._enum = None
+            instance._name = None
+            return instance
+
+        def __str__(self):
+            return self._name
+
+        def __repr__(self):
+            return "<EnumItem %s (%d)>" % (self._name, self)
+
+        def __eq__(self, other):
+            assert isinstance(other, (Enum.Item, int, float, long))
+            assert self._enum == other._enum
+            return int(self) == int(other)
+
+    def __init__(self):
+        for name in dir(self):
+            if not re.match('^[A-Z_]*$', name):
+                continue
+            item = getattr(self, name)
+            item._name = name
+            item._enum = self
+            self[int(item)] = item
+    
+    def getByName(self, name):
+        return getattr(self, name)
 

@@ -18,6 +18,8 @@
 from struct import pack, unpack, error
 from socket import inet_ntoa, inet_aton
 
+from neo.util import Enum
+
 class EnumItem(int):
     """
       Enumerated value type.
@@ -52,7 +54,7 @@ class EnumItem(int):
     def __repr__(self):
         return '<EnumItem %r (%r)>' % (self.name, int(self))
 
-class Enum(dict):
+class OldEnum(dict):
     """
       C-style enumerated type support with extended typechecking.
       Instantiate with a dict whose keys are variable names and values are
@@ -79,6 +81,7 @@ class Enum(dict):
     def getFromStr(self, value, default=None):
         return self.str_enum_dict.get(value, default)
 
+
 # The protocol version (major, minor).
 PROTOCOL_VERSION = (4, 0)
 
@@ -88,7 +91,7 @@ MAX_PACKET_SIZE = 0x4000000
 PACKET_HEADER_SIZE = 10
 # Message types.
 
-packet_types = Enum({
+packet_types = OldEnum({
 
     # Error is a special type of message, because this can be sent against any other message,
     # even if such a message does not expect a reply usually. Any -> Any.
@@ -304,7 +307,7 @@ packet_types = Enum({
 })
 
 # Error codes.
-error_codes = Enum({
+error_codes = OldEnum({
     'NO_ERROR_CODE': 0,
     'NOT_READY_CODE': 1,
     'OID_NOT_FOUND_CODE': 2,
@@ -314,17 +317,18 @@ error_codes = Enum({
     'INTERNAL_ERROR_CODE': 8,
 })
 
-# Cluster states
-cluster_states = Enum({
-    'BOOTING_CLUSTER_STATE': 1,
-    'RECOVERING_CLUSTER_STATE': 2,
-    'VERIFYING_CLUSTER_STATE': 3,
-    'RUNNING_CLUSTER_STATE': 4,
-    'STOPPING_CLUSTER_STATE': 5,
-})
+class ClusterStates(Enum):
+
+    BOOTING = Enum.Item(1)
+    RECOVERING = Enum.Item(2)
+    VERIFYING = Enum.Item(3)
+    RUNNING = Enum.Item(4)
+    STOPPING = Enum.Item(5)
+
+ClusterStates = ClusterStates()
 
 # Node types.
-node_types = Enum({
+node_types = OldEnum({
     'MASTER_NODE_TYPE' : 1,
     'STORAGE_NODE_TYPE' : 2,
     'CLIENT_NODE_TYPE' : 3,
@@ -332,7 +336,7 @@ node_types = Enum({
 })
 
 # Node states.
-node_states = Enum({
+node_states = OldEnum({
     'RUNNING_STATE': 0,
     'TEMPORARILY_DOWN_STATE': 1,
     'DOWN_STATE': 2,
@@ -354,7 +358,7 @@ node_state_prefix_dict = {
 }
 
 # Partition cell states.
-cell_states = Enum({
+cell_states = OldEnum({
     'UP_TO_DATE_STATE': 0,
     'OUT_OF_DATE_STATE': 1,
     'FEEDING_STATE': 2,
@@ -494,9 +498,9 @@ def handle_errors(decoder):
     return wrapper
 
 def _decodeClusterState(state):
-    cluster_state = cluster_states.get(state)
+    cluster_state = ClusterStates.get(state)
     if cluster_state is None:
-        raise PacketMalformedError('invalid node state %d' % state)
+        raise PacketMalformedError('invalid cluster state %d' % state)
     return cluster_state
 
 def _decodeNodeState(state):

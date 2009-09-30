@@ -20,6 +20,7 @@ from neo.connection import ClientConnection
 from neo.event import EventManager
 from neo.neoctl.handler import CommandEventHandler
 from neo import protocol
+from neo.protocol import ClusterStates
 
 class NotReadyException(Exception):
     pass
@@ -126,7 +127,7 @@ class NeoCTL(object):
         """
           Set cluster into "verifying" state.
         """
-        self.setClusterState(protocol.VERIFYING_CLUSTER_STATE)
+        self.setClusterState(ClusterStates.VERIFYING)
 
     def dropNode(self, node):
         """

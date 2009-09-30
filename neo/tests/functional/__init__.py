@@ -28,6 +28,7 @@ import unittest
 import tempfile
 import traceback
 
+from neo.protocol import ClusterStates
 from neo.client.Storage import Storage
 from neo.tests import getNewUUID
 from neo.util import dump
@@ -433,13 +434,13 @@ class NEOCluster(object):
         self.expectCondition(callback, timeout, delay)
 
     def expectClusterRecovering(self, timeout=0, delay=1):
-        self.expectClusterState(protocol.RECOVERING_CLUSTER_STATE)
+        self.expectClusterState(ClusterStates.RECOVERING)
 
     def expectClusterVeryfing(self, timeout=0, delay=1):
-        self.expectClusterState(protocol.VERIFYING_CLUSTER_STATE)
+        self.expectClusterState(ClusterStates.VERIFYING)
 
     def expectClusterRunning(self, timeout=0, delay=1):
-        self.expectClusterState(protocol.RUNNING_CLUSTER_STATE)
+        self.expectClusterState(ClusterStates.RUNNING)
 
     def __del__(self):
         if self.cleanup_on_delete:

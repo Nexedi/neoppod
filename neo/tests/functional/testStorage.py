@@ -23,6 +23,7 @@ from Persistence import Persistent
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo.client.Storage import Storage as NEOStorage
 from neo import protocol
+from neo.protocol import ClusterStates
 
 class PObject(Persistent):
     
@@ -388,7 +389,7 @@ class StorageTests(NEOFunctionalTest):
         every 1000 partition when sending a partition table. """
         self.__setup(storage_number=2, partitions=5000, master_node_count=1)
         neoctl = self.neo.getNEOCTL()
-        self.neo.expectClusterState(protocol.RUNNING_CLUSTER_STATE)
+        self.neo.expectClusterState(ClusterStates.RUNNING)
 
     def testDropNodeThenRestartCluster(self):
         """ Start a cluster with more than one storage, down one, shutdown the

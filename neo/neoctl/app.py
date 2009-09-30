@@ -18,6 +18,7 @@
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.util import bin, dump
 from neo import protocol
+from neo.protocol import ClusterStates
 
 action_dict = {
     'print': {
@@ -53,9 +54,7 @@ class TerminalNeoCTL(object):
         return protocol.node_types.getFromStr(value)
 
     def asClusterState(self, value):
-        if not value.endswith('_CLUSTER_STATE'):
-            value += '_CLUSTER_STATE'
-        return protocol.cluster_states.getFromStr(value)
+        return ClusterStates.getByName(value.upper())
 
     def asNode(self, value):
         return bin(value)
@@ -154,7 +153,7 @@ class TerminalNeoCTL(object):
         """
           Starts cluster operation after a startup.
           Equivalent to:
-            set cluster VERIFYING_CLUSTER_STATE
+            set cluster verifying
         """
         assert len(params) == 0
         self.neoctl.startCluster()
