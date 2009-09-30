@@ -31,19 +31,13 @@ class NodesTests(NeoTestBase):
     def setUp(self):
         self.manager = Mock()
 
-    def _updatedByServer(self, node, index=0):
-        calls = self.manager.mockGetNamedCalls('unregisterServer')
-        self.assertEqual(len(calls), index + 1)
-        self.assertEqual(calls[index].getParam(0), node)
-        calls = self.manager.mockGetNamedCalls('registerServer')
+    def _updatedByAddress(self, node, index=0):
+        calls = self.manager.mockGetNamedCalls('_updateAddress')
         self.assertEqual(len(calls), index + 1)
         self.assertEqual(calls[index].getParam(0), node)
 
     def _updatedByUUID(self, node, index=0):
-        calls = self.manager.mockGetNamedCalls('unregisterUUID')
-        self.assertEqual(len(calls), index + 1)
-        self.assertEqual(calls[index].getParam(0), node)
-        calls = self.manager.mockGetNamedCalls('registerUUID')
+        calls = self.manager.mockGetNamedCalls('_updateUUID')
         self.assertEqual(len(calls), index + 1)
         self.assertEqual(calls[index].getParam(0), node)
 
@@ -74,7 +68,7 @@ class NodesTests(NeoTestBase):
         self.assertEqual(node.getServer(), None)
         server = ('127.0.0.1', 10000)
         node.setServer(server)
-        self._updatedByServer(node)
+        self._updatedByAddress(node)
 
     def testUUID(self):
         """ As for Server but UUID """
@@ -237,26 +231,6 @@ class NodeManagerTests(NeoTestBase):
         manager.clear()
         self.checkNodes([])
         self.checkClients([])
-
-    def testFilteredClear(self):
-        """ Check the clear filter works well """
-        manager = self.manager
-        manager.add(self.master)
-        manager.add(self.storage)
-        manager.add(self.client)
-        self.checkNodes([self.master, self.storage, self.client])
-        drop_clients = lambda node: isinstance(node, ClientNode)
-        manager.clear(filter=drop_clients)
-        self.checkNodes([self.master, self.storage])
-        self.checkClients([])
-        drop_masters = lambda node: isinstance(node, MasterNode)
-        manager.clear(filter=drop_masters)
-        self.checkNodes([self.storage])
-        self.checkMasters([])
-        drop_storage = lambda node: node is self.storage
-        manager.clear(filter=drop_storage)
-        self.checkNodes([])
-        self.checkStorages([])
 
     def testUpdate(self):
         """ Check manager content update """
