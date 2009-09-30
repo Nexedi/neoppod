@@ -17,7 +17,6 @@
 
 from neo import logging
 from neo import protocol
-from neo.protocol import CLIENT_NODE_TYPE
 from neo.master.handlers import BaseServiceHandler
 
 class ShutdownHandler(BaseServiceHandler):

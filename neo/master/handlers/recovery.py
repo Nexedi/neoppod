@@ -19,7 +19,6 @@ from neo import logging
 
 from neo import protocol
 from neo.master.handlers import MasterHandler
-from neo.protocol import UnexpectedPacketError, TEMPORARILY_DOWN_STATE
 from neo.util import dump
 
 class RecoveryHandler(MasterHandler):

@@ -19,8 +19,7 @@ from neo import logging
 
 from neo import protocol
 from neo.master.handlers import MasterHandler
-from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        HIDDEN_STATE, PENDING_STATE, RUNNING_CLUSTER_STATE
+from neo.protocol import RUNNING_STATE, PENDING_STATE
 from neo.util import dump
 
 class AdministrationHandler(MasterHandler):

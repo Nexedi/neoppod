@@ -17,15 +17,15 @@
 
 from neo import logging
 import os, sys
-from time import time, gmtime
+from time import time
 from struct import pack, unpack
 
 from neo import protocol
 from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        UUID_NAMESPACES, BOOTING_CLUSTER_STATE, INVALID_UUID
+        UUID_NAMESPACES, BOOTING_CLUSTER_STATE
 from neo.node import NodeManager
 from neo.event import EventManager
-from neo.connection import ListeningConnection, ClientConnection, ServerConnection
+from neo.connection import ListeningConnection, ClientConnection
 from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure, \
         OperationFailure
 from neo.master.handlers import election, identification, secondary, recovery

@@ -20,8 +20,7 @@ import sys
 from collections import deque
 
 from neo import protocol
-from neo.protocol import TEMPORARILY_DOWN_STATE, \
-        cell_states, HIDDEN_STATE
+from neo.protocol import HIDDEN_STATE
 from neo.node import NodeManager
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
