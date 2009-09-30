@@ -135,10 +135,7 @@ class Application(object):
             state = protocol.cell_states[state]
             # register unknown nodes
             if self.nm.getByUUID(uuid) is None:
-                self.nm.createStorage(
-                    uuid=uuid,
-                    state=protocol.TEMPORARILY_DOWN_STATE,
-                )
+                self.nm.createStorage(uuid=uuid)
             new_cell_list.append((offset, uuid, state))
         # load the partition table in manager
         self.pt.clear()

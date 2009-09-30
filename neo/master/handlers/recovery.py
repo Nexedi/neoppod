@@ -54,10 +54,7 @@ class RecoveryHandler(MasterHandler):
             for uuid, state in row:
                 node = app.nm.getByUUID(uuid) 
                 if node is None:
-                    app.nm.createStorage(
-                        uuid=uuid,
-                        state=protocol.TEMPORARILY_DOWN_STATE,
-                    )
+                    app.nm.createStorage(uuid=uuid)
         # load partition in memory
         self.app.pt.load(ptid, row_list, self.app.nm)
 
