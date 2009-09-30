@@ -32,34 +32,6 @@ from neo.client.Storage import Storage
 from neo.tests import getNewUUID
 from neo.util import dump
 
-NEO_CONFIG_HEADER = """
-[DEFAULT]
-master_nodes: %(master_nodes)s
-replicas: %(replicas)s
-partitions: %(partitions)s
-name: %(name)s
-user: %(user)s
-password: %(password)s
-connector: SocketConnector
-
-[admin]
-server: 127.0.0.1:%(port)s
-"""
-
-NEO_CONFIG_MASTER = """
-[%(id)s]
-server: 127.0.0.1:%(port)s
-"""
-
-NEO_CONFIG_STORAGE = """
-[%(id)s]
-database: %(db)s
-server: 127.0.0.1:%(port)s
-"""
-
-NEO_MASTER_ID = 'master%s'
-NEO_STORAGE_ID = 'storage%s'
-
 NEO_MASTER = 'neomaster'
 NEO_STORAGE = 'neostorage'
 NEO_ADMIN = 'neoadmin'
