@@ -20,8 +20,8 @@ from random import choice
 
 from neo.storage.handlers import replication
 from neo import protocol
-from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, RUNNING_STATE
-from neo.protocol import NodeTypes
+from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE
+from neo.protocol import NodeTypes, NodeStates
 from neo.connection import ClientConnection
 from neo.util import dump
 
@@ -155,7 +155,7 @@ class Replicator(object):
             cell_list = app.pt.getCellList(self.current_partition.getRID(), 
                                            readable=True)
             node_list = [cell.getNode() for cell in cell_list
-                            if cell.getNodeState() == RUNNING_STATE]
+                            if cell.getNodeState() == NodeStates.RUNNING]
             node = choice(node_list)
         except IndexError:
             # Not operational.

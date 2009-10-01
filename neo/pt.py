@@ -219,7 +219,7 @@ class PartitionTable(object):
         DEBUG:root:pt: 00000000: .UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.
         DEBUG:root:pt: 00000009: U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U
 
-        Here, there are 4 nodes in RUNNING_STATE.
+        Here, there are 4 nodes in RUNNING state.
         The first partition has 2 replicas in UP_TO_DATE_STATE, on nodes 1 and
         2 (nodes 0 and 3 are displayed as unused for that partition by
         displaying a dot).

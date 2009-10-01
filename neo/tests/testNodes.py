@@ -18,8 +18,7 @@
 import unittest
 from mock import Mock
 from neo import protocol
-from neo.protocol import RUNNING_STATE, DOWN_STATE, UNKNOWN_STATE
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, NodeStates
 from neo.node import Node, MasterNode, StorageNode, ClientNode, AdminNode, \
         NodeManager
 from neo.tests import NeoTestBase
@@ -45,7 +44,7 @@ class NodesTests(NeoTestBase):
         address = ('127.0.0.1', 10000)
         uuid = self.getNewUUID()
         node = Node(self.manager, address=address, uuid=uuid)
-        self.assertEqual(node.getState(), protocol.UNKNOWN_STATE)
+        self.assertEqual(node.getState(), NodeStates.UNKNOWN)
         self.assertEqual(node.getAddress(), address)
         self.assertEqual(node.getUUID(), uuid)
         self.assertTrue(time() - 1 < node.getLastStateChange() < time()) 
@@ -53,11 +52,11 @@ class NodesTests(NeoTestBase):
     def testState(self):
         """ Check if the last changed time is updated when state is changed """
         node = Node(self.manager)
-        self.assertEqual(node.getState(), protocol.UNKNOWN_STATE)
+        self.assertEqual(node.getState(), NodeStates.UNKNOWN)
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
         previous_time = node.getLastStateChange()
-        node.setState(protocol.RUNNING_STATE)
-        self.assertEqual(node.getState(), protocol.RUNNING_STATE)
+        node.setState(NodeStates.RUNNING)
+        self.assertEqual(node.getState(), NodeStates.RUNNING)
         self.assertTrue(previous_time < node.getLastStateChange())
         self.assertTrue(time() - 1 < node.getLastStateChange() < time())
 
@@ -248,10 +247,12 @@ class NodeManagerTests(NeoTestBase):
         new_address = ('127.0.0.1', 2001)
         new_uuid = self.getNewUUID()
         node_list = (
-            (NodeTypes.CLIENT, None, self.client.getUUID(), DOWN_STATE),
-            (NodeTypes.MASTER, new_address, self.master.getUUID(), RUNNING_STATE),
-            (NodeTypes.STORAGE, self.storage.getAddress(), new_uuid, RUNNING_STATE),
-            (NodeTypes.ADMIN, self.admin.getAddress(), self.admin.getUUID(), UNKNOWN_STATE),
+            (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.DOWN),
+            (NodeTypes.MASTER, new_address, self.master.getUUID(), NodeStates.RUNNING),
+            (NodeTypes.STORAGE, self.storage.getAddress(), new_uuid,
+                NodeStates.RUNNING),
+            (NodeTypes.ADMIN, self.admin.getAddress(), self.admin.getUUID(),
+                NodeStates.UNKNOWN),
         )
         # update manager content
         manager.update(node_list)
@@ -266,11 +267,11 @@ class NodeManagerTests(NeoTestBase):
         self.assertNotEqual(manager.getStorageList(), [self.storage])
         self.assertTrue(len(manager.getStorageList()), 1)
         new_storage = manager.getStorageList()[0]
-        self.assertEqual(new_storage.getState(), RUNNING_STATE)
+        self.assertEqual(new_storage.getState(), NodeStates.RUNNING)
         self.assertNotEqual(new_storage, self.storage)
-        # admin is still here but in UNKNOWN_STATE
+        # admin is still here but in UNKNOWN state
         self.checkNodes([self.master, self.admin, new_storage])
-        self.assertEqual(self.admin.getState(), UNKNOWN_STATE)
+        self.assertEqual(self.admin.getState(), NodeStates.UNKNOWN)
 
         
 if __name__ == '__main__':

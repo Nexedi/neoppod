@@ -19,7 +19,7 @@ from neo import logging
 
 from neo import protocol
 from neo.master.handlers import MasterHandler
-from neo.protocol import ClusterStates, RUNNING_STATE
+from neo.protocol import ClusterStates, NodeStates
 from neo.util import dump
 
 class AdministrationHandler(MasterHandler):
@@ -52,7 +52,7 @@ class AdministrationHandler(MasterHandler):
         if uuid == app.uuid:
             node.setState(state)
             # get message for self
-            if state != RUNNING_STATE:
+            if state != NodeStates.RUNNING:
                 p = protocol.noError('node state changed')
                 conn.answer(p, packet.getId())
                 app.shutdown()
@@ -63,7 +63,7 @@ class AdministrationHandler(MasterHandler):
             conn.answer(p, packet.getId())
             return
 
-        if state == protocol.RUNNING_STATE:
+        if state == NodeStates.RUNNING:
             # first make sure to have a connection to the node
             node_conn = None
             for node_conn in app.em.getConnectionList():
@@ -73,7 +73,7 @@ class AdministrationHandler(MasterHandler):
                 # no connection to the node
                 raise protocol.ProtocolError('no connection to the node')
 
-        elif state == protocol.DOWN_STATE and node.isStorage():
+        elif state == NodeStates.DOWN and node.isStorage():
             # modify the partition table if required
             cell_list = []
             if modify_partition_table:

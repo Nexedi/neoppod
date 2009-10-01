@@ -20,7 +20,7 @@ from neo.connection import ClientConnection
 from neo.event import EventManager
 from neo.neoctl.handler import CommandEventHandler
 from neo import protocol
-from neo.protocol import ClusterStates
+from neo.protocol import ClusterStates, NodeStates
 
 class NotReadyException(Exception):
     pass
@@ -133,7 +133,7 @@ class NeoCTL(object):
         """
           Set node into "down" state and remove it from partition table.
         """
-        self.setNodeState(node, protocol.DOWN_STATE, update_partition_table=1)
+        self.setNodeState(node, NodeStates.DOWN, update_partition_table=1)
 
     def getPrimaryMaster(self):
         """

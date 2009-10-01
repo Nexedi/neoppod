@@ -17,8 +17,6 @@
 import unittest, os
 from mock import Mock
 from neo import protocol
-from neo.protocol import RUNNING_STATE, TEMPORARILY_DOWN_STATE, \
-        DOWN_STATE, BROKEN_STATE, INVALID_UUID
 from time import time
 from neo.connection import BaseConnection, ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, MTServerConnection

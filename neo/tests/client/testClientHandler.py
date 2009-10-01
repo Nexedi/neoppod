@@ -23,8 +23,7 @@ from neo.tests import NeoTestBase
 from neo import protocol
 from neo.pt import PartitionTable
 from neo.protocol import UnexpectedPacketError, INVALID_UUID
-from neo.protocol import NodeTypes, INVALID_PTID, \
-     RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, \
+from neo.protocol import NodeTypes, NodeStates, INVALID_PTID, \
      UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.client.handlers import BaseHandler
 from neo.client.handlers.master import PrimaryBootstrapHandler
@@ -90,7 +89,7 @@ class ClientHandlerTests(NeoTestBase):
         #self.assertEquals(app.master_conn, None)
         #self.assertEquals(app.primary_master_node, None)
 
-    def _testStorageWithMethod(self, method, handler_class, state=TEMPORARILY_DOWN_STATE):
+    def _testStorageWithMethod(self, method, handler_class, state=NodeStates.TEMPORARILY_DOWN):
         storage_ip = '127.0.0.1'
         storage_port = 10011
         fake_storage_node_uuid = self.getNewUUID()
@@ -200,9 +199,9 @@ class ClientHandlerTests(NeoTestBase):
 
     def test_storagePeerBroken(self):
         self._testStorageWithMethod(self._testPeerBroken,
-                StorageBootstrapHandler, state=BROKEN_STATE)
+                StorageBootstrapHandler, state=NodeStates.BROKEN)
         self._testStorageWithMethod(self._testPeerBroken,
-                StorageAnswersHandler, state=BROKEN_STATE)
+                StorageAnswersHandler, state=NodeStates.BROKEN)
 
     def test_notReady(self):
         app = Mock({'setNodeNotReady': None})
@@ -571,7 +570,7 @@ class ClientHandlerTests(NeoTestBase):
         # first notify unknown master nodes
         uuid = self.getNewUUID()
         test_node = (NodeTypes.MASTER, '127.0.0.1', 10010, uuid,
-                     RUNNING_STATE)
+                     NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByUUID=None)
         # Check that two nodes got added (second is with INVALID_UUID)
         add_call_list = nm.mockGetNamedCalls('add')
@@ -585,7 +584,7 @@ class ClientHandlerTests(NeoTestBase):
         node = Mock({})
         uuid = self.getNewUUID()
         test_node = (NodeTypes.MASTER, '127.0.0.1', 10010, uuid,
-                     RUNNING_STATE)
+                     NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByAddress=node,
                 getByUUID=node)
         # Check that node got replaced
@@ -600,7 +599,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def test_unknownStorageNotifyNodeInformation(self):
         test_node = (NodeTypes.STORAGE, '127.0.0.1', 10010, self.getNewUUID(),
-                     RUNNING_STATE)
+                     NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByUUID=None)
         # Check that node got added
         add_call_list = nm.mockGetNamedCalls('add')
@@ -615,7 +614,7 @@ class ClientHandlerTests(NeoTestBase):
     def test_knownStorageNotifyNodeInformation(self):
         node = Mock({'setState': None, 'setAddress': None})
         test_node = (NodeTypes.STORAGE, '127.0.0.1', 10010, self.getNewUUID(),
-                     RUNNING_STATE)
+                     NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByUUID=node)
         # Check that node got replaced
         add_call_list = nm.mockGetNamedCalls('add')
@@ -735,7 +734,7 @@ class ClientHandlerTests(NeoTestBase):
         setCell_call_list[0].checkArgs(test_cell_list[0][0], added_node,
                 test_cell_list[0][2])
 
-    # TODO: confirm condition under which an unknown node should be added with a TEMPORARILY_DOWN_STATE (implementation is unclear)
+    # TODO: confirm condition under which an unknown node should be added with a TEMPORARILY_DOWN (implementation is unclear)
 
     def test_knownNodeNotifyPartitionChanges(self):
         test_ptid = 1
@@ -764,8 +763,8 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEquals(calls[0].getParam(0).getUUID(), uuid2)
         self.assertEquals(calls[1].getParam(0).getUUID(), uuid3)
         self.assertEquals(calls[2].getParam(0).getUUID(), uuid4)
-        self.assertEquals(calls[0].getParam(0).getState(), TEMPORARILY_DOWN_STATE)
-        self.assertEquals(calls[1].getParam(0).getState(), TEMPORARILY_DOWN_STATE)
+        self.assertEquals(calls[0].getParam(0).getState(), NodeStates.TEMPORARILY_DOWN)
+        self.assertEquals(calls[1].getParam(0).getState(), NodeStates.TEMPORARILY_DOWN)
         # and the others are updated
         self.assertEqual(app.ptid, test_ptid + 1)
         calls = app.pt.mockGetNamedCalls('setCell')

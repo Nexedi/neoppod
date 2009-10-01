@@ -18,9 +18,9 @@
 import unittest, os
 from mock import Mock
 from neo.tests import NeoTestBase
+from neo.protocol import NodeStates
 from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
-        DISCARDED_STATE, RUNNING_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
-        BROKEN_STATE, INVALID_UUID
+        DISCARDED_STATE, INVALID_UUID
 from neo.pt import Cell
 from neo.master.pt import PartitionTable
 from neo.node import StorageNode
@@ -115,15 +115,15 @@ class MasterPartitionTableTests(NeoTestBase):
         num_replicas = 3
         pt = PartitionTable(num_partitions, num_replicas)
         pt.setCell(0, sn1, OUT_OF_DATE_STATE)
-        sn1.setState(RUNNING_STATE)
+        sn1.setState(NodeStates.RUNNING)
         pt.setCell(1, sn2, UP_TO_DATE_STATE)
-        sn2.setState(TEMPORARILY_DOWN_STATE)
+        sn2.setState(NodeStates.TEMPORARILY_DOWN)
         pt.setCell(2, sn3, UP_TO_DATE_STATE)
-        sn3.setState(DOWN_STATE)
+        sn3.setState(NodeStates.DOWN)
         pt.setCell(3, sn4, UP_TO_DATE_STATE)
-        sn4.setState(BROKEN_STATE)
+        sn4.setState(NodeStates.BROKEN)
         pt.setCell(4, sn5, UP_TO_DATE_STATE)
-        sn5.setState(RUNNING_STATE)
+        sn5.setState(NodeStates.RUNNING)
         # outdate nodes
         cells_outdated = pt.outdate()
         self.assertEqual(len(cells_outdated), 3)
@@ -373,7 +373,7 @@ class MasterPartitionTableTests(NeoTestBase):
         uuid2 = self.getNewUUID()
         server2 = ("127.0.0.2", 19001)
         sn2 = StorageNode(Mock(), server2, uuid2)
-        sn2.setState(TEMPORARILY_DOWN_STATE)
+        sn2.setState(NodeStates.TEMPORARILY_DOWN)
         # add node without uuid
         server3 = ("127.0.0.3", 19001)
         sn3 = StorageNode(Mock(), server3, None)

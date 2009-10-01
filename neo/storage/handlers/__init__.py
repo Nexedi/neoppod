@@ -19,10 +19,9 @@ from neo import logging
 
 from neo.handler import EventHandler
 from neo import protocol
-from neo.protocol import BROKEN_STATE, \
-        DOWN_STATE, TEMPORARILY_DOWN_STATE, HIDDEN_STATE
 from neo.util import dump
 from neo.exception import PrimaryFailure, OperationFailure
+from neo.protocol import NodeStates
 
 class BaseStorageHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -52,11 +51,12 @@ class BaseMasterHandler(BaseStorageHandler):
             if uuid == self.app.uuid:
                 # This is me, do what the master tell me
                 logging.info("I was told I'm %s" %(state))
-                if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE):
+                if state in (NodeStates.DOWN, NodeStates.TEMPORARILY_DOWN,
+                        NodeStates.BROKEN):
                     conn.close()
-                    erase = state == DOWN_STATE
+                    erase = state == NodeStates.DOWN
                     self.app.shutdown(erase=erase)
-                elif state == HIDDEN_STATE:
+                elif state == NodeStates.HIDDEN:
                     raise OperationFailure
 
 

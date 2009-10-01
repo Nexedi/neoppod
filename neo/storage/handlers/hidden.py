@@ -18,9 +18,8 @@
 from neo import logging
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.protocol import BROKEN_STATE, DOWN_STATE, \
-        TEMPORARILY_DOWN_STATE, DISCARDED_STATE, OUT_OF_DATE_STATE
-from neo.protocol import NodeTypes
+from neo.protocol import DISCARDED_STATE, OUT_OF_DATE_STATE
+from neo.protocol import NodeTypes, NodeStates
 
 class HiddenHandler(BaseMasterHandler):
     """This class implements a generic part of the event handlers."""
@@ -38,9 +37,10 @@ class HiddenHandler(BaseMasterHandler):
             if node_type == NodeTypes.STORAGE:
                 if uuid == self.app.uuid:
                     # This is me, do what the master tell me
-                    if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE):
+                    if state in (NodeStates.DOWN, NodeStates.TEMPORARILY_DOWN,
+                            NodeStates.BROKEN):
                         conn.close()
-                        erase_db = state == DOWN_STATE
+                        erase_db = state == NodeStates.DOWN
                         self.app.shutdown(erase=erase_db)
 
     def handleRequestNodeIdentification(self, conn, packet, node_type,

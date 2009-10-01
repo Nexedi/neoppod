@@ -18,7 +18,7 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import HIDDEN_STATE
+from neo.protocol import NodeStates
 from neo.master.handlers import BaseServiceHandler
 from neo.protocol import UnexpectedPacketError
 from neo.util import dump, getNextTID
@@ -113,7 +113,7 @@ class ClientServiceHandler(BaseServiceHandler):
         uuid_set = set()
         for part in partition_set:
             uuid_set.update((cell.getUUID() for cell in app.pt.getCellList(part) \
-                             if cell.getNodeState() != HIDDEN_STATE))
+                             if cell.getNodeState() != NodeStates.HIDDEN))
 
         # Request locking data.
         # build a new set as we may not send the message to all nodes as some

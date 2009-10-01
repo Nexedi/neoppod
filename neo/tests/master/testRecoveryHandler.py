@@ -22,7 +22,7 @@ from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoTestBase
 from neo import protocol
-from neo.protocol import Packet, NodeTypes, INVALID_UUID
+from neo.protocol import Packet, NodeTypes, NodeStates, INVALID_UUID
 from neo.master.handlers.recovery import RecoveryHandler
 from neo.master.app import Application
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -43,7 +43,6 @@ from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIF
      NOT_READY_CODE, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
      PROTOCOL_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
      INTERNAL_ERROR_CODE, \
-     RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import OperationFailure, ElectionFailure     
 from neo.tests import DoNothingConnector
@@ -64,7 +63,7 @@ class MasterRecoveryTests(NeoTestBase):
         self.app.negotiating_master_node_set = set()
         for node in self.app.nm.getMasterList():
             self.app.unconnected_master_node_set.add(node.getAddress())
-            node.setState(RUNNING_STATE)
+            node.setState(NodeStates.RUNNING)
 
         # define some variable to simulate client and storage node
         self.client_port = 11022
@@ -91,24 +90,30 @@ class MasterRecoveryTests(NeoTestBase):
     def test_01_connectionClosed(self):
         uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
+                NodeStates.RUNNING)        
         self.recovery.connectionClosed(conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)                
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
+                NodeStates.TEMPORARILY_DOWN)                
 
     def test_02_timeoutExpired(self):
         uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
+                NodeStates.RUNNING)        
         self.recovery.timeoutExpired(conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)                
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
+                NodeStates.TEMPORARILY_DOWN)                
 
 
     def test_03_peerBroken(self):
         uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
+                NodeStates.RUNNING)        
         self.recovery.peerBroken(conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), BROKEN_STATE)                
+        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
+                NodeStates.BROKEN)                
 
     def test_08_handleNotifyNodeInformation(self):
         recovery = self.recovery
@@ -116,14 +121,16 @@ class MasterRecoveryTests(NeoTestBase):
         packet = Packet(msg_type=NOTIFY_NODE_INFORMATION)
         # tell about a client node, do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(NodeTypes.CLIENT, '127.0.0.1', self.client_port, self.getNewUUID(), DOWN_STATE),]
+        node_list = [(NodeTypes.CLIENT, '127.0.0.1', self.client_port,
+            self.getNewUUID(), NodeStates.DOWN),]
         self.assertEqual(len(self.app.nm.getList()), 0)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
         self.assertEqual(len(self.app.nm.getList()), 0)
 
         # tell the master node about itself, if running must do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(NodeTypes.MASTER, '127.0.0.1', self.master_port-1, self.app.uuid, RUNNING_STATE),]
+        node_list = [(NodeTypes.MASTER, '127.0.0.1', self.master_port-1,
+            self.app.uuid, NodeStates.RUNNING),]
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port-1))
         self.assertEqual(node, None)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
@@ -131,35 +138,39 @@ class MasterRecoveryTests(NeoTestBase):
 
         # tell the master node about itself, if down must raise
         conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(NodeTypes.MASTER, '127.0.0.1', self.master_port-1, self.app.uuid, DOWN_STATE),]
+        node_list = [(NodeTypes.MASTER, '127.0.0.1', self.master_port-1,
+            self.app.uuid, NodeStates.DOWN),]
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port-1))
         self.assertEqual(node, None)
         self.assertRaises(RuntimeError, recovery.handleNotifyNodeInformation, conn, packet, node_list)
 
         # tell about an unknown storage node, do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(NodeTypes.STORAGE, '127.0.0.1', self.master_port - 1, self.getNewUUID(), DOWN_STATE),]
+        node_list = [(NodeTypes.STORAGE, '127.0.0.1', self.master_port - 1,
+            self.getNewUUID(), NodeStates.DOWN),]
         self.assertEqual(len(self.app.nm.getStorageList()), 0)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
         self.assertEqual(len(self.app.nm.getStorageList()), 0)
 
         # tell about a known node but different address
         conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(NodeTypes.MASTER, '127.0.0.2', self.master_port, uuid, DOWN_STATE),]
+        node_list = [(NodeTypes.MASTER, '127.0.0.2', self.master_port, uuid,
+            NodeStates.DOWN),]
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
-        self.assertEqual(node.getState(), RUNNING_STATE)
+        self.assertEqual(node.getState(), NodeStates.RUNNING)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
-        self.assertEqual(node.getState(), RUNNING_STATE)
+        self.assertEqual(node.getState(), NodeStates.RUNNING)
 
         # tell about a known node
         conn = self.getFakeConnection(uuid, self.master_address)
-        node_list = [(NodeTypes.MASTER, '127.0.0.1', self.master_port, uuid, DOWN_STATE),]
+        node_list = [(NodeTypes.MASTER, '127.0.0.1', self.master_port, uuid,
+            NodeStates.DOWN),]
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
-        self.assertEqual(node.getState(), RUNNING_STATE)
+        self.assertEqual(node.getState(), NodeStates.RUNNING)
         recovery.handleNotifyNodeInformation(conn, packet, node_list)
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
-        self.assertEqual(node.getState(), DOWN_STATE)
+        self.assertEqual(node.getState(), NodeStates.DOWN)
         
 
     def test_09_handleAnswerLastIDs(self):
@@ -225,7 +236,7 @@ class MasterRecoveryTests(NeoTestBase):
         self.assertEquals(self.app.target_uuid, uuid)
         offset = 1000000
         self.assertFalse(self.app.pt.hasOffset(offset))
-        cell_list = [(offset, ((uuid, DOWN_STATE,),),)]
+        cell_list = [(offset, ((uuid, NodeStates.DOWN,),),)]
         self.checkUnexpectedPacketRaised(recovery.handleAnswerPartitionTable, conn, packet, None, cell_list)
         
     

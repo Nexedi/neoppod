@@ -19,7 +19,7 @@ from neo import logging
 
 from neo import protocol
 from neo.handler import EventHandler
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, NodeStates
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -72,7 +72,7 @@ class MasterHandler(EventHandler):
 
 
 DISCONNECTED_STATE_DICT = {
-    NodeTypes.STORAGE: protocol.TEMPORARILY_DOWN_STATE,
+    NodeTypes.STORAGE: NodeStates.TEMPORARILY_DOWN,
 }
 
 class BaseServiceHandler(MasterHandler):
@@ -86,11 +86,11 @@ class BaseServiceHandler(MasterHandler):
     def connectionLost(self, conn, new_state):
         node = self.app.nm.getByUUID(conn.getUUID())
         assert node is not None
-        if new_state != protocol.BROKEN_STATE:
-            new_state = DISCONNECTED_STATE_DICT.get(node.getType(), protocol.DOWN_STATE)
+        if new_state != NodeStates.BROKEN:
+            new_state = DISCONNECTED_STATE_DICT.get(node.getType(), NodeStates.DOWN)
         if node.getState() == new_state:
             return
-        if new_state != protocol.BROKEN_STATE and node.isPending():
+        if new_state != NodeStates.BROKEN and node.isPending():
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
             logging.info('drop a pending node from the node manager')

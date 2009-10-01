@@ -32,3 +32,5 @@ def setupLog(name='NEO', filename=None, verbose=False):
     format = PREFIX + SUFFIX
     logging_std.basicConfig(filename=filename, level=level, format=format)
     logging = logging_std.getLogger(name.upper())
+
+from neo import protocol

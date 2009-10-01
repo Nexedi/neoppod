@@ -23,7 +23,7 @@ from Persistence import Persistent
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo.client.Storage import Storage as NEOStorage
 from neo import protocol
-from neo.protocol import ClusterStates
+from neo.protocol import ClusterStates, NodeStates
 
 class PObject(Persistent):
     
@@ -106,18 +106,18 @@ class StorageTests(NEOFunctionalTest):
             self.__checkDatabase(db_name)
 
         # check storages state
-        storage_list = self.neo.getStorageList(protocol.RUNNING_STATE)
+        storage_list = self.neo.getStorageList(NodeStates.RUNNING)
         self.assertEqual(len(storage_list), 2)
 
     def __expectRunning(self, process):
-        self.neo.expectStorageState(process.getUUID(), protocol.RUNNING_STATE)
+        self.neo.expectStorageState(process.getUUID(), NodeStates.RUNNING)
 
     def __expectPending(self, process):
-        self.neo.expectStorageState(process.getUUID(), protocol.PENDING_STATE)
+        self.neo.expectStorageState(process.getUUID(), NodeStates.PENDING)
     
     def __expectUnavailable(self, process):
         self.neo.expectStorageState(process.getUUID(),
-                protocol.TEMPORARILY_DOWN_STATE)
+                NodeStates.TEMPORARILY_DOWN)
 
     def __expectNotKnown(self, process):
         def expected_storage_not_known(last_try):

@@ -18,7 +18,7 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, NodeStates
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
 
@@ -50,7 +50,7 @@ class ElectionHandler(MasterHandler):
                     if node.getUUID() is None:
                         node.setUUID(uuid)
 
-                if state in (node.getState(), protocol.RUNNING_STATE):
+                if state in (node.getState(), NodeStates.RUNNING):
                     # No change. Don't care.
                     continue
 

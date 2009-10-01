@@ -19,7 +19,7 @@ import unittest, os
 from mock import Mock
 from neo import protocol
 from neo.protocol import *
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, NodeStates
 from neo.tests import NeoTestBase
 from neo.util import getNextTID
 from time import time, gmtime
@@ -144,9 +144,9 @@ class ProtocolTests(NeoTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        node_list = [(NodeTypes.CLIENT, ("127.0.0.1", 1), uuid1, RUNNING_STATE),
-                       (NodeTypes.CLIENT, ("127.0.0.2", 2), uuid2, DOWN_STATE),
-                       (NodeTypes.CLIENT, ("127.0.0.3", 3), uuid3, BROKEN_STATE)]
+        node_list = [(NodeTypes.CLIENT, ("127.0.0.1", 1), uuid1, NodeStates.RUNNING),
+                       (NodeTypes.CLIENT, ("127.0.0.2", 2), uuid2, NodeStates.DOWN),
+                       (NodeTypes.CLIENT, ("127.0.0.3", 3), uuid3, NodeStates.BROKEN)]
         p = protocol.notifyNodeInformation(node_list)
         p_node_list = p.decode()[0]
         self.assertEqual(node_list, p_node_list)

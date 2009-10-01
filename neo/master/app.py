@@ -21,7 +21,7 @@ from time import time
 from struct import pack, unpack
 
 from neo import protocol
-from neo.protocol import UUID_NAMESPACES, ClusterStates, NodeTypes
+from neo.protocol import UUID_NAMESPACES, ClusterStates, NodeStates, NodeTypes
 from neo.node import NodeManager
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection
@@ -724,7 +724,7 @@ class Application(object):
                         node = self.nm.getByUUID(c.getUUID())
                         if node.isClient():
                             node_list = [(node.getType(), node.getAddress(), 
-                                node.getUUID(), protocol.DOWN_STATE)]
+                                node.getUUID(), NodeStates.DOWN)]
                             c.notify(protocol.notifyNodeInformation(node_list))
                     # then ask storages and master nodes to shutdown
                     logging.info("asking all remaining nodes to shutdown")
@@ -732,13 +732,13 @@ class Application(object):
                         node = self.nm.getByUUID(c.getUUID())
                         if node.isStorage() or node.isMaster():
                             node_list = [(node.getType(), node.getAddress(), 
-                                node.getUUID(), protocol.DOWN_STATE)]
+                                node.getUUID(), NodeStates.DOWN)]
                             c.notify(protocol.notifyNodeInformation(node_list))
                     # then shutdown
                     sys.exit("Cluster has been asked to shut down")
 
     def identifyStorageNode(self, uuid, node):
-        state = protocol.RUNNING_STATE
+        state = NodeStates.RUNNING
         handler = None
         if self.cluster_state == ClusterStates.RECOVERING:
             if uuid is None:
@@ -752,12 +752,12 @@ class Application(object):
                 # Here the uuid is not cleared to allow lookup pending nodes by
                 # uuid from the test framework. It's safe since nodes with a 
                 # conflicting UUID are rejected in the identification handler.
-                state = protocol.PENDING_STATE
+                state = NodeStates.PENDING
             handler = verification.VerificationHandler
         elif self.cluster_state == ClusterStates.RUNNING:
             if uuid is None or node is None:
                 # same as for verification
-                state = protocol.PENDING_STATE
+                state = NodeStates.PENDING
             handler = storage.StorageServiceHandler
         elif self.cluster_state == ClusterStates.STOPPING:
             raise protocol.NotReadyError
@@ -767,7 +767,7 @@ class Application(object):
 
     def identifyNode(self, node_type, uuid, node):
 
-        state = protocol.RUNNING_STATE
+        state = NodeStates.RUNNING
         handler = identification.IdentificationHandler
 
         if node_type == NodeTypes.ADMIN:

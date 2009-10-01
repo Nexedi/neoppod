@@ -18,15 +18,14 @@
 from time import time
 
 from neo import logging
-from neo import protocol
 from neo.util import dump
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, NodeStates
 
 class Node(object):
     """This class represents a node."""
 
     def __init__(self, manager, address=None, uuid=None, 
-            state=protocol.UNKNOWN_STATE):
+            state=NodeStates.UNKNOWN):
         self._state = state
         self._address = address
         self._uuid = uuid
@@ -89,42 +88,42 @@ class Node(object):
 
     def isRunning(self):
         # FIXME: is it like 'connected' ?
-        return self._state == protocol.RUNNING_STATE
+        return self._state == NodeStates.RUNNING
 
     def isTemporarilyDown(self):
-        # FIXME: is it like 'unconnected' or UNKNOWN_STATE ?
-        return self._state == protocol.TEMPORARILY_DOWN_STATE
+        # FIXME: is it like 'unconnected' or UNKNOWN state ? 
+        return self._state == NodeStates.TEMPORARILY_DOWN
 
     def isDown(self):
         # FIXME: is it like 'unconnected' or 'forgotten' ?
-        return self._state == protocol.DOWN_STATE
+        return self._state == NodeStates.DOWN
         
     def isBroken(self):
-        return self._state == protocol.BROKEN_STATE
+        return self._state == NodeStates.BROKEN
 
     def isHidden(self):
-        return self._state == protocol.HIDDEN_STATE
+        return self._state == NodeStates.HIDDEN
 
     def isPending(self):
-        return self._state == protocol.PENDING_STATE
+        return self._state == NodeStates.PENDING
 
     def setRunning(self):
-        self.setState(protocol.RUNNING_STATE)
+        self.setState(NodeStates.RUNNING)
 
     def setTemporarilyDown(self):
-        self.setState(protocol.TEMPORARILY_DOWN_STATE)
+        self.setState(NodeStates.TEMPORARILY_DOWN)
 
     def setDown(self):
-        self.setState(protocol.DOWN_STATE)
+        self.setState(NodeStates.DOWN)
 
     def setBroken(self):
-        self.setState(protocol.BROKEN_STATE)
+        self.setState(NodeStates.BROKEN)
 
     def setHidden(self):
-        self.setState(protocol.HIDDEN_STATE)
+        self.setState(NodeStates.HIDDEN)
 
     def setPending(self):
-        self.setState(protocol.PENDING_STATE)
+        self.setState(NodeStates.PENDING)
 
     def asTuple(self):
         """ Returned tuple is intented to be used in procotol encoders """
@@ -318,7 +317,7 @@ class NodeManager(object):
             node = node_by_uuid or node_by_addr
 
             log_args = (node_type, dump(uuid), addr, state)
-            if state == protocol.DOWN_STATE:
+            if state == NodeStates.DOWN:
                 # drop down nodes
                 logging.debug('drop node %s %s %s %s' % log_args)
                 self.remove(node)

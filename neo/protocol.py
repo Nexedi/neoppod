@@ -336,26 +336,27 @@ class NodeTypes(Enum):
 
 NodeTypes = NodeTypes()
 
-# Node states.
-node_states = OldEnum({
-    'RUNNING_STATE': 0,
-    'TEMPORARILY_DOWN_STATE': 1,
-    'DOWN_STATE': 2,
-    'BROKEN_STATE': 3,
-    'HIDDEN_STATE' : 4,
-    'PENDING_STATE': 5,
-    'UNKNOWN_STATE': 6,
-})
+class NodeStates(Enum):
+
+    RUNNING = Enum.Item(1)
+    TEMPORARILY_DOWN = Enum.Item(2)
+    DOWN = Enum.Item(3)
+    BROKEN = Enum.Item(4)
+    HIDDEN = Enum.Item(5)
+    PENDING = Enum.Item(6)
+    UNKNOWN = Enum.Item(7)
+
+NodeStates = NodeStates()
 
 # used for logging
 node_state_prefix_dict = {
-    RUNNING_STATE: 'R',
-    TEMPORARILY_DOWN_STATE: 'T',
-    DOWN_STATE: 'D',
-    BROKEN_STATE: 'B',
-    HIDDEN_STATE: 'H',
-    PENDING_STATE: 'P',
-    UNKNOWN_STATE: 'U',
+    NodeStates.RUNNING: 'R',
+    NodeStates.TEMPORARILY_DOWN: 'T',
+    NodeStates.DOWN: 'D',
+    NodeStates.BROKEN: 'B',
+    NodeStates.HIDDEN: 'H',
+    NodeStates.PENDING: 'P',
+    NodeStates.UNKNOWN: 'U',
 }
 
 # Partition cell states.
@@ -505,7 +506,7 @@ def _decodeClusterState(state):
     return cluster_state
 
 def _decodeNodeState(state):
-    node_state = node_states.get(state)
+    node_state = NodeStates.get(state)
     if node_state is None:
         raise PacketMalformedError('invalid node state %d' % state)
     return node_state

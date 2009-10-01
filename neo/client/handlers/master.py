@@ -19,8 +19,7 @@ from neo import logging
 
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.pt import MTPartitionTable as PartitionTable
-from neo import protocol
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, NodeStates
 from neo.util import dump
 
 class PrimaryBootstrapHandler(AnswerBaseHandler):
@@ -165,7 +164,7 @@ class PrimaryNotificationsHandler(BaseHandler):
         self.app.nm.update(node_list)
         for node_type, addr, uuid, state in node_list:
             if node_type != NodeTypes.STORAGE \
-                    or state != protocol.RUNNING_STATE:
+                    or state != NodeStates.RUNNING:
                 continue
             # close connection to this storage if no longer running
             conn = self.app.em.getConnectionByUUID(uuid)

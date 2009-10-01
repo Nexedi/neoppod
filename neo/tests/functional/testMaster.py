@@ -20,6 +20,7 @@ import unittest
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo.neoctl.neoctl import NotReadyException
 from neo import protocol
+from neo.protocol import NodeStates
 from neo.util import dump
 
 MASTER_NODE_COUNT = 3
@@ -62,7 +63,7 @@ class MasterTests(NEOFunctionalTest):
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
         # Check the state of the primary we just killed
-        self.neo.expectMasterState(uuid, (None, protocol.UNKNOWN_STATE))
+        self.neo.expectMasterState(uuid, (None, NodeStates.UNKNOWN))
         self.assertEqual(self.neo.getPrimaryMaster(), None)
         # Check that a primary master arised.
         self.neo.expectPrimaryMaster(timeout=10)
@@ -72,7 +73,7 @@ class MasterTests(NEOFunctionalTest):
 
     def testStoppingPrimaryMasterWithOneSecondary(self):
         self.neo.expectAllMasters(MASTER_NODE_COUNT, 
-                state=protocol.RUNNING_STATE)
+                state=NodeStates.RUNNING)
 
         # Kill one secondary master.
         killed_uuid_list = self.neo.killSecondaryMaster()
@@ -86,7 +87,7 @@ class MasterTests(NEOFunctionalTest):
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
         # Check the state of the primary we just killed
-        self.neo.expectMasterState(uuid, (None, protocol.UNKNOWN_STATE))
+        self.neo.expectMasterState(uuid, (None, NodeStates.UNKNOWN))
         self.assertEqual(self.neo.getPrimaryMaster(), None)
         # Check that a primary master arised.
         self.neo.expectPrimaryMaster(timeout=10)
@@ -96,7 +97,7 @@ class MasterTests(NEOFunctionalTest):
 
     def testMasterSequentialStart(self):
         self.neo.expectAllMasters(MASTER_NODE_COUNT, 
-                state=protocol.RUNNING_STATE)
+                state=NodeStates.RUNNING)
         master_list = self.neo.getMasterProcessList()
 
         # Stop the cluster (so we can start processes manually)
@@ -110,7 +111,7 @@ class MasterTests(NEOFunctionalTest):
         self.neo.expectPrimaryMaster(first_master_uuid, timeout=30)
         # Check that no other node is known as running.
         self.assertEqual(len(self.neo.getMasterList(
-            state=protocol.RUNNING_STATE)), 1)
+            state=NodeStates.RUNNING)), 1)
 
         # Start a second master.
         second_master = master_list[1]
@@ -120,7 +121,7 @@ class MasterTests(NEOFunctionalTest):
         second_master.start()
         # Check that the second master is running under his known UUID.
         self.neo.expectMasterState(second_master.getUUID(), 
-                protocol.RUNNING_STATE)
+                NodeStates.RUNNING)
         # Check that the primary master didn't change.
         self.assertEqual(self.neo.getPrimaryMaster(), first_master_uuid)
 
@@ -132,7 +133,7 @@ class MasterTests(NEOFunctionalTest):
         third_master.start()
         # Check that the third master is running under his known UUID.
         self.neo.expectMasterState(third_master.getUUID(), 
-                protocol.RUNNING_STATE)
+                NodeStates.RUNNING)
         # Check that the primary master didn't change.
         self.assertEqual(self.neo.getPrimaryMaster(), first_master_uuid)
 

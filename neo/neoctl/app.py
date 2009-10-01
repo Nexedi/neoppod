@@ -17,8 +17,7 @@
 
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.util import bin, dump
-from neo import protocol
-from neo.protocol import ClusterStates, NodeTypes
+from neo.protocol import ClusterStates, NodeStates, NodeTypes
 
 action_dict = {
     'print': {
@@ -44,9 +43,7 @@ class TerminalNeoCTL(object):
 
     # Utility methods (could be functions)
     def asNodeState(self, value):
-        if not value.endswith('_STATE'):
-            value += '_STATE'
-        return protocol.node_states.getFromStr(value)
+        return NodeStates.getByName(value.upper())
 
     def asNodeType(self, value):
         return NodeTypes.getByName(value.upper())
@@ -197,7 +194,7 @@ class Application(object):
     def execute(self, args):
         """Execute the command given."""
         # print node type : print list of node of the given type (STORAGE_NODE_TYPE, MASTER_NODE_TYPE...)
-        # set node uuid state [1|0] : set the node for the given uuid to the state (RUNNING_STATE, DOWN_STATE...)
+        # set node uuid state [1|0] : set the node for the given uuid to the state (RUNNING, DOWN...)
         #                             and modify the partition if asked
         # set cluster name [shutdown|operational] : either shutdown the cluster or mark it as operational
         current_action = action_dict

@@ -17,6 +17,7 @@
 
 from neo import logging
 from neo import protocol
+from neo.protocol import NodeStates
 from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -141,17 +142,17 @@ class EventHandler(object):
     def timeoutExpired(self, conn):
         """Called when a timeout event occurs."""
         logging.debug('timeout expired for %s:%d', *(conn.getAddress()))
-        self.connectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
+        self.connectionLost(conn, NodeStates.TEMPORARILY_DOWN)
 
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
         logging.debug('connection closed for %s:%d', *(conn.getAddress()))
-        self.connectionLost(conn, protocol.TEMPORARILY_DOWN_STATE)
+        self.connectionLost(conn, NodeStates.TEMPORARILY_DOWN)
 
     def peerBroken(self, conn):
         """Called when a peer is broken."""
         logging.error('%s:%d is broken', *(conn.getAddress()))
-        self.connectionLost(conn, protocol.BROKEN_STATE)
+        self.connectionLost(conn, NodeStates.BROKEN)
 
     def connectionLost(self, conn, new_state):
         """ this is a method to override in sub-handlers when there is no need
