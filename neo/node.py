@@ -129,6 +129,12 @@ class Node(object):
         """ Returned tuple is intented to be used in procotol encoders """
         return (self.getType(), self._address, self._uuid, self._state)
 
+    def __gt__(self, node):
+        # sort per UUID if defined
+        if self._uuid is not None:
+            return self._uuid > node._uuid
+        return self._address > node._address
+
     # XXX: for comptatibility, to be removed
     def getType(self):
         try:
@@ -350,10 +356,4 @@ class NodeManager(object):
                 address = '%s:%d' % address
             logging.debug(' * %32s | %17s | %22s | %s' % (
                 uuid, node.getType(), address, node.getState()))
-
-    def __gt__(self, node):
-        # sort per UUID if defined
-        if self._uuid is not None:
-            return self._uuid > node.uuid
-        return self._address > node._address
 
