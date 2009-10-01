@@ -23,8 +23,7 @@ from neo.tests import NeoTestBase
 from neo import protocol
 from neo.pt import PartitionTable
 from neo.protocol import UnexpectedPacketError, INVALID_UUID
-from neo.protocol import NodeTypes, NodeStates, INVALID_PTID, \
-     UP_TO_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
+from neo.protocol import NodeTypes, NodeStates, CellStates, INVALID_PTID
 from neo.client.handlers import BaseHandler
 from neo.client.handlers.master import PrimaryBootstrapHandler
 from neo.client.handlers.master import PrimaryNotificationsHandler, PrimaryAnswersHandler
@@ -722,7 +721,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection(uuid=test_master_uuid)
         test_storage_uuid = self.getNewUUID()
         # TODO: use realistic values
-        test_cell_list = [(0, test_storage_uuid, UP_TO_DATE_STATE)]
+        test_cell_list = [(0, test_storage_uuid, CellStates.UP_TO_DATE)]
         client_handler.handleNotifyPartitionChanges(conn, None, test_ptid + 1, test_cell_list)
         # Check that a new node got added
         add_call_list = app.nm.mockGetNamedCalls('add')
@@ -751,10 +750,10 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=uuid1)
         test_cell_list = [
-            (0, uuid1, UP_TO_DATE_STATE),
-            (0, uuid2, DISCARDED_STATE),
-            (0, uuid3, FEEDING_STATE),
-            (0, uuid4, UP_TO_DATE_STATE),
+            (0, uuid1, CellStates.UP_TO_DATE),
+            (0, uuid2, CellStates.DISCARDED),
+            (0, uuid3, CellStates.FEEDING),
+            (0, uuid4, CellStates.UP_TO_DATE),
         ]
         client_handler.handleNotifyPartitionChanges(conn, None, test_ptid + 1, test_cell_list)
         # Check that the three last node got added

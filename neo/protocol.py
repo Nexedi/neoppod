@@ -318,26 +318,21 @@ error_codes = OldEnum({
 })
 
 class ClusterStates(Enum):
-
     BOOTING = Enum.Item(1)
     RECOVERING = Enum.Item(2)
     VERIFYING = Enum.Item(3)
     RUNNING = Enum.Item(4)
     STOPPING = Enum.Item(5)
-
 ClusterStates = ClusterStates()
 
 class NodeTypes(Enum):
-
     MASTER = Enum.Item(1)
     STORAGE = Enum.Item(2)
     CLIENT = Enum.Item(3)
     ADMIN = Enum.Item(4)
-
 NodeTypes = NodeTypes()
 
 class NodeStates(Enum):
-
     RUNNING = Enum.Item(1)
     TEMPORARILY_DOWN = Enum.Item(2)
     DOWN = Enum.Item(3)
@@ -345,8 +340,14 @@ class NodeStates(Enum):
     HIDDEN = Enum.Item(5)
     PENDING = Enum.Item(6)
     UNKNOWN = Enum.Item(7)
-
 NodeStates = NodeStates()
+
+class CellStates(Enum):
+    UP_TO_DATE = Enum.Item(1)
+    OUT_OF_DATE = Enum.Item(2)
+    FEEDING = Enum.Item(3)
+    DISCARDED = Enum.Item(4)
+CellStates = CellStates()
 
 # used for logging
 node_state_prefix_dict = {
@@ -359,20 +360,12 @@ node_state_prefix_dict = {
     NodeStates.UNKNOWN: 'U',
 }
 
-# Partition cell states.
-cell_states = OldEnum({
-    'UP_TO_DATE_STATE': 0,
-    'OUT_OF_DATE_STATE': 1,
-    'FEEDING_STATE': 2,
-    'DISCARDED_STATE': 3,
-})
-
 # used for logging
 cell_state_prefix_dict = { 
-    UP_TO_DATE_STATE: 'U', 
-    OUT_OF_DATE_STATE: 'O', 
-    FEEDING_STATE: 'F',
-    DISCARDED_STATE: 'D',
+    CellStates.UP_TO_DATE: 'U', 
+    CellStates.OUT_OF_DATE: 'O', 
+    CellStates.FEEDING: 'F',
+    CellStates.DISCARDED: 'D',
 }
 
 # Other constants.
@@ -693,7 +686,7 @@ def _decodeAnswerPartitionTable(body):
         for j in xrange(m):
             uuid, state = unpack('!16sH', body[index:index+18])
             index += 18
-            state = cell_states.get(state)
+            state = CellStates.get(state)
             uuid = _decodeUUID(uuid)
             cell_list.append((uuid, state))
         row_list.append((offset, tuple(cell_list)))
@@ -714,7 +707,7 @@ def _decodeSendPartitionTable(body):
         for j in xrange(m):
             uuid, state = unpack('!16sH', body[index:index+18])
             index += 18
-            state = cell_states.get(state)
+            state = CellStates.get(state)
             uuid = _decodeUUID(uuid)
             cell_list.append((uuid, state))
         row_list.append((offset, tuple(cell_list)))
@@ -729,7 +722,7 @@ def _decodeNotifyPartitionChanges(body):
     cell_list = []
     for i in xrange(n):
         (offset, uuid, state) = unpack('!L16sH', body[12+i*22:34+i*22])
-        state = cell_states.get(state)
+        state = CellStates.get(state)
         uuid = _decodeUUID(uuid)
         cell_list.append((offset, uuid, state))
     return ptid, cell_list
@@ -1012,7 +1005,7 @@ def _decodeAnswerPartitionList(body):
         for j in xrange(m):
             uuid, state = unpack('!16sH', body[index:index+18])
             index += 18
-            state = cell_states.get(state)
+            state = CellStates.get(state)
             uuid = _decodeUUID(uuid)
             cell_list.append((uuid, state))
         row_list.append((offset, tuple(cell_list)))

@@ -24,15 +24,10 @@ from neo import protocol
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.verification import VerificationHandler
-from neo.protocol import Packet, INVALID_UUID, \
-     UP_TO_DATE_STATE, INVALID_OID, INVALID_TID, PROTOCOL_ERROR_CODE
-from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION, \
-     NOTIFY_PARTITION_CHANGES, STOP_OPERATION, ASK_LAST_IDS, ASK_PARTITION_TABLE, \
-     ANSWER_OBJECT_PRESENT, ASK_OBJECT_PRESENT, OID_NOT_FOUND_CODE, LOCK_INFORMATION, \
-     UNLOCK_INFORMATION, TID_NOT_FOUND_CODE, ASK_TRANSACTION_INFORMATION, \
-     COMMIT_TRANSACTION, ASK_UNFINISHED_TRANSACTIONS, SEND_PARTITION_TABLE
-from neo.protocol import ERROR, BROKEN_NODE_DISALLOWED_CODE, ASK_PRIMARY_MASTER
-from neo.protocol import ANSWER_PRIMARY_MASTER, NodeTypes
+from neo.protocol import Packet, CellStates, NodeTypes, INVALID_OID, INVALID_TID
+from neo.protocol import NOTIFY_PARTITION_CHANGES, STOP_OPERATION, \
+     ASK_OBJECT_PRESENT, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
+     ASK_TRANSACTION_INFORMATION, COMMIT_TRANSACTION, ASK_UNFINISHED_TRANSACTIONS
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 
@@ -164,7 +159,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
             address=("127.7.9.9", 1), 
             uuid=self.getNewUUID()
         )
-        self.app.pt.setCell(1, node, UP_TO_DATE_STATE)
+        self.app.pt.setCell(1, node, CellStates.UP_TO_DATE)
         self.assertTrue(self.app.pt.hasOffset(1))
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
@@ -194,7 +189,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         })
         packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
         new_uuid = self.getNewUUID()
-        cell = (0, new_uuid, UP_TO_DATE_STATE)
+        cell = (0, new_uuid, CellStates.UP_TO_DATE)
         self.app.nm.createStorage(uuid=new_uuid)
         self.app.pt = PartitionTable(1, 1)
         self.app.dm = Mock({ })

@@ -868,8 +868,8 @@ class Application(object):
             last = first - last
 
         # First get a list of transactions from all storage nodes.
-        # Each storage node will return TIDs only for UP_TO_DATE_STATE and
-        # FEEDING_STATE cells
+        # Each storage node will return TIDs only for UP_TO_DATE state and
+        # FEEDING state cells
         pt = self._getPartitionTable()
         storage_node_list = pt.getNodeList()
 

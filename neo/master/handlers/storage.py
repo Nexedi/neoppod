@@ -18,10 +18,9 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import UP_TO_DATE_STATE, FEEDING_STATE, \
-        DISCARDED_STATE, OUT_OF_DATE_STATE, INTERNAL_ERROR_CODE
+from neo.protocol import INTERNAL_ERROR_CODE
+from neo.protocol import UnexpectedPacketError, CellStates
 from neo.master.handlers import BaseServiceHandler
-from neo.protocol import UnexpectedPacketError
 from neo.exception import OperationFailure
 from neo.util import dump
 
@@ -90,7 +89,7 @@ class StorageServiceHandler(BaseServiceHandler):
 
         new_cell_list = []
         for cell in cell_list:
-            if cell[2] != UP_TO_DATE_STATE:
+            if cell[2] != CellStates.UP_TO_DATE:
                 logging.warn('only up-to-date state should be sent')
                 continue
 
@@ -104,7 +103,8 @@ class StorageServiceHandler(BaseServiceHandler):
             # check the storage said it is up to date for a partition it was assigne to
             for xcell in app.pt.getCellList(offset):
                 if xcell.getNode().getUUID() == node.getUUID() and \
-                       xcell.getState() not in (OUT_OF_DATE_STATE, UP_TO_DATE_STATE):
+                       xcell.getState() not in (CellStates.OUT_OF_DATE,
+                               CellStates.UP_TO_DATE):
                     msg = "node %s telling that it is UP TO DATE for offset \
                     %s but where %s for that offset" % (dump(node.getUUID()), offset, 
                             xcell.getState())
@@ -113,15 +113,15 @@ class StorageServiceHandler(BaseServiceHandler):
                     return
                     
 
-            app.pt.setCell(offset, node, UP_TO_DATE_STATE)
+            app.pt.setCell(offset, node, CellStates.UP_TO_DATE)
             new_cell_list.append(cell)
 
             # If the partition contains a feeding cell, drop it now.
             for feeding_cell in app.pt.getCellList(offset):
-                if feeding_cell.getState() == FEEDING_STATE:
+                if feeding_cell.getState() == CellStates.FEEDING:
                     app.pt.removeCell(offset, feeding_cell.getNode())
                     new_cell_list.append((offset, feeding_cell.getUUID(), 
-                                          DISCARDED_STATE))
+                                          CellStates.DISCARDED))
                     break
 
         if new_cell_list:

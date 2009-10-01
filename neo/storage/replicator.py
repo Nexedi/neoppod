@@ -20,8 +20,7 @@ from random import choice
 
 from neo.storage.handlers import replication
 from neo import protocol
-from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE
-from neo.protocol import NodeTypes, NodeStates
+from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.connection import ClientConnection
 from neo.util import dump
 
@@ -107,7 +106,7 @@ class Replicator(object):
         partition_dict = {}
         for offset in xrange(app.pt.getPartitions()):
             for uuid, state in app.pt.getRow(offset):
-                if uuid == app.uuid and state == OUT_OF_DATE_STATE:
+                if uuid == app.uuid and state == CellStates.OUT_OF_DATE:
                     partition_dict[offset] = Partition(offset)
         return partition_dict
 
@@ -197,7 +196,7 @@ class Replicator(object):
             # Notify to a primary master node that my cell is now up-to-date.
             conn = self.primary_master_connection
             p = protocol.notifyPartitionChanges(app.pt.getID(), 
-                 [(self.current_partition.getRID(), app.uuid, UP_TO_DATE_STATE)])
+                 [(self.current_partition.getRID(), app.uuid, CellStates.UP_TO_DATE)])
             conn.notify(p)
         except KeyError:
             pass

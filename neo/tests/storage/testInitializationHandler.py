@@ -24,8 +24,8 @@ from neo import protocol
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.initialization import InitializationHandler
-from neo.protocol import Packet, INVALID_UUID, \
-     UP_TO_DATE_STATE, INVALID_TID, PROTOCOL_ERROR_CODE
+from neo.protocol import Packet, CellStates, INVALID_UUID, \
+     INVALID_TID, PROTOCOL_ERROR_CODE
 from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION, \
      NOTIFY_PARTITION_CHANGES, STOP_OPERATION, ASK_LAST_IDS, ASK_PARTITION_TABLE, \
      ANSWER_OBJECT_PRESENT, ASK_OBJECT_PRESENT, OID_NOT_FOUND_CODE, LOCK_INFORMATION, \
@@ -108,9 +108,9 @@ class StorageInitializationHandlerTests(NeoTestBase):
         self.app.nm.createStorage(uuid=node_2)
         self.app.nm.createStorage(uuid=node_3)
         self.assertEqual(self.app.dm.getPartitionTable(), [])
-        row_list = [(0, ((node_1, UP_TO_DATE_STATE), (node_2, UP_TO_DATE_STATE))),
-                    (1, ((node_3, UP_TO_DATE_STATE), (node_1, UP_TO_DATE_STATE))),
-                    (2, ((node_2, UP_TO_DATE_STATE), (node_3, UP_TO_DATE_STATE)))]
+        row_list = [(0, ((node_1, CellStates.UP_TO_DATE), (node_2, CellStates.UP_TO_DATE))),
+                    (1, ((node_3, CellStates.UP_TO_DATE), (node_1, CellStates.UP_TO_DATE))),
+                    (2, ((node_2, CellStates.UP_TO_DATE), (node_3, CellStates.UP_TO_DATE)))]
         self.assertFalse(self.app.pt.filled())
         # send part of the table, won't be filled
         self.verification.handleSendPartitionTable(conn, packet, 1, row_list[:1])

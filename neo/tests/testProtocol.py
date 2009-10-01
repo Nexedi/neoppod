@@ -19,7 +19,7 @@ import unittest, os
 from mock import Mock
 from neo import protocol
 from neo.protocol import *
-from neo.protocol import NodeTypes, NodeStates
+from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.tests import NeoTestBase
 from neo.util import getNextTID
 from time import time, gmtime
@@ -176,9 +176,9 @@ class ProtocolTests(NeoTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        cell_list = [(0, ((uuid1, UP_TO_DATE_STATE), (uuid2, OUT_OF_DATE_STATE))),
-                     (43, ((uuid2, OUT_OF_DATE_STATE),(uuid3, DISCARDED_STATE))),
-                     (124, ((uuid1, DISCARDED_STATE), (uuid3, UP_TO_DATE_STATE)))]
+        cell_list = [(0, ((uuid1, CellStates.UP_TO_DATE), (uuid2, CellStates.OUT_OF_DATE))),
+                     (43, ((uuid2, CellStates.OUT_OF_DATE),(uuid3, CellStates.DISCARDED))),
+                     (124, ((uuid1, CellStates.DISCARDED), (uuid3, CellStates.UP_TO_DATE)))]
         p = protocol.answerPartitionTable(ptid, cell_list)
         pptid, p_cell_list  = p.decode()
         self.assertEqual(pptid, ptid)
@@ -189,9 +189,9 @@ class ProtocolTests(NeoTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        cell_list = [(0, ((uuid1, UP_TO_DATE_STATE), (uuid2, OUT_OF_DATE_STATE))),
-                     (43, ((uuid2, OUT_OF_DATE_STATE),(uuid3, DISCARDED_STATE))),
-                     (124, ((uuid1, DISCARDED_STATE), (uuid3, UP_TO_DATE_STATE)))]
+        cell_list = [(0, ((uuid1, CellStates.UP_TO_DATE), (uuid2, CellStates.OUT_OF_DATE))),
+                     (43, ((uuid2, CellStates.OUT_OF_DATE),(uuid3, CellStates.DISCARDED))),
+                     (124, ((uuid1, CellStates.DISCARDED), (uuid3, CellStates.UP_TO_DATE)))]
         p = protocol.answerPartitionTable(ptid, cell_list)
         pptid, p_cell_list  = p.decode()
         self.assertEqual(pptid, ptid)
@@ -202,9 +202,9 @@ class ProtocolTests(NeoTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        cell_list = [(0, uuid1, UP_TO_DATE_STATE),
-                     (43, uuid2, OUT_OF_DATE_STATE),
-                     (124, uuid1, DISCARDED_STATE)]
+        cell_list = [(0, uuid1, CellStates.UP_TO_DATE),
+                     (43, uuid2, CellStates.OUT_OF_DATE),
+                     (124, uuid1, CellStates.DISCARDED)]
         p = protocol.notifyPartitionChanges(ptid,
                                  cell_list)
         pptid, p_cell_list  = p.decode()

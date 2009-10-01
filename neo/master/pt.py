@@ -17,7 +17,7 @@
 
 import neo.pt
 from struct import pack, unpack
-from neo.protocol import OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
+from neo.protocol import CellStates
 
 class PartitionTable(neo.pt.PartitionTable):
     """This class manages a partition table for the primary master node"""
@@ -88,12 +88,12 @@ class PartitionTable(neo.pt.PartitionTable):
                             node_list = [c.getNode() for c in row]
                             n = self.findLeastUsedNode(node_list)
                             if n is not None:
-                                row.append(neo.pt.Cell(n, OUT_OF_DATE_STATE))
+                                row.append(neo.pt.Cell(n, CellStates.OUT_OF_DATE))
                                 self.count_dict[n] += 1
                                 cell_list.append((offset, n.getUUID(),
-                                                  OUT_OF_DATE_STATE))
+                                                  CellStates.OUT_OF_DATE))
                         row.remove(cell)
-                        cell_list.append((offset, uuid, DISCARDED_STATE))
+                        cell_list.append((offset, uuid, CellStates.DISCARDED))
                         break
 
         try:
@@ -134,8 +134,8 @@ class PartitionTable(neo.pt.PartitionTable):
                 continue
 
             if num_cells <= self.nr:
-                row.append(neo.pt.Cell(node, OUT_OF_DATE_STATE))
-                cell_list.append((offset, node.getUUID(), OUT_OF_DATE_STATE))
+                row.append(neo.pt.Cell(node, CellStates.OUT_OF_DATE))
+                cell_list.append((offset, node.getUUID(), CellStates.OUT_OF_DATE))
                 node_count += 1
             else:
                 if max_count - node_count > 1:
@@ -144,18 +144,18 @@ class PartitionTable(neo.pt.PartitionTable):
                         # out-of-date, just drop the node.
                         row.remove(max_cell)
                         cell_list.append((offset, max_cell.getUUID(), 
-                                          DISCARDED_STATE))
+                                          CellStates.DISCARDED))
                         self.count_dict[max_cell.getNode()] -= 1
                     else:
                         # Otherwise, use it as a feeding cell for safety.
-                        max_cell.setState(FEEDING_STATE)
+                        max_cell.setState(CellStates.FEEDING)
                         cell_list.append((offset, max_cell.getUUID(), 
-                                          FEEDING_STATE))
+                                          CellStates.FEEDING))
                         # Don't count a feeding cell.
                         self.count_dict[max_cell.getNode()] -= 1
-                    row.append(neo.pt.Cell(node, OUT_OF_DATE_STATE))
+                    row.append(neo.pt.Cell(node, CellStates.OUT_OF_DATE))
                     cell_list.append((offset, node.getUUID(), 
-                                      OUT_OF_DATE_STATE))
+                                      CellStates.OUT_OF_DATE))
                     node_count += 1
 
         self.count_dict[node] = node_count
@@ -220,7 +220,7 @@ class PartitionTable(neo.pt.PartitionTable):
                 row.remove(cell)
                 if not cell.isFeeding():
                     self.count_dict[cell.getNode()] -= 1
-                changed_cell_list.append((offset, cell.getUUID(), DISCARDED_STATE))
+                changed_cell_list.append((offset, cell.getUUID(), CellStates.DISCARDED))
 
         # Add cells, if a row contains less than the number of replicas.
         for offset, row in enumerate(self.partition_list):
@@ -232,8 +232,8 @@ class PartitionTable(neo.pt.PartitionTable):
                 node = self.findLeastUsedNode([cell.getNode() for cell in row])
                 if node is None:
                     break
-                row.append(neo.pt.Cell(node, OUT_OF_DATE_STATE))
-                changed_cell_list.append((offset, node.getUUID(), OUT_OF_DATE_STATE))
+                row.append(neo.pt.Cell(node, CellStates.OUT_OF_DATE))
+                changed_cell_list.append((offset, node.getUUID(), CellStates.OUT_OF_DATE))
                 self.count_dict[node] += 1
                 num_cells += 1
 
@@ -250,7 +250,7 @@ class PartitionTable(neo.pt.PartitionTable):
         for offset, row in enumerate(self.partition_list):
             for cell in row:
                 if not cell.getNode().isRunning() and not cell.isOutOfDate():
-                    cell.setState(OUT_OF_DATE_STATE)
-                    cell_list.append((offset, cell.getUUID(), OUT_OF_DATE_STATE))
+                    cell.setState(CellStates.OUT_OF_DATE)
+                    cell_list.append((offset, cell.getUUID(), CellStates.OUT_OF_DATE))
         return cell_list
     

@@ -18,8 +18,7 @@
 from neo import logging
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.protocol import DISCARDED_STATE, OUT_OF_DATE_STATE
-from neo.protocol import NodeTypes, NodeStates
+from neo.protocol import NodeTypes, NodeStates, CellStates
 
 class HiddenHandler(BaseMasterHandler):
     """This class implements a generic part of the event handlers."""
@@ -81,9 +80,9 @@ class HiddenHandler(BaseMasterHandler):
         for offset, uuid, state in cell_list:
             if uuid == app.uuid and app.replicator is not None:
                 # If this is for myself, this can affect replications.
-                if state == DISCARDED_STATE:
+                if state == CellStates.DISCARDED:
                     app.replicator.removePartition(offset)
-                elif state == OUT_OF_DATE_STATE:
+                elif state == CellStates.OUT_OF_DATE:
                     app.replicator.addPartition(offset)
 
     def handleStartOperation(self, conn, packet):

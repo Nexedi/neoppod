@@ -19,8 +19,8 @@ import unittest, logging, os
 from mock import Mock
 from neo.tests import NeoTestBase
 from neo.storage.app import Application
-from neo.protocol import INVALID_PTID, INVALID_TID, \
-     INVALID_UUID, Packet, NOTIFY_NODE_INFORMATION, UP_TO_DATE_STATE
+from neo.protocol import CellStates, INVALID_PTID, INVALID_TID, \
+     INVALID_UUID, Packet, NOTIFY_NODE_INFORMATION
 from neo.storage.mysqldb import p64, u64, MySQLDatabaseManager
 from collections import deque
 from neo.pt import PartitionTable
@@ -64,8 +64,8 @@ class StorageAppTests(NeoTestBase):
       client_uuid = self.getNewUUID()      
       client = self.app.nm.createClient(uuid=client_uuid)
 
-      self.app.pt.setCell(0, master, UP_TO_DATE_STATE)
-      self.app.pt.setCell(0, storage, UP_TO_DATE_STATE)
+      self.app.pt.setCell(0, master, CellStates.UP_TO_DATE)
+      self.app.pt.setCell(0, storage, CellStates.UP_TO_DATE)
       self.assertEqual(len(self.app.pt.getNodeList()), 2)
       self.assertFalse(self.app.pt.filled())
       for x in xrange(num_partitions):
@@ -82,8 +82,8 @@ class StorageAppTests(NeoTestBase):
         self.assertFalse(self.app.pt.hasOffset(x))
 
       # add some node
-      self.app.pt.setCell(0, master, UP_TO_DATE_STATE)
-      self.app.pt.setCell(0, storage, UP_TO_DATE_STATE)
+      self.app.pt.setCell(0, master, CellStates.UP_TO_DATE)
+      self.app.pt.setCell(0, storage, CellStates.UP_TO_DATE)
       self.assertEqual(len(self.app.pt.getNodeList()), 2)
       self.assertFalse(self.app.pt.filled())
       for x in xrange(num_partitions):
@@ -95,15 +95,15 @@ class StorageAppTests(NeoTestBase):
       self.app.dm.setPTID(1)
       self.app.dm.query('delete from pt;')
       self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                        (0, dump(client_uuid), UP_TO_DATE_STATE))
+                        (0, dump(client_uuid), CellStates.UP_TO_DATE))
       self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                        (1, dump(client_uuid), UP_TO_DATE_STATE))
+                        (1, dump(client_uuid), CellStates.UP_TO_DATE))
       self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                        (1, dump(storage_uuid), UP_TO_DATE_STATE))
+                        (1, dump(storage_uuid), CellStates.UP_TO_DATE))
       self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                        (2, dump(storage_uuid), UP_TO_DATE_STATE))
+                        (2, dump(storage_uuid), CellStates.UP_TO_DATE))
       self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
-                        (2, dump(master_uuid), UP_TO_DATE_STATE))
+                        (2, dump(master_uuid), CellStates.UP_TO_DATE))
       self.assertEqual(len(self.app.dm.getPartitionTable()), 5)
       self.app.pt.clear()
       self.app.loadPartitionTable()

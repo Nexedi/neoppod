@@ -25,7 +25,7 @@ from struct import pack, unpack
 
 from neo.storage.database import DatabaseManager
 from neo.exception import DatabaseFailure
-from neo.protocol import DISCARDED_STATE
+from neo.protocol import CellStates
 from neo import util
 
 LOG_QUERIES = False
@@ -362,7 +362,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 q("""TRUNCATE pt""")
             for offset, uuid, state in cell_list:
                 uuid = e(util.dump(uuid))
-                if state == DISCARDED_STATE:
+                if state == CellStates.DISCARDED:
                     q("""DELETE FROM pt WHERE rid = %d AND uuid = '%s'""" \
                             % (offset, uuid))
                 else:

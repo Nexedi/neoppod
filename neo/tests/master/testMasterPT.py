@@ -18,9 +18,7 @@
 import unittest, os
 from mock import Mock
 from neo.tests import NeoTestBase
-from neo.protocol import NodeStates
-from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, \
-        DISCARDED_STATE, INVALID_UUID
+from neo.protocol import NodeStates, CellStates
 from neo.pt import Cell
 from neo.master.pt import PartitionTable
 from neo.node import StorageNode
@@ -73,18 +71,18 @@ class MasterPartitionTableTests(NeoTestBase):
         uuid1 = self.getNewUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
-        pt.setCell(0, sn1, UP_TO_DATE_STATE)
-        pt.setCell(1, sn1, UP_TO_DATE_STATE)
-        pt.setCell(2, sn1, UP_TO_DATE_STATE)
+        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(1, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
         uuid2 = self.getNewUUID()
         server2 = ("127.0.0.2", 19001)
         sn2 = StorageNode(Mock(), server2, uuid2)
-        pt.setCell(0, sn2, UP_TO_DATE_STATE)
-        pt.setCell(1, sn2, UP_TO_DATE_STATE)
+        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
+        pt.setCell(1, sn2, CellStates.UP_TO_DATE)
         uuid3 = self.getNewUUID()
         server3 = ("127.0.0.3", 19001)
         sn3 = StorageNode(Mock(), server3, uuid3)
-        pt.setCell(0, sn3, UP_TO_DATE_STATE)
+        pt.setCell(0, sn3, CellStates.UP_TO_DATE)
         # test
         node = pt.findLeastUsedNode()
         self.assertEqual(node, sn3)
@@ -114,15 +112,15 @@ class MasterPartitionTableTests(NeoTestBase):
         num_partitions = 5
         num_replicas = 3
         pt = PartitionTable(num_partitions, num_replicas)
-        pt.setCell(0, sn1, OUT_OF_DATE_STATE)
+        pt.setCell(0, sn1, CellStates.OUT_OF_DATE)
         sn1.setState(NodeStates.RUNNING)
-        pt.setCell(1, sn2, UP_TO_DATE_STATE)
+        pt.setCell(1, sn2, CellStates.UP_TO_DATE)
         sn2.setState(NodeStates.TEMPORARILY_DOWN)
-        pt.setCell(2, sn3, UP_TO_DATE_STATE)
+        pt.setCell(2, sn3, CellStates.UP_TO_DATE)
         sn3.setState(NodeStates.DOWN)
-        pt.setCell(3, sn4, UP_TO_DATE_STATE)
+        pt.setCell(3, sn4, CellStates.UP_TO_DATE)
         sn4.setState(NodeStates.BROKEN)
-        pt.setCell(4, sn5, UP_TO_DATE_STATE)
+        pt.setCell(4, sn5, CellStates.UP_TO_DATE)
         sn5.setState(NodeStates.RUNNING)
         # outdate nodes
         cells_outdated = pt.outdate()
@@ -130,33 +128,33 @@ class MasterPartitionTableTests(NeoTestBase):
         for offset, uuid, state in cells_outdated:
             self.failUnless(offset in (1,2,3))
             self.failUnless(uuid in (uuid2,uuid3,uuid4))
-            self.assertEqual(state, OUT_OF_DATE_STATE)
+            self.assertEqual(state, CellStates.OUT_OF_DATE)
         # check each cell
         # part 1, already outdated
         cells = pt.getCellList(0)
         self.assertEqual(len(cells), 1)
         cell = cells[0]
-        self.assertEqual(cell.getState(), OUT_OF_DATE_STATE)
+        self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
         # part 2, must be outdated
         cells = pt.getCellList(1)
         self.assertEqual(len(cells), 1)
         cell = cells[0]
-        self.assertEqual(cell.getState(), OUT_OF_DATE_STATE)
+        self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
         # part 3, must be outdated
         cells = pt.getCellList(2)
         self.assertEqual(len(cells), 1)
         cell = cells[0]
-        self.assertEqual(cell.getState(), OUT_OF_DATE_STATE)
+        self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
         # part 4, already outdated
         cells = pt.getCellList(3)
         self.assertEqual(len(cells), 1)
         cell = cells[0]
-        self.assertEqual(cell.getState(), OUT_OF_DATE_STATE)
+        self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
         # part 5, remains running
         cells = pt.getCellList(4)
         self.assertEqual(len(cells), 1)
         cell = cells[0]
-        self.assertEqual(cell.getState(), UP_TO_DATE_STATE)
+        self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
         
     def test_14_addNode(self):
         num_partitions = 5
@@ -172,7 +170,7 @@ class MasterPartitionTableTests(NeoTestBase):
         # it must be added to all partitions
         for x in xrange(num_replicas):
             self.assertEqual(len(pt.getCellList(x)), 1)
-            self.assertEqual(pt.getCellList(x)[0].getState(), OUT_OF_DATE_STATE)
+            self.assertEqual(pt.getCellList(x)[0].getState(), CellStates.OUT_OF_DATE)
             self.assertEqual(pt.getCellList(x)[0].getNode(), sn1)
         self.assertEqual(pt.count_dict[sn1], 5)
         # add same node again, must remain the same
@@ -180,7 +178,7 @@ class MasterPartitionTableTests(NeoTestBase):
         self.assertEqual(len(cell_list), 0)
         for x in xrange(num_replicas):
             self.assertEqual(len(pt.getCellList(x)), 1)
-            self.assertEqual(pt.getCellList(x)[0].getState(), OUT_OF_DATE_STATE)
+            self.assertEqual(pt.getCellList(x)[0].getState(), CellStates.OUT_OF_DATE)
             self.assertEqual(pt.getCellList(x)[0].getNode(), sn1)
         self.assertEqual(pt.count_dict[sn1], 5)
         # add a second node to fill the partition table
@@ -192,7 +190,7 @@ class MasterPartitionTableTests(NeoTestBase):
         self.assertEqual(len(cell_list), 5)
         for x in xrange(num_replicas):
             self.assertEqual(len(pt.getCellList(x)), 2)
-            self.assertEqual(pt.getCellList(x)[0].getState(), OUT_OF_DATE_STATE)
+            self.assertEqual(pt.getCellList(x)[0].getState(), CellStates.OUT_OF_DATE)
             self.failUnless(pt.getCellList(x)[0].getNode() in (sn1, sn2))
         # test the most used node is remove from some partition
         uuid3 = self.getNewUUID()
@@ -213,14 +211,14 @@ class MasterPartitionTableTests(NeoTestBase):
         num_replicas = 1
         pt = PartitionTable(num_partitions, num_replicas)
         # node most used is out of date, just dropped
-        pt.setCell(0, sn1, OUT_OF_DATE_STATE)
-        pt.setCell(0, sn2, UP_TO_DATE_STATE)
-        pt.setCell(1, sn1, OUT_OF_DATE_STATE)
-        pt.setCell(1, sn3, UP_TO_DATE_STATE)
-        pt.setCell(2, sn1, OUT_OF_DATE_STATE)
-        pt.setCell(2, sn4, UP_TO_DATE_STATE)
-        pt.setCell(3, sn1, OUT_OF_DATE_STATE)
-        pt.setCell(3, sn5, UP_TO_DATE_STATE)
+        pt.setCell(0, sn1, CellStates.OUT_OF_DATE)
+        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
+        pt.setCell(1, sn1, CellStates.OUT_OF_DATE)
+        pt.setCell(1, sn3, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn1, CellStates.OUT_OF_DATE)
+        pt.setCell(2, sn4, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn1, CellStates.OUT_OF_DATE)
+        pt.setCell(3, sn5, CellStates.UP_TO_DATE)
         uuid6 = self.getNewUUID()
         server6 = ("127.0.0.6", 19006)
         sn6 = StorageNode(Mock(), server6, uuid6)
@@ -230,9 +228,9 @@ class MasterPartitionTableTests(NeoTestBase):
         for offset, uuid, state  in cell_list:
             if offset in (0,1):
                 if uuid == uuid1:
-                    self.assertEqual(state, DISCARDED_STATE)
+                    self.assertEqual(state, CellStates.DISCARDED)
                 elif uuid == uuid6:
-                    self.assertEqual(state, OUT_OF_DATE_STATE)
+                    self.assertEqual(state, CellStates.OUT_OF_DATE)
                 else:
                     self.failUnless(uuid in (uuid1, uuid6))
             else:
@@ -241,27 +239,27 @@ class MasterPartitionTableTests(NeoTestBase):
             self.assertEqual(len(pt.getCellList(x)), 2)        
         # there is a feeding cell, just dropped
         pt.clear()
-        pt.setCell(0, sn1, UP_TO_DATE_STATE)
-        pt.setCell(0, sn2, UP_TO_DATE_STATE)
-        pt.setCell(0, sn3, FEEDING_STATE)
-        pt.setCell(1, sn1, UP_TO_DATE_STATE)
-        pt.setCell(1, sn2, FEEDING_STATE)
-        pt.setCell(1, sn3, UP_TO_DATE_STATE)
-        pt.setCell(2, sn1, UP_TO_DATE_STATE)
-        pt.setCell(2, sn4, FEEDING_STATE)
-        pt.setCell(2, sn5, UP_TO_DATE_STATE)
-        pt.setCell(3, sn1, UP_TO_DATE_STATE)
-        pt.setCell(3, sn4, UP_TO_DATE_STATE)
-        pt.setCell(3, sn5, FEEDING_STATE)
+        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
+        pt.setCell(0, sn3, CellStates.FEEDING)
+        pt.setCell(1, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(1, sn2, CellStates.FEEDING)
+        pt.setCell(1, sn3, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn4, CellStates.FEEDING)
+        pt.setCell(2, sn5, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn4, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn5, CellStates.FEEDING)
         cell_list = pt.addNode(sn6)
         # sn1 is removed twice and sn6 is added twice
         self.assertEqual(len(cell_list), 4)
         for offset, uuid, state  in cell_list:
             if offset in (0,1):
                 if uuid == uuid1:
-                    self.assertEqual(state, DISCARDED_STATE)
+                    self.assertEqual(state, CellStates.DISCARDED)
                 elif uuid == uuid6:
-                    self.assertEqual(state, OUT_OF_DATE_STATE)
+                    self.assertEqual(state, CellStates.OUT_OF_DATE)
                 else:
                     self.failUnless(uuid in (uuid1, uuid6))
             else:
@@ -270,23 +268,23 @@ class MasterPartitionTableTests(NeoTestBase):
             self.assertEqual(len(pt.getCellList(x)), 3)        
         # there is no feeding cell, marked as feeding
         pt.clear()
-        pt.setCell(0, sn1, UP_TO_DATE_STATE)
-        pt.setCell(0, sn2, UP_TO_DATE_STATE)
-        pt.setCell(1, sn1, UP_TO_DATE_STATE)
-        pt.setCell(1, sn3, UP_TO_DATE_STATE)
-        pt.setCell(2, sn1, UP_TO_DATE_STATE)
-        pt.setCell(2, sn4, UP_TO_DATE_STATE)
-        pt.setCell(3, sn1, UP_TO_DATE_STATE)
-        pt.setCell(3, sn5, UP_TO_DATE_STATE)
+        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
+        pt.setCell(1, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(1, sn3, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn4, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn5, CellStates.UP_TO_DATE)
         cell_list = pt.addNode(sn6)
         # sn1 is removed twice and sn6 is added twice
         self.assertEqual(len(cell_list), 4)
         for offset, uuid, state  in cell_list:
             if offset in (0,1):
                 if uuid == uuid1:
-                    self.assertEqual(state, FEEDING_STATE)
+                    self.assertEqual(state, CellStates.FEEDING)
                 elif uuid == uuid6:
-                    self.assertEqual(state, OUT_OF_DATE_STATE)
+                    self.assertEqual(state, CellStates.OUT_OF_DATE)
                 else:
                     self.failUnless(uuid in (uuid1, uuid6))
             else:
@@ -318,22 +316,22 @@ class MasterPartitionTableTests(NeoTestBase):
         # 3 : sn1, sn4
         # node is not feeding, so retrive least use node to replace it
         # so sn2 must be repaced by sn4 in partition 0
-        pt.setCell(0, sn1, UP_TO_DATE_STATE)
-        pt.setCell(0, sn2, UP_TO_DATE_STATE)
-        pt.setCell(1, sn1, UP_TO_DATE_STATE)
-        pt.setCell(1, sn3, UP_TO_DATE_STATE)
-        pt.setCell(2, sn1, UP_TO_DATE_STATE)
-        pt.setCell(2, sn3, UP_TO_DATE_STATE)
-        pt.setCell(3, sn1, UP_TO_DATE_STATE)
-        pt.setCell(3, sn4, UP_TO_DATE_STATE)
+        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
+        pt.setCell(1, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(1, sn3, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn3, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn4, CellStates.UP_TO_DATE)
         cell_list = pt.dropNode(sn2)
         self.assertEqual(len(cell_list), 2)
         for offset, uuid, state  in cell_list:
             self.assertEqual(offset, 0)
             if uuid == uuid2:
-                self.assertEqual(state, DISCARDED_STATE)
+                self.assertEqual(state, CellStates.DISCARDED)
             elif uuid == uuid4:
-                self.assertEqual(state, OUT_OF_DATE_STATE)
+                self.assertEqual(state, CellStates.OUT_OF_DATE)
             else:
                 self.failUnless(uuid in (uuid2, uuid4))
                 
@@ -341,19 +339,19 @@ class MasterPartitionTableTests(NeoTestBase):
             self.assertEqual(len(pt.getCellList(x)), 2)
         # same test but with feeding state, no other will be added
         pt.clear()
-        pt.setCell(0, sn1, UP_TO_DATE_STATE)
-        pt.setCell(0, sn2, FEEDING_STATE)
-        pt.setCell(1, sn1, UP_TO_DATE_STATE)
-        pt.setCell(1, sn3, UP_TO_DATE_STATE)
-        pt.setCell(2, sn1, UP_TO_DATE_STATE)
-        pt.setCell(2, sn3, UP_TO_DATE_STATE)
-        pt.setCell(3, sn1, UP_TO_DATE_STATE)
-        pt.setCell(3, sn4, UP_TO_DATE_STATE)
+        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(0, sn2, CellStates.FEEDING)
+        pt.setCell(1, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(1, sn3, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn3, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn4, CellStates.UP_TO_DATE)
         cell_list = pt.dropNode(sn2)
         self.assertEqual(len(cell_list), 1)
         for offset, uuid, state  in cell_list:
             self.assertEqual(offset, 0)
-            self.assertEqual(state, DISCARDED_STATE)
+            self.assertEqual(state, CellStates.DISCARDED)
             self.assertEqual(uuid ,uuid2)
         for x in xrange(num_replicas):
             if x == 0:
@@ -445,35 +443,35 @@ class MasterPartitionTableTests(NeoTestBase):
         num_replicas = 2
         pt = PartitionTable(num_partitions, num_replicas)
         # part 0
-        pt.setCell(0, sn1, DISCARDED_STATE)
-        pt.setCell(0, sn2, UP_TO_DATE_STATE)
+        pt.setCell(0, sn1, CellStates.DISCARDED)
+        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
         # part 1
-        pt.setCell(1, sn1, FEEDING_STATE)
-        pt.setCell(1, sn2, FEEDING_STATE)
-        pt.setCell(1, sn3, OUT_OF_DATE_STATE)
+        pt.setCell(1, sn1, CellStates.FEEDING)
+        pt.setCell(1, sn2, CellStates.FEEDING)
+        pt.setCell(1, sn3, CellStates.OUT_OF_DATE)
         # part 2
-        pt.setCell(2, sn1, FEEDING_STATE)
-        pt.setCell(2, sn2, UP_TO_DATE_STATE)
-        pt.setCell(2, sn3, UP_TO_DATE_STATE)
+        pt.setCell(2, sn1, CellStates.FEEDING)
+        pt.setCell(2, sn2, CellStates.UP_TO_DATE)
+        pt.setCell(2, sn3, CellStates.UP_TO_DATE)
         # part 3
-        pt.setCell(3, sn1, UP_TO_DATE_STATE)
-        pt.setCell(3, sn2, UP_TO_DATE_STATE)
-        pt.setCell(3, sn3, UP_TO_DATE_STATE)
-        pt.setCell(3, sn4, UP_TO_DATE_STATE)
+        pt.setCell(3, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn2, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn3, CellStates.UP_TO_DATE)
+        pt.setCell(3, sn4, CellStates.UP_TO_DATE)
         # part 4
-        pt.setCell(4, sn1, UP_TO_DATE_STATE)
-        pt.setCell(4, sn5, UP_TO_DATE_STATE)
+        pt.setCell(4, sn1, CellStates.UP_TO_DATE)
+        pt.setCell(4, sn5, CellStates.UP_TO_DATE)
         # now tweak the table
         pt.tweak()
         # check part 1
         cells =  pt.getCellList(0)
         self.assertEqual(len(cells), 3)
         for cell in cells:
-            self.assertNotEqual(cell.getState(), DISCARDED_STATE)
+            self.assertNotEqual(cell.getState(), CellStates.DISCARDED)
             if cell.getNode() == sn2:
-                self.assertEqual(cell.getState(), UP_TO_DATE_STATE)
+                self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
             else:
-                self.assertEqual(cell.getState(), OUT_OF_DATE_STATE)
+                self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
         self.failUnless(sn2 in [x.getNode() for x in cells])
         
         # check part 2
@@ -481,9 +479,9 @@ class MasterPartitionTableTests(NeoTestBase):
         self.assertEqual(len(cells), 4)
         for cell in cells:
             if cell.getNode() == sn1:
-                self.assertEqual(cell.getState(), FEEDING_STATE)
+                self.assertEqual(cell.getState(), CellStates.FEEDING)
             else:
-                self.assertEqual(cell.getState(), OUT_OF_DATE_STATE)
+                self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
         self.failUnless(sn3 in [x.getNode() for x in cells])
         self.failUnless(sn1 in [x.getNode() for x in cells])
         
@@ -492,9 +490,9 @@ class MasterPartitionTableTests(NeoTestBase):
         self.assertEqual(len(cells), 3)
         for cell in cells:
             if cell.getNode() in (sn2, sn3):
-                self.assertEqual(cell.getState(), UP_TO_DATE_STATE)
+                self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
             else:
-                self.assertEqual(cell.getState(), OUT_OF_DATE_STATE)
+                self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
         self.failUnless(sn3 in [x.getNode() for x in cells])
         self.failUnless(sn2 in [x.getNode() for x in cells])
 
@@ -502,16 +500,16 @@ class MasterPartitionTableTests(NeoTestBase):
         cells =  pt.getCellList(3)
         self.assertEqual(len(cells), 3)
         for cell in cells:
-            self.assertEqual(cell.getState(), UP_TO_DATE_STATE)
+            self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
 
         # check part 5
         cells =  pt.getCellList(4)
         self.assertEqual(len(cells), 3)
         for cell in cells:
             if cell.getNode() in (sn1, sn5):
-                self.assertEqual(cell.getState(), UP_TO_DATE_STATE)
+                self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
             else:
-                self.assertEqual(cell.getState(), OUT_OF_DATE_STATE)
+                self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
         self.failUnless(sn1 in [x.getNode() for x in cells])
         self.failUnless(sn5 in [x.getNode() for x in cells])
 

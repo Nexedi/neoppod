@@ -23,15 +23,14 @@ from struct import pack, unpack
 from neo.tests import NeoTestBase
 import neo.master
 from neo import protocol
-from neo.protocol import Packet, NodeTypes, NodeStates, INVALID_UUID
+from neo.protocol import Packet, NodeTypes, NodeStates, CellStates, INVALID_UUID
 from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.app import Application
 from neo.protocol import ERROR, PING, PONG, ANNOUNCE_PRIMARY_MASTER, \
      REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION,  \
      ASK_LAST_IDS, ANSWER_LAST_IDS, NOTIFY_PARTITION_CHANGES, \
      ASK_UNFINISHED_TRANSACTIONS, ASK_BEGIN_TRANSACTION, FINISH_TRANSACTION, \
-     NOTIFY_INFORMATION_LOCKED, ASK_NEW_OIDS, ABORT_TRANSACTION, \
-     UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
+     NOTIFY_INFORMATION_LOCKED, ASK_NEW_OIDS, ABORT_TRANSACTION
 from neo.exception import OperationFailure, ElectionFailure     
 
 class MasterStorageHandlerTests(NeoTestBase):
@@ -137,7 +136,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         sn = self.app.nm.getStorageList()[0]
-        self.assertEquals(sn.getState(), BROKEN_STATE)
+        self.assertEquals(sn.getState(), CellStates.BROKEN)
         self.failUnless(ptid < self.app.pt.getID())
 
     def test_06_handleAnswerLastIDs(self):
@@ -257,53 +256,54 @@ class MasterStorageHandlerTests(NeoTestBase):
         conn = self.getFakeConnection(uuid, self.storage_address)
         storage_uuid = self.identifyToMasterNode(port=self.storage_port+1)
         offset = 1
-        cell_list = [(offset, uuid, FEEDING_STATE),]
+        cell_list = [(offset, uuid, CellStates.FEEDING),]
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, OUT_OF_DATE_STATE)
+            self.assertEquals(state, CellStates.OUT_OF_DATE)
         service.handleNotifyPartitionChanges(conn, packet, self.app.pt.getID(), cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, OUT_OF_DATE_STATE)
+            self.assertEquals(state, CellStates.OUT_OF_DATE)
 
         # send for another node, must not be take into account
         conn = self.getFakeConnection(uuid, self.storage_address)
         offset = 1
-        cell_list = [(offset, storage_uuid, UP_TO_DATE_STATE),]
+        cell_list = [(offset, storage_uuid, CellStates.UP_TO_DATE),]
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, OUT_OF_DATE_STATE)
+            self.assertEquals(state, CellStates.OUT_OF_DATE)
         service.handleNotifyPartitionChanges(conn, packet, self.app.pt.getID(), cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, OUT_OF_DATE_STATE)
+            self.assertEquals(state, CellStates.OUT_OF_DATE)
 
         # send for itself, must be taken into account
         # and the feeding node must be removed
         conn = self.getFakeConnection(uuid, self.storage_address)
-        cell_list = [(offset, uuid, UP_TO_DATE_STATE),]
+        cell_list = [(offset, uuid, CellStates.UP_TO_DATE),]
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, OUT_OF_DATE_STATE)
+            self.assertEquals(state, CellStates.OUT_OF_DATE)
         # mark the second storage node as feeding and say we are up to date
         # second node must go to discarded state and first one to up to date state
-        self.app.pt.setCell(offset, self.app.nm.getByUUID(storage_uuid), FEEDING_STATE)
-        cell_list = [(offset, uuid, UP_TO_DATE_STATE),]
+        self.app.pt.setCell(offset, self.app.nm.getByUUID(storage_uuid),
+                CellStates.FEEDING)
+        cell_list = [(offset, uuid, CellStates.UP_TO_DATE),]
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             if cell == storage_uuid:
-                self.assertEquals(state, FEEDING_STATE)
+                self.assertEquals(state, CellStates.FEEDING)
             else:
-                self.assertEquals(state, OUT_OF_DATE_STATE)        
+                self.assertEquals(state, CellStates.OUT_OF_DATE)        
         lptid = self.app.pt.getID()
         service.handleNotifyPartitionChanges(conn, packet, self.app.pt.getID(), cell_list)
         self.failUnless(lptid < self.app.pt.getID())
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             if cell == uuid:
-                self.assertEquals(state, UP_TO_DATE_STATE)
+                self.assertEquals(state, CellStates.UP_TO_DATE)
             else:
-                self.assertEquals(state, DISCARDED_STATE)
+                self.assertEquals(state, CellStates.DISCARDED)
         
 
     def test_15_peerBroken(self):

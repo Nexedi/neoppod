@@ -18,6 +18,7 @@
 from neo import logging
 
 from neo import protocol
+from neo.protocol import CellStates
 from neo.util import dump, u64
 from neo.locking import RLock
 
@@ -25,7 +26,7 @@ from neo.locking import RLock
 class Cell(object):
     """This class represents a cell in a partition table."""
 
-    def __init__(self, node, state = protocol.UP_TO_DATE_STATE):
+    def __init__(self, node, state = CellStates.UP_TO_DATE):
         self.node = node
         self.state = state
 
@@ -36,13 +37,13 @@ class Cell(object):
         self.state = state
 
     def isUpToDate(self):
-        return self.state == protocol.UP_TO_DATE_STATE
+        return self.state == CellStates.UP_TO_DATE
 
     def isOutOfDate(self):
-        return self.state == protocol.OUT_OF_DATE_STATE
+        return self.state == CellStates.OUT_OF_DATE
 
     def isFeeding(self):
-        return self.state == protocol.FEEDING_STATE
+        return self.state == CellStates.FEEDING
 
     def getNode(self):
         return self.node
@@ -107,13 +108,13 @@ class PartitionTable(object):
 
     def getCellList(self, offset, readable=False, writable=False):
         # allow all cell states
-        state_set = set(protocol.cell_states.values())
+        state_set = set(CellStates.values())
         if readable or writable:
             # except non readables
-            state_set.remove(protocol.DISCARDED_STATE)
+            state_set.remove(CellStates.DISCARDED)
         if readable:
             # except non writables
-            state_set.remove(protocol.OUT_OF_DATE_STATE)
+            state_set.remove(CellStates.OUT_OF_DATE)
         allowed_states = tuple(state_set)
         try:
             return [cell for cell in self.partition_list[offset] \
@@ -133,7 +134,7 @@ class PartitionTable(object):
         return index % self.np
 
     def setCell(self, offset, node, state):
-        if state == protocol.DISCARDED_STATE:
+        if state == CellStates.DISCARDED:
             return self.removeCell(offset, node)
         if node.isBroken() or node.isDown():
             return
@@ -143,7 +144,7 @@ class PartitionTable(object):
         if len(row) == 0:
             # Create a new row.
             row = [Cell(node, state), ]
-            if state != protocol.FEEDING_STATE:
+            if state != CellStates.FEEDING:
                 self.count_dict[node] += 1
             self.partition_list[offset] = row
 
@@ -158,7 +159,7 @@ class PartitionTable(object):
                         self.count_dict[node] -= 1
                     break
             row.append(Cell(node, state))
-            if state != protocol.FEEDING_STATE:
+            if state != CellStates.FEEDING:
                 self.count_dict[node] += 1
 
     def removeCell(self, offset, node):
@@ -220,7 +221,7 @@ class PartitionTable(object):
         DEBUG:root:pt: 00000009: U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U
 
         Here, there are 4 nodes in RUNNING state.
-        The first partition has 2 replicas in UP_TO_DATE_STATE, on nodes 1 and
+        The first partition has 2 replicas in UP_TO_DATE state, on nodes 1 and
         2 (nodes 0 and 3 are displayed as unused for that partition by
         displaying a dot).
         The 8-digits number on the left represents the number of the first

@@ -20,7 +20,7 @@ import sys
 from collections import deque
 
 from neo import protocol
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, CellStates
 from neo.node import NodeManager
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
@@ -132,7 +132,7 @@ class Application(object):
         new_cell_list = []
         for offset, uuid, state in cell_list:
             # convert from int to Enum
-            state = protocol.cell_states[state]
+            state = CellStates[state]
             # register unknown nodes
             if self.nm.getByUUID(uuid) is None:
                 self.nm.createStorage(uuid=uuid)

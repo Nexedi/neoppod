@@ -22,6 +22,7 @@ import MySQLdb
 from mock import Mock
 from neo.util import dump
 from neo.protocol import *
+from neo.protocol import CellStates
 from neo.tests import NeoTestBase
 from neo.exception import DatabaseFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
@@ -329,32 +330,32 @@ class StorageMySQSLdbTests(NeoTestBase):
         ptid = '1'
         uuid1, uuid2 = '\x00' * 15 + '\x01', '\x00' * 15 + '\x02'
         cells = (
-            (0, uuid1, DISCARDED_STATE),
-            (1, uuid2, UP_TO_DATE_STATE),
+            (0, uuid1, CellStates.DISCARDED),
+            (1, uuid2, CellStates.UP_TO_DATE),
         )
         self.db.setPTID(INVALID_PTID)
         # empty table -> insert for second cell
         self.db.changePartitionTable(ptid, cells)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (1, dump(uuid2), 0))
+        self.assertEquals(result[0], (1, dump(uuid2), 1))
         self.assertEquals(self.db.getPTID(), ptid)
-        # delete previous entries for a DISCARDED_STATE node
+        # delete previous entries for a CellStates.DISCARDEDnode
         self.db.query("delete from pt")
-        args = (0, dump(uuid1), DISCARDED_STATE)
+        args = (0, dump(uuid1), CellStates.DISCARDED)
         self.db.query('insert into pt (rid, uuid, state) values (%d, "%s", %d)' % args)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (0, dump(uuid1), 3))
+        self.assertEquals(result[0], (0, dump(uuid1), 4))
         self.assertEquals(self.db.getPTID(), ptid)
         self.db.changePartitionTable(ptid, cells)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (1, dump(uuid2), 0))
+        self.assertEquals(result[0], (1, dump(uuid2), 1))
         self.assertEquals(self.db.getPTID(), ptid)
         # raise exception (config not set), check rollback
         self.db.query("drop table config") # will generate the exception
-        args = (0, uuid1, DISCARDED_STATE)
+        args = (0, uuid1, CellStates.DISCARDED)
         self.db.query('insert into pt (rid, uuid, state) values (%d, "%s", %d)' % args)
         self.assertRaises(MySQLdb.ProgrammingError,
                 self.db.changePartitionTable, ptid, cells)
@@ -367,34 +368,34 @@ class StorageMySQSLdbTests(NeoTestBase):
         ptid = '1'
         uuid1, uuid2 = '\x00' * 15 + '\x01', '\x00' * 15 + '\x02'
         cells = (
-            (0, uuid1, DISCARDED_STATE),
-            (1, uuid2, UP_TO_DATE_STATE),
+            (0, uuid1, CellStates.DISCARDED),
+            (1, uuid2, CellStates.UP_TO_DATE),
         )
         self.db.setPTID(INVALID_PTID)
         # not empty table, reset -> clean table first
-        args = (0, uuid2, UP_TO_DATE_STATE)
+        args = (0, uuid2, CellStates.UP_TO_DATE)
         self.db.query('insert into pt (rid, uuid, state) values (%d, "%s", %d)' % args)
         self.db.setPartitionTable(ptid, cells)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (1, dump(uuid2), 0))
+        self.assertEquals(result[0], (1, dump(uuid2), 1))
         self.assertEquals(self.db.getPTID(), ptid)
-        # delete previous entries for a DISCARDED_STATE node
+        # delete previous entries for a CellStates.DISCARDEDnode
         self.db.query("delete from pt")
-        args = (0, uuid1, DISCARDED_STATE)
+        args = (0, uuid1, CellStates.DISCARDED)
         self.db.query('insert into pt (rid, uuid, state) values (%d, "%s", %d)' % args)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (0, uuid1, 3))
+        self.assertEquals(result[0], (0, uuid1, 4))
         self.assertEquals(self.db.getPTID(), ptid)
         self.db.setPartitionTable(ptid, cells)
         result = self.db.query('select rid, uuid, state from pt')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (1, dump(uuid2), 0))
+        self.assertEquals(result[0], (1, dump(uuid2), 1))
         self.assertEquals(self.db.getPTID(), ptid)
         # raise exception (config not set), check rollback
         self.db.query("drop table config") # will generate the exception
-        args = (0, uuid1, DISCARDED_STATE)
+        args = (0, uuid1, CellStates.DISCARDED)
         self.db.query('insert into pt (rid, uuid, state) values (%d, "%s", %d)' % args)
         self.assertRaises(MySQLdb.ProgrammingError,
                 self.db.setPartitionTable, ptid, cells)

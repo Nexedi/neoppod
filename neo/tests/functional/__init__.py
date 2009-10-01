@@ -15,8 +15,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-from neo.neoctl.neoctl import NeoCTL, NotReadyException
-from neo import protocol
 import os
 import sys
 import time
@@ -28,7 +26,8 @@ import unittest
 import tempfile
 import traceback
 
-from neo.protocol import ClusterStates, NodeTypes
+from neo.neoctl.neoctl import NeoCTL, NotReadyException
+from neo.protocol import ClusterStates, NodeTypes, CellStates
 from neo.client.Storage import Storage
 from neo.tests import getNewUUID
 from neo.util import dump
@@ -411,7 +410,7 @@ class NEOCluster(object):
             number_of_oudated = 0
             for row in row_list:
                 for cell in row[1]:
-                    if cell[1] == protocol.OUT_OF_DATE_STATE:
+                    if cell[1] == CellStates.OUT_OF_DATE:
                         number_of_oudated += 1
             return number_of_oudated == number, number_of_oudated
         self.expectCondition(callback, timeout, delay)

@@ -22,15 +22,14 @@ from mock import Mock
 from struct import pack, unpack
 import neo
 from neo.tests import NeoTestBase
-from neo.protocol import Packet, NodeTypes, NodeStates, INVALID_UUID
+from neo.protocol import Packet, NodeTypes, NodeStates, CellStates, INVALID_UUID
 from neo.master.handlers.verification import VerificationHandler
 from neo.master.app import Application
 from neo import protocol
 from neo.protocol import ERROR, ANNOUNCE_PRIMARY_MASTER, \
     NOTIFY_NODE_INFORMATION, ANSWER_LAST_IDS, ANSWER_PARTITION_TABLE, \
      ANSWER_UNFINISHED_TRANSACTIONS, ANSWER_OBJECT_PRESENT, \
-     ANSWER_TRANSACTION_INFORMATION, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
-     UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
+     ANSWER_TRANSACTION_INFORMATION, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE
 from neo.exception import OperationFailure, ElectionFailure, VerificationFailure     
 from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection

@@ -22,7 +22,7 @@ from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoTestBase
 from neo import protocol
-from neo.protocol import Packet, NodeTypes, NodeStates, INVALID_UUID
+from neo.protocol import Packet, NodeTypes, NodeStates, CellStates, INVALID_UUID
 from neo.master.handlers.recovery import RecoveryHandler
 from neo.master.app import Application
 from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -39,11 +39,8 @@ from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIF
      ABORT_TRANSACTION, ASK_STORE_TRANSACTION, ANSWER_STORE_TRANSACTION, \
      ASK_OBJECT, ANSWER_OBJECT, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
      ANSWER_TRANSACTION_INFORMATION, ASK_OBJECT_HISTORY, ANSWER_OBJECT_HISTORY, \
-     ASK_OIDS, ANSWER_OIDS, \
-     NOT_READY_CODE, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
-     PROTOCOL_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
-     INTERNAL_ERROR_CODE, \
-     UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
+     ASK_OIDS, ANSWER_OIDS, NOT_READY_CODE, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
+     PROTOCOL_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, INTERNAL_ERROR_CODE
 from neo.exception import OperationFailure, ElectionFailure     
 from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
@@ -209,28 +206,28 @@ class MasterRecoveryTests(NeoTestBase):
         conn = self.getFakeConnection(uuid, self.storage_port)
         self.assertNotEquals(self.app.target_uuid, uuid)
         offset = 1
-        cell_list = [(offset, uuid, UP_TO_DATE_STATE)]
+        cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, OUT_OF_DATE_STATE)
+            self.assertEquals(state, CellStates.OUT_OF_DATE)
         recovery.handleAnswerPartitionTable(conn, packet, None, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, OUT_OF_DATE_STATE)
+            self.assertEquals(state, CellStates.OUT_OF_DATE)
         # from target node, taken into account
         conn = self.getFakeConnection(uuid, self.storage_port)
         self.assertNotEquals(self.app.target_uuid, uuid)
         self.app.target_uuid = uuid
         self.assertEquals(self.app.target_uuid, uuid)
         offset = 1
-        cell_list = [(offset, ((uuid, UP_TO_DATE_STATE,),),)]
+        cell_list = [(offset, ((uuid, CellStates.UP_TO_DATE,),),)]
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, OUT_OF_DATE_STATE)
+            self.assertEquals(state, CellStates.OUT_OF_DATE)
         recovery.handleAnswerPartitionTable(conn, packet, None, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, UP_TO_DATE_STATE)
+            self.assertEquals(state, CellStates.UP_TO_DATE)
         # give a bad offset, must send error
         conn = self.getFakeConnection(uuid, self.storage_port)
         self.assertEquals(self.app.target_uuid, uuid)

@@ -26,7 +26,7 @@ from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.pt import PartitionTable
-from neo import protocol
+from neo.protocol import CellStates
 from neo.protocol import *
 
 class StorageMasterHandlerTests(NeoTestBase):
@@ -115,9 +115,9 @@ class StorageMasterHandlerTests(NeoTestBase):
         # cases :
         uuid1, uuid2, uuid3 = [self.getNewUUID() for i in range(3)]
         cells = (
-            (0, uuid1, UP_TO_DATE_STATE),
-            (1, uuid2, DISCARDED_STATE),
-            (2, uuid3, OUT_OF_DATE_STATE),
+            (0, uuid1, CellStates.UP_TO_DATE),
+            (1, uuid2, CellStates.DISCARDED),
+            (2, uuid3, CellStates.OUT_OF_DATE),
         )
         # context
         conn = Mock({
