@@ -63,9 +63,6 @@ class Node(object):
     def getUUID(self):
         return self._uuid
 
-    def getType(self):
-        raise NotImplementedError
-
     def __repr__(self):
         return '<%s(uuid=%s, address=%s, state=%s)>' % (
             self.__class__.__name__, 
