@@ -103,6 +103,9 @@ class Enum(dict):
 
     class Item(int):
 
+        _enum = None
+        _name = None
+
         def __new__(cls, value):
             instance = super(Enum.Item, cls).__new__(cls, value)
             instance._enum = None
@@ -123,6 +126,7 @@ class Enum(dict):
             return int(self) == int(other)
 
     def __init__(self):
+        dict.__init__(self)
         for name in dir(self):
             if not re.match('^[A-Z_]*$', name):
                 continue
