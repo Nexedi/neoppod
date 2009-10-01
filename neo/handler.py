@@ -27,8 +27,8 @@ class EventHandler(object):
 
     def __init__(self, app):
         self.app = app
-        self.packet_dispatch_table = self.initPacketDispatchTable()
-        self.error_dispatch_table = self.initErrorDispatchTable()
+        self.packet_dispatch_table = self.__initPacketDispatchTable()
+        self.error_dispatch_table = self.__initErrorDispatchTable()
 
     def __packetMalformed(self, conn, packet, message='', *args):
         """Called when a packet is malformed."""
@@ -369,7 +369,7 @@ class EventHandler(object):
 
     # Fetch tables initialization
 
-    def initPacketDispatchTable(self):
+    def __initPacketDispatchTable(self):
         d = {}
 
         d[PacketTypes.ERROR] = self.handleError
@@ -437,7 +437,7 @@ class EventHandler(object):
 
         return d
 
-    def initErrorDispatchTable(self):
+    def __initErrorDispatchTable(self):
         d = {}
 
         d[ErrorCodes.NO_ERROR] = self.handleNoError
