@@ -20,14 +20,14 @@ from neo.storage.handlers import BaseClientAndStorageOperationHandler
 
 class StorageOperationHandler(BaseClientAndStorageOperationHandler):
 
-    def handleAskLastIDs(self, conn, packet):
+    def askLastIDs(self, conn, packet):
         app = self.app
         oid = app.dm.getLastOID()
         tid = app.dm.getLastTID()
         p = protocol.answerLastIDs(oid, tid, app.pt.getID())
         conn.answer(p, packet.getId())
 
-    def handleAskOIDs(self, conn, packet, first, last, partition):
+    def askOIDs(self, conn, packet, first, last, partition):
         # This method is complicated, because I must return OIDs only
         # about usable partitions assigned to me.
         if first >= last:

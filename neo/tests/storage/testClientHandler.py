@@ -104,30 +104,30 @@ class StorageClientHandlerTests(NeoTestBase):
         self.assertTrue(0 not in self.app.store_lock_dict)
         self.assertTrue(0 not in self.app.transaction_dict)
 
-    def test_18_handleAskTransactionInformation1(self):
+    def test_18_askTransactionInformation1(self):
         # transaction does not exists
         conn = Mock({ })
         packet = Packet(msg_type=PacketTypes.ASK_TRANSACTION_INFORMATION)
-        self.operation.handleAskTransactionInformation(conn, packet, INVALID_TID)
+        self.operation.askTransactionInformation(conn, packet, INVALID_TID)
         self.checkErrorPacket(conn)
 
-    def test_18_handleAskTransactionInformation2(self):
+    def test_18_askTransactionInformation2(self):
         # answer
         conn = Mock({ })
         packet = Packet(msg_type=PacketTypes.ASK_TRANSACTION_INFORMATION)
         dm = Mock({ "getTransaction": (INVALID_TID, 'user', 'desc', '', ), })
         self.app.dm = dm
-        self.operation.handleAskTransactionInformation(conn, packet, INVALID_TID)
+        self.operation.askTransactionInformation(conn, packet, INVALID_TID)
         self.checkAnswerTransactionInformation(conn)
 
-    def test_24_handleAskObject1(self):
+    def test_24_askObject1(self):
         # delayed response
         conn = Mock({})
         self.app.dm = Mock()
         packet = Packet(msg_type=PacketTypes.ASK_OBJECT)
         self.app.load_lock_dict[INVALID_OID] = object()
         self.assertEquals(len(self.app.event_queue), 0)
-        self.operation.handleAskObject(conn, packet, 
+        self.operation.askObject(conn, packet, 
             oid=INVALID_OID, 
             serial=INVALID_SERIAL, 
             tid=INVALID_TID)
@@ -135,13 +135,13 @@ class StorageClientHandlerTests(NeoTestBase):
         self.checkNoPacketSent(conn)
         self.assertEquals(len(self.app.dm.mockGetNamedCalls('getObject')), 0)
 
-    def test_24_handleAskObject2(self):
+    def test_24_askObject2(self):
         # invalid serial / tid / packet not found
         self.app.dm = Mock({'getObject': None})
         conn = Mock({})
         packet = Packet(msg_type=PacketTypes.ASK_OBJECT)
         self.assertEquals(len(self.app.event_queue), 0)
-        self.operation.handleAskObject(conn, packet, 
+        self.operation.askObject(conn, packet, 
             oid=INVALID_OID, 
             serial=INVALID_SERIAL, 
             tid=INVALID_TID)
@@ -151,83 +151,83 @@ class StorageClientHandlerTests(NeoTestBase):
         calls[0].checkArgs(INVALID_OID, INVALID_TID, INVALID_TID)
         self.checkErrorPacket(conn)
 
-    def test_24_handleAskObject3(self):
+    def test_24_askObject3(self):
         # object found => answer
         self.app.dm = Mock({'getObject': ('', '', 0, 0, '', )})
         conn = Mock({})
         packet = Packet(msg_type=PacketTypes.ASK_OBJECT)
         self.assertEquals(len(self.app.event_queue), 0)
-        self.operation.handleAskObject(conn, packet, 
+        self.operation.askObject(conn, packet, 
             oid=INVALID_OID, 
             serial=INVALID_SERIAL, 
             tid=INVALID_TID)
         self.assertEquals(len(self.app.event_queue), 0)
         self.checkAnswerObject(conn)
 
-    def test_25_handleAskTIDs1(self):
+    def test_25_askTIDs1(self):
         # invalid offsets => error
         app = self.app
         app.pt = Mock()
         app.dm = Mock()
         conn = Mock({})
         packet = Packet(msg_type=PacketTypes.ASK_TIDS)
-        self.checkProtocolErrorRaised(self.operation.handleAskTIDs, conn, packet, 1, 1, None)
+        self.checkProtocolErrorRaised(self.operation.askTIDs, conn, packet, 1, 1, None)
         self.assertEquals(len(app.pt.mockGetNamedCalls('getCellList')), 0)
         self.assertEquals(len(app.dm.mockGetNamedCalls('getTIDList')), 0)
 
-    def test_25_handleAskTIDs2(self):
+    def test_25_askTIDs2(self):
         # well case => answer
         conn = Mock({})
         packet = Packet(msg_type=PacketTypes.ASK_TIDS)
         self.app.pt = Mock({'getPartitions': 1})
         self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
-        self.operation.handleAskTIDs(conn, packet, 1, 2, 1)
+        self.operation.askTIDs(conn, packet, 1, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
         self.assertEquals(len(calls), 1)
         calls[0].checkArgs(1, 1, 1, [1, ])
         self.checkAnswerTids(conn)
 
-    def test_25_handleAskTIDs3(self):
+    def test_25_askTIDs3(self):
         # invalid partition => answer usable partitions
         conn = Mock({})
         packet = Packet(msg_type=PacketTypes.ASK_TIDS)
         cell = Mock({'getUUID':self.app.uuid})
         self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
         self.app.pt = Mock({'getCellList': (cell, ), 'getPartitions': 1})
-        self.operation.handleAskTIDs(conn, packet, 1, 2, INVALID_PARTITION)
+        self.operation.askTIDs(conn, packet, 1, 2, INVALID_PARTITION)
         self.assertEquals(len(self.app.pt.mockGetNamedCalls('getCellList')), 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
         self.assertEquals(len(calls), 1)
         calls[0].checkArgs(1, 1, 1, [0, ])
         self.checkAnswerTids(conn)
 
-    def test_26_handleAskObjectHistory1(self):
+    def test_26_askObjectHistory1(self):
         # invalid offsets => error
         app = self.app
         app.dm = Mock()
         conn = Mock({})
         packet = Packet(msg_type=PacketTypes.ASK_OBJECT_HISTORY)
-        self.checkProtocolErrorRaised(self.operation.handleAskObjectHistory, conn, packet, 1, 1, None)
+        self.checkProtocolErrorRaised(self.operation.askObjectHistory, conn, packet, 1, 1, None)
         self.assertEquals(len(app.dm.mockGetNamedCalls('getObjectHistory')), 0)
 
-    def test_26_handleAskObjectHistory2(self):
+    def test_26_askObjectHistory2(self):
         # first case: empty history
         packet = Packet(msg_type=PacketTypes.ASK_OBJECT_HISTORY)
         conn = Mock({})
         self.app.dm = Mock({'getObjectHistory': None})
-        self.operation.handleAskObjectHistory(conn, packet, INVALID_OID, 1, 2)
+        self.operation.askObjectHistory(conn, packet, INVALID_OID, 1, 2)
         self.checkAnswerObjectHistory(conn)
         # second case: not empty history
         conn = Mock({})
         self.app.dm = Mock({'getObjectHistory': [('', 0, ), ]})
-        self.operation.handleAskObjectHistory(conn, packet, INVALID_OID, 1, 2)
+        self.operation.askObjectHistory(conn, packet, INVALID_OID, 1, 2)
         self.checkAnswerObjectHistory(conn)
 
-    def test_27_handleAskStoreTransaction2(self):
+    def test_27_askStoreTransaction2(self):
         # add transaction entry
         packet = Packet(msg_type=PacketTypes.ASK_STORE_TRANSACTION)
         conn = Mock({'getUUID': self.getNewUUID()})
-        self.operation.handleAskStoreTransaction(conn, packet,
+        self.operation.askStoreTransaction(conn, packet,
             INVALID_TID, '', '', '', ())
         t = self.app.transaction_dict.get(INVALID_TID, None)
         self.assertNotEquals(t, None)
@@ -235,7 +235,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.assertEquals(t.getTransaction(), ((), '', '', ''))
         self.checkAnswerStoreTransaction(conn)
 
-    def test_28_handleAskStoreObject2(self):
+    def test_28_askStoreObject2(self):
         # locked => delayed response
         packet = Packet(msg_type=PacketTypes.ASK_STORE_OBJECT)
         conn = Mock({'getUUID': self.app.uuid})
@@ -244,7 +244,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.app.store_lock_dict[oid] = tid1
         self.assertTrue(oid in self.app.store_lock_dict)
         t_before = self.app.transaction_dict.items()[:]
-        self.operation.handleAskStoreObject(conn, packet, oid, 
+        self.operation.askStoreObject(conn, packet, oid, 
             INVALID_SERIAL, 0, 0, '', tid2)
         self.assertEquals(len(self.app.event_queue), 1)
         t_after = self.app.transaction_dict.items()[:]
@@ -252,13 +252,13 @@ class StorageClientHandlerTests(NeoTestBase):
         self.checkNoPacketSent(conn)
         self.assertTrue(oid in self.app.store_lock_dict)
 
-    def test_28_handleAskStoreObject3(self):
+    def test_28_askStoreObject3(self):
         # locked => unresolvable conflict => answer
         packet = Packet(msg_type=PacketTypes.ASK_STORE_OBJECT)
         conn = Mock({'getUUID': self.app.uuid})
         tid1, tid2 = self.getTwoIDs()
         self.app.store_lock_dict[INVALID_OID] = tid2
-        self.operation.handleAskStoreObject(conn, packet, INVALID_OID, 
+        self.operation.askStoreObject(conn, packet, INVALID_OID, 
             INVALID_SERIAL, 0, 0, '', tid1)
         self.checkAnswerStoreObject(conn)
         self.assertEquals(self.app.store_lock_dict[INVALID_OID], tid2)
@@ -266,13 +266,13 @@ class StorageClientHandlerTests(NeoTestBase):
         packet = conn.mockGetNamedCalls('answer')[0].getParam(0)
         self.assertTrue(unpack('!B8s8s', packet._body)[0])
     
-    def test_28_handleAskStoreObject4(self):
+    def test_28_askStoreObject4(self):
         # resolvable conflict => answer
         packet = Packet(msg_type=PacketTypes.ASK_STORE_OBJECT)
         conn = Mock({'getUUID': self.app.uuid})
         self.app.dm = Mock({'getObjectHistory':((self.getNewUUID(), ), )})
         self.assertEquals(self.app.store_lock_dict.get(INVALID_OID, None), None)
-        self.operation.handleAskStoreObject(conn, packet, INVALID_OID, 
+        self.operation.askStoreObject(conn, packet, INVALID_OID, 
             INVALID_SERIAL, 0, 0, '', INVALID_TID)
         self.checkAnswerStoreObject(conn)
         self.assertEquals(self.app.store_lock_dict.get(INVALID_OID, None), None)
@@ -280,11 +280,11 @@ class StorageClientHandlerTests(NeoTestBase):
         packet = conn.mockGetNamedCalls('answer')[0].getParam(0)
         self.assertTrue(unpack('!B8s8s', packet._body)[0])
         
-    def test_28_handleAskStoreObject5(self):
+    def test_28_askStoreObject5(self):
         # no conflict => answer
         packet = Packet(msg_type=PacketTypes.ASK_STORE_OBJECT)
         conn = Mock({'getUUID': self.app.uuid})
-        self.operation.handleAskStoreObject(conn, packet, INVALID_OID, 
+        self.operation.askStoreObject(conn, packet, INVALID_OID, 
             INVALID_SERIAL, 0, 0, '', INVALID_TID)
         t = self.app.transaction_dict.get(INVALID_TID, None)
         self.assertNotEquals(t, None)
@@ -295,7 +295,7 @@ class StorageClientHandlerTests(NeoTestBase):
         packet = self.checkAnswerStoreObject(conn)
         self.assertFalse(unpack('!B8s8s', packet._body)[0])
 
-    def test_29_handleAbortTransaction(self):
+    def test_29_abortTransaction(self):
         # remove transaction
         packet = Packet(msg_type=PacketTypes.ABORT_TRANSACTION)
         conn = Mock({'getUUID': self.app.uuid})
@@ -307,7 +307,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.app.load_lock_dict[0] = object()
         self.app.store_lock_dict[0] = object()
         self.app.transaction_dict[INVALID_TID] = transaction
-        self.operation.handleAbortTransaction(conn, packet, INVALID_TID)
+        self.operation.abortTransaction(conn, packet, INVALID_TID)
         self.assertTrue(self.called)
         self.assertEquals(len(self.app.load_lock_dict), 0)
         self.assertEquals(len(self.app.store_lock_dict), 0)

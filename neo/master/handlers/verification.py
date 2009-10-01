@@ -27,18 +27,18 @@ class VerificationHandler(MasterHandler):
     def connectionCompleted(self, conn):
         pass
 
-    def handleNodeLost(self, conn, node):
+    def nodeLost(self, conn, node):
         if not self.app.pt.operational():
             raise VerificationFailure, 'cannot continue verification'
 
-    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
+    def answerLastIDs(self, conn, packet, loid, ltid, lptid):
         app = self.app
         # If I get a bigger value here, it is dangerous.
         if app.loid < loid or app.ltid < ltid or app.pt.getID() < lptid:
             logging.critical('got later information in verification')
             raise VerificationFailure
 
-    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
+    def answerUnfinishedTransactions(self, conn, packet, tid_list):
         uuid = conn.getUUID()
         logging.info('got unfinished transactions %s from %s:%d', 
                 tid_list, *(conn.getAddress()))
@@ -49,7 +49,7 @@ class VerificationHandler(MasterHandler):
         app.unfinished_tid_set.update(tid_list)
         app.asking_uuid_dict[uuid] = True
 
-    def handleAnswerTransactionInformation(self, conn, packet, tid,
+    def answerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):
         uuid = conn.getUUID()
         app = self.app
@@ -67,7 +67,7 @@ class VerificationHandler(MasterHandler):
             app.unfinished_oid_set = None
         app.asking_uuid_dict[uuid] = True
 
-    def handleTidNotFound(self, conn, packet, message):
+    def tidNotFound(self, conn, packet, message):
         uuid = conn.getUUID()
         logging.info('TID not found: %s', message)
         app = self.app
@@ -77,7 +77,7 @@ class VerificationHandler(MasterHandler):
         app.unfinished_oid_set = None
         app.asking_uuid_dict[uuid] = True
 
-    def handleAnswerObjectPresent(self, conn, packet, oid, tid):
+    def answerObjectPresent(self, conn, packet, oid, tid):
         uuid = conn.getUUID()
         logging.info('object %s:%s found', dump(oid), dump(tid))
         app = self.app
@@ -86,7 +86,7 @@ class VerificationHandler(MasterHandler):
             return
         app.asking_uuid_dict[uuid] = True
 
-    def handleOidNotFound(self, conn, packet, message):
+    def oidNotFound(self, conn, packet, message):
         uuid = conn.getUUID()
         logging.info('OID not found: %s', message)
         app = self.app

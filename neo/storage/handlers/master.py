@@ -26,16 +26,16 @@ from neo.exception import OperationFailure
 class MasterOperationHandler(BaseMasterHandler):
     """ This handler is used for the primary master """
 
-    def handleStopOperation(self, conn, packet):
+    def stopOperation(self, conn, packet):
         raise OperationFailure('operation stopped')
 
-    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
+    def answerLastIDs(self, conn, packet, loid, ltid, lptid):
         self.app.replicator.setCriticalTID(packet, ltid)
 
-    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
+    def answerUnfinishedTransactions(self, conn, packet, tid_list):
         self.app.replicator.setUnfinishedTIDList(tid_list)
 
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
        the information is only about changes from the previous."""
         app = self.app
@@ -57,7 +57,7 @@ class MasterOperationHandler(BaseMasterHandler):
                 elif state == CellStates.OUT_OF_DATE:
                     app.replicator.addPartition(offset)
 
-    def handleLockInformation(self, conn, packet, tid):
+    def lockInformation(self, conn, packet, tid):
         app = self.app
         try:
             t = app.transaction_dict[tid]
@@ -70,7 +70,7 @@ class MasterOperationHandler(BaseMasterHandler):
             pass
         conn.answer(protocol.notifyInformationLocked(tid), packet.getId())
 
-    def handleUnlockInformation(self, conn, packet, tid):
+    def unlockInformation(self, conn, packet, tid):
         app = self.app
         try:
             t = app.transaction_dict[tid]

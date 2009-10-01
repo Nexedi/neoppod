@@ -28,7 +28,7 @@ class RecoveryHandler(MasterHandler):
         # ask the last IDs to perform the recovery
         conn.ask(protocol.askLastIDs())
 
-    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
+    def answerLastIDs(self, conn, packet, loid, ltid, lptid):
         app = self.app
         pt = app.pt
 
@@ -41,7 +41,7 @@ class RecoveryHandler(MasterHandler):
             app.pt.setID(lptid)
             conn.ask(protocol.askPartitionTable([]))
 
-    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
+    def answerPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()
         app = self.app
         if uuid != app.target_uuid:

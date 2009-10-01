@@ -25,14 +25,14 @@ from neo.exception import OperationFailure
 class VerificationHandler(BaseMasterHandler):
     """This class deals with events for a verification phase."""
 
-    def handleAskLastIDs(self, conn, packet):
+    def askLastIDs(self, conn, packet):
         app = self.app
         oid = app.dm.getLastOID()
         tid = app.dm.getLastTID()
         p = protocol.answerLastIDs(oid, tid, app.pt.getID())
         conn.answer(p, packet.getId())
 
-    def handleAskPartitionTable(self, conn, packet, offset_list):
+    def askPartitionTable(self, conn, packet, offset_list):
         app, pt = self.app, self.app.pt
         if not offset_list:
             # all is requested
@@ -53,7 +53,7 @@ class VerificationHandler(BaseMasterHandler):
         p = protocol.answerPartitionTable(app.pt.getID(), row_list)
         conn.answer(p, packet.getId())
 
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
         app = self.app
@@ -65,18 +65,18 @@ class VerificationHandler(BaseMasterHandler):
         app.pt.update(ptid, cell_list, app.nm)
         app.dm.changePartitionTable(ptid, cell_list)
 
-    def handleStartOperation(self, conn, packet):
+    def startOperation(self, conn, packet):
         self.app.operational = True
 
-    def handleStopOperation(self, conn, packet):
+    def stopOperation(self, conn, packet):
         raise OperationFailure('operation stopped')
 
-    def handleAskUnfinishedTransactions(self, conn, packet):
+    def askUnfinishedTransactions(self, conn, packet):
         tid_list = self.app.dm.getUnfinishedTIDList()
         p = protocol.answerUnfinishedTransactions(tid_list)
         conn.answer(p, packet.getId())
 
-    def handleAskTransactionInformation(self, conn, packet, tid):
+    def askTransactionInformation(self, conn, packet, tid):
         app = self.app
         t = app.dm.getTransaction(tid, all=True)
         if t is None:
@@ -85,7 +85,7 @@ class VerificationHandler(BaseMasterHandler):
             p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
         conn.answer(p, packet.getId())
 
-    def handleAskObjectPresent(self, conn, packet, oid, tid):
+    def askObjectPresent(self, conn, packet, oid, tid):
         if self.app.dm.objectPresent(oid, tid):
             p = protocol.answerObjectPresent(oid, tid)
         else:
@@ -93,9 +93,9 @@ class VerificationHandler(BaseMasterHandler):
                           '%s:%s do not exist' % (dump(oid), dump(tid)))
         conn.answer(p, packet.getId())
 
-    def handleDeleteTransaction(self, conn, packet, tid):
+    def deleteTransaction(self, conn, packet, tid):
         self.app.dm.deleteTransaction(tid, all = True)
 
-    def handleCommitTransaction(self, conn, packet, tid):
+    def commitTransaction(self, conn, packet, tid):
         self.app.dm.finishTransaction(tid)
 

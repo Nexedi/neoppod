@@ -24,10 +24,10 @@ from neo.master.handlers import MasterHandler
 class IdentificationHandler(MasterHandler):
     """This class deals with messages from the admin node only"""
 
-    def handleNodeLost(self, conn, node):
+    def nodeLost(self, conn, node):
         logging.warning('lost a node in IdentificationHandler : %s' % node)
 
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
+    def requestNodeIdentification(self, conn, packet, node_type,
             uuid, address, name):
 
         self.checkClusterName(name)

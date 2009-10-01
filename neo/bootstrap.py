@@ -52,12 +52,12 @@ class BootstrapManager(EventHandler):
     def connectionLost(self, conn, new_state):
         self.current = None
 
-    def handleNotReady(self, conn, packet, message):
+    def notReady(self, conn, packet, message):
         # master are still electing on of them
         self.current = None
         conn.close()
 
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
+    def answerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
         nm  = self.app.nm
 
         # Register new master nodes.
@@ -81,7 +81,7 @@ class BootstrapManager(EventHandler):
         conn.ask(protocol.requestNodeIdentification(self.node_type,
                 self.uuid, self.server, self.name))
 
-    def handleAcceptNodeIdentification(self, conn, packet, node_type,
+    def acceptNodeIdentification(self, conn, packet, node_type,
            uuid, address, num_partitions, num_replicas, your_uuid):
         self.num_partitions = num_partitions
         self.num_replicas = num_replicas

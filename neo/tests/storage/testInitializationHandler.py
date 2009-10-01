@@ -79,7 +79,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         # nothing happens
         self.checkNoPacketSent(conn)
 
-    def test_09_handleSendPartitionTable(self):
+    def test_09_sendPartitionTable(self):
         packet = Packet(msg_type=PacketTypes.SEND_PARTITION_TABLE)
         uuid = self.getNewUUID()
         # send a table
@@ -101,19 +101,19 @@ class StorageInitializationHandlerTests(NeoTestBase):
                     (2, ((node_2, CellStates.UP_TO_DATE), (node_3, CellStates.UP_TO_DATE)))]
         self.assertFalse(self.app.pt.filled())
         # send part of the table, won't be filled
-        self.verification.handleSendPartitionTable(conn, packet, 1, row_list[:1])
+        self.verification.sendPartitionTable(conn, packet, 1, row_list[:1])
         self.assertFalse(self.app.pt.filled())
         self.assertEqual(self.app.pt.getID(), 1)
         self.assertEqual(self.app.dm.getPartitionTable(), [])
         # send remaining of the table (ack with AnswerPartitionTable)
-        self.verification.handleSendPartitionTable(conn, packet, 1, row_list[1:])
-        self.verification.handleAnswerPartitionTable(conn, packet, 1, [])
+        self.verification.sendPartitionTable(conn, packet, 1, row_list[1:])
+        self.verification.answerPartitionTable(conn, packet, 1, [])
         self.assertTrue(self.app.pt.filled())
         self.assertEqual(self.app.pt.getID(), 1)
         self.assertNotEqual(self.app.dm.getPartitionTable(), [])
         # send a complete new table and ack
-        self.verification.handleSendPartitionTable(conn, packet, 2, row_list)
-        self.verification.handleAnswerPartitionTable(conn, packet, 2, [])
+        self.verification.sendPartitionTable(conn, packet, 2, row_list)
+        self.verification.answerPartitionTable(conn, packet, 2, [])
         self.assertTrue(self.app.pt.filled())
         self.assertEqual(self.app.pt.getID(), 2)
         self.assertNotEqual(self.app.dm.getPartitionTable(), [])

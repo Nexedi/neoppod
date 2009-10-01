@@ -24,10 +24,10 @@ from neo.protocol import NodeTypes, NodeStates
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
-    def handleProtocolError(self, conn, packet, message):
+    def protocolError(self, conn, packet, message):
         logging.error('Protocol error %s %s' % (message, conn.getAddress()))
 
-    def handleAskPrimaryMaster(self, conn, packet):
+    def askPrimaryMaster(self, conn, packet):
         if conn.getConnector() is None:
             # Connection can be closed by peer after he sent AskPrimaryMaster
             # if he finds the primary master before we answer him.
@@ -54,16 +54,16 @@ class MasterHandler(EventHandler):
             packet.getId(),
         )
 
-    def handleAskClusterState(self, conn, packet):
+    def askClusterState(self, conn, packet):
         assert conn.getUUID() is not None
         state = self.app.getClusterState()
         conn.answer(protocol.answerClusterState(state), packet.getId())
 
-    def handleAskNodeInformation(self, conn, packet):
+    def askNodeInformation(self, conn, packet):
         self.app.sendNodesInformations(conn)
         conn.answer(protocol.answerNodeInformation([]), packet.getId())
 
-    def handleAskPartitionTable(self, conn, packet, offset_list):
+    def askPartitionTable(self, conn, packet, offset_list):
         assert len(offset_list) == 0
         app = self.app
         app.sendPartitionTable(conn)
@@ -78,7 +78,7 @@ DISCONNECTED_STATE_DICT = {
 class BaseServiceHandler(MasterHandler):
     """This class deals with events for a service phase."""
 
-    def handleNodeLost(self, conn, node):
+    def nodeLost(self, conn, node):
         # This method provides a hook point overridable by service classes.
         # It is triggered when a connection to a node gets lost.
         pass
@@ -98,13 +98,13 @@ class BaseServiceHandler(MasterHandler):
         node.setState(new_state)
         self.app.broadcastNodeInformation(node)
         # clean node related data in specialized handlers
-        self.handleNodeLost(conn, node)
+        self.nodeLost(conn, node)
 
-    def handleAskLastIDs(self, conn, packet):
+    def askLastIDs(self, conn, packet):
         app = self.app
         conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.pt.getID()), packet.getId())
 
-    def handleAskUnfinishedTransactions(self, conn, packet):
+    def askUnfinishedTransactions(self, conn, packet):
         app = self.app
         p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
         conn.answer(p, packet.getId())

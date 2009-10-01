@@ -92,7 +92,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.assertRaises(PrimaryFailure, self.operation.peerBroken, conn)
         self.checkNoPacketSent(conn)
 
-    def test_14_handleNotifyPartitionChanges1(self):
+    def test_14_notifyPartitionChanges1(self):
         # old partition change -> do nothing
         app = self.app
         conn = Mock({
@@ -103,7 +103,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         packet = Packet(msg_type=PacketTypes.NOTIFY_PARTITION_CHANGES)
         self.app.pt = Mock({'getID': 1})
         count = len(self.app.nm.getList())
-        self.operation.handleNotifyPartitionChanges(conn, packet, 0, ())
+        self.operation.notifyPartitionChanges(conn, packet, 0, ())
         self.assertEquals(self.app.pt.getID(), 1)
         self.assertEquals(len(self.app.nm.getList()), count)
         calls = self.app.replicator.mockGetNamedCalls('removePartition')
@@ -111,7 +111,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         calls = self.app.replicator.mockGetNamedCalls('addPartition')
         self.assertEquals(len(calls), 0)
 
-    def test_14_handleNotifyPartitionChanges2(self):
+    def test_14_notifyPartitionChanges2(self):
         # cases :
         uuid1, uuid2, uuid3 = [self.getNewUUID() for i in range(3)]
         cells = (
@@ -136,7 +136,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         app.dm = Mock({ })
         app.replicator = Mock({})
         count = len(app.nm.getList())
-        self.operation.handleNotifyPartitionChanges(conn, packet, ptid2, cells)
+        self.operation.notifyPartitionChanges(conn, packet, ptid2, cells)
         # ptid set
         self.assertEquals(app.pt.getID(), ptid2)
         # dm call
@@ -144,13 +144,13 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.assertEquals(len(calls), 1)
         calls[0].checkArgs(ptid2, cells)
 
-    def test_16_handleStopOperation1(self):
+    def test_16_stopOperation1(self):
         # OperationFailure
         conn = Mock({ 'isServer': False })
         packet = Packet(msg_type=PacketTypes.STOP_OPERATION)
-        self.assertRaises(OperationFailure, self.operation.handleStopOperation, conn, packet)
+        self.assertRaises(OperationFailure, self.operation.stopOperation, conn, packet)
 
-    def test_22_handleLockInformation2(self):
+    def test_22_lockInformation2(self):
         # load transaction informations
         conn = Mock({ 'isServer': False, })
         self.app.dm = Mock({ })
@@ -158,7 +158,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         packet.setId(1)
         transaction = Mock({ 'getObjectList': ((0, ), ), })
         self.app.transaction_dict[INVALID_TID] = transaction
-        self.operation.handleLockInformation(conn, packet, INVALID_TID)
+        self.operation.lockInformation(conn, packet, INVALID_TID)
         self.assertEquals(self.app.load_lock_dict[0], INVALID_TID)
         calls = self.app.dm.mockGetNamedCalls('storeTransaction')
         self.assertEquals(len(calls), 1)
@@ -166,10 +166,10 @@ class StorageMasterHandlerTests(NeoTestBase):
         # transaction not in transaction_dict -> KeyError
         transaction = Mock({ 'getObjectList': ((0, ), ), })
         conn = Mock({ 'isServer': False, })
-        self.operation.handleLockInformation(conn, packet, '\x01' * 8)
+        self.operation.lockInformation(conn, packet, '\x01' * 8)
         self.checkNotifyInformationLocked(conn, answered_packet=packet)
 
-    def test_23_handleUnlockInformation2(self):
+    def test_23_unlockInformation2(self):
         # delete transaction informations
         conn = Mock({ 'isServer': False, })
         self.app.dm = Mock({ })
@@ -179,7 +179,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.app.transaction_dict[INVALID_TID] = transaction
         self.app.load_lock_dict[0] = transaction
         self.app.store_lock_dict[0] = transaction
-        self.operation.handleUnlockInformation(conn, packet, INVALID_TID)
+        self.operation.unlockInformation(conn, packet, INVALID_TID)
         self.assertEquals(len(self.app.load_lock_dict), 0)
         self.assertEquals(len(self.app.store_lock_dict), 0)
         self.assertEquals(len(self.app.store_lock_dict), 0)
@@ -189,15 +189,15 @@ class StorageMasterHandlerTests(NeoTestBase):
         # transaction not in transaction_dict -> KeyError
         transaction = Mock({ 'getObjectList': ((0, ), ), })
         conn = Mock({ 'isServer': False, })
-        self.operation.handleLockInformation(conn, packet, '\x01' * 8)
+        self.operation.lockInformation(conn, packet, '\x01' * 8)
         self.checkNotifyInformationLocked(conn, answered_packet=packet)
 
-    def test_30_handleAnswerLastIDs(self):
+    def test_30_answerLastIDs(self):
         # set critical TID on replicator
         conn = Mock()
         packet = Packet(msg_type=PacketTypes.ANSWER_LAST_IDS)
         self.app.replicator = Mock()
-        self.operation.handleAnswerLastIDs(
+        self.operation.answerLastIDs(
             conn=conn,
             packet=packet,
             loid=INVALID_OID,
@@ -208,12 +208,12 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.assertEquals(len(calls), 1)
         calls[0].checkArgs(packet, INVALID_TID)
 
-    def test_31_handleAnswerUnfinishedTransactions(self):
+    def test_31_answerUnfinishedTransactions(self):
         # set unfinished TID on replicator
         conn = Mock()
         packet = Packet(msg_type=PacketTypes.ANSWER_UNFINISHED_TRANSACTIONS)
         self.app.replicator = Mock()
-        self.operation.handleAnswerUnfinishedTransactions(
+        self.operation.answerUnfinishedTransactions(
             conn=conn,
             packet=packet,
             tid_list=(INVALID_TID, ),

@@ -22,20 +22,20 @@ from neo.master.handlers import BaseServiceHandler
 class ShutdownHandler(BaseServiceHandler):
     """This class deals with events for a shutting down phase."""
 
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
+    def requestNodeIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
         logging.error('reject any new connection')
         raise protocol.ProtocolError('cluster is shutting down')
 
 
-    def handleAskPrimaryMaster(self, conn, packet):
+    def askPrimaryMaster(self, conn, packet):
         logging.error('reject any new demand for primary master')
         raise protocol.ProtocolError('cluster is shutting down')
 
-    def handleAskBeginTransaction(self, conn, packet, tid):
+    def askBeginTransaction(self, conn, packet, tid):
         logging.error('reject any new demand for new tid')
         raise protocol.ProtocolError('cluster is shutting down')
 
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, packet, node_list):
         # don't care about notifications since we are shutdowning
         pass

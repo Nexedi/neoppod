@@ -25,7 +25,7 @@ from neo.util import dump
 class AdminEventHandler(EventHandler):
     """This class deals with events for administrating cluster."""
 
-    def handleAskPartitionList(self, conn, packet, min_offset, max_offset, uuid):
+    def askPartitionList(self, conn, packet, min_offset, max_offset, uuid):
         logging.info("ask partition list from %s to %s for %s" %(min_offset, max_offset, dump(uuid)))
         app = self.app
         # check we have one pt otherwise ask it to PMN
@@ -43,7 +43,7 @@ class AdminEventHandler(EventHandler):
             app.sendPartitionTable(conn, min_offset, max_offset, uuid, packet.getId())
 
 
-    def handleAskNodeList(self, conn, packet, node_type):
+    def askNodeList(self, conn, packet, node_type):
         logging.info("ask node list for %s" %(node_type))
         def node_filter(n):
             return n.getType() is node_type
@@ -52,7 +52,7 @@ class AdminEventHandler(EventHandler):
         p = protocol.answerNodeList(node_information_list)
         conn.answer(p, packet.getId())
 
-    def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
+    def setNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s" %(dump(uuid), state))
         node = self.app.nm.getByUUID(uuid)
         if node is None:
@@ -69,7 +69,7 @@ class AdminEventHandler(EventHandler):
         msg_id = self.app.master_conn.ask(p)
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
-    def handleSetClusterState(self, conn, packet, state):
+    def setClusterState(self, conn, packet, state):
         # forward to primary
         if self.app.master_conn is None:
             raise protocol.NotReadyError('Not connected to a primary master.')
@@ -77,7 +77,7 @@ class AdminEventHandler(EventHandler):
         msg_id = self.app.master_conn.ask(p)
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
-    def handleAddPendingNodes(self, conn, packet, uuid_list):
+    def addPendingNodes(self, conn, packet, uuid_list):
         if self.app.master_conn is None:
             raise protocol.NotReadyError('Not connected to a primary master.')
         logging.info('Add nodes %s' % [dump(uuid) for uuid in uuid_list])
@@ -85,7 +85,7 @@ class AdminEventHandler(EventHandler):
         msg_id = self.app.master_conn.ask(protocol.addPendingNodes(uuid_list))
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
 
-    def handleAskClusterState(self, conn, packet):
+    def askClusterState(self, conn, packet):
         if self.app.cluster_state is None:
             if self.app.master_conn is None:
                 raise protocol.NotReadyError('Not connected to a primary master.')
@@ -96,7 +96,7 @@ class AdminEventHandler(EventHandler):
             conn.answer(protocol.answerClusterState(self.app.cluster_state), 
                 packet.getId())
 
-    def handleAskPrimaryMaster(self, conn, packet):
+    def askPrimaryMaster(self, conn, packet):
         if self.app.master_conn is None:
             raise protocol.NotReadyError('Not connected to a primary master.')
         master_node = self.app.master_node
@@ -135,17 +135,17 @@ class MasterEventHandler(EventHandler):
             # unexpectexd answers and notifications
             super(MasterEventHandler, self).dispatch(conn, packet)
 
-    def handleAnswerNodeInformation(self, conn, packet, node_list):
+    def answerNodeInformation(self, conn, packet, node_list):
         # XXX: This will no more exists when the initialization module will be
         # implemented for factorize code (as done for bootstrap)
-        logging.debug("handleAnswerNodeInformation")
+        logging.debug("answerNodeInformation")
 
-    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
+    def answerPartitionTable(self, conn, packet, ptid, row_list):
         # XXX: This will no more exists when the initialization module will be
         # implemented for factorize code (as done for bootstrap)
-        logging.debug("handleAnswerPartitionTable")
+        logging.debug("answerPartitionTable")
 
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
         app = self.app
         if ptid < app.ptid:
             # Ignore this packet.
@@ -153,7 +153,7 @@ class MasterEventHandler(EventHandler):
         app.ptid = ptid
         app.pt.update(ptid, cell_list, app.nm)
 
-    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
+    def sendPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()
         app = self.app
         nm = app.nm
@@ -170,10 +170,10 @@ class MasterEventHandler(EventHandler):
                 pt.setCell(offset, node, state)
         pt.log()
 
-    def handleNotifyClusterInformation(self, conn, packet, cluster_state):
+    def notifyClusterInformation(self, conn, packet, cluster_state):
         self.app.cluster_state = cluster_state
 
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, packet, node_list):
         app = self.app
         app.nm.update(node_list)
         if not app.pt.filled():
@@ -189,30 +189,30 @@ class MasterRequestEventHandler(EventHandler):
         client_conn, kw = self.app.dispatcher.pop(msg_id)
         client_conn.answer(packet, kw['msg_id'])
 
-    def handleAnswerClusterState(self, conn, packet, state):
-        logging.info("handleAnswerClusterState for a conn")
+    def answerClusterState(self, conn, packet, state):
+        logging.info("answerClusterState for a conn")
         self.app.cluster_state = state
         self.__answerNeoCTL(packet.getId(),
                             protocol.answerClusterState(state))
 
-    def handleAnswerNewNodes(self, conn, packet, uuid_list):
-        logging.info("handleAnswerNewNodes for a conn")
+    def answerNewNodes(self, conn, packet, uuid_list):
+        logging.info("answerNewNodes for a conn")
         self.__answerNeoCTL(packet.getId(),
                             protocol.answerNewNodes(uuid_list))
 
-    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
-        logging.info("handleAnswerPartitionTable for a conn")
+    def answerPartitionTable(self, conn, packet, ptid, row_list):
+        logging.info("answerPartitionTable for a conn")
         client_conn, kw = self.app.dispatcher.pop(packet.getId())
         # sent client the partition table
         self.app.sendPartitionTable(client_conn, **kw)
 
-    def handleAnswerNodeState(self, conn, packet, uuid, state):
+    def answerNodeState(self, conn, packet, uuid, state):
         self.__answerNeoCTL(packet.getId(),
                             protocol.answerNodeState(uuid, state))
 
-    def handleNoError(self, conn, packet, msg):
+    def noError(self, conn, packet, msg):
         self.__answerNeoCTL(packet.getId(), protocol.noError(msg))
 
-    def handleProtocolError(self, conn, packet, msg):
+    def protocolError(self, conn, packet, msg):
         self.__answerNeoCTL(packet.getId(), protocol.protocolError(msg))
 

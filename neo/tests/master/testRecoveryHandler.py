@@ -90,7 +90,7 @@ class MasterRecoveryTests(NeoTestBase):
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.BROKEN)                
 
-    def test_08_handleNotifyNodeInformation(self):
+    def test_08_notifyNodeInformation(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode(NodeTypes.MASTER, port=self.master_port)
         packet = Packet(msg_type=PacketTypes.NOTIFY_NODE_INFORMATION)
@@ -99,7 +99,7 @@ class MasterRecoveryTests(NeoTestBase):
         node_list = [(NodeTypes.CLIENT, '127.0.0.1', self.client_port,
             self.getNewUUID(), NodeStates.DOWN),]
         self.assertEqual(len(self.app.nm.getList()), 0)
-        recovery.handleNotifyNodeInformation(conn, packet, node_list)
+        recovery.notifyNodeInformation(conn, packet, node_list)
         self.assertEqual(len(self.app.nm.getList()), 0)
 
         # tell the master node about itself, if running must do nothing
@@ -108,7 +108,7 @@ class MasterRecoveryTests(NeoTestBase):
             self.app.uuid, NodeStates.RUNNING),]
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port-1))
         self.assertEqual(node, None)
-        recovery.handleNotifyNodeInformation(conn, packet, node_list)
+        recovery.notifyNodeInformation(conn, packet, node_list)
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port-1))
 
         # tell the master node about itself, if down must raise
@@ -117,14 +117,14 @@ class MasterRecoveryTests(NeoTestBase):
             self.app.uuid, NodeStates.DOWN),]
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port-1))
         self.assertEqual(node, None)
-        self.assertRaises(RuntimeError, recovery.handleNotifyNodeInformation, conn, packet, node_list)
+        self.assertRaises(RuntimeError, recovery.notifyNodeInformation, conn, packet, node_list)
 
         # tell about an unknown storage node, do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(NodeTypes.STORAGE, '127.0.0.1', self.master_port - 1,
             self.getNewUUID(), NodeStates.DOWN),]
         self.assertEqual(len(self.app.nm.getStorageList()), 0)
-        recovery.handleNotifyNodeInformation(conn, packet, node_list)
+        recovery.notifyNodeInformation(conn, packet, node_list)
         self.assertEqual(len(self.app.nm.getStorageList()), 0)
 
         # tell about a known node but different address
@@ -133,7 +133,7 @@ class MasterRecoveryTests(NeoTestBase):
             NodeStates.DOWN),]
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
         self.assertEqual(node.getState(), NodeStates.RUNNING)
-        recovery.handleNotifyNodeInformation(conn, packet, node_list)
+        recovery.notifyNodeInformation(conn, packet, node_list)
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
         self.assertEqual(node.getState(), NodeStates.RUNNING)
 
@@ -143,12 +143,12 @@ class MasterRecoveryTests(NeoTestBase):
             NodeStates.DOWN),]
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
         self.assertEqual(node.getState(), NodeStates.RUNNING)
-        recovery.handleNotifyNodeInformation(conn, packet, node_list)
+        recovery.notifyNodeInformation(conn, packet, node_list)
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
         self.assertEqual(node.getState(), NodeStates.DOWN)
         
 
-    def test_09_handleAnswerLastIDs(self):
+    def test_09_answerLastIDs(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=PacketTypes.ANSWER_LAST_IDS)
@@ -168,14 +168,14 @@ class MasterRecoveryTests(NeoTestBase):
         self.failUnless(new_oid > self.app.loid)
         self.failUnless(new_tid > self.app.ltid)
         self.assertEquals(self.app.target_uuid, None)
-        recovery.handleAnswerLastIDs(conn, packet, new_oid, new_tid, new_ptid)
+        recovery.answerLastIDs(conn, packet, new_oid, new_tid, new_ptid)
         self.assertEquals(new_oid, self.app.loid)
         self.assertEquals(new_tid, self.app.ltid)
         self.assertEquals(new_ptid, self.app.pt.getID())
         self.assertEquals(self.app.target_uuid,uuid)
 
 
-    def test_10_handleAnswerPartitionTable(self):
+    def test_10_answerPartitionTable(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode(NodeTypes.MASTER, port=self.master_port)
         packet = Packet(msg_type=PacketTypes.ANSWER_PARTITION_TABLE)
@@ -188,7 +188,7 @@ class MasterRecoveryTests(NeoTestBase):
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, CellStates.OUT_OF_DATE)
-        recovery.handleAnswerPartitionTable(conn, packet, None, cell_list)
+        recovery.answerPartitionTable(conn, packet, None, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, CellStates.OUT_OF_DATE)
@@ -202,7 +202,7 @@ class MasterRecoveryTests(NeoTestBase):
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, CellStates.OUT_OF_DATE)
-        recovery.handleAnswerPartitionTable(conn, packet, None, cell_list)
+        recovery.answerPartitionTable(conn, packet, None, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, CellStates.UP_TO_DATE)
@@ -212,7 +212,7 @@ class MasterRecoveryTests(NeoTestBase):
         offset = 1000000
         self.assertFalse(self.app.pt.hasOffset(offset))
         cell_list = [(offset, ((uuid, NodeStates.DOWN,),),)]
-        self.checkUnexpectedPacketRaised(recovery.handleAnswerPartitionTable, conn, packet, None, cell_list)
+        self.checkUnexpectedPacketRaised(recovery.answerPartitionTable, conn, packet, None, cell_list)
         
     
 if __name__ == '__main__':

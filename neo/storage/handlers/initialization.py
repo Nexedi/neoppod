@@ -22,20 +22,20 @@ from neo import protocol
 
 class InitializationHandler(BaseMasterHandler):
 
-    def handleAnswerNodeInformation(self, conn, packet, node_list):
+    def answerNodeInformation(self, conn, packet, node_list):
         assert not node_list
         self.app.has_node_information = True
 
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, packet, node_list):
         # the whole node list is received here
-        BaseMasterHandler.handleNotifyNodeInformation(self, conn, packet, node_list)
+        BaseMasterHandler.notifyNodeInformation(self, conn, packet, node_list)
 
-    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
+    def sendPartitionTable(self, conn, packet, ptid, row_list):
         """A primary master node sends this packet to synchronize a partition
         table. Note that the message can be split into multiple packets."""
         self.app.pt.load(ptid, row_list, self.app.nm)
 
-    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
+    def answerPartitionTable(self, conn, packet, ptid, row_list):
         app = self.app
         pt = app.pt
         assert not row_list
@@ -59,7 +59,7 @@ class InitializationHandler(BaseMasterHandler):
         app.dm.setPartitionTable(ptid, cell_list)
         self.app.has_partition_table = True
 
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
         # XXX: Currently it safe to ignore those packets because the master is
         # single threaded, it send the partition table without any changes at
         # the same time. Latter it should be needed to put in queue any changes

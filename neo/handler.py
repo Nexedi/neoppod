@@ -140,226 +140,226 @@ class EventHandler(object):
 
     # Packet handlers.
 
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
+    def requestNodeIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
         raise UnexpectedPacketError
 
-    def handleAcceptNodeIdentification(self, conn, packet, node_type,
+    def acceptNodeIdentification(self, conn, packet, node_type,
                        uuid, address, num_partitions, num_replicas, your_uuid):
         raise UnexpectedPacketError
 
-    def handleAskPrimaryMaster(self, conn, packet):
+    def askPrimaryMaster(self, conn, packet):
         raise UnexpectedPacketError
 
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
+    def answerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
         raise UnexpectedPacketError
 
-    def handleAnnouncePrimaryMaster(self, conn, packet):
+    def announcePrimaryMaster(self, conn, packet):
         raise UnexpectedPacketError
 
-    def handleReelectPrimaryMaster(self, conn, packet):
+    def reelectPrimaryMaster(self, conn, packet):
         raise UnexpectedPacketError
 
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, packet, node_list):
         raise UnexpectedPacketError
 
-    def handleAskLastIDs(self, conn, packet):
+    def askLastIDs(self, conn, packet):
         raise UnexpectedPacketError
 
-    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
+    def answerLastIDs(self, conn, packet, loid, ltid, lptid):
         raise UnexpectedPacketError
 
-    def handleAskPartitionTable(self, conn, packet, offset_list):
+    def askPartitionTable(self, conn, packet, offset_list):
         raise UnexpectedPacketError
 
-    def handleAnswerPartitionTable(self, conn, packet, ptid, row_list):
+    def answerPartitionTable(self, conn, packet, ptid, row_list):
         raise UnexpectedPacketError
 
-    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
+    def sendPartitionTable(self, conn, packet, ptid, row_list):
         raise UnexpectedPacketError
 
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
         raise UnexpectedPacketError
 
-    def handleStartOperation(self, conn, packet):
+    def startOperation(self, conn, packet):
         raise UnexpectedPacketError
 
-    def handleStopOperation(self, conn, packet):
+    def stopOperation(self, conn, packet):
         raise UnexpectedPacketError
 
-    def handleAskUnfinishedTransactions(self, conn, packet):
+    def askUnfinishedTransactions(self, conn, packet):
         raise UnexpectedPacketError
 
-    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
+    def answerUnfinishedTransactions(self, conn, packet, tid_list):
         raise UnexpectedPacketError
 
-    def handleAskObjectPresent(self, conn, packet, oid, tid):
+    def askObjectPresent(self, conn, packet, oid, tid):
         raise UnexpectedPacketError
 
-    def handleAnswerObjectPresent(self, conn, packet, oid, tid):
+    def answerObjectPresent(self, conn, packet, oid, tid):
         raise UnexpectedPacketError
 
-    def handleDeleteTransaction(self, conn, packet, tid):
+    def deleteTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleCommitTransaction(self, conn, packet, tid):
+    def commitTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleAskBeginTransaction(self, conn, packet, tid):
+    def askBeginTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleAnswerBeginTransaction(self, conn, packet, tid):
+    def answerBeginTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleAskNewOIDs(self, conn, packet, num_oids):
+    def askNewOIDs(self, conn, packet, num_oids):
         raise UnexpectedPacketError
 
-    def handleAnswerNewOIDs(self, conn, packet, num_oids):
+    def answerNewOIDs(self, conn, packet, num_oids):
         raise UnexpectedPacketError
 
-    def handleFinishTransaction(self, conn, packet, oid_list, tid):
+    def finishTransaction(self, conn, packet, oid_list, tid):
         raise UnexpectedPacketError
 
-    def handleNotifyTransactionFinished(self, conn, packet, tid):
+    def notifyTransactionFinished(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleLockInformation(self, conn, packet, tid):
+    def lockInformation(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleNotifyInformationLocked(self, conn, packet, tid):
+    def notifyInformationLocked(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleInvalidateObjects(self, conn, packet, oid_list, tid):
+    def invalidateObjects(self, conn, packet, oid_list, tid):
         raise UnexpectedPacketError
 
-    def handleUnlockInformation(self, conn, packet, tid):
+    def unlockInformation(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleAskStoreObject(self, conn, packet, oid, serial,
+    def askStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
         raise UnexpectedPacketError
 
-    def handleAnswerStoreObject(self, conn, packet, conflicting, oid, serial):
+    def answerStoreObject(self, conn, packet, conflicting, oid, serial):
         raise UnexpectedPacketError
 
-    def handleAbortTransaction(self, conn, packet, tid):
+    def abortTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
+    def askStoreTransaction(self, conn, packet, tid, user, desc,
                                   ext, oid_list):
         raise UnexpectedPacketError
 
-    def handleAnswerStoreTransaction(self, conn, packet, tid):
+    def answerStoreTransaction(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleAskObject(self, conn, packet, oid, serial, tid):
+    def askObject(self, conn, packet, oid, serial, tid):
         raise UnexpectedPacketError
 
-    def handleAnswerObject(self, conn, packet, oid, serial_start,
+    def answerObject(self, conn, packet, oid, serial_start,
                            serial_end, compression, checksum, data):
         raise UnexpectedPacketError
 
-    def handleAskTIDs(self, conn, packet, first, last, partition):
+    def askTIDs(self, conn, packet, first, last, partition):
         raise UnexpectedPacketError
 
-    def handleAnswerTIDs(self, conn, packet, tid_list):
+    def answerTIDs(self, conn, packet, tid_list):
         raise UnexpectedPacketError
 
-    def handleAskTransactionInformation(self, conn, packet, tid):
+    def askTransactionInformation(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def handleAnswerTransactionInformation(self, conn, packet, tid, 
+    def answerTransactionInformation(self, conn, packet, tid, 
                                            user, desc, ext, oid_list):
         raise UnexpectedPacketError
 
-    def handleAskObjectHistory(self, conn, packet, oid, first, last):
+    def askObjectHistory(self, conn, packet, oid, first, last):
         raise UnexpectedPacketError
 
-    def handleAnswerObjectHistory(self, conn, packet, oid, history_list):
+    def answerObjectHistory(self, conn, packet, oid, history_list):
         raise UnexpectedPacketError
 
-    def handleAskOIDs(self, conn, packet, first, last, partition):
+    def askOIDs(self, conn, packet, first, last, partition):
         raise UnexpectedPacketError
 
-    def handleAnswerOIDs(self, conn, packet, oid_list):
+    def answerOIDs(self, conn, packet, oid_list):
         raise UnexpectedPacketError
 
-    def handleAskPartitionList(self, conn, packet, min_offset, max_offset, uuid):
+    def askPartitionList(self, conn, packet, min_offset, max_offset, uuid):
         raise UnexpectedPacketError
 
-    def handleAnswerPartitionList(self, conn, packet, ptid, row_list):
+    def answerPartitionList(self, conn, packet, ptid, row_list):
         raise UnexpectedPacketError
 
-    def handleAskNodeList(self, conn, packet, offset_list):
+    def askNodeList(self, conn, packet, offset_list):
         raise UnexpectedPacketError
 
-    def handleAnswerNodeList(self, conn, packet, node_list):
+    def answerNodeList(self, conn, packet, node_list):
         raise UnexpectedPacketError
 
-    def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
+    def setNodeState(self, conn, packet, uuid, state, modify_partition_table):
         raise UnexpectedPacketError
 
-    def handleAnswerNodeState(self, conn, packet, uuid, state):
+    def answerNodeState(self, conn, packet, uuid, state):
         raise UnexpectedPacketError
 
-    def handleAddPendingNodes(self, conn, packet, uuid_list):
+    def addPendingNodes(self, conn, packet, uuid_list):
         raise UnexpectedPacketError
 
-    def handleAnswerNewNodes(self, conn, packet, uuid_list):
+    def answerNewNodes(self, conn, packet, uuid_list):
         raise UnexpectedPacketError
 
-    def handleAskNodeInformation(self, conn, packet):
+    def askNodeInformation(self, conn, packet):
         raise UnexpectedPacketError
 
-    def handleAnswerNodeInformation(self, conn, packet, node_list):
+    def answerNodeInformation(self, conn, packet, node_list):
         raise UnexpectedPacketError
 
-    def handleAskClusterState(self, conn, packet):
+    def askClusterState(self, conn, packet):
         raise UnexpectedPacketError
 
-    def handleAnswerClusterState(self, conn, packet, state):
+    def answerClusterState(self, conn, packet, state):
         raise UnexpectedPacketError
 
-    def handleSetClusterState(self, conn, packet, state):
+    def setClusterState(self, conn, packet, state):
         raise UnexpectedPacketError
 
-    def handleNotifyClusterInformation(self, conn, packet, state):
+    def notifyClusterInformation(self, conn, packet, state):
         raise UnexpectedPacketError
 
-    def handleNotifyLastOID(self, conn, packet, oid):
+    def notifyLastOID(self, conn, packet, oid):
         raise UnexpectedPacketError
 
 
     # Error packet handlers.
 
-    def handleError(self, conn, packet, code, message):
+    def error(self, conn, packet, code, message):
         try:
             method = self.error_dispatch_table[code]
             method(conn, packet, message)
         except ValueError:
             raise UnexpectedPacketError(message)
 
-    def handleNotReady(self, conn, packet, message):
+    def notReady(self, conn, packet, message):
         raise UnexpectedPacketError
 
-    def handleOidNotFound(self, conn, packet, message):
+    def oidNotFound(self, conn, packet, message):
         raise UnexpectedPacketError
 
-    def handleTidNotFound(self, conn, packet, message):
+    def tidNotFound(self, conn, packet, message):
         raise UnexpectedPacketError
 
-    def handleProtocolError(self, conn, packet, message):
+    def protocolError(self, conn, packet, message):
         # the connection should have been closed by the remote peer
         logging.error('protocol error: %s' % (message,))
 
-    def handleTimeoutError(self, conn, packet, message):
+    def timeoutError(self, conn, packet, message):
         logging.error('timeout error: %s' % (message,))
 
-    def handleBrokenNodeDisallowedError(self, conn, packet, message):
+    def brokenNodeDisallowedError(self, conn, packet, message):
         raise RuntimeError, 'broken node disallowed error: %s' % (message,)
 
-    def handleNoError(self, conn, packet, message):
+    def noError(self, conn, packet, message):
         logging.debug("no error message : %s" % (message))
 
 
@@ -368,80 +368,80 @@ class EventHandler(object):
     def __initPacketDispatchTable(self):
         d = {}
 
-        d[PacketTypes.ERROR] = self.handleError
-        d[PacketTypes.REQUEST_NODE_IDENTIFICATION] = self.handleRequestNodeIdentification
-        d[PacketTypes.ACCEPT_NODE_IDENTIFICATION] = self.handleAcceptNodeIdentification
-        d[PacketTypes.ASK_PRIMARY_MASTER] = self.handleAskPrimaryMaster
-        d[PacketTypes.ANSWER_PRIMARY_MASTER] = self.handleAnswerPrimaryMaster
-        d[PacketTypes.ANNOUNCE_PRIMARY_MASTER] = self.handleAnnouncePrimaryMaster
-        d[PacketTypes.REELECT_PRIMARY_MASTER] = self.handleReelectPrimaryMaster
-        d[PacketTypes.NOTIFY_NODE_INFORMATION] = self.handleNotifyNodeInformation
-        d[PacketTypes.ASK_LAST_IDS] = self.handleAskLastIDs
-        d[PacketTypes.ANSWER_LAST_IDS] = self.handleAnswerLastIDs
-        d[PacketTypes.ASK_PARTITION_TABLE] = self.handleAskPartitionTable
-        d[PacketTypes.ANSWER_PARTITION_TABLE] = self.handleAnswerPartitionTable
-        d[PacketTypes.SEND_PARTITION_TABLE] = self.handleSendPartitionTable
-        d[PacketTypes.NOTIFY_PARTITION_CHANGES] = self.handleNotifyPartitionChanges
-        d[PacketTypes.START_OPERATION] = self.handleStartOperation
-        d[PacketTypes.STOP_OPERATION] = self.handleStopOperation
-        d[PacketTypes.ASK_UNFINISHED_TRANSACTIONS] = self.handleAskUnfinishedTransactions
-        d[PacketTypes.ANSWER_UNFINISHED_TRANSACTIONS] = self.handleAnswerUnfinishedTransactions
-        d[PacketTypes.ASK_OBJECT_PRESENT] = self.handleAskObjectPresent
-        d[PacketTypes.ANSWER_OBJECT_PRESENT] = self.handleAnswerObjectPresent
-        d[PacketTypes.DELETE_TRANSACTION] = self.handleDeleteTransaction
-        d[PacketTypes.COMMIT_TRANSACTION] = self.handleCommitTransaction
-        d[PacketTypes.ASK_BEGIN_TRANSACTION] = self.handleAskBeginTransaction
-        d[PacketTypes.ANSWER_BEGIN_TRANSACTION] = self.handleAnswerBeginTransaction
-        d[PacketTypes.FINISH_TRANSACTION] = self.handleFinishTransaction
-        d[PacketTypes.NOTIFY_TRANSACTION_FINISHED] = self.handleNotifyTransactionFinished
-        d[PacketTypes.LOCK_INFORMATION] = self.handleLockInformation
-        d[PacketTypes.NOTIFY_INFORMATION_LOCKED] = self.handleNotifyInformationLocked
-        d[PacketTypes.INVALIDATE_OBJECTS] = self.handleInvalidateObjects
-        d[PacketTypes.UNLOCK_INFORMATION] = self.handleUnlockInformation
-        d[PacketTypes.ASK_NEW_OIDS] = self.handleAskNewOIDs
-        d[PacketTypes.ANSWER_NEW_OIDS] = self.handleAnswerNewOIDs
-        d[PacketTypes.ASK_STORE_OBJECT] = self.handleAskStoreObject
-        d[PacketTypes.ANSWER_STORE_OBJECT] = self.handleAnswerStoreObject
-        d[PacketTypes.ABORT_TRANSACTION] = self.handleAbortTransaction
-        d[PacketTypes.ASK_STORE_TRANSACTION] = self.handleAskStoreTransaction
-        d[PacketTypes.ANSWER_STORE_TRANSACTION] = self.handleAnswerStoreTransaction
-        d[PacketTypes.ASK_OBJECT] = self.handleAskObject
-        d[PacketTypes.ANSWER_OBJECT] = self.handleAnswerObject
-        d[PacketTypes.ASK_TIDS] = self.handleAskTIDs
-        d[PacketTypes.ANSWER_TIDS] = self.handleAnswerTIDs
-        d[PacketTypes.ASK_TRANSACTION_INFORMATION] = self.handleAskTransactionInformation
-        d[PacketTypes.ANSWER_TRANSACTION_INFORMATION] = self.handleAnswerTransactionInformation
-        d[PacketTypes.ASK_OBJECT_HISTORY] = self.handleAskObjectHistory
-        d[PacketTypes.ANSWER_OBJECT_HISTORY] = self.handleAnswerObjectHistory
-        d[PacketTypes.ASK_OIDS] = self.handleAskOIDs
-        d[PacketTypes.ANSWER_OIDS] = self.handleAnswerOIDs
-        d[PacketTypes.ASK_PARTITION_LIST] = self.handleAskPartitionList
-        d[PacketTypes.ANSWER_PARTITION_LIST] = self.handleAnswerPartitionList
-        d[PacketTypes.ASK_NODE_LIST] = self.handleAskNodeList
-        d[PacketTypes.ANSWER_NODE_LIST] = self.handleAnswerNodeList
-        d[PacketTypes.SET_NODE_STATE] = self.handleSetNodeState
-        d[PacketTypes.ANSWER_NODE_STATE] = self.handleAnswerNodeState
-        d[PacketTypes.SET_CLUSTER_STATE] = self.handleSetClusterState
-        d[PacketTypes.ADD_PENDING_NODES] = self.handleAddPendingNodes
-        d[PacketTypes.ANSWER_NEW_NODES] = self.handleAnswerNewNodes
-        d[PacketTypes.ASK_NODE_INFORMATION] = self.handleAskNodeInformation
-        d[PacketTypes.ANSWER_NODE_INFORMATION] = self.handleAnswerNodeInformation
-        d[PacketTypes.ASK_CLUSTER_STATE] = self.handleAskClusterState
-        d[PacketTypes.ANSWER_CLUSTER_STATE] = self.handleAnswerClusterState
-        d[PacketTypes.NOTIFY_CLUSTER_INFORMATION] = self.handleNotifyClusterInformation
-        d[PacketTypes.NOTIFY_LAST_OID] = self.handleNotifyLastOID
+        d[PacketTypes.ERROR] = self.error
+        d[PacketTypes.REQUEST_NODE_IDENTIFICATION] = self.requestNodeIdentification
+        d[PacketTypes.ACCEPT_NODE_IDENTIFICATION] = self.acceptNodeIdentification
+        d[PacketTypes.ASK_PRIMARY_MASTER] = self.askPrimaryMaster
+        d[PacketTypes.ANSWER_PRIMARY_MASTER] = self.answerPrimaryMaster
+        d[PacketTypes.ANNOUNCE_PRIMARY_MASTER] = self.announcePrimaryMaster
+        d[PacketTypes.REELECT_PRIMARY_MASTER] = self.reelectPrimaryMaster
+        d[PacketTypes.NOTIFY_NODE_INFORMATION] = self.notifyNodeInformation
+        d[PacketTypes.ASK_LAST_IDS] = self.askLastIDs
+        d[PacketTypes.ANSWER_LAST_IDS] = self.answerLastIDs
+        d[PacketTypes.ASK_PARTITION_TABLE] = self.askPartitionTable
+        d[PacketTypes.ANSWER_PARTITION_TABLE] = self.answerPartitionTable
+        d[PacketTypes.SEND_PARTITION_TABLE] = self.sendPartitionTable
+        d[PacketTypes.NOTIFY_PARTITION_CHANGES] = self.notifyPartitionChanges
+        d[PacketTypes.START_OPERATION] = self.startOperation
+        d[PacketTypes.STOP_OPERATION] = self.stopOperation
+        d[PacketTypes.ASK_UNFINISHED_TRANSACTIONS] = self.askUnfinishedTransactions
+        d[PacketTypes.ANSWER_UNFINISHED_TRANSACTIONS] = self.answerUnfinishedTransactions
+        d[PacketTypes.ASK_OBJECT_PRESENT] = self.askObjectPresent
+        d[PacketTypes.ANSWER_OBJECT_PRESENT] = self.answerObjectPresent
+        d[PacketTypes.DELETE_TRANSACTION] = self.deleteTransaction
+        d[PacketTypes.COMMIT_TRANSACTION] = self.commitTransaction
+        d[PacketTypes.ASK_BEGIN_TRANSACTION] = self.askBeginTransaction
+        d[PacketTypes.ANSWER_BEGIN_TRANSACTION] = self.answerBeginTransaction
+        d[PacketTypes.FINISH_TRANSACTION] = self.finishTransaction
+        d[PacketTypes.NOTIFY_TRANSACTION_FINISHED] = self.notifyTransactionFinished
+        d[PacketTypes.LOCK_INFORMATION] = self.lockInformation
+        d[PacketTypes.NOTIFY_INFORMATION_LOCKED] = self.notifyInformationLocked
+        d[PacketTypes.INVALIDATE_OBJECTS] = self.invalidateObjects
+        d[PacketTypes.UNLOCK_INFORMATION] = self.unlockInformation
+        d[PacketTypes.ASK_NEW_OIDS] = self.askNewOIDs
+        d[PacketTypes.ANSWER_NEW_OIDS] = self.answerNewOIDs
+        d[PacketTypes.ASK_STORE_OBJECT] = self.askStoreObject
+        d[PacketTypes.ANSWER_STORE_OBJECT] = self.answerStoreObject
+        d[PacketTypes.ABORT_TRANSACTION] = self.abortTransaction
+        d[PacketTypes.ASK_STORE_TRANSACTION] = self.askStoreTransaction
+        d[PacketTypes.ANSWER_STORE_TRANSACTION] = self.answerStoreTransaction
+        d[PacketTypes.ASK_OBJECT] = self.askObject
+        d[PacketTypes.ANSWER_OBJECT] = self.answerObject
+        d[PacketTypes.ASK_TIDS] = self.askTIDs
+        d[PacketTypes.ANSWER_TIDS] = self.answerTIDs
+        d[PacketTypes.ASK_TRANSACTION_INFORMATION] = self.askTransactionInformation
+        d[PacketTypes.ANSWER_TRANSACTION_INFORMATION] = self.answerTransactionInformation
+        d[PacketTypes.ASK_OBJECT_HISTORY] = self.askObjectHistory
+        d[PacketTypes.ANSWER_OBJECT_HISTORY] = self.answerObjectHistory
+        d[PacketTypes.ASK_OIDS] = self.askOIDs
+        d[PacketTypes.ANSWER_OIDS] = self.answerOIDs
+        d[PacketTypes.ASK_PARTITION_LIST] = self.askPartitionList
+        d[PacketTypes.ANSWER_PARTITION_LIST] = self.answerPartitionList
+        d[PacketTypes.ASK_NODE_LIST] = self.askNodeList
+        d[PacketTypes.ANSWER_NODE_LIST] = self.answerNodeList
+        d[PacketTypes.SET_NODE_STATE] = self.setNodeState
+        d[PacketTypes.ANSWER_NODE_STATE] = self.answerNodeState
+        d[PacketTypes.SET_CLUSTER_STATE] = self.setClusterState
+        d[PacketTypes.ADD_PENDING_NODES] = self.addPendingNodes
+        d[PacketTypes.ANSWER_NEW_NODES] = self.answerNewNodes
+        d[PacketTypes.ASK_NODE_INFORMATION] = self.askNodeInformation
+        d[PacketTypes.ANSWER_NODE_INFORMATION] = self.answerNodeInformation
+        d[PacketTypes.ASK_CLUSTER_STATE] = self.askClusterState
+        d[PacketTypes.ANSWER_CLUSTER_STATE] = self.answerClusterState
+        d[PacketTypes.NOTIFY_CLUSTER_INFORMATION] = self.notifyClusterInformation
+        d[PacketTypes.NOTIFY_LAST_OID] = self.notifyLastOID
 
         return d
 
     def __initErrorDispatchTable(self):
         d = {}
 
-        d[ErrorCodes.NO_ERROR] = self.handleNoError
-        d[ErrorCodes.NOT_READY] = self.handleNotReady
-        d[ErrorCodes.OID_NOT_FOUND] = self.handleOidNotFound
-        d[ErrorCodes.TID_NOT_FOUND] = self.handleTidNotFound
-        d[ErrorCodes.PROTOCOL_ERROR] = self.handleProtocolError
-        d[ErrorCodes.BROKEN_NODE] = self.handleBrokenNodeDisallowedError
+        d[ErrorCodes.NO_ERROR] = self.noError
+        d[ErrorCodes.NOT_READY] = self.notReady
+        d[ErrorCodes.OID_NOT_FOUND] = self.oidNotFound
+        d[ErrorCodes.TID_NOT_FOUND] = self.tidNotFound
+        d[ErrorCodes.PROTOCOL_ERROR] = self.protocolError
+        d[ErrorCodes.BROKEN_NODE] = self.brokenNodeDisallowedError
 
         return d
 

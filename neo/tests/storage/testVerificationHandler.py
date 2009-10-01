@@ -83,7 +83,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         # nothing happens
         self.checkNoPacketSent(conn)
 
-    def test_07_handleAskLastIDs(self):
+    def test_07_askLastIDs(self):
         uuid = self.getNewUUID()
         packet = Mock()
         # return invalid if db store nothing
@@ -93,7 +93,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         last_ptid = '\x01' * 8
         last_oid = '\x02' * 8
         self.app.pt = Mock({'getID': last_ptid})
-        self.verification.handleAskLastIDs(conn, packet)
+        self.verification.askLastIDs(conn, packet)
         oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
         self.assertEqual(oid, INVALID_OID)
         self.assertEqual(tid, INVALID_TID)
@@ -125,14 +125,14 @@ class StorageVerificationHandlerTests(NeoTestBase):
                 checksum, value) values (0, 4, 0, 0, '')""")
         self.app.dm.commit()
         self.app.dm.setLastOID(last_oid)
-        self.verification.handleAskLastIDs(conn, packet)
+        self.verification.askLastIDs(conn, packet)
         self.checkAnswerLastIDs(conn)
         oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
         self.assertEqual(oid, last_oid)
         self.assertEqual(u64(tid), 4)
         self.assertEqual(ptid, self.app.pt.getID())
         
-    def test_08_handleAskPartitionTable(self):
+    def test_08_askPartitionTable(self):
         uuid = self.getNewUUID()
         packet = Mock()
         # try to get unknown offset
@@ -142,7 +142,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServer" : False})
-        self.verification.handleAskPartitionTable(conn, packet, [1,])
+        self.verification.askPartitionTable(conn, packet, [1,])
         ptid, row_list = self.checkAnswerPartitionTable(conn, decode=True)
         self.assertEqual(len(row_list), 1)
         offset, rows = row_list[0]
@@ -159,22 +159,22 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.client_port),
                      "isServer" : False})
-        self.verification.handleAskPartitionTable(conn, packet, [1,])
+        self.verification.askPartitionTable(conn, packet, [1,])
         ptid, row_list = self.checkAnswerPartitionTable(conn, decode=True)
         self.assertEqual(len(row_list), 1)
         offset, rows = row_list[0]
         self.assertEqual(offset, 1)
         self.assertEqual(len(rows), 1)
 
-    def test_10_handleNotifyPartitionChanges(self):
+    def test_10_notifyPartitionChanges(self):
         # old partition change
         conn = Mock({
             "isServer": False,
             "getAddress" : ("127.0.0.1", self.master_port), 
         })
         packet = Packet(msg_type=PacketTypes.NOTIFY_PARTITION_CHANGES)
-        self.verification.handleNotifyPartitionChanges(conn, packet, 1, ())
-        self.verification.handleNotifyPartitionChanges(conn, packet, 0, ())
+        self.verification.notifyPartitionChanges(conn, packet, 1, ())
+        self.verification.notifyPartitionChanges(conn, packet, 0, ())
         self.assertEqual(self.app.pt.getID(), 1)
 
         # new node
@@ -190,33 +190,33 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.app.dm = Mock({ })
         ptid, self.ptid = self.getTwoIDs()
         # pt updated
-        self.verification.handleNotifyPartitionChanges(conn, packet, ptid, (cell, ))
+        self.verification.notifyPartitionChanges(conn, packet, ptid, (cell, ))
         # check db update
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
         self.assertEquals(len(calls), 1)
         self.assertEquals(calls[0].getParam(0), ptid)
         self.assertEquals(calls[0].getParam(1), (cell, ))
 
-    def test_11_handleStartOperation(self):
+    def test_11_startOperation(self):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False })
         self.assertFalse(self.app.operational)
         packet = Packet(msg_type=PacketTypes.STOP_OPERATION)
-        self.verification.handleStartOperation(conn, packet)
+        self.verification.startOperation(conn, packet)
         self.assertTrue(self.app.operational)
 
-    def test_12_handleStopOperation(self):
+    def test_12_stopOperation(self):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False })
         packet = Packet(msg_type=PacketTypes.STOP_OPERATION)
-        self.assertRaises(OperationFailure, self.verification.handleStopOperation, conn, packet)
+        self.assertRaises(OperationFailure, self.verification.stopOperation, conn, packet)
 
-    def test_13_handleAskUnfinishedTransactions(self):
+    def test_13_askUnfinishedTransactions(self):
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False})
         packet = Packet(msg_type=PacketTypes.ASK_UNFINISHED_TRANSACTIONS)
-        self.verification.handleAskUnfinishedTransactions(conn, packet)
+        self.verification.askUnfinishedTransactions(conn, packet)
         (tid_list, ) = self.checkAnswerUnfinishedTransactions(conn, decode=True)
         self.assertEqual(len(tid_list), 0)
 
@@ -228,17 +228,17 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False})
         packet = Packet(msg_type=PacketTypes.ASK_UNFINISHED_TRANSACTIONS)
-        self.verification.handleAskUnfinishedTransactions(conn, packet)
+        self.verification.askUnfinishedTransactions(conn, packet)
         (tid_list, ) = self.checkAnswerUnfinishedTransactions(conn, decode=True)
         self.assertEqual(len(tid_list), 1)
         self.assertEqual(u64(tid_list[0]), 4)
 
-    def test_14_handleAskTransactionInformation(self):
+    def test_14_askTransactionInformation(self):
         # ask from client conn with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False })
         packet = Packet(msg_type=PacketTypes.ASK_TRANSACTION_INFORMATION)
-        self.verification.handleAskTransactionInformation(conn, packet, p64(1))
+        self.verification.askTransactionInformation(conn, packet, p64(1))
         code, message = self.checkErrorPacket(conn, decode=True)
         self.assertEqual(code, ErrorCodes.TID_NOT_FOUND)
 
@@ -253,7 +253,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False })
         packet = Packet(msg_type=PacketTypes.ASK_TRANSACTION_INFORMATION)
-        self.verification.handleAskTransactionInformation(conn, packet, p64(1))
+        self.verification.askTransactionInformation(conn, packet, p64(1))
         tid, user, desc, ext, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
         self.assertEqual(u64(tid), 1)
         self.assertEqual(user, 'u2')
@@ -265,7 +265,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False })
         packet = Packet(msg_type=PacketTypes.ASK_TRANSACTION_INFORMATION)
-        self.verification.handleAskTransactionInformation(conn, packet, p64(3))
+        self.verification.askTransactionInformation(conn, packet, p64(3))
         tid, user, desc, ext, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
         self.assertEqual(u64(tid), 3)
         self.assertEqual(user, 'u1')
@@ -279,7 +279,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
                       'isServer': True })
         # find the one in trans
         packet = Packet(msg_type=PacketTypes.ASK_TRANSACTION_INFORMATION)
-        self.verification.handleAskTransactionInformation(conn, packet, p64(1))
+        self.verification.askTransactionInformation(conn, packet, p64(1))
         tid, user, desc, ext, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
         self.assertEqual(u64(tid), 1)
         self.assertEqual(user, 'u2')
@@ -291,16 +291,16 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': True })
         packet = Packet(msg_type=PacketTypes.ASK_TRANSACTION_INFORMATION)
-        self.verification.handleAskTransactionInformation(conn, packet, p64(2))
+        self.verification.askTransactionInformation(conn, packet, p64(2))
         code, message = self.checkErrorPacket(conn, decode=True)     
         self.assertEqual(code, ErrorCodes.TID_NOT_FOUND)
 
-    def test_15_handleAskObjectPresent(self):
+    def test_15_askObjectPresent(self):
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False})
         packet = Packet(msg_type=PacketTypes.ASK_OBJECT_PRESENT)
-        self.verification.handleAskObjectPresent(conn, packet, p64(1), p64(2))
+        self.verification.askObjectPresent(conn, packet, p64(1), p64(2))
         code, message = self.checkErrorPacket(conn, decode=True)
         self.assertEqual(code, ErrorCodes.OID_NOT_FOUND)
 
@@ -312,34 +312,34 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False})
         packet = Packet(msg_type=PacketTypes.ASK_OBJECT_PRESENT)
-        self.verification.handleAskObjectPresent(conn, packet, p64(1), p64(2))
+        self.verification.askObjectPresent(conn, packet, p64(1), p64(2))
         oid, tid = self.checkAnswerObjectPresent(conn, decode=True)
         self.assertEqual(u64(tid), 2)
         self.assertEqual(u64(oid), 1)
 
-    def test_16_handleDeleteTransaction(self):
+    def test_16_deleteTransaction(self):
         # client connection with no data
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False})
         packet = Packet(msg_type=PacketTypes.ASK_OBJECT_PRESENT)
-        self.verification.handleDeleteTransaction(conn, packet, p64(1))
+        self.verification.deleteTransaction(conn, packet, p64(1))
         # client connection with data
         self.app.dm.begin()
         self.app.dm.query("""insert into tobj (oid, serial, compression,
                 checksum, value) values (1, 2, 0, 0, '')""")
         self.app.dm.commit()
-        self.verification.handleDeleteTransaction(conn, packet, p64(2))
+        self.verification.deleteTransaction(conn, packet, p64(2))
         result = self.app.dm.query('select * from tobj')
         self.assertEquals(len(result), 0)
 
-    def test_17_handleCommitTransaction(self):
+    def test_17_commitTransaction(self):
         # commit a transaction
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False })
         dm = Mock()
         self.app.dm = dm
         packet = Packet(msg_type=PacketTypes.COMMIT_TRANSACTION)
-        self.verification.handleCommitTransaction(conn, packet, p64(1))
+        self.verification.commitTransaction(conn, packet, p64(1))
         self.assertEqual(len(dm.mockGetNamedCalls("finishTransaction")), 1)
         call = dm.mockGetNamedCalls("finishTransaction")[0]
         tid = call.getParam(0)

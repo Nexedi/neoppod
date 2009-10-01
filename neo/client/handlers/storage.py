@@ -48,11 +48,11 @@ class StorageEventHandler(BaseHandler):
 class StorageBootstrapHandler(AnswerBaseHandler):
     """ Handler used when connecting to a storage node """
 
-    def handleNotReady(self, conn, packet, message):
+    def notReady(self, conn, packet, message):
         app = self.app
         app.setNodeNotReady()
         
-    def handleAcceptNodeIdentification(self, conn, packet, node_type,
+    def acceptNodeIdentification(self, conn, packet, node_type,
            uuid, address, num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
@@ -75,24 +75,24 @@ class StorageBootstrapHandler(AnswerBaseHandler):
 class StorageAnswersHandler(AnswerBaseHandler):
     """ Handle all messages related to ZODB operations """
         
-    def handleAnswerObject(self, conn, packet, oid, start_serial, end_serial, 
+    def answerObject(self, conn, packet, oid, start_serial, end_serial, 
             compression, checksum, data):
         app = self.app
         app.local_var.asked_object = (oid, start_serial, end_serial, compression,
                                       checksum, data)
 
-    def handleAnswerStoreObject(self, conn, packet, conflicting, oid, serial):
+    def answerStoreObject(self, conn, packet, conflicting, oid, serial):
         app = self.app
         if conflicting:
             app.local_var.object_stored = -1, serial
         else:
             app.local_var.object_stored = oid, serial
 
-    def handleAnswerStoreTransaction(self, conn, packet, tid):
+    def answerStoreTransaction(self, conn, packet, tid):
         app = self.app
         app.setTransactionVoted()
 
-    def handleAnswerTransactionInformation(self, conn, packet, tid,
+    def answerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):
         app = self.app
         # transaction information are returned as a dict
@@ -104,12 +104,12 @@ class StorageAnswersHandler(AnswerBaseHandler):
         info['oids'] = oid_list
         app.local_var.txn_info = info
 
-    def handleAnswerObjectHistory(self, conn, packet, oid, history_list):
+    def answerObjectHistory(self, conn, packet, oid, history_list):
         app = self.app
         # history_list is a list of tuple (serial, size)
         app.local_var.history = oid, history_list
 
-    def handleOidNotFound(self, conn, packet, message):
+    def oidNotFound(self, conn, packet, message):
         app = self.app
         # This can happen either when :
         # - loading an object
@@ -117,12 +117,12 @@ class StorageAnswersHandler(AnswerBaseHandler):
         app.local_var.asked_object = -1
         app.local_var.history = -1
 
-    def handleTidNotFound(self, conn, packet, message):
+    def tidNotFound(self, conn, packet, message):
         app = self.app
         # This can happen when requiring txn informations
         app.local_var.txn_info = -1
 
-    def handleAnswerTIDs(self, conn, packet, tid_list):
+    def answerTIDs(self, conn, packet, tid_list):
         app = self.app
         app.local_var.node_tids[conn.getUUID()] = tid_list
 

@@ -27,7 +27,7 @@ class HiddenHandler(BaseMasterHandler):
         self.app = app
         BaseMasterHandler.__init__(self, app)
 
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, packet, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
         app = self.app
@@ -42,28 +42,28 @@ class HiddenHandler(BaseMasterHandler):
                         erase_db = state == NodeStates.DOWN
                         self.app.shutdown(erase=erase_db)
 
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
+    def requestNodeIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
         pass
 
-    def handleAcceptNodeIdentification(self, conn, packet, node_type,
+    def acceptNodeIdentification(self, conn, packet, node_type,
                    uuid, address, num_partitions, num_replicas, your_uuid):
         pass
 
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid,
+    def answerPrimaryMaster(self, conn, packet, primary_uuid,
                                   known_master_list):
         pass
 
-    def handleAskLastIDs(self, conn, packet):
+    def askLastIDs(self, conn, packet):
         pass
 
-    def handleAskPartitionTable(self, conn, packet, offset_list):
+    def askPartitionTable(self, conn, packet, offset_list):
         pass
 
-    def handleSendPartitionTable(self, conn, packet, ptid, row_list):
+    def sendPartitionTable(self, conn, packet, ptid, row_list):
         pass
 
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
         app = self.app
@@ -85,59 +85,59 @@ class HiddenHandler(BaseMasterHandler):
                 elif state == CellStates.OUT_OF_DATE:
                     app.replicator.addPartition(offset)
 
-    def handleStartOperation(self, conn, packet):
+    def startOperation(self, conn, packet):
         self.app.operational = True
 
-    def handleStopOperation(self, conn, packet):
+    def stopOperation(self, conn, packet):
         pass
 
-    def handleAskUnfinishedTransactions(self, conn, packet):
+    def askUnfinishedTransactions(self, conn, packet):
         pass
 
-    def handleAskTransactionInformation(self, conn, packet, tid):
+    def askTransactionInformation(self, conn, packet, tid):
         pass
 
-    def handleAskObjectPresent(self, conn, packet, oid, tid):
+    def askObjectPresent(self, conn, packet, oid, tid):
         pass
 
-    def handleDeleteTransaction(self, conn, packet, tid):
+    def deleteTransaction(self, conn, packet, tid):
         pass
 
-    def handleCommitTransaction(self, conn, packet, tid):
+    def commitTransaction(self, conn, packet, tid):
         pass
 
-    def handleLockInformation(self, conn, packet, tid):
+    def lockInformation(self, conn, packet, tid):
         pass
 
-    def handleUnlockInformation(self, conn, packet, tid):
+    def unlockInformation(self, conn, packet, tid):
         pass
 
-    def handleAskObject(self, conn, packet, oid, serial, tid):
+    def askObject(self, conn, packet, oid, serial, tid):
         pass
 
-    def handleAskTIDs(self, conn, packet, first, last, partition):
+    def askTIDs(self, conn, packet, first, last, partition):
         pass
 
-    def handleAskObjectHistory(self, conn, packet, oid, first, last):
+    def askObjectHistory(self, conn, packet, oid, first, last):
         pass
 
-    def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
+    def askStoreTransaction(self, conn, packet, tid, user, desc,
                                   ext, oid_list):
         pass
 
-    def handleAskStoreObject(self, conn, packet, oid, serial,
+    def askStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
         pass
 
-    def handleAbortTransaction(self, conn, packet, tid):
+    def abortTransaction(self, conn, packet, tid):
         logging.debug('ignoring abort transaction')
 
-    def handleAnswerLastIDs(self, conn, packet, loid, ltid, lptid):
+    def answerLastIDs(self, conn, packet, loid, ltid, lptid):
         logging.debug('ignoring answer last ids')
 
-    def handleAnswerUnfinishedTransactions(self, conn, packet, tid_list):
+    def answerUnfinishedTransactions(self, conn, packet, tid_list):
         logging.debug('ignoring answer unfinished transactions')
 
-    def handleAskOIDs(self, conn, packet, first, last, partition):
+    def askOIDs(self, conn, packet, first, last, partition):
         logging.debug('ignoring ask oids')
 

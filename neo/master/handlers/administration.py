@@ -29,12 +29,12 @@ class AdministrationHandler(MasterHandler):
         node = self.app.nm.getByUUID(conn.getUUID())
         self.app.nm.remove(node)
 
-    def handleAskPrimaryMaster(self, conn, packet):
+    def askPrimaryMaster(self, conn, packet):
         app = self.app
         # I'm the primary
         conn.answer(protocol.answerPrimaryMaster(app.uuid, []), packet.getId())
 
-    def handleSetClusterState(self, conn, packet, state):
+    def setClusterState(self, conn, packet, state):
         self.app.changeClusterState(state)
         p = protocol.noError('cluster state changed')
         conn.answer(p, packet.getId())
@@ -42,7 +42,7 @@ class AdministrationHandler(MasterHandler):
             self.app.cluster_state = state
             self.app.shutdown()
 
-    def handleSetNodeState(self, conn, packet, uuid, state, modify_partition_table):
+    def setNodeState(self, conn, packet, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s : %s" % (dump(uuid), state, modify_partition_table))
         app = self.app
         node = app.nm.getByUUID(uuid)
@@ -92,7 +92,7 @@ class AdministrationHandler(MasterHandler):
         conn.answer(p, packet.getId())
         app.broadcastNodeInformation(node)
 
-    def handleAddPendingNodes(self, conn, packet, uuid_list):
+    def addPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
         logging.debug('Add nodes %s' % uuids)
         app, nm, em, pt = self.app, self.app.nm, self.app.em, self.app.pt

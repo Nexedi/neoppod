@@ -206,7 +206,7 @@ class ClientHandlerTests(NeoTestBase):
         dispatcher = self.getDispatcher()
         conn = self.getConnection()
         client_handler = StorageBootstrapHandler(app)
-        client_handler.handleNotReady(conn, None, None)
+        client_handler.notReady(conn, None, None)
         self.assertEquals(len(app.mockGetNamedCalls('setNodeNotReady')), 1)
 
     def test_clientAcceptNodeIdentification(self):
@@ -220,7 +220,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
-        client_handler.handleAcceptNodeIdentification(
+        client_handler.acceptNodeIdentification(
             conn, None, 
             NodeTypes.CLIENT,
             uuid, ('127.0.0.1', 10010), 
@@ -248,7 +248,7 @@ class ClientHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         your_uuid = 'C' * 16
         app.uuid = INVALID_UUID
-        client_handler.handleAcceptNodeIdentification(conn, None, 
+        client_handler.acceptNodeIdentification(conn, None, 
                 NodeTypes.MASTER, uuid, ('127.0.0.1', 10010), 10, 2, your_uuid)
         self.checkNotClosed(conn)
         self.checkUUIDSet(conn, uuid)
@@ -268,7 +268,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
-        client_handler.handleAcceptNodeIdentification(conn, None, 
+        client_handler.acceptNodeIdentification(conn, None, 
                 NodeTypes.STORAGE, uuid, ('127.0.0.1', 10010), 0, 0, INVALID_UUID)
         self.checkNotClosed(conn)
         self.checkUUIDSet(conn, uuid)
@@ -288,7 +288,7 @@ class ClientHandlerTests(NeoTestBase):
             app = App()
             client_handler = PrimaryBootstrapHandler(app)
             conn = self.getConnection()
-            client_handler.handleAnswerPrimaryMaster(conn, None, 0, [])
+            client_handler.answerPrimaryMaster(conn, None, 0, [])
             # Check that nothing happened
             self.assertEqual(len(app.nm.mockGetNamedCalls('getByAddress')), 0)
             self.assertEqual(len(app.nm.mockGetNamedCalls('add')), 0)
@@ -302,7 +302,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_master_list = [(('127.0.0.1', 10010), self.getNewUUID())]
-        client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
+        client_handler.answerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
         # Check that yet-unknown master node got added
         getByAddress_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         add_call_list = app.nm.mockGetNamedCalls('add')
@@ -328,7 +328,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         test_node_uuid = self.getNewUUID()
         test_master_list = [(('127.0.0.1', 10010), test_node_uuid)]
-        client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
+        client_handler.answerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
         # Test sanity checks
         getByAddress_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         self.assertEqual(len(getByAddress_call_list), 1)
@@ -354,7 +354,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_master_list = [(('127.0.0.1', 10010), test_node_uuid)]
-        client_handler.handleAnswerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
+        client_handler.answerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
         # Test sanity checks
         getByAddress_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         self.assertEqual(len(getByAddress_call_list), 1)
@@ -391,7 +391,7 @@ class ClientHandlerTests(NeoTestBase):
         # If primary master is already set *and* is not given primary master
         # handle call raises.
         # Check that the call doesn't raise
-        client_handler.handleAnswerPrimaryMaster(conn, None, test_node_uuid, [])
+        client_handler.answerPrimaryMaster(conn, None, test_node_uuid, [])
         # Check that the primary master changed
         self.assertTrue(app.primary_master_node is node)
         # Test sanity checks
@@ -411,7 +411,7 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
-        client_handler.handleAnswerPrimaryMaster(conn, None, test_node_uuid, [])
+        client_handler.answerPrimaryMaster(conn, None, test_node_uuid, [])
         # Check that primary node is (still) node.
         self.assertTrue(app.primary_master_node is node)
 
@@ -428,7 +428,7 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
-        client_handler.handleAnswerPrimaryMaster(conn, None, test_primary_node_uuid, [])
+        client_handler.answerPrimaryMaster(conn, None, test_primary_node_uuid, [])
         # Test sanity checks
         getByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
         self.assertEqual(len(getByUUID_call_list), 1)
@@ -447,7 +447,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_master_list = [(('127.0.0.1', 10010), test_node_uuid)]
-        client_handler.handleAnswerPrimaryMaster(conn, None, test_node_uuid, test_master_list)
+        client_handler.answerPrimaryMaster(conn, None, test_node_uuid, test_master_list)
         # Test sanity checks
         getByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
         self.assertEqual(len(getByUUID_call_list), 1)
@@ -467,7 +467,7 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryNotificationsHandler(app, Mock())
         conn = self.getConnection()
-        client_handler.handleSendPartitionTable(conn, None, test_ptid + 1, [])
+        client_handler.sendPartitionTable(conn, None, test_ptid + 1, [])
         # Check that partition table got cleared and ptid got updated
         self.assertEquals(app.pt.getID(), 1)
 
@@ -484,7 +484,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         # TODO: use realistic values
         test_row_list = [(0, [(test_storage_uuid, 0)])]
-        client_handler.handleSendPartitionTable(conn, None, test_ptid, test_row_list)
+        client_handler.sendPartitionTable(conn, None, test_ptid, test_row_list)
         # Check that node got created
         add_call_list = app.nm.mockGetNamedCalls('add')
         self.assertEquals(len(add_call_list), 1)
@@ -509,7 +509,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         # TODO: use realistic values
         test_row_list = [(0, [(test_storage_uuid, 0)])]
-        client_handler.handleSendPartitionTable(conn, None, test_ptid, test_row_list)
+        client_handler.sendPartitionTable(conn, None, test_ptid, test_row_list)
         # Check that node did not get created
         self.assertEquals(len(app.nm.mockGetNamedCalls('add')), 0)
         # Check that partition table cell got added
@@ -527,7 +527,7 @@ class ClientHandlerTests(NeoTestBase):
             app = App()
             client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
             conn = self.getConnection(uuid=test_master_uuid)
-            client_handler.handleNotifyNodeInformation(conn, None, ())
+            client_handler.notifyNodeInformation(conn, None, ())
 
     def test_nonIterableParameterRaisesNotifyNodeInformation(self):
         # XXX: this test is here for sanity self-check: it verifies the
@@ -541,7 +541,7 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=test_master_uuid)
-        self.assertRaises(TypeError, client_handler.handleNotifyNodeInformation,
+        self.assertRaises(TypeError, client_handler.notifyNodeInformation,
             conn, None, None)
 
     def _testNotifyNodeInformation(self, test_node, getByAddress=None, getByUUID=MARKER):
@@ -560,7 +560,7 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection(uuid=test_master_uuid)
-        client_handler.handleNotifyNodeInformation(conn, None, test_node_list)
+        client_handler.notifyNodeInformation(conn, None, test_node_list)
         # Return nm so caller can check handler actions.
         return app.nm
 
@@ -632,7 +632,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryBootstrapHandler(app)
         conn = Mock({'getUUID': None})
         self._testHandleUnexpectedPacketCalledWithMedhod(
-            client_handler.handleNotifyPartitionChanges,
+            client_handler.notifyPartitionChanges,
             args=(conn, None, None, None))
 
     def test_nonMasterNotifyPartitionChanges(self):
@@ -647,7 +647,7 @@ class ClientHandlerTests(NeoTestBase):
             app = App()
             client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
             conn = self.getConnection(uuid=test_master_uuid)
-            client_handler.handleNotifyPartitionChanges(conn, None, 0, [])
+            client_handler.notifyPartitionChanges(conn, None, 0, [])
             # Check that nothing happened
             self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
             self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
@@ -662,7 +662,7 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection()
-        client_handler.handleNotifyPartitionChanges(conn, None, 0, [])
+        client_handler.notifyPartitionChanges(conn, None, 0, [])
         # Check that nothing happened
         self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
         self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
@@ -682,7 +682,7 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=test_sender_uuid)
-        client_handler.handleNotifyPartitionChanges(conn, None, 0, [])
+        client_handler.notifyPartitionChanges(conn, None, 0, [])
         # Check that nothing happened
         self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
         self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
@@ -699,7 +699,7 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
         conn = self.getConnection(uuid=test_master_uuid)
-        client_handler.handleNotifyPartitionChanges(conn, None, test_ptid, [])
+        client_handler.notifyPartitionChanges(conn, None, test_ptid, [])
         # Check that nothing happened
         self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
         self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
@@ -721,7 +721,7 @@ class ClientHandlerTests(NeoTestBase):
         test_storage_uuid = self.getNewUUID()
         # TODO: use realistic values
         test_cell_list = [(0, test_storage_uuid, CellStates.UP_TO_DATE)]
-        client_handler.handleNotifyPartitionChanges(conn, None, test_ptid + 1, test_cell_list)
+        client_handler.notifyPartitionChanges(conn, None, test_ptid + 1, test_cell_list)
         # Check that a new node got added
         add_call_list = app.nm.mockGetNamedCalls('add')
         self.assertEqual(len(add_call_list), 1)
@@ -754,7 +754,7 @@ class ClientHandlerTests(NeoTestBase):
             (0, uuid3, CellStates.FEEDING),
             (0, uuid4, CellStates.UP_TO_DATE),
         ]
-        client_handler.handleNotifyPartitionChanges(conn, None, test_ptid + 1, test_cell_list)
+        client_handler.notifyPartitionChanges(conn, None, test_ptid + 1, test_cell_list)
         # Check that the three last node got added
         calls = app.nm.mockGetNamedCalls('add')
         self.assertEquals(len(calls), 3)
@@ -778,7 +778,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryAnswersHandler(app)
         conn = self.getConnection()
         test_tid = 1
-        client_handler.handleAnswerBeginTransaction(conn, None, test_tid)
+        client_handler.answerBeginTransaction(conn, None, test_tid)
         setTID_call_list = app.mockGetNamedCalls('setTID')
         self.assertEquals(len(setTID_call_list), 1)
         self.assertEquals(setTID_call_list[0].getParam(0), test_tid)
@@ -789,7 +789,7 @@ class ClientHandlerTests(NeoTestBase):
         dispatcher = self.getDispatcher()
         client_handler = PrimaryAnswersHandler(app)
         conn = self.getConnection()
-        client_handler.handleNotifyTransactionFinished(conn, None, test_tid)
+        client_handler.notifyTransactionFinished(conn, None, test_tid)
         self.assertEquals(len(app.mockGetNamedCalls('setTransactionFinished')), 1)
         # TODO: decide what to do when non-current transaction is notified as finished, and test that behaviour
 
@@ -816,7 +816,7 @@ class ClientHandlerTests(NeoTestBase):
         test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
         test_db = Mock({'invalidate': None})
         app.registerDB(test_db, None)
-        client_handler.handleInvalidateObjects(conn, None, test_oid_list[:], test_tid)
+        client_handler.invalidateObjects(conn, None, test_oid_list[:], test_tid)
         # 'invalidate' is called just once
         db = app.getDB()
         self.assertTrue(db is test_db)
@@ -843,7 +843,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryAnswersHandler(app)
         conn = self.getConnection()
         test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
-        client_handler.handleAnswerNewOIDs(conn, None, test_oid_list[:])
+        client_handler.answerNewOIDs(conn, None, test_oid_list[:])
         self.assertEquals(set(app.new_oid_list), set(test_oid_list))
 
     def test_StopOperation(self):
@@ -862,14 +862,14 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         # TODO: use realistic values
         test_object_data = ('\x00\x00\x00\x00\x00\x00\x00\x01', 0, 0, 0, 0, 'test')
-        client_handler.handleAnswerObject(conn, None, *test_object_data)
+        client_handler.answerObject(conn, None, *test_object_data)
         self.assertEquals(app.local_var.asked_object, test_object_data)
 
     def _testAnswerStoreObject(self, app, conflicting, oid, serial):
         dispatcher = self.getDispatcher()
         client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
-        client_handler.handleAnswerStoreObject(conn, None, conflicting, oid, serial)
+        client_handler.answerStoreObject(conn, None, conflicting, oid, serial)
 
     def test_conflictingAnswerStoreObject(self):
         class App:
@@ -897,9 +897,9 @@ class ClientHandlerTests(NeoTestBase):
         dispatcher = self.getDispatcher()
         client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
-        client_handler.handleAnswerStoreTransaction(conn, None, test_tid)
+        client_handler.answerStoreTransaction(conn, None, test_tid)
         self.assertEquals(len(app.mockGetNamedCalls('setTransactionVoted')), 1)
-        # TODO: test handleAnswerObject with test_tid not matching app.tid (not handled in program)
+        # TODO: test answerObject with test_tid not matching app.tid (not handled in program)
 
     def test_AnswerTransactionInformation(self):
         class FakeLocal:
@@ -915,7 +915,7 @@ class ClientHandlerTests(NeoTestBase):
         desc = 'foo'
         ext = 0 # XXX: unused in implementation
         oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
-        client_handler.handleAnswerTransactionInformation(conn, None, tid, user, desc, ext, oid_list[:])
+        client_handler.answerTransactionInformation(conn, None, tid, user, desc, ext, oid_list[:])
         stored_dict = app.local_var.txn_info
         # TODO: test 'time' value ?
         self.assertEquals(stored_dict['user_name'], user)
@@ -935,7 +935,7 @@ class ClientHandlerTests(NeoTestBase):
         test_oid = '\x00\x00\x00\x00\x00\x00\x00\x01'
         # TODO: use realistic values
         test_history_list = [(1, 2), (3, 4)]
-        client_handler.handleAnswerObjectHistory(conn, None, test_oid, test_history_list[:])
+        client_handler.answerObjectHistory(conn, None, test_oid, test_history_list[:])
         oid, history = app.local_var.history
         self.assertEquals(oid, test_oid)
         self.assertEquals(len(history), len(test_history_list))
@@ -951,7 +951,7 @@ class ClientHandlerTests(NeoTestBase):
         dispatcher = self.getDispatcher()
         client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
-        client_handler.handleOidNotFound(conn, None, None)
+        client_handler.oidNotFound(conn, None, None)
         self.assertEquals(app.local_var.asked_object, -1)
         self.assertEquals(app.local_var.history, -1)
 
@@ -964,7 +964,7 @@ class ClientHandlerTests(NeoTestBase):
         dispatcher = self.getDispatcher()
         client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
-        client_handler.handleTidNotFound(conn, None, None)
+        client_handler.tidNotFound(conn, None, None)
         self.assertEquals(app.local_var.txn_info, -1)
 
     def test_AnswerTIDs(self):
@@ -977,7 +977,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
         test_tid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
-        client_handler.handleAnswerTIDs(conn, None, test_tid_list[:])
+        client_handler.answerTIDs(conn, None, test_tid_list[:])
         stored_tid_list = []
         for tid_list in app.local_var.node_tids.itervalues():
             stored_tid_list.extend(tid_list)

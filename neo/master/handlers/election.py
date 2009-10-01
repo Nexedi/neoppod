@@ -25,7 +25,7 @@ from neo.exception import ElectionFailure
 class ElectionHandler(MasterHandler):
     """This class deals with events for a primary master election."""
 
-    def handleNotifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
         if uuid is None:
             raise protocol.UnexpectedPacketError
@@ -110,7 +110,7 @@ class ClientElectionHandler(ElectionHandler):
         app.negotiating_master_node_set.discard(addr)
         MasterHandler.peerBroken(self, conn)
 
-    def handleAcceptNodeIdentification(self, conn, packet, node_type,
+    def acceptNodeIdentification(self, conn, packet, node_type,
                                        uuid, address, num_partitions,
                                        num_replicas, your_uuid):
         app = self.app
@@ -146,7 +146,7 @@ class ClientElectionHandler(ElectionHandler):
 
         app.negotiating_master_node_set.discard(conn.getAddress())
 
-    def handleAnswerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
+    def answerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
         if conn.getConnector() is None:
             # Connection can be closed by peer after he sent
             # AnswerPrimaryMaster if he finds the primary master before we
@@ -208,7 +208,7 @@ class ClientElectionHandler(ElectionHandler):
 
 class ServerElectionHandler(ElectionHandler):
 
-    def handleReelectPrimaryMaster(self, conn, packet):
+    def reelectPrimaryMaster(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
     def peerBroken(self, conn):
@@ -219,7 +219,7 @@ class ServerElectionHandler(ElectionHandler):
             node.setBroken()
         MasterHandler.peerBroken(self, conn)
 
-    def handleRequestNodeIdentification(self, conn, packet, node_type,
+    def requestNodeIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
         if conn.getConnector() is None:
             # Connection can be closed by peer after he sent
@@ -260,7 +260,7 @@ class ServerElectionHandler(ElectionHandler):
         )
         conn.answer(p, packet.getId())
 
-    def handleAnnouncePrimaryMaster(self, conn, packet):
+    def announcePrimaryMaster(self, conn, packet):
         uuid = conn.getUUID()
         if uuid is None:
             raise protocol.UnexpectedPacketError

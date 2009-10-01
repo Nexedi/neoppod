@@ -68,19 +68,19 @@ class ClientServiceHandler(BaseServiceHandler):
     def connectionCompleted(self, conn):
         pass
 
-    def handleNodeLost(self, conn, node):
+    def nodeLost(self, conn, node):
         app = self.app
         for tid, t in app.finishing_transaction_dict.items():
             if t.getConnection() is conn:
                 del app.finishing_transaction_dict[tid]
 
-    def handleAbortTransaction(self, conn, packet, tid):
+    def abortTransaction(self, conn, packet, tid):
         try:
             del self.app.finishing_transaction_dict[tid]
         except KeyError:
             logging.warn('aborting transaction %s does not exist', dump(tid))
 
-    def handleAskBeginTransaction(self, conn, packet, tid):
+    def askBeginTransaction(self, conn, packet, tid):
         app = self.app
         if tid is not None and tid < app.ltid:
             # supplied TID is in the past
@@ -92,11 +92,11 @@ class ClientServiceHandler(BaseServiceHandler):
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
         conn.answer(protocol.answerBeginTransaction(tid), packet.getId())
 
-    def handleAskNewOIDs(self, conn, packet, num_oids):
+    def askNewOIDs(self, conn, packet, num_oids):
         oid_list = self.app.getNewOIDList(num_oids)
         conn.answer(protocol.answerNewOIDs(oid_list), packet.getId())
 
-    def handleFinishTransaction(self, conn, packet, oid_list, tid):
+    def finishTransaction(self, conn, packet, oid_list, tid):
         app = self.app
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.

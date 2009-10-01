@@ -34,7 +34,7 @@ class StorageServiceHandler(BaseServiceHandler):
             conn.notify(protocol.notifyLastOID(self.app.loid))
             conn.notify(protocol.startOperation())
 
-    def handleNodeLost(self, conn, node):
+    def nodeLost(self, conn, node):
         logging.info('storage node lost')
         if not self.app.pt.operational():
             raise OperationFailure, 'cannot continue operation'
@@ -42,7 +42,7 @@ class StorageServiceHandler(BaseServiceHandler):
         # partition must not oudated to allows a cluster restart.
         self.app.outdateAndBroadcastPartition()
 
-    def handleNotifyInformationLocked(self, conn, packet, tid):
+    def notifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()
         app = self.app
         node = app.nm.getByUUID(uuid)
@@ -80,7 +80,7 @@ class StorageServiceHandler(BaseServiceHandler):
             # What is this?
             pass
 
-    def handleNotifyPartitionChanges(self, conn, packet, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
         # This should be sent when a cell becomes up-to-date because
         # a replication has finished.
         uuid = conn.getUUID()

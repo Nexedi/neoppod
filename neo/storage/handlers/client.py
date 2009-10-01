@@ -84,7 +84,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
     def connectionCompleted(self, conn):
         BaseClientAndStorageOperationHandler.connectionCompleted(self, conn)
 
-    def handleAbortTransaction(self, conn, packet, tid):
+    def abortTransaction(self, conn, packet, tid):
         app = self.app
         try:
             t = app.transaction_dict[tid]
@@ -104,7 +104,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         except KeyError:
             pass
 
-    def handleAskStoreTransaction(self, conn, packet, tid, user, desc,
+    def askStoreTransaction(self, conn, packet, tid, user, desc,
                                   ext, oid_list):
         uuid = conn.getUUID()
         app = self.app
@@ -114,7 +114,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         t.addTransaction(oid_list, user, desc, ext)
         conn.answer(protocol.answerStoreTransaction(tid), packet.getId())
 
-    def handleAskStoreObject(self, conn, packet, oid, serial,
+    def askStoreObject(self, conn, packet, oid, serial,
                              compression, checksum, data, tid):
         uuid = conn.getUUID()
         # First, check for the locking state.
@@ -123,7 +123,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         if locking_tid is not None:
             if locking_tid < tid:
                 # Delay the response.
-                app.queueEvent(self.handleAskStoreObject, conn, packet,
+                app.queueEvent(self.askStoreObject, conn, packet,
                                oid, serial, compression, checksum,
                                data, tid)
             else:
