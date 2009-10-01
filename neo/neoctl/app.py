@@ -49,7 +49,7 @@ class TerminalNeoCTL(object):
         return protocol.node_states.getFromStr(value)
 
     def asNodeType(self, value):
-        return NodeTypes.getByName(values.upper())
+        return NodeTypes.getByName(value.upper())
 
     def asClusterState(self, value):
         return ClusterStates.getByName(value.upper())
