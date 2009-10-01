@@ -116,6 +116,8 @@ class Enum(dict):
             return "<EnumItem %s (%d)>" % (self._name, self)
 
         def __eq__(self, other):
+            if other is None:
+                return False
             assert isinstance(other, (Enum.Item, int, float, long))
             assert self._enum == other._enum
             return int(self) == int(other)
