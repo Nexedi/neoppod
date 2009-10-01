@@ -353,7 +353,6 @@ class Packet(object):
 
     _id = None
     _type = None
-    _len = None
 
     def __init__(self, msg_type, body=''):
         self._id = None
