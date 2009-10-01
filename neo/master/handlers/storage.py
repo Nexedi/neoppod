@@ -18,7 +18,8 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import UnexpectedPacketError, CellStates, ErrorCodes
+from neo.protocol import UnexpectedPacketError, ProtocolError
+from neo.protocol import CellStates, ErrorCodes
 from neo.master.handlers import BaseServiceHandler
 from neo.exception import OperationFailure
 from neo.util import dump
@@ -107,9 +108,7 @@ class StorageServiceHandler(BaseServiceHandler):
                     msg = "node %s telling that it is UP TO DATE for offset \
                     %s but where %s for that offset" % (dump(node.getUUID()), offset, 
                             xcell.getState())
-                    logging.warning(msg)
-                    self.handleError(conn, packet, ErrorCodes.INTERNAL_ERROR, msg)
-                    return
+                    raise ProtocolError(msg)
                     
 
             app.pt.setCell(offset, node, CellStates.UP_TO_DATE)
