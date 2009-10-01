@@ -17,29 +17,9 @@
 
 from neo import logging
 from neo import protocol
-from neo.protocol import NodeStates, ErrorCodes
+from neo.protocol import NodeStates, ErrorCodes, PacketTypes
 from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
-from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
-        ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
-        REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION, START_OPERATION, \
-        STOP_OPERATION, ASK_LAST_IDS, ANSWER_LAST_IDS, ASK_PARTITION_TABLE, \
-        ANSWER_PARTITION_TABLE, SEND_PARTITION_TABLE, NOTIFY_PARTITION_CHANGES, \
-        ASK_UNFINISHED_TRANSACTIONS, ANSWER_UNFINISHED_TRANSACTIONS, \
-        ASK_OBJECT_PRESENT, ANSWER_OBJECT_PRESENT, \
-        DELETE_TRANSACTION, COMMIT_TRANSACTION, ASK_BEGIN_TRANSACTION, ANSWER_BEGIN_TRANSACTION, \
-        FINISH_TRANSACTION, NOTIFY_TRANSACTION_FINISHED, LOCK_INFORMATION, \
-        NOTIFY_INFORMATION_LOCKED, INVALIDATE_OBJECTS, UNLOCK_INFORMATION, \
-        ASK_NEW_OIDS, ANSWER_NEW_OIDS, ASK_STORE_OBJECT, ANSWER_STORE_OBJECT, \
-        ABORT_TRANSACTION, ASK_STORE_TRANSACTION, ANSWER_STORE_TRANSACTION, \
-        ASK_OBJECT, ANSWER_OBJECT, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
-        ANSWER_TRANSACTION_INFORMATION, ASK_OBJECT_HISTORY, ANSWER_OBJECT_HISTORY, \
-        ASK_OIDS, ANSWER_OIDS, ADD_PENDING_NODES, ANSWER_NEW_NODES, \
-        ASK_PARTITION_LIST, ANSWER_PARTITION_LIST, ASK_NODE_LIST, \
-        ANSWER_NODE_LIST, SET_NODE_STATE, ANSWER_NODE_STATE, SET_CLUSTER_STATE, \
-        ASK_NODE_INFORMATION, ANSWER_NODE_INFORMATION, \
-        ASK_CLUSTER_STATE, ANSWER_CLUSTER_STATE, NOTIFY_CLUSTER_INFORMATION, \
-        NOTIFY_LAST_OID
 
 
 class EventHandler(object):
@@ -392,68 +372,68 @@ class EventHandler(object):
     def initPacketDispatchTable(self):
         d = {}
 
-        d[ERROR] = self.handleError
-        d[REQUEST_NODE_IDENTIFICATION] = self.handleRequestNodeIdentification
-        d[ACCEPT_NODE_IDENTIFICATION] = self.handleAcceptNodeIdentification
-        d[ASK_PRIMARY_MASTER] = self.handleAskPrimaryMaster
-        d[ANSWER_PRIMARY_MASTER] = self.handleAnswerPrimaryMaster
-        d[ANNOUNCE_PRIMARY_MASTER] = self.handleAnnouncePrimaryMaster
-        d[REELECT_PRIMARY_MASTER] = self.handleReelectPrimaryMaster
-        d[NOTIFY_NODE_INFORMATION] = self.handleNotifyNodeInformation
-        d[ASK_LAST_IDS] = self.handleAskLastIDs
-        d[ANSWER_LAST_IDS] = self.handleAnswerLastIDs
-        d[ASK_PARTITION_TABLE] = self.handleAskPartitionTable
-        d[ANSWER_PARTITION_TABLE] = self.handleAnswerPartitionTable
-        d[SEND_PARTITION_TABLE] = self.handleSendPartitionTable
-        d[NOTIFY_PARTITION_CHANGES] = self.handleNotifyPartitionChanges
-        d[START_OPERATION] = self.handleStartOperation
-        d[STOP_OPERATION] = self.handleStopOperation
-        d[ASK_UNFINISHED_TRANSACTIONS] = self.handleAskUnfinishedTransactions
-        d[ANSWER_UNFINISHED_TRANSACTIONS] = self.handleAnswerUnfinishedTransactions
-        d[ASK_OBJECT_PRESENT] = self.handleAskObjectPresent
-        d[ANSWER_OBJECT_PRESENT] = self.handleAnswerObjectPresent
-        d[DELETE_TRANSACTION] = self.handleDeleteTransaction
-        d[COMMIT_TRANSACTION] = self.handleCommitTransaction
-        d[ASK_BEGIN_TRANSACTION] = self.handleAskBeginTransaction
-        d[ANSWER_BEGIN_TRANSACTION] = self.handleAnswerBeginTransaction
-        d[FINISH_TRANSACTION] = self.handleFinishTransaction
-        d[NOTIFY_TRANSACTION_FINISHED] = self.handleNotifyTransactionFinished
-        d[LOCK_INFORMATION] = self.handleLockInformation
-        d[NOTIFY_INFORMATION_LOCKED] = self.handleNotifyInformationLocked
-        d[INVALIDATE_OBJECTS] = self.handleInvalidateObjects
-        d[UNLOCK_INFORMATION] = self.handleUnlockInformation
-        d[ASK_NEW_OIDS] = self.handleAskNewOIDs
-        d[ANSWER_NEW_OIDS] = self.handleAnswerNewOIDs
-        d[ASK_STORE_OBJECT] = self.handleAskStoreObject
-        d[ANSWER_STORE_OBJECT] = self.handleAnswerStoreObject
-        d[ABORT_TRANSACTION] = self.handleAbortTransaction
-        d[ASK_STORE_TRANSACTION] = self.handleAskStoreTransaction
-        d[ANSWER_STORE_TRANSACTION] = self.handleAnswerStoreTransaction
-        d[ASK_OBJECT] = self.handleAskObject
-        d[ANSWER_OBJECT] = self.handleAnswerObject
-        d[ASK_TIDS] = self.handleAskTIDs
-        d[ANSWER_TIDS] = self.handleAnswerTIDs
-        d[ASK_TRANSACTION_INFORMATION] = self.handleAskTransactionInformation
-        d[ANSWER_TRANSACTION_INFORMATION] = self.handleAnswerTransactionInformation
-        d[ASK_OBJECT_HISTORY] = self.handleAskObjectHistory
-        d[ANSWER_OBJECT_HISTORY] = self.handleAnswerObjectHistory
-        d[ASK_OIDS] = self.handleAskOIDs
-        d[ANSWER_OIDS] = self.handleAnswerOIDs
-        d[ASK_PARTITION_LIST] = self.handleAskPartitionList
-        d[ANSWER_PARTITION_LIST] = self.handleAnswerPartitionList
-        d[ASK_NODE_LIST] = self.handleAskNodeList
-        d[ANSWER_NODE_LIST] = self.handleAnswerNodeList
-        d[SET_NODE_STATE] = self.handleSetNodeState
-        d[ANSWER_NODE_STATE] = self.handleAnswerNodeState
-        d[SET_CLUSTER_STATE] = self.handleSetClusterState
-        d[ADD_PENDING_NODES] = self.handleAddPendingNodes
-        d[ANSWER_NEW_NODES] = self.handleAnswerNewNodes
-        d[ASK_NODE_INFORMATION] = self.handleAskNodeInformation
-        d[ANSWER_NODE_INFORMATION] = self.handleAnswerNodeInformation
-        d[ASK_CLUSTER_STATE] = self.handleAskClusterState
-        d[ANSWER_CLUSTER_STATE] = self.handleAnswerClusterState
-        d[NOTIFY_CLUSTER_INFORMATION] = self.handleNotifyClusterInformation
-        d[NOTIFY_LAST_OID] = self.handleNotifyLastOID
+        d[PacketTypes.ERROR] = self.handleError
+        d[PacketTypes.REQUEST_NODE_IDENTIFICATION] = self.handleRequestNodeIdentification
+        d[PacketTypes.ACCEPT_NODE_IDENTIFICATION] = self.handleAcceptNodeIdentification
+        d[PacketTypes.ASK_PRIMARY_MASTER] = self.handleAskPrimaryMaster
+        d[PacketTypes.ANSWER_PRIMARY_MASTER] = self.handleAnswerPrimaryMaster
+        d[PacketTypes.ANNOUNCE_PRIMARY_MASTER] = self.handleAnnouncePrimaryMaster
+        d[PacketTypes.REELECT_PRIMARY_MASTER] = self.handleReelectPrimaryMaster
+        d[PacketTypes.NOTIFY_NODE_INFORMATION] = self.handleNotifyNodeInformation
+        d[PacketTypes.ASK_LAST_IDS] = self.handleAskLastIDs
+        d[PacketTypes.ANSWER_LAST_IDS] = self.handleAnswerLastIDs
+        d[PacketTypes.ASK_PARTITION_TABLE] = self.handleAskPartitionTable
+        d[PacketTypes.ANSWER_PARTITION_TABLE] = self.handleAnswerPartitionTable
+        d[PacketTypes.SEND_PARTITION_TABLE] = self.handleSendPartitionTable
+        d[PacketTypes.NOTIFY_PARTITION_CHANGES] = self.handleNotifyPartitionChanges
+        d[PacketTypes.START_OPERATION] = self.handleStartOperation
+        d[PacketTypes.STOP_OPERATION] = self.handleStopOperation
+        d[PacketTypes.ASK_UNFINISHED_TRANSACTIONS] = self.handleAskUnfinishedTransactions
+        d[PacketTypes.ANSWER_UNFINISHED_TRANSACTIONS] = self.handleAnswerUnfinishedTransactions
+        d[PacketTypes.ASK_OBJECT_PRESENT] = self.handleAskObjectPresent
+        d[PacketTypes.ANSWER_OBJECT_PRESENT] = self.handleAnswerObjectPresent
+        d[PacketTypes.DELETE_TRANSACTION] = self.handleDeleteTransaction
+        d[PacketTypes.COMMIT_TRANSACTION] = self.handleCommitTransaction
+        d[PacketTypes.ASK_BEGIN_TRANSACTION] = self.handleAskBeginTransaction
+        d[PacketTypes.ANSWER_BEGIN_TRANSACTION] = self.handleAnswerBeginTransaction
+        d[PacketTypes.FINISH_TRANSACTION] = self.handleFinishTransaction
+        d[PacketTypes.NOTIFY_TRANSACTION_FINISHED] = self.handleNotifyTransactionFinished
+        d[PacketTypes.LOCK_INFORMATION] = self.handleLockInformation
+        d[PacketTypes.NOTIFY_INFORMATION_LOCKED] = self.handleNotifyInformationLocked
+        d[PacketTypes.INVALIDATE_OBJECTS] = self.handleInvalidateObjects
+        d[PacketTypes.UNLOCK_INFORMATION] = self.handleUnlockInformation
+        d[PacketTypes.ASK_NEW_OIDS] = self.handleAskNewOIDs
+        d[PacketTypes.ANSWER_NEW_OIDS] = self.handleAnswerNewOIDs
+        d[PacketTypes.ASK_STORE_OBJECT] = self.handleAskStoreObject
+        d[PacketTypes.ANSWER_STORE_OBJECT] = self.handleAnswerStoreObject
+        d[PacketTypes.ABORT_TRANSACTION] = self.handleAbortTransaction
+        d[PacketTypes.ASK_STORE_TRANSACTION] = self.handleAskStoreTransaction
+        d[PacketTypes.ANSWER_STORE_TRANSACTION] = self.handleAnswerStoreTransaction
+        d[PacketTypes.ASK_OBJECT] = self.handleAskObject
+        d[PacketTypes.ANSWER_OBJECT] = self.handleAnswerObject
+        d[PacketTypes.ASK_TIDS] = self.handleAskTIDs
+        d[PacketTypes.ANSWER_TIDS] = self.handleAnswerTIDs
+        d[PacketTypes.ASK_TRANSACTION_INFORMATION] = self.handleAskTransactionInformation
+        d[PacketTypes.ANSWER_TRANSACTION_INFORMATION] = self.handleAnswerTransactionInformation
+        d[PacketTypes.ASK_OBJECT_HISTORY] = self.handleAskObjectHistory
+        d[PacketTypes.ANSWER_OBJECT_HISTORY] = self.handleAnswerObjectHistory
+        d[PacketTypes.ASK_OIDS] = self.handleAskOIDs
+        d[PacketTypes.ANSWER_OIDS] = self.handleAnswerOIDs
+        d[PacketTypes.ASK_PARTITION_LIST] = self.handleAskPartitionList
+        d[PacketTypes.ANSWER_PARTITION_LIST] = self.handleAnswerPartitionList
+        d[PacketTypes.ASK_NODE_LIST] = self.handleAskNodeList
+        d[PacketTypes.ANSWER_NODE_LIST] = self.handleAnswerNodeList
+        d[PacketTypes.SET_NODE_STATE] = self.handleSetNodeState
+        d[PacketTypes.ANSWER_NODE_STATE] = self.handleAnswerNodeState
+        d[PacketTypes.SET_CLUSTER_STATE] = self.handleSetClusterState
+        d[PacketTypes.ADD_PENDING_NODES] = self.handleAddPendingNodes
+        d[PacketTypes.ANSWER_NEW_NODES] = self.handleAnswerNewNodes
+        d[PacketTypes.ASK_NODE_INFORMATION] = self.handleAskNodeInformation
+        d[PacketTypes.ANSWER_NODE_INFORMATION] = self.handleAnswerNodeInformation
+        d[PacketTypes.ASK_CLUSTER_STATE] = self.handleAskClusterState
+        d[PacketTypes.ANSWER_CLUSTER_STATE] = self.handleAnswerClusterState
+        d[PacketTypes.NOTIFY_CLUSTER_INFORMATION] = self.handleNotifyClusterInformation
+        d[PacketTypes.NOTIFY_LAST_OID] = self.handleNotifyLastOID
 
         return d
 

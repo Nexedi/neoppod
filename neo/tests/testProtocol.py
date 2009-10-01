@@ -19,7 +19,8 @@ import unittest, os
 from mock import Mock
 from neo import protocol
 from neo.protocol import *
-from neo.protocol import NodeTypes, NodeStates, CellStates, ErrorCodes
+from neo.protocol import NodeTypes, NodeStates, CellStates
+from neo.protocol import ErrorCodes, PacketTypes
 from neo.tests import NeoTestBase
 from neo.util import getNextTID
 from time import time, gmtime
@@ -37,8 +38,8 @@ class ProtocolTests(NeoTestBase):
         return self.ltid
 
     def test_01_Packet_init(self):
-        p = Packet(msg_type=ASK_PRIMARY_MASTER, body=None)
-        self.assertEqual(p.getType(), ASK_PRIMARY_MASTER)
+        p = Packet(msg_type=PacketTypes.ASK_PRIMARY_MASTER, body=None)
+        self.assertEqual(p.getType(), PacketTypes.ASK_PRIMARY_MASTER)
         self.assertEqual(len(p), PACKET_HEADER_SIZE)
 
     def test_02_error(self):
@@ -252,7 +253,7 @@ class ProtocolTests(NeoTestBase):
     def test_30_deleteTransaction(self):
         tid = self.getNextTID()
         p = protocol.deleteTransaction(tid)
-        self.assertEqual(p.getType(), DELETE_TRANSACTION)
+        self.assertEqual(p.getType(), PacketTypes.DELETE_TRANSACTION)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 

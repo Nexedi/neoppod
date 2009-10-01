@@ -22,14 +22,10 @@ from mock import Mock
 from struct import pack, unpack
 import neo
 from neo.tests import NeoTestBase
-from neo.protocol import Packet, NodeTypes, NodeStates, CellStates, ErrorCodes
+from neo.protocol import Packet, PacketTypes
+from neo.protocol import NodeTypes, NodeStates, CellStates, ErrorCodes
 from neo.master.handlers.verification import VerificationHandler
 from neo.master.app import Application
-from neo import protocol
-from neo.protocol import ERROR, ANNOUNCE_PRIMARY_MASTER, INVALID_UUID, \
-    NOTIFY_NODE_INFORMATION, ANSWER_LAST_IDS, ANSWER_PARTITION_TABLE, \
-     ANSWER_UNFINISHED_TRANSACTIONS, ANSWER_OBJECT_PRESENT, \
-     ANSWER_TRANSACTION_INFORMATION
 from neo.exception import OperationFailure, ElectionFailure, VerificationFailure     
 from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
@@ -137,7 +133,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_09_handleAnswerLastIDs(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ANSWER_LAST_IDS)
+        packet = Packet(msg_type=PacketTypes.ANSWER_LAST_IDS)
         loid = self.app.loid
         ltid = self.app.ltid
         lptid = '\0' * 8
@@ -161,7 +157,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_11_handleAnswerUnfinishedTransactions(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ANSWER_UNFINISHED_TRANSACTIONS)
+        packet = Packet(msg_type=PacketTypes.ANSWER_UNFINISHED_TRANSACTIONS)
         # do nothing
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -188,7 +184,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_12_handleAnswerTransactionInformation(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ANSWER_TRANSACTION_INFORMATION)
+        packet = Packet(msg_type=PacketTypes.ANSWER_TRANSACTION_INFORMATION)
         # do nothing, as unfinished_oid_set is None
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -260,7 +256,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_14_handleAnswerObjectPresent(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ANSWER_OBJECT_PRESENT)
+        packet = Packet(msg_type=PacketTypes.ANSWER_OBJECT_PRESENT)
         # do nothing as asking_uuid_dict is True
         upper, lower = unpack('!LL', self.app.ltid)
         new_tid = pack('!LL', upper, lower + 10)

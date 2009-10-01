@@ -17,7 +17,6 @@
 
 from neo.handler import EventHandler
 from neo.protocol import ErrorCodes
-from neo import protocol
 
 class CommandEventHandler(EventHandler):
     """ Base handler for command """

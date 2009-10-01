@@ -25,7 +25,7 @@ from neo.handler import EventHandler
 from neo.tests import DoNothingConnector
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
-from neo.protocol import Packet, ProtocolError, ANSWER_PRIMARY_MASTER
+from neo.protocol import Packet, ProtocolError, PacketTypes
 from neo import protocol
 from neo.tests import NeoTestBase
 
@@ -721,7 +721,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
-        self.assertEqual(data.getType(), ANSWER_PRIMARY_MASTER)
+        self.assertEqual(data.getType(), PacketTypes.ANSWER_PRIMARY_MASTER)
         self.assertEqual(data.getId(), 1)
         self.assertEqual(len(bc.event_dict), 0)
         self.assertEqual(bc.read_buf, '')

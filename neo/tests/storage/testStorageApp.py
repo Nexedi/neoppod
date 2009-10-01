@@ -19,8 +19,8 @@ import unittest, logging, os
 from mock import Mock
 from neo.tests import NeoTestBase
 from neo.storage.app import Application
-from neo.protocol import CellStates, INVALID_PTID, INVALID_TID, \
-     INVALID_UUID, Packet, NOTIFY_NODE_INFORMATION
+from neo.protocol import Packet, CellStates, PacketTypes, \
+    INVALID_PTID, INVALID_TID, INVALID_UUID
 from neo.storage.mysqldb import p64, u64, MySQLDatabaseManager
 from collections import deque
 from neo.pt import PartitionTable

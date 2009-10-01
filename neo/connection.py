@@ -19,7 +19,7 @@ from neo import logging
 from neo.locking import RLock
 
 from neo import protocol
-from neo.protocol import PacketMalformedError
+from neo.protocol import PacketMalformedError, PacketTypes
 from neo.event import IdleEvent
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
@@ -256,10 +256,10 @@ class Connection(BaseConnection):
 
             try:
                 packet_type = packet.getType()
-                if packet_type == protocol.PING:
+                if packet_type == PacketTypes.PING:
                     # Send a pong notification
                     self.answer(protocol.pong(), packet.getId())
-                elif packet_type != protocol.PONG:
+                elif packet_type != PacketTypes.PONG:
                     # Skip PONG packets, its only purpose is to drop IdleEvent
                     # generated upong ping.
                     self._queue.append(packet)

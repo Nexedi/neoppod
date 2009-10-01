@@ -23,14 +23,10 @@ from struct import pack, unpack
 from neo.tests import NeoTestBase
 import neo.master
 from neo import protocol
-from neo.protocol import Packet, NodeTypes, NodeStates, CellStates, INVALID_UUID
+from neo.protocol import Packet, PacketTypes
+from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.app import Application
-from neo.protocol import ERROR, PING, PONG, ANNOUNCE_PRIMARY_MASTER, \
-     REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION,  \
-     ASK_LAST_IDS, ANSWER_LAST_IDS, NOTIFY_PARTITION_CHANGES, \
-     ASK_UNFINISHED_TRANSACTIONS, ASK_BEGIN_TRANSACTION, FINISH_TRANSACTION, \
-     NOTIFY_INFORMATION_LOCKED, ASK_NEW_OIDS, ABORT_TRANSACTION
 from neo.exception import OperationFailure, ElectionFailure     
 
 class MasterStorageHandlerTests(NeoTestBase):
@@ -72,7 +68,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_05_handleNotifyNodeInformation(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=NOTIFY_NODE_INFORMATION)
+        packet = Packet(msg_type=PacketTypes.NOTIFY_NODE_INFORMATION)
         # tell the master node that is not running any longer, it must raises
         conn = self.getFakeConnection(uuid, self.storage_address)
         node_list = [(NodeTypes.MASTER, '127.0.0.1', self.master_port,
@@ -142,7 +138,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_06_handleAnswerLastIDs(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ANSWER_LAST_IDS)
+        packet = Packet(msg_type=PacketTypes.ANSWER_LAST_IDS)
         loid = self.app.loid
         ltid = self.app.ltid
         lptid = self.app.pt.getID()
@@ -160,7 +156,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_10_handleNotifyInformationLocked(self):
         service = self.service
         uuid = self.identifyToMasterNode(port=10020)
-        packet = Packet(msg_type=NOTIFY_INFORMATION_LOCKED)
+        packet = Packet(msg_type=PacketTypes.NOTIFY_INFORMATION_LOCKED)
         # give an older tid than the PMN known, must abort
         conn = self.getFakeConnection(uuid, self.storage_address)
         oid_list = []
@@ -203,7 +199,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_12_handleAskLastIDs(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ASK_LAST_IDS)
+        packet = Packet(msg_type=PacketTypes.ASK_LAST_IDS)
         # give a uuid
         conn = self.getFakeConnection(uuid, self.storage_address)
         ptid = self.app.pt.getID()
@@ -220,7 +216,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_13_handleAskUnfinishedTransactions(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ASK_UNFINISHED_TRANSACTIONS)
+        packet = Packet(msg_type=PacketTypes.ASK_UNFINISHED_TRANSACTIONS)
         # give a uuid
         conn = self.getFakeConnection(uuid, self.storage_address)
         service.handleAskUnfinishedTransactions(conn, packet)
@@ -244,7 +240,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_14_handleNotifyPartitionChanges(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=NOTIFY_PARTITION_CHANGES)
+        packet = Packet(msg_type=PacketTypes.NOTIFY_PARTITION_CHANGES)
         # do not answer if not a storage node
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port=self.client_port)

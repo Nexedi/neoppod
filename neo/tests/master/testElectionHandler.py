@@ -22,24 +22,9 @@ from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoTestBase
 from neo import protocol
-from neo.protocol import Packet, NodeTypes, NodeStates, INVALID_UUID
+from neo.protocol import Packet, PacketTypes, NodeTypes, NodeStates, INVALID_UUID
 from neo.master.handlers.election import ClientElectionHandler, ServerElectionHandler
 from neo.master.app import Application
-from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
-     PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
-     REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION, START_OPERATION, \
-     STOP_OPERATION, ASK_LAST_IDS, ANSWER_LAST_IDS, ASK_PARTITION_TABLE, \
-     ANSWER_PARTITION_TABLE, SEND_PARTITION_TABLE, NOTIFY_PARTITION_CHANGES, \
-     ASK_UNFINISHED_TRANSACTIONS, ANSWER_UNFINISHED_TRANSACTIONS, \
-     ASK_OBJECT_PRESENT, ANSWER_OBJECT_PRESENT, \
-     DELETE_TRANSACTION, COMMIT_TRANSACTION, ASK_BEGIN_TRANSACTION, ANSWER_BEGIN_TRANSACTION, \
-     FINISH_TRANSACTION, NOTIFY_TRANSACTION_FINISHED, LOCK_INFORMATION, \
-     NOTIFY_INFORMATION_LOCKED, INVALIDATE_OBJECTS, UNLOCK_INFORMATION, \
-     ASK_NEW_OIDS, ANSWER_NEW_OIDS, ASK_STORE_OBJECT, ANSWER_STORE_OBJECT, \
-     ABORT_TRANSACTION, ASK_STORE_TRANSACTION, ANSWER_STORE_TRANSACTION, \
-     ASK_OBJECT, ANSWER_OBJECT, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
-     ANSWER_TRANSACTION_INFORMATION, ASK_OBJECT_HISTORY, ANSWER_OBJECT_HISTORY, \
-     ASK_OIDS, ANSWER_OIDS
 from neo.exception import OperationFailure, ElectionFailure     
 from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
@@ -541,7 +526,7 @@ class MasterServerElectionTests(NeoTestBase):
     def test_12_handleAnnouncePrimaryMaster(self):
         election = self.election
         uuid = self.identifyToMasterNode(port=self.master_port)
-        packet = Packet(msg_type=ANNOUNCE_PRIMARY_MASTER)
+        packet = Packet(msg_type=PacketTypes.ANNOUNCE_PRIMARY_MASTER)
         # No uuid
         conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
@@ -583,7 +568,7 @@ class MasterServerElectionTests(NeoTestBase):
     def test_14_handleNotifyNodeInformation(self):
         election = self.election
         uuid = self.identifyToMasterNode(port=self.master_port)
-        packet = Packet(msg_type=NOTIFY_NODE_INFORMATION)
+        packet = Packet(msg_type=PacketTypes.NOTIFY_NODE_INFORMATION)
         # do not answer if no uuid
         conn = Mock({"getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})

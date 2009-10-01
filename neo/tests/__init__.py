@@ -22,6 +22,7 @@ import MySQLdb
 from neo import logging
 from mock import Mock
 from neo import protocol
+from neo.protocol import PacketTypes
 
 DB_PREFIX = 'test_neo_'
 DB_ADMIN = 'root'
@@ -168,7 +169,7 @@ class NeoTestBase(unittest.TestCase):
         self.assertEquals(len(calls), 1)
         packet = calls[0].getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
-        self.assertEquals(packet.getType(), protocol.ERROR)
+        self.assertEquals(packet.getType(), PacketTypes.ERROR)
         if decode:
             return protocol.decode_table[packet.getType()](packet._body)
         return packet
@@ -210,97 +211,97 @@ class NeoTestBase(unittest.TestCase):
         return packet
 
     def checkNotifyNodeInformation(self, conn, **kw):
-        return self.checkNotifyPacket(conn, protocol.NOTIFY_NODE_INFORMATION, **kw)
+        return self.checkNotifyPacket(conn, PacketTypes.NOTIFY_NODE_INFORMATION, **kw)
 
     def checkSendPartitionTable(self, conn, **kw):
-        return self.checkNotifyPacket(conn, protocol.SEND_PARTITION_TABLE, **kw)
+        return self.checkNotifyPacket(conn, PacketTypes.SEND_PARTITION_TABLE, **kw)
 
     def checkStartOperation(self, conn, **kw):
-        return self.checkNotifyPacket(conn, protocol.START_OPERATION, **kw)
+        return self.checkNotifyPacket(conn, PacketTypes.START_OPERATION, **kw)
 
     def checkNotifyTransactionFinished(self, conn, **kw):
-        return self.checkNotifyPacket(conn, protocol.NOTIFY_TRANSACTION_FINISHED, **kw)
+        return self.checkNotifyPacket(conn, PacketTypes.NOTIFY_TRANSACTION_FINISHED, **kw)
 
     def checkNotifyInformationLocked(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.NOTIFY_INFORMATION_LOCKED, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.NOTIFY_INFORMATION_LOCKED, **kw)
 
     def checkLockInformation(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.LOCK_INFORMATION, **kw)
+        return self.checkAskPacket(conn, PacketTypes.LOCK_INFORMATION, **kw)
 
     def checkUnlockInformation(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.UNLOCK_INFORMATION, **kw)
+        return self.checkAskPacket(conn, PacketTypes.UNLOCK_INFORMATION, **kw)
 
     def checkRequestNodeIdentification(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.REQUEST_NODE_IDENTIFICATION, **kw)
+        return self.checkAskPacket(conn, PacketTypes.REQUEST_NODE_IDENTIFICATION, **kw)
 
     def checkAskPrimaryMaster(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.ASK_PRIMARY_MASTER)
+        return self.checkAskPacket(conn, PacketTypes.ASK_PRIMARY_MASTER)
 
     def checkAskUnfinishedTransactions(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.ASK_UNFINISHED_TRANSACTIONS)
+        return self.checkAskPacket(conn, PacketTypes.ASK_UNFINISHED_TRANSACTIONS)
 
     def checkAskTransactionInformation(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.ASK_TRANSACTION_INFORMATION, **kw)
+        return self.checkAskPacket(conn, PacketTypes.ASK_TRANSACTION_INFORMATION, **kw)
 
     def checkAskObjectPresent(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.ASK_OBJECT_PRESENT, **kw)
+        return self.checkAskPacket(conn, PacketTypes.ASK_OBJECT_PRESENT, **kw)
 
     def checkAskObject(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.ASK_OBJECT, **kw)
+        return self.checkAskPacket(conn, PacketTypes.ASK_OBJECT, **kw)
 
     def checkAskStoreObject(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.ASK_STORE_OBJECT, **kw)
+        return self.checkAskPacket(conn, PacketTypes.ASK_STORE_OBJECT, **kw)
 
     def checkAskStoreTransaction(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.ASK_STORE_TRANSACTION, **kw)
+        return self.checkAskPacket(conn, PacketTypes.ASK_STORE_TRANSACTION, **kw)
 
     def checkFinishTransaction(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.FINISH_TRANSACTION, **kw)
+        return self.checkAskPacket(conn, PacketTypes.FINISH_TRANSACTION, **kw)
 
     def checkAskNewTid(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.ASK_BEGIN_TRANSACTION, **kw)
+        return self.checkAskPacket(conn, PacketTypes.ASK_BEGIN_TRANSACTION, **kw)
 
     def checkAskLastIDs(self, conn, **kw):
-        return self.checkAskPacket(conn, protocol.ASK_LAST_IDS, **kw)
+        return self.checkAskPacket(conn, PacketTypes.ASK_LAST_IDS, **kw)
 
     def checkAcceptNodeIdentification(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ACCEPT_NODE_IDENTIFICATION, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ACCEPT_NODE_IDENTIFICATION, **kw)
 
     def checkAnswerPrimaryMaster(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_PRIMARY_MASTER, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_PRIMARY_MASTER, **kw)
 
     def checkAnswerLastIDs(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_LAST_IDS, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_LAST_IDS, **kw)
 
     def checkAnswerUnfinishedTransactions(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_UNFINISHED_TRANSACTIONS, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_UNFINISHED_TRANSACTIONS, **kw)
 
     def checkAnswerObject(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_OBJECT, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_OBJECT, **kw)
 
     def checkAnswerTransactionInformation(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_TRANSACTION_INFORMATION, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_TRANSACTION_INFORMATION, **kw)
 
     def checkAnswerTids(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_TIDS, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_TIDS, **kw)
 
     def checkAnswerObjectHistory(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_OBJECT_HISTORY, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_OBJECT_HISTORY, **kw)
 
     def checkAnswerStoreTransaction(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_STORE_TRANSACTION, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_STORE_TRANSACTION, **kw)
 
     def checkAnswerStoreObject(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_STORE_OBJECT, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_STORE_OBJECT, **kw)
 
     def checkAnswerOids(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_OIDS, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_OIDS, **kw)
 
     def checkAnswerPartitionTable(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_PARTITION_TABLE, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_PARTITION_TABLE, **kw)
 
     def checkAnswerObjectPresent(self, conn, **kw):
-        return self.checkAnswerPacket(conn, protocol.ANSWER_OBJECT_PRESENT, **kw)
+        return self.checkAnswerPacket(conn, PacketTypes.ANSWER_OBJECT_PRESENT, **kw)
 
 
 # XXX: imported from neo.master.test.connector since it's used at many places

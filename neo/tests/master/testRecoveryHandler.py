@@ -21,25 +21,10 @@ from neo import logging
 from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoTestBase
-from neo import protocol
-from neo.protocol import Packet, NodeTypes, NodeStates, CellStates, INVALID_UUID
+from neo.protocol import Packet, PacketTypes
+from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.master.handlers.recovery import RecoveryHandler
 from neo.master.app import Application
-from neo.protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
-     PING, PONG, ASK_PRIMARY_MASTER, ANSWER_PRIMARY_MASTER, ANNOUNCE_PRIMARY_MASTER, \
-     REELECT_PRIMARY_MASTER, NOTIFY_NODE_INFORMATION, START_OPERATION, \
-     STOP_OPERATION, ASK_LAST_IDS, ANSWER_LAST_IDS, ASK_PARTITION_TABLE, \
-     ANSWER_PARTITION_TABLE, SEND_PARTITION_TABLE, NOTIFY_PARTITION_CHANGES, \
-     ASK_UNFINISHED_TRANSACTIONS, ANSWER_UNFINISHED_TRANSACTIONS, \
-     ASK_OBJECT_PRESENT, ANSWER_OBJECT_PRESENT, \
-     DELETE_TRANSACTION, COMMIT_TRANSACTION, ASK_BEGIN_TRANSACTION, ANSWER_BEGIN_TRANSACTION, \
-     FINISH_TRANSACTION, NOTIFY_TRANSACTION_FINISHED, LOCK_INFORMATION, \
-     NOTIFY_INFORMATION_LOCKED, INVALIDATE_OBJECTS, UNLOCK_INFORMATION, \
-     ASK_NEW_OIDS, ANSWER_NEW_OIDS, ASK_STORE_OBJECT, ANSWER_STORE_OBJECT, \
-     ABORT_TRANSACTION, ASK_STORE_TRANSACTION, ANSWER_STORE_TRANSACTION, \
-     ASK_OBJECT, ANSWER_OBJECT, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
-     ANSWER_TRANSACTION_INFORMATION, ASK_OBJECT_HISTORY, ANSWER_OBJECT_HISTORY, \
-     ASK_OIDS, ANSWER_OIDS
 from neo.exception import OperationFailure, ElectionFailure     
 from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
@@ -114,7 +99,7 @@ class MasterRecoveryTests(NeoTestBase):
     def test_08_handleNotifyNodeInformation(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode(NodeTypes.MASTER, port=self.master_port)
-        packet = Packet(msg_type=NOTIFY_NODE_INFORMATION)
+        packet = Packet(msg_type=PacketTypes.NOTIFY_NODE_INFORMATION)
         # tell about a client node, do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(NodeTypes.CLIENT, '127.0.0.1', self.client_port,
@@ -172,7 +157,7 @@ class MasterRecoveryTests(NeoTestBase):
     def test_09_handleAnswerLastIDs(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ANSWER_LAST_IDS)
+        packet = Packet(msg_type=PacketTypes.ANSWER_LAST_IDS)
         loid = self.app.loid
         ltid = self.app.ltid
         lptid = self.app.pt.getID()
@@ -199,7 +184,7 @@ class MasterRecoveryTests(NeoTestBase):
     def test_10_handleAnswerPartitionTable(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode(NodeTypes.MASTER, port=self.master_port)
-        packet = Packet(msg_type=ANSWER_PARTITION_TABLE)
+        packet = Packet(msg_type=PacketTypes.ANSWER_PARTITION_TABLE)
         # not from target node, ignore
         uuid = self.identifyToMasterNode(NodeTypes.STORAGE, port=self.storage_port)
         conn = self.getFakeConnection(uuid, self.storage_port)

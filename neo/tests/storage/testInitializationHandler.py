@@ -24,14 +24,7 @@ from neo import protocol
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.initialization import InitializationHandler
-from neo.protocol import Packet, CellStates, INVALID_UUID, INVALID_TID
-from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION, \
-     NOTIFY_PARTITION_CHANGES, STOP_OPERATION, ASK_LAST_IDS, ASK_PARTITION_TABLE, \
-     ANSWER_OBJECT_PRESENT, ASK_OBJECT_PRESENT, LOCK_INFORMATION, \
-     UNLOCK_INFORMATION, ASK_TRANSACTION_INFORMATION, \
-     COMMIT_TRANSACTION, ASK_UNFINISHED_TRANSACTIONS, SEND_PARTITION_TABLE
-from neo.protocol import ERROR, ASK_PRIMARY_MASTER
-from neo.protocol import ANSWER_PRIMARY_MASTER
+from neo.protocol import Packet, PacketTypes, CellStates
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 
@@ -91,7 +84,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         self.checkNoPacketSent(conn)
 
     def test_09_handleSendPartitionTable(self):
-        packet = Packet(msg_type=SEND_PARTITION_TABLE)
+        packet = Packet(msg_type=PacketTypes.SEND_PARTITION_TABLE)
         uuid = self.getNewUUID()
         # send a table
         conn = Mock({"getUUID" : uuid,

@@ -20,7 +20,6 @@ from time import time
 from neo.tests import NeoTestBase
 from neo.epoll import Epoll
 from neo.event import EpollEventManager, IdleEvent
-from neo.protocol import Packet, PING
 
 class EventTests(NeoTestBase):
 
