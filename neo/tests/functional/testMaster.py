@@ -15,13 +15,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-from time import sleep, time
 import unittest
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
-from neo.neoctl.neoctl import NotReadyException
-from neo import protocol
 from neo.protocol import NodeStates
-from neo.util import dump
 
 MASTER_NODE_COUNT = 3
 

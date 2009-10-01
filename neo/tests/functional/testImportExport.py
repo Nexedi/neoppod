@@ -17,7 +17,6 @@
 
 import os
 import unittest
-import tempfile
 import transaction
 
 import ZODB
@@ -25,7 +24,6 @@ from ZODB.FileStorage import FileStorage
 from Persistence import Persistent
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
-from neo.client.Storage import Storage as NEOStorage
 
 
 TREE_SIZE = 6

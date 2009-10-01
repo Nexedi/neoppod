@@ -27,8 +27,8 @@ from neo.storage.handlers.client import TransactionInformation
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.pt import PartitionTable
-from neo.protocol import *
-from neo.protocol import PacketTypes
+from neo.protocol import PacketTypes, Packet, INVALID_PARTITION
+from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
 
 class StorageClientHandlerTests(NeoTestBase):
 

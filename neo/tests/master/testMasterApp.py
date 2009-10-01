@@ -15,12 +15,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import unittest, logging, os
+import unittest
 from mock import Mock
 from neo.tests import NeoTestBase
 from neo.master.app import Application
-from neo.protocol import INVALID_PTID, INVALID_OID, INVALID_TID, \
-     INVALID_UUID, Packet
 from neo.storage.mysqldb import p64, u64
 
 class MasterAppTests(NeoTestBase):

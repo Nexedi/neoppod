@@ -15,18 +15,16 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import os
 import unittest
-from neo import logging
 from mock import Mock
 from neo.tests import NeoTestBase
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.verification import VerificationHandler
-from neo.protocol import Packet, PacketTypes, CellStates, NodeTypes, ErrorCodes
+from neo.protocol import Packet, PacketTypes, CellStates, ErrorCodes
 from neo.protocol import INVALID_OID, INVALID_TID
 from neo.exception import PrimaryFailure, OperationFailure
-from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
+from neo.storage.mysqldb import p64, u64
 
 class StorageVerificationHandlerTests(NeoTestBase):
 

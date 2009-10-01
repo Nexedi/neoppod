@@ -15,20 +15,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import os
 import unittest
-from neo import logging
-from mock import Mock
 from struct import pack, unpack
-import neo
 from neo.tests import NeoTestBase
 from neo.protocol import Packet, PacketTypes
-from neo.protocol import NodeTypes, NodeStates, CellStates, ErrorCodes
+from neo.protocol import NodeTypes, NodeStates, ErrorCodes
 from neo.master.handlers.verification import VerificationHandler
 from neo.master.app import Application
-from neo.exception import OperationFailure, ElectionFailure, VerificationFailure     
-from neo.tests import DoNothingConnector
-from neo.connection import ClientConnection
+from neo.exception import VerificationFailure     
 
 
 class MasterVerificationTests(NeoTestBase):

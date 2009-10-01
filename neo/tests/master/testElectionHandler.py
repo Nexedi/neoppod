@@ -15,17 +15,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import os
 import unittest
-from neo import logging
 from mock import Mock
-from struct import pack, unpack
 from neo.tests import NeoTestBase
 from neo import protocol
 from neo.protocol import Packet, PacketTypes, NodeTypes, NodeStates, INVALID_UUID
 from neo.master.handlers.election import ClientElectionHandler, ServerElectionHandler
 from neo.master.app import Application
-from neo.exception import OperationFailure, ElectionFailure     
+from neo.exception import ElectionFailure     
 from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
 

@@ -14,10 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-import unittest, os
+import unittest
 from mock import Mock
-from neo import protocol
-from time import time
 from neo.connection import BaseConnection, ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, MTServerConnection
 from neo.connector import getConnectorHandler, registerConnectorHandler
@@ -25,7 +23,7 @@ from neo.handler import EventHandler
 from neo.tests import DoNothingConnector
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
-from neo.protocol import Packet, ProtocolError, PacketTypes
+from neo.protocol import PacketTypes
 from neo import protocol
 from neo.tests import NeoTestBase
 

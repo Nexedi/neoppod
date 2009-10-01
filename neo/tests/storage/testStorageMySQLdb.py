@@ -21,8 +21,7 @@ from neo import logging
 import MySQLdb
 from mock import Mock
 from neo.util import dump
-from neo.protocol import *
-from neo.protocol import CellStates
+from neo.protocol import CellStates, INVALID_PTID
 from neo.tests import NeoTestBase
 from neo.exception import DatabaseFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64

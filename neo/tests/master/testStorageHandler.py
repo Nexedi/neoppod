@@ -15,19 +15,17 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import os
 import unittest
 from neo import logging
 from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoTestBase
-import neo.master
 from neo import protocol
 from neo.protocol import Packet, PacketTypes
 from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.app import Application
-from neo.exception import OperationFailure, ElectionFailure     
+from neo.exception import OperationFailure
 
 class MasterStorageHandlerTests(NeoTestBase):
 

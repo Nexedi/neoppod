@@ -15,18 +15,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import os
 import unittest
-from neo import logging
 from mock import Mock
 from neo.tests import NeoTestBase
-from neo import protocol
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.initialization import InitializationHandler
 from neo.protocol import Packet, PacketTypes, CellStates
-from neo.exception import PrimaryFailure, OperationFailure
-from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
+from neo.exception import PrimaryFailure
 
 class StorageInitializationHandlerTests(NeoTestBase):
 

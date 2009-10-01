@@ -15,7 +15,7 @@ import unittest
 
 import ZODB
 import ZODB.FileStorage
-from ZODB.POSException import ReadConflictError, ConflictError
+from ZODB.POSException import ReadConflictError
 from ZODB.POSException import TransactionFailedError
 from ZODB.tests.warnhook import WarningsHook
 

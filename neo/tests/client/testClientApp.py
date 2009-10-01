@@ -23,7 +23,7 @@ from neo.client.app import Application
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError, \
         NEOStorageConflictError
 from neo import protocol
-from neo.protocol import *
+from neo.protocol import INVALID_TID
 from neo.util import makeChecksum
 import neo.connection
 

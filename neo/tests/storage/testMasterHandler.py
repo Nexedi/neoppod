@@ -26,8 +26,8 @@ from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.pt import PartitionTable
-from neo.protocol import CellStates, PacketTypes
-from neo.protocol import *
+from neo.protocol import CellStates, PacketTypes, Packet
+from neo.protocol import INVALID_TID, INVALID_OID
 
 class StorageMasterHandlerTests(NeoTestBase):
 

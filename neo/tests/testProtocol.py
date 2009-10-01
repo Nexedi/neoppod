@@ -18,9 +18,9 @@
 import unittest, os
 from mock import Mock
 from neo import protocol
-from neo.protocol import *
 from neo.protocol import NodeTypes, NodeStates, CellStates
-from neo.protocol import ErrorCodes, PacketTypes
+from neo.protocol import ErrorCodes, PacketTypes, Packet
+from neo.protocol import INVALID_TID, PACKET_HEADER_SIZE
 from neo.tests import NeoTestBase
 from neo.util import getNextTID
 from time import time, gmtime

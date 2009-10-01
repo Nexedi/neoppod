@@ -15,13 +15,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import unittest, logging, os
+import unittest
 from mock import Mock
 from neo.tests import NeoTestBase
 from neo.storage.app import Application
-from neo.protocol import Packet, CellStates, PacketTypes, \
-    INVALID_PTID, INVALID_TID, INVALID_UUID
-from neo.storage.mysqldb import p64, u64, MySQLDatabaseManager
+from neo.protocol import CellStates
 from collections import deque
 from neo.pt import PartitionTable
 from neo.util import dump

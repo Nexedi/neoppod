@@ -15,14 +15,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import ZODB
 import unittest
 import transaction
 from Persistence import Persistent
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
-from neo.client.Storage import Storage as NEOStorage
-from neo import protocol
 from neo.protocol import ClusterStates, NodeStates
 
 class PObject(Persistent):

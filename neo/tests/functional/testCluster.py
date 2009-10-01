@@ -17,7 +17,6 @@
 
 import unittest
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
-from neo import protocol
 
 class ClusterTests(NEOFunctionalTest):
 
