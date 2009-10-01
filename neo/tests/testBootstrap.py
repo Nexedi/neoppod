@@ -23,12 +23,7 @@ from neo.tests import NeoTestBase
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.bootstrap import BootstrapManager
-from neo import protocol
 from neo.protocol import NodeTypes
-from neo.protocol import BROKEN_STATE, RUNNING_STATE, Packet, INVALID_UUID
-from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION
-from neo.protocol import ERROR, BROKEN_NODE_DISALLOWED_CODE, ASK_PRIMARY_MASTER
-from neo.protocol import ANSWER_PRIMARY_MASTER
 
 class BootstrapManagerTests(NeoTestBase):
 
