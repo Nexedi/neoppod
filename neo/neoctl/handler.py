@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from neo.handler import EventHandler
+from neo.protocol import ErrorCodes
 from neo import protocol
 
 class CommandEventHandler(EventHandler):
@@ -54,10 +55,10 @@ class CommandEventHandler(EventHandler):
         self.__respond((packet.getType(), ) + args)
 
     def handleNoError(self, conn, packet, msg):
-        self.__respond((packet.getType(), protocol.NO_ERROR_CODE, msg))
+        self.__respond((packet.getType(), ErrorCodes.NO_ERROR, msg))
 
     def handleNotReady(self, conn, packet, msg):
-        self.__respond((packet.getType(), protocol.NOT_READY_CODE, msg))
+        self.__respond((packet.getType(), ErrorCodes.NOT_READY, msg))
 
     handleAnswerPartitionList = __handleAnswer
     handleAnswerNodeList = __handleAnswer

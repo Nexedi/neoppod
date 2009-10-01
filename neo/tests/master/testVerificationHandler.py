@@ -22,14 +22,14 @@ from mock import Mock
 from struct import pack, unpack
 import neo
 from neo.tests import NeoTestBase
-from neo.protocol import Packet, NodeTypes, NodeStates, CellStates, INVALID_UUID
+from neo.protocol import Packet, NodeTypes, NodeStates, CellStates, ErrorCodes
 from neo.master.handlers.verification import VerificationHandler
 from neo.master.app import Application
 from neo import protocol
-from neo.protocol import ERROR, ANNOUNCE_PRIMARY_MASTER, \
+from neo.protocol import ERROR, ANNOUNCE_PRIMARY_MASTER, INVALID_UUID, \
     NOTIFY_NODE_INFORMATION, ANSWER_LAST_IDS, ANSWER_PARTITION_TABLE, \
      ANSWER_UNFINISHED_TRANSACTIONS, ANSWER_OBJECT_PRESENT, \
-     ANSWER_TRANSACTION_INFORMATION, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE
+     ANSWER_TRANSACTION_INFORMATION
 from neo.exception import OperationFailure, ElectionFailure, VerificationFailure     
 from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
@@ -239,7 +239,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_13_handleTidNotFound(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=TID_NOT_FOUND_CODE)
+        packet = Packet(msg_type=ErrorCodes.TID_NOT_FOUND)
         # do nothing as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -282,7 +282,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_15_handleOidNotFound(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=OID_NOT_FOUND_CODE)
+        packet = Packet(msg_type=ErrorCodes.OID_NOT_FOUND)
         # do nothinf as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)

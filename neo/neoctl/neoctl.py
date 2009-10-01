@@ -20,7 +20,7 @@ from neo.connection import ClientConnection
 from neo.event import EventManager
 from neo.neoctl.handler import CommandEventHandler
 from neo import protocol
-from neo.protocol import ClusterStates, NodeStates
+from neo.protocol import ClusterStates, NodeStates, ErrorCodes
 
 class NotReadyException(Exception):
     pass
@@ -60,7 +60,7 @@ class NeoCTL(object):
                 raise NotReadyException, 'Connection closed'
         response = response_queue.pop()
         if response[0] == protocol.ERROR and \
-           response[1] == protocol.NOT_READY_CODE:
+           response[1] == ErrorCodes.NOT_READY:
             raise NotReadyException(response[2])
         return response
 
@@ -71,7 +71,7 @@ class NeoCTL(object):
         packet = protocol.addPendingNodes(uuid_list)
         response = self.__ask(packet)
         assert response[0] == protocol.ERROR
-        assert response[1] == protocol.NO_ERROR_CODE
+        assert response[1] == ErrorCodes.NO_ERROR
 
     def setClusterState(self, state):
         """
@@ -80,7 +80,7 @@ class NeoCTL(object):
         packet = protocol.setClusterState(state)
         response = self.__ask(packet)
         assert response[0] == protocol.ERROR
-        assert response[1] == protocol.NO_ERROR_CODE
+        assert response[1] == ErrorCodes.NO_ERROR
 
     def setNodeState(self, node, state, update_partition_table=False):
         """
@@ -93,7 +93,7 @@ class NeoCTL(object):
         packet = protocol.setNodeState(node, state, update_partition_table)
         response = self.__ask(packet)
         assert response[0] == protocol.ERROR
-        assert response[1] == protocol.NO_ERROR_CODE
+        assert response[1] == ErrorCodes.NO_ERROR
 
     def getClusterState(self):
         """

@@ -24,10 +24,10 @@ from neo import protocol
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.verification import VerificationHandler
-from neo.protocol import Packet, CellStates, NodeTypes, INVALID_OID, INVALID_TID
+from neo.protocol import Packet, CellStates, NodeTypes, ErrorCodes
 from neo.protocol import NOTIFY_PARTITION_CHANGES, STOP_OPERATION, \
-     ASK_OBJECT_PRESENT, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
-     ASK_TRANSACTION_INFORMATION, COMMIT_TRANSACTION, ASK_UNFINISHED_TRANSACTIONS
+     ASK_OBJECT_PRESENT, ASK_TRANSACTION_INFORMATION, COMMIT_TRANSACTION, \
+     ASK_UNFINISHED_TRANSACTIONS, INVALID_OID, INVALID_TID
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
 
@@ -245,7 +245,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(1))
         code, message = self.checkErrorPacket(conn, decode=True)
-        self.assertEqual(code, TID_NOT_FOUND_CODE)
+        self.assertEqual(code, ErrorCodes.TID_NOT_FOUND)
 
         # input some tmp data and ask from client, must find both transaction
         self.app.dm.begin()
@@ -298,7 +298,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         packet = Packet(msg_type=ASK_TRANSACTION_INFORMATION)
         self.verification.handleAskTransactionInformation(conn, packet, p64(2))
         code, message = self.checkErrorPacket(conn, decode=True)     
-        self.assertEqual(code, TID_NOT_FOUND_CODE)
+        self.assertEqual(code, ErrorCodes.TID_NOT_FOUND)
 
     def test_15_handleAskObjectPresent(self):
         # client connection with no data
@@ -307,7 +307,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         packet = Packet(msg_type=ASK_OBJECT_PRESENT)
         self.verification.handleAskObjectPresent(conn, packet, p64(1), p64(2))
         code, message = self.checkErrorPacket(conn, decode=True)
-        self.assertEqual(code, OID_NOT_FOUND_CODE)
+        self.assertEqual(code, ErrorCodes.OID_NOT_FOUND)
 
         # client connection with some data
         self.app.dm.begin()

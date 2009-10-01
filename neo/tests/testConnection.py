@@ -25,8 +25,7 @@ from neo.handler import EventHandler
 from neo.tests import DoNothingConnector
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
-from neo.protocol import Packet, ProtocolError, PROTOCOL_ERROR_CODE, ERROR,INTERNAL_ERROR_CODE, \
-     ANSWER_PRIMARY_MASTER
+from neo.protocol import Packet, ProtocolError, ANSWER_PRIMARY_MASTER
 from neo import protocol
 from neo.tests import NeoTestBase
 

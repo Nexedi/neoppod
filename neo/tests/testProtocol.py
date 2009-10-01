@@ -19,7 +19,7 @@ import unittest, os
 from mock import Mock
 from neo import protocol
 from neo.protocol import *
-from neo.protocol import NodeTypes, NodeStates, CellStates
+from neo.protocol import NodeTypes, NodeStates, CellStates, ErrorCodes
 from neo.tests import NeoTestBase
 from neo.util import getNextTID
 from time import time, gmtime
@@ -44,31 +44,31 @@ class ProtocolTests(NeoTestBase):
     def test_02_error(self):
         p = protocol._error(0, "error message")
         code, msg = protocol._decodeError(p._body)
-        self.assertEqual(code, protocol.NO_ERROR_CODE)
+        self.assertEqual(code, ErrorCodes.NO_ERROR)
         self.assertEqual(msg, "error message")
 
     def test_03_protocolError(self):
         p = protocol.protocolError("bad protocol")
         error_code, error_msg = p.decode()
-        self.assertEqual(error_code, PROTOCOL_ERROR_CODE)
+        self.assertEqual(error_code, ErrorCodes.PROTOCOL_ERROR)
         self.assertEqual(error_msg, "protocol error: bad protocol")
 
     def test_04_internalError(self):
         p = protocol.internalError("bad internal")
         error_code, error_msg = p.decode()
-        self.assertEqual(error_code, INTERNAL_ERROR_CODE)
+        self.assertEqual(error_code, ErrorCodes.INTERNAL_ERROR)
         self.assertEqual(error_msg, "internal error: bad internal")
 
     def test_05_notReady(self):
         p = protocol.notReady("wait")
         error_code, error_msg = p.decode()
-        self.assertEqual(error_code, NOT_READY_CODE)
+        self.assertEqual(error_code, ErrorCodes.NOT_READY)
         self.assertEqual(error_msg, "not ready: wait")
 
     def test_06_brokenNodeDisallowedError(self):
         p = protocol.brokenNodeDisallowedError("broken")
         error_code, error_msg = p.decode()
-        self.assertEqual(error_code, BROKEN_NODE_DISALLOWED_CODE)
+        self.assertEqual(error_code, ErrorCodes.BROKEN_NODE)
         self.assertEqual(error_msg, "broken node disallowed error: broken")
 
     def test_07_oidNotFound(self):
@@ -79,7 +79,7 @@ class ProtocolTests(NeoTestBase):
     def test_08_oidNotFound(self):
         p = protocol.tidNotFound("no tid")
         error_code, error_msg = p.decode()
-        self.assertEqual(error_code, TID_NOT_FOUND_CODE)
+        self.assertEqual(error_code, ErrorCodes.TID_NOT_FOUND)
         self.assertEqual(error_msg, "tid not found: no tid")
 
     def test_09_ping(self):

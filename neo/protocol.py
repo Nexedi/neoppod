@@ -306,16 +306,16 @@ packet_types = OldEnum({
 
 })
 
-# Error codes.
-error_codes = OldEnum({
-    'NO_ERROR_CODE': 0,
-    'NOT_READY_CODE': 1,
-    'OID_NOT_FOUND_CODE': 2,
-    'TID_NOT_FOUND_CODE': 4,
-    'PROTOCOL_ERROR_CODE': 5,
-    'BROKEN_NODE_DISALLOWED_CODE': 7,
-    'INTERNAL_ERROR_CODE': 8,
-})
+class ErrorCodes(Enum):
+    # TODO: clarify the use of each error code
+    NO_ERROR = Enum.Item(0)
+    NOT_READY = Enum.Item(1)
+    OID_NOT_FOUND = Enum.Item(2)
+    TID_NOT_FOUND = Enum.Item(3)
+    PROTOCOL_ERROR = Enum.Item(4)
+    BROKEN_NODE = Enum.Item(5)
+    INTERNAL_ERROR = Enum.Item(6)
+ErrorCodes = ErrorCodes()
 
 class ClusterStates(Enum):
     BOOTING = Enum.Item(1)
@@ -511,7 +511,7 @@ def _decodeNodeType(original_node_type):
     return node_type
 
 def _decodeErrorCode(original_error_code):
-    error_code = error_codes.get(original_error_code)
+    error_code = ErrorCodes.get(original_error_code)
     if error_code is None:
         raise PacketMalformedError('invalid error code %d' % original_error_code)
     return error_code
@@ -1111,26 +1111,26 @@ def _error(error_code, error_message):
     return Packet(ERROR, body)
 
 def noError(message):
-    return _error(NO_ERROR_CODE, message)
+    return _error(ErrorCodes.NO_ERROR, message)
 
 def protocolError(error_message):
-    return _error(PROTOCOL_ERROR_CODE, 'protocol error: ' + error_message)
+    return _error(ErrorCodes.PROTOCOL_ERROR, 'protocol error: ' + error_message)
 
 def internalError(error_message):
-    return _error(INTERNAL_ERROR_CODE, 'internal error: ' + error_message)
+    return _error(ErrorCodes.INTERNAL_ERROR, 'internal error: ' + error_message)
 
 def notReady(error_message):
-    return _error(NOT_READY_CODE, 'not ready: ' + error_message)
+    return _error(ErrorCodes.NOT_READY, 'not ready: ' + error_message)
 
 def brokenNodeDisallowedError(error_message):
-    return _error(BROKEN_NODE_DISALLOWED_CODE,
+    return _error(ErrorCodes.BROKEN_NODE,
                       'broken node disallowed error: ' + error_message)
 
 def oidNotFound(error_message):
-    return _error(OID_NOT_FOUND_CODE, 'oid not found: ' + error_message)
+    return _error(ErrorCodes.OID_NOT_FOUND, 'oid not found: ' + error_message)
 
 def tidNotFound(error_message):
-    return _error(TID_NOT_FOUND_CODE, 'tid not found: ' + error_message)
+    return _error(ErrorCodes.TID_NOT_FOUND, 'tid not found: ' + error_message)
 
 def ping():
     return Packet(PING)

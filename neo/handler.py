@@ -17,7 +17,7 @@
 
 from neo import logging
 from neo import protocol
-from neo.protocol import NodeStates
+from neo.protocol import NodeStates, ErrorCodes
 from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
 from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICATION, \
@@ -35,11 +35,9 @@ from protocol import ERROR, REQUEST_NODE_IDENTIFICATION, ACCEPT_NODE_IDENTIFICAT
         ASK_OBJECT, ANSWER_OBJECT, ASK_TIDS, ANSWER_TIDS, ASK_TRANSACTION_INFORMATION, \
         ANSWER_TRANSACTION_INFORMATION, ASK_OBJECT_HISTORY, ANSWER_OBJECT_HISTORY, \
         ASK_OIDS, ANSWER_OIDS, ADD_PENDING_NODES, ANSWER_NEW_NODES, \
-        NOT_READY_CODE, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
-        PROTOCOL_ERROR_CODE, BROKEN_NODE_DISALLOWED_CODE, \
-        INTERNAL_ERROR_CODE, ASK_PARTITION_LIST, ANSWER_PARTITION_LIST, ASK_NODE_LIST, \
+        ASK_PARTITION_LIST, ANSWER_PARTITION_LIST, ASK_NODE_LIST, \
         ANSWER_NODE_LIST, SET_NODE_STATE, ANSWER_NODE_STATE, SET_CLUSTER_STATE, \
-        ASK_NODE_INFORMATION, ANSWER_NODE_INFORMATION, NO_ERROR_CODE, \
+        ASK_NODE_INFORMATION, ANSWER_NODE_INFORMATION, \
         ASK_CLUSTER_STATE, ANSWER_CLUSTER_STATE, NOTIFY_CLUSTER_INFORMATION, \
         NOTIFY_LAST_OID
 
@@ -462,13 +460,13 @@ class EventHandler(object):
     def initErrorDispatchTable(self):
         d = {}
 
-        d[NO_ERROR_CODE] = self.handleNoError
-        d[NOT_READY_CODE] = self.handleNotReady
-        d[OID_NOT_FOUND_CODE] = self.handleOidNotFound
-        d[TID_NOT_FOUND_CODE] = self.handleTidNotFound
-        d[PROTOCOL_ERROR_CODE] = self.handleProtocolError
-        d[BROKEN_NODE_DISALLOWED_CODE] = self.handleBrokenNodeDisallowedError
-        d[INTERNAL_ERROR_CODE] = self.handleInternalError
+        d[ErrorCodes.NO_ERROR] = self.handleNoError
+        d[ErrorCodes.NOT_READY] = self.handleNotReady
+        d[ErrorCodes.OID_NOT_FOUND] = self.handleOidNotFound
+        d[ErrorCodes.TID_NOT_FOUND] = self.handleTidNotFound
+        d[ErrorCodes.PROTOCOL_ERROR] = self.handleProtocolError
+        d[ErrorCodes.BROKEN_NODE] = self.handleBrokenNodeDisallowedError
+        d[ErrorCodes.INTERNAL_ERROR] = self.handleInternalError
 
         return d
 
