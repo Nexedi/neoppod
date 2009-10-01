@@ -28,7 +28,7 @@ import unittest
 import tempfile
 import traceback
 
-from neo.protocol import ClusterStates
+from neo.protocol import ClusterStates, NodeTypes
 from neo.client.Storage import Storage
 from neo.tests import getNewUUID
 from neo.util import dump
@@ -245,7 +245,7 @@ class NEOCluster(object):
             if time.time() > end_time:
                 raise AssertionError, 'Timeout when starting cluster'
             storage_node_list = neoctl.getNodeList(
-                node_type=protocol.STORAGE_NODE_TYPE)
+                node_type=NodeTypes.STORAGE)
             if len(storage_node_list) == target_count:
                 break
             time.sleep(0.5)
@@ -332,10 +332,10 @@ class NEOCluster(object):
                 if state is None or x[3] == state]
 
     def getMasterList(self, state=None):
-        return self.__getNodeList(protocol.MASTER_NODE_TYPE, state)
+        return self.__getNodeList(NodeTypes.MASTER, state)
 
     def getStorageList(self, state=None):
-        return self.__getNodeList(protocol.STORAGE_NODE_TYPE, state)
+        return self.__getNodeList(NodeTypes.STORAGE, state)
 
     def __getNodeState(self, node_type, uuid):
         node_list = self.__getNodeList(node_type)
@@ -347,7 +347,7 @@ class NEOCluster(object):
         return state
 
     def getMasterNodeState(self, uuid):
-        return self.__getNodeState(protocol.MASTER_NODE_TYPE, uuid)
+        return self.__getNodeState(NodeTypes.MASTER, uuid)
 
     def getPrimaryMaster(self):
         try:
@@ -389,11 +389,11 @@ class NEOCluster(object):
         self.expectCondition(callback, timeout, delay)
         
     def expectMasterState(self, uuid, state, timeout=0, delay=1):
-        self.__expectNodeState(protocol.MASTER_NODE_TYPE, uuid, state, timeout,
+        self.__expectNodeState(NodeTypes.MASTER, uuid, state, timeout,
                 delay)
 
     def expectStorageState(self, uuid, state, timeout=0, delay=1):
-        self.__expectNodeState(protocol.STORAGE_NODE_TYPE, uuid, state, 
+        self.__expectNodeState(NodeTypes.STORAGE, uuid, state, 
                 timeout,delay)
 
     def expectPrimaryMaster(self, uuid=None, timeout=0, delay=1):

@@ -18,7 +18,7 @@
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.util import bin, dump
 from neo import protocol
-from neo.protocol import ClusterStates
+from neo.protocol import ClusterStates, NodeTypes
 
 action_dict = {
     'print': {
@@ -49,9 +49,7 @@ class TerminalNeoCTL(object):
         return protocol.node_states.getFromStr(value)
 
     def asNodeType(self, value):
-        if not value.endswith('_NODE_TYPE'):
-            value += '_NODE_TYPE'
-        return protocol.node_types.getFromStr(value)
+        return NodeTypes.getByName(values.upper())
 
     def asClusterState(self, value):
         return ClusterStates.getByName(value.upper())
@@ -167,8 +165,7 @@ class TerminalNeoCTL(object):
                   otherwise, the list of storage nodes to enable.
         """
         if len(params) == 1 and params[0] == 'all':
-            node_list = self.neoctl.getNodeList(
-                node_type=protocol.STORAGE_NODE_TYPE)
+            node_list = self.neoctl.getNodeList(NodeTypes.STORAGE)
             uuid_list = [node[2] for node in node_list]
         else:
             uuid_list = [self.asNode(x) for x in params]

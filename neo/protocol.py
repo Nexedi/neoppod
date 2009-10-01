@@ -327,13 +327,14 @@ class ClusterStates(Enum):
 
 ClusterStates = ClusterStates()
 
-# Node types.
-node_types = OldEnum({
-    'MASTER_NODE_TYPE' : 1,
-    'STORAGE_NODE_TYPE' : 2,
-    'CLIENT_NODE_TYPE' : 3,
-    'ADMIN_NODE_TYPE' : 4,
-})
+class NodeTypes(Enum):
+
+    MASTER = Enum.Item(1)
+    STORAGE = Enum.Item(2)
+    CLIENT = Enum.Item(3)
+    ADMIN = Enum.Item(4)
+
+NodeTypes = NodeTypes()
 
 # Node states.
 node_states = OldEnum({
@@ -387,10 +388,10 @@ CLIENT_NS = 'C'
 ADMIN_NS = 'A'
 
 UUID_NAMESPACES = { 
-    STORAGE_NODE_TYPE: STORAGE_NS,
-    MASTER_NODE_TYPE: MASTER_NS,
-    CLIENT_NODE_TYPE: CLIENT_NS,
-    ADMIN_NODE_TYPE: ADMIN_NS,
+    NodeTypes.STORAGE: STORAGE_NS,
+    NodeTypes.MASTER: MASTER_NS,
+    NodeTypes.CLIENT: CLIENT_NS,
+    NodeTypes.ADMIN: ADMIN_NS,
 }
 
 class ProtocolError(Exception): 
@@ -510,7 +511,7 @@ def _decodeNodeState(state):
     return node_state
 
 def _decodeNodeType(original_node_type):
-    node_type = node_types.get(original_node_type)
+    node_type = NodeTypes.get(original_node_type)
     if node_type is None:
         raise PacketMalformedError('invalid node type %d' % original_node_type)
     return node_type

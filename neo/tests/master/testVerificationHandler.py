@@ -22,7 +22,7 @@ from mock import Mock
 from struct import pack, unpack
 import neo
 from neo.tests import NeoTestBase
-from neo.protocol import Packet, INVALID_UUID
+from neo.protocol import Packet, NodeTypes, INVALID_UUID
 from neo.master.handlers.verification import VerificationHandler
 from neo.master.app import Application
 from neo import protocol
@@ -30,7 +30,6 @@ from neo.protocol import ERROR, ANNOUNCE_PRIMARY_MASTER, \
     NOTIFY_NODE_INFORMATION, ANSWER_LAST_IDS, ANSWER_PARTITION_TABLE, \
      ANSWER_UNFINISHED_TRANSACTIONS, ANSWER_OBJECT_PRESENT, \
      ANSWER_TRANSACTION_INFORMATION, OID_NOT_FOUND_CODE, TID_NOT_FOUND_CODE, \
-     STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, MASTER_NODE_TYPE, \
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import OperationFailure, ElectionFailure, VerificationFailure     
@@ -73,7 +72,7 @@ class MasterVerificationTests(NeoTestBase):
     def getLastUUID(self):
         return self.uuid
 
-    def identifyToMasterNode(self, node_type=STORAGE_NODE_TYPE, ip="127.0.0.1",
+    def identifyToMasterNode(self, node_type=NodeTypes.STORAGE, ip="127.0.0.1",
                              port=10021):
         """Do first step of identification to MN
         """
@@ -87,7 +86,7 @@ class MasterVerificationTests(NeoTestBase):
 
     # Tests
     def test_01_connectionClosed(self):
-        uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
+        uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.verification.connectionClosed(conn)
@@ -100,7 +99,7 @@ class MasterVerificationTests(NeoTestBase):
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
 
     def test_02_timeoutExpired(self):
-        uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
+        uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.verification.timeoutExpired(conn)
@@ -113,7 +112,7 @@ class MasterVerificationTests(NeoTestBase):
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), TEMPORARILY_DOWN_STATE)
 
     def test_03_peerBroken(self):
-        uuid = self.identifyToMasterNode(node_type=MASTER_NODE_TYPE, port=self.master_port)
+        uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(), RUNNING_STATE)        
         self.verification.peerBroken(conn)

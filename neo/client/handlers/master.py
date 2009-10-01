@@ -20,6 +20,7 @@ from neo import logging
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.pt import MTPartitionTable as PartitionTable
 from neo import protocol
+from neo.protocol import NodeTypes
 from neo.util import dump
 
 class PrimaryBootstrapHandler(AnswerBaseHandler):
@@ -35,7 +36,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
         # this must be a master node
-        if node_type != protocol.MASTER_NODE_TYPE:
+        if node_type != NodeTypes.MASTER:
             conn.close()
             return
         if conn.getAddress() != address:
@@ -163,14 +164,14 @@ class PrimaryNotificationsHandler(BaseHandler):
         app = self.app
         self.app.nm.update(node_list)
         for node_type, addr, uuid, state in node_list:
-            if node_type != protocol.STORAGE_NODE_TYPE \
+            if node_type != NodeTypes.STORAGE \
                     or state != protocol.RUNNING_STATE:
                 continue
             # close connection to this storage if no longer running
             conn = self.app.em.getConnectionByUUID(uuid)
             if conn is not None:
                 conn.close()
-                if node_type == protocol.STORAGE_NODE_TYPE:
+                if node_type == NodeTypes.STORAGE:
                     # Remove from pool connection
                     app.cp.removeConnection(conn)
                     self.dispatcher.unregister(conn)

@@ -18,6 +18,7 @@
 from neo import logging
 
 from neo import protocol
+from neo.protocol import NodeTypes
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
 
@@ -30,7 +31,7 @@ class ElectionHandler(MasterHandler):
             raise protocol.UnexpectedPacketError
         app = self.app
         for node_type, addr, uuid, state in node_list:
-            if node_type != protocol.MASTER_NODE_TYPE:
+            if node_type != NodeTypes.MASTER:
                 # No interest.
                 continue
 
@@ -114,7 +115,7 @@ class ClientElectionHandler(ElectionHandler):
                                        num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
-        if node_type != protocol.MASTER_NODE_TYPE:
+        if node_type != NodeTypes.MASTER:
             # The peer is not a master node!
             logging.error('%s:%d is not a master node', *address)
             app.nm.remove(node)
@@ -198,7 +199,7 @@ class ClientElectionHandler(ElectionHandler):
 
         # Request a node idenfitication.
         conn.ask(protocol.requestNodeIdentification(
-            protocol.MASTER_NODE_TYPE,
+            NodeTypes.MASTER,
             app.uuid, 
             app.server, 
             app.name
@@ -230,7 +231,7 @@ class ServerElectionHandler(ElectionHandler):
             return
         self.checkClusterName(name)
         app = self.app
-        if node_type != protocol.MASTER_NODE_TYPE:
+        if node_type != NodeTypes.MASTER:
             logging.info('reject a connection from a non-master')
             raise protocol.NotReadyError
         node = app.nm.getByAddress(address)
@@ -250,7 +251,7 @@ class ServerElectionHandler(ElectionHandler):
         conn.setUUID(uuid)
 
         p = protocol.acceptNodeIdentification(
-            protocol.MASTER_NODE_TYPE, 
+            NodeTypes.MASTER, 
             app.uuid, 
             app.server, 
             app.pt.getPartitions(), 

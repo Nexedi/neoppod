@@ -28,6 +28,7 @@ from neo.bootstrap import BootstrapManager
 from neo.pt import PartitionTable
 from neo import protocol
 from neo.util import parseMasterList
+from neo.protocol import NodeTypes
 
 class Dispatcher:
     """Dispatcher use to redirect master request to handler"""
@@ -123,7 +124,7 @@ class Application(object):
             nm.createMaster(address=address)
 
         # search, find, connect and identify to the primary master
-        bootstrap = BootstrapManager(self, self.name, protocol.ADMIN_NODE_TYPE, 
+        bootstrap = BootstrapManager(self, self.name, NodeTypes.ADMIN, 
                 self.uuid, self.server)
         data = bootstrap.getPrimaryConnection(self.connector_handler)
         (node, conn, uuid, num_partitions, num_replicas) = data

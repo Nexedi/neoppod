@@ -18,6 +18,7 @@
 from neo import logging
 
 from neo.storage.handlers import BaseStorageHandler
+from neo.protocol import NodeTypes
 from neo import protocol
 from neo.util import dump
 
@@ -36,12 +37,12 @@ class IdentificationHandler(BaseStorageHandler):
         app = self.app
         node = app.nm.getByUUID(uuid)
         # choose the handler according to the node type
-        if node_type == protocol.CLIENT_NODE_TYPE:
+        if node_type == NodeTypes.CLIENT:
             from neo.storage.handlers.client import ClientOperationHandler 
             handler = ClientOperationHandler
             if node is None:
                 node = app.nm.createClient()
-        elif node_type == protocol.STORAGE_NODE_TYPE:
+        elif node_type == NodeTypes.STORAGE:
             from neo.storage.handlers.storage import StorageOperationHandler
             handler = StorageOperationHandler
         else:
@@ -57,7 +58,7 @@ class IdentificationHandler(BaseStorageHandler):
         conn.setHandler(handler)
         conn.setUUID(uuid)
         node.setUUID(uuid)
-        args = (protocol.STORAGE_NODE_TYPE, app.uuid, app.server, 
+        args = (NodeTypes.STORAGE, app.uuid, app.server, 
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         # accept the identification and trigger an event
         conn.answer(protocol.acceptNodeIdentification(*args), packet.getId())

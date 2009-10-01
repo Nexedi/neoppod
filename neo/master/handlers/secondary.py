@@ -20,6 +20,7 @@ from neo import logging
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure, PrimaryFailure
 from neo import protocol
+from neo.protocol import NodeTypes
 
 class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
@@ -66,7 +67,7 @@ class PrimaryMasterHandler(MasterHandler):
     def handleNotifyNodeInformation(self, conn, packet, node_list):
         app = self.app
         for node_type, addr, uuid, state in node_list:
-            if node_type != protocol.MASTER_NODE_TYPE:
+            if node_type != NodeTypes.MASTER:
                 # No interest.
                 continue
 
@@ -90,7 +91,7 @@ class PrimaryMasterHandler(MasterHandler):
                                        num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
-        assert node_type == protocol.MASTER_NODE_TYPE
+        assert node_type == NodeTypes.MASTER
         assert conn.getAddress() == address
 
         if your_uuid != app.uuid:

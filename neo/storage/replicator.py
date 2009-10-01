@@ -20,8 +20,8 @@ from random import choice
 
 from neo.storage.handlers import replication
 from neo import protocol
-from neo.protocol import STORAGE_NODE_TYPE, UP_TO_DATE_STATE, \
-        OUT_OF_DATE_STATE, RUNNING_STATE
+from neo.protocol import UP_TO_DATE_STATE, OUT_OF_DATE_STATE, RUNNING_STATE
+from neo.protocol import NodeTypes
 from neo.connection import ClientConnection
 from neo.util import dump
 
@@ -180,8 +180,8 @@ class Replicator(object):
             self.current_connection = ClientConnection(app.em, handler, 
                                                        addr = addr,
                                                        connector_handler = app.connector_handler)
-            p = protocol.requestNodeIdentification(STORAGE_NODE_TYPE, app.uuid,
-                                        app.server, app.name)
+            p = protocol.requestNodeIdentification(NodeTypes.STORAGE, 
+                    app.uuid, app.server, app.name)
             self.current_connection.ask(p)
 
         self.tid_offset = 0

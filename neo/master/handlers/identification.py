@@ -18,6 +18,7 @@
 from neo import logging
 
 from neo import protocol
+from neo.protocol import NodeTypes
 from neo.master.handlers import MasterHandler
 
 class IdentificationHandler(MasterHandler):
@@ -73,7 +74,7 @@ class IdentificationHandler(MasterHandler):
         conn.setUUID(uuid)
         conn.setHandler(handler)
         # answer
-        args = (protocol.MASTER_NODE_TYPE, app.uuid, app.server, 
+        args = (NodeTypes.MASTER, app.uuid, app.server, 
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         conn.answer(protocol.acceptNodeIdentification(*args), packet.getId())
         # trigger the event

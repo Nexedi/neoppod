@@ -20,6 +20,7 @@ from time import time
 from neo import logging
 from neo import protocol
 from neo.util import dump
+from neo.protocol import NodeTypes
 
 class Node(object):
     """This class represents a node."""
@@ -158,16 +159,16 @@ class AdminNode(Node):
 
 
 NODE_TYPE_MAPPING = {
-    protocol.MASTER_NODE_TYPE: MasterNode,
-    protocol.STORAGE_NODE_TYPE: StorageNode,
-    protocol.CLIENT_NODE_TYPE: ClientNode,
-    protocol.ADMIN_NODE_TYPE: AdminNode,
+    NodeTypes.MASTER: MasterNode,
+    NodeTypes.STORAGE: StorageNode,
+    NodeTypes.CLIENT: ClientNode,
+    NodeTypes.ADMIN: AdminNode,
 }
 NODE_CLASS_MAPPING = {
-    StorageNode: protocol.STORAGE_NODE_TYPE,
-    MasterNode: protocol.MASTER_NODE_TYPE,
-    ClientNode: protocol.CLIENT_NODE_TYPE,
-    AdminNode: protocol.ADMIN_NODE_TYPE,
+    StorageNode: NodeTypes.STORAGE,
+    MasterNode: NodeTypes.MASTER,
+    ClientNode: NodeTypes.CLIENT,
+    AdminNode: NodeTypes.ADMIN,
 }
 
 class NodeManager(object):

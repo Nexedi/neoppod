@@ -20,6 +20,7 @@ from ZODB.TimeStamp import TimeStamp
 
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo import protocol
+from neo.protocol import NodeTypes
 
 class StorageEventHandler(BaseHandler):
 
@@ -56,8 +57,8 @@ class StorageBootstrapHandler(AnswerBaseHandler):
            uuid, address, num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
-        # It can be eiter a master node or a storage node
-        if node_type != protocol.STORAGE_NODE_TYPE:
+        # this must be a storage node
+        if node_type != NodeTypes.STORAGE:
             conn.close()
             return
         if conn.getAddress() != address:

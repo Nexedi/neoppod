@@ -18,9 +18,8 @@
 import unittest
 from mock import Mock
 from neo import protocol
-from neo.protocol import RUNNING_STATE, DOWN_STATE, \
-        UNKNOWN_STATE, MASTER_NODE_TYPE, STORAGE_NODE_TYPE, \
-        CLIENT_NODE_TYPE, ADMIN_NODE_TYPE
+from neo.protocol import RUNNING_STATE, DOWN_STATE, UNKNOWN_STATE
+from neo.protocol import NodeTypes
 from neo.node import Node, MasterNode, StorageNode, ClientNode, AdminNode, \
         NodeManager
 from neo.tests import NeoTestBase
@@ -90,7 +89,7 @@ class NodesTests(NeoTestBase):
     def testMaster(self):
         """ Check Master sub class """
         node = MasterNode(self.manager)
-        self.assertEqual(node.getType(), protocol.MASTER_NODE_TYPE)
+        self.assertEqual(node.getType(), protocol.NodeTypes.MASTER)
         self.assertTrue(node.isMaster())
         self.assertFalse(node.isStorage())
         self.assertFalse(node.isClient())
@@ -99,7 +98,7 @@ class NodesTests(NeoTestBase):
     def testStorage(self):
         """ Check Storage sub class """
         node = StorageNode(self.manager)
-        self.assertEqual(node.getType(), protocol.STORAGE_NODE_TYPE)
+        self.assertEqual(node.getType(), protocol.NodeTypes.STORAGE)
         self.assertTrue(node.isStorage())
         self.assertFalse(node.isMaster())
         self.assertFalse(node.isClient())
@@ -108,7 +107,7 @@ class NodesTests(NeoTestBase):
     def testClient(self):
         """ Check Client sub class """
         node = ClientNode(self.manager)
-        self.assertEqual(node.getType(), protocol.CLIENT_NODE_TYPE)
+        self.assertEqual(node.getType(), protocol.NodeTypes.CLIENT)
         self.assertTrue(node.isClient())
         self.assertFalse(node.isMaster())
         self.assertFalse(node.isStorage())
@@ -117,7 +116,7 @@ class NodesTests(NeoTestBase):
     def testAdmin(self):
         """ Check Admin sub class """
         node = AdminNode(self.manager)
-        self.assertEqual(node.getType(), protocol.ADMIN_NODE_TYPE)
+        self.assertEqual(node.getType(), protocol.NodeTypes.ADMIN)
         self.assertTrue(node.isAdmin())
         self.assertFalse(node.isMaster())
         self.assertFalse(node.isStorage())
@@ -249,10 +248,10 @@ class NodeManagerTests(NeoTestBase):
         new_address = ('127.0.0.1', 2001)
         new_uuid = self.getNewUUID()
         node_list = (
-            (CLIENT_NODE_TYPE, None, self.client.getUUID(), DOWN_STATE),
-            (MASTER_NODE_TYPE, new_address, self.master.getUUID(), RUNNING_STATE),
-            (STORAGE_NODE_TYPE, self.storage.getAddress(), new_uuid, RUNNING_STATE),
-            (ADMIN_NODE_TYPE, self.admin.getAddress(), self.admin.getUUID(), UNKNOWN_STATE),
+            (NodeTypes.CLIENT, None, self.client.getUUID(), DOWN_STATE),
+            (NodeTypes.MASTER, new_address, self.master.getUUID(), RUNNING_STATE),
+            (NodeTypes.STORAGE, self.storage.getAddress(), new_uuid, RUNNING_STATE),
+            (NodeTypes.ADMIN, self.admin.getAddress(), self.admin.getUUID(), UNKNOWN_STATE),
         )
         # update manager content
         manager.update(node_list)

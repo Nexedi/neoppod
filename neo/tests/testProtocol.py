@@ -19,6 +19,7 @@ import unittest, os
 from mock import Mock
 from neo import protocol
 from neo.protocol import *
+from neo.protocol import NodeTypes
 from neo.tests import NeoTestBase
 from neo.util import getNextTID
 from time import time, gmtime
@@ -91,10 +92,10 @@ class ProtocolTests(NeoTestBase):
 
     def test_11_requestNodeIdentification(self):
         uuid = self.getNewUUID()
-        p = protocol.requestNodeIdentification(CLIENT_NODE_TYPE, uuid,
+        p = protocol.requestNodeIdentification(NodeTypes.CLIENT, uuid,
                                     ("127.0.0.1", 9080), "unittest")
         node, p_uuid, (ip, port), name  = p.decode()
-        self.assertEqual(node, CLIENT_NODE_TYPE)
+        self.assertEqual(node, NodeTypes.CLIENT)
         self.assertEqual(p_uuid, uuid)
         self.assertEqual(ip, "127.0.0.1")
         self.assertEqual(port, 9080)
@@ -102,10 +103,10 @@ class ProtocolTests(NeoTestBase):
 
     def test_12_acceptNodeIdentification(self):
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
-        p = protocol.acceptNodeIdentification(CLIENT_NODE_TYPE, uuid1,
+        p = protocol.acceptNodeIdentification(NodeTypes.CLIENT, uuid1,
                                    ("127.0.0.1", 9080), 10, 20, uuid2)
         node, p_uuid, (ip, port), nb_partitions, nb_replicas, your_uuid  = p.decode()
-        self.assertEqual(node, CLIENT_NODE_TYPE)
+        self.assertEqual(node, NodeTypes.CLIENT)
         self.assertEqual(p_uuid, uuid1)
         self.assertEqual(ip, "127.0.0.1")
         self.assertEqual(port, 9080)
@@ -143,9 +144,9 @@ class ProtocolTests(NeoTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        node_list = [(CLIENT_NODE_TYPE, ("127.0.0.1", 1), uuid1, RUNNING_STATE),
-                       (CLIENT_NODE_TYPE, ("127.0.0.2", 2), uuid2, DOWN_STATE),
-                       (CLIENT_NODE_TYPE, ("127.0.0.3", 3), uuid3, BROKEN_STATE)]
+        node_list = [(NodeTypes.CLIENT, ("127.0.0.1", 1), uuid1, RUNNING_STATE),
+                       (NodeTypes.CLIENT, ("127.0.0.2", 2), uuid2, DOWN_STATE),
+                       (NodeTypes.CLIENT, ("127.0.0.3", 3), uuid3, BROKEN_STATE)]
         p = protocol.notifyNodeInformation(node_list)
         p_node_list = p.decode()[0]
         self.assertEqual(node_list, p_node_list)

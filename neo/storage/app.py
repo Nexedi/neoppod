@@ -20,6 +20,7 @@ import sys
 from collections import deque
 
 from neo import protocol
+from neo.protocol import NodeTypes
 from neo.node import NodeManager
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
@@ -196,7 +197,7 @@ class Application(object):
 
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, self.name,
-                protocol.STORAGE_NODE_TYPE, self.uuid, self.server)
+                NodeTypes.STORAGE, self.uuid, self.server)
         data = bootstrap.getPrimaryConnection(self.connector_handler)
         (node, conn, uuid, num_partitions, num_replicas) = data
         self.master_node = node

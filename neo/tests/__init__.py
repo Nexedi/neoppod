@@ -334,7 +334,7 @@ class TestElectionConnector(DoNothingConnector):
       p = protocol.Packet()
       self.uuid = getNewUUID()
       p.acceptNodeIdentification(1,
-                                 protocol.MASTER_NODE_TYPE,
+                                 NodeType.MASTER,
                                  self.uuid,
                                  self.getAddress()[0],
                                  self.getAddress()[1],

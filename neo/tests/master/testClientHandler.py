@@ -23,7 +23,7 @@ from struct import pack, unpack
 from neo.tests import NeoTestBase
 import neo.master
 from neo import protocol
-from neo.protocol import Packet, INVALID_UUID
+from neo.protocol import Packet, NodeTypes, INVALID_UUID
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
 from neo.protocol import ERROR, PING, PONG, ANNOUNCE_PRIMARY_MASTER, \
@@ -31,7 +31,6 @@ from neo.protocol import ERROR, PING, PONG, ANNOUNCE_PRIMARY_MASTER, \
      ASK_LAST_IDS, ANSWER_LAST_IDS, NOTIFY_PARTITION_CHANGES, \
      ASK_UNFINISHED_TRANSACTIONS, ASK_BEGIN_TRANSACTION, FINISH_TRANSACTION, \
      NOTIFY_INFORMATION_LOCKED, ASK_NEW_OIDS, ABORT_TRANSACTION, \
-     STORAGE_NODE_TYPE, CLIENT_NODE_TYPE, MASTER_NODE_TYPE, \
      RUNNING_STATE, BROKEN_STATE, TEMPORARILY_DOWN_STATE, DOWN_STATE, \
      UP_TO_DATE_STATE, OUT_OF_DATE_STATE, FEEDING_STATE, DISCARDED_STATE
 from neo.exception import OperationFailure, ElectionFailure     
@@ -68,7 +67,7 @@ class MasterClientHandlerTests(NeoTestBase):
     def getLastUUID(self):
         return self.uuid
 
-    def identifyToMasterNode(self, node_type=STORAGE_NODE_TYPE, ip="127.0.0.1",
+    def identifyToMasterNode(self, node_type=NodeTypes.STORAGE, ip="127.0.0.1",
                              port=10021):
         """Do first step of identification to MN """
         # register the master itself
@@ -88,24 +87,24 @@ class MasterClientHandlerTests(NeoTestBase):
         packet = Packet(msg_type=NOTIFY_NODE_INFORMATION)
         # tell the master node that is not running any longer, it must raises
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(MASTER_NODE_TYPE, ('127.0.0.1', self.master_port), self.app.uuid, DOWN_STATE),]
+        node_list = [(NodeTypes.MASTER, ('127.0.0.1', self.master_port), self.app.uuid, DOWN_STATE),]
         self.assertRaises(RuntimeError, service.handleNotifyNodeInformation, conn, packet, node_list)
         # tell the master node that it's running, nothing change
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(MASTER_NODE_TYPE, ('127.0.0.1', self.master_port), self.app.uuid, RUNNING_STATE),]
+        node_list = [(NodeTypes.MASTER, ('127.0.0.1', self.master_port), self.app.uuid, RUNNING_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify about a client node, don't care
         new_uuid = self.getNewUUID()
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(CLIENT_NODE_TYPE, ('127.0.0.1', self.client_port), new_uuid, BROKEN_STATE),]
+        node_list = [(NodeTypes.CLIENT, ('127.0.0.1', self.client_port), new_uuid, BROKEN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify about an unknown node, don't care
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', 11010), new_uuid, BROKEN_STATE),]
+        node_list = [(NodeTypes.STORAGE, ('127.0.0.1', 11010), new_uuid, BROKEN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
@@ -115,20 +114,20 @@ class MasterClientHandlerTests(NeoTestBase):
             uuid=self.getNewUUID(),
         )
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', 11012), uuid, BROKEN_STATE),]
+        node_list = [(NodeTypes.STORAGE, ('127.0.0.1', 11012), uuid, BROKEN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify node is running, as PMN already know it, nothing is done
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', self.storage_port), uuid, RUNNING_STATE),]
+        node_list = [(NodeTypes.STORAGE, ('127.0.0.1', self.storage_port), uuid, RUNNING_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
         # notify node is temp down, must be taken into account
         ptid = self.app.pt.getID()
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', self.storage_port), uuid, TEMPORARILY_DOWN_STATE),]
+        node_list = [(NodeTypes.STORAGE, ('127.0.0.1', self.storage_port), uuid, TEMPORARILY_DOWN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
@@ -137,7 +136,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertEquals(ptid, self.app.pt.getID())
         # notify node is broken, must be taken into account and partition must changed
         conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = [(STORAGE_NODE_TYPE, ('127.0.0.1', self.storage_port), uuid, BROKEN_STATE),]
+        node_list = [(NodeTypes.STORAGE, ('127.0.0.1', self.storage_port), uuid, BROKEN_STATE),]
         service.handleNotifyNodeInformation(conn, packet, node_list)
         for call in conn.mockGetAllCalls():
             self.assertEquals(call.getName(), "getUUID")
@@ -154,7 +153,7 @@ class MasterClientHandlerTests(NeoTestBase):
         ltid = self.app.ltid
         lptid = self.app.pt.getID()
         # do not care if client node call it
-        client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE, port=self.client_port)
+        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         node_list = []
         self.checkUnexpectedPacketRaised(service.handleAnswerLastIDs, conn, packet, None, None, None)
@@ -179,7 +178,7 @@ class MasterClientHandlerTests(NeoTestBase):
         packet = Packet(msg_type=ASK_BEGIN_TRANSACTION)
         ltid = self.app.ltid
         # client call it
-        client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE, port=self.client_port)
+        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         service.handleAskBeginTransaction(conn, packet, None)
         self.failUnless(ltid < self.app.ltid)
@@ -194,7 +193,7 @@ class MasterClientHandlerTests(NeoTestBase):
         packet = Packet(msg_type=ASK_NEW_OIDS)
         loid = self.app.loid
         # client call it
-        client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE, port=self.client_port)
+        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         service.handleAskNewOIDs(conn, packet, 1)
         self.failUnless(loid < self.app.loid)
@@ -205,7 +204,7 @@ class MasterClientHandlerTests(NeoTestBase):
         packet = Packet(msg_type=FINISH_TRANSACTION)
         packet.setId(9)
         # give an older tid than the PMN known, must abort
-        client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE, port=self.client_port)
+        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         oid_list = []
         upper, lower = unpack('!LL', self.app.ltid)
@@ -216,7 +215,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.app.pt.dropNode(old_node)
 
         # do the right job
-        client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE, port=self.client_port)
+        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         storage_uuid = self.identifyToMasterNode()
         storage_conn = self.getFakeConnection(storage_uuid, self.storage_address)
         self.assertNotEquals(uuid, client_uuid)
@@ -242,7 +241,7 @@ class MasterClientHandlerTests(NeoTestBase):
         uuid = self.identifyToMasterNode()
         packet = Packet(msg_type=ABORT_TRANSACTION)
         # give a bad tid, must not failed, just ignored it
-        client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE, port=self.client_port)
+        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.assertEqual(len(self.app.finishing_transaction_dict.keys()), 0)
         service.handleAbortTransaction(conn, packet, None)
@@ -284,7 +283,7 @@ class MasterClientHandlerTests(NeoTestBase):
         tid_list = protocol._decodeAnswerUnfinishedTransactions(packet._body)[0]
         self.assertEqual(len(tid_list), 0)
         # create some transaction
-        client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
+        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         service.handleAskBeginTransaction(conn, packet, None)
@@ -321,7 +320,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertEquals(self.app.nm.getByUUID(uuid).getState(), BROKEN_STATE) 
         self.failUnless(lptid < self.app.pt.getID())
         # give a client uuid which have unfinished transactions
-        client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
+        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()
@@ -362,7 +361,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertEquals(self.app.nm.getByUUID(uuid).getState(), TEMPORARILY_DOWN_STATE) 
         self.assertEquals(lptid, self.app.pt.getID())
         # give a client uuid which have unfinished transactions
-        client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
+        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()
@@ -403,7 +402,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertEquals(self.app.nm.getByUUID(uuid).getState(), TEMPORARILY_DOWN_STATE) 
         self.assertEquals(lptid, self.app.pt.getID())
         # give a client uuid which have unfinished transactions
-        client_uuid = self.identifyToMasterNode(node_type=CLIENT_NODE_TYPE,
+        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()

@@ -24,7 +24,7 @@ from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.bootstrap import BootstrapManager
 from neo import protocol
-from neo.protocol import STORAGE_NODE_TYPE, MASTER_NODE_TYPE
+from neo.protocol import NodeTypes
 from neo.protocol import BROKEN_STATE, RUNNING_STATE, Packet, INVALID_UUID
 from neo.protocol import ACCEPT_NODE_IDENTIFICATION, REQUEST_NODE_IDENTIFICATION
 from neo.protocol import ERROR, BROKEN_NODE_DISALLOWED_CODE, ASK_PRIMARY_MASTER
@@ -39,7 +39,7 @@ class BootstrapManagerTests(NeoTestBase):
         self.app = Application(**config)
         for address in self.app.master_node_list:
             self.app.nm.createMaster(address=address)
-        self.bootstrap = BootstrapManager(self.app, 'main', protocol.STORAGE_NODE_TYPE)
+        self.bootstrap = BootstrapManager(self.app, 'main', NodeTypes.STORAGE)
         # define some variable to simulate client and storage node
         self.master_port = 10010
         self.storage_port = 10020

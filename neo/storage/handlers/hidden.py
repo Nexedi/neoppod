@@ -18,8 +18,9 @@
 from neo import logging
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.protocol import BROKEN_STATE, STORAGE_NODE_TYPE, DOWN_STATE, \
+from neo.protocol import BROKEN_STATE, DOWN_STATE, \
         TEMPORARILY_DOWN_STATE, DISCARDED_STATE, OUT_OF_DATE_STATE
+from neo.protocol import NodeTypes
 
 class HiddenHandler(BaseMasterHandler):
     """This class implements a generic part of the event handlers."""
@@ -34,7 +35,7 @@ class HiddenHandler(BaseMasterHandler):
         app = self.app
         self.app.nm.update(node_list)
         for node_type, addr, uuid, state in node_list:
-            if node_type == STORAGE_NODE_TYPE:
+            if node_type == NodeTypes.STORAGE:
                 if uuid == self.app.uuid:
                     # This is me, do what the master tell me
                     if state in (DOWN_STATE, TEMPORARILY_DOWN_STATE, BROKEN_STATE):

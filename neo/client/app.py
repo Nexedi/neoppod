@@ -29,6 +29,7 @@ setupLog('CLIENT', verbose=True)
 
 from neo import logging
 from neo import protocol
+from neo.protocol import NodeTypes
 from neo.event import EventManager
 from neo.util import makeChecksum, dump
 from neo.locking import RLock, Lock
@@ -86,7 +87,7 @@ class ConnectionPool(object):
                     logging.error('Connection to storage node %s failed', node)
                     return None
 
-                p = protocol.requestNodeIdentification(protocol.CLIENT_NODE_TYPE,
+                p = protocol.requestNodeIdentification(NodeTypes.CLIENT,
                             app.uuid, None, app.name)
                 msg_id = conn.ask(app.local_var.queue, p)
             finally:
@@ -438,7 +439,7 @@ class Application(object):
                                       self.trying_master_node)
                         self.primary_master_node = None
                         break
-                    p = protocol.requestNodeIdentification(protocol.CLIENT_NODE_TYPE,
+                    p = protocol.requestNodeIdentification(NodeTypes.CLIENT,
                             self.uuid, None, self.name)
                     msg_id = conn.ask(self.local_var.queue, p)
                 finally:

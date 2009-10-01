@@ -19,6 +19,7 @@ from neo import logging
 
 from neo import protocol
 from neo.handler import EventHandler
+from neo.protocol import NodeTypes
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -71,7 +72,7 @@ class MasterHandler(EventHandler):
 
 
 DISCONNECTED_STATE_DICT = {
-    protocol.STORAGE_NODE_TYPE: protocol.TEMPORARILY_DOWN_STATE,
+    NodeTypes.STORAGE: protocol.TEMPORARILY_DOWN_STATE,
 }
 
 class BaseServiceHandler(MasterHandler):
