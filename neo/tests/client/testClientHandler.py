@@ -47,7 +47,7 @@ class ClientHandlerTests(NeoTestBase):
                      'unlock': None})
 
     def getDispatcher(self, queue=None):
-      return Mock({'getQueue': queue, 'connectToPrimaryMasterNode': None})
+        return Mock({'getQueue': queue, 'connectToPrimaryMasterNode': None})
 
     def buildHandler(self, handler_class, app, dispatcher):
         # some handlers do not accept the second argument

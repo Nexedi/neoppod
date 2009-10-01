@@ -309,50 +309,45 @@ class NeoTestBase(unittest.TestCase):
 connector_cpt = 0
 
 class DoNothingConnector(Mock):
-  def __init__(self, s=None):
-    logging.info("initializing connector")
-    self.desc = globals()['connector_cpt']
-    globals()['connector_cpt'] = globals()['connector_cpt']+ 1
-    self.packet_cpt = 0
-    Mock.__init__(self)
+    def __init__(self, s=None):
+        logging.info("initializing connector")
+        self.desc = globals()['connector_cpt']
+        globals()['connector_cpt'] = globals()['connector_cpt']+ 1
+        self.packet_cpt = 0
+        Mock.__init__(self)
 
-  def getAddress(self):
-    return self.addr
-  
-  def makeClientConnection(self, addr):
-    self.addr = addr
+    def getAddress(self):
+        return self.addr
 
-  def getDescriptor(self):
-    return self.desc
+    def makeClientConnection(self, addr):
+        self.addr = addr
+
+    def getDescriptor(self):
+        return self.desc
 
 
 class TestElectionConnector(DoNothingConnector):
-  def receive(self):
-    """ simulate behavior of election """
-    if self.packet_cpt == 0:
-      # first : identify
-      logging.info("in patched analyse / IDENTIFICATION")
-      p = protocol.Packet()
-      self.uuid = getNewUUID()
-      p.acceptNodeIdentification(1,
-                                 NodeType.MASTER,
-                                 self.uuid,
-                                 self.getAddress()[0],
-                                 self.getAddress()[1],
-                                 1009,
-                                 2
-                                 )
-      self.packet_cpt += 1
-      return p.encode()
-    elif self.packet_cpt == 1:
-      # second : answer primary master nodes
-      logging.info("in patched analyse / ANSWER PM")
-      p = protocol.Packet()
-      p.answerPrimaryMaster(2, protocol.INVALID_UUID, [])        
-      self.packet_cpt += 1
-      return p.encode()
-    else:
-      # then do nothing
-      from neo.connector import ConnectorTryAgainException
-      raise ConnectorTryAgainException
+
+    def receive(self):
+        """ simulate behavior of election """
+        if self.packet_cpt == 0:
+            # first : identify
+            logging.info("in patched analyse / IDENTIFICATION")
+            p = protocol.Packet()
+            self.uuid = getNewUUID()
+            p.acceptNodeIdentification(1, NodeType.MASTER, self.uuid,
+                 self.getAddress()[0], self.getAddress()[1], 1009, 2)
+            self.packet_cpt += 1
+            return p.encode()
+        elif self.packet_cpt == 1:
+            # second : answer primary master nodes
+            logging.info("in patched analyse / ANSWER PM")
+            p = protocol.Packet()
+            p.answerPrimaryMaster(2, protocol.INVALID_UUID, [])        
+            self.packet_cpt += 1
+            return p.encode()
+        else:
+            # then do nothing
+            from neo.connector import ConnectorTryAgainException
+            raise ConnectorTryAgainException
     

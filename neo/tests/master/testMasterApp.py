@@ -33,99 +33,99 @@ class MasterAppTests(NeoTestBase):
         NeoTestBase.tearDown(self)
 
     def test_02_getNextOID(self):
-      # must raise as we don"t have one
-      self.assertEqual(self.app.loid, None)
-      self.app.loid = None
-      self.assertRaises(RuntimeError, self.app.getNextOID)
-      # set one
-      self.app.loid = p64(23)
-      noid = self.app.getNextOID()
-      self.assertEqual(self.app.loid, noid)
-      self.failUnless(u64(self.app.loid) > 23)
-      self.assertEqual(u64(self.app.loid), 24)
-    
+        # must raise as we don"t have one
+        self.assertEqual(self.app.loid, None)
+        self.app.loid = None
+        self.assertRaises(RuntimeError, self.app.getNextOID)
+        # set one
+        self.app.loid = p64(23)
+        noid = self.app.getNextOID()
+        self.assertEqual(self.app.loid, noid)
+        self.failUnless(u64(self.app.loid) > 23)
+        self.assertEqual(u64(self.app.loid), 24)
+      
     def test_03_getNextTID(self):
-      self.assertEqual(self.app.ltid, None)
-      ntid = self.app.getNextTID()
-      self.assertEqual(self.app.ltid, ntid)
-      # generate new one
-      tid = self.app.getNextTID()
-      self.assertEqual(self.app.ltid, tid)
-      self.failUnless(tid > ntid)
-    
+        self.assertEqual(self.app.ltid, None)
+        ntid = self.app.getNextTID()
+        self.assertEqual(self.app.ltid, ntid)
+        # generate new one
+        tid = self.app.getNextTID()
+        self.assertEqual(self.app.ltid, tid)
+        self.failUnless(tid > ntid)
+      
     def test_04_getPartition(self):
-      self.app.pt.num_partitions = 3
-      p = self.app.getPartition(p64(1))
-      self.assertEqual(p, 1)
-      p = self.app.getPartition(p64(2))
-      self.assertEqual(p, 2)
-      p = self.app.getPartition(p64(1009)) # 1009 defined in config
-      self.assertEqual(p, 0)
+        self.app.pt.num_partitions = 3
+        p = self.app.getPartition(p64(1))
+        self.assertEqual(p, 1)
+        p = self.app.getPartition(p64(2))
+        self.assertEqual(p, 2)
+        p = self.app.getPartition(p64(1009)) # 1009 defined in config
+        self.assertEqual(p, 0)
 
     def test_05_getNewOIDList(self):
-      self.app.loid = p64(1)
-      oid_list = self.app.getNewOIDList(15)
-      self.assertEqual(len(oid_list), 15)
-      i = 2
-      # begin from 0, so generated oid from 1 to 15
-      for oid in oid_list:
-        self.assertEqual(u64(oid), i)
-        i+=1
+        self.app.loid = p64(1)
+        oid_list = self.app.getNewOIDList(15)
+        self.assertEqual(len(oid_list), 15)
+        i = 2
+        # begin from 0, so generated oid from 1 to 15
+        for oid in oid_list:
+            self.assertEqual(u64(oid), i)
+            i+=1
 
     def test_06_broadcastNodeInformation(self):
-      # defined some nodes to which data will be send
-      master_uuid = self.getNewUUID()      
-      self.app.nm.createMaster(uuid=master_uuid)
-      storage_uuid = self.getNewUUID()      
-      storage = self.app.nm.createStorage(uuid=storage_uuid)
-      client_uuid = self.getNewUUID()      
-      client = self.app.nm.createClient(uuid=client_uuid)
-      self.app.nm.add(storage)
-      self.app.nm.add(client)
-      # create conn and patch em
-      master_conn = Mock({"getUUID" : master_uuid})
-      storage_conn = Mock({"getUUID" : storage_uuid})
-      client_conn = Mock({"getUUID" : client_uuid})
-      self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
+        # defined some nodes to which data will be send
+        master_uuid = self.getNewUUID()      
+        self.app.nm.createMaster(uuid=master_uuid)
+        storage_uuid = self.getNewUUID()      
+        storage = self.app.nm.createStorage(uuid=storage_uuid)
+        client_uuid = self.getNewUUID()      
+        client = self.app.nm.createClient(uuid=client_uuid)
+        self.app.nm.add(storage)
+        self.app.nm.add(client)
+        # create conn and patch em
+        master_conn = Mock({"getUUID" : master_uuid})
+        storage_conn = Mock({"getUUID" : storage_uuid})
+        client_conn = Mock({"getUUID" : client_uuid})
+        self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
 
-      # no address defined, not send to client node
-      c_node = self.app.nm.createClient(uuid = self.getNewUUID())
-      self.app.broadcastNodeInformation(c_node)
-      # check conn
-      self.checkNoPacketSent(client_conn)
-      self.checkNotifyNodeInformation(master_conn)
-      self.checkNotifyNodeInformation(storage_conn)
+        # no address defined, not send to client node
+        c_node = self.app.nm.createClient(uuid = self.getNewUUID())
+        self.app.broadcastNodeInformation(c_node)
+        # check conn
+        self.checkNoPacketSent(client_conn)
+        self.checkNotifyNodeInformation(master_conn)
+        self.checkNotifyNodeInformation(storage_conn)
 
-      # address defined and client type
-      master_conn = Mock({"getUUID" : master_uuid})
-      storage_conn = Mock({"getUUID" : storage_uuid})
-      client_conn = Mock({"getUUID" : client_uuid})
-      self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
-      s_node = self.app.nm.createClient(
+        # address defined and client type
+        master_conn = Mock({"getUUID" : master_uuid})
+        storage_conn = Mock({"getUUID" : storage_uuid})
+        client_conn = Mock({"getUUID" : client_uuid})
+        self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
+        s_node = self.app.nm.createClient(
             uuid = self.getNewUUID(), 
             address=("127.1.0.1", 3361)
-      )
-      self.app.broadcastNodeInformation(c_node)
-      # check conn
-      self.checkNoPacketSent(client_conn)
-      self.checkNotifyNodeInformation(master_conn)
-      self.checkNotifyNodeInformation(storage_conn)
-      
-      # address defined and storage type
-      master_conn = Mock({"getUUID" : master_uuid})
-      storage_conn = Mock({"getUUID" : storage_uuid})
-      client_conn = Mock({"getUUID" : client_uuid})
-      self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
-      s_node = self.app.nm.createStorage(
+        )
+        self.app.broadcastNodeInformation(c_node)
+        # check conn
+        self.checkNoPacketSent(client_conn)
+        self.checkNotifyNodeInformation(master_conn)
+        self.checkNotifyNodeInformation(storage_conn)
+        
+        # address defined and storage type
+        master_conn = Mock({"getUUID" : master_uuid})
+        storage_conn = Mock({"getUUID" : storage_uuid})
+        client_conn = Mock({"getUUID" : client_uuid})
+        self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
+        s_node = self.app.nm.createStorage(
             uuid=self.getNewUUID(), 
             address=("127.0.0.1", 1351)
-      )
+        )
 
-      self.app.broadcastNodeInformation(s_node)
-      # check conn
-      self.checkNotifyNodeInformation(client_conn)
-      self.checkNotifyNodeInformation(master_conn)
-      self.checkNotifyNodeInformation(storage_conn)
+        self.app.broadcastNodeInformation(s_node)
+        # check conn
+        self.checkNotifyNodeInformation(client_conn)
+        self.checkNotifyNodeInformation(master_conn)
+        self.checkNotifyNodeInformation(storage_conn)
 
 
 if __name__ == '__main__':

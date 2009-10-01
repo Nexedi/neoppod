@@ -296,13 +296,12 @@ class NEOCluster(object):
         for master in self.getMasterProcessList():
             master_uuid = master.getUUID()
             is_primary = master_uuid == primary_uuid
-            if primary and is_primary or \
-               not (primary or is_primary):
-                 killed_uuid_list.append(master_uuid)
-                 master.kill()
-                 master.wait()
-                 if not all:
-                     break
+            if primary and is_primary or not (primary or is_primary):
+                killed_uuid_list.append(master_uuid)
+                master.kill()
+                master.wait()
+                if not all:
+                    break
         return killed_uuid_list
 
     def killPrimaryMaster(self):
@@ -367,7 +366,7 @@ class NEOCluster(object):
                 opaque_history.append(opaque)
                 time.sleep(delay)
         else:
-          raise AssertionError, 'Timeout while expecting condition. ' \
+            raise AssertionError, 'Timeout while expecting condition. ' \
                                 'History: %s' % (opaque_history, )
 
     def expectAllMasters(self, node_count, state=None, timeout=0, delay=1):
