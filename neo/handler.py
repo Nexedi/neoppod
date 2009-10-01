@@ -359,10 +359,6 @@ class EventHandler(object):
     def handleBrokenNodeDisallowedError(self, conn, packet, message):
         raise RuntimeError, 'broken node disallowed error: %s' % (message,)
 
-    def handleInternalError(self, conn, packet, message):
-        self.peerBroken(conn)
-        conn.close()
-
     def handleNoError(self, conn, packet, message):
         logging.debug("no error message : %s" % (message))
 
@@ -446,7 +442,6 @@ class EventHandler(object):
         d[ErrorCodes.TID_NOT_FOUND] = self.handleTidNotFound
         d[ErrorCodes.PROTOCOL_ERROR] = self.handleProtocolError
         d[ErrorCodes.BROKEN_NODE] = self.handleBrokenNodeDisallowedError
-        d[ErrorCodes.INTERNAL_ERROR] = self.handleInternalError
 
         return d
 

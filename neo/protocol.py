@@ -252,7 +252,6 @@ class ErrorCodes(Enum):
     TID_NOT_FOUND = Enum.Item(3)
     PROTOCOL_ERROR = Enum.Item(4)
     BROKEN_NODE = Enum.Item(5)
-    INTERNAL_ERROR = Enum.Item(6)
 ErrorCodes = ErrorCodes()
 
 class ClusterStates(Enum):
@@ -1053,9 +1052,6 @@ def noError(message):
 
 def protocolError(error_message):
     return _error(ErrorCodes.PROTOCOL_ERROR, 'protocol error: ' + error_message)
-
-def internalError(error_message):
-    return _error(ErrorCodes.INTERNAL_ERROR, 'internal error: ' + error_message)
 
 def notReady(error_message):
     return _error(ErrorCodes.NOT_READY, 'not ready: ' + error_message)

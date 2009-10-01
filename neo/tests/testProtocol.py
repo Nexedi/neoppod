@@ -54,12 +54,6 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(error_code, ErrorCodes.PROTOCOL_ERROR)
         self.assertEqual(error_msg, "protocol error: bad protocol")
 
-    def test_04_internalError(self):
-        p = protocol.internalError("bad internal")
-        error_code, error_msg = p.decode()
-        self.assertEqual(error_code, ErrorCodes.INTERNAL_ERROR)
-        self.assertEqual(error_msg, "internal error: bad internal")
-
     def test_05_notReady(self):
         p = protocol.notReady("wait")
         error_code, error_msg = p.decode()
