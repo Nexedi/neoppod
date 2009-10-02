@@ -214,6 +214,9 @@ RC  - Review output of pylint (CODE)
     - Find a way to make ask() from the thread poll to allow send initial packet
       (requestNodeIdentification) from the connectionCompleted() event instead
       of app. This requires to know to what thread will wait for the answer.
+    - Discuss about dead lstorage notification. If a client fails to connect to
+      a storage node supposed in running state, then it should notify the master
+      to check if this node is well up or not.
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might 
