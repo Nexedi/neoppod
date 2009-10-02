@@ -48,22 +48,17 @@ Installation
     a. Make neo directory available for python to import (for example, by
        adding its container directory to the PYTHONPATH environment variable).
 
-    b. Create a configuration file for your cluster. You should have received
-       a self-describing configuration file along with the code, named
-       neo.conf .
+    b. Choose a cluster name and setup a MySQL database
 
     c. Start all required nodes :
 
-       neomaster -c <your_neo.conf> -s <master_section_name>
-       neostorage -c <your_neo.conf> -s <storage_section_name>
-       neomaster -c <your_neo.conf>
+       neomaster --cluster=<cluster name>
+       neostorage --cluster=<cluster name> --database=user:passwd@host
+       neoadmin --cluster=<cluster name>
 
     d. Tell the cluster it can provide service.
 
-       neoctl -a <ip:port of admin node> start cluster
-
-       This must be done each time the primary master changes. This will be
-       addressed in a future release.
+       neoctl start cluster
 
 How to use
 
@@ -79,7 +74,7 @@ How to use
       <zodb_db main>
           # Main FileStorage database
           <NEOStorage>
-                master_nodes 127.0.0.1:10010 127.0.0.1:10011
+                master_nodes 127.0.0.1:10000
                 name main
                 connector SocketConnector
           </NEOStorage>
