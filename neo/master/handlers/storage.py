@@ -42,6 +42,15 @@ class StorageServiceHandler(BaseServiceHandler):
         # partition must not oudated to allows a cluster restart.
         self.app.outdateAndBroadcastPartition()
 
+    def askLastIDs(self, conn, packet):
+        app = self.app
+        conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.pt.getID()), packet.getId())
+
+    def askUnfinishedTransactions(self, conn, packet):
+        app = self.app
+        p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
+        conn.answer(p, packet.getId())
+
     def notifyInformationLocked(self, conn, packet, tid):
         uuid = conn.getUUID()
         app = self.app
