@@ -21,7 +21,7 @@ from neo.tests import NeoTestBase
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.initialization import InitializationHandler
-from neo.protocol import Packet, PacketTypes, CellStates
+from neo.protocol import Packet, Packets, CellStates
 from neo.exception import PrimaryFailure
 
 class StorageInitializationHandlerTests(NeoTestBase):
@@ -80,7 +80,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         self.checkNoPacketSent(conn)
 
     def test_09_sendPartitionTable(self):
-        packet = Packet(msg_type=PacketTypes.SEND_PARTITION_TABLE)
+        packet = Packets.SendPartitionTable()
         uuid = self.getNewUUID()
         # send a table
         conn = Mock({"getUUID" : uuid,

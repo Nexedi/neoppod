@@ -23,8 +23,7 @@ from neo.handler import EventHandler
 from neo.tests import DoNothingConnector
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
-from neo.protocol import PacketTypes
-from neo import protocol
+from neo.protocol import Packets
 from neo.tests import NeoTestBase
 
 class ConnectionTests(NeoTestBase):
@@ -394,7 +393,7 @@ class ConnectionTests(NeoTestBase):
 
     def test_07_Connection_addPacket(self):
         # no connector
-        p = Mock({"encode" : "testdata"})
+        p = Mock({"__str__" : "testdata"})
         em = Mock()
         handler = Mock()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
@@ -467,9 +466,9 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2133), self.getNewUUID()),
                 (("127.0.0.1", 2435), self.getNewUUID()),
                 (("127.0.0.1", 2132), self.getNewUUID()))
-        p = protocol.answerPrimaryMaster(self.getNewUUID(), master_list)
+        p = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p.setId(1)
-        data = p.encode()
+        data = str(p)
         bc.read_buf += data
         self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
@@ -500,9 +499,9 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2133), self.getNewUUID()),
                 (("127.0.0.1", 2435), self.getNewUUID()),
                 (("127.0.0.1", 2132), self.getNewUUID()))
-        p1 = protocol.answerPrimaryMaster(self.getNewUUID(), master_list)
+        p1 = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p1.setId(1)
-        data = p1.encode()
+        data = str(p1)
         bc.read_buf += data
         # packet 2
         master_list = (
@@ -514,11 +513,11 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2133), self.getNewUUID()),
                 (("127.0.0.1", 2435), self.getNewUUID()),
                 (("127.0.0.1", 2132), self.getNewUUID()))
-        p2 = protocol.answerPrimaryMaster( self.getNewUUID(), master_list)
+        p2 = Packets.AnswerPrimary( self.getNewUUID(), master_list)
         p2.setId(2)
-        data = p2.encode()
+        data = str(p2)
         bc.read_buf += data
-        self.assertEqual(len(bc.read_buf), len(p1.encode()) + len(p2.encode()))
+        self.assertEqual(len(bc.read_buf), len(p1) + len(p2))
         self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
         # check two packets decoded
@@ -569,9 +568,9 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2133), self.getNewUUID()),
                 (("127.0.0.1", 2435), self.getNewUUID()),
                 (("127.0.0.1", 2132), self.getNewUUID()))
-        p = protocol.answerPrimaryMaster(self.getNewUUID(), master_list)
+        p = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p.setId(1)
-        data = p.encode()
+        data = str(p)
         bc.read_buf += data
         self.assertEqual(len(bc.event_dict), 0)
         bc.expectMessage(1)
@@ -700,10 +699,9 @@ class ConnectionTests(NeoTestBase):
                (("127.0.0.1", 2435), self.getNewUUID()),
                (("127.0.0.1", 2132), self.getNewUUID()))
             uuid = self.getNewUUID()
-            p = protocol.answerPrimaryMaster(uuid, master_list)
+            p = Packets.AnswerPrimary(uuid, master_list)
             p.setId(1)
-            data = p.encode()
-            return data
+            return str(p)
         DoNothingConnector.receive = receive
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
@@ -719,7 +717,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
-        self.assertEqual(data.getType(), PacketTypes.ANSWER_PRIMARY_MASTER)
+        self.assertEqual(data.getType(), Packets.AnswerPrimary)
         self.assertEqual(data.getId(), 1)
         self.assertEqual(len(bc.event_dict), 0)
         self.assertEqual(bc.read_buf, '')

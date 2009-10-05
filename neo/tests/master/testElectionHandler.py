@@ -18,8 +18,7 @@
 import unittest
 from mock import Mock
 from neo.tests import NeoTestBase
-from neo import protocol
-from neo.protocol import Packet, PacketTypes, NodeTypes, NodeStates, INVALID_UUID
+from neo.protocol import Packet, Packets, NodeTypes, NodeStates, INVALID_UUID
 from neo.master.handlers.election import ClientElectionHandler, ServerElectionHandler
 from neo.master.app import Application
 from neo.exception import ElectionFailure     
@@ -92,7 +91,7 @@ class MasterClientElectionTests(NeoTestBase):
         conn = Mock({"getUUID" : uuid,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.election.connectionCompleted(conn)
-        self.checkAskPrimaryMaster(conn)
+        self.checkAskPrimary(conn)
     
 
     def test_03_connectionFailed(self):
@@ -112,22 +111,23 @@ class MasterClientElectionTests(NeoTestBase):
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.TEMPORARILY_DOWN)
 
-    def test_11_askPrimaryMaster(self):
+    def test_11_askPrimary(self):
         election = self.election
         uuid = self.identifyToMasterNode(port=self.master_port)
-        packet = protocol.askPrimaryMaster()
+        packet = Packets.AskPrimary()
+        packet.setId(0)
         conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
                      "isServer" : True,
                      "getConnector": Mock(),
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterList()), 2)
-        election.askPrimaryMaster(conn, packet)        
+        election.askPrimary(conn, packet)        
         self.assertEquals(len(conn.mockGetNamedCalls("answer")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("abort")), 0)
-        self.checkAnswerPrimaryMaster(conn)
+        self.checkAnswerPrimary(conn)
 
-    def test_09_answerPrimaryMaster1(self):
+    def test_09_answerPrimary1(self):
         # test with master node and greater uuid
         uuid = self.getNewUUID()
         if uuid < self.app.uuid:
@@ -135,12 +135,12 @@ class MasterClientElectionTests(NeoTestBase):
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
-        p = protocol.askPrimaryMaster()
+        p = Packets.AskPrimary()
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.assertEqual(len(self.app.nm.getMasterList()), 1)
-        self.election.answerPrimaryMaster(conn, p, INVALID_UUID, [])
+        self.election.answerPrimary(conn, p, INVALID_UUID, [])
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.assertEqual(self.app.primary, False)
         self.assertEqual(len(self.app.nm.getMasterList()), 1)
@@ -148,7 +148,7 @@ class MasterClientElectionTests(NeoTestBase):
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
 
 
-    def test_09_answerPrimaryMaster2(self):
+    def test_09_answerPrimary2(self):
         # test with master node and lesser uuid
         uuid = self.getNewUUID()
         if uuid > self.app.uuid:
@@ -156,12 +156,12 @@ class MasterClientElectionTests(NeoTestBase):
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
-        p = protocol.askPrimaryMaster()
+        p = Packets.AskPrimary()
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.assertEqual(len(self.app.nm.getMasterList()), 1)
-        self.election.answerPrimaryMaster(conn, p, INVALID_UUID, [])
+        self.election.answerPrimary(conn, p, INVALID_UUID, [])
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.assertEqual(self.app.primary, None)
         self.assertEqual(len(self.app.nm.getMasterList()), 1)
@@ -169,20 +169,20 @@ class MasterClientElectionTests(NeoTestBase):
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
 
 
-    def test_09_answerPrimaryMaster3(self):
+    def test_09_answerPrimary3(self):
         # test with master node and given uuid for PMN
         uuid = self.getNewUUID()
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
-        p = protocol.askPrimaryMaster()
+        p = Packets.AskPrimary()
         self.app.nm.createMaster(address=("127.0.0.1", self.master_port), uuid=uuid)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.assertEqual(len(self.app.nm.getMasterList()), 2)
         self.assertEqual(self.app.primary_master_node, None)
-        self.election.answerPrimaryMaster(conn, p, uuid, [])
+        self.election.answerPrimary(conn, p, uuid, [])
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.assertEqual(len(self.app.nm.getMasterList()), 2)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
@@ -191,19 +191,19 @@ class MasterClientElectionTests(NeoTestBase):
         self.assertEqual(self.app.primary, False)
 
 
-    def test_09_answerPrimaryMaster4(self):
+    def test_09_answerPrimary4(self):
         # test with master node and unknown uuid for PMN
         uuid = self.getNewUUID()
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
-        p = protocol.askPrimaryMaster()
+        p = Packets.AskPrimary()
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.assertEqual(len(self.app.nm.getMasterList()), 1)
         self.assertEqual(self.app.primary_master_node, None)
-        self.election.answerPrimaryMaster(conn, p, uuid, [])
+        self.election.answerPrimary(conn, p, uuid, [])
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.assertEqual(len(self.app.nm.getMasterList()), 1)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
@@ -212,13 +212,13 @@ class MasterClientElectionTests(NeoTestBase):
         self.assertEqual(self.app.primary, None)
 
 
-    def test_09_answerPrimaryMaster5(self):
+    def test_09_answerPrimary5(self):
         # test with master node and new uuid for PMN
         uuid = self.getNewUUID()
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         conn.setUUID(uuid)
-        p = protocol.askPrimaryMaster()
+        p = Packets.AskPrimary()
         self.app.nm.createMaster(address=("127.0.0.1", self.master_port), uuid=uuid)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
@@ -226,7 +226,7 @@ class MasterClientElectionTests(NeoTestBase):
         self.assertEqual(len(self.app.nm.getMasterList()), 2)
         self.assertEqual(self.app.primary_master_node, None)
         master_uuid = self.getNewUUID()
-        self.election.answerPrimaryMaster(conn, p, master_uuid,
+        self.election.answerPrimary(conn, p, master_uuid,
                 [(("127.0.0.1", self.master_port+1), master_uuid,)])
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
         self.assertEqual(len(self.app.nm.getMasterList()), 3)
@@ -235,7 +235,7 @@ class MasterClientElectionTests(NeoTestBase):
         self.assertNotEqual(self.app.primary_master_node, None)
         self.assertEqual(self.app.primary, False)
         # Now tell it's another node which is primary, it must raise 
-        self.assertRaises(ElectionFailure, self.election.answerPrimaryMaster, conn, p, uuid, [])
+        self.assertRaises(ElectionFailure, self.election.answerPrimary, conn, p, uuid, [])
 
         
 
@@ -280,12 +280,12 @@ class MasterServerElectionTests(NeoTestBase):
         return uuid
 
         
-    def checkCalledAskPrimaryMaster(self, conn, packet_number=0):
+    def checkCalledAskPrimary(self, conn, packet_number=0):
         """ Check ask primary master has been send"""
         call = conn.mockGetNamedCalls("_addPacket")[packet_number]
         packet = call.getParam(0)
         self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(),ASK_PRIMARY_MASTER)
+        self.assertEquals(packet.getType(),AskPrimary)
 
     # Tests
 
@@ -352,7 +352,7 @@ class MasterServerElectionTests(NeoTestBase):
 
     def test_07_packetReceived(self):
         uuid = self.identifyToMasterNode(port=self.master_port)
-        p = protocol.acceptNodeIdentification(NodeTypes.MASTER, uuid,
+        p = Packets.AcceptIdentification(NodeTypes.MASTER, uuid,
                        ("127.0.0.1", self.master_port), 1009, 2, self.app.uuid)
 
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
@@ -369,20 +369,20 @@ class MasterServerElectionTests(NeoTestBase):
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.RUNNING)
 
-    def test_08_acceptNodeIdentification1(self):
+    def test_08_AcceptIdentification1(self):
         # test with storage node, must be rejected
         uuid = self.getNewUUID()
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         args = (NodeTypes.MASTER, uuid, ('127.0.0.1', self.master_port),
                 self.app.pt.getPartitions(), self.app.pt.getReplicas(), self.app.uuid)
-        p = protocol.acceptNodeIdentification(*args)
+        p = Packets.AcceptIdentification(*args)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getUUID(), None)
         self.assertEqual(conn.getUUID(), None)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
-        self.election.acceptNodeIdentification(conn, p, NodeTypes.STORAGE,
+        self.election.AcceptIdentification(conn, p, NodeTypes.STORAGE,
                                                      uuid, "127.0.0.1", self.master_port,
                                                      self.app.pt.getPartitions(), 
                                                      self.app.pt.getReplicas(),
@@ -392,41 +392,41 @@ class MasterServerElectionTests(NeoTestBase):
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
         
-    def test_08_acceptNodeIdentification2(self):
+    def test_08_AcceptIdentification2(self):
         # test with bad address, must be rejected
         uuid = self.getNewUUID()
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         args = (NodeTypes.MASTER, uuid, ('127.0.0.1', self.master_port),
                 self.app.pt.getPartitions(), self.app.pt.getReplicas(), self.app.uuid)
-        p = protocol.acceptNodeIdentification(*args)
+        p = Packets.AcceptIdentification(*args)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getUUID(), None)
         self.assertEqual(conn.getUUID(), None)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
-        self.election.acceptNodeIdentification(conn, p, NodeTypes.STORAGE,
+        self.election.AcceptIdentification(conn, p, NodeTypes.STORAGE,
                                                      uuid, ("127.0.0.2", self.master_port),
                                                      self.app.pt.getPartitions(), 
                                                      self.app.pt.getReplicas(),
                                                      self.app.uuid)
         self.assertEqual(conn.getConnector(), None)
 
-    def test_08_acceptNodeIdentification3(self):
+    def test_08_AcceptIdentification3(self):
         # test with master node, must be ok
         uuid = self.getNewUUID()
         conn = ClientConnection(self.app.em, self.election, addr = ("127.0.0.1", self.master_port),
                                 connector_handler = DoNothingConnector)
         args = (NodeTypes.MASTER, uuid, ('127.0.0.1', self.master_port),
                 self.app.pt.getPartitions(), self.app.pt.getReplicas(), self.app.uuid)
-        p = protocol.acceptNodeIdentification(*args)
+        p = Packets.AcceptIdentification(*args)
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 1)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getUUID(), None)
         self.assertEqual(conn.getUUID(), None)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),1)
 
-        self.election.acceptNodeIdentification(conn, p, NodeTypes.MASTER,
+        self.election.AcceptIdentification(conn, p, NodeTypes.MASTER,
                                                      uuid, ("127.0.0.1", self.master_port),
                                                      self.app.pt.getPartitions(), 
                                                      self.app.pt.getReplicas(),
@@ -434,20 +434,20 @@ class MasterServerElectionTests(NeoTestBase):
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getUUID(), uuid)
         self.assertEqual(conn.getUUID(), uuid)
         self.assertEqual(len(conn.getConnector().mockGetNamedCalls("_addPacket")),2)
-        self.checkCalledAskPrimaryMaster(conn.getConnector(), 1)
+        self.checkCalledAskPrimary(conn.getConnector(), 1)
         
 
-    def test_10_requestNodeIdentification(self):
+    def test_10_RequestIdentification(self):
         election = self.election
         uuid = self.getNewUUID()
         args = (NodeTypes.MASTER, uuid, ('127.0.0.1', self.storage_port), 
                 'INVALID_NAME')
-        packet = protocol.requestNodeIdentification(*args)
+        packet = Packets.RequestIdentification(*args)
         # test alien cluster
         conn = Mock({"_addPacket" : None, "abort" : None,
                      "isServer" : True})
         self.checkProtocolErrorRaised(
-                election.requestNodeIdentification,
+                election.RequestIdentification,
                 conn,
                 packet=packet,
                 node_type=NodeTypes.MASTER,
@@ -458,7 +458,7 @@ class MasterServerElectionTests(NeoTestBase):
         conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None,
                     "isServer" : True})
         self.checkNotReadyErrorRaised(
-                election.requestNodeIdentification,
+                election.RequestIdentification,
                 conn,
                 packet=packet,
                 node_type=NodeTypes.STORAGE,
@@ -473,7 +473,7 @@ class MasterServerElectionTests(NeoTestBase):
         node = self.app.nm.getMasterList()[0]
         self.assertEqual(node.getUUID(), None)
         self.assertEqual(node.getState(), NodeStates.RUNNING)
-        election.requestNodeIdentification(conn,
+        election.RequestIdentification(conn,
                                                 packet=packet,
                                                 node_type=NodeTypes.MASTER,
                                                 uuid=uuid,
@@ -482,7 +482,7 @@ class MasterServerElectionTests(NeoTestBase):
         self.assertEqual(len(self.app.nm.getMasterList()), 1)
         self.assertEqual(node.getUUID(), uuid)
         self.assertEqual(node.getState(), NodeStates.RUNNING)
-        self.checkAcceptNodeIdentification(conn, answered_packet=packet)
+        self.checkAcceptIdentification(conn, answered_packet=packet)
         # unknown node
         conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None,
                     "isServer" : True})
@@ -490,7 +490,7 @@ class MasterServerElectionTests(NeoTestBase):
         self.assertEqual(len(self.app.nm.getMasterList()), 1)
         self.assertEqual(len(self.app.unconnected_master_node_set), 1)
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
-        election.requestNodeIdentification(conn,
+        election.RequestIdentification(conn,
                                                 packet=packet,
                                                 node_type=NodeTypes.MASTER,
                                                 uuid=new_uuid,
@@ -498,7 +498,7 @@ class MasterServerElectionTests(NeoTestBase):
                                                     self.master_port+1),
                                                 name=self.app.name,)
         self.assertEqual(len(self.app.nm.getMasterList()), 2)
-        self.checkAcceptNodeIdentification(conn, answered_packet=packet)
+        self.checkAcceptIdentification(conn, answered_packet=packet)
         self.assertEqual(len(self.app.unconnected_master_node_set), 2)
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
         # broken node
@@ -510,7 +510,7 @@ class MasterServerElectionTests(NeoTestBase):
         node.setState(NodeStates.BROKEN)
         self.assertEqual(node.getState(), NodeStates.BROKEN)
         self.checkBrokenNodeDisallowedErrorRaised(
-                election.requestNodeIdentification,
+                election.RequestIdentification,
                 conn,
                 packet=packet,
                 node_type=NodeTypes.MASTER,
@@ -520,17 +520,17 @@ class MasterServerElectionTests(NeoTestBase):
                 name=self.app.name,)        
 
 
-    def test_12_announcePrimaryMaster(self):
+    def test_12_announcePrimary(self):
         election = self.election
         uuid = self.identifyToMasterNode(port=self.master_port)
-        packet = Packet(msg_type=PacketTypes.ANNOUNCE_PRIMARY_MASTER)
+        packet = Packets.AnnouncePrimary()
         # No uuid
         conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "isServer" : True,
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(len(self.app.nm.getMasterList()), 1)
-        self.checkIdenficationRequired(election.announcePrimaryMaster, conn, packet)
+        self.checkIdenficationRequired(election.announcePrimary, conn, packet)
         # announce
         conn = Mock({"_addPacket" : None,
                      "getUUID" : uuid,
@@ -538,7 +538,7 @@ class MasterServerElectionTests(NeoTestBase):
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.assertEqual(self.app.primary, None)
         self.assertEqual(self.app.primary_master_node, None)
-        election.announcePrimaryMaster(conn, packet)        
+        election.announcePrimary(conn, packet)        
         self.assertEqual(self.app.primary, False)
         self.assertNotEqual(self.app.primary_master_node, None)
         # set current as primary, and announce another, must raise
@@ -548,24 +548,24 @@ class MasterServerElectionTests(NeoTestBase):
                      "getAddress" : ("127.0.0.1", self.master_port)})
         self.app.primary = True
         self.assertEqual(self.app.primary, True)
-        self.assertRaises(ElectionFailure, election.announcePrimaryMaster, conn, packet)        
+        self.assertRaises(ElectionFailure, election.announcePrimary, conn, packet)        
         
 
-    def test_13_reelectPrimaryMaster(self):
+    def test_13_reelectPrimary(self):
         election = self.election
         uuid = self.identifyToMasterNode(port=self.master_port)
-        packet = protocol.askPrimaryMaster()
+        packet = Packets.AskPrimary()
         # No uuid
         conn = Mock({"_addPacket" : None,
                      "getUUID" : None,
                      "isServer" : True,
                      "getAddress" : ("127.0.0.1", self.master_port)})
-        self.assertRaises(ElectionFailure, election.reelectPrimaryMaster, conn, packet)
+        self.assertRaises(ElectionFailure, election.reelectPrimary, conn, packet)
 
     def test_14_notifyNodeInformation(self):
         election = self.election
         uuid = self.identifyToMasterNode(port=self.master_port)
-        packet = Packet(msg_type=PacketTypes.NOTIFY_NODE_INFORMATION)
+        packet = Packets.NotifyNodeInformation()
         # do not answer if no uuid
         conn = Mock({"getUUID" : None,
                      "getAddress" : ("127.0.0.1", self.master_port)})
@@ -594,7 +594,7 @@ class MasterServerElectionTests(NeoTestBase):
                      "getAddress" : ("127.0.0.1", self.master_port)})                
         node_list = [(NodeTypes.CLIENT, ('127.0.0.1', self.master_port - 1),
             self.getNewUUID(), NodeStates.DOWN),]
-        self.assertEqual(len(self.app.nm.getNodeList()), 0)
+        self.assertEqual(len(self.app.nm.getList()), 0)
         election.notifyNodeInformation(conn, packet, node_list)
         self.assertEqual(len(self.app.nm.getNodeList()), 0)
         # tell about another master node

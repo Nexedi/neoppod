@@ -292,7 +292,7 @@ class NEOCluster(object):
 
     def _killMaster(self, primary=False, all=False):
         killed_uuid_list = []
-        primary_uuid = self.neoctl.getPrimaryMaster()
+        primary_uuid = self.neoctl.getPrimary()
         for master in self.getMasterProcessList():
             master_uuid = master.getUUID()
             is_primary = master_uuid == primary_uuid
@@ -304,7 +304,7 @@ class NEOCluster(object):
                     break
         return killed_uuid_list
 
-    def killPrimaryMaster(self):
+    def killPrimary(self):
         return self._killMaster(primary=True)
 
     def killSecondaryMaster(self, all=False):
@@ -312,7 +312,7 @@ class NEOCluster(object):
 
     def killMasters(self):
         secondary_list = self.killSecondaryMaster(all=True)
-        primary_list = self.killPrimaryMaster()
+        primary_list = self.killPrimary()
         return secondary_list + primary_list
 
     def killStorage(self, all=False):
@@ -347,9 +347,9 @@ class NEOCluster(object):
     def getMasterNodeState(self, uuid):
         return self.__getNodeState(NodeTypes.MASTER, uuid)
 
-    def getPrimaryMaster(self):
+    def getPrimary(self):
         try:
-            current_try = self.neoctl.getPrimaryMaster()
+            current_try = self.neoctl.getPrimary()
         except NotReadyException:
             current_try = None
         return current_try
@@ -394,9 +394,9 @@ class NEOCluster(object):
         self.__expectNodeState(NodeTypes.STORAGE, uuid, state, 
                 timeout,delay)
 
-    def expectPrimaryMaster(self, uuid=None, timeout=0, delay=1):
+    def expectPrimary(self, uuid=None, timeout=0, delay=1):
         def callback(last_try):
-            current_try = self.getPrimaryMaster()
+            current_try = self.getPrimary()
             if None not in (uuid, current_try) and uuid != current_try:
                 raise AssertionError, 'An unexpected primary arised: %r, ' \
                     'expected %r' % (dump(current_try), dump(uuid))

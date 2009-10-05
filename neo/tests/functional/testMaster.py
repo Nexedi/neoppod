@@ -49,25 +49,25 @@ class MasterTests(NEOFunctionalTest):
         # Check node state has changed.
         self.neo.expectMasterState(uuid, None)
 
-    def testStoppingPrimaryMasterWithTwoSecondaries(self):
+    def testStoppingPrimaryWithTwoSecondaries(self):
         # Wait for masters to stabilize
         self.neo.expectAllMasters(MASTER_NODE_COUNT)
 
         # Kill
-        killed_uuid_list = self.neo.killPrimaryMaster()
+        killed_uuid_list = self.neo.killPrimary()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
         # Check the state of the primary we just killed
         self.neo.expectMasterState(uuid, (None, NodeStates.UNKNOWN))
-        self.assertEqual(self.neo.getPrimaryMaster(), None)
+        self.assertEqual(self.neo.getPrimary(), None)
         # Check that a primary master arised.
-        self.neo.expectPrimaryMaster(timeout=10)
+        self.neo.expectPrimary(timeout=10)
         # Check that the uuid really changed.
-        new_uuid = self.neo.getPrimaryMaster()
+        new_uuid = self.neo.getPrimary()
         self.assertNotEqual(new_uuid, uuid)
 
-    def testStoppingPrimaryMasterWithOneSecondary(self):
+    def testStoppingPrimaryWithOneSecondary(self):
         self.neo.expectAllMasters(MASTER_NODE_COUNT, 
                 state=NodeStates.RUNNING)
 
@@ -78,17 +78,17 @@ class MasterTests(NEOFunctionalTest):
         self.neo.expectMasterState(killed_uuid_list[0], None)
         self.assertEqual(len(self.neo.getMasterList()), 2)
 
-        killed_uuid_list = self.neo.killPrimaryMaster()
+        killed_uuid_list = self.neo.killPrimary()
         # Test sanity check.
         self.assertEqual(len(killed_uuid_list), 1)
         uuid = killed_uuid_list[0]
         # Check the state of the primary we just killed
         self.neo.expectMasterState(uuid, (None, NodeStates.UNKNOWN))
-        self.assertEqual(self.neo.getPrimaryMaster(), None)
+        self.assertEqual(self.neo.getPrimary(), None)
         # Check that a primary master arised.
-        self.neo.expectPrimaryMaster(timeout=10)
+        self.neo.expectPrimary(timeout=10)
         # Check that the uuid really changed.
-        new_uuid = self.neo.getPrimaryMaster()
+        new_uuid = self.neo.getPrimary()
         self.assertNotEqual(new_uuid, uuid)
 
     def testMasterSequentialStart(self):
@@ -104,7 +104,7 @@ class MasterTests(NEOFunctionalTest):
         first_master.start()
         first_master_uuid = first_master.getUUID()
         # Check that the master node we started elected itself.
-        self.neo.expectPrimaryMaster(first_master_uuid, timeout=30)
+        self.neo.expectPrimary(first_master_uuid, timeout=30)
         # Check that no other node is known as running.
         self.assertEqual(len(self.neo.getMasterList(
             state=NodeStates.RUNNING)), 1)
@@ -119,7 +119,7 @@ class MasterTests(NEOFunctionalTest):
         self.neo.expectMasterState(second_master.getUUID(), 
                 NodeStates.RUNNING)
         # Check that the primary master didn't change.
-        self.assertEqual(self.neo.getPrimaryMaster(), first_master_uuid)
+        self.assertEqual(self.neo.getPrimary(), first_master_uuid)
 
         # Start a third master.
         third_master = master_list[2]
@@ -131,7 +131,7 @@ class MasterTests(NEOFunctionalTest):
         self.neo.expectMasterState(third_master.getUUID(), 
                 NodeStates.RUNNING)
         # Check that the primary master didn't change.
-        self.assertEqual(self.neo.getPrimaryMaster(), first_master_uuid)
+        self.assertEqual(self.neo.getPrimary(), first_master_uuid)
 
 def test_suite():
     return unittest.makeSuite(MasterTests)

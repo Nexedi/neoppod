@@ -18,7 +18,8 @@
 import unittest
 from struct import pack, unpack
 from neo.tests import NeoTestBase
-from neo.protocol import Packet, PacketTypes
+from neo import protocol
+from neo.protocol import Packet, Packets
 from neo.protocol import NodeTypes, NodeStates, ErrorCodes
 from neo.master.handlers.verification import VerificationHandler
 from neo.master.app import Application
@@ -127,7 +128,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_09_answerLastIDs(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=PacketTypes.ANSWER_LAST_IDS)
+        packet = Packets.AnswerLastIDs()
         loid = self.app.loid
         ltid = self.app.ltid
         lptid = '\0' * 8
@@ -151,7 +152,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_11_answerUnfinishedTransactions(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=PacketTypes.ANSWER_UNFINISHED_TRANSACTIONS)
+        packet = Packets.AnswerUnfinishedTransactions()
         # do nothing
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -178,7 +179,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_12_answerTransactionInformation(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=PacketTypes.ANSWER_TRANSACTION_INFORMATION)
+        packet = Packets.AnswerTransactionInformation()
         # do nothing, as unfinished_oid_set is None
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -229,7 +230,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_13_tidNotFound(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ErrorCodes.TID_NOT_FOUND)
+        packet = protocol.tidNotFound('')
         # do nothing as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
@@ -250,7 +251,7 @@ class MasterVerificationTests(NeoTestBase):
     def test_14_answerObjectPresent(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=PacketTypes.ANSWER_OBJECT_PRESENT)
+        packet = Packets.AnswerObjectPresent()
         # do nothing as asking_uuid_dict is True
         upper, lower = unpack('!LL', self.app.ltid)
         new_tid = pack('!LL', upper, lower + 10)
@@ -272,8 +273,8 @@ class MasterVerificationTests(NeoTestBase):
     def test_15_oidNotFound(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=ErrorCodes.OID_NOT_FOUND)
-        # do nothinf as asking_uuid_dict is True
+        packet = protocol.oidNotFound('')
+        # do nothing as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 0)
         self.app.asking_uuid_dict[uuid]  = True

@@ -47,7 +47,7 @@ class ClientHandlerTests(NeoTestBase):
                      'unlock': None})
 
     def getDispatcher(self, queue=None):
-        return Mock({'getQueue': queue, 'connectToPrimaryMasterNode': None})
+        return Mock({'getQueue': queue, 'connectToPrimaryNode': None})
 
     def buildHandler(self, handler_class, app, dispatcher):
         # some handlers do not accept the second argument
@@ -64,7 +64,7 @@ class ClientHandlerTests(NeoTestBase):
         dispatcher = self.getDispatcher()
         client_handler = BaseHandler(None, dispatcher)
         conn = self.getConnection()
-        client_handler.packetReceived(conn, protocol.ping())
+        client_handler.packetReceived(conn, Packets.Ping())
         self.checkAnswerPacket(conn, protocol.PONG)
 
     def _testInitialMasterWithMethod(self, method):
@@ -77,7 +77,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def _testMasterWithMethod(self, method, handler_class):
         uuid = self.getNewUUID()
-        app = Mock({'connectToPrimaryMasterNode': None})
+        app = Mock({'connectToPrimaryNode': None})
         app.primary_master_node = Mock({'getUUID': uuid})
         app.master_conn = Mock({'close': None, 'getUUID': uuid, 'getAddress': ('127.0.0.1', 10000)})
         dispatcher = self.getDispatcher()
@@ -209,7 +209,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler.notReady(conn, None, None)
         self.assertEquals(len(app.mockGetNamedCalls('setNodeNotReady')), 1)
 
-    def test_clientAcceptNodeIdentification(self):
+    def test_clientAcceptIdentification(self):
         class App:
             nm = Mock({'getByAddress': None})
             storage_node = None
@@ -220,7 +220,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
-        client_handler.acceptNodeIdentification(
+        client_handler.AcceptIdentification(
             conn, None, 
             NodeTypes.CLIENT,
             uuid, ('127.0.0.1', 10010), 
@@ -231,7 +231,7 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEquals(app.pt, None)
         self.assertEquals(app.uuid, 'C' * 16)
 
-    def test_masterAcceptNodeIdentification(self):
+    def test_masterAcceptIdentification(self):
         node = Mock({'setUUID': None})
         class FakeLocal:
             from Queue import Queue
@@ -248,7 +248,7 @@ class ClientHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         your_uuid = 'C' * 16
         app.uuid = INVALID_UUID
-        client_handler.acceptNodeIdentification(conn, None, 
+        client_handler.AcceptIdentification(conn, None, 
                 NodeTypes.MASTER, uuid, ('127.0.0.1', 10010), 10, 2, your_uuid)
         self.checkNotClosed(conn)
         self.checkUUIDSet(conn, uuid)
@@ -256,7 +256,7 @@ class ClientHandlerTests(NeoTestBase):
         self.assertTrue(app.pt is not None)
         self.assertEquals(app.uuid, your_uuid)
 
-    def test_storageAcceptNodeIdentification(self):
+    def test_storageAcceptIdentification(self):
         node = Mock({'setUUID': None})
         class App:
             nm = Mock({'getByAddress': node})
@@ -268,7 +268,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
-        client_handler.acceptNodeIdentification(conn, None, 
+        client_handler.AcceptIdentification(conn, None, 
                 NodeTypes.STORAGE, uuid, ('127.0.0.1', 10010), 0, 0, INVALID_UUID)
         self.checkNotClosed(conn)
         self.checkUUIDSet(conn, uuid)
@@ -279,7 +279,7 @@ class ClientHandlerTests(NeoTestBase):
         self.assertRaises(UnexpectedPacketError, method, *args, **dict(kw))
 
     # Master node handler
-    def test_nonMasterAnswerPrimaryMaster(self):
+    def test_nonMasterAnswerPrimary(self):
         for node_type in (NodeTypes.CLIENT, NodeTypes.STORAGE):
             node = Mock({'getType': node_type})
             class App:
@@ -288,12 +288,12 @@ class ClientHandlerTests(NeoTestBase):
             app = App()
             client_handler = PrimaryBootstrapHandler(app)
             conn = self.getConnection()
-            client_handler.answerPrimaryMaster(conn, None, 0, [])
+            client_handler.answerPrimary(conn, None, 0, [])
             # Check that nothing happened
             self.assertEqual(len(app.nm.mockGetNamedCalls('getByAddress')), 0)
             self.assertEqual(len(app.nm.mockGetNamedCalls('add')), 0)
 
-    def test_unknownNodeAnswerPrimaryMaster(self):
+    def test_unknownNodeAnswerPrimary(self):
         node = Mock({'getType': NodeTypes.MASTER})
         class App:
             nm = Mock({'getByAddress': None, 'add': None})
@@ -302,7 +302,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_master_list = [(('127.0.0.1', 10010), self.getNewUUID())]
-        client_handler.answerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
+        client_handler.answerPrimary(conn, None, INVALID_UUID, test_master_list)
         # Check that yet-unknown master node got added
         getByAddress_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         add_call_list = app.nm.mockGetNamedCalls('add')
@@ -318,7 +318,7 @@ class ClientHandlerTests(NeoTestBase):
         # hence INVALID_UUID in call).
         self.assertEquals(app.primary_master_node, None)
 
-    def test_knownNodeUnknownUUIDNodeAnswerPrimaryMaster(self):
+    def test_knownNodeUnknownUUIDNodeAnswerPrimary(self):
         node = Mock({'getType': NodeTypes.MASTER, 'getUUID': None, 'setUUID': None})
         class App:
             nm = Mock({'getByAddress': node, 'add': None})
@@ -328,7 +328,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         test_node_uuid = self.getNewUUID()
         test_master_list = [(('127.0.0.1', 10010), test_node_uuid)]
-        client_handler.answerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
+        client_handler.answerPrimary(conn, None, INVALID_UUID, test_master_list)
         # Test sanity checks
         getByAddress_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         self.assertEqual(len(getByAddress_call_list), 1)
@@ -344,7 +344,7 @@ class ClientHandlerTests(NeoTestBase):
         # hence INVALID_UUID in call).
         self.assertEquals(app.primary_master_node, None)
 
-    def test_knownNodeKnownUUIDNodeAnswerPrimaryMaster(self):
+    def test_knownNodeKnownUUIDNodeAnswerPrimary(self):
         test_node_uuid = self.getNewUUID()
         node = Mock({'getType': NodeTypes.MASTER, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
@@ -354,7 +354,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_master_list = [(('127.0.0.1', 10010), test_node_uuid)]
-        client_handler.answerPrimaryMaster(conn, None, INVALID_UUID, test_master_list)
+        client_handler.answerPrimary(conn, None, INVALID_UUID, test_master_list)
         # Test sanity checks
         getByAddress_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         self.assertEqual(len(getByAddress_call_list), 1)
@@ -374,7 +374,7 @@ class ClientHandlerTests(NeoTestBase):
     # TODO: test known node, known but different uuid (not detected in code,
     # desired behaviour unknown)
 
-    def test_alreadyDifferentPrimaryAnswerPrimaryMaster(self):
+    def test_alreadyDifferentPrimaryAnswerPrimary(self):
         test_node_uuid = self.getNewUUID()
         test_primary_node_uuid = test_node_uuid
         while test_primary_node_uuid == test_node_uuid:
@@ -391,7 +391,7 @@ class ClientHandlerTests(NeoTestBase):
         # If primary master is already set *and* is not given primary master
         # handle call raises.
         # Check that the call doesn't raise
-        client_handler.answerPrimaryMaster(conn, None, test_node_uuid, [])
+        client_handler.answerPrimary(conn, None, test_node_uuid, [])
         # Check that the primary master changed
         self.assertTrue(app.primary_master_node is node)
         # Test sanity checks
@@ -401,7 +401,7 @@ class ClientHandlerTests(NeoTestBase):
         getByAddress_call_list = app.nm.mockGetNamedCalls('getNodeByServer')
         self.assertEqual(len(getByAddress_call_list), 0)
 
-    def test_alreadySamePrimaryAnswerPrimaryMaster(self):
+    def test_alreadySamePrimaryAnswerPrimary(self):
         test_node_uuid = self.getNewUUID()
         node = Mock({'getType': NodeTypes.MASTER, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
@@ -411,11 +411,11 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
-        client_handler.answerPrimaryMaster(conn, None, test_node_uuid, [])
+        client_handler.answerPrimary(conn, None, test_node_uuid, [])
         # Check that primary node is (still) node.
         self.assertTrue(app.primary_master_node is node)
 
-    def test_unknownNewPrimaryAnswerPrimaryMaster(self):
+    def test_unknownNewPrimaryAnswerPrimary(self):
         test_node_uuid = self.getNewUUID()
         test_primary_node_uuid = test_node_uuid
         while test_primary_node_uuid == test_node_uuid:
@@ -428,7 +428,7 @@ class ClientHandlerTests(NeoTestBase):
         app = App()
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
-        client_handler.answerPrimaryMaster(conn, None, test_primary_node_uuid, [])
+        client_handler.answerPrimary(conn, None, test_primary_node_uuid, [])
         # Test sanity checks
         getByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
         self.assertEqual(len(getByUUID_call_list), 1)
@@ -436,7 +436,7 @@ class ClientHandlerTests(NeoTestBase):
         # Check that primary node was not updated.
         self.assertTrue(app.primary_master_node is None)
 
-    def test_AnswerPrimaryMaster(self):
+    def test_AnswerPrimary(self):
         test_node_uuid = self.getNewUUID()
         node = Mock({'getType': NodeTypes.MASTER, 'getUUID': test_node_uuid, 'setUUID': None})
         class App:
@@ -447,7 +447,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = PrimaryBootstrapHandler(app)
         conn = self.getConnection()
         test_master_list = [(('127.0.0.1', 10010), test_node_uuid)]
-        client_handler.answerPrimaryMaster(conn, None, test_node_uuid, test_master_list)
+        client_handler.answerPrimary(conn, None, test_node_uuid, test_master_list)
         # Test sanity checks
         getByUUID_call_list = app.nm.mockGetNamedCalls('getNodeByUUID')
         self.assertEqual(len(getByUUID_call_list), 1)
@@ -652,7 +652,7 @@ class ClientHandlerTests(NeoTestBase):
             self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
             self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
 
-    def test_noPrimaryMasterNotifyPartitionChanges(self):
+    def test_noPrimaryNotifyPartitionChanges(self):
         node = Mock({'getType': NodeTypes.MASTER})
         class App:
             nm = Mock({'getByUUID': node})
@@ -667,7 +667,7 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEquals(len(app.pt.mockGetNamedCalls('setCell')), 0)
         self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
 
-    def test_nonPrimaryMasterNotifyPartitionChanges(self):
+    def test_nonPrimaryNotifyPartitionChanges(self):
         test_master_uuid = self.getNewUUID()
         test_sender_uuid = test_master_uuid
         while test_sender_uuid == test_master_uuid:

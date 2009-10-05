@@ -21,7 +21,7 @@ from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoTestBase
 from neo import protocol
-from neo.protocol import Packet, PacketTypes
+from neo.protocol import Packet, Packets
 from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.app import Application
@@ -66,7 +66,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_05_notifyNodeInformation(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=PacketTypes.NOTIFY_NODE_INFORMATION)
+        packet = Packets.NotifyNodeInformation()
         # tell the master node that is not running any longer, it must raises
         conn = self.getFakeConnection(uuid, self.storage_address)
         node_list = [(NodeTypes.MASTER, '127.0.0.1', self.master_port,
@@ -136,7 +136,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_06_answerLastIDs(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=PacketTypes.ANSWER_LAST_IDS)
+        packet = Packets.AnswerLastIDs()
         loid = self.app.loid
         ltid = self.app.ltid
         lptid = self.app.pt.getID()
@@ -154,7 +154,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_10_notifyInformationLocked(self):
         service = self.service
         uuid = self.identifyToMasterNode(port=10020)
-        packet = Packet(msg_type=PacketTypes.NOTIFY_INFORMATION_LOCKED)
+        packet = Packets.NotifyInformationLocked()
         # give an older tid than the PMN known, must abort
         conn = self.getFakeConnection(uuid, self.storage_address)
         oid_list = []
@@ -197,7 +197,8 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_12_askLastIDs(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=PacketTypes.ASK_LAST_IDS)
+        packet = Packets.AskLastIDs()
+        packet.setId(0)
         # give a uuid
         conn = self.getFakeConnection(uuid, self.storage_address)
         ptid = self.app.pt.getID()
@@ -205,7 +206,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         oid = self.app.loid
         service.askLastIDs(conn, packet)
         packet = self.checkAnswerLastIDs(conn, answered_packet=packet)
-        loid, ltid, lptid = protocol._decodeAnswerLastIDs(packet._body)
+        loid, ltid, lptid = packet.decode()
         self.assertEqual(loid, oid)
         self.assertEqual(ltid, tid)
         self.assertEqual(lptid, ptid)
@@ -214,12 +215,13 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_13_askUnfinishedTransactions(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=PacketTypes.ASK_UNFINISHED_TRANSACTIONS)
+        packet = Packets.AskUnfinishedTransactions()
+        packet.setId(0)
         # give a uuid
         conn = self.getFakeConnection(uuid, self.storage_address)
         service.askUnfinishedTransactions(conn, packet)
         packet = self.checkAnswerUnfinishedTransactions(conn, answered_packet=packet)
-        tid_list = protocol._decodeAnswerUnfinishedTransactions(packet._body)[0]
+        tid_list = packet.decode()
         self.assertEqual(len(tid_list), 0)
         # create some transaction
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
@@ -238,7 +240,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_14_notifyPartitionChanges(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=PacketTypes.NOTIFY_PARTITION_CHANGES)
+        packet = Packets.NotifyPartitionChanges()
         # do not answer if not a storage node
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port=self.client_port)
@@ -335,7 +337,7 @@ class MasterStorageHandlerTests(NeoTestBase):
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()
-        packet = Packet(msg_type=ASK_BEGIN_TRANSACTION)
+        packet = AskBeginTransaction()
         service.askBeginTransaction(conn, packet)
         service.askBeginTransaction(conn, packet)
         service.askBeginTransaction(conn, packet)
@@ -384,7 +386,7 @@ class MasterStorageHandlerTests(NeoTestBase):
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()
-        packet = Packet(msg_type=ASK_BEGIN_TRANSACTION)
+        packet = AskBeginTransaction()
         service.askBeginTransaction(conn, packet)
         service.askBeginTransaction(conn, packet)
         service.askBeginTransaction(conn, packet)
@@ -433,7 +435,7 @@ class MasterStorageHandlerTests(NeoTestBase):
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()
-        packet = Packet(msg_type=ASK_BEGIN_TRANSACTION)
+        packet = AskBeginTransaction()
         service.askBeginTransaction(conn, packet)
         service.askBeginTransaction(conn, packet)
         service.askBeginTransaction(conn, packet)

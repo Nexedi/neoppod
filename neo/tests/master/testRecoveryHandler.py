@@ -18,7 +18,7 @@
 import unittest
 from struct import pack, unpack
 from neo.tests import NeoTestBase
-from neo.protocol import Packet, PacketTypes
+from neo.protocol import Packet, Packets
 from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.master.handlers.recovery import RecoveryHandler
 from neo.master.app import Application
@@ -93,7 +93,7 @@ class MasterRecoveryTests(NeoTestBase):
     def test_08_notifyNodeInformation(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode(NodeTypes.MASTER, port=self.master_port)
-        packet = Packet(msg_type=PacketTypes.NOTIFY_NODE_INFORMATION)
+        packet = Packets.NotifyNodeInformation()
         # tell about a client node, do nothing
         conn = self.getFakeConnection(uuid, self.master_address)
         node_list = [(NodeTypes.CLIENT, '127.0.0.1', self.client_port,
@@ -151,7 +151,7 @@ class MasterRecoveryTests(NeoTestBase):
     def test_09_answerLastIDs(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode()
-        packet = Packet(msg_type=PacketTypes.ANSWER_LAST_IDS)
+        packet = Packets.AnswerLastIDs()
         loid = self.app.loid
         ltid = self.app.ltid
         lptid = self.app.pt.getID()
@@ -178,7 +178,7 @@ class MasterRecoveryTests(NeoTestBase):
     def test_10_answerPartitionTable(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode(NodeTypes.MASTER, port=self.master_port)
-        packet = Packet(msg_type=PacketTypes.ANSWER_PARTITION_TABLE)
+        packet = Packets.AnswerPartitionTable()
         # not from target node, ignore
         uuid = self.identifyToMasterNode(NodeTypes.STORAGE, port=self.storage_port)
         conn = self.getFakeConnection(uuid, self.storage_port)
