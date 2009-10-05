@@ -19,6 +19,7 @@ from neo import logging
 
 from neo.storage.handlers import BaseMasterHandler
 from neo import protocol
+from neo.protocol import Packets
 from neo.util import dump
 from neo.exception import OperationFailure
 
@@ -29,7 +30,7 @@ class VerificationHandler(BaseMasterHandler):
         app = self.app
         oid = app.dm.getLastOID()
         tid = app.dm.getLastTID()
-        p = protocol.answerLastIDs(oid, tid, app.pt.getID())
+        p = Packets.AnswerLastIDs(oid, tid, app.pt.getID())
         conn.answer(p, packet.getId())
 
     def askPartitionTable(self, conn, packet, offset_list):
@@ -50,7 +51,7 @@ class VerificationHandler(BaseMasterHandler):
         except IndexError:
             raise protocol.ProtocolError('invalid partition table offset')
 
-        p = protocol.answerPartitionTable(app.pt.getID(), row_list)
+        p = Packets.AnswerPartitionTable(app.pt.getID(), row_list)
         conn.answer(p, packet.getId())
 
     def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
@@ -73,7 +74,7 @@ class VerificationHandler(BaseMasterHandler):
 
     def askUnfinishedTransactions(self, conn, packet):
         tid_list = self.app.dm.getUnfinishedTIDList()
-        p = protocol.answerUnfinishedTransactions(tid_list)
+        p = Packets.AnswerUnfinishedTransactions(tid_list)
         conn.answer(p, packet.getId())
 
     def askTransactionInformation(self, conn, packet, tid):
@@ -82,12 +83,12 @@ class VerificationHandler(BaseMasterHandler):
         if t is None:
             p = protocol.tidNotFound('%s does not exist' % dump(tid))
         else:
-            p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
+            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3], t[0])
         conn.answer(p, packet.getId())
 
     def askObjectPresent(self, conn, packet, oid, tid):
         if self.app.dm.objectPresent(oid, tid):
-            p = protocol.answerObjectPresent(oid, tid)
+            p = Packets.AnswerObjectPresent(oid, tid)
         else:
             p = protocol.oidNotFound(
                           '%s:%s do not exist' % (dump(oid), dump(tid)))

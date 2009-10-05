@@ -64,4 +64,4 @@ class CommandEventHandler(EventHandler):
     answerNodeState = __answer
     answerClusterState = __answer
     answerNewNodes = __answer
-    answerPrimaryMaster = __answer
+    answerPrimary = __answer

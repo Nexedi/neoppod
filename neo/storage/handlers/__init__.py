@@ -21,7 +21,7 @@ from neo.handler import EventHandler
 from neo import protocol
 from neo.util import dump
 from neo.exception import PrimaryFailure, OperationFailure
-from neo.protocol import NodeStates
+from neo.protocol import NodeStates, Packets
 
 class BaseStorageHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -33,7 +33,7 @@ class BaseMasterHandler(BaseStorageHandler):
     def connectionLost(self, conn, new_state):
         raise PrimaryFailure('connection lost')
 
-    def reelectPrimaryMaster(self, conn, packet):
+    def reelectPrimary(self, conn, packet):
         raise PrimaryFailure('re-election occurs')
 
     def notifyClusterInformation(self, conn, packet, state):
@@ -85,7 +85,7 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
 
         tid_list = app.dm.getTIDList(first, last - first,
                              app.pt.getPartitions(), partition_list)
-        conn.answer(protocol.answerTIDs(tid_list), packet.getId())
+        conn.answer(Packets.AnswerTIDs(tid_list), packet.getId())
 
     def askObjectHistory(self, conn, packet, oid, first, last):
         if first >= last:
@@ -95,7 +95,7 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
         history_list = app.dm.getObjectHistory(oid, first, last - first)
         if history_list is None:
             history_list = []
-        p = protocol.answerObjectHistory(oid, history_list)
+        p = Packets.AnswerObjectHistory(oid, history_list)
         conn.answer(p, packet.getId())
 
     def askTransactionInformation(self, conn, packet, tid):
@@ -104,7 +104,7 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
         if t is None:
             p = protocol.tidNotFound('%s does not exist' % dump(tid))
         else:
-            p = protocol.answerTransactionInformation(tid, t[1], t[2], t[3], t[0])
+            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3], t[0])
         conn.answer(p, packet.getId())
 
     def askObject(self, conn, packet, oid, serial, tid):
@@ -119,7 +119,7 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
             serial, next_serial, compression, checksum, data = o
             logging.debug('oid = %s, serial = %s, next_serial = %s',
                           dump(oid), dump(serial), dump(next_serial))
-            p = protocol.answerObject(oid, serial, next_serial,
+            p = Packets.AnswerObject(oid, serial, next_serial,
                            compression, checksum, data)
         else:
             logging.debug('oid = %s not found', dump(oid))

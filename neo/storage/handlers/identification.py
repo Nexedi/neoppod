@@ -18,7 +18,7 @@
 from neo import logging
 
 from neo.storage.handlers import BaseStorageHandler
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, Packets
 from neo import protocol
 from neo.util import dump
 
@@ -28,7 +28,7 @@ class IdentificationHandler(BaseStorageHandler):
     def connectionLost(self, conn, new_state):
         logging.warning('A connection was lost during identification')
 
-    def requestNodeIdentification(self, conn, packet, node_type,
+    def requestIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
         self.checkClusterName(name)
         # reject any incoming connections if not ready
@@ -61,6 +61,6 @@ class IdentificationHandler(BaseStorageHandler):
         args = (NodeTypes.STORAGE, app.uuid, app.server, 
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         # accept the identification and trigger an event
-        conn.answer(protocol.acceptNodeIdentification(*args), packet.getId())
+        conn.answer(Packets.AcceptIdentification(*args), packet.getId())
         handler.connectionCompleted(conn)
 

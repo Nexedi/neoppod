@@ -19,7 +19,7 @@ from neo import logging
 from neo.locking import RLock
 
 from neo import protocol
-from neo.protocol import PacketMalformedError, PacketTypes
+from neo.protocol import PacketMalformedError, Packets
 from neo.event import IdleEvent
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
@@ -239,7 +239,7 @@ class Connection(BaseConnection):
             try:
                 packet = protocol.parse(self.read_buf)
             except PacketMalformedError, msg:
-                self.handler.packetMalformed(self, packet, msg)
+                self.handler._packetMalformed(self, packet, msg)
                 return
 
             if packet is None:
@@ -256,10 +256,10 @@ class Connection(BaseConnection):
 
             try:
                 packet_type = packet.getType()
-                if packet_type == PacketTypes.PING:
+                if packet_type == Packets.Ping:
                     # Send a pong notification
-                    self.answer(protocol.pong(), packet.getId())
-                elif packet_type != PacketTypes.PONG:
+                    self.answer(Packets.Pong(), packet.getId())
+                elif packet_type != Packets.Pong:
                     # Skip PONG packets, its only purpose is to drop IdleEvent
                     # generated upong ping.
                     self._queue.append(packet)
@@ -357,7 +357,7 @@ class Connection(BaseConnection):
 
         PACKET_LOGGER.log(self, packet, ' to ')
         try:
-            self.write_buf += packet.encode()
+            self.write_buf += str(packet)
         except PacketMalformedError, m:
             logging.critical('trying to send a too big message')
             raise
@@ -418,7 +418,7 @@ class Connection(BaseConnection):
 
     def ping(self, timeout=5):
         """ Send a ping and expect to receive a pong notification """
-        packet = protocol.ping()
+        packet = Packets.Ping()
         msg_id = self._getNextId()
         packet.setId(msg_id)
         self.expectMessage(msg_id, timeout, 0)

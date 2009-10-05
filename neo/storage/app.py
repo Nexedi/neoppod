@@ -19,8 +19,7 @@ from neo import logging
 import sys
 from collections import deque
 
-from neo import protocol
-from neo.protocol import NodeTypes, CellStates
+from neo.protocol import NodeTypes, CellStates, Packets
 from neo.node import NodeManager
 from neo.event import EventManager
 from neo.storage.mysqldb import MySQLDatabaseManager
@@ -159,7 +158,7 @@ class Application(object):
         # until the user explicitly requests a shutdown.
         while 1:
             # look for the primary master
-            self.connectToPrimaryMaster()
+            self.connectToPrimary()
             self.operational = False
             try:
                 while 1:
@@ -180,7 +179,7 @@ class Application(object):
             except PrimaryFailure, msg:
                 logging.error('primary master is down : %s' % msg)
 
-    def connectToPrimaryMaster(self):
+    def connectToPrimary(self):
         """Find a primary master node, and connect to it.
 
         If a primary master node is not elected or ready, repeat
@@ -242,8 +241,8 @@ class Application(object):
         self.has_node_information = False
         self.has_partition_table = False
         self.pt.clear()
-        self.master_conn.ask(protocol.askNodeInformation())        
-        self.master_conn.ask(protocol.askPartitionTable(()))
+        self.master_conn.ask(Packets.AskNodeInformation())        
+        self.master_conn.ask(Packets.AskPartitionTable(()))
         while not self.has_node_information or not self.has_partition_table:
             self.em.poll(1)
         self.ready = True

@@ -19,7 +19,7 @@ from neo import logging
 
 from neo import protocol
 from neo.master.handlers import MasterHandler
-from neo.protocol import ClusterStates, NodeStates
+from neo.protocol import ClusterStates, NodeStates, Packets
 from neo.util import dump
 
 class AdministrationHandler(MasterHandler):
@@ -29,10 +29,10 @@ class AdministrationHandler(MasterHandler):
         node = self.app.nm.getByUUID(conn.getUUID())
         self.app.nm.remove(node)
 
-    def askPrimaryMaster(self, conn, packet):
+    def askPrimary(self, conn, packet):
         app = self.app
         # I'm the primary
-        conn.answer(protocol.answerPrimaryMaster(app.uuid, []), packet.getId())
+        conn.answer(Packets.AnswerPrimary(app.uuid, []), packet.getId())
 
     def setClusterState(self, conn, packet, state):
         self.app.changeClusterState(state)
@@ -123,8 +123,8 @@ class AdministrationHandler(MasterHandler):
         # start nodes
         for s_conn in em.getConnectionList():
             if s_conn.getUUID() in uuid_set:
-                s_conn.notify(protocol.notifyLastOID(app.loid))
-                s_conn.notify(protocol.startOperation())
+                s_conn.notify(Packets.NotifyLastOID(app.loid))
+                s_conn.notify(Packets.StartOperation())
         # broadcast the new partition table
         app.broadcastPartitionChanges(app.pt.setNextID(), cell_list)
         p = protocol.noError('node added')

@@ -34,17 +34,17 @@ class SecondaryMasterHandler(MasterHandler):
     def connectionCompleted(self, conn):
         pass
 
-    def announcePrimaryMaster(self, conn, packet):
+    def announcePrimary(self, conn, packet):
         raise ElectionFailure, 'another primary arises'
 
-    def reelectPrimaryMaster(self, conn, packet):
+    def reelectPrimary(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
     def notifyNodeInformation(self, conn, packet, node_list):
         logging.error('/!\ NotifyNodeInformation packet from secondary master')
 
 
-class PrimaryMasterHandler(MasterHandler):
+class PrimaryHandler(MasterHandler):
     """ Handler used by secondaries to handle primary master"""
 
     def packetReceived(self, conn, packet):
@@ -58,10 +58,10 @@ class PrimaryMasterHandler(MasterHandler):
         self.app.primary_master_node.setDown()
         raise PrimaryFailure, 'primary master is dead'
 
-    def announcePrimaryMaster(self, conn, packet):
+    def announcePrimary(self, conn, packet):
         raise protocol.UnexpectedPacketError
 
-    def reelectPrimaryMaster(self, conn, packet):
+    def reelectPrimary(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
     def notifyNodeInformation(self, conn, packet, node_list):
@@ -86,7 +86,7 @@ class PrimaryMasterHandler(MasterHandler):
                     if n.getUUID() is None:
                         n.setUUID(uuid)
 
-    def acceptNodeIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, packet, node_type,
                                        uuid, address, num_partitions,
                                        num_replicas, your_uuid):
         app = self.app
@@ -101,7 +101,7 @@ class PrimaryMasterHandler(MasterHandler):
         conn.setUUID(uuid)
         node.setUUID(uuid)
 
-    def answerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
+    def answerPrimary(self, conn, packet, primary_uuid, known_master_list):
         pass
 
     def notifyClusterInformation(self, conn, packet, state):

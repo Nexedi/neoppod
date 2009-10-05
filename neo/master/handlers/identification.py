@@ -18,7 +18,7 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, Packets
 from neo.master.handlers import MasterHandler
 
 class IdentificationHandler(MasterHandler):
@@ -27,7 +27,7 @@ class IdentificationHandler(MasterHandler):
     def nodeLost(self, conn, node):
         logging.warning('lost a node in IdentificationHandler : %s' % node)
 
-    def requestNodeIdentification(self, conn, packet, node_type,
+    def requestIdentification(self, conn, packet, node_type,
             uuid, address, name):
 
         self.checkClusterName(name)
@@ -45,7 +45,7 @@ class IdentificationHandler(MasterHandler):
                 node.setRunning()
             if node.getAddress() != address:
                 if node.isRunning():
-                    # still running, reject this new node
+                   # still running, reject this new node
                     raise protocol.ProtocolError('invalid server address')
                 # this node has changed its address
                 node.setAddress(address)
@@ -76,7 +76,7 @@ class IdentificationHandler(MasterHandler):
         # answer
         args = (NodeTypes.MASTER, app.uuid, app.server, 
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
-        conn.answer(protocol.acceptNodeIdentification(*args), packet.getId())
+        conn.answer(Packets.AcceptIdentification(*args), packet.getId())
         # trigger the event
         handler.connectionCompleted(conn)
         app.broadcastNodeInformation(node)

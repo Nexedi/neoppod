@@ -19,7 +19,7 @@ from neo import logging
 from time import sleep
 
 from neo.handler import EventHandler
-from neo import protocol
+from neo.protocol import Packets
 from neo.util import dump
 from neo.connection import ClientConnection
 
@@ -43,7 +43,7 @@ class BootstrapManager(EventHandler):
 
     def connectionCompleted(self, conn):
         EventHandler.connectionCompleted(self, conn)
-        conn.ask(protocol.askPrimaryMaster())
+        conn.ask(Packets.AskPrimary())
 
     def connectionFailed(self, conn):
         EventHandler.connectionFailed(self, conn)
@@ -57,7 +57,7 @@ class BootstrapManager(EventHandler):
         self.current = None
         conn.close()
 
-    def answerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
+    def answerPrimary(self, conn, packet, primary_uuid, known_master_list):
         nm  = self.app.nm
 
         # Register new master nodes.
@@ -78,10 +78,10 @@ class BootstrapManager(EventHandler):
             return
 
         logging.info('connected to a primary master node')
-        conn.ask(protocol.requestNodeIdentification(self.node_type,
+        conn.ask(Packets.RequestIdentification(self.node_type,
                 self.uuid, self.server, self.name))
 
-    def acceptNodeIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, packet, node_type,
            uuid, address, num_partitions, num_replicas, your_uuid):
         self.num_partitions = num_partitions
         self.num_replicas = num_replicas

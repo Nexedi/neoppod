@@ -21,7 +21,8 @@ from time import time
 from struct import pack, unpack
 
 from neo import protocol
-from neo.protocol import UUID_NAMESPACES, ClusterStates, NodeStates, NodeTypes
+from neo.protocol import UUID_NAMESPACES
+from neo.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.node import NodeManager
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection
@@ -201,7 +202,7 @@ class Application(object):
                     self.primary = True
                     logging.debug('I am the primary, so sending an announcement')
                     for conn in em.getClientList():
-                        conn.notify(protocol.announcePrimaryMaster())
+                        conn.notify(Packets.AnnouncePrimary())
                         conn.abort()
                     t = time()
                     while em.getClientList():
@@ -241,7 +242,7 @@ class Application(object):
 
                 # Ask all connected nodes to reelect a single primary master.
                 for conn in em.getClientList():
-                    conn.notify(protocol.reelectPrimaryMaster())
+                    conn.notify(Packets.ReelectPrimary())
                     conn.abort()
 
                 # Wait until the connections are closed.
@@ -282,12 +283,12 @@ class Application(object):
                     n = self.nm.getByUUID(c.getUUID())
                     if n.isMaster() or n.isStorage() or n.isAdmin():
                         node_list = [(node_type, address, uuid, state)]
-                        c.notify(protocol.notifyNodeInformation(node_list))
+                        c.notify(Packets.NotifyNodeInformation(node_list))
         elif node.isMaster() or node.isStorage():
             for c in self.em.getConnectionList():
                 if c.getUUID() is not None:
                     node_list = [(node_type, address, uuid, state)]
-                    c.notify(protocol.notifyNodeInformation(node_list))
+                    c.notify(Packets.NotifyNodeInformation(node_list))
         elif not node.isAdmin():
             raise RuntimeError('unknown node type')
 
@@ -307,7 +308,7 @@ class Application(object):
                 while size:
                     amt = min(10000, size)
                     cell_list = cell_list[start:start+amt]
-                    p = protocol.notifyPartitionChanges(ptid, cell_list)
+                    p = Packets.NotifyPartitionChanges(ptid, cell_list)
                     c.notify(p)
                     size -= amt
                     start += amt
@@ -325,10 +326,10 @@ class Application(object):
             row_list.append((offset, self.pt.getRow(offset)))
             # Split the packet if too huge.
             if len(row_list) == 1000:
-                conn.notify(protocol.sendPartitionTable( self.pt.getID(), row_list))
+                conn.notify(Packets.SendPartitionTable( self.pt.getID(), row_list))
                 del row_list[:]
         if row_list:
-            conn.notify(protocol.sendPartitionTable(self.pt.getID(), row_list))
+            conn.notify(Packets.SendPartitionTable(self.pt.getID(), row_list))
 
     def sendNodesInformations(self, conn):
         """ Send informations on all nodes through the given connection """
@@ -338,14 +339,14 @@ class Application(object):
                 node_list.append(n.asTuple())
                 # Split the packet if too huge.
                 if len(node_list) == 10000:
-                    conn.notify(protocol.notifyNodeInformation(node_list))
+                    conn.notify(Packets.NotifyNodeInformation(node_list))
                     del node_list[:]
         if node_list:
-            conn.notify(protocol.notifyNodeInformation(node_list))
+            conn.notify(Packets.NotifyNodeInformation(node_list))
 
     def broadcastLastOID(self, oid):
         logging.debug('Broadcast last OID to storages : %s' % dump(oid))
-        packet = protocol.notifyLastOID(oid)
+        packet = Packets.NotifyLastOID(oid)
         for conn in self.em.getConnectionList():
             node = self.nm.getByUUID(conn.getUUID())
             if node is not None and node.isStorage():
@@ -424,7 +425,7 @@ class Application(object):
             uuid = conn.getUUID()
             if uuid in transaction_uuid_list:
                 self.asking_uuid_dict[uuid] = False
-                conn.ask(protocol.askTransactionInformation(tid))
+                conn.ask(Packets.AskTransactionInformation(tid))
         if len(self.asking_uuid_dict) == 0:
             raise VerificationFailure
 
@@ -454,7 +455,7 @@ class Application(object):
                     uuid = conn.getUUID()
                     if uuid in object_uuid_list:
                         self.asking_uuid_dict[uuid] = False
-                        conn.ask(protocol.askObjectPresent(oid, tid))
+                        conn.ask(Packets.AskObjectPresent(oid, tid))
 
                 while 1:
                     em.poll(1)
@@ -506,7 +507,7 @@ class Application(object):
                 node = nm.getByUUID(uuid)
                 if node.isStorage():
                     self.asking_uuid_dict[uuid] = False
-                    conn.ask(protocol.askUnfinishedTransactions())
+                    conn.ask(Packets.AskUnfinishedTransactions())
 
         while 1:
             em.poll(1)
@@ -527,12 +528,12 @@ class Application(object):
                     if uuid is not None:
                         node = nm.getByUUID(uuid)
                         if node.isStorage():
-                            conn.notify(protocol.deleteTransaction(tid))
+                            conn.notify(Packets.DeleteTransaction(tid))
             else:
                 for conn in em.getConnectionList():
                     uuid = conn.getUUID()
                     if uuid in uuid_set:
-                        conn.ask(protocol.commitTransaction(tid))
+                        conn.ask(Packets.CommitTransaction(tid))
 
             # If possible, send the packets now.
             em.poll(0)
@@ -572,7 +573,7 @@ class Application(object):
                 for conn in em.getConnectionList():
                     node = nm.getByUUID(conn.getUUID())
                     if node is not None and (node.isStorage() or node.isClient()):
-                        conn.notify(protocol.stopOperation())
+                        conn.notify(Packets.StopOperation())
                         if node.isClient():
                             conn.abort()
 
@@ -625,7 +626,7 @@ class Application(object):
         # apply the new handler to the primary connection
         client_list = self.em.getClientList()
         assert len(client_list) == 1
-        client_list[0].setHandler(secondary.PrimaryMasterHandler(self))
+        client_list[0].setHandler(secondary.PrimaryHandler(self))
 
         # and another for the future incoming connections
         handler = identification.IdentificationHandler(self)
@@ -653,7 +654,7 @@ class Application(object):
             RuntimeError('Unexpected node type')
 
         # change handlers
-        notification_packet = protocol.notifyClusterInformation(state)
+        notification_packet = Packets.NotifyClusterInformation(state)
         for conn in em.getConnectionList():
             node = nm.getByUUID(conn.getUUID())
             if conn.isListening() or node is None:
@@ -725,7 +726,7 @@ class Application(object):
                         if node.isClient():
                             node_list = [(node.getType(), node.getAddress(), 
                                 node.getUUID(), NodeStates.DOWN)]
-                            c.notify(protocol.notifyNodeInformation(node_list))
+                            c.notify(Packets.NotifyNodeInformation(node_list))
                     # then ask storages and master nodes to shutdown
                     logging.info("asking all remaining nodes to shutdown")
                     for c in self.em.getConnectionList():
@@ -733,7 +734,7 @@ class Application(object):
                         if node.isStorage() or node.isMaster():
                             node_list = [(node.getType(), node.getAddress(), 
                                 node.getUUID(), NodeStates.DOWN)]
-                            c.notify(protocol.notifyNodeInformation(node_list))
+                            c.notify(Packets.NotifyNodeInformation(node_list))
                     # then shutdown
                     sys.exit("Cluster has been asked to shut down")
 

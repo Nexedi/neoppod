@@ -28,7 +28,7 @@ from neo.bootstrap import BootstrapManager
 from neo.pt import PartitionTable
 from neo import protocol
 from neo.util import parseMasterList
-from neo.protocol import NodeTypes, NodeStates
+from neo.protocol import NodeTypes, NodeStates, Packets
 
 class Dispatcher:
     """Dispatcher use to redirect master request to handler"""
@@ -100,7 +100,7 @@ class Application(object):
         # start the operation. This cycle will be executed permentnly,
         # until the user explicitly requests a shutdown.
         while 1:
-            self.connectToPrimaryMaster()
+            self.connectToPrimary()
             try:
                 while 1:
                     self.em.poll(1)
@@ -108,7 +108,7 @@ class Application(object):
                 logging.error('primary master is down')
 
 
-    def connectToPrimaryMaster(self):
+    def connectToPrimary(self):
         """Find a primary master node, and connect to it.
 
         If a primary master node is not elected or ready, repeat
@@ -145,8 +145,8 @@ class Application(object):
 
         # passive handler
         self.master_conn.setHandler(self.master_event_handler)
-        self.master_conn.ask(protocol.askNodeInformation())
-        self.master_conn.ask(protocol.askPartitionTable([]))
+        self.master_conn.ask(Packets.AskNodeInformation())
+        self.master_conn.ask(Packets.AskPartitionTable([]))
 
     def sendPartitionTable(self, conn, min_offset, max_offset, uuid, msg_id):
         # we have a pt
@@ -170,5 +170,5 @@ class Application(object):
             p = protocol.protocolError('invalid partition table offset')
             conn.notify(p)
             return
-        p = protocol.answerPartitionList(self.ptid, row_list)
+        p = Packets.AnswerPartitionList(self.ptid, row_list)
         conn.answer(p, msg_id)

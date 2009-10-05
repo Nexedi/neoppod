@@ -17,9 +17,8 @@
 
 from neo import logging
 
-from neo import protocol
 from neo.handler import EventHandler
-from neo.protocol import NodeTypes, NodeStates
+from neo.protocol import NodeTypes, NodeStates, Packets
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -27,9 +26,9 @@ class MasterHandler(EventHandler):
     def protocolError(self, conn, packet, message):
         logging.error('Protocol error %s %s' % (message, conn.getAddress()))
 
-    def askPrimaryMaster(self, conn, packet):
+    def askPrimary(self, conn, packet):
         if conn.getConnector() is None:
-            # Connection can be closed by peer after he sent AskPrimaryMaster
+            # Connection can be closed by peer after he sent AskPrimary
             # if he finds the primary master before we answer him.
             # The connection gets closed before this message gets processed
             # because this message might have been queued, but connection
@@ -48,7 +47,7 @@ class MasterHandler(EventHandler):
             if n.isBroken():
                 continue
             known_master_list.append((n.getAddress(), n.getUUID(), ))
-        conn.answer(protocol.answerPrimaryMaster(
+        conn.answer(Packets.AnswerPrimary(
             primary_uuid,
             known_master_list),
             packet.getId(),
@@ -57,17 +56,17 @@ class MasterHandler(EventHandler):
     def askClusterState(self, conn, packet):
         assert conn.getUUID() is not None
         state = self.app.getClusterState()
-        conn.answer(protocol.answerClusterState(state), packet.getId())
+        conn.answer(Packets.AnswerClusterState(state), packet.getId())
 
     def askNodeInformation(self, conn, packet):
         self.app.sendNodesInformations(conn)
-        conn.answer(protocol.answerNodeInformation([]), packet.getId())
+        conn.answer(Packets.AnswerNodeInformation(), packet.getId())
 
     def askPartitionTable(self, conn, packet, offset_list):
         assert len(offset_list) == 0
         app = self.app
         app.sendPartitionTable(conn)
-        conn.answer(protocol.answerPartitionTable(app.pt.getID(), []),
+        conn.answer(Packets.AnswerPartitionTable(app.pt.getID(), []),
                     packet.getId())
 
 

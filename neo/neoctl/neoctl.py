@@ -20,7 +20,7 @@ from neo.connection import ClientConnection
 from neo.event import EventManager
 from neo.neoctl.handler import CommandEventHandler
 from neo import protocol
-from neo.protocol import ClusterStates, NodeStates, ErrorCodes, PacketTypes
+from neo.protocol import ClusterStates, NodeStates, ErrorCodes, Packets
 
 class NotReadyException(Exception):
     pass
@@ -59,7 +59,7 @@ class NeoCTL(object):
             if not self.connected:
                 raise NotReadyException, 'Connection closed'
         response = response_queue.pop()
-        if response[0] == PacketTypes.ERROR and \
+        if response[0] == Packets.Error and \
            response[1] == ErrorCodes.NOT_READY:
             raise NotReadyException(response[2])
         return response
@@ -68,18 +68,18 @@ class NeoCTL(object):
         """
           Put all given storage nodes in "running" state.
         """
-        packet = protocol.addPendingNodes(uuid_list)
+        packet = Packets.AddPendingNodes(uuid_list)
         response = self.__ask(packet)
-        assert response[0] == PacketTypes.ERROR
+        assert response[0] == Packets.Error
         assert response[1] == ErrorCodes.NO_ERROR
 
     def setClusterState(self, state):
         """
           Set cluster state.
         """
-        packet = protocol.setClusterState(state)
+        packet = Packets.SetClusterState(state)
         response = self.__ask(packet)
-        assert response[0] == PacketTypes.ERROR
+        assert response[0] == Packets.Error
         assert response[1] == ErrorCodes.NO_ERROR
 
     def setNodeState(self, node, state, update_partition_table=False):
@@ -90,27 +90,27 @@ class NeoCTL(object):
             update_partition_table = 1
         else:
             update_partition_table = 0
-        packet = protocol.setNodeState(node, state, update_partition_table)
+        packet = Packets.SetNodeState(node, state, update_partition_table)
         response = self.__ask(packet)
-        assert response[0] == PacketTypes.ERROR
+        assert response[0] == Packets.Error
         assert response[1] == ErrorCodes.NO_ERROR
 
     def getClusterState(self):
         """
           Get cluster state.
         """
-        packet = protocol.askClusterState()
+        packet = Packets.AskClusterState()
         response = self.__ask(packet)
-        assert response[0] == PacketTypes.ANSWER_CLUSTER_STATE
+        assert response[0] == Packets.AnswerClusterState
         return response[1]
 
     def getNodeList(self, node_type=None):
         """
           Get a list of nodes, filtering with given type.
         """
-        packet = protocol.askNodeList(node_type)
+        packet = Packets.AskNodeList(node_type)
         response = self.__ask(packet)
-        assert response[0] == PacketTypes.ANSWER_NODE_LIST
+        assert response[0] == Packets.AnswerNodeList
         return response[1]
 
     def getPartitionRowList(self, min_offset=0, max_offset=0, node=None):
@@ -118,9 +118,9 @@ class NeoCTL(object):
           Get a list of partition rows, bounded by min & max and involving
           given node.
         """
-        packet = protocol.askPartitionList(min_offset, max_offset, node)
+        packet = Packets.AskPartitionList(min_offset, max_offset, node)
         response = self.__ask(packet)
-        assert response[0] == PacketTypes.ANSWER_PARTITION_LIST
+        assert response[0] == Packets.AnswerPartitionList
         return (response[1], response[2])
 
     def startCluster(self):
@@ -135,12 +135,12 @@ class NeoCTL(object):
         """
         self.setNodeState(node, NodeStates.DOWN, update_partition_table=1)
 
-    def getPrimaryMaster(self):
+    def getPrimary(self):
         """
           Return the primary master UUID.
         """
-        packet = protocol.askPrimaryMaster()
+        packet = Packets.AskPrimary()
         response = self.__ask(packet)
-        assert response[0] == PacketTypes.ANSWER_PRIMARY_MASTER
+        assert response[0] == Packets.AnswerPrimary
         return response[1]
 

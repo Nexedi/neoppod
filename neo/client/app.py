@@ -29,7 +29,7 @@ setupLog('CLIENT', verbose=True)
 
 from neo import logging
 from neo import protocol
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, Packets
 from neo.event import EventManager
 from neo.util import makeChecksum, dump
 from neo.locking import RLock, Lock
@@ -87,7 +87,7 @@ class ConnectionPool(object):
                     logging.error('Connection to storage node %s failed', node)
                     return None
 
-                p = protocol.requestNodeIdentification(NodeTypes.CLIENT,
+                p = Packets.RequestIdentification(NodeTypes.CLIENT,
                             app.uuid, None, app.name)
                 msg_id = conn.ask(app.local_var.queue, p)
             finally:
@@ -327,7 +327,7 @@ class Application(object):
                         handler = self.primary_handler
                     else:
                         raise ValueError, 'Unknown node type: %r' % (
-                            node_type, )
+                            node.__class__, )
             handler.dispatch(conn, packet)
             if target_conn is conn and msg_id == packet.getId():
                 break
@@ -360,7 +360,7 @@ class Application(object):
         try:
             if self.master_conn is None:
                 self.new_oid_list = []
-                self.master_conn = self._connectToPrimaryMasterNode()
+                self.master_conn = self._connectToPrimaryNode()
             return self.master_conn
         finally:
             self._connecting_to_master_node_release()
@@ -382,7 +382,7 @@ class Application(object):
         pt = self._getPartitionTable()
         return pt.getCellListForTID(tid, readable, writable)
 
-    def _connectToPrimaryMasterNode(self):
+    def _connectToPrimaryNode(self):
         logging.debug('connecting to primary master...')
         ready = False
         nm = self.nm
@@ -418,7 +418,7 @@ class Application(object):
                         logging.error('Connection to master node %s failed',
                                       self.trying_master_node)
                         continue
-                    msg_id = conn.ask(self.local_var.queue, protocol.askPrimaryMaster())
+                    msg_id = conn.ask(self.local_var.queue, Packets.AskPrimary())
                 finally:
                     conn.unlock()
                 try:
@@ -439,7 +439,7 @@ class Application(object):
                                       self.trying_master_node)
                         self.primary_master_node = None
                         break
-                    p = protocol.requestNodeIdentification(NodeTypes.CLIENT,
+                    p = Packets.RequestIdentification(NodeTypes.CLIENT,
                             self.uuid, None, self.name)
                     msg_id = conn.ask(self.local_var.queue, p)
                 finally:
@@ -453,7 +453,7 @@ class Application(object):
                     # Node identification was refused by master.
                     # Sleep a bit an retry.
                     # XXX: This should be replaced by:
-                    # - queuing requestNodeIdentification at master side
+                    # - queuing RequestIdentification at master side
                     # - sending the acceptance from master when it becomes
                     #   ready
                     # Thus removing the need to:
@@ -465,14 +465,14 @@ class Application(object):
                 conn.lock()
                 try:
                     msg_id = conn.ask(self.local_var.queue,
-                                      protocol.askNodeInformation())
+                                      Packets.AskNodeInformation())
                 finally:
                     conn.unlock()
                 self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
                 conn.lock()
                 try:
                     msg_id = conn.ask(self.local_var.queue,
-                                      protocol.askPartitionTable([]))
+                                      Packets.AskPartitionTable([]))
                 finally:
                     conn.unlock()
                 self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
@@ -496,7 +496,7 @@ class Application(object):
                 # we manage a list of oid here to prevent
                 # from asking too many time new oid one by one
                 # from master node
-                self._askPrimary(protocol.askNewOIDs(100))
+                self._askPrimary(Packets.AskNewOIDs(100))
                 if len(self.new_oid_list) <= 0:
                     raise NEOStorageError('new_oid failed')
             self.last_oid = self.new_oid_list.pop()
@@ -543,7 +543,7 @@ class Application(object):
                 continue
 
             try:
-                self._askStorage(conn, protocol.askObject(oid, serial, tid))
+                self._askStorage(conn, Packets.AskObject(oid, serial, tid))
             except ConnectionClosed:
                 continue
 
@@ -644,7 +644,7 @@ class Application(object):
         # the master will supply us one. Otherwise the requested tid will be
         # used if possible.
         self.local_var.tid = None
-        self._askPrimary(protocol.askBeginTransaction(tid))
+        self._askPrimary(Packets.AskBeginTransaction(tid))
         if self.local_var.tid is None:
             raise NEOStorageError('tpc_begin failed')
         self.local_var.txn = transaction            
@@ -673,7 +673,7 @@ class Application(object):
                 continue
 
             self.local_var.object_stored = 0
-            p = protocol.askStoreObject(oid, serial, 1,
+            p = Packets.AskStoreObject(oid, serial, 1,
                      checksum, compressed_data, self.local_var.tid)
             try:
                 self._askStorage(conn, p)
@@ -722,7 +722,7 @@ class Application(object):
                 continue
 
             self.local_var.txn_voted = False
-            p = protocol.askStoreTransaction(self.local_var.tid, 
+            p = Packets.AskStoreTransaction(self.local_var.tid, 
                     user, desc, ext, oid_list)
             try:
                 self._askStorage(conn, p)
@@ -755,7 +755,7 @@ class Application(object):
             if conn is None:
                 continue
             try:
-                conn.notify(protocol.abortTransaction(self.local_var.tid))
+                conn.notify(Packets.AbortTransaction(self.local_var.tid))
             finally:
                 conn.unlock()
 
@@ -763,7 +763,7 @@ class Application(object):
         conn = self._getMasterConnection()
         conn.lock()
         try:
-            conn.notify(protocol.abortTransaction(self.local_var.tid))
+            conn.notify(Packets.AbortTransaction(self.local_var.tid))
         finally:
             conn.unlock()
         self.local_var.clear()
@@ -780,7 +780,7 @@ class Application(object):
 
             # Call finish on master
             oid_list = self.local_var.data_dict.keys()
-            p = protocol.finishTransaction(oid_list, self.local_var.tid)
+            p = Packets.FinishTransaction(oid_list, self.local_var.tid)
             self._askPrimary(p)
 
             if not self.isTransactionFinished():
@@ -814,7 +814,7 @@ class Application(object):
 
             self.local_var.txn_info = 0
             try:
-                self._askStorage(conn, protocol.askTransactionInformation(transaction_id))
+                self._askStorage(conn, Packets.AskTransactionInformation(transaction_id))
             except ConnectionClosed:
                 continue
 
@@ -881,7 +881,7 @@ class Application(object):
 
             try:
                 conn.ask(self.local_var.queue,
-                         protocol.askTIDs(first, last, protocol.INVALID_PARTITION))
+                         Packets.AskTIDs(first, last, protocol.INVALID_PARTITION))
             finally:
                 conn.unlock()
 
@@ -912,7 +912,7 @@ class Application(object):
                 if conn is not None:
                     self.local_var.txn_info = 0
                     try:
-                        self._askStorage(conn, protocol.askTransactionInformation(tid))
+                        self._askStorage(conn, Packets.AskTransactionInformation(tid))
                     except ConnectionClosed:
                         continue
                     if isinstance(self.local_var.txn_info, dict):
@@ -954,7 +954,7 @@ class Application(object):
 
             self.local_var.history = None
             try:
-                self._askStorage(conn, protocol.askObjectHistory(oid, 0, length))
+                self._askStorage(conn, Packets.AskObjectHistory(oid, 0, length))
             except ConnectionClosed:
                 continue
 
@@ -987,7 +987,7 @@ class Application(object):
                 # ask transaction information
                 self.local_var.txn_info = None
                 try:
-                    self._askStorage(conn, protocol.askTransactionInformation(serial))
+                    self._askStorage(conn, Packets.AskTransactionInformation(serial))
                 except ConnectionClosed:
                     continue
 

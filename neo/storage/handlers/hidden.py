@@ -42,15 +42,15 @@ class HiddenHandler(BaseMasterHandler):
                         erase_db = state == NodeStates.DOWN
                         self.app.shutdown(erase=erase_db)
 
-    def requestNodeIdentification(self, conn, packet, node_type,
+    def requestIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
         pass
 
-    def acceptNodeIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, packet, node_type,
                    uuid, address, num_partitions, num_replicas, your_uuid):
         pass
 
-    def answerPrimaryMaster(self, conn, packet, primary_uuid,
+    def answerPrimary(self, conn, packet, primary_uuid,
                                   known_master_list):
         pass
 

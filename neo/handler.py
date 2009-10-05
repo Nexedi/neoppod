@@ -17,7 +17,7 @@
 
 from neo import logging
 from neo import protocol
-from neo.protocol import NodeStates, ErrorCodes, PacketTypes
+from neo.protocol import NodeStates, ErrorCodes, Packets
 from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
 
@@ -30,7 +30,7 @@ class EventHandler(object):
         self.packet_dispatch_table = self.__initPacketDispatchTable()
         self.error_dispatch_table = self.__initErrorDispatchTable()
 
-    def __packetMalformed(self, conn, packet, message='', *args):
+    def _packetMalformed(self, conn, packet, message='', *args):
         """Called when a packet is malformed."""
         args = (conn.getAddress()[0], conn.getAddress()[1], message)
         if packet is None:
@@ -71,7 +71,7 @@ class EventHandler(object):
         except UnexpectedPacketError, e:
             self.__unexpectedPacket(conn, packet, *e.args)
         except PacketMalformedError, e:
-            self.__packetMalformed(conn, packet, *e.args)
+            self._packetMalformed(conn, packet, *e.args)
         except BrokenNodeDisallowedError:
             answer_packet = protocol.brokenNodeDisallowedError('go away')
             conn.answer(answer_packet, packet.getId())
@@ -140,25 +140,25 @@ class EventHandler(object):
 
     # Packet handlers.
 
-    def requestNodeIdentification(self, conn, packet, node_type,
+    def requestIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
         raise UnexpectedPacketError
 
-    def acceptNodeIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, packet, node_type,
                        uuid, address, num_partitions, num_replicas, your_uuid):
         raise UnexpectedPacketError
 
-    def askPrimaryMaster(self, conn, packet):
+    def askPrimary(self, conn, packet):
         raise UnexpectedPacketError
 
-    def answerPrimaryMaster(self, conn, packet, primary_uuid,
+    def answerPrimary(self, conn, packet, primary_uuid,
                                   known_master_list):
         raise UnexpectedPacketError
 
-    def announcePrimaryMaster(self, conn, packet):
+    def announcePrimary(self, conn, packet):
         raise UnexpectedPacketError
 
-    def reelectPrimaryMaster(self, conn, packet):
+    def reelectPrimary(self, conn, packet):
         raise UnexpectedPacketError
 
     def notifyNodeInformation(self, conn, packet, node_list):
@@ -312,7 +312,8 @@ class EventHandler(object):
     def askNodeInformation(self, conn, packet):
         raise UnexpectedPacketError
 
-    def answerNodeInformation(self, conn, packet, node_list):
+    def answerNodeInformation(self, conn, packet):
+        # XXX: Just an acknowledge, to be removed
         raise UnexpectedPacketError
 
     def askClusterState(self, conn, packet):
@@ -368,68 +369,68 @@ class EventHandler(object):
     def __initPacketDispatchTable(self):
         d = {}
 
-        d[PacketTypes.ERROR] = self.error
-        d[PacketTypes.REQUEST_NODE_IDENTIFICATION] = self.requestNodeIdentification
-        d[PacketTypes.ACCEPT_NODE_IDENTIFICATION] = self.acceptNodeIdentification
-        d[PacketTypes.ASK_PRIMARY_MASTER] = self.askPrimaryMaster
-        d[PacketTypes.ANSWER_PRIMARY_MASTER] = self.answerPrimaryMaster
-        d[PacketTypes.ANNOUNCE_PRIMARY_MASTER] = self.announcePrimaryMaster
-        d[PacketTypes.REELECT_PRIMARY_MASTER] = self.reelectPrimaryMaster
-        d[PacketTypes.NOTIFY_NODE_INFORMATION] = self.notifyNodeInformation
-        d[PacketTypes.ASK_LAST_IDS] = self.askLastIDs
-        d[PacketTypes.ANSWER_LAST_IDS] = self.answerLastIDs
-        d[PacketTypes.ASK_PARTITION_TABLE] = self.askPartitionTable
-        d[PacketTypes.ANSWER_PARTITION_TABLE] = self.answerPartitionTable
-        d[PacketTypes.SEND_PARTITION_TABLE] = self.sendPartitionTable
-        d[PacketTypes.NOTIFY_PARTITION_CHANGES] = self.notifyPartitionChanges
-        d[PacketTypes.START_OPERATION] = self.startOperation
-        d[PacketTypes.STOP_OPERATION] = self.stopOperation
-        d[PacketTypes.ASK_UNFINISHED_TRANSACTIONS] = self.askUnfinishedTransactions
-        d[PacketTypes.ANSWER_UNFINISHED_TRANSACTIONS] = self.answerUnfinishedTransactions
-        d[PacketTypes.ASK_OBJECT_PRESENT] = self.askObjectPresent
-        d[PacketTypes.ANSWER_OBJECT_PRESENT] = self.answerObjectPresent
-        d[PacketTypes.DELETE_TRANSACTION] = self.deleteTransaction
-        d[PacketTypes.COMMIT_TRANSACTION] = self.commitTransaction
-        d[PacketTypes.ASK_BEGIN_TRANSACTION] = self.askBeginTransaction
-        d[PacketTypes.ANSWER_BEGIN_TRANSACTION] = self.answerBeginTransaction
-        d[PacketTypes.FINISH_TRANSACTION] = self.finishTransaction
-        d[PacketTypes.NOTIFY_TRANSACTION_FINISHED] = self.notifyTransactionFinished
-        d[PacketTypes.LOCK_INFORMATION] = self.lockInformation
-        d[PacketTypes.NOTIFY_INFORMATION_LOCKED] = self.notifyInformationLocked
-        d[PacketTypes.INVALIDATE_OBJECTS] = self.invalidateObjects
-        d[PacketTypes.UNLOCK_INFORMATION] = self.unlockInformation
-        d[PacketTypes.ASK_NEW_OIDS] = self.askNewOIDs
-        d[PacketTypes.ANSWER_NEW_OIDS] = self.answerNewOIDs
-        d[PacketTypes.ASK_STORE_OBJECT] = self.askStoreObject
-        d[PacketTypes.ANSWER_STORE_OBJECT] = self.answerStoreObject
-        d[PacketTypes.ABORT_TRANSACTION] = self.abortTransaction
-        d[PacketTypes.ASK_STORE_TRANSACTION] = self.askStoreTransaction
-        d[PacketTypes.ANSWER_STORE_TRANSACTION] = self.answerStoreTransaction
-        d[PacketTypes.ASK_OBJECT] = self.askObject
-        d[PacketTypes.ANSWER_OBJECT] = self.answerObject
-        d[PacketTypes.ASK_TIDS] = self.askTIDs
-        d[PacketTypes.ANSWER_TIDS] = self.answerTIDs
-        d[PacketTypes.ASK_TRANSACTION_INFORMATION] = self.askTransactionInformation
-        d[PacketTypes.ANSWER_TRANSACTION_INFORMATION] = self.answerTransactionInformation
-        d[PacketTypes.ASK_OBJECT_HISTORY] = self.askObjectHistory
-        d[PacketTypes.ANSWER_OBJECT_HISTORY] = self.answerObjectHistory
-        d[PacketTypes.ASK_OIDS] = self.askOIDs
-        d[PacketTypes.ANSWER_OIDS] = self.answerOIDs
-        d[PacketTypes.ASK_PARTITION_LIST] = self.askPartitionList
-        d[PacketTypes.ANSWER_PARTITION_LIST] = self.answerPartitionList
-        d[PacketTypes.ASK_NODE_LIST] = self.askNodeList
-        d[PacketTypes.ANSWER_NODE_LIST] = self.answerNodeList
-        d[PacketTypes.SET_NODE_STATE] = self.setNodeState
-        d[PacketTypes.ANSWER_NODE_STATE] = self.answerNodeState
-        d[PacketTypes.SET_CLUSTER_STATE] = self.setClusterState
-        d[PacketTypes.ADD_PENDING_NODES] = self.addPendingNodes
-        d[PacketTypes.ANSWER_NEW_NODES] = self.answerNewNodes
-        d[PacketTypes.ASK_NODE_INFORMATION] = self.askNodeInformation
-        d[PacketTypes.ANSWER_NODE_INFORMATION] = self.answerNodeInformation
-        d[PacketTypes.ASK_CLUSTER_STATE] = self.askClusterState
-        d[PacketTypes.ANSWER_CLUSTER_STATE] = self.answerClusterState
-        d[PacketTypes.NOTIFY_CLUSTER_INFORMATION] = self.notifyClusterInformation
-        d[PacketTypes.NOTIFY_LAST_OID] = self.notifyLastOID
+        d[Packets.Error] = self.error
+        d[Packets.RequestIdentification] = self.requestIdentification
+        d[Packets.AcceptIdentification] = self.acceptIdentification
+        d[Packets.AskPrimary] = self.askPrimary
+        d[Packets.AnswerPrimary] = self.answerPrimary
+        d[Packets.AnnouncePrimary] = self.announcePrimary
+        d[Packets.ReelectPrimary] = self.reelectPrimary
+        d[Packets.NotifyNodeInformation] = self.notifyNodeInformation
+        d[Packets.AskLastIDs] = self.askLastIDs
+        d[Packets.AnswerLastIDs] = self.answerLastIDs
+        d[Packets.AskPartitionTable] = self.askPartitionTable
+        d[Packets.AnswerPartitionTable] = self.answerPartitionTable
+        d[Packets.SendPartitionTable] = self.sendPartitionTable
+        d[Packets.NotifyPartitionChanges] = self.notifyPartitionChanges
+        d[Packets.StartOperation] = self.startOperation
+        d[Packets.StopOperation] = self.stopOperation
+        d[Packets.AskUnfinishedTransactions] = self.askUnfinishedTransactions
+        d[Packets.AnswerUnfinishedTransactions] = self.answerUnfinishedTransactions
+        d[Packets.AskObjectPresent] = self.askObjectPresent
+        d[Packets.AnswerObjectPresent] = self.answerObjectPresent
+        d[Packets.DeleteTransaction] = self.deleteTransaction
+        d[Packets.CommitTransaction] = self.commitTransaction
+        d[Packets.AskBeginTransaction] = self.askBeginTransaction
+        d[Packets.AnswerBeginTransaction] = self.answerBeginTransaction
+        d[Packets.FinishTransaction] = self.finishTransaction
+        d[Packets.NotifyTransactionFinished] = self.notifyTransactionFinished
+        d[Packets.LockInformation] = self.lockInformation
+        d[Packets.NotifyInformationLocked] = self.notifyInformationLocked
+        d[Packets.InvalidateObjects] = self.invalidateObjects
+        d[Packets.UnlockInformation] = self.unlockInformation
+        d[Packets.AskNewOIDs] = self.askNewOIDs
+        d[Packets.AnswerNewOIDs] = self.answerNewOIDs
+        d[Packets.AskStoreObject] = self.askStoreObject
+        d[Packets.AnswerStoreObject] = self.answerStoreObject
+        d[Packets.AbortTransaction] = self.abortTransaction
+        d[Packets.AskStoreTransaction] = self.askStoreTransaction
+        d[Packets.AnswerStoreTransaction] = self.answerStoreTransaction
+        d[Packets.AskObject] = self.askObject
+        d[Packets.AnswerObject] = self.answerObject
+        d[Packets.AskTIDs] = self.askTIDs
+        d[Packets.AnswerTIDs] = self.answerTIDs
+        d[Packets.AskTransactionInformation] = self.askTransactionInformation
+        d[Packets.AnswerTransactionInformation] = self.answerTransactionInformation
+        d[Packets.AskObjectHistory] = self.askObjectHistory
+        d[Packets.AnswerObjectHistory] = self.answerObjectHistory
+        d[Packets.AskOIDs] = self.askOIDs
+        d[Packets.AnswerOIDs] = self.answerOIDs
+        d[Packets.AskPartitionList] = self.askPartitionList
+        d[Packets.AnswerPartitionList] = self.answerPartitionList
+        d[Packets.AskNodeList] = self.askNodeList
+        d[Packets.AnswerNodeList] = self.answerNodeList
+        d[Packets.SetNodeState] = self.setNodeState
+        d[Packets.AnswerNodeState] = self.answerNodeState
+        d[Packets.SetClusterState] = self.setClusterState
+        d[Packets.AddPendingNodes] = self.addPendingNodes
+        d[Packets.AnswerNewNodes] = self.answerNewNodes
+        d[Packets.AskNodeInformation] = self.askNodeInformation
+        d[Packets.AnswerNodeInformation] = self.answerNodeInformation
+        d[Packets.AskClusterState] = self.askClusterState
+        d[Packets.AnswerClusterState] = self.answerClusterState
+        d[Packets.NotifyClusterInformation] = self.notifyClusterInformation
+        d[Packets.NotifyLastOID] = self.notifyLastOID
 
         return d
 

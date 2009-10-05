@@ -17,6 +17,7 @@
 
 from neo import protocol
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
+from neo.protocol import Packets
 
 class StorageOperationHandler(BaseClientAndStorageOperationHandler):
 
@@ -24,7 +25,7 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
         app = self.app
         oid = app.dm.getLastOID()
         tid = app.dm.getLastTID()
-        p = protocol.answerLastIDs(oid, tid, app.pt.getID())
+        p = Packets.AnswerLastIDs(oid, tid, app.pt.getID())
         conn.answer(p, packet.getId())
 
     def askOIDs(self, conn, packet, first, last, partition):
@@ -48,5 +49,5 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
             partition_list = [partition]
         oid_list = app.dm.getOIDList(first, last - first,
                                      app.pt.getPartitions(), partition_list)
-        conn.answer(protocol.answerOIDs(oid_list), packet.getId())
+        conn.answer(Packets.AnswerOIDs(oid_list), packet.getId())
 

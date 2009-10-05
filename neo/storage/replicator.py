@@ -20,7 +20,7 @@ from random import choice
 
 from neo.storage.handlers import replication
 from neo import protocol
-from neo.protocol import NodeTypes, NodeStates, CellStates
+from neo.protocol import NodeTypes, NodeStates, CellStates, Packets
 from neo.connection import ClientConnection
 from neo.util import dump
 
@@ -130,7 +130,7 @@ class Replicator(object):
 
     def _askCriticalTID(self):
         conn = self.primary_master_connection
-        msg_id = conn.ask(protocol.askLastIDs())
+        msg_id = conn.ask(Packets.AskLastIDs())
         self.critical_tid_dict[msg_id] = self.new_partition_dict.values()
         self.partition_dict.update(self.new_partition_dict)
         self.new_partition_dict = {}
@@ -144,7 +144,7 @@ class Replicator(object):
 
     def _askUnfinishedTIDs(self):
         conn = self.primary_master_connection
-        conn.ask(protocol.askUnfinishedTransactions())
+        conn.ask(Packets.AskUnfinishedTransactions())
         self.waiting_for_unfinished_tids = True
 
     def _startReplication(self):
@@ -179,12 +179,12 @@ class Replicator(object):
             self.current_connection = ClientConnection(app.em, handler, 
                                                        addr = addr,
                                                        connector_handler = app.connector_handler)
-            p = protocol.requestNodeIdentification(NodeTypes.STORAGE, 
+            p = Packets.RequestIdentification(NodeTypes.STORAGE, 
                     app.uuid, app.server, app.name)
             self.current_connection.ask(p)
 
         self.tid_offset = 0
-        p = protocol.askTIDs(0, 1000, self.current_partition.getRID())
+        p = Packets.AskTIDs(0, 1000, self.current_partition.getRID())
         self.current_connection.ask(p, timeout=300)
 
         self.replication_done = False
@@ -195,7 +195,7 @@ class Replicator(object):
             self.partition_dict.pop(self.current_partition.getRID())
             # Notify to a primary master node that my cell is now up-to-date.
             conn = self.primary_master_connection
-            p = protocol.notifyPartitionChanges(app.pt.getID(), 
+            p = Packets.NotifyPartitionChanges(app.pt.getID(), 
                  [(self.current_partition.getRID(), app.uuid, CellStates.UP_TO_DATE)])
             conn.notify(p)
         except KeyError:

@@ -17,7 +17,7 @@
 
 from neo import logging
 
-from neo import protocol
+from neo.protocol import Packets
 from neo.master.handlers import MasterHandler
 from neo.util import dump
 
@@ -26,7 +26,7 @@ class RecoveryHandler(MasterHandler):
 
     def connectionCompleted(self, conn):
         # ask the last IDs to perform the recovery
-        conn.ask(protocol.askLastIDs())
+        conn.ask(Packets.AskLastIDs())
 
     def answerLastIDs(self, conn, packet, loid, ltid, lptid):
         app = self.app
@@ -39,7 +39,7 @@ class RecoveryHandler(MasterHandler):
             # something newer
             app.target_uuid = conn.getUUID()
             app.pt.setID(lptid)
-            conn.ask(protocol.askPartitionTable([]))
+            conn.ask(Packets.AskPartitionTable([]))
 
     def answerPartitionTable(self, conn, packet, ptid, row_list):
         uuid = conn.getUUID()

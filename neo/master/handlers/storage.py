@@ -19,7 +19,7 @@ from neo import logging
 
 from neo import protocol
 from neo.protocol import UnexpectedPacketError, ProtocolError
-from neo.protocol import CellStates, ErrorCodes
+from neo.protocol import CellStates, ErrorCodes, Packets
 from neo.master.handlers import BaseServiceHandler
 from neo.exception import OperationFailure
 from neo.util import dump
@@ -31,8 +31,8 @@ class StorageServiceHandler(BaseServiceHandler):
     def connectionCompleted(self, conn):
         node = self.app.nm.getByUUID(conn.getUUID())
         if node.isRunning():
-            conn.notify(protocol.notifyLastOID(self.app.loid))
-            conn.notify(protocol.startOperation())
+            conn.notify(Packets.NotifyLastOID(self.app.loid))
+            conn.notify(Packets.StartOperation())
 
     def nodeLost(self, conn, node):
         logging.info('storage node lost')
@@ -44,11 +44,11 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def askLastIDs(self, conn, packet):
         app = self.app
-        conn.answer(protocol.answerLastIDs(app.loid, app.ltid, app.pt.getID()), packet.getId())
+        conn.answer(Packets.AnswerLastIDs(app.loid, app.ltid, app.pt.getID()), packet.getId())
 
     def askUnfinishedTransactions(self, conn, packet):
         app = self.app
-        p = protocol.answerUnfinishedTransactions(app.finishing_transaction_dict.keys())
+        p = Packets.AnswerUnfinishedTransactions(app.finishing_transaction_dict.keys())
         conn.answer(p, packet.getId())
 
     def notifyInformationLocked(self, conn, packet, tid):
@@ -75,14 +75,14 @@ class StorageServiceHandler(BaseServiceHandler):
                         node = app.nm.getByUUID(uuid)
                         if node.isClient():
                             if c is t.getConnection():
-                                p = protocol.notifyTransactionFinished(tid)
+                                p = Packets.NotifyTransactionFinished(tid)
                                 c.answer(p, t.getMessageId())
                             else:
-                                p = protocol.invalidateObjects(t.getOIDList(), tid)
+                                p = Packets.InvalidateObjects(t.getOIDList(), tid)
                                 c.notify(p)
                         elif node.isStorage():
                             if uuid in t.getUUIDSet():
-                                p = protocol.unlockInformation(tid)
+                                p = Packets.UnlockInformation(tid)
                                 c.notify(p)
                 del app.finishing_transaction_dict[tid]
         except KeyError:

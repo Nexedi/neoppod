@@ -18,9 +18,8 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import NodeStates
+from neo.protocol import NodeStates, Packets, UnexpectedPacketError
 from neo.master.handlers import BaseServiceHandler
-from neo.protocol import UnexpectedPacketError
 from neo.util import dump, getNextTID
 
 class FinishingTransaction(object):
@@ -90,11 +89,11 @@ class ClientServiceHandler(BaseServiceHandler):
             tid = getNextTID(app.ltid)
         app.ltid = tid
         app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
-        conn.answer(protocol.answerBeginTransaction(tid), packet.getId())
+        conn.answer(Packets.AnswerBeginTransaction(tid), packet.getId())
 
     def askNewOIDs(self, conn, packet, num_oids):
         oid_list = self.app.getNewOIDList(num_oids)
-        conn.answer(protocol.answerNewOIDs(oid_list), packet.getId())
+        conn.answer(Packets.AnswerNewOIDs(oid_list), packet.getId())
 
     def finishTransaction(self, conn, packet, oid_list, tid):
         app = self.app
@@ -121,7 +120,7 @@ class ClientServiceHandler(BaseServiceHandler):
         used_uuid_set = set()
         for c in app.em.getConnectionList():
             if c.getUUID() in uuid_set:
-                c.ask(protocol.lockInformation(tid), timeout=60)
+                c.ask(Packets.LockInformation(tid), timeout=60)
                 used_uuid_set.add(c.getUUID())
 
         try:

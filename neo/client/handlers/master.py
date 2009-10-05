@@ -30,7 +30,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         app.trying_master_node = None
         app.setNodeNotReady()
 
-    def acceptNodeIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, packet, node_type,
                    uuid, address, num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
@@ -57,7 +57,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         # Always create partition table 
         app.pt = PartitionTable(num_partitions, num_replicas)
 
-    def answerPrimaryMaster(self, conn, packet, primary_uuid,
+    def answerPrimary(self, conn, packet, primary_uuid,
                                   known_master_list):
         app = self.app
         # Register new master nodes.
@@ -95,7 +95,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
     def answerPartitionTable(self, conn, packet, ptid, row_list):
         pass
  
-    def answerNodeInformation(self, conn, packet, node_list):
+    def answerNodeInformation(self, conn, packet):
         pass
 
 class PrimaryNotificationsHandler(BaseHandler):

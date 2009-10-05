@@ -18,7 +18,7 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import NodeTypes, NodeStates
+from neo.protocol import NodeTypes, NodeStates, Packets
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
 
@@ -78,7 +78,7 @@ class ClientElectionHandler(ElectionHandler):
         MasterHandler.connectionStarted(self, conn)
 
     def connectionCompleted(self, conn):
-        conn.ask(protocol.askPrimaryMaster())
+        conn.ask(Packets.AskPrimary())
         MasterHandler.connectionCompleted(self, conn)
 
     def connectionClosed(self, conn):
@@ -110,7 +110,7 @@ class ClientElectionHandler(ElectionHandler):
         app.negotiating_master_node_set.discard(addr)
         MasterHandler.peerBroken(self, conn)
 
-    def acceptNodeIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, packet, node_type,
                                        uuid, address, num_partitions,
                                        num_replicas, your_uuid):
         app = self.app
@@ -146,10 +146,10 @@ class ClientElectionHandler(ElectionHandler):
 
         app.negotiating_master_node_set.discard(conn.getAddress())
 
-    def answerPrimaryMaster(self, conn, packet, primary_uuid, known_master_list):
+    def answerPrimary(self, conn, packet, primary_uuid, known_master_list):
         if conn.getConnector() is None:
             # Connection can be closed by peer after he sent
-            # AnswerPrimaryMaster if he finds the primary master before we
+            # AnswerPrimary if he finds the primary master before we
             # give him our UUID.
             # The connection gets closed before this message gets processed
             # because this message might have been queued, but connection
@@ -198,7 +198,7 @@ class ClientElectionHandler(ElectionHandler):
                         [primary_server])
 
         # Request a node idenfitication.
-        conn.ask(protocol.requestNodeIdentification(
+        conn.ask(Packets.RequestIdentification(
             NodeTypes.MASTER,
             app.uuid, 
             app.server, 
@@ -208,7 +208,7 @@ class ClientElectionHandler(ElectionHandler):
 
 class ServerElectionHandler(ElectionHandler):
 
-    def reelectPrimaryMaster(self, conn, packet):
+    def reelectPrimary(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
     def peerBroken(self, conn):
@@ -219,11 +219,11 @@ class ServerElectionHandler(ElectionHandler):
             node.setBroken()
         MasterHandler.peerBroken(self, conn)
 
-    def requestNodeIdentification(self, conn, packet, node_type,
+    def requestIdentification(self, conn, packet, node_type,
                                         uuid, address, name):
         if conn.getConnector() is None:
             # Connection can be closed by peer after he sent
-            # RequestNodeIdentification if he finds the primary master before
+            # RequestIdentification if he finds the primary master before
             # we answer him.
             # The connection gets closed before this message gets processed
             # because this message might have been queued, but connection
@@ -250,7 +250,7 @@ class ServerElectionHandler(ElectionHandler):
         node.setUUID(uuid)
         conn.setUUID(uuid)
 
-        p = protocol.acceptNodeIdentification(
+        p = Packets.AcceptIdentification(
             NodeTypes.MASTER, 
             app.uuid, 
             app.server, 
@@ -260,7 +260,7 @@ class ServerElectionHandler(ElectionHandler):
         )
         conn.answer(p, packet.getId())
 
-    def announcePrimaryMaster(self, conn, packet):
+    def announcePrimary(self, conn, packet):
         uuid = conn.getUUID()
         if uuid is None:
             raise protocol.UnexpectedPacketError

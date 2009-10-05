@@ -18,7 +18,7 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import CellStates
+from neo.protocol import CellStates, Packets
 from neo.storage.handlers import BaseMasterHandler
 from neo.exception import OperationFailure
 
@@ -68,7 +68,7 @@ class MasterOperationHandler(BaseMasterHandler):
             app.dm.storeTransaction(tid, object_list, t.getTransaction())
         except KeyError:
             pass
-        conn.answer(protocol.notifyInformationLocked(tid), packet.getId())
+        conn.answer(Packets.NotifyInformationLocked(tid), packet.getId())
 
     def unlockInformation(self, conn, packet, tid):
         app = self.app

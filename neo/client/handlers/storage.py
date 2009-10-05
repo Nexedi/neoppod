@@ -52,7 +52,7 @@ class StorageBootstrapHandler(AnswerBaseHandler):
         app = self.app
         app.setNodeNotReady()
         
-    def acceptNodeIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, packet, node_type,
            uuid, address, num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())

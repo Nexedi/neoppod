@@ -19,7 +19,7 @@
 from neo import logging
 
 from neo.storage.handlers import BaseStorageHandler
-from neo import protocol
+from neo.protocol import Packets
 
 class ReplicationHandler(BaseStorageHandler):
     """This class handles events for replications."""
@@ -36,7 +36,7 @@ class ReplicationHandler(BaseStorageHandler):
         logging.error('replication is stopped due to connection failure')
         self.app.replicator.reset()
 
-    def acceptNodeIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, packet, node_type,
                        uuid, address, num_partitions, num_replicas, your_uuid):
         # set the UUID on the connection
         conn.setUUID(uuid)
@@ -52,18 +52,18 @@ class ReplicationHandler(BaseStorageHandler):
             present_tid_list = app.dm.getTIDListPresent(tid_list)
             tid_set = set(tid_list) - set(present_tid_list)
             for tid in tid_set:
-                conn.ask(protocol.askTransactionInformation(tid), timeout=300)
+                conn.ask(Packets.AskTransactionInformation(tid), timeout=300)
 
             # And, ask more TIDs.
             app.replicator.tid_offset += 1000
             offset = app.replicator.tid_offset
-            p = protocol.askTIDs(offset, offset + 1000, 
+            p = Packets.AskTIDs(offset, offset + 1000, 
                       app.replicator.current_partition.getRID())
             conn.ask(p, timeout=300)
         else:
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
-            p = protocol.askOIDs(0, 1000, 
+            p = Packets.AskOIDs(0, 1000, 
                       app.replicator.current_partition.getRID())
             conn.ask(p, timeout=300)
             app.replicator.oid_offset = 0
@@ -85,7 +85,7 @@ class ReplicationHandler(BaseStorageHandler):
         if oid_list:
             # Pick one up, and ask the history.
             oid = oid_list.pop()
-            conn.ask(protocol.askObjectHistory(oid, 0, 1000), timeout=300)
+            conn.ask(Packets.AskObjectHistory(oid, 0, 1000), timeout=300)
             app.replicator.serial_offset = 0
             app.replicator.oid_list = oid_list
         else:
@@ -104,12 +104,12 @@ class ReplicationHandler(BaseStorageHandler):
             present_serial_list = app.dm.getSerialListPresent(oid, serial_list)
             serial_set = set(serial_list) - set(present_serial_list)
             for serial in serial_set:
-                conn.ask(protocol.askObject(oid, serial, None), timeout=300)
+                conn.ask(Packets.AskObject(oid, serial, None), timeout=300)
 
             # And, ask more serials.
             app.replicator.serial_offset += 1000
             offset = app.replicator.serial_offset
-            p = protocol.askObjectHistory(oid, offset, offset + 1000)
+            p = Packets.AskObjectHistory(oid, offset, offset + 1000)
             conn.ask(p, timeout=300)
         else:
             # This OID is finished. So advance to next.
@@ -117,13 +117,13 @@ class ReplicationHandler(BaseStorageHandler):
             if oid_list:
                 # If I have more pending OIDs, pick one up.
                 oid = oid_list.pop()
-                conn.ask(protocol.askObjectHistory(oid, 0, 1000), timeout=300)
+                conn.ask(Packets.AskObjectHistory(oid, 0, 1000), timeout=300)
                 app.replicator.serial_offset = 0
             else:
                 # Otherwise, acquire more OIDs.
                 app.replicator.oid_offset += 1000
                 offset = app.replicator.oid_offset
-                p = protocol.askOIDs(offset, offset + 1000, 
+                p = Packets.AskOIDs(offset, offset + 1000, 
                           app.replicator.current_partition.getRID())
                 conn.ask(p, timeout=300)
 

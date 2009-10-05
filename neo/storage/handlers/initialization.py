@@ -22,8 +22,7 @@ from neo import protocol
 
 class InitializationHandler(BaseMasterHandler):
 
-    def answerNodeInformation(self, conn, packet, node_list):
-        assert not node_list
+    def answerNodeInformation(self, conn, packet):
         self.app.has_node_information = True
 
     def notifyNodeInformation(self, conn, packet, node_list):

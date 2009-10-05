@@ -362,6 +362,6 @@ class NodeManager(object):
             address = node.getAddress() or ''
             if address:
                 address = '%s:%d' % address
-            logging.debug(' * %32s | %17s | %22s | %s' % (
+            logging.debug(' * %32s | %8s | %22s | %s' % (
                 uuid, node.getType(), address, node.getState()))
 
