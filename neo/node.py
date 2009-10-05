@@ -71,16 +71,16 @@ class Node(object):
         )
 
     def isMaster(self):
-        return isinstance(self, MasterNode)
+        return False
 
     def isStorage(self):
-        return isinstance(self, StorageNode)
+        return False
 
     def isClient(self):
-        return isinstance(self, ClientNode)
+        return False
 
     def isAdmin(self):
-        return isinstance(self, AdminNode)
+        return False
 
     def isIdentified(self):
         # XXX: knowing the node's UUID is sufficient ?
@@ -145,19 +145,27 @@ class Node(object):
 
 class MasterNode(Node):
     """This class represents a master node."""
-    pass
+
+    def isMaster(self):
+        return True
 
 class StorageNode(Node):
     """This class represents a storage node."""
-    pass
+    
+    def isStorage(self):
+        return True
 
 class ClientNode(Node):
     """This class represents a client node."""
-    pass
+    
+    def isClient(self):
+        return True
 
 class AdminNode(Node):
     """This class represents an admin node."""
-    pass
+    
+    def isAdmin(self):
+        return True
 
 
 NODE_TYPE_MAPPING = {
