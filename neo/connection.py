@@ -289,7 +289,7 @@ class Connection(BaseConnection):
           Process a pending packet.
         """
         packet = self._dequeue()
-        PACKET_LOGGER.log(self, packet, 'from')
+        PACKET_LOGGER.dispatch(self, packet, 'from')
         self.handler.packetReceived(self, packet)
 
     def pending(self):
@@ -355,7 +355,7 @@ class Connection(BaseConnection):
         if self.connector is None:
             return
 
-        PACKET_LOGGER.log(self, packet, ' to ')
+        PACKET_LOGGER.dispatch(self, packet, ' to ')
         try:
             self.write_buf += str(packet)
         except PacketMalformedError, m:

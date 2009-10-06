@@ -18,14 +18,15 @@
 from neo import logging
 from neo.protocol import Packets, PacketMalformedError
 from neo.util import dump
+from neo.handler import EventHandler
 
-class PacketLogger(object):
+class PacketLogger(EventHandler):
     """ Logger at packet level (for debugging purpose) """
 
     def __init__(self):
-        self.fetch_table = self.initFetchTable()
+        EventHandler.__init__(self, None)
 
-    def log(self, conn, packet, direction):
+    def dispatch(self, conn, packet, direction):
         """This is a helper method to handle various packet types."""
         # default log message 
         klass = packet.getType()
@@ -33,7 +34,7 @@ class PacketLogger(object):
         ip, port = conn.getAddress()
         logging.debug('#0x%08x %-30s %s %s (%s:%d)', packet.getId(),
                 packet.__class__.__name__, direction, uuid, ip, port)
-        logger = self.fetch_table.get(klass, None)
+        logger = self.packet_dispatch_table.get(klass, None)
         if logger is None:
             logging.warning('No logger found for packet %s' % klass)
             return
@@ -43,7 +44,11 @@ class PacketLogger(object):
         except PacketMalformedError:
             logging.warning("Can't decode packet for logging")
             return
-        log_message = logger(conn, packet, *args)
+        try:
+            log_message = logger(conn, packet, *args)
+        except UnexpectedPacketError:
+            logging.warning('No logger implemented for packet' % klass)
+            return
         if log_message is not None:
             logging.debug('#0x%08x %s', packet.getId(), log_message)
 
@@ -243,74 +248,6 @@ class PacketLogger(object):
 
     def notifyLastOID(self, conn, packet, oid):
         pass
-
-
-    # Fetch tables initialization
-    def initFetchTable(self):
-        d = {}
-        d[Packets.Error] = self.error
-        d[Packets.RequestIdentification] = self.requestIdentification
-        d[Packets.AcceptIdentification] = self.acceptIdentification
-        d[Packets.AskPrimary] = self.askPrimary
-        d[Packets.AnswerPrimary] = self.answerPrimary
-        d[Packets.AnnouncePrimary] = self.announcePrimary
-        d[Packets.ReelectPrimary] = self.reelectPrimary
-        d[Packets.NotifyNodeInformation] = self.notifyNodeInformation
-        d[Packets.AskLastIDs] = self.askLastIDs
-        d[Packets.AnswerLastIDs] = self.answerLastIDs
-        d[Packets.AskPartitionTable] = self.askPartitionTable
-        d[Packets.AnswerPartitionTable] = self.answerPartitionTable
-        d[Packets.SendPartitionTable] = self.sendPartitionTable
-        d[Packets.NotifyPartitionChanges] = self.notifyPartitionChanges
-        d[Packets.StartOperation] = self.startOperation
-        d[Packets.StopOperation] = self.stopOperation
-        d[Packets.AskUnfinishedTransactions] = self.askUnfinishedTransactions
-        d[Packets.AnswerUnfinishedTransactions] = self.answerUnfinishedTransactions
-        d[Packets.AskObjectPresent] = self.askObjectPresent
-        d[Packets.AnswerObjectPresent] = self.answerObjectPresent
-        d[Packets.DeleteTransaction] = self.deleteTransaction
-        d[Packets.CommitTransaction] = self.commitTransaction
-        d[Packets.AskBeginTransaction] = self.askBeginTransaction
-        d[Packets.AnswerBeginTransaction] = self.answerBeginTransaction
-        d[Packets.FinishTransaction] = self.finishTransaction
-        d[Packets.NotifyTransactionFinished] = self.notifyTransactionFinished
-        d[Packets.LockInformation] = self.lockInformation
-        d[Packets.NotifyInformationLocked] = self.notifyInformationLocked
-        d[Packets.InvalidateObjects] = self.invalidateObjects
-        d[Packets.UnlockInformation] = self.unlockInformation
-        d[Packets.AskNewOIDs] = self.askNewOIDs
-        d[Packets.AnswerNewOIDs] = self.answerNewOIDs
-        d[Packets.AskStoreObject] = self.askStoreObject
-        d[Packets.AnswerStoreObject] = self.answerStoreObject
-        d[Packets.AbortTransaction] = self.abortTransaction
-        d[Packets.AskStoreTransaction] = self.askStoreTransaction
-        d[Packets.AnswerStoreTransaction] = self.answerStoreTransaction
-        d[Packets.AskObject] = self.askObject
-        d[Packets.AnswerObject] = self.answerObject
-        d[Packets.AskTIDs] = self.askTIDs
-        d[Packets.AnswerTIDs] = self.answerTIDs
-        d[Packets.AskTransactionInformation] = self.askTransactionInformation
-        d[Packets.AnswerTransactionInformation] = self.answerTransactionInformation
-        d[Packets.AskObjectHistory] = self.askObjectHistory
-        d[Packets.AnswerObjectHistory] = self.answerObjectHistory
-        d[Packets.AskOIDs] = self.askOIDs
-        d[Packets.AnswerOIDs] = self.answerOIDs
-        d[Packets.AskPartitionList] = self.askPartitionList
-        d[Packets.AnswerPartitionList] = self.answerPartitionList
-        d[Packets.AskNodeList] = self.askNodeList
-        d[Packets.AnswerNodeList] = self.answerNodeList
-        d[Packets.SetNodeState] = self.setNodeState
-        d[Packets.AnswerNodeState] = self.answerNodeState
-        d[Packets.SetClusterState] = self.setClusterState
-        d[Packets.AddPendingNodes] = self.addPendingNodes
-        d[Packets.AnswerNewNodes] = self.answerNewNodes
-        d[Packets.AskNodeInformation] = self.askNodeInformation
-        d[Packets.AnswerNodeInformation] = self.answerNodeInformation
-        d[Packets.AskClusterState] = self.askClusterState
-        d[Packets.AnswerClusterState] = self.answerClusterState
-        d[Packets.NotifyClusterInformation] = self.notifyClusterInformation
-        d[Packets.NotifyLastOID] = self.notifyLastOID
-        return d
 
 
 PACKET_LOGGER = PacketLogger()
