@@ -237,7 +237,7 @@ class Connection(BaseConnection):
         while 1:
             packet = None
             try:
-                packet = protocol.parse(self.read_buf)
+                packet = Packets.parse(self.read_buf)
             except PacketMalformedError, msg:
                 self.handler._packetMalformed(self, packet, msg)
                 return
