@@ -8,7 +8,7 @@ ignore=tests
 # C0111 Disable "no docstring" for the moment
 # C0301 Disable "Line too long" for the moment
 # R0201 Disable "Method could be a function"
-disable-msg=C0111,C0301,R0201
+disable-msg=R0201
 
 [DESIGN]
 # Some classes are just beautiful when defining only operators & such.
