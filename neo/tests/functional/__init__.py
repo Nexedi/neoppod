@@ -258,6 +258,7 @@ class NEOCluster(object):
                     process.wait()
                 except AlreadyStopped:
                     pass
+        time.sleep(0.5)
 
     def getNEOCTL(self):
         return self.neoctl
