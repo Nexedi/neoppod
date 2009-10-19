@@ -89,7 +89,7 @@ def parseMasterList(masters, except_node=None):
         address = (ip_address, int(port))
         if (address != except_node):
             master_node_list.append(address)
-    return master_node_list
+    return tuple(master_node_list)
 
 
 class Enum(dict):

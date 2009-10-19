@@ -32,7 +32,7 @@ class MasterStorageHandlerTests(NeoTestBase):
     def setUp(self):
         # create an application object
         config = self.getMasterConfiguration(master_number=1, replicas=1)
-        self.app = Application(**config)
+        self.app = Application(config)
         self.app.pt.clear()
         self.app.pt.setID(pack('!Q', 1))
         self.app.em = Mock({"getConnectionList" : []})

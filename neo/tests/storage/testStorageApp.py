@@ -30,7 +30,7 @@ class StorageAppTests(NeoTestBase):
         self.prepareDatabase(number=1)
         # create an application object
         config = self.getStorageConfiguration(master_number=1)
-        self.app = Application(**config)
+        self.app = Application(config)
         self.app.event_queue = deque()
         
     def tearDown(self):

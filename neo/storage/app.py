@@ -36,38 +36,28 @@ from neo.bootstrap import BootstrapManager
 class Application(object):
     """The storage node application."""
 
-    def __init__(self, cluster, bind, masters, database, uuid, reset):
-
+    def __init__(self, config):
         # always use default connector for now
         self.connector_handler = getConnectorHandler()
 
         # set the cluster name
-        if cluster is None:
-            raise RuntimeError, 'cluster name must be non-empty'
-        self.name = cluster
+        self.name = config.getCluster()
         
         # set the bind address
-        ip_address, port = bind.split(':')
-        self.server = (ip_address, int(port))
+        self.server = config.getBind()
         logging.debug('IP address is %s, port is %d', *(self.server))
 
         # load master node list
-        self.master_node_list = parseMasterList(masters)
+        self.master_node_list = config.getMasters()
         logging.debug('master nodes are %s', self.master_node_list)
 
         # load database connection credentials, from user:password@database
-        if database is None:
-            raise RuntimeError, 'database connection required'
-        (ident, dbname) = database.split('@')
-        if ':' in ident:
-            (username, password) = ident.split(':')
-        else:
-            (username, password) = (ident, None)
+        (username, password, database) = config.getDatabase()
             
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
-        self.dm = MySQLDatabaseManager(database=dbname, user=username,
+        self.dm = MySQLDatabaseManager(database=database, user=username,
                 password=password)
 
         # The partition table is initialized after getting the number of
@@ -92,16 +82,17 @@ class Application(object):
         self.has_node_information = False
         self.has_partition_table = False
 
-        self.dm.setup(reset)
+        self.dm.setup(reset=config.getReset())
         self.loadConfiguration()
 
         # force node uuid from command line argument, for testing purpose only
-        if uuid is not None:
-            self.uuid = uuid
+        if config.getUUID() is not None:
+            self.uuid = config.getUUID()
 
     def loadConfiguration(self):
         """Load persistent configuration data from the database.
         If data is not present, generate it."""
+
         dm = self.dm
 
         self.uuid = dm.getUUID()

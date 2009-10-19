@@ -46,7 +46,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.prepareDatabase(number=1)
         # create an application object
         config = self.getStorageConfiguration(master_number=1)
-        self.app = Application(**config)
+        self.app = Application(config)
         self.app.transaction_dict = {}
         self.app.store_lock_dict = {}
         self.app.load_lock_dict = {}

@@ -40,23 +40,16 @@ REQUIRED_NODE_NUMBER = 1
 class Application(object):
     """The master node application."""
 
-    def __init__(self, cluster, bind, masters, replicas, partitions, uuid):
+    def __init__(self, config):
 
         # always use default connector for now
         self.connector_handler = getConnectorHandler()
 
-        # set the cluster name
-        if cluster is None:
-            raise RuntimeError, 'cluster name must be non-empty'
-        self.name = cluster
+        self.name = config.getCluster()
+        self.server = config.getBind()
+        self.master_node_list = config.getMasters()
 
-        # set the bind address
-        ip_address, port = bind.split(':')
-        self.server = (ip_address, int(port))
         logging.debug('IP address is %s, port is %d', *(self.server))
-
-        # load master node list
-        self.master_node_list = parseMasterList(masters, self.server)
         logging.debug('master nodes are %s', self.master_node_list)
 
         # Internal attributes.
@@ -64,6 +57,7 @@ class Application(object):
         self.nm = NodeManager()
 
         # Partition table
+        replicas, partitions = config.getReplicas(), config.getPartitions()
         if replicas < 0:
             raise RuntimeError, 'replicas must be a positive integer'
         if partitions <= 0:
@@ -78,7 +72,8 @@ class Application(object):
         self.cluster_state = None
 
         # Generate an UUID for self
-        if uuid is None:
+        uuid = config.getUUID() 
+        if uuid is None or uuid == '':
             uuid = self.getNewUUID(NodeTypes.MASTER)
         self.uuid = uuid
 

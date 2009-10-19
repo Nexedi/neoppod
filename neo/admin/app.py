@@ -51,32 +51,26 @@ class Dispatcher:
 class Application(object):
     """The storage node application."""
 
-    def __init__(self, cluster, bind, masters, uuid=None):
+    def __init__(self, config):
 
         # always use default connector for now
         self.connector_handler = getConnectorHandler()
 
-        # set the cluster name
-        if cluster is None:
-            raise RuntimeError, 'cluster name must be non-empty'
-        self.name = cluster
-        
-        # set the bind address
-        ip_address, port = bind.split(':')
-        self.server = (ip_address, int(port))
-        logging.debug('IP address is %s, port is %d', *(self.server))
+        self.name = config.getCluster()
+        self.server = config.getBind()
+        self.master_node_list = config.getMasters()
 
-        # load master node list
-        self.master_node_list = parseMasterList(masters)
+        logging.debug('IP address is %s, port is %d', *(self.server))
         logging.debug('master nodes are %s', self.master_node_list)
 
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
+
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
-        self.uuid = uuid
+        self.uuid = config.getUUID()
         self.primary_master_node = None
         self.ptid = None
         self.request_handler = MasterRequestEventHandler(self)

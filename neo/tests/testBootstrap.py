@@ -28,7 +28,7 @@ class BootstrapManagerTests(NeoTestBase):
         self.prepareDatabase(number=1)
         # create an application object
         config = self.getStorageConfiguration()
-        self.app = Application(**config)
+        self.app = Application(config)
         for address in self.app.master_node_list:
             self.app.nm.createMaster(address=address)
         self.bootstrap = BootstrapManager(self.app, 'main', NodeTypes.STORAGE)

@@ -31,7 +31,7 @@ class MasterVerificationTests(NeoTestBase):
     def setUp(self):
         # create an application object
         config = self.getMasterConfiguration()
-        self.app = Application(**config)
+        self.app = Application(config)
         self.app.pt.clear()
         self.app.finishing_transaction_dict = {}
         for address in self.app.master_node_list:

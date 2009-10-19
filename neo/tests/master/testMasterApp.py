@@ -26,7 +26,7 @@ class MasterAppTests(NeoTestBase):
     def setUp(self):
         # create an application object
         config = self.getMasterConfiguration()
-        self.app = Application(**config)
+        self.app = Application(config)
         self.app.pt.clear()
 
     def tearDown(self):
