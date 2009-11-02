@@ -29,8 +29,8 @@ def setupLog(name='NEO', filename=None, verbose=False):
         level = logging_std.DEBUG
     else:
         level = logging_std.INFO
-    format = PREFIX + SUFFIX
-    logging_std.basicConfig(filename=filename, level=level, format=format)
+    fmt = PREFIX + SUFFIX
+    logging_std.basicConfig(filename=filename, level=level, format=fmt)
     logging = logging_std.getLogger(name.upper())
 
 from neo import protocol
