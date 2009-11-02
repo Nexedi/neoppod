@@ -358,7 +358,7 @@ class Application(object):
     def _getMasterConnection(self):
         """ Connect to the primary master node on demand """
         # acquire the lock to allow only one thread to connect to the primary
-        lock = self._connecting_to_master_node_acquire()
+        self._connecting_to_master_node_acquire()
         try:
             if self.master_conn is None:
                 self.new_oid_list = []
@@ -725,7 +725,7 @@ class Application(object):
         ext = dumps(transaction._extension)
         oid_list = self.local_var.data_dict.keys()
         # Store data on each node
-        pt = self._getPartitionTable()
+        self._getPartitionTable() # XXX: establish connection if needed
         cell_list = self._getCellListForTID(self.local_var.tid, writable=True)
         self.local_var.voted_counter = 0
         for cell in cell_list:

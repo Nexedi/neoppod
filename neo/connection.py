@@ -360,7 +360,7 @@ class Connection(BaseConnection):
         PACKET_LOGGER.dispatch(self, packet, ' to ')
         try:
             self.write_buf += str(packet)
-        except PacketMalformedError, m:
+        except PacketMalformedError:
             logging.critical('trying to send a too big message')
             raise
 

@@ -144,7 +144,7 @@ class SocketConnector:
     def __repr__(self):
         try:
             fileno = str(self.socket.fileno())
-        except socket.error, (err, errmsg):
+        except socket.error:
             fileno = '?'
         result = '<%s at 0x%x fileno %s %s>' % (self.__class__.__name__,
                  id(self), fileno, self.socket.getsockname())
