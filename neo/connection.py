@@ -410,7 +410,8 @@ class Connection(BaseConnection):
         """
         msg_id = self._getNextId()
         packet.setId(msg_id)
-        self.expectMessage(msg_id)
+        self.expectMessage(msg_id, timeout=timeout,
+                additional_timeout=additional_timeout)
         self._addPacket(packet)
         return msg_id
 
