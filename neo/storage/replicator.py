@@ -126,7 +126,8 @@ class Replicator(object):
                 partition.setCriticalTID(tid)
             del self.critical_tid_dict[msg_id]
         except KeyError:
-            logging.debug("setCriticalTID raised KeyError for msg_id %s" %(msg_id,))
+            logging.debug("setCriticalTID raised KeyError for msg_id %s" % 
+                    (msg_id, ))
 
     def _askCriticalTID(self):
         conn = self.primary_master_connection
@@ -164,7 +165,8 @@ class Replicator(object):
 
         addr = node.getAddress()
         if addr is None:
-            logging.error("no address known for the selected node %s" %(dump(node.getUUID())))
+            logging.error("no address known for the selected node %s" % 
+                    (dump(node.getUUID()), ))
             return
         if self.current_connection is not None:
             if self.current_connection.getAddress() == addr:
@@ -177,8 +179,7 @@ class Replicator(object):
         if self.current_connection is None:
             handler = replication.ReplicationHandler(app)
             self.current_connection = ClientConnection(app.em, handler, 
-                                                       addr = addr,
-                                                       connector_handler = app.connector_handler)
+                   addr = addr, connector_handler = app.connector_handler)
             p = Packets.RequestIdentification(NodeTypes.STORAGE, 
                     app.uuid, app.server, app.name)
             self.current_connection.ask(p)
@@ -196,7 +197,8 @@ class Replicator(object):
             # Notify to a primary master node that my cell is now up-to-date.
             conn = self.primary_master_connection
             p = Packets.NotifyPartitionChanges(app.pt.getID(), 
-                 [(self.current_partition.getRID(), app.uuid, CellStates.UP_TO_DATE)])
+                 [(self.current_partition.getRID(), app.uuid, 
+                     CellStates.UP_TO_DATE)])
             conn.notify(p)
         except KeyError:
             pass
@@ -234,7 +236,8 @@ class Replicator(object):
                 self._askUnfinishedTIDs()
         else:
             if self.replication_done:
-                logging.info('replication is done for %s' %(self.current_partition.getRID(),))
+                logging.info('replication is done for %s' % 
+                        (self.current_partition.getRID(), ))
                 self._finishReplication()
 
     def removePartition(self, rid):

@@ -48,7 +48,8 @@ class LockUser(object):
         return isinstance(other, self.__class__) and self.ident == other.ident
 
     def __repr__(self):
-        return '%s@%s:%s %s' % (self.ident, self.caller[0], self.caller[1], self.caller[3])
+        return '%s@%s:%s %s' % (self.ident, self.caller[0], self.caller[1], 
+                self.caller[3])
 
     def formatStack(self):
         return ''.join(traceback.format_list(self.stack))
@@ -59,7 +60,8 @@ class VerboseLockBase(object):
         self.debug_lock = debug_lock
         self.owner = None
         self.waiting = []
-        self._note('%s@%X created by %r', self.__class__.__name__, id(self), LockUser(1))
+        self._note('%s@%X created by %r', self.__class__.__name__, id(self), 
+                LockUser(1))
 
     def _note(self, fmt, *args):
         sys.stderr.write(fmt % args + '\n')
@@ -75,12 +77,16 @@ class VerboseLockBase(object):
     def acquire(self, blocking=1):
         me = LockUser()
         owner = self._getOwner()
-        self._note('[%r]%s.acquire(%s) Waiting for lock. Owned by:%r Waiting:%r', me, self, blocking, owner, self.waiting)
-        if (self.debug_lock and owner is not None) or (not self.reentrant and blocking and me == owner):
+        self._note('[%r]%s.acquire(%s) Waiting for lock. Owned by:%r ' \
+                'Waiting:%r', me, self, blocking, owner, self.waiting)
+        if (self.debug_lock and owner is not None) or  \
+                (not self.reentrant and blocking and me == owner):
             if me == owner:
-                self._note('[%r]%s.acquire(%s): Deadlock detected: I already own this lock:%r', me, self, blocking, owner)
+                self._note('[%r]%s.acquire(%s): Deadlock detected: ' \
+                    ' I already own this lock:%r', me, self, blocking, owner)
             else:
-                self._note('[%r]%s.acquire(%s): debug lock triggered: %r', me, self, blocking, owner)
+                self._note('[%r]%s.acquire(%s): debug lock triggered: %r', 
+                        me, self, blocking, owner)
             self._note('Owner traceback:\n%s', owner.formatStack())
             self._note('My traceback:\n%s', me.formatStack())
         self.waiting.append(me)
@@ -89,7 +95,8 @@ class VerboseLockBase(object):
         finally:
             self.owner = me
             self.waiting.remove(me)
-            self._note('[%r]%s.acquire(%s) Lock granted. Waiting: %r', me, self, blocking, self.waiting)
+            self._note('[%r]%s.acquire(%s) Lock granted. Waiting: %r', 
+                    me, self, blocking, self.waiting)
 
     def release(self):
         me = LockUser()
@@ -104,7 +111,8 @@ class VerboseLockBase(object):
 
 class VerboseRLock(VerboseLockBase):
     def __init__(self, verbose=None, debug_lock=False):
-        super(VerboseRLock, self).__init__(reentrant=True, debug_lock=debug_lock)
+        super(VerboseRLock, self).__init__(reentrant=True, 
+                debug_lock=debug_lock)
         self.lock = threading_RLock()
 
     def _locked(self):

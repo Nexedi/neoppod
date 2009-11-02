@@ -147,7 +147,8 @@ def _decodeNodeType(original_node_type):
 def _decodeErrorCode(original_error_code):
     error_code = ErrorCodes.get(original_error_code)
     if error_code is None:
-        raise PacketMalformedError('invalid error code %d' % original_error_code)
+        raise PacketMalformedError('invalid error code %d' % 
+                original_error_code)
     return error_code
 
 def _decodeAddress(address):
@@ -337,7 +338,8 @@ class AcceptIdentification(Packet):
         node_type = _decodeNodeType(node_type)
         uuid = _decodeUUID(uuid)
         your_uuid == _decodeUUID(uuid)
-        return (node_type, uuid, address, num_partitions, num_replicas, your_uuid)
+        return (node_type, uuid, address, num_partitions, num_replicas, 
+                your_uuid)
 
 class AskPrimary(Packet):
     """ 
@@ -395,8 +397,9 @@ class AnswerLastIDs(Packet):
     Reply to Ask Last IDs. S -> PM, PM -> S.
     """
     def _encode(self, loid, ltid, lptid):
-        # in this case, loid is a valid OID but considered as invalid. This is not
-        # an issue because the OID 0 is hard coded and will never be generated
+        # in this case, loid is a valid OID but considered as invalid. This is 
+        # not an issue because the OID 0 is hard coded and will never be 
+        # generated
         if loid is None:
             loid = INVALID_OID
         ltid = _encodeTID(ltid)
@@ -882,7 +885,8 @@ class AnswerTransactionInformation(Packet):
     Answer information (user, description) about a transaction. S -> Any.
     """
     def _encode(self, tid, user, desc, ext, oid_list):
-        body = [pack('!8sHHHL', tid, len(user), len(desc), len(ext), len(oid_list))]
+        body = [pack('!8sHHHL', tid, len(user), len(desc), len(ext), 
+            len(oid_list))]
         body.append(user)
         body.append(desc)
         body.append(ext)
@@ -1268,7 +1272,8 @@ class PacketRegistry(dict):
     StartOperation = register(0x000B, StartOperation)
     StopOperation = register(0x000C, StopOperation)
     AskUnfinishedTransactions = register(0x000D, AskUnfinishedTransactions)
-    AnswerUnfinishedTransactions = register(0x800d, AnswerUnfinishedTransactions)
+    AnswerUnfinishedTransactions = register(0x800d, 
+            AnswerUnfinishedTransactions)
     AskObjectPresent = register(0x000f, AskObjectPresent)
     AnswerObjectPresent = register(0x800f, AnswerObjectPresent)
     DeleteTransaction = register(0x0010, DeleteTransaction)
@@ -1293,7 +1298,8 @@ class PacketRegistry(dict):
     AskTIDs = register(0x001C, AskTIDs)
     AnswerTIDs = register(0x801D, AnswerTIDs)
     AskTransactionInformation = register(0x001E, AskTransactionInformation)
-    AnswerTransactionInformation = register(0x801E, AnswerTransactionInformation)
+    AnswerTransactionInformation = register(0x801E, 
+            AnswerTransactionInformation)
     AskObjectHistory = register(0x001F, AskObjectHistory)
     AnswerObjectHistory = register(0x801F, AnswerObjectHistory)
     AskOIDs = register(0x0020, AskOIDs)

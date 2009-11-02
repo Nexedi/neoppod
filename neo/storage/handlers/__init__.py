@@ -37,7 +37,8 @@ class BaseMasterHandler(BaseStorageHandler):
         raise PrimaryFailure('re-election occurs')
 
     def notifyClusterInformation(self, conn, packet, state):
-        logging.error('ignoring notify cluster information in %s' % self.__class__.__name__)
+        logging.error('ignoring notify cluster information in %s' % 
+                self.__class__.__name__)
 
     def notifyLastOID(self, conn, packet, oid):
         self.app.loid = oid
@@ -104,7 +105,8 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
         if t is None:
             p = protocol.tidNotFound('%s does not exist' % dump(tid))
         else:
-            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3], t[0])
+            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3], 
+                    t[0])
         conn.answer(p, packet.getId())
 
     def askObject(self, conn, packet, oid, serial, tid):

@@ -50,7 +50,9 @@ def lockCheckWrapper(func):
     def wrapper(self, *args, **kw):
         if not self._lock._is_owned():
             import traceback
-            logging.warning('%s called on %s instance without being locked. Stack:\n%s', func.func_code.co_name, self.__class__.__name__, ''.join(traceback.format_stack()))
+            logging.warning('%s called on %s instance without being locked.' \
+                ' Stack:\n%s', func.func_code.co_name, self.__class__.__name__,
+                ''.join(traceback.format_stack()))
         # Call anyway
         return func(self, *args, **kw)
     return wrapper
@@ -366,7 +368,7 @@ class Connection(BaseConnection):
         if self.write_buf:
             self.em.addWriter(self)
 
-    def expectMessage(self, msg_id = None, timeout = 5, additional_timeout = 30):
+    def expectMessage(self, msg_id=None, timeout=5, additional_timeout=30):
         """Expect a message for a reply to a given message ID or any message.
 
         The purpose of this method is to define how much amount of time is
@@ -403,7 +405,9 @@ class Connection(BaseConnection):
 
     @not_closed
     def ask(self, packet, timeout=5, additional_timeout=30):
-        """ Send a packet with a new ID and register the expectation of an answer """
+        """ 
+        Send a packet with a new ID and register the expectation of an answer 
+        """
         msg_id = self._getNextId()
         packet.setId(msg_id)
         self.expectMessage(msg_id)

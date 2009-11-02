@@ -18,7 +18,8 @@
 from ZODB import BaseStorage, ConflictResolution, POSException
 
 from neo.client.app import Application
-from neo.client.exception import NEOStorageConflictError, NEOStorageNotFoundError
+from neo.client.exception import NEOStorageConflictError, \
+        NEOStorageNotFoundError
 
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
@@ -62,7 +63,8 @@ class Storage(BaseStorage.BaseStorage,
     def tpc_begin(self, transaction, tid=None, status=' '):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        return self.app.tpc_begin(transaction=transaction, tid=tid, status=status)
+        return self.app.tpc_begin(transaction=transaction, tid=tid, 
+                status=status)
 
     def tpc_vote(self, transaction):
         if self._is_read_only:

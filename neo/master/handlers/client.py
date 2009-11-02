@@ -111,7 +111,7 @@ class ClientServiceHandler(BaseServiceHandler):
         # Collect the UUIDs of nodes related to this transaction.
         uuid_set = set()
         for part in partition_set:
-            uuid_set.update((cell.getUUID() for cell in app.pt.getCellList(part) \
+            uuid_set.update((cell.getUUID() for cell in app.pt.getCellList(part)
                              if cell.getNodeState() != NodeStates.HIDDEN))
 
         # Request locking data.

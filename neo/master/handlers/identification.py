@@ -57,7 +57,8 @@ class IdentificationHandler(MasterHandler):
             node.setAddress(address)
             node.setRunning()
 
-        # ask the app the node identification, if refused, an exception is raised
+        # ask the app the node identification, if refused, an exception is 
+        # raised
         result = self.app.identifyNode(node_type, uuid, node) 
         (uuid, node, state, handler, node_ctor) = result
         if uuid is None:

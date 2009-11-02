@@ -26,8 +26,8 @@ from neo.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.node import NodeManager
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection
-from neo.exception import ElectionFailure, PrimaryFailure, VerificationFailure, \
-        OperationFailure
+from neo.exception import ElectionFailure, PrimaryFailure, \
+        VerificationFailure, OperationFailure
 from neo.master.handlers import election, identification, secondary, recovery
 from neo.master.handlers import verification, storage, client, shutdown
 from neo.master.handlers import administration
@@ -63,8 +63,9 @@ class Application(object):
         if partitions <= 0:
             raise RuntimeError, 'partitions must be more than zero'
         self.pt = PartitionTable(partitions, replicas)
-        logging.debug('the number of replicas is %d, the number of partitions is %d, the name is %s',
-                      replicas, partitions, self.name)
+        logging.debug('the number of replicas is %d, the number of ' \
+                'partitions is %d, the name is %s',
+                replicas, partitions, self.name)
 
         self.listening_conn = None
         self.primary = None
@@ -173,16 +174,18 @@ class Application(object):
                         t = current_time
                         for node in nm.getMasterList():
                             if node.isTemporarilyDown() \
-                                    and node.getLastStateChange() + expiration < current_time:
+                                    and node.getLastStateChange() + \
+                                    expiration < current_time:
                                 logging.info('%s is down' % (node, ))
                                 node.setDown()
-                                self.unconnected_master_node_set.discard(node.getAddress())
+                                self.unconnected_master_node_set.discard(
+                                        node.getAddress())
 
                         # Try to connect to master nodes.
                         if self.unconnected_master_node_set:
                             for addr in list(self.unconnected_master_node_set):
-                                ClientConnection(em, client_handler, addr = addr,
-                                                 connector_handler = self.connector_handler)
+                                ClientConnection(em, client_handler, addr=addr,
+                                     connector_handler=self.connector_handler)
                     em.poll(1)
                     if len(self.unconnected_master_node_set) == 0 \
                        and len(self.negotiating_master_node_set) == 0:
@@ -195,7 +198,7 @@ class Application(object):
                 if self.primary is None:
                     # I am the primary.
                     self.primary = True
-                    logging.debug('I am the primary, so sending an announcement')
+                    logging.debug('I am the primary, sending an announcement')
                     for conn in em.getClientList():
                         conn.notify(Packets.AnnouncePrimary())
                         conn.abort()
@@ -224,12 +227,14 @@ class Application(object):
                         if conn.getAddress() != addr:
                             conn.close()
 
-                    # But if there is no such connection, something wrong happened.
+                    # But if there is no such connection, something wrong 
+                    # happened.
                     for conn in em.getClientList():
                         if conn.getAddress() == addr:
                             break
                     else:
-                        raise ElectionFailure, 'no connection remains to the primary'
+                        raise ElectionFailure, 'no connection remains to ' \
+                                'the primary'
 
                 return
             except ElectionFailure, m:
@@ -321,7 +326,8 @@ class Application(object):
             row_list.append((offset, self.pt.getRow(offset)))
             # Split the packet if too huge.
             if len(row_list) == 1000:
-                conn.notify(Packets.SendPartitionTable( self.pt.getID(), row_list))
+                conn.notify(Packets.SendPartitionTable(self.pt.getID(), 
+                    row_list))
                 del row_list[:]
         if row_list:
             conn.notify(Packets.SendPartitionTable(self.pt.getID(), row_list))
@@ -366,9 +372,12 @@ class Application(object):
         pt.make(node_list)
 
     def recoverStatus(self):
-        """Recover the status about the cluster. Obtain the last OID, the last TID,
-        and the last Partition Table ID from storage nodes, then get back the latest
-        partition table or make a new table from scratch, if this is the first time."""
+        """
+        Recover the status about the cluster. Obtain the last OID, the last 
+        TID, and the last Partition Table ID from storage nodes, then get 
+        back the latest partition table or make a new table from scratch, 
+        if this is the first time.
+        """
         logging.info('begin the recovery of the status')
 
         self.changeClusterState(ClusterStates.RECOVERING)
@@ -545,16 +554,19 @@ class Application(object):
             self.broadcastPartitionChanges(self.pt.setNextID(), cell_list)
 
     def provideService(self):
-        """This is the normal mode for a primary master node. Handle transactions
+        """
+        This is the normal mode for a primary master node. Handle transactions
         and stop the service only if a catastrophy happens or the user commits
-        a shutdown."""
+        a shutdown.
+        """
         logging.info('provide service')
         em = self.em
         nm = self.nm
 
         self.changeClusterState(ClusterStates.RUNNING)
 
-        # This dictionary is used to hold information on transactions being finished.
+        # This dictionary is used to hold information on transactions being 
+        # finished.
         self.finishing_transaction_dict = {}
 
         # Now everything is passive.
@@ -562,12 +574,13 @@ class Application(object):
             try:
                 em.poll(1)
             except OperationFailure:
-                # If not operational, send Stop Operation packets to storage nodes
-                # and client nodes. Abort connections to client nodes.
-                logging.critical('No longer operational, so stopping the service')
+                # If not operational, send Stop Operation packets to storage 
+                # nodes and client nodes. Abort connections to client nodes.
+                logging.critical('No longer operational, stopping the service')
                 for conn in em.getConnectionList():
                     node = nm.getByUUID(conn.getUUID())
-                    if node is not None and (node.isStorage() or node.isClient()):
+                    if node is not None and (node.isStorage() 
+                            or node.isClient()):
                         conn.notify(Packets.StopOperation())
                         if node.isClient():
                             conn.abort()
@@ -580,7 +593,8 @@ class Application(object):
                 dump(self.uuid), *(self.server))
 
         # all incoming connections identify through this handler
-        self.listening_conn.setHandler(identification.IdentificationHandler(self))
+        self.listening_conn.setHandler(
+                identification.IdentificationHandler(self))
 
         handler = secondary.SecondaryMasterHandler(self)
         em = self.em
@@ -596,8 +610,8 @@ class Application(object):
                 conn.setHandler(handler)
 
 
-        # If I know any storage node, make sure that they are not in the running state,
-        # because they are not connected at this stage.
+        # If I know any storage node, make sure that they are not in the 
+        # running state, because they are not connected at this stage.
         for node in nm.getStorageList():
             if node.isRunning():
                 node.setTemporarilyDown()
@@ -613,7 +627,9 @@ class Application(object):
             self.provideService()
 
     def playSecondaryRole(self):
-        """I play a secondary role, thus only wait for a primary master to fail."""
+        """
+        I play a secondary role, thus only wait for a primary master to fail.
+        """
         logging.info('play the secondary role with %s (%s:%d)', 
                 dump(self.uuid), *(self.server))
 
@@ -631,7 +647,9 @@ class Application(object):
             self.em.poll(1)
 
     def changeClusterState(self, state):
-        """ Change the cluster state and apply right handler on each connections """
+        """ 
+        Change the cluster state and apply right handler on each connections 
+        """
         if self.cluster_state == state:
             return
         nm, em = self.nm, self.em

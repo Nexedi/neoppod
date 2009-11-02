@@ -22,8 +22,10 @@ from time import time
 from neo.epoll import Epoll
 
 class IdleEvent(object):
-    """This class represents an event called when a connection is waiting for
-    a message too long."""
+    """
+    This class represents an event called when a connection is waiting for
+    a message too long.
+    """
 
     def __init__(self, conn, msg_id, timeout, additional_timeout):
         self._conn = conn
@@ -141,8 +143,8 @@ class SelectEventManager(object):
                     self._addPendingConnection(to_process)
 
     def _poll(self, timeout = 1):
-        rlist, wlist, xlist = select(self.reader_set, self.writer_set, self.exc_list,
-                                     timeout)
+        rlist, wlist, xlist = select(self.reader_set, self.writer_set, 
+                self.exc_list, timeout)
         for s in rlist:
             conn = self.connection_dict[s]
             conn.lock()

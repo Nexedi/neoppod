@@ -193,10 +193,12 @@ class Application(object):
 
     def execute(self, args):
         """Execute the command given."""
-        # print node type : print list of node of the given type (STORAGE_NODE_TYPE, MASTER_NODE_TYPE...)
-        # set node uuid state [1|0] : set the node for the given uuid to the state (RUNNING, DOWN...)
-        #                             and modify the partition if asked
-        # set cluster name [shutdown|operational] : either shutdown the cluster or mark it as operational
+        # print node type : print list of node of the given type 
+        # (STORAGE_NODE_TYPE, MASTER_NODE_TYPE...)
+        # set node uuid state [1|0] : set the node for the given uuid to the 
+        # state (RUNNING, DOWN...) and modify the partition if asked
+        # set cluster name [shutdown|operational] : either shutdown the 
+        # cluster or mark it as operational
         current_action = action_dict
         level = 0
         while current_action is not None and \

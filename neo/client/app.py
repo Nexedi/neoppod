@@ -94,7 +94,8 @@ class ConnectionPool(object):
                 conn.unlock()
 
             try:
-                app._waitMessage(conn, msg_id, handler=app.storage_bootstrap_handler)
+                app._waitMessage(conn, msg_id, 
+                        handler=app.storage_bootstrap_handler)
             except ConnectionClosed:
                 logging.error('Connection to storage node %s failed', node)
                 return None
@@ -116,8 +117,8 @@ class ConnectionPool(object):
                         not self.app.dispatcher.registered(conn):
                     del self.connection_dict[conn.getUUID()]
                     conn.close()
-                    logging.debug('_dropConnections : connection to storage node %s:%d closed', 
-                                 *(conn.getAddress()))
+                    logging.debug('_dropConnections : connection to storage ' \
+                            'node %s:%d closed', *(conn.getAddress()))
                     if len(self.connection_dict) <= self.max_pool_size:
                         break
             finally:
@@ -263,7 +264,8 @@ class Application(object):
         self.mq_cache = MQ()
         self.new_oid_list = []
         self.last_oid = '\0' * 8
-        self.storage_event_handler = storage.StorageEventHandler(self, self.dispatcher)
+        self.storage_event_handler = storage.StorageEventHandler(self, self.
+                dispatcher)
         self.storage_bootstrap_handler = storage.StorageBootstrapHandler(self)
         self.storage_handler = storage.StorageAnswersHandler(self)
         self.primary_handler = master.PrimaryAnswersHandler(self)
@@ -406,28 +408,30 @@ class Application(object):
                         self.trying_master_node = master_list[0]
                     index += 1
                 # Connect to master
-                conn = MTClientConnection(self.em, self.notifications_handler,
-                                          addr=self.trying_master_node.getAddress(),
-                                          connector_handler=self.connector_handler,
-                                          dispatcher=self.dispatcher)
+                conn = MTClientConnection(self.em, self.notifications_handler, 
+                        addr=self.trying_master_node.getAddress(),
+                        connector_handler=self.connector_handler,
+                        dispatcher=self.dispatcher)
                 # Query for primary master node
                 conn.lock()
                 try:
                     if conn.getConnector() is None:
-                        # This happens, if a connection could not be established.
+                        # This happens if a connection could not be established.
                         logging.error('Connection to master node %s failed',
                                       self.trying_master_node)
                         continue
-                    msg_id = conn.ask(self.local_var.queue, Packets.AskPrimary())
+                    msg_id = conn.ask(self.local_var.queue, 
+                            Packets.AskPrimary())
                 finally:
                     conn.unlock()
                 try:
-                    self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                    self._waitMessage(conn, msg_id, 
+                            handler=self.primary_bootstrap_handler)
                 except ConnectionClosed:
                     continue
                 # If we reached the primary master node, mark as connected
-                connected = self.primary_master_node is not None \
-                            and self.primary_master_node is self.trying_master_node
+                connected = self.primary_master_node is not None and \
+                        self.primary_master_node is self.trying_master_node
 
             logging.info('connected to a primary master node')
             # Identify to primary master and request initial data
@@ -445,7 +449,8 @@ class Application(object):
                 finally:
                     conn.unlock()
                 try:
-                    self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                    self._waitMessage(conn, msg_id, 
+                            handler=self.primary_bootstrap_handler)
                 except ConnectionClosed:
                     self.primary_master_node = None
                     break
@@ -468,17 +473,20 @@ class Application(object):
                                       Packets.AskNodeInformation())
                 finally:
                     conn.unlock()
-                self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                self._waitMessage(conn, msg_id, 
+                        handler=self.primary_bootstrap_handler)
                 conn.lock()
                 try:
                     msg_id = conn.ask(self.local_var.queue,
                                       Packets.AskPartitionTable([]))
                 finally:
                     conn.unlock()
-                self._waitMessage(conn, msg_id, handler=self.primary_bootstrap_handler)
+                self._waitMessage(conn, msg_id, 
+                        handler=self.primary_bootstrap_handler)
             ready = self.uuid is not None and self.pt is not None \
                                  and self.pt.operational()
-        logging.info("connected to primary master node %s" % self.primary_master_node)
+        logging.info("connected to primary master node %s" % 
+                self.primary_master_node)
         return conn
         
     def registerDB(self, db, limit):
@@ -530,7 +538,8 @@ class Application(object):
         cell_list = self._getCellListForOID(oid, readable=True)
         if len(cell_list) == 0:
             # No cells available, so why are we running ?
-            logging.error('oid %s not found because no storage is available for it', dump(oid))
+            logging.error('oid %s not found because no storage is ' \
+                    'available for it', dump(oid))
             raise NEOStorageNotFoundError()
 
         shuffle(cell_list)
@@ -571,8 +580,10 @@ class Application(object):
                 break
 
         if self.local_var.asked_object == 0:
-            # We didn't got any object from all storage node because of connection error
-            logging.warning('oid %s not found because of connection failure', dump(oid))
+            # We didn't got any object from all storage node because of 
+            # connection error
+            logging.warning('oid %s not found because of connection failure', 
+                    dump(oid))
             raise NEOStorageNotFoundError()
 
         if self.local_var.asked_object == -1:
@@ -685,12 +696,14 @@ class Application(object):
                 if self.local_var.data_dict.has_key(oid):
                     # One storage already accept the object, is it normal ??
                     # remove from dict and raise ConflictError, don't care of
-                    # previous node which already store data as it would be resent
-                    # again if conflict is resolved or txn will be aborted
+                    # previous node which already store data as it would be 
+                    # resent again if conflict is resolved or txn will be 
+                    # aborted
                     del self.local_var.data_dict[oid]
                 self.local_var.conflict_serial = self.local_var.object_stored[1]
                 raise NEOStorageConflictError
-            # increase counter so that we know if a node has stored the object or not
+            # increase counter so that we know if a node has stored the object 
+            # or not
             self.local_var.object_stored_counter += 1
 
         if self.local_var.object_stored_counter == 0:
@@ -716,7 +729,8 @@ class Application(object):
         cell_list = self._getCellListForTID(self.local_var.tid, writable=True)
         self.local_var.voted_counter = 0
         for cell in cell_list:
-            logging.debug("voting object %s %s" %(cell.getAddress(), cell.getState()))
+            logging.debug("voting object %s %s" %(cell.getAddress(), 
+                cell.getState()))
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
@@ -747,7 +761,8 @@ class Application(object):
         for oid in self.local_var.data_dict.iterkeys():
             cell_set |= set(self._getCellListForOID(oid, writable=True))
         # select nodes where transaction was stored
-        cell_set |= set(self._getCellListForTID(self.local_var.tid, writable=True))
+        cell_set |= set(self._getCellListForTID(self.local_var.tid, 
+            writable=True))
 
         # cancel transaction one all those nodes
         for cell in cell_set:
@@ -814,7 +829,8 @@ class Application(object):
 
             self.local_var.txn_info = 0
             try:
-                self._askStorage(conn, Packets.AskTransactionInformation(transaction_id))
+                self._askStorage(conn, Packets.AskTransactionInformation(
+                    transaction_id))
             except ConnectionClosed:
                 continue
 
@@ -853,12 +869,13 @@ class Application(object):
                 self.store(oid, transaction_id, data, None, txn)
             except NEOStorageConflictError, serial:
                 if serial <= self.local_var.tid:
-                    new_data = wrapper.tryToResolveConflict(oid, self.local_var.tid,
-                                                            serial, data)
+                    new_data = wrapper.tryToResolveConflict(oid, 
+                            self.local_var.tid, serial, data)
                     if new_data is not None:
                         self.store(oid, self.local_var.tid, new_data, None, txn)
                         continue
-                raise ConflictError(oid = oid, serials = (self.local_var.tid, serial),
+                raise ConflictError(oid = oid, serials = (self.local_var.tid, 
+                    serial),
                                     data = data)
         return self.local_var.tid, oid_list
 
@@ -880,8 +897,8 @@ class Application(object):
                 continue
 
             try:
-                conn.ask(self.local_var.queue,
-                         Packets.AskTIDs(first, last, protocol.INVALID_PARTITION))
+                conn.ask(self.local_var.queue, Packets.AskTIDs(first, last, 
+                    protocol.INVALID_PARTITION))
             finally:
                 conn.unlock()
 
@@ -912,7 +929,8 @@ class Application(object):
                 if conn is not None:
                     self.local_var.txn_info = 0
                     try:
-                        self._askStorage(conn, Packets.AskTransactionInformation(tid))
+                        self._askStorage(conn, 
+                                Packets.AskTransactionInformation(tid))
                     except ConnectionClosed:
                         continue
                     if isinstance(self.local_var.txn_info, dict):
@@ -933,7 +951,8 @@ class Application(object):
         # Check we return at least one element, otherwise call
         # again but extend offset
         if len(undo_info) == 0 and not block:
-            undo_info = self.undoLog(first=first, last=last*5, filter=filter, block=1)
+            undo_info = self.undoLog(first=first, last=last*5, filter=filter, 
+                    block=1)
         return undo_info
 
     def undoLog(self, first, last, filter=None, block=0):
@@ -987,7 +1006,8 @@ class Application(object):
                 # ask transaction information
                 self.local_var.txn_info = None
                 try:
-                    self._askStorage(conn, Packets.AskTransactionInformation(serial))
+                    self._askStorage(conn, 
+                            Packets.AskTransactionInformation(serial))
                 except ConnectionClosed:
                     continue
 

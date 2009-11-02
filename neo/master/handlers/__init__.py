@@ -86,7 +86,8 @@ class BaseServiceHandler(MasterHandler):
         node = self.app.nm.getByUUID(conn.getUUID())
         assert node is not None
         if new_state != NodeStates.BROKEN:
-            new_state = DISCONNECTED_STATE_DICT.get(node.getType(), NodeStates.DOWN)
+            new_state = DISCONNECTED_STATE_DICT.get(node.getType(), 
+                    NodeStates.DOWN)
         if node.getState() == new_state:
             return
         if new_state != NodeStates.BROKEN and node.isPending():

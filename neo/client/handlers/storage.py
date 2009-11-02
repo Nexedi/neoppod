@@ -78,8 +78,8 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerObject(self, conn, packet, oid, start_serial, end_serial, 
             compression, checksum, data):
         app = self.app
-        app.local_var.asked_object = (oid, start_serial, end_serial, compression,
-                                      checksum, data)
+        app.local_var.asked_object = (oid, start_serial, end_serial, 
+                compression, checksum, data)
 
     def answerStoreObject(self, conn, packet, conflicting, oid, serial):
         app = self.app

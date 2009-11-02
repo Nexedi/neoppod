@@ -109,14 +109,16 @@ class PrimaryNotificationsHandler(BaseHandler):
             app.master_conn = None
             app.primary_master_node = None
         else:
-            logging.warn('app.master_conn is %s, but we are closing %s', app.master_conn, conn)
+            logging.warn('app.master_conn is %s, but we are closing %s', 
+                    app.master_conn, conn)
         super(PrimaryNotificationsHandler, self).connectionClosed(conn)
 
     def timeoutExpired(self, conn):
         app = self.app
         if app.master_conn is not None:
             assert conn is app.master_conn
-            logging.critical("connection timeout to primary master node expired")
+            logging.critical("connection timeout to primary master node ' \
+                    'expired")
         BaseHandler.timeoutExpired(self, conn)
 
     def peerBroken(self, conn):

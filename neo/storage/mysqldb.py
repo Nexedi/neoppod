@@ -444,7 +444,7 @@ class MySQLDatabaseManager(DatabaseManager):
             q("""INSERT INTO obj SELECT * FROM tobj WHERE tobj.serial = %d""" \
                     % tid)
             q("""DELETE FROM tobj WHERE serial = %d""" % tid)
-            q("""INSERT INTO trans SELECT * FROM ttrans WHERE ttrans.tid = %d""" \
+            q("""INSERT INTO trans SELECT * FROM ttrans WHERE ttrans.tid = %d"""
                     % tid)
             q("""DELETE FROM ttrans WHERE tid = %d""" % tid)
         except:

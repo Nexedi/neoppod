@@ -83,7 +83,8 @@ class VerificationHandler(BaseMasterHandler):
         if t is None:
             p = protocol.tidNotFound('%s does not exist' % dump(tid))
         else:
-            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3], t[0])
+            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3], 
+                    t[0])
         conn.answer(p, packet.getId())
 
     def askObjectPresent(self, conn, packet, oid, tid):

@@ -46,8 +46,8 @@ class RecoveryHandler(MasterHandler):
         app = self.app
         if uuid != app.target_uuid:
             # If this is not from a target node, ignore it.
-            logging.warn('got answer partition table from %s while waiting for %s',
-                         dump(uuid), dump(app.target_uuid))
+            logging.warn('got answer partition table from %s while waiting ' \
+                    'for %s', dump(uuid), dump(app.target_uuid))
             return
         # load unknown storage nodes
         for offset, row in row_list:

@@ -249,7 +249,8 @@ class PartitionTable(object):
                 line.append('X' * len(node_list))
             else:
                 cell = []
-                cell_dict = dict([(node_dict.get(x.getUUID(), None), x) for x in row])
+                cell_dict = dict([(node_dict.get(x.getUUID(), None), x) 
+                    for x in row])
                 for node in xrange(len(node_list)):
                     if node in cell_dict:
                         cell.append(cell_state_dict[cell_dict[node].getState()])

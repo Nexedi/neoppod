@@ -44,11 +44,13 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def askLastIDs(self, conn, packet):
         app = self.app
-        conn.answer(Packets.AnswerLastIDs(app.loid, app.ltid, app.pt.getID()), packet.getId())
+        conn.answer(Packets.AnswerLastIDs(app.loid, app.ltid, app.pt.getID()), 
+                packet.getId())
 
     def askUnfinishedTransactions(self, conn, packet):
         app = self.app
-        p = Packets.AnswerUnfinishedTransactions(app.finishing_transaction_dict.keys())
+        p = Packets.AnswerUnfinishedTransactions(
+                app.finishing_transaction_dict.keys())
         conn.answer(p, packet.getId())
 
     def notifyInformationLocked(self, conn, packet, tid):
@@ -78,7 +80,8 @@ class StorageServiceHandler(BaseServiceHandler):
                                 p = Packets.NotifyTransactionFinished(tid)
                                 c.answer(p, t.getMessageId())
                             else:
-                                p = Packets.InvalidateObjects(t.getOIDList(), tid)
+                                p = Packets.InvalidateObjects(t.getOIDList(), 
+                                        tid)
                                 c.notify(p)
                         elif node.isStorage():
                             if uuid in t.getUUIDSet():
@@ -107,16 +110,18 @@ class StorageServiceHandler(BaseServiceHandler):
                 continue
 
             offset = cell[0]
-            logging.debug("node %s is up for offset %s" %(dump(node.getUUID()), offset))
+            logging.debug("node %s is up for offset %s" % 
+                    (dump(node.getUUID()), offset))
 
-            # check the storage said it is up to date for a partition it was assigne to
+            # check the storage said it is up to date for a partition it was 
+            # assigne to
             for xcell in app.pt.getCellList(offset):
                 if xcell.getNode().getUUID() == node.getUUID() and \
                        xcell.getState() not in (CellStates.OUT_OF_DATE,
                                CellStates.UP_TO_DATE):
                     msg = "node %s telling that it is UP TO DATE for offset \
-                    %s but where %s for that offset" % (dump(node.getUUID()), offset, 
-                            xcell.getState())
+                    %s but where %s for that offset" % (dump(node.getUUID()), 
+                            offset, xcell.getState())
                     raise ProtocolError(msg)
                     
 

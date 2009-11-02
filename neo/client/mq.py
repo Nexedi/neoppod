@@ -131,7 +131,8 @@ class MQ(object):
       - The size calculation is not accurate.
     """
     
-    def __init__(self, life_time=10000, buffer_levels=9, max_history_size=100000, max_size=20*1024*1024):
+    def __init__(self, life_time=10000, buffer_levels=9, 
+            max_history_size=100000, max_size=20*1024*1024):
         self._history_buffer = FIFO()
         self._cache_buffers = []
         for level in range(buffer_levels):
@@ -203,7 +204,8 @@ class MQ(object):
         except KeyError:
             counter = 1
           
-        # XXX It might be better to adjust the level according to the object size.
+        # XXX It might be better to adjust the level according to the object 
+        # size.
         level = min(int(log(counter, 2)), self._buffer_levels - 1)
         element = cache_buffers[level].append()
         data = Data()

@@ -37,7 +37,8 @@ class EventHandler(object):
             # if decoding fail, there's no packet instance 
             logging.error('malformed packet from %s:%d: %s', *args)
         else:
-            logging.error('malformed packet %s from %s:%d: %s', packet.getType(), *args)
+            logging.error('malformed packet %s from %s:%d: %s', 
+                   packet.getType(), *args)
         response = protocol.protocolError(message)
         if packet is not None:
             conn.answer(response, packet.getId())
@@ -386,7 +387,8 @@ class EventHandler(object):
         d[Packets.StartOperation] = self.startOperation
         d[Packets.StopOperation] = self.stopOperation
         d[Packets.AskUnfinishedTransactions] = self.askUnfinishedTransactions
-        d[Packets.AnswerUnfinishedTransactions] = self.answerUnfinishedTransactions
+        d[Packets.AnswerUnfinishedTransactions] = \
+            self.answerUnfinishedTransactions
         d[Packets.AskObjectPresent] = self.askObjectPresent
         d[Packets.AnswerObjectPresent] = self.answerObjectPresent
         d[Packets.DeleteTransaction] = self.deleteTransaction
@@ -411,7 +413,8 @@ class EventHandler(object):
         d[Packets.AskTIDs] = self.askTIDs
         d[Packets.AnswerTIDs] = self.answerTIDs
         d[Packets.AskTransactionInformation] = self.askTransactionInformation
-        d[Packets.AnswerTransactionInformation] = self.answerTransactionInformation
+        d[Packets.AnswerTransactionInformation] = \
+            self.answerTransactionInformation
         d[Packets.AskObjectHistory] = self.askObjectHistory
         d[Packets.AnswerObjectHistory] = self.answerObjectHistory
         d[Packets.AskOIDs] = self.askOIDs

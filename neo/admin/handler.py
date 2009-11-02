@@ -27,12 +27,14 @@ class AdminEventHandler(EventHandler):
     """This class deals with events for administrating cluster."""
 
     def askPartitionList(self, conn, packet, min_offset, max_offset, uuid):
-        logging.info("ask partition list from %s to %s for %s" %(min_offset, max_offset, dump(uuid)))
+        logging.info("ask partition list from %s to %s for %s" % 
+                (min_offset, max_offset, dump(uuid)))
         app = self.app
         # check we have one pt otherwise ask it to PMN
         if app.pt is None:
             if self.app.master_conn is None:
-                raise protocol.NotReadyError('Not connected to a primary master.')
+                raise protocol.NotReadyError('Not connected to a primary ' \
+                        'master.')
             p = Packets.AskPartitionTable([])
             msg_id = self.app.master_conn.ask(p)
             app.dispatcher.register(msg_id, conn,
@@ -41,7 +43,8 @@ class AdminEventHandler(EventHandler):
                                      'uuid' : uuid,
                                      'msg_id' : packet.getId()})
         else:
-            app.sendPartitionTable(conn, min_offset, max_offset, uuid, packet.getId())
+            app.sendPartitionTable(conn, min_offset, max_offset, uuid, 
+                    packet.getId())
 
 
     def askNodeList(self, conn, packet, node_type):
@@ -89,10 +92,12 @@ class AdminEventHandler(EventHandler):
     def askClusterState(self, conn, packet):
         if self.app.cluster_state is None:
             if self.app.master_conn is None:
-                raise protocol.NotReadyError('Not connected to a primary master.')
+                raise protocol.NotReadyError('Not connected to a primary ' \
+                        'master.')
             # required it from PMN first
             msg_id = self.app.master_conn.ask(Packets.AskClusterState())
-            self.app.dispatcher.register(msg_id, conn, {'msg_id' : packet.getId()})
+            self.app.dispatcher.register(msg_id, conn, 
+                    {'msg_id' : packet.getId()})
         else:
             conn.answer(Packets.AnswerClusterState(self.app.cluster_state), 
                 packet.getId())
