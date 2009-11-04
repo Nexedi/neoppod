@@ -264,7 +264,7 @@ class Connection(BaseConnection):
                 elif packet_type != Packets.Pong:
                     # Skip PONG packets, its only purpose is to drop IdleEvent
                     # generated upong ping.
-                    self._queue.append(packet)
+                    self._enqueue(packet)
             finally:
                 self.read_buf = self.read_buf[len(packet):]
 
