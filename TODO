@@ -110,6 +110,12 @@ RC  - Review output of pylint (CODE)
     - Consider replace setNodeState admin packet by one per action, like
       dropNode to reduce packet processing complexity and reduce bad actions
       like set a node in TEMPORARILY_DOWN state.
+    - Consider process writable events in event.poll() method to ensure that
+      pending outgoing data are sent if the network is ready to avoid wait for 
+      an incoming packet that trigger the poll() system call.
+    - Allow daemonize NEO processes, re-use code from TIDStorage and support
+      start/stop/restart/status commands.
+
 
     Storage
     - Implement incremental storage verification (BANDWITH)
@@ -217,6 +223,9 @@ RC  - Review output of pylint (CODE)
     - Discuss about dead lstorage notification. If a client fails to connect to
       a storage node supposed in running state, then it should notify the master
       to check if this node is well up or not.
+    - Implement conflict resolution in store API implementation, inherit from 
+      ConflictResolvingStorage class that implement a default
+      tryToResolveConflict method logic.
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might 
