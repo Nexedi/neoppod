@@ -65,8 +65,8 @@ class Node(object):
     def __repr__(self):
         return '<%s(uuid=%s, address=%s, state=%s)>' % (
             self.__class__.__name__, 
-            self._address,
             dump(self._uuid),
+            self._address,
             self._state,
         )
 
