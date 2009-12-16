@@ -30,6 +30,13 @@ class Cell(object):
         self.node = node
         self.state = state
 
+    def __repr__(self):
+        return "<Cell(uuid=%s, address=%s, state=%s)>" % (
+            dump(self.getUUID()),
+            self.getAddress(),
+            self.getState(),
+        )
+
     def getState(self):
         return self.state
 
