@@ -23,10 +23,7 @@ import logging
 import time
 import os
 
-from ZODB.FileStorage import FileStorage
-#from ZEO.ClientStorage import ClientStorage as ZEOStorage
-from neo.client.Storage import Storage as NEOStorage
-
+from neo import setupLog
 
 # register options
 parser = OptionParser()
@@ -43,7 +40,6 @@ source = options.source or None
 destination = options.destination or None
 name = options.name or None
 connector = options.connector or 'SocketConnector'
-verbose = options.verbose or False
 
 # check options
 if source is None or destination is None:
@@ -52,12 +48,12 @@ if name is None:
     raise RuntimeError('The NEO cluster name must be supplied')
 
 # set up logging
-if verbose:
-    logging.basicConfig(level=logging.DEBUG)
-else:
-    logging.basicConfig(level=logging.INFO)
+setupLog('neomigrate', None, options.verbose or False)
 
 # open storages
+from ZODB.FileStorage import FileStorage
+#from ZEO.ClientStorage import ClientStorage as ZEOStorage
+from neo.client.Storage import Storage as NEOStorage
 neo_args = { 'connector': connector, 'name': name, }
 if os.path.exists(source):
     src = FileStorage(file_name=source)
