@@ -183,17 +183,17 @@ class ClientApplicationTests(NeoTestBase):
         tid = self.makeTID()
         # cache cleared -> result from ZODB
         self.assertTrue(oid not in mq)
-        app.pt = Mock({ 'getCellListForID': (), })
+        app.pt = Mock({ 'getCellListForOID': (), })
         app.local_var.history = (oid, [(tid, 0)])
         self.assertEquals(app.getSerial(oid), tid)
-        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForID')), 1)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForOID')), 1)
         # fill the cache -> hit
         mq.store(oid, (tid, ''))
         self.assertTrue(oid in mq)
-        app.pt = Mock({ 'getCellListForID': (), })
+        app.pt = Mock({ 'getCellListForOID': (), })
         app.getSerial(oid)
         self.assertEquals(app.getSerial(oid), tid)
-        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForID')), 0)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForOID')), 0)
     
     def test_load(self):
         app = self.getApp()
@@ -266,7 +266,7 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
-        app.pt = Mock({ 'getCellListForID': (cell, ), })
+        app.pt = Mock({ 'getCellListForOID': (cell, ), })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.loadSerial, oid, tid2)
@@ -303,7 +303,7 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,    
         })
-        app.pt = Mock({ 'getCellListForID': (cell, ), })
+        app.pt = Mock({ 'getCellListForOID': (cell, ), })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.loadBefore, oid, tid2)
@@ -386,10 +386,10 @@ class ClientApplicationTests(NeoTestBase):
         # check partition_id and an empty cell list -> NEOStorageError
         app.local_var.txn = txn
         app.local_var.tid = tid
-        app.pt = Mock({ 'getCellListForID': (), })
+        app.pt = Mock({ 'getCellListForOID': (), })
         app.num_partitions = 2 
         self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None, txn)
-        calls = app.pt.mockGetNamedCalls('getCellListForID')
+        calls = app.pt.mockGetNamedCalls('getCellListForOID')
         self.assertEquals(len(calls), 1)
         self.assertEquals(calls[0].getParam(0), oid) # oid=11 
 
@@ -410,7 +410,7 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': 'FakeServer',
             'getState': 'FakeState',
         })
-        app.pt = Mock({ 'getCellListForID': (cell, cell, )})
+        app.pt = Mock({ 'getCellListForOID': (cell, cell, )})
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn)})
         app.dispatcher = Mock({})
         app.local_var.object_stored = (oid, tid)
@@ -440,7 +440,7 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': 'FakeServer',
             'getState': 'FakeState',
         })
-        app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
+        app.pt = Mock({ 'getCellListForOID': (cell, cell, ) })
         app.dispatcher = Mock({})
         app.conflict_serial = None # reset by hand
         app.local_var.object_stored = ()
@@ -479,7 +479,7 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': 'FakeServer',
             'getState': 'FakeState',
         })
-        app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
+        app.pt = Mock({ 'getCellListForTID': (cell, cell, ) })
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
         app.dispatcher = Mock()
         app.tpc_begin(txn, tid)
@@ -507,7 +507,7 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': 'FakeServer',
             'getState': 'FakeState',
         })
-        app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
+        app.pt = Mock({ 'getCellListForTID': (cell, cell, ) })
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
         app.dispatcher = Mock()
         app.tpc_begin(txn, tid)
@@ -526,7 +526,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertFalse(app.local_var.txn is txn)
         conn = Mock()
         cell = Mock()
-        app.pt = Mock({'getCellListForID': (cell, cell)})
+        app.pt = Mock({'getCellListForTID': (cell, cell)})
         app.cp = Mock({'getConnForCell': ReturnValues(None, cell)})
         app.tpc_abort(txn)
         # no packet sent
@@ -549,7 +549,10 @@ class ClientApplicationTests(NeoTestBase):
         cell1 = Mock({ 'getNode': 'NODE1', '__hash__': 1 })
         cell2 = Mock({ 'getNode': 'NODE2', '__hash__': 2 })
         conn1, conn2 = Mock({ 'getNextId': 1, }), Mock({ 'getNextId': 2, })
-        app.pt = Mock({ 'getCellListForID': ReturnValues((cell1, ), (cell1, ), (cell1, cell2)), })
+        app.pt = Mock({ 
+            'getCellListForOID': ReturnValues((cell1, ), (cell1, )), 
+            'getCellListForTID': (cell1, cell2), 
+        })
         app.cp = Mock({ 'getConnForCell': ReturnValues(conn1, conn2), })
         # fake data
         app.local_var.data_dict = {oid1: '', oid2: ''}
@@ -774,8 +777,8 @@ class ClientApplicationTests(NeoTestBase):
         object_cells = [ Mock({}), ]
         history_cells = [ Mock({}), Mock({}) ]
         app.pt = Mock({
-            'getCellListForID': ReturnValues(object_cells, history_cells,
-                history_cells),
+            'getCellListForOID': object_cells,
+            'getCellListForTID': ReturnValues(history_cells, history_cells),
         })
         app.cp = Mock({ 'getConnForCell': conn})
         # start test here
