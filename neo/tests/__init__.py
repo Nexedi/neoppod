@@ -76,7 +76,7 @@ class NeoTestBase(unittest.TestCase):
         assert master_number >= 1 and master_number <= 10
         assert index >= 0 and index <= 9
         masters = [('127.0.0.1', 10010 + i) for i in xrange(master_number)]
-        database = (DB_USER, DB_PASSWD, '%s%d' % (prefix, index))
+        database = '%s@%s%s' % (DB_USER, prefix, index)
         return Mock({
                 'getCluster': cluster,
                 'getName': 'storage',
@@ -85,6 +85,7 @@ class NeoTestBase(unittest.TestCase):
                 'getDatabase': database,
                 'getUUID': uuid,
                 'getReset': False,
+                'getAdapter': 'MySQL',
         })
         
     # XXX: according to changes with namespaced UUIDs, it would be better to 
