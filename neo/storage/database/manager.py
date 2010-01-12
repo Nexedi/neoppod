@@ -27,6 +27,9 @@ class DatabaseManager(object):
         """
         self._under_transaction = False
 
+    def isUnderTransaction(self):
+        return self._under_transaction
+
     def begin(self):
         """
             Begin a transaction
