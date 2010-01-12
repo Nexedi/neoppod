@@ -551,7 +551,8 @@ class ClientHandlerTests(NeoTestBase):
                        'add': None,
                        'remove': None})
         app = App()
-        client_handler = PrimaryBootstrapHandler(app)
+        dispatcher = self.getDispatcher()
+        client_handler = PrimaryNotificationsHandler(app, dispatcher)
         conn = self.getConnection(uuid=test_master_uuid)
         client_handler.notifyNodeInformation(conn, None, test_node_list)
         # Return nm so caller can check handler actions.
