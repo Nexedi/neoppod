@@ -31,6 +31,11 @@ class BootstrapManager(EventHandler):
     """
 
     def __init__(self, app, name, node_type, uuid=None, server=NO_SERVER):
+        """
+        Manage the bootstrap stage of a non-master node, it lookup for the
+        primary master node, connect to it then returns when the master node 
+        is ready.
+        """
         EventHandler.__init__(self, app)
         self.primary = None
         self.server = server
@@ -42,22 +47,44 @@ class BootstrapManager(EventHandler):
         self.current = None
 
     def connectionCompleted(self, conn):
+        """
+        Triggered when the network connection is successful.
+        Now ask who's the primary.
+        """
         EventHandler.connectionCompleted(self, conn)
         conn.ask(Packets.AskPrimary())
 
     def connectionFailed(self, conn):
+        """
+        Triggered when the network connection failed.
+        Restart bootstrap.
+        """
         EventHandler.connectionFailed(self, conn)
         self.current = None
 
     def connectionLost(self, conn, new_state):
+        """
+        Triggered when an established network connection is lost.
+        Restart bootstrap.
+        """
         self.current = None
 
     def notReady(self, conn, packet, message):
+        """
+        The primary master send this message when it is still not ready to
+        handle the client node. 
+        Close connection and restart.
+        """
         # master are still electing on of them
         self.current = None
         conn.close()
 
     def answerPrimary(self, conn, packet, primary_uuid, known_master_list):
+        """
+        A master answer who's the primary. If it's another node, connect to it.
+        If it's itself then the primary is successfully found, ask
+        identification.
+        """
         nm  = self.app.nm
 
         # Register new master nodes.
@@ -83,6 +110,9 @@ class BootstrapManager(EventHandler):
 
     def acceptIdentification(self, conn, packet, node_type,
            uuid, address, num_partitions, num_replicas, your_uuid):
+        """
+        The primary master has accepted the node.
+        """
         self.num_partitions = num_partitions
         self.num_replicas = num_replicas
         if self.uuid != your_uuid:
@@ -92,7 +122,10 @@ class BootstrapManager(EventHandler):
         conn.setUUID(uuid)
 
     def getPrimaryConnection(self, connector_handler):
-
+        """
+        Primary lookup/connection process.
+        Returns when the connection is made.
+        """
         logging.info('connecting to a primary master node')
         em, nm = self.app.em, self.app.nm
         index = 0
