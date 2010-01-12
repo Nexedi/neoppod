@@ -220,7 +220,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
-        client_handler.AcceptIdentification(
+        client_handler.acceptIdentification(
             conn, None, 
             NodeTypes.CLIENT,
             uuid, ('127.0.0.1', 10010), 
@@ -268,7 +268,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
-        client_handler.AcceptIdentification(conn, None, 
+        client_handler.acceptIdentification(conn, None, 
                 NodeTypes.STORAGE, uuid, ('127.0.0.1', 10010), 0, 0, INVALID_UUID)
         self.checkNotClosed(conn)
         self.checkUUIDSet(conn, uuid)
