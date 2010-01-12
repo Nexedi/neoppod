@@ -65,16 +65,10 @@ class ConfigurationManager(object):
         return (ip, int(port))
 
     def getDatabase(self):
-        """ Get the database credentials (username, password, database) """
-        # expected pattern : [user[:password]@]database
-        username = None
-        password = None
-        database = self.__get('database')
-        if '@' in database:
-            (username, database) = database.split('@')
-            if ':' in username:
-                (username, password) = username.split(':')
-        return (username, password, database)
+        return self.__get('database')
+
+    def getAdapter(self):
+        return self.__get('adapter')
 
     def getCluster(self):
         cluster = self.__get('cluster')

@@ -22,12 +22,12 @@ from collections import deque
 from neo.protocol import NodeTypes, CellStates, Packets
 from neo.node import NodeManager
 from neo.event import EventManager
-from neo.storage.mysqldb import MySQLDatabaseManager
 from neo.connection import ListeningConnection
 from neo.exception import OperationFailure, PrimaryFailure
 from neo.storage.handlers import identification, verification, initialization
 from neo.storage.handlers import master, hidden
 from neo.storage.replicator import Replicator
+from neo.storage.database import buildDatabaseManager
 from neo.connector import getConnectorHandler
 from neo.pt import PartitionTable
 from neo.util import dump, parseMasterList
@@ -50,15 +50,11 @@ class Application(object):
         # load master node list
         self.master_node_list = config.getMasters()
         logging.debug('master nodes are %s', self.master_node_list)
-
-        # load database connection credentials, from user:password@database
-        (username, password, database) = config.getDatabase()
             
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
-        self.dm = MySQLDatabaseManager(database=database, user=username,
-                password=password)
+        self.dm = buildDatabaseManager(config.getAdapter(), config.getDatabase())
 
         # The partition table is initialized after getting the number of
         # partitions.

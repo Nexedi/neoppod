@@ -39,13 +39,22 @@ def u64(s):
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
-    def __init__(self, **kwargs):
-        self.db = kwargs['database']
-        self.user = kwargs['user']
-        self.passwd = kwargs.get('password')
+    def __init__(self, database):
+        super(MySQLDatabaseManager, self).__init__()
+        self.user, self.passwd, self.db = self._parse(database)
         self.conn = None
         self._connect()
-        super(MySQLDatabaseManager, self).__init__(**kwargs)
+
+    def _parse(self, database):
+        """ Get the database credentials (username, password, database) """
+        # expected pattern : [user[:password]@]database
+        username = None
+        password = None
+        if '@' in database:
+            (username, database) = database.split('@')
+            if ':' in username:
+                (username, password) = username.split(':')
+        return (username, password, database)
 
     # XXX: unused ?
     def close(self):

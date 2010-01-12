@@ -21,7 +21,7 @@ from neo.exception import DatabaseFailure
 class DatabaseManager(object):
     """This class only describes an interface for database managers."""
 
-    def __init__(self, **kwargs):
+    def __init__(self):
         """
             Initialize the object.
         """
