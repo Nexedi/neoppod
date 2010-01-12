@@ -64,7 +64,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         for address, uuid in known_master_list:
             n = app.nm.getByAddress(address)
             if n is None:
-                n = app.nm.createMaster(address)
+                n = app.nm.createMaster(address=address, uuid=uuid)
             if uuid is not None and n.getUUID() != uuid:
                 n.setUUID(uuid)
 
