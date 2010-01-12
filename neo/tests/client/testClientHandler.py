@@ -21,8 +21,8 @@ from mock import Mock, ReturnValues
 from neo.tests import NeoTestBase
 from neo import protocol
 from neo.pt import PartitionTable
-from neo.protocol import UnexpectedPacketError, INVALID_UUID
-from neo.protocol import NodeTypes, NodeStates, CellStates, INVALID_PTID
+from neo.protocol import UnexpectedPacketError, INVALID_UUID, INVALID_PTID
+from neo.protocol import NodeTypes, NodeStates, CellStates, Packets
 from neo.client.handlers import BaseHandler
 from neo.client.handlers.master import PrimaryBootstrapHandler
 from neo.client.handlers.master import PrimaryNotificationsHandler, PrimaryAnswersHandler
