@@ -27,13 +27,6 @@ class DatabaseManager(object):
         """
         self._under_transaction = False
 
-    def connect(self):
-        """
-            Establish the connection to the database
-        """
-        self._connect()
-        self._under_transaction = False
-
     def begin(self):
         """
             Begin a transaction
@@ -63,13 +56,6 @@ class DatabaseManager(object):
     def setup(self, reset = 0):
         """Set up a database. If reset is true, existing data must be
         discarded."""
-        raise NotImplementedError
-
-    def close(self):
-        """ close the database connection """
-        raise NotImplementedError
-
-    def _connect(self):
         raise NotImplementedError
 
     def _begin(self):

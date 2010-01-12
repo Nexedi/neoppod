@@ -44,9 +44,10 @@ class MySQLDatabaseManager(DatabaseManager):
         self.user = kwargs['user']
         self.passwd = kwargs.get('password')
         self.conn = None
-        self.connect()
+        self._connect()
         super(MySQLDatabaseManager, self).__init__(**kwargs)
 
+    # XXX: unused ?
     def close(self):
         self.conn.close()
 
