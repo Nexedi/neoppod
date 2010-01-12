@@ -795,7 +795,7 @@ class ClientApplicationTests(NeoTestBase):
         # (as if it was connected to the primary master node)
         from neo.tests import DoNothingConnector
         # will raise IndexError at the third iteration
-        app = self.getApp('127.0.0.1:10010 127.0.0.1:10011')
+        app = self.getApp('127.0.0.1:10010/127.0.0.1:10011')
         # TODO: test more connection failure cases
         # Seventh packet : askNodeInformation succeeded
         all_passed = []
