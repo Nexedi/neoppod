@@ -24,6 +24,8 @@ DATABASE_MANAGER_DICT = {
 }
 
 def buildDatabaseManager(name, config):
+    if name is None:
+        name = DATABASE_MANAGER_DICT.keys()[0]
     adapter_klass = DATABASE_MANAGER_DICT.get(name, None)
     if adapter_klass is None:
         raise DatabaseFailure('Cannot find a database adapter <%s>' % name)
