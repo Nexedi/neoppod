@@ -474,7 +474,7 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.txn = txn
         app.local_var.tid = tid
         # wrong answer -> failure
-        packet = Packets.AnswerNewOIDs(())
+        packet = Packets.AnswerTIDs(())
         conn = Mock({ 
             'getNextId': 1,
             'fakeReceived': packet,    
