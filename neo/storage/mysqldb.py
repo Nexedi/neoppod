@@ -51,7 +51,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def close(self):
         self.conn.close()
 
-    def connect(self):
+    def _connect(self):
         kwd = {'db' : self.db, 'user' : self.user}
         if self.passwd is not None:
             kwd['passwd'] = self.passwd
@@ -59,25 +59,15 @@ class MySQLDatabaseManager(DatabaseManager):
                      self.db, self.user)
         self.conn = MySQLdb.connect(**kwd)
         self.conn.autocommit(False)
-        self.under_transaction = False
 
-    def begin(self):
-        if self.under_transaction:
-            try:
-                self.commit()
-            except:
-                # Ignore any error for this implicit commit.
-                pass
+    def _begin(self):
         self.query("""BEGIN""")
-        self.under_transaction = True
 
-    def commit(self):
+    def _commit(self):
         self.conn.commit()
-        self.under_transaction = False
 
-    def rollback(self):
+    def _rollback(self):
         self.conn.rollback()
-        self.under_transaction = False
 
     def query(self, query):
         """Query data from a database."""

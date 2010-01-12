@@ -16,13 +16,49 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo import util
+from neo.exception import DatabaseFailure
 
 class DatabaseManager(object):
     """This class only describes an interface for database managers."""
 
     def __init__(self, **kwargs):
-        """Initialize the object."""
-        pass
+        """
+            Initialize the object.
+        """
+        self._under_transaction = False
+
+    def connect(self):
+        """
+            Establish the connection to the database
+        """
+        self._connect()
+        self._under_transaction = False
+
+    def begin(self):
+        """
+            Begin a transaction
+        """
+        if self._under_transaction:
+            raise DatabaseFailure('A transaction as already began')
+        self._begin()
+        self._under_transaction = True
+
+    def commit(self):
+        """
+            Commit the current transaction
+        """
+        if not self._under_transaction:
+            raise DatabaseFailure('The transaction as not began')
+        self._commit()
+        self._under_transaction = False
+
+    def rollback(self):
+        """
+            Rollback the current transaction
+        """
+        # XXX: don't care if not in a transaction ?
+        self._rollback()
+        self._under_transaction = False
 
     def setup(self, reset = 0):
         """Set up a database. If reset is true, existing data must be
@@ -31,6 +67,12 @@ class DatabaseManager(object):
 
     def close(self):
         """ close the database connection """
+        raise NotImplementedError
+
+    def _connect(self):
+        raise NotImplementedError
+
+    def _begin(self):
         raise NotImplementedError
 
     def getConfiguration(self, key):
