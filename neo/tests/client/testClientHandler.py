@@ -565,12 +565,10 @@ class ClientHandlerTests(NeoTestBase):
                      NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByUUID=None)
         # Check that two nodes got added (second is with INVALID_UUID)
-        add_call_list = nm.mockGetNamedCalls('add')
-        self.assertEqual(len(add_call_list), 2)
-        added_node = add_call_list[0].getParam(0)
-        self.assertEquals(added_node.getUUID(), uuid)
-        added_node = add_call_list[1].getParam(0)
-        self.assertEquals(added_node.getUUID(), None)
+        update_call_list = nm.mockGetNamedCalls('update')
+        self.assertEqual(len(update_call_list), 1)
+        updated_node_list = update_call_list[0].getParam(0)
+        self.assertEquals(len(updated_node_list), 2)
 
     def test_knownMasterNotifyNodeInformation(self):
         node = Mock({})
@@ -580,23 +578,17 @@ class ClientHandlerTests(NeoTestBase):
         nm = self._testNotifyNodeInformation(test_node, getByAddress=node,
                 getByUUID=node)
         # Check that node got replaced
-        add_call_list = nm.mockGetNamedCalls('add')
-        self.assertEquals(len(add_call_list), 1)
-        remove_call_list = nm.mockGetNamedCalls('remove')
-        self.assertEquals(len(remove_call_list), 1)
-        # Check node state has been updated
-        setState_call_list = node.mockGetNamedCalls('setState')
-        self.assertEqual(len(setState_call_list), 1)
-        self.assertEqual(setState_call_list[0].getParam(0), test_node[4])
+        update_call_list = nm.mockGetNamedCalls('update')
+        self.assertEquals(len(update_call_list), 1)
 
     def test_unknownStorageNotifyNodeInformation(self):
         test_node = (NodeTypes.STORAGE, ('127.0.0.1', 10010), self.getNewUUID(),
                      NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByUUID=None)
         # Check that node got added
-        add_call_list = nm.mockGetNamedCalls('add')
-        self.assertEqual(len(add_call_list), 1)
-        added_node = add_call_list[0].getParam(0)
+        update_call_list = nm.mockGetNamedCalls('update')
+        self.assertEqual(len(update_call_list), 1)
+        updateed_node = update_call_list[0].getParam(0)
         # XXX: this test does not check that node state got updated.
         # This is because there would be no way to tell the difference between
         # an updated state and default state if they are the same value (we
@@ -609,13 +601,8 @@ class ClientHandlerTests(NeoTestBase):
                      NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByUUID=node)
         # Check that node got replaced
-        add_call_list = nm.mockGetNamedCalls('add')
-        self.assertEquals(len(add_call_list), 1)
-        remove_call_list = nm.mockGetNamedCalls('remove')
-        self.assertEquals(len(remove_call_list), 1)
-        # Check node state has been updated
-        node = add_call_list[0].getParam(0)
-        self.assertEquals(node.getState(), test_node[4])
+        update_call_list = nm.mockGetNamedCalls('update')
+        self.assertEquals(len(update_call_list), 1)
 
     def test_initialNotifyPartitionChanges(self):
         class App:
