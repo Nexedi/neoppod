@@ -33,7 +33,8 @@ def _getMasterConnection(self):
         self.num_partitions = 10
         self.num_replicas = 1
         self.pt = Mock({
-            'getCellListForID': (),
+            'getCellListForOID': (),
+            'getCellListForTID': (),
         })
         self.master_conn = Mock()
     return self.master_conn
@@ -115,7 +116,7 @@ class ClientApplicationTests(NeoTestBase):
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
         cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
         app.cp = Mock({ 'getConnForCell': conn})
-        app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
+        app.pt = Mock({ 'getCellListForOID': (cell, cell, ) })
         return oid
 
     def voteTransaction(self, app):
@@ -124,7 +125,7 @@ class ClientApplicationTests(NeoTestBase):
         packet = Packets.AnswerStoreTransaction(tid=tid)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
         cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
-        app.pt = Mock({ 'getCellListForID': (cell, cell, ) })
+        app.pt = Mock({ 'getCellListForTID': (cell, cell, ) })
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
         app.tpc_vote(txn)
 
@@ -360,9 +361,6 @@ class ClientApplicationTests(NeoTestBase):
         packet = Packets.AnswerBeginTransaction(tid=tid)
         app.master_conn = Mock({
             'getNextId': 1,
-            'expectMessage': None, 
-            'lock': None,
-            'unlock': None,
             'fakeReceived': packet,
         })
         app.dispatcher = Mock({ })
@@ -577,7 +575,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertFalse(app.local_var.txn is txn)
         conn = Mock()
         cell = Mock()
-        app.pt = Mock({'getCellListForID': (cell, cell)})
+        app.pt = Mock({'getCellListForTID': (cell, cell)})
         app.cp = Mock({'getConnForCell': ReturnValues(None, cell)})
         app.tpc_finish(txn)
         # no packet sent
@@ -709,7 +707,10 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': ('127.0.0.1', 10010),
         })
         cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
-        app.pt = Mock({ 'getCellListForID': (cell, ) })
+        app.pt = Mock({ 
+            'getCellListForTID': (cell, ),
+            'getCellListForOID': (cell, ),
+        })
         app.cp = Mock({ 'getConnForCell': conn})
         wrapper = Mock({'tryToResolveConflict': None})
         txn4 = self.beginTransaction(app, tid=tid4)
