@@ -538,8 +538,8 @@ class ClientHandlerTests(NeoTestBase):
             conn, None, None)
 
     def _testNotifyNodeInformation(self, test_node, getByAddress=None, getByUUID=MARKER):
-        invalid_uid_test_node = (test_node[0], test_node[1], test_node[2] + 1,
-                                 INVALID_UUID, test_node[4])
+        invalid_uid_test_node = (test_node[0], (test_node[1][0], 
+                    test_node[1][1] + 1), INVALID_UUID, test_node[3])
         test_node_list = [test_node, invalid_uid_test_node]
         test_master_uuid = self.getNewUUID()
         node = Mock({'getType': NodeTypes.MASTER})
@@ -561,7 +561,7 @@ class ClientHandlerTests(NeoTestBase):
     def test_unknownMasterNotifyNodeInformation(self):
         # first notify unknown master nodes
         uuid = self.getNewUUID()
-        test_node = (NodeTypes.MASTER, '127.0.0.1', 10010, uuid,
+        test_node = (NodeTypes.MASTER, ('127.0.0.1', 10010), uuid,
                      NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByUUID=None)
         # Check that two nodes got added (second is with INVALID_UUID)
@@ -575,7 +575,7 @@ class ClientHandlerTests(NeoTestBase):
     def test_knownMasterNotifyNodeInformation(self):
         node = Mock({})
         uuid = self.getNewUUID()
-        test_node = (NodeTypes.MASTER, '127.0.0.1', 10010, uuid,
+        test_node = (NodeTypes.MASTER, ('127.0.0.1', 10010), uuid,
                      NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByAddress=node,
                 getByUUID=node)
@@ -590,7 +590,7 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEqual(setState_call_list[0].getParam(0), test_node[4])
 
     def test_unknownStorageNotifyNodeInformation(self):
-        test_node = (NodeTypes.STORAGE, '127.0.0.1', 10010, self.getNewUUID(),
+        test_node = (NodeTypes.STORAGE, ('127.0.0.1', 10010), self.getNewUUID(),
                      NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByUUID=None)
         # Check that node got added
@@ -605,7 +605,7 @@ class ClientHandlerTests(NeoTestBase):
 
     def test_knownStorageNotifyNodeInformation(self):
         node = Mock({'setState': None, 'setAddress': None})
-        test_node = (NodeTypes.STORAGE, '127.0.0.1', 10010, self.getNewUUID(),
+        test_node = (NodeTypes.STORAGE, ('127.0.0.1', 10010), self.getNewUUID(),
                      NodeStates.RUNNING)
         nm = self._testNotifyNodeInformation(test_node, getByUUID=node)
         # Check that node got replaced
