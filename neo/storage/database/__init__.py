@@ -18,11 +18,9 @@
 from neo.exception import DatabaseFailure
 from neo.storage.database.manager import DatabaseManager
 from neo.storage.database.mysqldb import MySQLDatabaseManager
-from neo.storage.database.sqlite import SQLiteManager
 
 DATABASE_MANAGER_DICT = {
-    'MySQL': mysqldb.MySQLDatabaseManager,
-    'SQLite': sqlite.SQLiteManager,
+    'MySQL': MySQLDatabaseManager,
 }
 
 def buildDatabaseManager(name, config):

@@ -129,7 +129,7 @@ class NEOCluster(object):
                  db_user='neo', db_password='neo',
                  db_super_user='root', db_super_password=None,
                  cleanup_on_delete=False, temp_dir=None, 
-                 clear_databases=True):
+                 clear_databases=True, adapter='MySQL'):
         self.cleanup_on_delete = cleanup_on_delete
         self.uuid_set = set()
         self.db_super_user = db_super_user
@@ -175,6 +175,7 @@ class NEOCluster(object):
                 '--bind': '127.0.0.1:%d' % (port, ),
                 '--masters': self.master_nodes,
                 '--database': '%s:%s@%s' % (db_user, db_password, db),
+                '--adapter': adapter,
             })
         # create neoctl
         self.neoctl = NeoCTL('127.0.0.1', admin_port,
