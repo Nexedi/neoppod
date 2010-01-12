@@ -417,7 +417,7 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.data_dict[oid] = 'BEFORE'
         self.assertRaises(NEOStorageConflictError, app.store, oid, tid, '', None, txn)
         self.assertTrue(oid not in app.local_var.data_dict)
-        self.assertEquals(app.conflict_serial, tid)
+        self.assertEquals(app.getConflictSerial(), tid)
         self.assertEquals(app.local_var.object_stored, (-1, tid))
         self.checkAskStoreObject(conn)
         self.checkDispatcherRegisterCalled(app, conn)
