@@ -325,10 +325,11 @@ class MySQLDatabaseManager(DatabaseManager):
         try:
             q("""DELETE FROM obj WHERE MOD(oid, %d) = %d""" % 
                 (num_partitions, offset))
-            q("""DELETE FROM trans WHERE MOD(oid, %d) = %d""" % 
+            q("""DELETE FROM trans WHERE MOD(tid, %d) = %d""" % 
                 (num_partitions, offset))
         except:
             self.rollback()
+            raise
         self.commit()
 
     def dropUnfinishedData(self):
