@@ -15,6 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from neo import util
+
 class DatabaseManager(object):
     """This class only describes an interface for database managers."""
 
@@ -31,59 +33,98 @@ class DatabaseManager(object):
         discarded."""
         raise NotImplementedError('this method must be overridden')
 
-    def getUUID(self):
-        """Load an UUID from a database. If not present, return None."""
+    def getConfiguration(self, key):
+        """
+            Return a configuration value, returns None if not found or not set
+        """
         raise NotImplementedError('this method must be overridden')
+
+    def setConfiguration(self, key, value):
+        """
+            Set a configuration value
+        """
+        raise NotImplementedError('this method must be overridden')
+
+    def getUUID(self):
+        """
+            Load an UUID from a database.
+        """
+        return util.bin(self.getConfiguration('uuid'))
 
     def setUUID(self, uuid):
-        """Store an UUID into a database."""
-        raise NotImplementedError('this method must be overridden')
+        """
+            Store an UUID into a database.
+        """
+        self.setConfiguration('uuid', util.dump(uuid))
 
     def getNumPartitions(self):
-        """Load the number of partitions from a database. If not present,
-        return None."""
-        raise NotImplementedError('this method must be overridden')
+        """
+            Load the number of partitions from a database.
+        """
+        n = self.getConfiguration('partitions')
+        if n is not None:
+            return int(n)
 
     def setNumPartitions(self, num_partitions):
-        """Store the number of partitions into a database."""
-        raise NotImplementedError('this method must be overridden')
+        """
+            Store the number of partitions into a database.
+        """
+        self.setConfiguration('partitions', num_partitions)
 
     def getNumReplicas(self):
-        """Load the number of replicas from a database. If not present,
-        return None."""
-        raise NotImplementedError('this method must be overridden')
+        """
+            Load the number of replicas from a database.
+        """
+        n = self.getConfiguration('replicas')
+        if n is not None:
+            return int(n)
 
-    def setNumReplicas(self, num_partitions):
-        """Store the number of replicas into a database."""
-        raise NotImplementedError('this method must be overridden')
+    def setNumReplicas(self, num_replicas):
+        """
+            Store the number of replicas into a database.
+        """
+        self.setConfiguration('replicas', num_replicas)
 
     def getName(self):
-        """Load a name from a database. If not present, return None."""
-        raise NotImplementedError('this method must be overridden')
+        """
+            Load a name from a database.
+        """
+        return self.getConfiguration('name')
 
     def setName(self, name):
-        """Store a name into a database."""
-        raise NotImplementedError('this method must be overridden')
+        """
+            Store a name into a database.
+        """
+        self.setConfiguration('name', name)
 
     def getPTID(self):
-        """Load a Partition Table ID from a database. If not present,
-        return None."""
-        raise NotImplementedError('this method must be overridden')
+        """
+            Load a Partition Table ID from a database.
+        """
+        return util.bin(self.getConfiguration('ptid'))
 
     def setPTID(self, ptid):
-        """Store a Partition Table ID into a database."""
-        raise NotImplementedError('this method must be overridden')
+        """
+            Store a Partition Table ID into a database.
+        """
+        self.setConfiguration('ptid', util.dump(ptid))
+
+    def getLastOID(self):
+        """
+            Returns the last OID used
+        """
+        return util.bin(self.getConfiguration('loid'))
+
+    def setLastOID(self, loid):
+        """
+            Set the last OID used
+        """
+        self.setConfiguration('loid', util.dump(loid))
 
     def getPartitionTable(self):
         """Return a whole partition table as a tuple of rows. Each row
         is again a tuple of an offset (row ID), an UUID of a storage
         node, and a cell state."""
-        raise NotImplementedError('this method must be overridden')
-
-    def getLastOID(self, all = True):
-        """Return the last OID in a database. If all is true,
-        unfinished transactions must be taken account into. If there
-        is no OID in the database, return None."""
         raise NotImplementedError('this method must be overridden')
 
     def getLastTID(self, all = True):

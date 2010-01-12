@@ -198,52 +198,6 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def getUUID(self):
-        uuid = self.getConfiguration('uuid')
-        return util.bin(uuid)
-
-    def setUUID(self, uuid):
-        uuid = util.dump(uuid)
-        self.setConfiguration('uuid', uuid)
-
-    def getNumPartitions(self):
-        n = self.getConfiguration('partitions')
-        if n is not None:
-            return int(n)
-
-    def setNumPartitions(self, num_partitions):
-        self.setConfiguration('partitions', num_partitions)
-
-    def getNumReplicas(self):
-        n = self.getConfiguration('replicas')
-        if n is not None:
-            return int(n)
-
-    def setNumReplicas(self, num_replicas):
-        self.setConfiguration('replicas', num_replicas)
-
-    def getName(self):
-        return self.getConfiguration('name')
-
-    def setName(self, name):
-        self.setConfiguration('name', name)
-
-    def getPTID(self):
-        ptid = self.getConfiguration('ptid')
-        return util.bin(ptid)
-
-    def setPTID(self, ptid):
-        ptid = util.dump(ptid)
-        self.setConfiguration('ptid', ptid)
-
-    def getLastOID(self):
-        loid = self.getConfiguration('loid')
-        return util.bin(loid)
-
-    def setLastOID(self, loid):
-        loid = util.dump(loid)
-        self.setConfiguration('loid', loid)
-
     def getPartitionTable(self):
         q = self.query
         cell_list = q("""SELECT rid, uuid, state FROM pt""")
