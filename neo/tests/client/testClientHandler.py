@@ -705,33 +705,6 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEquals(len(app.pt.mockGetNamedCalls('removeCell')), 0)
         self.assertEquals(app.ptid, test_ptid)
 
-    def test_unknownNodeNotifyPartitionChanges(self):
-        test_master_uuid = self.getNewUUID()
-        test_node = Mock({'getType': NodeTypes.MASTER, 'getUUID': test_master_uuid})
-        test_ptid = 1
-        class App:
-            nm = Mock({'getByUUID': ReturnValues(None)})
-            pt = Mock({'setCell': None})
-            primary_master_node = test_node
-            ptid = test_ptid
-            uuid = None # XXX: Is it really needed ?
-        app = App()
-        client_handler = PrimaryNotificationsHandler(app, self.getDispatcher())
-        conn = self.getConnection(uuid=test_master_uuid)
-        test_storage_uuid = self.getNewUUID()
-        # TODO: use realistic values
-        test_cell_list = [(0, test_storage_uuid, CellStates.UP_TO_DATE)]
-        client_handler.notifyPartitionChanges(conn, None, test_ptid + 1, test_cell_list)
-        # Check that a new node got added
-        add_call_list = app.nm.mockGetNamedCalls('add')
-        self.assertEqual(len(add_call_list), 1)
-        added_node = add_call_list[0].getParam(0)
-        # Check that partition got updated
-        self.assertEqual(app.ptid, test_ptid + 1)
-        setCell_call_list = app.pt.mockGetNamedCalls('setCell')
-        setCell_call_list[0].checkArgs(test_cell_list[0][0], added_node,
-                test_cell_list[0][2])
-
     # TODO: confirm condition under which an unknown node should be added with a TEMPORARILY_DOWN (implementation is unclear)
 
     def test_knownNodeNotifyPartitionChanges(self):
