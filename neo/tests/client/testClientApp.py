@@ -489,12 +489,10 @@ class ClientApplicationTests(NeoTestBase):
         app.dispatcher = Mock()
         app.tpc_begin(txn, tid)
         self.assertRaises(NEOStorageError, app.tpc_vote, txn)
-        self.assertEquals(len(conn.mockGetNamedCalls('abort')), 1)
         calls = conn.mockGetNamedCalls('ask')
         self.assertEquals(len(calls), 1)
-        packet = calls[0].getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet._type, AskStoreTransaction)
+        packet = calls[0].getParam(1)
+        self.assertTrue(isinstance(packet, Packets.AskStoreTransaction))
 
     def test_tpc_vote3(self):
         app = self.getApp()
