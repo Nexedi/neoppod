@@ -54,41 +54,29 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertEquals(u64('\0' * 7 + '\n'), 10)
 
     def test_03_MySQLDatabaseManagerInit(self):
-        db = MySQLDatabaseManager(
-            database=NEO_SQL_DATABASE, 
-            user=NEO_SQL_USER,
-        )
+        db = MySQLDatabaseManager('%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE))
         # init
         self.assertEquals(db.db, NEO_SQL_DATABASE)
         self.assertEquals(db.user, NEO_SQL_USER)
         # & connect
         import MySQLdb
         self.assertTrue(isinstance(db.conn, MySQLdb.connection))
-        self.assertEquals(db.under_transaction, False)
+        self.assertEquals(db.isUnderTransaction(), False)
 
-    def test_04_begin1(self):
-        # implicit commit
-        self.db.conn = Mock({ })
-        self.db.under_transaction = True
-        self.db.begin()
-        self.assertEquals(len(self.db.conn.mockGetNamedCalls('commit')), 1)
-        self.checkCalledQuery(query='BEGIN')
-        self.assertEquals(self.db.under_transaction, True)
-
-    def test_05_begin2(self):
+    def test_05_begin(self):
         # no current transaction
         self.db.conn = Mock({ })
-        self.db.under_transaction = True
+        self.assertEquals(self.db.isUnderTransaction(), False)
         self.db.begin()
         self.checkCalledQuery(query='COMMIT')
-        self.assertEquals(self.db.under_transaction, True)
+        self.assertEquals(self.db.isUnderTransaction(), True)
 
     def test_06_commit(self):
         self.db.conn = Mock()
-        self.db.under_transaction = True
+        self.db.begin()
         self.db.commit()
         self.assertEquals(len(self.db.conn.mockGetNamedCalls('commit')), 1)
-        self.assertEquals(self.db.under_transaction, False)
+        self.assertEquals(self.db.isUnderTransaction(), False)
 
     def test_06_rollback(self):
         # rollback called and no current transaction
@@ -96,7 +84,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.db.under_transaction = True
         self.db.rollback()
         self.assertEquals(len(self.db.conn.mockGetNamedCalls('rollback')), 1)
-        self.assertEquals(self.db.under_transaction, False)
+        self.assertEquals(self.db.isUnderTransaction(), False)
     
     def test_07_query1(self):
         # fake result object
