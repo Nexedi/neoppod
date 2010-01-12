@@ -19,7 +19,7 @@ import unittest
 from mock import Mock
 from neo.tests import NeoTestBase
 from neo.master.app import Application
-from neo.storage.mysqldb import p64, u64
+from neo.util import p64, u64
 
 class MasterAppTests(NeoTestBase):
 

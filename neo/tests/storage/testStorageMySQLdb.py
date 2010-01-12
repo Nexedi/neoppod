@@ -20,11 +20,11 @@ import unittest
 from neo import logging
 import MySQLdb
 from mock import Mock
-from neo.util import dump
+from neo.util import dump, p64, u64
 from neo.protocol import CellStates, INVALID_PTID
 from neo.tests import NeoTestBase
 from neo.exception import DatabaseFailure
-from neo.storage.mysqldb import MySQLDatabaseManager, p64, u64
+from neo.storage.database.mysqldb import MySQLDatabaseManager
 
 NEO_SQL_DATABASE = 'test_mysqldb0'
 NEO_SQL_USER = 'test'

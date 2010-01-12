@@ -24,7 +24,7 @@ from neo.storage.handlers.verification import VerificationHandler
 from neo.protocol import Packet, Packets, CellStates, ErrorCodes
 from neo.protocol import INVALID_OID, INVALID_TID
 from neo.exception import PrimaryFailure, OperationFailure
-from neo.storage.mysqldb import p64, u64
+from neo.util import p64, u64
 
 class StorageVerificationHandlerTests(NeoTestBase):
 

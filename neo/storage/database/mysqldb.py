@@ -30,12 +30,6 @@ from neo import util
 
 LOG_QUERIES = False
 
-def p64(n):
-    return pack('!Q', n)
-
-def u64(s):
-    return unpack('!Q', s)[0]
-
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
@@ -222,7 +216,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 ltid = tmp_serial
         self.commit()
         if ltid is not None:
-            ltid = p64(ltid)
+            ltid = util.p64(ltid)
         return ltid
 
     def getUnfinishedTIDList(self):
@@ -230,16 +224,16 @@ class MySQLDatabaseManager(DatabaseManager):
         tid_set = set()
         self.begin()
         r = q("""SELECT tid FROM ttrans""")
-        tid_set.update((p64(t[0]) for t in r))
+        tid_set.update((util.p64(t[0]) for t in r))
         r = q("""SELECT serial FROM tobj""")
         self.commit()
-        tid_set.update((p64(t[0]) for t in r))
+        tid_set.update((util.p64(t[0]) for t in r))
         return list(tid_set)
 
     def objectPresent(self, oid, tid, all = True):
         q = self.query
-        oid = u64(oid)
-        tid = u64(tid)
+        oid = util.u64(oid)
+        tid = util.u64(tid)
         self.begin()
         r = q("""SELECT oid FROM obj WHERE oid = %d AND serial = %d""" \
                 % (oid, tid))
@@ -253,9 +247,9 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def getObject(self, oid, tid = None, before_tid = None):
         q = self.query
-        oid = u64(oid)
+        oid = util.u64(oid)
         if tid is not None:
-            tid = u64(tid)
+            tid = util.u64(tid)
             r = q("""SELECT serial, compression, checksum, value FROM obj
                         WHERE oid = %d AND serial = %d""" \
                     % (oid, tid))
@@ -265,7 +259,7 @@ class MySQLDatabaseManager(DatabaseManager):
             except IndexError:
                 return None
         elif before_tid is not None:
-            before_tid = u64(before_tid)
+            before_tid = util.u64(before_tid)
             r = q("""SELECT serial, compression, checksum, value FROM obj
                         WHERE oid = %d AND serial < %d
                         ORDER BY serial DESC LIMIT 1""" \
@@ -295,9 +289,9 @@ class MySQLDatabaseManager(DatabaseManager):
                 return None
 
         if serial is not None:
-            serial = p64(serial)
+            serial = util.p64(serial)
         if next_serial is not None:
-            next_serial = p64(next_serial)
+            next_serial = util.p64(next_serial)
         return serial, next_serial, compression, checksum, data
 
     def doSetPartitionTable(self, ptid, cell_list, reset):
@@ -355,7 +349,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
         q = self.query
         e = self.escape
-        tid = u64(tid)
+        tid = util.u64(tid)
 
         if temporary:
             obj_table = 'tobj'
@@ -367,7 +361,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.begin()
         try:
             for oid, compression, checksum, data in object_list:
-                oid = u64(oid)
+                oid = util.u64(oid)
                 data = e(data)
                 q("""REPLACE INTO %s VALUES (%d, %d, %d, %d, '%s')""" \
                         % (obj_table, oid, tid, compression, checksum, data))
@@ -386,7 +380,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def finishTransaction(self, tid):
         q = self.query
-        tid = u64(tid)
+        tid = util.u64(tid)
         self.begin()
         try:
             q("""INSERT INTO obj SELECT * FROM tobj WHERE tobj.serial = %d""" \
@@ -402,7 +396,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def deleteTransaction(self, tid, all = False):
         q = self.query
-        tid = u64(tid)
+        tid = util.u64(tid)
         self.begin()
         try:
             q("""DELETE FROM tobj WHERE serial = %d""" % tid)
@@ -418,7 +412,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def getTransaction(self, tid, all = False):
         q = self.query
-        tid = u64(tid)
+        tid = util.u64(tid)
         self.begin()
         r = q("""SELECT oids, user, description, ext FROM trans
                     WHERE tid = %d""" \
@@ -444,16 +438,16 @@ class MySQLDatabaseManager(DatabaseManager):
                     ORDER BY oid DESC LIMIT %d,%d""" \
                 % (num_partitions, ','.join([str(p) for p in partition_list]), 
                    offset, length))
-        return [p64(t[0]) for t in r]
+        return [util.p64(t[0]) for t in r]
 
     def getObjectHistory(self, oid, offset = 0, length = 1):
         q = self.query
-        oid = u64(oid)
+        oid = util.u64(oid)
         r = q("""SELECT serial, LENGTH(value) FROM obj WHERE oid = %d
                     ORDER BY serial DESC LIMIT %d, %d""" \
                 % (oid, offset, length))
         if r:
-            return [(p64(serial), length) for serial, length in r]
+            return [(util.p64(serial), length) for serial, length in r]
         return None
 
     def getTIDList(self, offset, length, num_partitions, partition_list):
@@ -463,18 +457,18 @@ class MySQLDatabaseManager(DatabaseManager):
                 % (num_partitions, 
                    ','.join([str(p) for p in partition_list]), 
                    offset, length))
-        return [p64(t[0]) for t in r]
+        return [util.p64(t[0]) for t in r]
 
     def getTIDListPresent(self, tid_list):
         q = self.query
         r = q("""SELECT tid FROM trans WHERE tid in (%s)""" \
-                % ','.join([str(u64(tid)) for tid in tid_list]))
-        return [p64(t[0]) for t in r]
+                % ','.join([str(util.u64(tid)) for tid in tid_list]))
+        return [util.p64(t[0]) for t in r]
 
     def getSerialListPresent(self, oid, serial_list):
         q = self.query
-        oid = u64(oid)
+        oid = util.u64(oid)
         r = q("""SELECT serial FROM obj WHERE oid = %d AND serial in (%s)""" \
-                % (oid, ','.join([str(u64(serial)) for serial in serial_list])))
-        return [p64(t[0]) for t in r]
+                % (oid, ','.join([str(util.u64(serial)) for serial in serial_list])))
+        return [util.p64(t[0]) for t in r]
 
