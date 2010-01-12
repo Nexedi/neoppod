@@ -103,6 +103,8 @@ class ClientApplicationTests(NeoTestBase):
         return txn
 
     def beginTransaction(self, app, tid):
+        packet = Packets.AnswerBeginTransaction(tid=tid)
+        app.master_conn = Mock({ 'fakeReceived': packet,    })
         txn = self.makeTransactionObject()
         app.tpc_begin(txn, tid=tid)
         return txn
@@ -345,6 +347,11 @@ class ClientApplicationTests(NeoTestBase):
         # first, tid is supplied 
         self.assertNotEquals(getattr(app, 'tid', None), tid)
         self.assertNotEquals(getattr(app, 'txn', None), txn)
+        packet = Packets.AnswerBeginTransaction(tid=tid)
+        app.master_conn = Mock({
+            'getNextId': 1,
+            'fakeReceived': packet,
+        })
         app.tpc_begin(transaction=txn, tid=tid)
         self.assertTrue(app.local_var.txn is txn)
         self.assertEquals(app.local_var.tid, tid)
