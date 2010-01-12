@@ -216,7 +216,7 @@ class Packet(object):
 
     def __init__(self, *args, **kw):
         assert self._code is not None, "Packet class not registered"
-        if args != ():
+        if args != () or kw != {}:
             body = self._encode(*args, **kw)
         else:
             body = ''
