@@ -247,7 +247,7 @@ class ClientApplicationTests(NeoTestBase):
         conn = Mock({ 
             'getAddress': ('127.0.0.1', 0),
         })
-        app.cp = Mock({ '_getConnForCell' : conn})
+        app.cp = Mock({ 'getConnForCell' : conn})
         result = app.load(oid)
         self.assertEquals(result, ('OBJ', tid1))
         self.checkNoPacketSent(conn)
@@ -745,7 +745,7 @@ class ClientApplicationTests(NeoTestBase):
             'getNodeList': (node1, node2, ),
             'getCellListForTID': ReturnValues([cell1], [cell2]),
         })
-        app.cp = Mock({ '_getConnForCell': conn})
+        app.cp = Mock({ 'getConnForCell': conn})
         def _waitMessage(self, conn=None, msg_id=None, handler=None):
             self.local_var.node_tids = {uuid1: (tid1, ), uuid2: (tid2, )}
             Application._waitMessage = _waitMessage_old
