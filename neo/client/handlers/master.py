@@ -64,12 +64,9 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         for address, uuid in known_master_list:
             n = app.nm.getByAddress(address)
             if n is None:
-                app.nm.createMaster(address)
-            if uuid is not None:
-                # If I don't know the UUID yet, believe what the peer
-                # told me at the moment.
-                if n.getUUID() is None or n.getUUID() != uuid:
-                    n.setUUID(uuid)
+                n = app.nm.createMaster(address)
+            if uuid is not None and n.getUUID() != uuid:
+                n.setUUID(uuid)
 
         if primary_uuid is not None:
             primary_node = app.nm.getByUUID(primary_uuid)
