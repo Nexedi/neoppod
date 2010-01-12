@@ -555,9 +555,9 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.data_dict = {oid1: '', oid2: ''}
         app.tpc_abort(txn)
         # will check if there was just one call/packet :
-        self.checkNotifyPacket(conn1, AbortTransaction)
-        self.checkNotifyPacket(conn2, AbortTransaction)
-        self.checkNotifyPacket(app.master_conn, AbortTransaction)
+        self.checkNotifyPacket(conn1, Packets.AbortTransaction)
+        self.checkNotifyPacket(conn2, Packets.AbortTransaction)
+        self.checkNotifyPacket(app.master_conn, Packets.AbortTransaction)
         self.assertEquals(app.local_var.tid, None)
         self.assertEquals(app.local_var.txn, None)
         self.assertEquals(app.local_var.data_dict, {})
