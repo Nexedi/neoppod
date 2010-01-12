@@ -162,8 +162,6 @@ class ClientHandlerTests(NeoTestBase):
     def test_storageConnectionClosed(self):
         self._testStorageWithMethod(self._testConnectionClosed, 
                 StorageBootstrapHandler)
-        self._testStorageWithMethod(self._testConnectionClosed, 
-                StorageAnswersHandler)
 
     def _testTimeoutExpired(self, dispatcher, app, handler_class, uuid=None, conn=None):
         client_handler = self.buildHandler(handler_class, app, dispatcher)
@@ -178,8 +176,6 @@ class ClientHandlerTests(NeoTestBase):
         self._testMasterWithMethod(self._testTimeoutExpired, PrimaryNotificationsHandler)
 
     def test_storageTimeoutExpired(self):
-        self._testStorageWithMethod(self._testTimeoutExpired, 
-                StorageAnswersHandler)
         self._testStorageWithMethod(self._testTimeoutExpired, 
                 StorageBootstrapHandler)
 
@@ -198,8 +194,6 @@ class ClientHandlerTests(NeoTestBase):
     def test_storagePeerBroken(self):
         self._testStorageWithMethod(self._testPeerBroken,
                 StorageBootstrapHandler, state=NodeStates.BROKEN)
-        self._testStorageWithMethod(self._testPeerBroken,
-                StorageAnswersHandler, state=NodeStates.BROKEN)
 
     def test_notReady(self):
         app = Mock({'setNodeNotReady': None})
