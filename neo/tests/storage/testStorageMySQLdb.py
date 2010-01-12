@@ -34,10 +34,8 @@ class StorageMySQSLdbTests(NeoTestBase):
     def setUp(self):
         self.prepareDatabase(number=1, prefix=NEO_SQL_DATABASE[:-1])
         # db manager
-        self.db = MySQLDatabaseManager(
-            database=NEO_SQL_DATABASE, 
-            user=NEO_SQL_USER,
-        )
+        database = '%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE)
+        self.db = MySQLDatabaseManager(database)
 
     def tearDown(self):
         self.db.close()
