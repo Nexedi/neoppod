@@ -24,26 +24,26 @@ class DatabaseManager(object):
         """Initialize the object."""
         pass
 
-    def close(self):
-        """ close the database connection """
-        raise NotImplementedError('this method must be overridden')
-
     def setup(self, reset = 0):
         """Set up a database. If reset is true, existing data must be
         discarded."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
+
+    def close(self):
+        """ close the database connection """
+        raise NotImplementedError
 
     def getConfiguration(self, key):
         """
             Return a configuration value, returns None if not found or not set
         """
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def setConfiguration(self, key, value):
         """
             Set a configuration value
         """
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def getUUID(self):
         """
@@ -125,24 +125,24 @@ class DatabaseManager(object):
         """Return a whole partition table as a tuple of rows. Each row
         is again a tuple of an offset (row ID), an UUID of a storage
         node, and a cell state."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def getLastTID(self, all = True):
         """Return the last TID in a database. If all is true,
         unfinished transactions must be taken account into. If there
         is no TID in the database, return None."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def getUnfinishedTIDList(self):
         """Return a list of unfinished transaction's IDs."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def objectPresent(self, oid, tid, all = True):
         """Return true iff an object specified by a given pair of an
         object ID and a transaction ID is present in a database.
         Otherwise, return false. If all is true, the object must be
         searched from unfinished transactions as well."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def getObject(self, oid, tid = None, before_tid = None):
         """Return a tuple of a serial, next serial, a compression
@@ -153,20 +153,20 @@ class DatabaseManager(object):
         but before_tid is specified, the latest revision before the
         given revision is taken. The next serial is a serial right after
         before_tid, if specified. Otherwise, it is None."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def changePartitionTable(self, ptid, cell_list):
         """Change a part of a partition table. The list of cells is
         a tuple of tuples, each of which consists of an offset (row ID),
         an UUID of a storage node, and a cell state. The Partition
         Table ID must be stored as well."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def setPartitionTable(self, ptid, cell_list):
         """Set a whole partition table. The semantics is the same as
         changePartitionTable, except that existing data must be
         thrown away."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def dropPartition(self, offset):
         """ Drop objects and transactions assigned to a partition table,
@@ -176,7 +176,7 @@ class DatabaseManager(object):
 
     def dropUnfinishedData(self):
         """Drop any unfinished data from a database."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
         """Store a transaction temporarily, if temporary is true. Note
@@ -185,18 +185,18 @@ class DatabaseManager(object):
         a compression specification, a checksum and object data.
         The transaction is either None or a tuple of the list of OIDs,
         user information, a description and extension information."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def finishTransaction(self, tid):
         """Finish a transaction specified by a given ID, by moving
         temporarily data to a finished area."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def deleteTransaction(self, tid, all = False):
         """Delete a transaction specified by a given ID from a temporarily
         area. If all is true, it must be deleted even from a finished
         area."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def getTransaction(self, tid, all = False):
         """Return a tuple of the list of OIDs, user information,
@@ -204,34 +204,34 @@ class DatabaseManager(object):
         ID. If there is no such transaction ID in a database, return None.
         If all is true, the transaction must be searched from a temporary
         area as well."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def getOIDList(self, offset, length, num_partitions, partition_list):
         """Return a list of OIDs in descending order from an offset,
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def getObjectHistory(self, oid, offset = 0, length = 1):
         """Return a list of serials and sizes for a given object ID.
         The length specifies the maximum size of such a list. The first serial
         must be the last serial, and the list must be sorted in descending
         order. If there is no such object ID in a database, return None."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def getTIDList(self, offset, length, num_partitions, partition_list):
         """Return a list of TIDs in descending order from an offset,
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def getTIDListPresent(self, tid_list):
         """Return a list of TIDs which are present in a database among
         the given list."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
     def getSerialListPresent(self, oid, serial_list):
         """Return a list of serials which are present in a database among
         the given list."""
-        raise NotImplementedError('this method must be overridden')
+        raise NotImplementedError
 
