@@ -363,10 +363,9 @@ class ClientHandlerTests(NeoTestBase):
         add_call_list = app.nm.mockGetNamedCalls('add')
         self.assertEqual(len(add_call_list), 0)
         # Check that node UUID was untouched
-        # XXX: should we just check that there was either no call or a call
-        # with same uuid, or enforce no call ? Here we enforce no call just
-        # because it's what implementation does.
-        self.checkNoUUIDSet(node)
+        setUUIDCalls = node.mockGetNamedCalls('setUUID')
+        if len(setUUIDCalls) == 1:
+            self.assertEquals(setUUIDCalls[0].getParam(0), test_node_uuid)
         # Check that primary master was not updated (it is not known yet,
         # hence INVALID_UUID in call).
         self.assertEquals(app.primary_master_node, None)
