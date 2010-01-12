@@ -175,18 +175,12 @@ class MySQLDatabaseManager(DatabaseManager):
         except IndexError:
             return None
 
-    def setConfiguration(self, key, value):
-        self.begin()
-        try:
-            q = self.query
-            e = self.escape
-            key = e(str(key))
-            value = e(str(value))
-            q("""REPLACE INTO config VALUES ('%s', '%s')""" % (key, value))
-        except:
-            self.rollback()
-            raise
-        self.commit()
+    def _setConfiguration(self, key, value):
+        q = self.query
+        e = self.escape
+        key = e(str(key))
+        value = e(str(value))
+        q("""REPLACE INTO config VALUES ('%s', '%s')""" % (key, value))
 
     def getPartitionTable(self):
         q = self.query

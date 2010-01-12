@@ -85,6 +85,18 @@ class DatabaseManager(object):
         """
             Set a configuration value
         """
+        if self._under_transaction:
+            self._setConfiguration(key, value)
+        else:
+            self.begin()
+            try:
+                self._setConfiguration(key, value)
+            except:
+                self.rollback()
+                raise
+            self.commit()
+
+    def _setConfiguration(self, key, value):
         raise NotImplementedError
 
     def getUUID(self):
