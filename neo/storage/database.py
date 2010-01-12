@@ -75,6 +75,12 @@ class DatabaseManager(object):
     def _begin(self):
         raise NotImplementedError
 
+    def _commit(self):
+        raise NotImplementedError
+
+    def _rollback(self):
+        raise NotImplementedError
+
     def getConfiguration(self, key):
         """
             Return a configuration value, returns None if not found or not set
