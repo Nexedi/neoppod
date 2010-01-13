@@ -72,6 +72,7 @@ class ClientServiceHandler(BaseServiceHandler):
         for tid, t in app.finishing_transaction_dict.items():
             if t.getConnection() is conn:
                 del app.finishing_transaction_dict[tid]
+        app.nm.remove(node)
 
     def abortTransaction(self, conn, packet, tid):
         try:
