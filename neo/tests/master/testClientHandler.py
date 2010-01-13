@@ -141,34 +141,6 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertEquals(sn.getState(), NodeStates.BROKEN)
         self.failUnless(ptid < self.app.pt.getID())
 
-
-    def test_06_answerLastIDs(self):
-        service = self.service
-        uuid = self.identifyToMasterNode()
-        packet = Packets.AnswerLastIDs()
-        loid = self.app.loid
-        ltid = self.app.ltid
-        lptid = self.app.pt.getID()
-        # do not care if client node call it
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        node_list = []
-        self.checkUnexpectedPacketRaised(service.answerLastIDs, conn, packet, None, None, None)
-        self.assertEquals(loid, self.app.loid)
-        self.assertEquals(ltid, self.app.ltid)
-        self.assertEquals(lptid, self.app.pt.getID())
-        # send information which are later to what PMN knows, this must raise
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = []
-        new_ptid = unpack('!Q', lptid)[0]
-        new_ptid = pack('!Q', new_ptid + 1)
-        self.failUnless(new_ptid > self.app.pt.getID())
-        self.assertRaises(OperationFailure, service.answerLastIDs, conn, packet, None, None, new_ptid)
-        self.assertEquals(loid, self.app.loid)
-        self.assertEquals(ltid, self.app.ltid)
-        self.assertEquals(lptid, self.app.pt.getID())
-
-
     def test_07_askBeginTransaction(self):
         service = self.service
         uuid = self.identifyToMasterNode()
@@ -251,47 +223,6 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertEqual(len(self.app.finishing_transaction_dict.keys()), 1)
         service.abortTransaction(conn, packet, tid)
         self.assertEqual(len(self.app.finishing_transaction_dict.keys()), 0)
-
-
-    def test_12_askLastIDs(self):
-        service = self.service
-        uuid = self.identifyToMasterNode()
-        packet = Packets.AskLastIDs()
-        # give a uuid
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        ptid = self.app.pt.getID()
-        self.app.ltid = '\1' * 8
-        self.app.loid = '\1' * 8
-        service.askLastIDs(conn, packet)
-        packet = self.checkAnswerLastIDs(conn, answered_packet=packet)
-        loid, ltid, lptid = protocol._decodeAnswerLastIDs(packet._body)
-        self.assertEqual(loid, self.app.loid)
-        self.assertEqual(ltid, self.app.ltid)
-        self.assertEqual(lptid, ptid)
-
-
-    def test_13_askUnfinishedTransactions(self):
-        service = self.service
-        uuid = self.identifyToMasterNode()
-        packet = Packets.AskUnfinishedTransactions()
-        # give a uuid
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        service.askUnfinishedTransactions(conn, packet)
-        packet = self.checkAnswerUnfinishedTransactions(conn, answered_packet=packet)
-        tid_list = protocol._decodeAnswerUnfinishedTransactions(packet._body)[0]
-        self.assertEqual(len(tid_list), 0)
-        # create some transaction
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
-                                                port=self.client_port)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        service.askBeginTransaction(conn, packet, None)
-        service.askBeginTransaction(conn, packet, None)
-        service.askBeginTransaction(conn, packet, None)
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        service.askUnfinishedTransactions(conn, packet)
-        packet = self.checkAnswerUnfinishedTransactions(conn, answered_packet=packet)
-        tid_list = protocol._decodeAnswerUnfinishedTransactions(packet._body)[0]
-        self.assertEqual(len(tid_list), 3)
 
     def __testWithMethod(self, method, state):
         # give a client uuid which have unfinished transactions
