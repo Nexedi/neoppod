@@ -33,6 +33,7 @@ UNIT_TEST_MODULES = [
     'neo.tests.testNodes',
     'neo.tests.testProtocol',
     'neo.tests.testDispatcher',
+    'neo.tests.testUtil',
     'neo.tests.testPT',
     # master application
     'neo.tests.master.testClientHandler',

@@ -44,15 +44,6 @@ class MasterAppTests(NeoTestBase):
         self.failUnless(u64(self.app.loid) > 23)
         self.assertEqual(u64(self.app.loid), 24)
       
-    def test_03_getNextTID(self):
-        self.assertEqual(self.app.ltid, None)
-        ntid = self.app.getNextTID()
-        self.assertEqual(self.app.ltid, ntid)
-        # generate new one
-        tid = self.app.getNextTID()
-        self.assertEqual(self.app.ltid, tid)
-        self.failUnless(tid > ntid)
-      
     def test_04_getPartition(self):
         self.app.pt.num_partitions = 3
         p = self.app.getPartition(p64(1))
