@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -47,36 +47,36 @@ class HandlerTests(NeoTestBase):
         # all is ok
         self.setFakeMethod(lambda c, p: None)
         self.handler.dispatch(conn, packet)
-        # raise UnexpectedPacketError 
-        conn.mockCalledMethods = {} 
+        # raise UnexpectedPacketError
+        conn.mockCalledMethods = {}
         def fake(c, p): raise UnexpectedPacketError('fake packet')
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
         # raise PacketMalformedError
-        conn.mockCalledMethods = {} 
+        conn.mockCalledMethods = {}
         def fake(c, p): raise PacketMalformedError('message')
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
         # raise BrokenNodeDisallowedError
-        conn.mockCalledMethods = {} 
+        conn.mockCalledMethods = {}
         def fake(c, p): raise BrokenNodeDisallowedError
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
         # raise NotReadyError
-        conn.mockCalledMethods = {} 
+        conn.mockCalledMethods = {}
         def fake(c, p): raise NotReadyError
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
         # raise ProtocolError
-        conn.mockCalledMethods = {} 
+        conn.mockCalledMethods = {}
         def fake(c, p): raise ProtocolError
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)

@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -32,7 +32,7 @@ class StorageAppTests(NeoTestBase):
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(config)
         self.app.event_queue = deque()
-        
+
     def tearDown(self):
         NeoTestBase.tearDown(self)
 
@@ -55,11 +55,11 @@ class StorageAppTests(NeoTestBase):
             self.assertFalse(self.app.pt.hasOffset(x))
 
         # add some node, will be remove when loading table
-        master_uuid = self.getNewUUID()      
+        master_uuid = self.getNewUUID()
         master = self.app.nm.createMaster(uuid=master_uuid)
-        storage_uuid = self.getNewUUID()      
+        storage_uuid = self.getNewUUID()
         storage = self.app.nm.createStorage(uuid=storage_uuid)
-        client_uuid = self.getNewUUID()      
+        client_uuid = self.getNewUUID()
         client = self.app.nm.createClient(uuid=client_uuid)
 
         self.app.pt.setCell(0, master, CellStates.UP_TO_DATE)
@@ -92,21 +92,21 @@ class StorageAppTests(NeoTestBase):
         # fill partition table
         self.app.dm.setPTID(1)
         self.app.dm.query('delete from pt;')
-        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
+        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
                           (0, dump(client_uuid), CellStates.UP_TO_DATE))
-        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
+        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
                           (1, dump(client_uuid), CellStates.UP_TO_DATE))
-        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
+        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
                           (1, dump(storage_uuid), CellStates.UP_TO_DATE))
-        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
+        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
                           (2, dump(storage_uuid), CellStates.UP_TO_DATE))
-        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
+        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
                           (2, dump(master_uuid), CellStates.UP_TO_DATE))
         self.assertEqual(len(self.app.dm.getPartitionTable()), 5)
         self.app.pt.clear()
         self.app.loadPartitionTable()
         self.assertTrue(self.app.pt.filled())
-        for x in xrange(num_partitions):        
+        for x in xrange(num_partitions):
             self.assertTrue(self.app.pt.hasOffset(x))
         # check each row
         cell_list = self.app.pt.getCellList(0)
@@ -120,7 +120,7 @@ class StorageAppTests(NeoTestBase):
         self.assertEqual(len(cell_list), 2)
         self.failUnless(cell_list[0].getUUID() in (master_uuid, storage_uuid))
         self.failUnless(cell_list[1].getUUID() in (master_uuid, storage_uuid))
-        
+
     def test_02_queueEvent(self):
         self.assertEqual(len(self.app.event_queue), 0)
         event = Mock({"getId": 1325136})
@@ -131,7 +131,7 @@ class StorageAppTests(NeoTestBase):
         self.assertEqual(len(args), 1)
         self.assertEqual(args[0], "test")
         self.assertEqual(kw, {"key" : "value"})
-        
+
     def test_03_executeQueuedEvents(self):
         self.assertEqual(len(self.app.event_queue), 0)
         event = Mock({"getId": 1325136})

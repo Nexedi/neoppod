@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -34,10 +34,10 @@ class EventHandler(object):
         """Called when a packet is malformed."""
         args = (conn.getAddress()[0], conn.getAddress()[1], message)
         if packet is None:
-            # if decoding fail, there's no packet instance 
+            # if decoding fail, there's no packet instance
             logging.error('malformed packet from %s:%d: %s', *args)
         else:
-            logging.error('malformed packet %s from %s:%d: %s', 
+            logging.error('malformed packet %s from %s:%d: %s',
                    packet.getType(), *args)
         response = protocol.protocolError(message)
         if packet is not None:
@@ -270,7 +270,7 @@ class EventHandler(object):
     def askTransactionInformation(self, conn, packet, tid):
         raise UnexpectedPacketError
 
-    def answerTransactionInformation(self, conn, packet, tid, 
+    def answerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):
         raise UnexpectedPacketError
 

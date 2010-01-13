@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -54,7 +54,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
             # got an uuid from the primary master
             app.uuid = your_uuid
 
-        # Always create partition table 
+        # Always create partition table
         app.pt = PartitionTable(num_partitions, num_replicas)
 
     def answerPrimary(self, conn, packet, primary_uuid,
@@ -85,13 +85,13 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
                 # The primary master node is not a primary master node
                 # any longer.
                 app.primary_master_node = None
- 
+
             app.trying_master_node = None
             conn.close()
- 
+
     def answerPartitionTable(self, conn, packet, ptid, row_list):
         pass
- 
+
     def answerNodeInformation(self, conn, packet):
         pass
 
@@ -106,7 +106,7 @@ class PrimaryNotificationsHandler(BaseHandler):
             app.master_conn = None
             app.primary_master_node = None
         else:
-            logging.warn('app.master_conn is %s, but we are closing %s', 
+            logging.warn('app.master_conn is %s, but we are closing %s',
                     app.master_conn, conn)
         super(PrimaryNotificationsHandler, self).connectionClosed(conn)
 
@@ -146,7 +146,7 @@ class PrimaryNotificationsHandler(BaseHandler):
         finally:
             app._cache_lock_release()
 
-    # For the two methods below, we must not use app._getPartitionTable() 
+    # For the two methods below, we must not use app._getPartitionTable()
     # to avoid a dead lock. It is safe to not check the master connection
     # because it's in the master handler, so the connection is already
     # established.

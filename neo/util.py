@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -49,7 +49,7 @@ def bin(s):
         ret.append(chr(int(s[:2], 16)))
         s = s[2:]
     return ''.join(ret)
-        
+
 
 def makeChecksum(s):
     """Return a 4-byte integer checksum against a string."""
@@ -68,7 +68,7 @@ def getNextTID(ltid):
         if lower == 0xffffffff:
             # This should not happen usually.
             from datetime import timedelta, datetime
-            d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday, 
+            d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday,
                          gmt.tm_hour, gmt.tm_min) \
                     + timedelta(0, 60)
             upper = ((((d.year - 1900) * 12 + d.month - 1) * 31 \
@@ -98,7 +98,7 @@ class Enum(dict):
         class MyEnum(Enum):
           ITEM1 = Enum.Item(0)
           ITEM2 = Enum.Item(1)
-    Enum items must be written in full upper case 
+    Enum items must be written in full upper case
     """
 
     class Item(int):
@@ -134,7 +134,7 @@ class Enum(dict):
             item._name = name
             item._enum = self
             self[int(item)] = item
-    
+
     def getByName(self, name):
         return getattr(self, name)
 

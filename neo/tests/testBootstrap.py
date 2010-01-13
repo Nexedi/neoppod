@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -37,7 +37,7 @@ class BootstrapManagerTests(NeoTestBase):
         self.storage_port = 10020
         self.num_partitions = 1009
         self.num_replicas = 2
-        
+
     def tearDown(self):
         NeoTestBase.tearDown(self)
 
@@ -54,14 +54,14 @@ class BootstrapManagerTests(NeoTestBase):
         self.checkAskPrimary(conn)
 
     def testHandleNotReady(self):
-        # the primary is not ready 
+        # the primary is not ready
         conn = Mock({})
         packet = Mock({})
         self.bootstrap.notReady(conn, packet, '')
         self.checkClosed(conn)
         self.checkNoPacketSent(conn)
 
-    
+
 if __name__ == "__main__":
     unittest.main()
 

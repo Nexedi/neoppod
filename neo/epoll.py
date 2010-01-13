@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -81,7 +81,7 @@ class Epoll(object):
             timeout *= 1000
             timeout = int(timeout)
         while 1:
-            n = epoll_wait(self.efd, byref(self.events), self.maxevents, 
+            n = epoll_wait(self.efd, byref(self.events), self.maxevents,
                            timeout)
             if n == -1:
                 e = errno.value

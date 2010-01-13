@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -70,9 +70,9 @@ class BaseConnection(object):
         if connector is not None:
             self.connector_handler = connector.__class__
             event_manager.register(self)
-        else:            
+        else:
             self.connector_handler = connector_handler
-            
+
     def lock(self):
         return 1
 
@@ -104,7 +104,7 @@ class BaseConnection(object):
         if self.connector is not None:
             em.removeReader(self)
             em.removeWriter(self)
-            em.unregister(self)            
+            em.unregister(self)
             self.connector.shutdown()
             self.connector.close()
             self.connector = None
@@ -202,7 +202,7 @@ class Connection(BaseConnection):
         return next_id
 
     def close(self):
-        logging.debug('closing a connector for %s (%s:%d)', 
+        logging.debug('closing a connector for %s (%s:%d)',
                 dump(self.uuid), *(self.addr))
         BaseConnection.close(self)
         for event in self.event_dict.itervalues():
@@ -213,7 +213,7 @@ class Connection(BaseConnection):
 
     def abort(self):
         """Abort dealing with this connection."""
-        logging.debug('aborting a connector for %s (%s:%d)', 
+        logging.debug('aborting a connector for %s (%s:%d)',
                 dump(self.uuid), *(self.addr))
         self.aborted = True
 
@@ -307,14 +307,14 @@ class Connection(BaseConnection):
                 self.handler.connectionClosed(self)
                 return
             self.read_buf += data
-        except ConnectorTryAgainException:        
+        except ConnectorTryAgainException:
             pass
         except ConnectorConnectionRefusedException:
             # should only occur while connecting
             self.close()
             self.handler.connectionFailed(self)
         except ConnectorConnectionClosedException:
-            # connection resetted by peer, according to the man, this error 
+            # connection resetted by peer, according to the man, this error
             # should not occurs but it seems it's false
             logging.debug('Connection reset by peer: %r', self.connector)
             self.close()
@@ -350,7 +350,7 @@ class Connection(BaseConnection):
             # unhandled connector exception
             self.close()
             self.handler.connectionClosed(self)
-            raise 
+            raise
 
     def _addPacket(self, packet):
         """Add a packet into the write buffer."""
@@ -405,8 +405,8 @@ class Connection(BaseConnection):
 
     @not_closed
     def ask(self, packet, timeout=5, additional_timeout=30):
-        """ 
-        Send a packet with a new ID and register the expectation of an answer 
+        """
+        Send a packet with a new ID and register the expectation of an answer
         """
         msg_id = self._getNextId()
         packet.setId(msg_id)

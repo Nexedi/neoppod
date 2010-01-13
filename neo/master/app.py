@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -73,7 +73,7 @@ class Application(object):
         self.cluster_state = None
 
         # Generate an UUID for self
-        uuid = config.getUUID() 
+        uuid = config.getUUID()
         if uuid is None or uuid == '':
             uuid = self.getNewUUID(NodeTypes.MASTER)
         self.uuid = uuid
@@ -105,7 +105,7 @@ class Application(object):
             self.nm.createMaster(address=address)
 
         # Make a listening port.
-        self.listening_conn = ListeningConnection(self.em, None, 
+        self.listening_conn = ListeningConnection(self.em, None,
             addr = self.server, connector_handler = self.connector_handler)
 
         self.cluster_state = ClusterStates.BOOTING
@@ -157,7 +157,7 @@ class Application(object):
                 if node.isRunning():
                     self.unconnected_master_node_set.add(node.getAddress())
 
-            # Wait at most 20 seconds at bootstrap. Otherwise, wait at most 
+            # Wait at most 20 seconds at bootstrap. Otherwise, wait at most
             # 10 seconds to avoid stopping the whole cluster for a long time.
             # Note that even if not all master are up in the first 20 seconds
             # this is not an issue because the first up will timeout and take
@@ -227,7 +227,7 @@ class Application(object):
                         if conn.getAddress() != addr:
                             conn.close()
 
-                    # But if there is no such connection, something wrong 
+                    # But if there is no such connection, something wrong
                     # happened.
                     for conn in em.getClientList():
                         if conn.getAddress() == addr:
@@ -326,7 +326,7 @@ class Application(object):
             row_list.append((offset, self.pt.getRow(offset)))
             # Split the packet if too huge.
             if len(row_list) == 1000:
-                conn.notify(Packets.SendPartitionTable(self.pt.getID(), 
+                conn.notify(Packets.SendPartitionTable(self.pt.getID(),
                     row_list))
                 del row_list[:]
         if row_list:
@@ -373,16 +373,16 @@ class Application(object):
 
     def recoverStatus(self):
         """
-        Recover the status about the cluster. Obtain the last OID, the last 
-        TID, and the last Partition Table ID from storage nodes, then get 
-        back the latest partition table or make a new table from scratch, 
+        Recover the status about the cluster. Obtain the last OID, the last
+        TID, and the last Partition Table ID from storage nodes, then get
+        back the latest partition table or make a new table from scratch,
         if this is the first time.
         """
         logging.info('begin the recovery of the status')
 
         self.changeClusterState(ClusterStates.RECOVERING)
         em = self.em
-    
+
         self.loid = None
         self.ltid = None
         self.pt.setID(None)
@@ -565,7 +565,7 @@ class Application(object):
 
         self.changeClusterState(ClusterStates.RUNNING)
 
-        # This dictionary is used to hold information on transactions being 
+        # This dictionary is used to hold information on transactions being
         # finished.
         self.finishing_transaction_dict = {}
 
@@ -574,12 +574,12 @@ class Application(object):
             try:
                 em.poll(1)
             except OperationFailure:
-                # If not operational, send Stop Operation packets to storage 
+                # If not operational, send Stop Operation packets to storage
                 # nodes and client nodes. Abort connections to client nodes.
                 logging.critical('No longer operational, stopping the service')
                 for conn in em.getConnectionList():
                     node = nm.getByUUID(conn.getUUID())
-                    if node is not None and (node.isStorage() 
+                    if node is not None and (node.isStorage()
                             or node.isClient()):
                         conn.notify(Packets.StopOperation())
                         if node.isClient():
@@ -589,7 +589,7 @@ class Application(object):
                 return
 
     def playPrimaryRole(self):
-        logging.info('play the primary role with %s (%s:%d)', 
+        logging.info('play the primary role with %s (%s:%d)',
                 dump(self.uuid), *(self.server))
 
         # all incoming connections identify through this handler
@@ -610,7 +610,7 @@ class Application(object):
                 conn.setHandler(handler)
 
 
-        # If I know any storage node, make sure that they are not in the 
+        # If I know any storage node, make sure that they are not in the
         # running state, because they are not connected at this stage.
         for node in nm.getStorageList():
             if node.isRunning():
@@ -630,7 +630,7 @@ class Application(object):
         """
         I play a secondary role, thus only wait for a primary master to fail.
         """
-        logging.info('play the secondary role with %s (%s:%d)', 
+        logging.info('play the secondary role with %s (%s:%d)',
                 dump(self.uuid), *(self.server))
 
 
@@ -647,8 +647,8 @@ class Application(object):
             self.em.poll(1)
 
     def changeClusterState(self, state):
-        """ 
-        Change the cluster state and apply right handler on each connections 
+        """
+        Change the cluster state and apply right handler on each connections
         """
         if self.cluster_state == state:
             return
@@ -737,7 +737,7 @@ class Application(object):
                     for c in self.em.getConnectionList():
                         node = self.nm.getByUUID(c.getUUID())
                         if node.isClient():
-                            node_list = [(node.getType(), node.getAddress(), 
+                            node_list = [(node.getType(), node.getAddress(),
                                 node.getUUID(), NodeStates.DOWN)]
                             c.notify(Packets.NotifyNodeInformation(node_list))
                     # then ask storages and master nodes to shutdown
@@ -745,7 +745,7 @@ class Application(object):
                     for c in self.em.getConnectionList():
                         node = self.nm.getByUUID(c.getUUID())
                         if node.isStorage() or node.isMaster():
-                            node_list = [(node.getType(), node.getAddress(), 
+                            node_list = [(node.getType(), node.getAddress(),
                                 node.getUUID(), NodeStates.DOWN)]
                             c.notify(Packets.NotifyNodeInformation(node_list))
                     # then shutdown
@@ -764,7 +764,7 @@ class Application(object):
                 # if node is unknown, it has been forget when the current
                 # partition was validated by the admin
                 # Here the uuid is not cleared to allow lookup pending nodes by
-                # uuid from the test framework. It's safe since nodes with a 
+                # uuid from the test framework. It's safe since nodes with a
                 # conflicting UUID are rejected in the identification handler.
                 state = NodeStates.PENDING
             handler = verification.VerificationHandler

@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -47,7 +47,7 @@ class PartitionTable(neo.pt.PartitionTable):
             raise RuntimeError, 'cannot make a partition table with an ' \
                     'empty storage node list'
 
-        # Take it into account that the number of storage nodes may be less 
+        # Take it into account that the number of storage nodes may be less
         # than the number of replicas.
         repeats = min(self.nr + 1, len(node_list))
         index = 0
@@ -136,7 +136,7 @@ class PartitionTable(neo.pt.PartitionTable):
 
             if num_cells <= self.nr:
                 row.append(neo.pt.Cell(node, CellStates.OUT_OF_DATE))
-                cell_list.append((offset, node.getUUID(), 
+                cell_list.append((offset, node.getUUID(),
                     CellStates.OUT_OF_DATE))
                 node_count += 1
             else:
@@ -145,18 +145,18 @@ class PartitionTable(neo.pt.PartitionTable):
                         # If there is a feeding cell already or it is
                         # out-of-date, just drop the node.
                         row.remove(max_cell)
-                        cell_list.append((offset, max_cell.getUUID(), 
+                        cell_list.append((offset, max_cell.getUUID(),
                                           CellStates.DISCARDED))
                         self.count_dict[max_cell.getNode()] -= 1
                     else:
                         # Otherwise, use it as a feeding cell for safety.
                         max_cell.setState(CellStates.FEEDING)
-                        cell_list.append((offset, max_cell.getUUID(), 
+                        cell_list.append((offset, max_cell.getUUID(),
                                           CellStates.FEEDING))
                         # Don't count a feeding cell.
                         self.count_dict[max_cell.getNode()] -= 1
                     row.append(neo.pt.Cell(node, CellStates.OUT_OF_DATE))
-                    cell_list.append((offset, node.getUUID(), 
+                    cell_list.append((offset, node.getUUID(),
                                       CellStates.OUT_OF_DATE))
                     node_count += 1
 
@@ -223,7 +223,7 @@ class PartitionTable(neo.pt.PartitionTable):
                 row.remove(cell)
                 if not cell.isFeeding():
                     self.count_dict[cell.getNode()] -= 1
-                changed_cell_list.append((offset, cell.getUUID(), 
+                changed_cell_list.append((offset, cell.getUUID(),
                     CellStates.DISCARDED))
 
         # Add cells, if a row contains less than the number of replicas.
@@ -237,7 +237,7 @@ class PartitionTable(neo.pt.PartitionTable):
                 if node is None:
                     break
                 row.append(neo.pt.Cell(node, CellStates.OUT_OF_DATE))
-                changed_cell_list.append((offset, node.getUUID(), 
+                changed_cell_list.append((offset, node.getUUID(),
                     CellStates.OUT_OF_DATE))
                 self.count_dict[node] += 1
                 num_cells += 1
@@ -256,7 +256,7 @@ class PartitionTable(neo.pt.PartitionTable):
             for cell in row:
                 if not cell.getNode().isRunning() and not cell.isOutOfDate():
                     cell.setState(CellStates.OUT_OF_DATE)
-                    cell_list.append((offset, cell.getUUID(), 
+                    cell_list.append((offset, cell.getUUID(),
                         CellStates.OUT_OF_DATE))
         return cell_list
-    
+

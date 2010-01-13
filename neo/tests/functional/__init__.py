@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -128,7 +128,7 @@ class NEOCluster(object):
                  partitions=1, replicas=0, port_base=10000,
                  db_user='neo', db_password='neo',
                  db_super_user='root', db_super_password=None,
-                 cleanup_on_delete=False, temp_dir=None, 
+                 cleanup_on_delete=False, temp_dir=None,
                  clear_databases=True, adapter='MySQL'):
         self.cleanup_on_delete = cleanup_on_delete
         self.uuid_set = set()
@@ -187,7 +187,7 @@ class NEOCluster(object):
         arguments['--verbose'] = None
         logfile = arguments['--name']
         arguments['--logfile'] = os.path.join(self.temp_dir, '%s.log' % (logfile, ))
-        self.process_dict.setdefault(command, []).append( 
+        self.process_dict.setdefault(command, []).append(
             NEOProcess(command, uuid, arguments))
 
     def __allocatePort(self):
@@ -387,13 +387,13 @@ class NEOCluster(object):
             current_try = self.__getNodeState(node_type, uuid)
             return current_try in state, current_try
         self.expectCondition(callback, timeout, delay)
-        
+
     def expectMasterState(self, uuid, state, timeout=0, delay=1):
         self.__expectNodeState(NodeTypes.MASTER, uuid, state, timeout,
                 delay)
 
     def expectStorageState(self, uuid, state, timeout=0, delay=1):
-        self.__expectNodeState(NodeTypes.STORAGE, uuid, state, 
+        self.__expectNodeState(NodeTypes.STORAGE, uuid, state,
                 timeout,delay)
 
     def expectPrimary(self, uuid=None, timeout=0, delay=1):
@@ -464,5 +464,5 @@ class NEOFunctionalTest(unittest.TestCase):
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
         return temp_dir
-        
+
 

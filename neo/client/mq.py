@@ -37,12 +37,12 @@ class Element(object):
       This class defines an element of a FIFO buffer.
     """
     pass
-      
+
 class FIFO(object):
     """
       This class implements a FIFO buffer.
     """
-    
+
     def __init__(self):
         self._head = None
         self._tail = None
@@ -56,10 +56,10 @@ class FIFO(object):
         self.element = None
         self.key = None
         self.expire_time = None
-      
+
     def __len__(self):
         return self._len
-      
+
     def append(self):
         element = Element()
         element.next = None
@@ -74,10 +74,10 @@ class FIFO(object):
 
     def head(self):
         return self._head
-      
+
     def tail(self):
         return self._tail
-            
+
     def shift(self):
         element = self._head
         if element is None:
@@ -86,26 +86,26 @@ class FIFO(object):
         del element.next
         del element.prev
         return element
-      
+
     def __delitem__(self, element):
         if element.next is None:
             self._tail = element.prev
         else:
             element.next.prev = element.prev
-        
+
         if element.prev is None:
             self._head = element.next
         else:
             element.prev.next = element.next
-          
-        self._len -= 1      
-    
+
+        self._len -= 1
+
 class Data(object):
     """
       Data for each element in a FIFO buffer.
     """
     pass
-      
+
 def sizeof(o):
     """This function returns the estimated size of an object."""
     if isinstance(o, tuple):
@@ -116,22 +116,22 @@ def sizeof(o):
 class MQ(object):
     """
       This class manages cached data by a variant of Multi-Queue.
-      
+
       This class caches various sizes of objects. Here are some considerations:
-      
+
       - Expired objects are not really deleted immediately. But if GC is invoked too often,
         it degrades the performance significantly.
-        
+
       - If large objects are cached, the number of cached objects decreases. This might affect
         the cache hit ratio. It might be better to tweak a buffer level according to the size of
         an object.
-        
+
       - Stored values must be strings.
-      
+
       - The size calculation is not accurate.
     """
-    
-    def __init__(self, life_time=10000, buffer_levels=9, 
+
+    def __init__(self, life_time=10000, buffer_levels=9,
             max_history_size=100000, max_size=20*1024*1024):
         self._history_buffer = FIFO()
         self._cache_buffers = []
@@ -144,16 +144,16 @@ class MQ(object):
         self._max_history_size = max_history_size
         self._max_size = max_size
         self._size = 0
-      
+
     def has_key(self, key):
         if key in self._data:
             data = self._data[key]
             if data.level >= 0:
                 return 1
         return 0
-      
+
     __contains__ = has_key
-    
+
     def fetch(self, key):
         """
           Fetch a value associated with the key.
@@ -165,15 +165,15 @@ class MQ(object):
             self.store(key, value)
             return value
         raise KeyError(key)
-    
+
     __getitem__ = fetch
-    
+
     def get(self, key, d=None):
         try:
             return self.fetch(key)
         except KeyError:
             return d
-    
+
     def _evict(self, key):
         """
           Evict an element to the history buffer.
@@ -190,7 +190,7 @@ class MQ(object):
         if len(self._history_buffer) > self._max_history_size:
             element = self._history_buffer.shift()
             del self._data[element.data.key]
-        
+
     def store(self, key, value):
         cache_buffers = self._cache_buffers
 
@@ -203,8 +203,8 @@ class MQ(object):
                 del self._history_buffer[element]
         except KeyError:
             counter = 1
-          
-        # XXX It might be better to adjust the level according to the object 
+
+        # XXX It might be better to adjust the level according to the object
         # size.
         level = min(int(log(counter, 2)), self._buffer_levels - 1)
         element = cache_buffers[level].append()
@@ -219,7 +219,7 @@ class MQ(object):
         self._data[key] = data
         self._size += sizeof(value)
         del value
-        
+
         self._time += 1
 
         # Expire old elements.
@@ -239,7 +239,7 @@ class MQ(object):
                     data.element = element
                 else:
                     self._evict(data.key)
-            
+
         # Limit the size.
         size = self._size
         max_size = self._max_size
@@ -256,9 +256,9 @@ class MQ(object):
                 if size <= max_size:
                     break
                 self._size = size
-      
+
     __setitem__ = store
-    
+
     def invalidate(self, key):
         if id in self._data:
             data = self._data[key]
@@ -269,14 +269,14 @@ class MQ(object):
         raise KeyError, "%s was not found in the cache" % key
 
     __delitem__ = invalidate
-  
-  
+
+
 # Here is a test.
 if __name__ == '__main__':
     import hotshot, hotshot.stats
 
     def test():
-        cache = MQ(life_time=100, buffer_levels=9, max_history_size=10000, 
+        cache = MQ(life_time=100, buffer_levels=9, max_history_size=10000,
                    max_size=2*1024*1024)
 
         for i in xrange(10000):

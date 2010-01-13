@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -26,7 +26,7 @@ class MasterTests(NEOFunctionalTest):
 
     def setUp(self):
         NEOFunctionalTest.setUp(self)
-        self.neo = NEOCluster([], port_base=20000, 
+        self.neo = NEOCluster([], port_base=20000,
                 master_node_count=MASTER_NODE_COUNT,
                 temp_dir=self.getTempDirectory())
         self.neo.stop()
@@ -68,7 +68,7 @@ class MasterTests(NEOFunctionalTest):
         self.assertNotEqual(new_uuid, uuid)
 
     def testStoppingPrimaryWithOneSecondary(self):
-        self.neo.expectAllMasters(MASTER_NODE_COUNT, 
+        self.neo.expectAllMasters(MASTER_NODE_COUNT,
                 state=NodeStates.RUNNING)
 
         # Kill one secondary master.
@@ -92,7 +92,7 @@ class MasterTests(NEOFunctionalTest):
         self.assertNotEqual(new_uuid, uuid)
 
     def testMasterSequentialStart(self):
-        self.neo.expectAllMasters(MASTER_NODE_COUNT, 
+        self.neo.expectAllMasters(MASTER_NODE_COUNT,
                 state=NodeStates.RUNNING)
         master_list = self.neo.getMasterProcessList()
 
@@ -112,11 +112,11 @@ class MasterTests(NEOFunctionalTest):
         # Start a second master.
         second_master = master_list[1]
         # Check that the second master is known as being down.
-        self.assertEqual(self.neo.getMasterNodeState(second_master.getUUID()), 
+        self.assertEqual(self.neo.getMasterNodeState(second_master.getUUID()),
                 None)
         second_master.start()
         # Check that the second master is running under his known UUID.
-        self.neo.expectMasterState(second_master.getUUID(), 
+        self.neo.expectMasterState(second_master.getUUID(),
                 NodeStates.RUNNING)
         # Check that the primary master didn't change.
         self.assertEqual(self.neo.getPrimary(), first_master_uuid)
@@ -124,11 +124,11 @@ class MasterTests(NEOFunctionalTest):
         # Start a third master.
         third_master = master_list[2]
         # Check that the third master is known as being down.
-        self.assertEqual(self.neo.getMasterNodeState(third_master.getUUID()), 
+        self.assertEqual(self.neo.getMasterNodeState(third_master.getUUID()),
                 None)
         third_master.start()
         # Check that the third master is running under his known UUID.
-        self.neo.expectMasterState(third_master.getUUID(), 
+        self.neo.expectMasterState(third_master.getUUID(),
                 NodeStates.RUNNING)
         # Check that the primary master didn't change.
         self.assertEqual(self.neo.getPrimary(), first_master_uuid)

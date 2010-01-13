@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -47,7 +47,7 @@ class NodesTests(NeoTestBase):
         self.assertEqual(node.getState(), NodeStates.UNKNOWN)
         self.assertEqual(node.getAddress(), address)
         self.assertEqual(node.getUUID(), uuid)
-        self.assertTrue(time() - 1 < node.getLastStateChange() < time()) 
+        self.assertTrue(time() - 1 < node.getLastStateChange() < time())
 
     def testState(self):
         """ Check if the last changed time is updated when state is changed """
@@ -150,7 +150,7 @@ class NodeManagerTests(NeoTestBase):
     def checkByServer(self, node):
         node_found = self.manager.getByAddress(node.getAddress())
         self.assertEqual(node_found, node)
-        
+
     def checkByUUID(self, node):
         node_found = self.manager.getByUUID(node.getUUID())
         self.assertEqual(node_found, node)
@@ -273,7 +273,7 @@ class NodeManagerTests(NeoTestBase):
         self.checkNodes([self.master, self.admin, new_storage])
         self.assertEqual(self.admin.getState(), NodeStates.UNKNOWN)
 
-        
+
 if __name__ == '__main__':
     unittest.main()
 

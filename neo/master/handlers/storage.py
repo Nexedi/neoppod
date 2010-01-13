@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
- 
+
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -44,7 +44,7 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def askLastIDs(self, conn, packet):
         app = self.app
-        conn.answer(Packets.AnswerLastIDs(app.loid, app.ltid, app.pt.getID()), 
+        conn.answer(Packets.AnswerLastIDs(app.loid, app.ltid, app.pt.getID()),
                 packet.getId())
 
     def askUnfinishedTransactions(self, conn, packet):
@@ -80,7 +80,7 @@ class StorageServiceHandler(BaseServiceHandler):
                                 p = Packets.NotifyTransactionFinished(tid)
                                 c.answer(p, t.getMessageId())
                             else:
-                                p = Packets.InvalidateObjects(t.getOIDList(), 
+                                p = Packets.InvalidateObjects(t.getOIDList(),
                                         tid)
                                 c.notify(p)
                         elif node.isStorage():
@@ -110,20 +110,20 @@ class StorageServiceHandler(BaseServiceHandler):
                 continue
 
             offset = cell[0]
-            logging.debug("node %s is up for offset %s" % 
+            logging.debug("node %s is up for offset %s" %
                     (dump(node.getUUID()), offset))
 
-            # check the storage said it is up to date for a partition it was 
+            # check the storage said it is up to date for a partition it was
             # assigne to
             for xcell in app.pt.getCellList(offset):
                 if xcell.getNode().getUUID() == node.getUUID() and \
                        xcell.getState() not in (CellStates.OUT_OF_DATE,
                                CellStates.UP_TO_DATE):
                     msg = "node %s telling that it is UP TO DATE for offset \
-                    %s but where %s for that offset" % (dump(node.getUUID()), 
+                    %s but where %s for that offset" % (dump(node.getUUID()),
                             offset, xcell.getState())
                     raise ProtocolError(msg)
-                    
+
 
             app.pt.setCell(offset, node, CellStates.UP_TO_DATE)
             new_cell_list.append(cell)
@@ -132,7 +132,7 @@ class StorageServiceHandler(BaseServiceHandler):
             for feeding_cell in app.pt.getCellList(offset):
                 if feeding_cell.getState() == CellStates.FEEDING:
                     app.pt.removeCell(offset, feeding_cell.getNode())
-                    new_cell_list.append((offset, feeding_cell.getUUID(), 
+                    new_cell_list.append((offset, feeding_cell.getUUID(),
                                           CellStates.DISCARDED))
                     break
 

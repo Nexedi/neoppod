@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -57,9 +57,9 @@ class IdentificationHandler(MasterHandler):
             node.setAddress(address)
             node.setRunning()
 
-        # ask the app the node identification, if refused, an exception is 
+        # ask the app the node identification, if refused, an exception is
         # raised
-        result = self.app.identifyNode(node_type, uuid, node) 
+        result = self.app.identifyNode(node_type, uuid, node)
         (uuid, node, state, handler, node_ctor) = result
         if uuid is None:
             # no valid uuid, give it one
@@ -75,7 +75,7 @@ class IdentificationHandler(MasterHandler):
         conn.setUUID(uuid)
         conn.setHandler(handler)
         # answer
-        args = (NodeTypes.MASTER, app.uuid, app.server, 
+        args = (NodeTypes.MASTER, app.uuid, app.server,
                 app.pt.getPartitions(), app.pt.getReplicas(), uuid)
         conn.answer(Packets.AcceptIdentification(*args), packet.getId())
         # trigger the event

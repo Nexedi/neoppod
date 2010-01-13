@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -122,8 +122,8 @@ class PartitionTableTests(NeoTestBase):
         for x in xrange(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
         self.assertEqual(pt.count_dict[sn1], 0)
-        
-                
+
+
     def test_04_removeCell(self):
         num_partitions = 5
         num_replicas = 2
@@ -162,7 +162,7 @@ class PartitionTableTests(NeoTestBase):
         self.assertEqual(pt.count_dict[sn1], 0)
         for x in xrange(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
-        
+
     def test_05_getCellList(self):
         num_partitions = 5
         num_replicas = 2
@@ -281,7 +281,7 @@ class PartitionTableTests(NeoTestBase):
         self.assertEqual(len(pt.getNodeList()), 2)
         nodes = pt.getNodeList()
         self.failUnless(sn1 in nodes)
-        self.failUnless(sn2 in nodes)        
+        self.failUnless(sn2 in nodes)
         self.failUnless(sn3 not in nodes)
         self.failUnless(sn4 not in nodes)
 
@@ -297,8 +297,8 @@ class PartitionTableTests(NeoTestBase):
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         for x in xrange(num_partitions):
-            pt.setCell(x, sn1, CellStates.UP_TO_DATE)            
-        self.assertEqual(pt.num_filled_rows, num_partitions)        
+            pt.setCell(x, sn1, CellStates.UP_TO_DATE)
+        self.assertEqual(pt.num_filled_rows, num_partitions)
         self.assertTrue(pt.filled())
 
     def test_09_hasOffset(self):

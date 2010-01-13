@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -28,7 +28,7 @@ class PacketLogger(EventHandler):
 
     def dispatch(self, conn, packet, direction):
         """This is a helper method to handle various packet types."""
-        # default log message 
+        # default log message
         klass = packet.getType()
         uuid = dump(conn.getUUID())
         ip, port = conn.getAddress()
@@ -188,7 +188,7 @@ class PacketLogger(EventHandler):
     def askTransactionInformation(self, conn, packet, tid):
         pass
 
-    def answerTransactionInformation(self, conn, packet, tid, 
+    def answerTransactionInformation(self, conn, packet, tid,
                                            user, desc, ext, oid_list):
         pass
 

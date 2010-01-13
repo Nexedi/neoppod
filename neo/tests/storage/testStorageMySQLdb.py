@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -85,13 +85,13 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.db.rollback()
         self.assertEquals(len(self.db.conn.mockGetNamedCalls('rollback')), 1)
         self.assertEquals(self.db.isUnderTransaction(), False)
-    
+
     def test_07_query1(self):
         # fake result object
         from array import array
         result_object = Mock({
             "num_rows": 1,
-            "fetch_row": ((1, 2, array('b', (1, 2, ))), ), 
+            "fetch_row": ((1, 2, array('b', (1, 2, ))), ),
         })
         # expected formatted result
         expected_result = (
@@ -180,7 +180,7 @@ class StorageMySQSLdbTests(NeoTestBase):
 
     def test_12_UUID(self):
         self.checkConfigEntry(
-            get_call=self.db.getUUID, 
+            get_call=self.db.getUUID,
             set_call=self.db.setUUID,
             value='TEST_VALUE')
 
@@ -209,7 +209,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         # insert an entry and check it
         self.db.setup()
         rid, uuid, state = '\x00' * 8, '\x00' * 16, 0
-        self.db.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" % 
+        self.db.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
                 (dump(rid), dump(uuid), state))
         pt = self.db.getPartitionTable()
         self.assertEquals(pt, [(0L, uuid, state)])
@@ -276,7 +276,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertTrue(self.db.objectPresent(oid1,  tid1, all=True))
         self.assertTrue(self.db.objectPresent(oid2,  tid2, all=False))
         self.assertTrue(self.db.objectPresent(oid2,  tid2, all=True))
-        
+
     def test_21_getObject(self):
         self.db.setup()
         oid1, tid1 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x01'
@@ -473,7 +473,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         result = self.db.query('select * from ttrans')
         self.assertEquals(len(result), 1)
         self.assertEquals(result[0], (2L, oid1 + oid2, 'u', 'd', 'e',))
-        
+
     def test_26_deleteTransaction(self):
         # data set
         tid1, tid2 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x02'
@@ -561,7 +561,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.db.query("""replace into trans (tid, oids, user, description, ext)
         values ('%s', '%s', 'u', 'd', 'e')""" % (u64(tid1), 'OIDs_'))
         self.assertRaises(DatabaseFailure, self.db.getTransaction, tid1)
-        
+
     def test_28_getOIDList(self):
         # there are two partitions and two objects in each of them
         # o1 & o3 in p1, o2 & o4 in p2
@@ -569,9 +569,9 @@ class StorageMySQSLdbTests(NeoTestBase):
         tid = '\x00' * 7 + '\x01'
         oid1, oid2, oid3, oid4 = ['\x00' * 7 + chr(i) for i in xrange(4)]
         for oid in (oid1, oid2, oid3, oid4):
-            self.db.query("replace into obj values (%d, %d, 0, 0, '')" % 
+            self.db.query("replace into obj values (%d, %d, 0, 0, '')" %
                 (u64(oid), u64(tid)))
-        # get all oids for all partitions 
+        # get all oids for all partitions
         result = self.db.getOIDList(0, 4, 2, (0, 1))
         self.assertEquals(result, [oid4, oid3, oid2, oid1])
         # get all oids but from the second with a limit a two
@@ -596,7 +596,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         tids = ['\x00' * 7 + chr(i) for i in xrange(4)]
         oid = '\x00' * 8
         for tid in tids:
-            self.db.query("replace into obj values (%d, %d, 0, 0, '')" % 
+            self.db.query("replace into obj values (%d, %d, 0, 0, '')" %
                 (u64(oid), u64(tid)))
         # unkwown object
         result = self.db.getObjectHistory(oid='\x01' * 8)
@@ -619,9 +619,9 @@ class StorageMySQSLdbTests(NeoTestBase):
         tids = ['\x00' * 7 + chr(i) for i in xrange(4)]
         tid1, tid2, tid3, tid4 = tids
         for tid in tids:
-            self.db.query("replace into trans values (%d, '', 'u', 'd', 'e')" % 
+            self.db.query("replace into trans values (%d, '', 'u', 'd', 'e')" %
                 (u64(tid)))
-        # get all tids for all partitions 
+        # get all tids for all partitions
         result = self.db.getTIDList(0, 4, 2, (0, 1))
         self.assertEquals(result, [tid4, tid3, tid2, tid1])
         # get all tids but from the second with a limit a two
@@ -646,7 +646,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         tid = '\x00' * 7 + '\x01'
         tid1, tid2, tid3, tid4 = ['\x00' * 7 + chr(i) for i in xrange(4)]
         for tid in (tid1, tid2, tid3, tid4):
-            self.db.query("replace into trans values (%d, '', 'u', 'd', 'e')" % 
+            self.db.query("replace into trans values (%d, '', 'u', 'd', 'e')" %
                 (u64(tid)))
         # all match
         result = self.db.getTIDListPresent((tid1, tid2, tid3, tid4))
@@ -666,7 +666,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         tid1, tid2, tid3, tid4 = tids
         oid = '\x00' * 8
         for tid in tids:
-            self.db.query("replace into obj values (%d, %d, 0, 0, '')" % 
+            self.db.query("replace into obj values (%d, %d, 0, 0, '')" %
                 (u64(oid), u64(tid)))
         # all match
         result = self.db.getSerialListPresent(oid, tids)

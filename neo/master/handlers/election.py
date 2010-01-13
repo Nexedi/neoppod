@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -125,7 +125,7 @@ class ClientElectionHandler(ElectionHandler):
         if conn.getAddress() != address:
             # The server address is different! Then why was
             # the connection successful?
-            logging.error('%s:%d is waiting for %s:%d', 
+            logging.error('%s:%d is waiting for %s:%d',
                           conn.getAddress()[0], conn.getAddress()[1], *address)
             app.nm.remove(node)
             app.negotiating_master_node_set.discard(node.getAddress())
@@ -171,7 +171,7 @@ class ClientElectionHandler(ElectionHandler):
                     # told me at the moment.
                     if n.getUUID() is None or n.getUUID() != uuid:
                         n.setUUID(uuid)
-                        
+
         if primary_uuid is not None:
             # The primary master is defined.
             if app.primary_master_node is not None \
@@ -200,8 +200,8 @@ class ClientElectionHandler(ElectionHandler):
         # Request a node idenfitication.
         conn.ask(Packets.RequestIdentification(
             NodeTypes.MASTER,
-            app.uuid, 
-            app.server, 
+            app.uuid,
+            app.server,
             app.name
         ))
 
@@ -251,11 +251,11 @@ class ServerElectionHandler(ElectionHandler):
         conn.setUUID(uuid)
 
         p = Packets.AcceptIdentification(
-            NodeTypes.MASTER, 
-            app.uuid, 
-            app.server, 
-            app.pt.getPartitions(), 
-            app.pt.getReplicas(), 
+            NodeTypes.MASTER,
+            app.uuid,
+            app.server,
+            app.pt.getPartitions(),
+            app.pt.getReplicas(),
             uuid
         )
         conn.answer(p, packet.getId())

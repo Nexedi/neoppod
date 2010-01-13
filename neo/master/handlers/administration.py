@@ -43,7 +43,7 @@ class AdministrationHandler(MasterHandler):
             self.app.shutdown()
 
     def setNodeState(self, conn, packet, uuid, state, modify_partition_table):
-        logging.info("set node state for %s-%s : %s" % 
+        logging.info("set node state for %s-%s : %s" %
                 (dump(uuid), state, modify_partition_table))
         app = self.app
         node = app.nm.getByUUID(uuid)

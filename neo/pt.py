@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -180,7 +180,7 @@ class PartitionTable(object):
                     break
 
     def load(self, ptid, row_list, nm):
-        """ 
+        """
         Load the partition table with the specified PTID, discard all previous
         content and can be done in multiple calls
         """
@@ -190,7 +190,7 @@ class PartitionTable(object):
         for offset, row in row_list:
             assert offset < self.getPartitions() and not self.hasOffset(offset)
             for uuid, state in row:
-                node = nm.getByUUID(uuid) 
+                node = nm.getByUUID(uuid)
                 # XXX: the node should be known before we receive the partition
                 # table, so remove this assert when this is checked.
                 assert node is not None
@@ -207,7 +207,7 @@ class PartitionTable(object):
             return
         self.id = ptid
         for offset, uuid, state in cell_list:
-            node = nm.getByUUID(uuid) 
+            node = nm.getByUUID(uuid)
             assert node is not None
             self.setCell(offset, node, state)
         logging.debug('partition table updated')
@@ -256,7 +256,7 @@ class PartitionTable(object):
                 line.append('X' * len(node_list))
             else:
                 cell = []
-                cell_dict = dict([(node_dict.get(x.getUUID(), None), x) 
+                cell_dict = dict([(node_dict.get(x.getUUID(), None), x)
                     for x in row])
                 for node in xrange(len(node_list)):
                     if node in cell_dict:
@@ -268,7 +268,7 @@ class PartitionTable(object):
             logging.debug('pt: %08d: %s', offset - len(line) + 1,
                           '|'.join(line))
 
-    def operational(self):        
+    def operational(self):
         if not self.filled():
             return False
         for row in self.partition_list:

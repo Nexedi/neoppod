@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -23,7 +23,7 @@ from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo.protocol import ClusterStates, NodeStates
 
 class PObject(Persistent):
-    
+
     def __init__(self, value):
         self.value = value
 
@@ -45,7 +45,7 @@ class StorageTests(NEOFunctionalTest):
         result = db.store_result().fetch_row()[0][0]
         return result
 
-    def __setup(self, storage_number=2, pending_number=0, replicas=1, 
+    def __setup(self, storage_number=2, pending_number=0, replicas=1,
             partitions=10, master_node_count=2):
         # create a neo cluster
         self.neo = NEOCluster(['test_neo%d' % i for i in xrange(storage_number)],
@@ -68,7 +68,7 @@ class StorageTests(NEOFunctionalTest):
         db, conn = self.neo.getZODBConnection()
         root = conn.root()
         for i in xrange(OBJECT_NUMBER):
-            root[i] = PObject(i) 
+            root[i] = PObject(i)
         transaction.commit()
         conn.close()
         db.close()
@@ -86,7 +86,7 @@ class StorageTests(NEOFunctionalTest):
         # One revision per object and two for the root, before and after
         revisions = self.queryCount(db, 'select count(*) from obj')
         self.assertEqual(revisions, OBJECT_NUMBER + 2)
-        # One object more for the root 
+        # One object more for the root
         query = 'select count(*) from (select * from obj group by oid) as t'
         objects = self.queryCount(db, query)
         self.assertEqual(objects, OBJECT_NUMBER + 1)
@@ -111,7 +111,7 @@ class StorageTests(NEOFunctionalTest):
 
     def __expectPending(self, process):
         self.neo.expectStorageState(process.getUUID(), NodeStates.PENDING)
-    
+
     def __expectUnavailable(self, process):
         self.neo.expectStorageState(process.getUUID(),
                 NodeStates.TEMPORARILY_DOWN)
@@ -124,7 +124,7 @@ class StorageTests(NEOFunctionalTest):
                     return False, storage
             return True, None
         self.neo.expectCondition(expected_storage_not_known)
-    
+
     def testReplicationWithoutBreak(self):
         """ Start a cluster with two storage, one replicas, the two databasqes
         must have the same content """
@@ -178,7 +178,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectAssignedCells(stopped[0].getUUID(), number=10)
         self.neo.expectClusterRunning()
 
-        # wait for replication to finish then check 
+        # wait for replication to finish then check
         self.__checkReplicationDone()
         self.neo.expectClusterRunning()
 
@@ -284,7 +284,7 @@ class StorageTests(NEOFunctionalTest):
         with one storage and no replicas """
 
         # start with one storage and no replicas
-        (started, stopped) = self.__setup(storage_number=2, pending_number=1, 
+        (started, stopped) = self.__setup(storage_number=2, pending_number=1,
             partitions=10, replicas=0)
         self.__expectRunning(started[0])
         self.neo.expectClusterRunning()
@@ -299,10 +299,10 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
 
-        # the partition table must change, each node should be assigned to 
+        # the partition table must change, each node should be assigned to
         # five partitions
-        self.neo.expectAssignedCells(started[0].getUUID(), 5) 
-        self.neo.expectAssignedCells(stopped[0].getUUID(), 5) 
+        self.neo.expectAssignedCells(started[0].getUUID(), 5)
+        self.neo.expectAssignedCells(stopped[0].getUUID(), 5)
 
     def testPartitionTableReorganizedAfterDrop(self):
         """ Check that the partition change when dropping a replicas from a
@@ -324,7 +324,7 @@ class StorageTests(NEOFunctionalTest):
         # and the partition table must not change
         self.neo.expectAssignedCells(started[0].getUUID(), 10)
         self.neo.expectAssignedCells(started[1].getUUID(), 10)
-    
+
         # ask neoctl to drop it
         self.neo.neoctl.dropNode(started[0].getUUID())
         self.__expectNotKnown(started[0])
@@ -335,7 +335,7 @@ class StorageTests(NEOFunctionalTest):
         """ Add a replicas to a cluster, wait for the replication to finish,
         shutdown the first storage then check the new storage content """
 
-        # start with one storage 
+        # start with one storage
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 pending_number=1, partitions=10)
         self.__expectRunning(started[0])
@@ -416,6 +416,6 @@ class StorageTests(NEOFunctionalTest):
         self.__expectPending(started[0])
         self.__expectRunning(started[1])
 
-        
+
 if __name__ == "__main__":
     unittest.main()

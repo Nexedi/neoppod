@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -44,7 +44,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.app.load_lock_dict = {}
         self.app.pt = PartitionTable(self.num_partitions, self.num_replicas)
 
-        
+
     def tearDown(self):
         NeoTestBase.tearDown(self)
 
@@ -131,7 +131,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.assertEqual(oid, last_oid)
         self.assertEqual(u64(tid), 4)
         self.assertEqual(ptid, self.app.pt.getID())
-        
+
     def test_08_askPartitionTable(self):
         uuid = self.getNewUUID()
         packet = Mock()
@@ -151,7 +151,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
 
         # try to get known offset
         node = self.app.nm.createStorage(
-            address=("127.7.9.9", 1), 
+            address=("127.7.9.9", 1),
             uuid=self.getNewUUID()
         )
         self.app.pt.setCell(1, node, CellStates.UP_TO_DATE)
@@ -170,7 +170,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         # old partition change
         conn = Mock({
             "isServer": False,
-            "getAddress" : ("127.0.0.1", self.master_port), 
+            "getAddress" : ("127.0.0.1", self.master_port),
         })
         packet = Packets.NotifyPartitionChanges()
         self.verification.notifyPartitionChanges(conn, packet, 1, ())
@@ -180,7 +180,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         # new node
         conn = Mock({
             "isServer": False,
-            "getAddress" : ("127.0.0.1", self.master_port), 
+            "getAddress" : ("127.0.0.1", self.master_port),
         })
         packet = Packets.NotifyPartitionChanges()
         new_uuid = self.getNewUUID()
@@ -250,7 +250,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.app.dm.query("""insert into ttrans (tid, oids, user,
         description, ext) values (3, '%s', 'u1', 'd1', 'e1')""" %(p64(4),))
         self.app.dm.query("""insert into trans (tid, oids, user,
-        description, ext) values (1,'%s', 'u2', 'd2', 'e2')""" %(p64(2),)) 
+        description, ext) values (1,'%s', 'u2', 'd2', 'e2')""" %(p64(2),))
         self.app.dm.commit()
         # object from trans
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
@@ -299,7 +299,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         packet = Packets.AskTransactionInformation()
         packet.setId(0)
         self.verification.askTransactionInformation(conn, packet, p64(2))
-        code, message = self.checkErrorPacket(conn, decode=True)     
+        code, message = self.checkErrorPacket(conn, decode=True)
         self.assertEqual(code, ErrorCodes.TID_NOT_FOUND)
 
     def test_15_askObjectPresent(self):

@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -48,7 +48,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
     # Common methods
     def getLastUUID(self):
         return self.uuid
-        
+
     def test_02_timeoutExpired(self):
         # client connection
         uuid = self.getNewUUID()
@@ -91,7 +91,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         node_1 = self.getNewUUID()
         node_2 = self.getNewUUID()
         node_3 = self.getNewUUID()
-        # SN already know all nodes 
+        # SN already know all nodes
         self.app.nm.createStorage(uuid=node_1)
         self.app.nm.createStorage(uuid=node_2)
         self.app.nm.createStorage(uuid=node_3)
@@ -118,7 +118,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         self.assertEqual(self.app.pt.getID(), 2)
         self.assertNotEqual(self.app.dm.getPartitionTable(), [])
 
-    
+
 if __name__ == "__main__":
     unittest.main()
 

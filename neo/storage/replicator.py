@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -51,7 +51,7 @@ class Partition(object):
 
 class Replicator(object):
     """This class handles replications of objects and transactions.
-    
+
     Assumptions:
 
         - Client nodes recognize partition changes reasonably quickly.
@@ -126,7 +126,7 @@ class Replicator(object):
                 partition.setCriticalTID(tid)
             del self.critical_tid_dict[msg_id]
         except KeyError:
-            logging.debug("setCriticalTID raised KeyError for msg_id %s" % 
+            logging.debug("setCriticalTID raised KeyError for msg_id %s" %
                     (msg_id, ))
 
     def _askCriticalTID(self):
@@ -152,7 +152,7 @@ class Replicator(object):
         # Choose a storage node for the source.
         app = self.app
         try:
-            cell_list = app.pt.getCellList(self.current_partition.getRID(), 
+            cell_list = app.pt.getCellList(self.current_partition.getRID(),
                                            readable=True)
             node_list = [cell.getNode() for cell in cell_list
                             if cell.getNodeState() == NodeStates.RUNNING]
@@ -165,7 +165,7 @@ class Replicator(object):
 
         addr = node.getAddress()
         if addr is None:
-            logging.error("no address known for the selected node %s" % 
+            logging.error("no address known for the selected node %s" %
                     (dump(node.getUUID()), ))
             return
         if self.current_connection is not None:
@@ -178,9 +178,9 @@ class Replicator(object):
 
         if self.current_connection is None:
             handler = replication.ReplicationHandler(app)
-            self.current_connection = ClientConnection(app.em, handler, 
+            self.current_connection = ClientConnection(app.em, handler,
                    addr = addr, connector_handler = app.connector_handler)
-            p = Packets.RequestIdentification(NodeTypes.STORAGE, 
+            p = Packets.RequestIdentification(NodeTypes.STORAGE,
                     app.uuid, app.server, app.name)
             self.current_connection.ask(p)
 
@@ -196,8 +196,8 @@ class Replicator(object):
             self.partition_dict.pop(self.current_partition.getRID())
             # Notify to a primary master node that my cell is now up-to-date.
             conn = self.primary_master_connection
-            p = Packets.NotifyPartitionChanges(app.pt.getID(), 
-                 [(self.current_partition.getRID(), app.uuid, 
+            p = Packets.NotifyPartitionChanges(app.pt.getID(),
+                 [(self.current_partition.getRID(), app.uuid,
                      CellStates.UP_TO_DATE)])
             conn.notify(p)
         except KeyError:
@@ -209,7 +209,7 @@ class Replicator(object):
         # TID to a primary master node.
         if self.new_partition_dict:
             self._askCriticalTID()
-        
+
         if self.current_partition is None:
             # I need to choose something.
             if self.waiting_for_unfinished_tids:
@@ -236,7 +236,7 @@ class Replicator(object):
                 self._askUnfinishedTIDs()
         else:
             if self.replication_done:
-                logging.info('replication is done for %s' % 
+                logging.info('replication is done for %s' %
                         (self.current_partition.getRID(), ))
                 self._finishReplication()
 

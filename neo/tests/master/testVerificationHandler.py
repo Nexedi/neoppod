@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -23,7 +23,7 @@ from neo.protocol import Packet, Packets
 from neo.protocol import NodeTypes, NodeStates, ErrorCodes
 from neo.master.handlers.verification import VerificationHandler
 from neo.master.app import Application
-from neo.exception import VerificationFailure     
+from neo.exception import VerificationFailure
 
 
 class MasterVerificationTests(NeoTestBase):
@@ -53,7 +53,7 @@ class MasterVerificationTests(NeoTestBase):
         self.master_port = 10011
         self.master_address = ('127.0.0.1', self.master_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
-        
+
     def tearDown(self):
         NeoTestBase.tearDown(self)
 
@@ -67,7 +67,7 @@ class MasterVerificationTests(NeoTestBase):
         """
         uuid = self.getNewUUID()
         self.app.nm.createFromNodeType(
-            node_type, 
+            node_type,
             address=(ip, port),
             uuid=uuid,
         )
@@ -141,7 +141,7 @@ class MasterVerificationTests(NeoTestBase):
         upper, lower = unpack('!LL', self.app.ltid)
         new_tid = pack('!LL', upper, lower + 10)
         verification.answerUnfinishedTransactions(conn, packet, [new_tid])
-        self.assertEquals(len(self.app.unfinished_tid_set), 0)        
+        self.assertEquals(len(self.app.unfinished_tid_set), 0)
         # update dict
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.app.asking_uuid_dict[uuid]  = False
@@ -171,7 +171,7 @@ class MasterVerificationTests(NeoTestBase):
         new_oid = pack('!Q', oid + 1)
         verification.answerTransactionInformation(conn, packet, new_tid,
                                                         "user", "desc", "ext", [new_oid,])
-        self.assertEquals(self.app.unfinished_oid_set, None)        
+        self.assertEquals(self.app.unfinished_oid_set, None)
         # do nothing as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.app.asking_uuid_dict), 1)
@@ -226,7 +226,7 @@ class MasterVerificationTests(NeoTestBase):
         self.assertTrue(self.app.asking_uuid_dict.has_key(uuid))
         verification.tidNotFound(conn, packet, "msg")
         self.assertEqual(self.app.unfinished_oid_set, None)
-        
+
     def test_14_answerObjectPresent(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
@@ -248,7 +248,7 @@ class MasterVerificationTests(NeoTestBase):
         self.assertFalse(self.app.asking_uuid_dict[uuid])
         verification.answerObjectPresent(conn, packet, new_oid, new_tid)
         self.assertTrue(self.app.asking_uuid_dict[uuid])
-        
+
     def test_15_oidNotFound(self):
         verification = self.verification
         uuid = self.identifyToMasterNode()
@@ -270,7 +270,7 @@ class MasterVerificationTests(NeoTestBase):
         verification.oidNotFound(conn, packet, "msg")
         self.assertFalse(self.app.object_present)
         self.assertTrue(self.app.asking_uuid_dict[uuid ])
-    
+
 if __name__ == '__main__':
     unittest.main()
 

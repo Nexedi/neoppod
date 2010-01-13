@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -46,7 +46,7 @@ class MasterRecoveryTests(NeoTestBase):
         self.master_port = 10011
         self.master_address = ('127.0.0.1', self.master_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
-        
+
     def tearDown(self):
         NeoTestBase.tearDown(self)
 
@@ -66,29 +66,29 @@ class MasterRecoveryTests(NeoTestBase):
         uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)        
+                NodeStates.RUNNING)
         self.recovery.connectionClosed(conn)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.TEMPORARILY_DOWN)                
+                NodeStates.TEMPORARILY_DOWN)
 
     def test_02_timeoutExpired(self):
         uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)        
+                NodeStates.RUNNING)
         self.recovery.timeoutExpired(conn)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.TEMPORARILY_DOWN)                
+                NodeStates.TEMPORARILY_DOWN)
 
 
     def test_03_peerBroken(self):
         uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
         conn = self.getFakeConnection(uuid, self.master_address)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)        
+                NodeStates.RUNNING)
         self.recovery.peerBroken(conn)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.BROKEN)                
+                NodeStates.BROKEN)
 
     def test_08_notifyNodeInformation(self):
         recovery = self.recovery
@@ -146,7 +146,7 @@ class MasterRecoveryTests(NeoTestBase):
         recovery.notifyNodeInformation(conn, packet, node_list)
         node = self.app.nm.getByAddress(("127.0.0.1", self.master_port))
         self.assertEqual(node.getState(), NodeStates.DOWN)
-        
+
 
     def test_09_answerLastIDs(self):
         recovery = self.recovery
@@ -213,8 +213,8 @@ class MasterRecoveryTests(NeoTestBase):
         self.assertFalse(self.app.pt.hasOffset(offset))
         cell_list = [(offset, ((uuid, NodeStates.DOWN,),),)]
         self.checkUnexpectedPacketRaised(recovery.answerPartitionTable, conn, packet, None, cell_list)
-        
-    
+
+
 if __name__ == '__main__':
     unittest.main()
 

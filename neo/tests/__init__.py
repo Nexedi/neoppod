@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -53,12 +53,12 @@ class NeoTestBase(unittest.TestCase):
             database = "%s%d" % (prefix, i)
             cursor.execute('DROP DATABASE IF EXISTS %s' % (database, ))
             cursor.execute('CREATE DATABASE %s' % (database, ))
-            cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' % 
+            cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' %
                 (database, user))
         cursor.close()
         sql_connection.close()
 
-    def getMasterConfiguration(self, cluster='main', master_number=2, 
+    def getMasterConfiguration(self, cluster='main', master_number=2,
             replicas=2, partitions=1009, uuid=None):
         assert master_number >= 1 and master_number <= 10
         masters = [('127.0.0.1', 10010 + i) for i in xrange(master_number)]
@@ -71,7 +71,7 @@ class NeoTestBase(unittest.TestCase):
                 'getUUID': uuid,
         })
 
-    def getStorageConfiguration(self, cluster='main', master_number=2, 
+    def getStorageConfiguration(self, cluster='main', master_number=2,
             index=0, prefix=DB_PREFIX, uuid=None):
         assert master_number >= 1 and master_number <= 10
         assert index >= 0 and index <= 9
@@ -87,9 +87,9 @@ class NeoTestBase(unittest.TestCase):
                 'getReset': False,
                 'getAdapter': 'MySQL',
         })
-        
-    # XXX: according to changes with namespaced UUIDs, it would be better to 
-    # implement get<NodeType>UUID() methods 
+
+    # XXX: according to changes with namespaced UUIDs, it would be better to
+    # implement get<NodeType>UUID() methods
     def getNewUUID(self):
         self.uuid = getNewUUID()
         return self.uuid
@@ -343,11 +343,11 @@ class TestElectionConnector(DoNothingConnector):
             # second : answer primary master nodes
             logging.info("in patched analyse / ANSWER PM")
             p = protocol.Packet()
-            p.answerPrimary(2, protocol.INVALID_UUID, [])        
+            p.answerPrimary(2, protocol.INVALID_UUID, [])
             self.packet_cpt += 1
             return p.encode()
         else:
             # then do nothing
             from neo.connector import ConnectorTryAgainException
             raise ConnectorTryAgainException
-    
+

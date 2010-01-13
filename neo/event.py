@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -52,7 +52,7 @@ class IdleEvent(object):
             # long, although being responsive at network level.
             conn.lock()
             try:
-                logging.info('timeout for %r with %s:%d', 
+                logging.info('timeout for %r with %s:%d',
                              self._id, *(conn.getAddress()))
                 conn.close()
                 conn.getHandler().timeoutExpired(conn)
@@ -143,7 +143,7 @@ class SelectEventManager(object):
                     self._addPendingConnection(to_process)
 
     def _poll(self, timeout = 1):
-        rlist, wlist, xlist = select(self.reader_set, self.writer_set, 
+        rlist, wlist, xlist = select(self.reader_set, self.writer_set,
                 self.exc_list, timeout)
         for s in rlist:
             conn = self.connection_dict[s]
@@ -175,7 +175,7 @@ class SelectEventManager(object):
             t = time()
             if t - self.prev_time >= 1:
                 self.prev_time = t
-                event_list.sort(key = lambda event: event.getTime(), 
+                event_list.sort(key = lambda event: event.getTime(),
                                 reverse = True)
                 while event_list:
                     event = event_list.pop()

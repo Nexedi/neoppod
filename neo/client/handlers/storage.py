@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -29,7 +29,7 @@ class StorageEventHandler(BaseHandler):
         assert node is not None
         # Remove from pool connection
         app.cp.removeConnection(node)
-        app.dispatcher.unregister(conn) 
+        app.dispatcher.unregister(conn)
 
     def connectionLost(self, conn, new_state):
         self._dealWithStorageFailure(conn)
@@ -51,7 +51,7 @@ class StorageBootstrapHandler(AnswerBaseHandler):
     def notReady(self, conn, packet, message):
         app = self.app
         app.setNodeNotReady()
-        
+
     def acceptIdentification(self, conn, packet, node_type,
            uuid, address, num_partitions, num_replicas, your_uuid):
         app = self.app
@@ -74,11 +74,11 @@ class StorageBootstrapHandler(AnswerBaseHandler):
 
 class StorageAnswersHandler(AnswerBaseHandler):
     """ Handle all messages related to ZODB operations """
-        
-    def answerObject(self, conn, packet, oid, start_serial, end_serial, 
+
+    def answerObject(self, conn, packet, oid, start_serial, end_serial,
             compression, checksum, data):
         app = self.app
-        app.local_var.asked_object = (oid, start_serial, end_serial, 
+        app.local_var.asked_object = (oid, start_serial, end_serial,
                 compression, checksum, data)
 
     def answerStoreObject(self, conn, packet, conflicting, oid, serial):

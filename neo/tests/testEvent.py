@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -67,7 +67,7 @@ class EventTests(NeoTestBase):
         event = Mock()
         self.assertEqual(len(em.event_list), 0)
         em.addIdleEvent(event)
-        self.assertEqual(len(em.event_list), 1)      
+        self.assertEqual(len(em.event_list), 1)
         em.removeIdleEvent(event)
         self.assertEqual(len(em.event_list), 0)
         em.removeIdleEvent(event) # must not fail
@@ -146,7 +146,7 @@ class EventTests(NeoTestBase):
         critical_time = event.getCriticalTime()
         self.assertEqual(critical_time, time+20)
 
-        # call with t < time < critical_time 
+        # call with t < time < critical_time
         t = time - 10
         r = event(t)
         self.assertFalse(r)
@@ -157,7 +157,7 @@ class EventTests(NeoTestBase):
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
         self.checkNoPacketSent(conn)
         self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
-        
+
         # call with time < t < critical_time
         t = time + 5
         self.failUnless(t < critical_time)
@@ -170,7 +170,7 @@ class EventTests(NeoTestBase):
         self.assertEquals(len(conn.mockGetNamedCalls("ping")), 1)
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
         self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
-        
+
         # call with time < critical_time < t
         t = critical_time + 5
         self.failUnless(t > critical_time)
@@ -197,7 +197,7 @@ class EventTests(NeoTestBase):
         critical_time = event.getCriticalTime()
         self.assertEqual(critical_time, time+3)
 
-        # call with t < time < critical_time 
+        # call with t < time < critical_time
         t = time - 10
         r = event(t)
         self.assertFalse(r)
@@ -208,7 +208,7 @@ class EventTests(NeoTestBase):
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 0)
         self.checkNoPacketSent(conn)
         self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
-        
+
         # call with time < t < critical_time
         t = time + 1
         self.failUnless(t < critical_time)
@@ -221,7 +221,7 @@ class EventTests(NeoTestBase):
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
         self.checkNoPacketSent(conn)
         self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
-        
+
         # call with time < critical_time < t
         t = critical_time + 5
         self.failUnless(t > critical_time)
@@ -234,7 +234,7 @@ class EventTests(NeoTestBase):
         self.assertEquals(len(conn.mockGetNamedCalls("expectMessage")), 1)
         self.checkNoPacketSent(conn)
         self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 1)
-      
-      
+
+
 if __name__ == '__main__':
     unittest.main()

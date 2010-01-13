@@ -42,7 +42,7 @@ class Application(object):
 
         # set the cluster name
         self.name = config.getCluster()
-        
+
         # set the bind address
         self.server = config.getBind()
         logging.debug('IP address is %s, port is %d', *(self.server))
@@ -50,7 +50,7 @@ class Application(object):
         # load master node list
         self.master_node_list = config.getMasters()
         logging.debug('master nodes are %s', self.master_node_list)
-            
+
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
@@ -108,7 +108,7 @@ class Application(object):
             raise RuntimeError('name does not match with the database')
         ptid = dm.getPTID()
         logging.info("Configuration: uuid=%s, ptid=%s, name=%s, np=%s, nr=%s" \
-                % (dump(self.uuid), dump(ptid), name, num_partitions, 
+                % (dump(self.uuid), dump(ptid), name, num_partitions,
                     num_replicas))
 
     def loadPartitionTable(self):
@@ -137,7 +137,7 @@ class Application(object):
 
         # Make a listening port
         handler = identification.IdentificationHandler(self)
-        self.listening_conn = ListeningConnection(self.em, handler, 
+        self.listening_conn = ListeningConnection(self.em, handler,
             addr=self.server, connector_handler=self.connector_handler)
 
         # Connect to a primary master node, verify data, and
@@ -228,7 +228,7 @@ class Application(object):
         self.has_node_information = False
         self.has_partition_table = False
         self.pt.clear()
-        self.master_conn.ask(Packets.AskNodeInformation())        
+        self.master_conn.ask(Packets.AskNodeInformation())
         self.master_conn.ask(Packets.AskPartitionTable(()))
         while not self.has_node_information or not self.has_partition_table:
             self.em.poll(1)

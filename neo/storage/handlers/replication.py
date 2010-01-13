@@ -1,12 +1,12 @@
 
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -57,13 +57,13 @@ class ReplicationHandler(BaseStorageHandler):
             # And, ask more TIDs.
             app.replicator.tid_offset += 1000
             offset = app.replicator.tid_offset
-            p = Packets.AskTIDs(offset, offset + 1000, 
+            p = Packets.AskTIDs(offset, offset + 1000,
                       app.replicator.current_partition.getRID())
             conn.ask(p, timeout=300)
         else:
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
-            p = Packets.AskOIDs(0, 1000, 
+            p = Packets.AskOIDs(0, 1000,
                       app.replicator.current_partition.getRID())
             conn.ask(p, timeout=300)
             app.replicator.oid_offset = 0
@@ -92,7 +92,7 @@ class ReplicationHandler(BaseStorageHandler):
             # Nothing remains, so the replication for this partition is
             # finished.
             app.replicator.replication_done = True
-    
+
     def answerObjectHistory(self, conn, packet, oid, history_list):
         app = self.app
         if app.replicator.current_connection is not conn:
@@ -123,7 +123,7 @@ class ReplicationHandler(BaseStorageHandler):
                 # Otherwise, acquire more OIDs.
                 app.replicator.oid_offset += 1000
                 offset = app.replicator.oid_offset
-                p = Packets.AskOIDs(offset, offset + 1000, 
+                p = Packets.AskOIDs(offset, offset + 1000,
                           app.replicator.current_partition.getRID())
                 conn.ask(p, timeout=300)
 

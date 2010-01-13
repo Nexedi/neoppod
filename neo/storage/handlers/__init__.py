@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -37,7 +37,7 @@ class BaseMasterHandler(BaseStorageHandler):
         raise PrimaryFailure('re-election occurs')
 
     def notifyClusterInformation(self, conn, packet, state):
-        logging.error('ignoring notify cluster information in %s' % 
+        logging.error('ignoring notify cluster information in %s' %
                 self.__class__.__name__)
 
     def notifyLastOID(self, conn, packet, oid):
@@ -105,7 +105,7 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
         if t is None:
             p = protocol.tidNotFound('%s does not exist' % dump(tid))
         else:
-            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3], 
+            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3],
                     t[0])
         conn.answer(p, packet.getId())
 

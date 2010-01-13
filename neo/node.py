@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -24,7 +24,7 @@ from neo.protocol import NodeTypes, NodeStates
 class Node(object):
     """This class represents a node."""
 
-    def __init__(self, manager, address=None, uuid=None, 
+    def __init__(self, manager, address=None, uuid=None,
             state=NodeStates.UNKNOWN):
         self._state = state
         self._address = address
@@ -64,7 +64,7 @@ class Node(object):
 
     def __repr__(self):
         return '<%s(uuid=%s, address=%s, state=%s)>' % (
-            self.__class__.__name__, 
+            self.__class__.__name__,
             dump(self._uuid),
             self._address,
             self._state,
@@ -91,13 +91,13 @@ class Node(object):
         return self._state == NodeStates.RUNNING
 
     def isTemporarilyDown(self):
-        # FIXME: is it like 'unconnected' or UNKNOWN state ? 
+        # FIXME: is it like 'unconnected' or UNKNOWN state ?
         return self._state == NodeStates.TEMPORARILY_DOWN
 
     def isDown(self):
         # FIXME: is it like 'unconnected' or 'forgotten' ?
         return self._state == NodeStates.DOWN
-        
+
     def isBroken(self):
         return self._state == NodeStates.BROKEN
 
@@ -151,19 +151,19 @@ class MasterNode(Node):
 
 class StorageNode(Node):
     """This class represents a storage node."""
-    
+
     def isStorage(self):
         return True
 
 class ClientNode(Node):
     """This class represents a client node."""
-    
+
     def isClient(self):
         return True
 
 class AdminNode(Node):
     """This class represents an admin node."""
-    
+
     def isAdmin(self):
         return True
 
@@ -194,7 +194,7 @@ class NodeManager(object):
     def add(self, node):
         if node in self._node_set:
             return
-        self._node_set.add(node)   
+        self._node_set.add(node)
         self._updateAddress(node, None)
         self._updateUUID(node, None)
         self.__updateSet(self._type_dict, None, node.__class__, node)
@@ -305,7 +305,7 @@ class NodeManager(object):
     def createClient(self, **kw):
         """ Create and register a new client """
         return self._createNode(ClientNode, **kw)
-    
+
     def createAdmin(self, **kw):
         """ Create and register a new admin """
         return self._createNode(AdminNode, **kw)
@@ -315,7 +315,7 @@ class NodeManager(object):
         if klass is None:
             raise RuntimeError('Unknown node type : %s' % node_type)
         return self._createNode(klass, **kw)
-    
+
     def clear(self, filter=None):
         self._node_set.clear()
         self._type_dict.clear()

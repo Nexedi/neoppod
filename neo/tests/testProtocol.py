@@ -429,7 +429,7 @@ class ProtocolTests(NeoTestBase):
         oid3 = self.getNextTID()
         oid4 = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = Packets.AnswerTransactionInformation(tid, "moi", 
+        p = Packets.AnswerTransactionInformation(tid, "moi",
                 "transaction", "exti", oid_list)
         ptid, user, desc, ext, p_oid_list = p.decode()
         self.assertEqual(ptid, tid)

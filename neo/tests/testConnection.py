@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -56,7 +56,7 @@ class ConnectionTests(NeoTestBase):
 
         # init with connector but no handler
         registerConnectorHandler(DoNothingConnector)
-        connector = getConnectorHandler("DoNothingConnector")()      
+        connector = getConnectorHandler("DoNothingConnector")()
         self.assertNotEqual(connector, None)
         em = Mock()
         bc = BaseConnection(em, handler, connector=connector)
@@ -99,7 +99,7 @@ class ConnectionTests(NeoTestBase):
         call = em.mockGetNamedCalls("register")[0]
         conn = call.getParam(0)
         self.assertEquals(conn, bc)
-        
+
     def test_02_ListeningConnection(self):
         # test init part
         em = Mock()
@@ -117,8 +117,8 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(len(connector.mockGetNamedCalls("makeListeningConnection")), 1)
         # test readable
         bc.readable()
-        self.assertEqual(len(connector.mockGetNamedCalls("getNewConnection")), 1)        
-        self.assertEqual(len(handler.mockGetNamedCalls("connectionAccepted")), 1)        
+        self.assertEqual(len(connector.mockGetNamedCalls("getNewConnection")), 1)
+        self.assertEqual(len(handler.mockGetNamedCalls("connectionAccepted")), 1)
 
         # test with exception raise when getting new connection
         em = Mock()
@@ -136,8 +136,8 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(len(connector.mockGetNamedCalls("makeListeningConnection")), 1)
         # test readable
         bc.readable()
-        self.assertEqual(len(connector.mockGetNamedCalls("getNewConnection")), 1)        
-        self.assertEqual(len(handler.mockGetNamedCalls("connectionAccepted")), 0)        
+        self.assertEqual(len(connector.mockGetNamedCalls("getNewConnection")), 1)
+        self.assertEqual(len(handler.mockGetNamedCalls("connectionAccepted")), 0)
 
 
     def test_03_Connection(self):
@@ -194,7 +194,7 @@ class ConnectionTests(NeoTestBase):
                         connector=conn, addr=("127.0.0.7", 93413))
         self.assertEqual(bc.write_buf, '')
         self.assertNotEqual(bc.connector, None)
-        self.assertFalse(bc.pending())        
+        self.assertFalse(bc.pending())
         # connector and buffer
         bc.write_buf += '1'
         self.assertTrue(bc.pending())
@@ -257,7 +257,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(bc.read_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 2)
-        
+
 
     def test_06_Connection_send(self):
         # no data, nothing done
@@ -273,7 +273,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(connector.mockGetNamedCalls("send")), 0)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
-        
+
         # send all data
         def send(self, data):
             return len(data)
@@ -330,7 +330,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(bc.write_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
-        
+
         # send part of multiple packet
         def send(self, data):
             return len(data)/2
@@ -458,10 +458,10 @@ class ConnectionTests(NeoTestBase):
 
         # give some data to analyse
         master_list = (
-                (("127.0.0.1", 2135), self.getNewUUID()), 
-                (("127.0.0.1", 2135), self.getNewUUID()),       
-                (("127.0.0.1", 2235), self.getNewUUID()), 
-                (("127.0.0.1", 2134), self.getNewUUID()),       
+                (("127.0.0.1", 2135), self.getNewUUID()),
+                (("127.0.0.1", 2135), self.getNewUUID()),
+                (("127.0.0.1", 2235), self.getNewUUID()),
+                (("127.0.0.1", 2134), self.getNewUUID()),
                 (("127.0.0.1", 2335), self.getNewUUID()),
                 (("127.0.0.1", 2133), self.getNewUUID()),
                 (("127.0.0.1", 2435), self.getNewUUID()),
@@ -479,7 +479,7 @@ class ConnectionTests(NeoTestBase):
         data = call.getParam(0)
         self.assertEqual(data.getType(), p.getType())
         self.assertEqual(data.getId(), p.getId())
-        self.assertEqual(data.decode(), p.decode())        
+        self.assertEqual(data.decode(), p.decode())
         self.assertEqual(len(bc.event_dict), 0)
         self.assertEqual(bc.read_buf, '')
 
@@ -491,9 +491,9 @@ class ConnectionTests(NeoTestBase):
         bc._queue = Mock()
         # packet 1
         master_list = (
-                (("127.0.0.1", 2135), self.getNewUUID()), 
                 (("127.0.0.1", 2135), self.getNewUUID()),
-                (("127.0.0.1", 2235), self.getNewUUID()), 
+                (("127.0.0.1", 2135), self.getNewUUID()),
+                (("127.0.0.1", 2235), self.getNewUUID()),
                 (("127.0.0.1", 2134), self.getNewUUID()),
                 (("127.0.0.1", 2335), self.getNewUUID()),
                 (("127.0.0.1", 2133), self.getNewUUID()),
@@ -505,9 +505,9 @@ class ConnectionTests(NeoTestBase):
         bc.read_buf += data
         # packet 2
         master_list = (
-                (("127.0.0.1", 2135), self.getNewUUID()), 
                 (("127.0.0.1", 2135), self.getNewUUID()),
-                (("127.0.0.1", 2235), self.getNewUUID()), 
+                (("127.0.0.1", 2135), self.getNewUUID()),
+                (("127.0.0.1", 2235), self.getNewUUID()),
                 (("127.0.0.1", 2134), self.getNewUUID()),
                 (("127.0.0.1", 2335), self.getNewUUID()),
                 (("127.0.0.1", 2133), self.getNewUUID()),
@@ -528,13 +528,13 @@ class ConnectionTests(NeoTestBase):
         data = call.getParam(0)
         self.assertEqual(data.getType(), p1.getType())
         self.assertEqual(data.getId(), p1.getId())
-        self.assertEqual(data.decode(), p1.decode())        
+        self.assertEqual(data.decode(), p1.decode())
         # packet 2
         call = bc._queue.mockGetNamedCalls("append")[1]
         data = call.getParam(0)
         self.assertEqual(data.getType(), p2.getType())
         self.assertEqual(data.getId(), p2.getId())
-        self.assertEqual(data.decode(), p2.decode())        
+        self.assertEqual(data.decode(), p2.decode())
         self.assertEqual(len(bc.event_dict), 0)
         self.assertEqual(len(bc.read_buf), 0)
 
@@ -558,11 +558,11 @@ class ConnectionTests(NeoTestBase):
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
         bc._queue = Mock()
-        
+
         master_list = (
-                (("127.0.0.1", 2135), self.getNewUUID()), 
                 (("127.0.0.1", 2135), self.getNewUUID()),
-                (("127.0.0.1", 2235), self.getNewUUID()), 
+                (("127.0.0.1", 2135), self.getNewUUID()),
+                (("127.0.0.1", 2235), self.getNewUUID()),
                 (("127.0.0.1", 2134), self.getNewUUID()),
                 (("127.0.0.1", 2335), self.getNewUUID()),
                 (("127.0.0.1", 2133), self.getNewUUID()),
@@ -583,7 +583,7 @@ class ConnectionTests(NeoTestBase):
         data = call.getParam(0)
         self.assertEqual(data.getType(), p.getType())
         self.assertEqual(data.getId(), p.getId())
-        self.assertEqual(data.decode(), p.decode())        
+        self.assertEqual(data.decode(), p.decode())
         self.assertEqual(len(bc.event_dict), 0)
         self.assertEqual(bc.read_buf, '')
 
@@ -690,9 +690,9 @@ class ConnectionTests(NeoTestBase):
         handler = Mock()
         # patch receive method to return data
         def receive(self):
-            master_list = ((("127.0.0.1", 2135), self.getNewUUID()), 
+            master_list = ((("127.0.0.1", 2135), self.getNewUUID()),
                (("127.0.0.1", 2136), self.getNewUUID()),
-               (("127.0.0.1", 2235), self.getNewUUID()), 
+               (("127.0.0.1", 2235), self.getNewUUID()),
                (("127.0.0.1", 2134), self.getNewUUID()),
                (("127.0.0.1", 2335), self.getNewUUID()),
                (("127.0.0.1", 2133), self.getNewUUID()),
@@ -796,7 +796,7 @@ class ConnectionTests(NeoTestBase):
         connector = DoNothingConnector()
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
-            self.assertRaises(ConnectorException, ClientConnection, em, handler, 
+            self.assertRaises(ConnectorException, ClientConnection, em, handler,
                     connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413))
         finally:
             DoNothingConnector.makeClientConnection = makeClientConnection_org
@@ -970,7 +970,7 @@ class ConnectionTests(NeoTestBase):
         bc.abort()
         self.assertEqual(bc.aborted, True)
         self.assertTrue(bc.isServer())
-        
+
 
     def test_15_MTClientConnection(self):
         makeClientConnection_org = DoNothingConnector.makeClientConnection
@@ -1039,8 +1039,8 @@ class ConnectionTests(NeoTestBase):
         connector = DoNothingConnector()
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
-            self.assertRaises(ConnectorException, MTClientConnection, em, handler, 
-                    connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413), 
+            self.assertRaises(ConnectorException, MTClientConnection, em, handler,
+                    connector_handler=DoNothingConnector, addr=("127.0.0.7", 93413),
                     dispatcher=dispatcher)
         finally:
             DoNothingConnector.makeClientConnection = makeClientConnection_org
@@ -1098,6 +1098,6 @@ class ConnectionTests(NeoTestBase):
         # XXX check locking ???
 
 
-        
+
 if __name__ == '__main__':
     unittest.main()

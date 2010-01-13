@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -29,7 +29,7 @@ class ClusterTests(NEOFunctionalTest):
             self.neo.stop()
 
     def testClusterBreaks(self):
-        self.neo = NEOCluster(['test_neo1'], port_base=20000, 
+        self.neo = NEOCluster(['test_neo1'], port_base=20000,
                 master_node_count=1, temp_dir=self.getTempDirectory())
         neoctl = self.neo.getNEOCTL()
         self.neo.setupDB()

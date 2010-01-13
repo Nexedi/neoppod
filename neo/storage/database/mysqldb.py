@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -105,7 +105,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 return self.query(query)
             raise DatabaseFailure('MySQL error %d: %s' % (m[0], m[1]))
         return r
- 
+
     def escape(self, s):
         """Escape special characters in a string."""
         return self.conn.escape_string(s)
@@ -326,9 +326,9 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         self.begin()
         try:
-            q("""DELETE FROM obj WHERE MOD(oid, %d) = %d""" % 
+            q("""DELETE FROM obj WHERE MOD(oid, %d) = %d""" %
                 (num_partitions, offset))
-            q("""DELETE FROM trans WHERE MOD(tid, %d) = %d""" % 
+            q("""DELETE FROM trans WHERE MOD(tid, %d) = %d""" %
                 (num_partitions, offset))
         except:
             self.rollback()
@@ -436,7 +436,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         r = q("""SELECT DISTINCT oid FROM obj WHERE MOD(oid, %d) in (%s)
                     ORDER BY oid DESC LIMIT %d,%d""" \
-                % (num_partitions, ','.join([str(p) for p in partition_list]), 
+                % (num_partitions, ','.join([str(p) for p in partition_list]),
                    offset, length))
         return [util.p64(t[0]) for t in r]
 
@@ -454,8 +454,8 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         r = q("""SELECT tid FROM trans WHERE MOD(tid, %d) in (%s)
                     ORDER BY tid DESC LIMIT %d,%d""" \
-                % (num_partitions, 
-                   ','.join([str(p) for p in partition_list]), 
+                % (num_partitions,
+                   ','.join([str(p) for p in partition_list]),
                    offset, length))
         return [util.p64(t[0]) for t in r]
 

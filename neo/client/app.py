@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -47,7 +47,7 @@ from neo.client.mq import MQ
 from neo.util import u64, parseMasterList
 
 
-class ConnectionClosed(Exception): 
+class ConnectionClosed(Exception):
     pass
 
 
@@ -94,7 +94,7 @@ class ConnectionPool(object):
                 conn.unlock()
 
             try:
-                app._waitMessage(conn, msg_id, 
+                app._waitMessage(conn, msg_id,
                         handler=app.storage_bootstrap_handler)
             except ConnectionClosed:
                 logging.error('Connection to storage node %s failed', node)
@@ -213,7 +213,7 @@ class ThreadContext(object):
             return thread_data[name]
         except KeyError:
             raise AttributeError, name
-        
+
     def __setattr__(self, name, value):
         thread_data = self.__getThreadData()
         thread_data[name] = value
@@ -408,7 +408,7 @@ class Application(object):
                         self.trying_master_node = master_list[0]
                     index += 1
                 # Connect to master
-                conn = MTClientConnection(self.em, self.notifications_handler, 
+                conn = MTClientConnection(self.em, self.notifications_handler,
                         addr=self.trying_master_node.getAddress(),
                         connector_handler=self.connector_handler,
                         dispatcher=self.dispatcher)
@@ -420,12 +420,12 @@ class Application(object):
                         logging.error('Connection to master node %s failed',
                                       self.trying_master_node)
                         continue
-                    msg_id = conn.ask(self.local_var.queue, 
+                    msg_id = conn.ask(self.local_var.queue,
                             Packets.AskPrimary())
                 finally:
                     conn.unlock()
                 try:
-                    self._waitMessage(conn, msg_id, 
+                    self._waitMessage(conn, msg_id,
                             handler=self.primary_bootstrap_handler)
                 except ConnectionClosed:
                     continue
@@ -449,7 +449,7 @@ class Application(object):
                 finally:
                     conn.unlock()
                 try:
-                    self._waitMessage(conn, msg_id, 
+                    self._waitMessage(conn, msg_id,
                             handler=self.primary_bootstrap_handler)
                 except ConnectionClosed:
                     self.primary_master_node = None
@@ -473,7 +473,7 @@ class Application(object):
                                       Packets.AskNodeInformation())
                 finally:
                     conn.unlock()
-                self._waitMessage(conn, msg_id, 
+                self._waitMessage(conn, msg_id,
                         handler=self.primary_bootstrap_handler)
                 conn.lock()
                 try:
@@ -481,14 +481,14 @@ class Application(object):
                                       Packets.AskPartitionTable([]))
                 finally:
                     conn.unlock()
-                self._waitMessage(conn, msg_id, 
+                self._waitMessage(conn, msg_id,
                         handler=self.primary_bootstrap_handler)
             ready = self.uuid is not None and self.pt is not None \
                                  and self.pt.operational()
-        logging.info("connected to primary master node %s" % 
+        logging.info("connected to primary master node %s" %
                 self.primary_master_node)
         return conn
-        
+
     def registerDB(self, db, limit):
         self._db = db
 
@@ -580,9 +580,9 @@ class Application(object):
                 break
 
         if self.local_var.asked_object == 0:
-            # We didn't got any object from all storage node because of 
+            # We didn't got any object from all storage node because of
             # connection error
-            logging.warning('oid %s not found because of connection failure', 
+            logging.warning('oid %s not found because of connection failure',
                     dump(oid))
             raise NEOStorageNotFoundError()
 
@@ -658,7 +658,7 @@ class Application(object):
         self._askPrimary(Packets.AskBeginTransaction(tid))
         if self.local_var.tid is None:
             raise NEOStorageError('tpc_begin failed')
-        self.local_var.txn = transaction            
+        self.local_var.txn = transaction
 
 
     def store(self, oid, serial, data, version, transaction):
@@ -680,7 +680,7 @@ class Application(object):
         self.local_var.object_stored_counter = 0
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
-            if conn is None:                
+            if conn is None:
                 continue
 
             self.local_var.object_stored = 0
@@ -696,20 +696,20 @@ class Application(object):
                 if self.local_var.data_dict.has_key(oid):
                     # One storage already accept the object, is it normal ??
                     # remove from dict and raise ConflictError, don't care of
-                    # previous node which already store data as it would be 
-                    # resent again if conflict is resolved or txn will be 
+                    # previous node which already store data as it would be
+                    # resent again if conflict is resolved or txn will be
                     # aborted
                     del self.local_var.data_dict[oid]
                 self.local_var.conflict_serial = self.local_var.object_stored[1]
                 raise NEOStorageConflictError
-            # increase counter so that we know if a node has stored the object 
+            # increase counter so that we know if a node has stored the object
             # or not
             self.local_var.object_stored_counter += 1
 
         if self.local_var.object_stored_counter == 0:
             # no storage nodes were available
             raise NEOStorageError('tpc_store failed')
-        
+
         # Store object in tmp cache
         self.local_var.data_dict[oid] = data
 
@@ -729,14 +729,14 @@ class Application(object):
         cell_list = self._getCellListForTID(self.local_var.tid, writable=True)
         self.local_var.voted_counter = 0
         for cell in cell_list:
-            logging.debug("voting object %s %s" %(cell.getAddress(), 
+            logging.debug("voting object %s %s" %(cell.getAddress(),
                 cell.getState()))
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
 
             self.local_var.txn_voted = False
-            p = Packets.AskStoreTransaction(self.local_var.tid, 
+            p = Packets.AskStoreTransaction(self.local_var.tid,
                     user, desc, ext, oid_list)
             try:
                 self._askStorage(conn, p)
@@ -761,7 +761,7 @@ class Application(object):
         for oid in self.local_var.data_dict.iterkeys():
             cell_set |= set(self._getCellListForOID(oid, writable=True))
         # select nodes where transaction was stored
-        cell_set |= set(self._getCellListForTID(self.local_var.tid, 
+        cell_set |= set(self._getCellListForTID(self.local_var.tid,
             writable=True))
 
         # cancel transaction one all those nodes
@@ -869,12 +869,12 @@ class Application(object):
                 self.store(oid, transaction_id, data, None, txn)
             except NEOStorageConflictError, serial:
                 if serial <= self.local_var.tid:
-                    new_data = wrapper.tryToResolveConflict(oid, 
+                    new_data = wrapper.tryToResolveConflict(oid,
                             self.local_var.tid, serial, data)
                     if new_data is not None:
                         self.store(oid, self.local_var.tid, new_data, None, txn)
                         continue
-                raise ConflictError(oid = oid, serials = (self.local_var.tid, 
+                raise ConflictError(oid = oid, serials = (self.local_var.tid,
                     serial),
                                     data = data)
         return self.local_var.tid, oid_list
@@ -897,7 +897,7 @@ class Application(object):
                 continue
 
             try:
-                conn.ask(self.local_var.queue, Packets.AskTIDs(first, last, 
+                conn.ask(self.local_var.queue, Packets.AskTIDs(first, last,
                     protocol.INVALID_PARTITION))
             finally:
                 conn.unlock()
@@ -929,7 +929,7 @@ class Application(object):
                 if conn is not None:
                     self.local_var.txn_info = 0
                     try:
-                        self._askStorage(conn, 
+                        self._askStorage(conn,
                                 Packets.AskTransactionInformation(tid))
                     except ConnectionClosed:
                         continue
@@ -951,7 +951,7 @@ class Application(object):
         # Check we return at least one element, otherwise call
         # again but extend offset
         if len(undo_info) == 0 and not block:
-            undo_info = self.undoLog(first=first, last=last*5, filter=filter, 
+            undo_info = self.undoLog(first=first, last=last*5, filter=filter,
                     block=1)
         return undo_info
 
@@ -1006,7 +1006,7 @@ class Application(object):
                 # ask transaction information
                 self.local_var.txn_info = None
                 try:
-                    self._askStorage(conn, 
+                    self._askStorage(conn,
                             Packets.AskTransactionInformation(serial))
                 except ConnectionClosed:
                     continue

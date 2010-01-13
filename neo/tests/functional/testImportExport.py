@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -69,7 +69,7 @@ class ImportExportTests(NEOFunctionalTest):
         storage = FileStorage(file_name=name)
         db = ZODB.DB(storage=storage)
         return (db, storage)
-    
+
     def __populate(self, db, tree_size=TREE_SIZE):
         conn = db.open()
         root = conn.root()
@@ -111,7 +111,7 @@ class ImportExportTests(NEOFunctionalTest):
         root = conn.root()
 
         self.__checkTree(root['trees'])
-        
+
 
 if __name__ == "__main__":
     unittest.main()

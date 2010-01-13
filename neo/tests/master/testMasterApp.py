@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -49,11 +49,11 @@ class MasterAppTests(NeoTestBase):
 
     def test_06_broadcastNodeInformation(self):
         # defined some nodes to which data will be send
-        master_uuid = self.getNewUUID()      
+        master_uuid = self.getNewUUID()
         self.app.nm.createMaster(uuid=master_uuid)
-        storage_uuid = self.getNewUUID()      
+        storage_uuid = self.getNewUUID()
         storage = self.app.nm.createStorage(uuid=storage_uuid)
-        client_uuid = self.getNewUUID()      
+        client_uuid = self.getNewUUID()
         client = self.app.nm.createClient(uuid=client_uuid)
         self.app.nm.add(storage)
         self.app.nm.add(client)
@@ -77,7 +77,7 @@ class MasterAppTests(NeoTestBase):
         client_conn = Mock({"getUUID" : client_uuid})
         self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
         s_node = self.app.nm.createClient(
-            uuid = self.getNewUUID(), 
+            uuid = self.getNewUUID(),
             address=("127.1.0.1", 3361)
         )
         self.app.broadcastNodeInformation(c_node)
@@ -85,14 +85,14 @@ class MasterAppTests(NeoTestBase):
         self.checkNoPacketSent(client_conn)
         self.checkNotifyNodeInformation(master_conn)
         self.checkNotifyNodeInformation(storage_conn)
-        
+
         # address defined and storage type
         master_conn = Mock({"getUUID" : master_uuid})
         storage_conn = Mock({"getUUID" : storage_uuid})
         client_conn = Mock({"getUUID" : client_uuid})
         self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
         s_node = self.app.nm.createStorage(
-            uuid=self.getNewUUID(), 
+            uuid=self.getNewUUID(),
             address=("127.0.0.1", 1351)
         )
 

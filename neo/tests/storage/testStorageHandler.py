@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -30,9 +30,9 @@ from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
 class StorageStorageHandlerTests(NeoTestBase):
 
     def checkHandleUnexpectedPacket(self, _call, _msg_type, _listening=True, **kwargs):
-        conn = Mock({ 
-            "getAddress" : ("127.0.0.1", self.master_port), 
-            "isServer": _listening,    
+        conn = Mock({
+            "getAddress" : ("127.0.0.1", self.master_port),
+            "isServer": _listening,
         })
         packet = Packet(msg_type=_msg_type)
         # hook
@@ -87,9 +87,9 @@ class StorageStorageHandlerTests(NeoTestBase):
         packet = Packets.AskObject()
         self.app.load_lock_dict[INVALID_OID] = object()
         self.assertEquals(len(self.app.event_queue), 0)
-        self.operation.askObject(conn, packet, 
-            oid=INVALID_OID, 
-            serial=INVALID_SERIAL, 
+        self.operation.askObject(conn, packet,
+            oid=INVALID_OID,
+            serial=INVALID_SERIAL,
             tid=INVALID_TID)
         self.assertEquals(len(self.app.event_queue), 1)
         self.checkNoPacketSent(conn)
@@ -102,9 +102,9 @@ class StorageStorageHandlerTests(NeoTestBase):
         packet = Packets.AskObject()
         packet.setId(0)
         self.assertEquals(len(self.app.event_queue), 0)
-        self.operation.askObject(conn, packet, 
-            oid=INVALID_OID, 
-            serial=INVALID_SERIAL, 
+        self.operation.askObject(conn, packet,
+            oid=INVALID_OID,
+            serial=INVALID_SERIAL,
             tid=INVALID_TID)
         calls = self.app.dm.mockGetNamedCalls('getObject')
         self.assertEquals(len(self.app.event_queue), 0)
@@ -119,9 +119,9 @@ class StorageStorageHandlerTests(NeoTestBase):
         packet = Packets.AskObject()
         packet.setId(0)
         self.assertEquals(len(self.app.event_queue), 0)
-        self.operation.askObject(conn, packet, 
-            oid=INVALID_OID, 
-            serial=INVALID_SERIAL, 
+        self.operation.askObject(conn, packet,
+            oid=INVALID_OID,
+            serial=INVALID_SERIAL,
             tid=INVALID_TID)
         self.assertEquals(len(self.app.event_queue), 0)
         self.checkAnswerObject(conn)

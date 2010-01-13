@@ -118,7 +118,7 @@ class Application(object):
             nm.createMaster(address=address)
 
         # search, find, connect and identify to the primary master
-        bootstrap = BootstrapManager(self, self.name, NodeTypes.ADMIN, 
+        bootstrap = BootstrapManager(self, self.name, NodeTypes.ADMIN,
                 self.uuid, self.server)
         data = bootstrap.getPrimaryConnection(self.connector_handler)
         (node, conn, uuid, num_partitions, num_replicas) = data

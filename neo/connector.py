@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -52,13 +52,13 @@ class SocketConnector:
             self.remote_addr = accepted_from
             self.is_listening = False
             self.is_closed = False
-        if s is None:      
+        if s is None:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             self.socket = s
         # always use non-blocking sockets
         self.socket.setblocking(0)
-    
+
     def makeClientConnection(self, addr):
         self.is_closed = False
         self.remote_addr = addr
@@ -92,8 +92,8 @@ class SocketConnector:
         return self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
 
     def getDescriptor(self):
-        # this descriptor must only be used by the event manager, where it 
-        # guarantee unicity only while the connector is opened and registered 
+        # this descriptor must only be used by the event manager, where it
+        # guarantee unicity only while the connector is opened and registered
         # in epoll
         return self.socket.fileno()
 
@@ -135,7 +135,7 @@ class SocketConnector:
                 raise ConnectorTryAgainException
             if err == errno.ECONNRESET:
                 raise ConnectorConnectionClosedException
-            raise ConnectorException, 'send failed: %s:%s' % (err, errmsg) 
+            raise ConnectorException, 'send failed: %s:%s' % (err, errmsg)
 
     def close(self):
         self.is_closed = True
@@ -167,18 +167,18 @@ class SocketConnector:
 
 registerConnectorHandler(SocketConnector)
 
-class ConnectorException(Exception): 
+class ConnectorException(Exception):
     pass
 
-class ConnectorTryAgainException(ConnectorException): 
+class ConnectorTryAgainException(ConnectorException):
     pass
 
-class ConnectorInProgressException(ConnectorException): 
+class ConnectorInProgressException(ConnectorException):
     pass
 
-class ConnectorConnectionClosedException(ConnectorException): 
+class ConnectorConnectionClosedException(ConnectorException):
     pass
 
-class ConnectorConnectionRefusedException(ConnectorException): 
+class ConnectorConnectionRefusedException(ConnectorException):
     pass
 

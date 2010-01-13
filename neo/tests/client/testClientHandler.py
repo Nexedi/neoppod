@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -92,8 +92,8 @@ class ClientHandlerTests(NeoTestBase):
         storage_port = 10011
         fake_storage_node_uuid = self.getNewUUID()
         fake_storage_node = Mock({
-            'getUUID': fake_storage_node_uuid, 
-            'getAddress': (storage_ip, storage_port), 
+            'getUUID': fake_storage_node_uuid,
+            'getAddress': (storage_ip, storage_port),
             'getType': NodeTypes.STORAGE
         })
         master_node_next_packet_id = 1
@@ -121,7 +121,7 @@ class ClientHandlerTests(NeoTestBase):
                              key_2: queue_2}
         dispatcher = Dispatcher()
         method(dispatcher, app, handler_class, conn=conn)
-        # The master should be notified, but this is done in app.py 
+        # The master should be notified, but this is done in app.py
         # Check that failed connection got removed from connection pool
         removeConnection_call_list = app.cp.mockGetNamedCalls('removeConnection')
           # Test sanity check
@@ -143,7 +143,7 @@ class ClientHandlerTests(NeoTestBase):
         self._testInitialMasterWithMethod(self._testConnectionFailed)
 
     def test_storageConnectionFailed(self):
-        self._testStorageWithMethod(self._testConnectionFailed, 
+        self._testStorageWithMethod(self._testConnectionFailed,
                 StorageBootstrapHandler)
 
     def _testConnectionClosed(self, dispatcher, app, handler_class, uuid=None, conn=None):
@@ -160,7 +160,7 @@ class ClientHandlerTests(NeoTestBase):
                 PrimaryNotificationsHandler)
 
     def test_storageConnectionClosed(self):
-        self._testStorageWithMethod(self._testConnectionClosed, 
+        self._testStorageWithMethod(self._testConnectionClosed,
                 StorageBootstrapHandler)
 
     def _testTimeoutExpired(self, dispatcher, app, handler_class, uuid=None, conn=None):
@@ -176,7 +176,7 @@ class ClientHandlerTests(NeoTestBase):
         self._testMasterWithMethod(self._testTimeoutExpired, PrimaryNotificationsHandler)
 
     def test_storageTimeoutExpired(self):
-        self._testStorageWithMethod(self._testTimeoutExpired, 
+        self._testStorageWithMethod(self._testTimeoutExpired,
                 StorageBootstrapHandler)
 
     def _testPeerBroken(self, dispatcher, app, handler_class, uuid=None, conn=None):
@@ -215,9 +215,9 @@ class ClientHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
         client_handler.acceptIdentification(
-            conn, None, 
+            conn, None,
             NodeTypes.CLIENT,
-            uuid, ('127.0.0.1', 10010), 
+            uuid, ('127.0.0.1', 10010),
             0, 0, INVALID_UUID
         )
         self.checkClosed(conn)
@@ -242,7 +242,7 @@ class ClientHandlerTests(NeoTestBase):
         uuid = self.getNewUUID()
         your_uuid = 'C' * 16
         app.uuid = INVALID_UUID
-        client_handler.AcceptIdentification(conn, None, 
+        client_handler.AcceptIdentification(conn, None,
                 NodeTypes.MASTER, uuid, ('127.0.0.1', 10010), 10, 2, your_uuid)
         self.checkNotClosed(conn)
         self.checkUUIDSet(conn, uuid)
@@ -262,7 +262,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         uuid = self.getNewUUID()
         app.uuid = 'C' * 16
-        client_handler.acceptIdentification(conn, None, 
+        client_handler.acceptIdentification(conn, None,
                 NodeTypes.STORAGE, uuid, ('127.0.0.1', 10010), 0, 0, INVALID_UUID)
         self.checkNotClosed(conn)
         self.checkUUIDSet(conn, uuid)
@@ -538,7 +538,7 @@ class ClientHandlerTests(NeoTestBase):
             conn, None, None)
 
     def _testNotifyNodeInformation(self, test_node, getByAddress=None, getByUUID=MARKER):
-        invalid_uid_test_node = (test_node[0], (test_node[1][0], 
+        invalid_uid_test_node = (test_node[0], (test_node[1][0],
                     test_node[1][1] + 1), INVALID_UUID, test_node[3])
         test_node_list = [test_node, invalid_uid_test_node]
         test_master_uuid = self.getNewUUID()

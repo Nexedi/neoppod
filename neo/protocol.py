@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2006-2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -82,9 +82,9 @@ node_state_prefix_dict = {
 }
 
 # used for logging
-cell_state_prefix_dict = { 
-    CellStates.UP_TO_DATE: 'U', 
-    CellStates.OUT_OF_DATE: 'O', 
+cell_state_prefix_dict = {
+    CellStates.UP_TO_DATE: 'U',
+    CellStates.OUT_OF_DATE: 'O',
     CellStates.FEEDING: 'F',
     CellStates.DISCARDED: 'D',
 }
@@ -97,14 +97,14 @@ INVALID_PTID = '\0' * 8
 INVALID_SERIAL = INVALID_TID
 INVALID_PARTITION = 0xffffffff
 
-UUID_NAMESPACES = { 
+UUID_NAMESPACES = {
     NodeTypes.STORAGE: 'S',
     NodeTypes.MASTER: 'M',
     NodeTypes.CLIENT: 'C',
     NodeTypes.ADMIN: 'A',
 }
 
-class ProtocolError(Exception): 
+class ProtocolError(Exception):
     """ Base class for protocol errors, close the connection """
     pass
 
@@ -112,17 +112,17 @@ class PacketMalformedError(ProtocolError):
     """ Close the connection and set the node as broken"""
     pass
 
-class UnexpectedPacketError(ProtocolError): 
+class UnexpectedPacketError(ProtocolError):
     """ Close the connection and set the node as broken"""
     pass
 
-class NotReadyError(ProtocolError): 
+class NotReadyError(ProtocolError):
     """ Just close the connection """
     pass
 
-class BrokenNodeDisallowedError(ProtocolError): 
+class BrokenNodeDisallowedError(ProtocolError):
     """ Just close the connection """
-    pass 
+    pass
 
 
 # packet parser
@@ -147,7 +147,7 @@ def _decodeNodeType(original_node_type):
 def _decodeErrorCode(original_error_code):
     error_code = ErrorCodes.get(original_error_code)
     if error_code is None:
-        raise PacketMalformedError('invalid error code %d' % 
+        raise PacketMalformedError('invalid error code %d' %
                 original_error_code)
     return error_code
 
@@ -203,10 +203,10 @@ def _readString(buf, name, offset=0):
 
 
 class Packet(object):
-    """ 
-    Base class for any packet definition. 
+    """
+    Base class for any packet definition.
     Each subclass should override _encode() and _decode() and return a string or
-    a tuple respectively. 
+    a tuple respectively.
     """
 
     _body = None
@@ -222,7 +222,7 @@ class Packet(object):
             body = ''
         self._body = body
         self._args = args
-    
+
     def decode(self):
         assert self._body is not None
         try:
@@ -284,20 +284,20 @@ class Packet(object):
 
 
 class Ping(Packet):
-    """ 
+    """
     Check if a peer is still alive. Any -> Any.
     """
     pass
 
 
 class Pong(Packet):
-    """ 
+    """
     Notify being alive. Any -> Any.
     """
     pass
 
 class RequestIdentification(Packet):
-    """ 
+    """
     Request a node identification. This must be the first packet for any
     connection. Any -> Any.
     """
@@ -320,7 +320,7 @@ class RequestIdentification(Packet):
 
 class AcceptIdentification(Packet):
     """
-    Accept a node identification. This should be a reply to Request Node 
+    Accept a node identification. This should be a reply to Request Node
     Identification. Any -> Any.
     """
     def _encode(self, node_type, uuid, address,
@@ -338,19 +338,19 @@ class AcceptIdentification(Packet):
         node_type = _decodeNodeType(node_type)
         uuid = _decodeUUID(uuid)
         your_uuid == _decodeUUID(uuid)
-        return (node_type, uuid, address, num_partitions, num_replicas, 
+        return (node_type, uuid, address, num_partitions, num_replicas,
                 your_uuid)
 
 class AskPrimary(Packet):
-    """ 
-    Ask a current primary master node. This must be the second message when 
+    """
+    Ask a current primary master node. This must be the second message when
     connecting to a master node. Any -> M.
     """
     pass
 
 class AnswerPrimary(Packet):
-    """ 
-    Reply to Ask Primary Master. This message includes a list of known master 
+    """
+    Reply to Ask Primary Master. This message includes a list of known master
     nodes to make sure that a peer has the same information. M -> Any.
     """
     def _encode(self, primary_uuid, known_master_list):
@@ -374,7 +374,7 @@ class AnswerPrimary(Packet):
         return (primary_uuid, known_master_list)
 
 class AnnouncePrimary(Packet):
-    """ 
+    """
     Announce a primary master node election. PM -> SM.
     """
     pass
@@ -386,19 +386,19 @@ class ReelectPrimary(Packet):
     pass
 
 class AskLastIDs(Packet):
-    """ 
+    """
     Ask the last OID, the last TID and the last Partition Table ID that
     a storage node stores. Used to recover information. PM -> S, S -> PM.
     """
     pass
 
 class AnswerLastIDs(Packet):
-    """ 
+    """
     Reply to Ask Last IDs. S -> PM, PM -> S.
     """
     def _encode(self, loid, ltid, lptid):
-        # in this case, loid is a valid OID but considered as invalid. This is 
-        # not an issue because the OID 0 is hard coded and will never be 
+        # in this case, loid is a valid OID but considered as invalid. This is
+        # not an issue because the OID 0 is hard coded and will never be
         # generated
         if loid is None:
             loid = INVALID_OID
@@ -412,7 +412,7 @@ class AnswerLastIDs(Packet):
         return (loid, ltid, lptid)
 
 class AskPartitionTable(Packet):
-    """ 
+    """
     Ask rows in a partition table that a storage node stores. Used to recover
     information. PM -> S.
     """
@@ -431,7 +431,7 @@ class AskPartitionTable(Packet):
         return (offset_list,)
 
 class AnswerPartitionTable(Packet):
-    """ 
+    """
     Answer rows in a partition table. S -> PM.
     """
     def _encode(self, ptid, row_list):
@@ -464,7 +464,7 @@ class AnswerPartitionTable(Packet):
         return (ptid, row_list)
 
 class SendPartitionTable(Packet):
-    """ 
+    """
     Send rows in a partition table to update other nodes. PM -> S, C.
     """
     def _encode(self, ptid, row_list):
@@ -497,8 +497,8 @@ class SendPartitionTable(Packet):
         return (ptid, row_list)
 
 class NotifyPartitionChanges(Packet):
-    """ 
-    Notify a subset of a partition table. This is used to notify changes. 
+    """
+    Notify a subset of a partition table. This is used to notify changes.
     PM -> S, C.
     """
     def _encode(self, ptid, cell_list):
@@ -522,14 +522,14 @@ class NotifyPartitionChanges(Packet):
 
 class StartOperation(Packet):
     """
-    Tell a storage nodes to start an operation. Until a storage node receives 
+    Tell a storage nodes to start an operation. Until a storage node receives
     this message, it must not serve client nodes. PM -> S.
     """
     pass
 
 class StopOperation(Packet):
     """
-    Tell a storage node to stop an operation. Once a storage node receives 
+    Tell a storage node to stop an operation. Once a storage node receives
     this message, it must not serve client nodes. PM -> S.
     """
     pass
@@ -559,7 +559,7 @@ class AnswerUnfinishedTransactions(Packet):
 
 class AskObjectPresent(Packet):
     """
-    Ask if an object is present. If not present, OID_NOT_FOUND should be 
+    Ask if an object is present. If not present, OID_NOT_FOUND should be
     returned. PM -> S.
     """
     def _decode(self, body):
@@ -693,7 +693,7 @@ class UnlockInformation(Packet):
         return _encodeTID(tid)
 
     def _decode(self, body):
-        (tid, ) = unpack('8s', body) 
+        (tid, ) = unpack('8s', body)
         return (_decodeTID(tid), )
 
 class AskNewOIDs(Packet):
@@ -885,7 +885,7 @@ class AnswerTransactionInformation(Packet):
     Answer information (user, description) about a transaction. S -> Any.
     """
     def _encode(self, tid, user, desc, ext, oid_list):
-        body = [pack('!8sHHHL', tid, len(user), len(desc), len(ext), 
+        body = [pack('!8sHHHL', tid, len(user), len(desc), len(ext),
             len(oid_list))]
         body.append(user)
         body.append(desc)
@@ -1112,8 +1112,8 @@ class AnswerNewNodes(Packet):
         return (uuid_list, )
 
 class NotifyNodeInformation(Packet):
-    """ 
-    Notify information about one or more nodes. Any -> PM, PM -> Any. 
+    """
+    Notify information about one or more nodes. Any -> PM, PM -> Any.
     """
     def _encode(self, node_list):
         body = [pack('!L', len(node_list))]
@@ -1122,7 +1122,7 @@ class NotifyNodeInformation(Packet):
             address = _encodeAddress(address)
             body.append(pack('!H6s16sH', node_type, address, uuid, state))
         return ''.join(body)
-        
+
     def _decode(self, body):
         (n,) = unpack('!L', body[:4])
         node_list = []
@@ -1200,8 +1200,8 @@ class NotifyLastOID(Packet):
 
 class Error(Packet):
     """
-    Error is a special type of message, because this can be sent against 
-    any other message, even if such a message does not expect a reply 
+    Error is a special type of message, because this can be sent against
+    any other message, even if such a message does not expect a reply
     usually. Any -> Any.
     """
     def _encode(self, code, message):
@@ -1224,7 +1224,7 @@ def register(code, cls):
 
 
 class PacketRegistry(dict):
-    """ 
+    """
     Packet registry that check packet code unicity and provide an index
     """
 
@@ -1272,7 +1272,7 @@ class PacketRegistry(dict):
     StartOperation = register(0x000B, StartOperation)
     StopOperation = register(0x000C, StopOperation)
     AskUnfinishedTransactions = register(0x000D, AskUnfinishedTransactions)
-    AnswerUnfinishedTransactions = register(0x800d, 
+    AnswerUnfinishedTransactions = register(0x800d,
             AnswerUnfinishedTransactions)
     AskObjectPresent = register(0x000f, AskObjectPresent)
     AnswerObjectPresent = register(0x800f, AnswerObjectPresent)
@@ -1298,7 +1298,7 @@ class PacketRegistry(dict):
     AskTIDs = register(0x001C, AskTIDs)
     AnswerTIDs = register(0x801D, AnswerTIDs)
     AskTransactionInformation = register(0x001E, AskTransactionInformation)
-    AnswerTransactionInformation = register(0x801E, 
+    AnswerTransactionInformation = register(0x801E,
             AnswerTransactionInformation)
     AskObjectHistory = register(0x001F, AskObjectHistory)
     AnswerObjectHistory = register(0x801F, AnswerObjectHistory)

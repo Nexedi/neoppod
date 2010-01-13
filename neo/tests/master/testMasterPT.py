@@ -1,11 +1,11 @@
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -154,7 +154,7 @@ class MasterPartitionTableTests(NeoTestBase):
         self.assertEqual(len(cells), 1)
         cell = cells[0]
         self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
-        
+
     def test_14_addNode(self):
         num_partitions = 5
         num_replicas = 2
@@ -233,9 +233,9 @@ class MasterPartitionTableTests(NeoTestBase):
                 else:
                     self.failUnless(uuid in (uuid1, uuid6))
             else:
-                self.failUnless(offset in (0, 1))            
+                self.failUnless(offset in (0, 1))
         for x in xrange(num_replicas):
-            self.assertEqual(len(pt.getCellList(x)), 2)        
+            self.assertEqual(len(pt.getCellList(x)), 2)
         # there is a feeding cell, just dropped
         pt.clear()
         pt.setCell(0, sn1, CellStates.UP_TO_DATE)
@@ -262,9 +262,9 @@ class MasterPartitionTableTests(NeoTestBase):
                 else:
                     self.failUnless(uuid in (uuid1, uuid6))
             else:
-                self.failUnless(offset in (0, 1))            
+                self.failUnless(offset in (0, 1))
         for x in xrange(num_replicas):
-            self.assertEqual(len(pt.getCellList(x)), 3)        
+            self.assertEqual(len(pt.getCellList(x)), 3)
         # there is no feeding cell, marked as feeding
         pt.clear()
         pt.setCell(0, sn1, CellStates.UP_TO_DATE)
@@ -287,10 +287,10 @@ class MasterPartitionTableTests(NeoTestBase):
                 else:
                     self.failUnless(uuid in (uuid1, uuid6))
             else:
-                self.failUnless(offset in (0, 1))            
+                self.failUnless(offset in (0, 1))
         for x in xrange(num_replicas):
             self.assertEqual(len(pt.getCellList(x)), 3)
-        
+
     def test_15_dropNode(self):
         num_partitions = 4
         num_replicas = 2
@@ -333,7 +333,7 @@ class MasterPartitionTableTests(NeoTestBase):
                 self.assertEqual(state, CellStates.OUT_OF_DATE)
             else:
                 self.failUnless(uuid in (uuid2, uuid4))
-                
+
         for x in xrange(num_replicas):
             self.assertEqual(len(pt.getCellList(x)), 2)
         # same test but with feeding state, no other will be added
@@ -357,7 +357,7 @@ class MasterPartitionTableTests(NeoTestBase):
                 self.assertEqual(len(pt.getCellList(x)), 1)
             else:
                 self.assertEqual(len(pt.getCellList(x)), 2)
-        
+
     def test_16_make(self):
         num_partitions = 5
         num_replicas = 1
@@ -408,7 +408,7 @@ class MasterPartitionTableTests(NeoTestBase):
                 self.assertEqual(node, sn1)
         self.assertTrue(pt.filled())
         self.assertTrue(pt.operational())
-                
+
     def test_17_tweak(self):
         # remove broken node
         # remove if too many feeding nodes
@@ -472,7 +472,7 @@ class MasterPartitionTableTests(NeoTestBase):
             else:
                 self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
         self.failUnless(sn2 in [x.getNode() for x in cells])
-        
+
         # check part 2
         cells =  pt.getCellList(1)
         self.assertEqual(len(cells), 4)
@@ -483,7 +483,7 @@ class MasterPartitionTableTests(NeoTestBase):
                 self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
         self.failUnless(sn3 in [x.getNode() for x in cells])
         self.failUnless(sn1 in [x.getNode() for x in cells])
-        
+
         # check part 3
         cells =  pt.getCellList(2)
         self.assertEqual(len(cells), 3)

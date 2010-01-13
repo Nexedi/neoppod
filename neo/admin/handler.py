@@ -27,7 +27,7 @@ class AdminEventHandler(EventHandler):
     """This class deals with events for administrating cluster."""
 
     def askPartitionList(self, conn, packet, min_offset, max_offset, uuid):
-        logging.info("ask partition list from %s to %s for %s" % 
+        logging.info("ask partition list from %s to %s for %s" %
                 (min_offset, max_offset, dump(uuid)))
         app = self.app
         # check we have one pt otherwise ask it to PMN
@@ -43,7 +43,7 @@ class AdminEventHandler(EventHandler):
                                      'uuid' : uuid,
                                      'msg_id' : packet.getId()})
         else:
-            app.sendPartitionTable(conn, min_offset, max_offset, uuid, 
+            app.sendPartitionTable(conn, min_offset, max_offset, uuid,
                     packet.getId())
 
 
@@ -96,10 +96,10 @@ class AdminEventHandler(EventHandler):
                         'master.')
             # required it from PMN first
             msg_id = self.app.master_conn.ask(Packets.AskClusterState())
-            self.app.dispatcher.register(msg_id, conn, 
+            self.app.dispatcher.register(msg_id, conn,
                     {'msg_id' : packet.getId()})
         else:
-            conn.answer(Packets.AnswerClusterState(self.app.cluster_state), 
+            conn.answer(Packets.AnswerClusterState(self.app.cluster_state),
                 packet.getId())
 
     def askPrimary(self, conn, packet):
