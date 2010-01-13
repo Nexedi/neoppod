@@ -53,7 +53,6 @@ class MasterClientElectionTests(NeoTestBase):
             self.app.unconnected_master_node_set.add(node.getAddress())
             node.setState(NodeStates.RUNNING)
         # define some variable to simulate client and storage node
-        self.client_port = 11022
         self.storage_port = 10021
         self.master_port = 10011
         # apply monkey patches
@@ -257,7 +256,6 @@ class MasterServerElectionTests(NeoTestBase):
             self.app.unconnected_master_node_set.add(node.getAddress())
             node.setState(NodeStates.RUNNING)
         # define some variable to simulate client and storage node
-        self.client_port = 11022
         self.storage_port = 10021
         self.master_port = 10011
         # apply monkey patches
