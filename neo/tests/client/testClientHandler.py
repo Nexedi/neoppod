@@ -464,52 +464,6 @@ class ClientHandlerTests(NeoTestBase):
         # Check that partition table got cleared and ptid got updated
         self.assertEquals(app.pt.getID(), 1)
 
-    def test_unknownNodeSendPartitionTable(self):
-        test_node = Mock({'getType': NodeTypes.MASTER})
-        test_ptid = 0
-        class App:
-            nm = Mock({'getByUUID': ReturnValues(test_node, None), 'add': None})
-            pt = Mock({'setCell': None})
-            ptid = test_ptid
-        test_storage_uuid = self.getNewUUID()
-        app = App()
-        client_handler = PrimaryBootstrapHandler(app)
-        conn = self.getConnection()
-        # TODO: use realistic values
-        test_row_list = [(0, [(test_storage_uuid, 0)])]
-        client_handler.sendPartitionTable(conn, None, test_ptid, test_row_list)
-        # Check that node got created
-        add_call_list = app.nm.mockGetNamedCalls('add')
-        self.assertEquals(len(add_call_list), 1)
-        created_node = add_call_list[0].getParam(0)
-        self.assertEqual(created_node.getUUID(), test_storage_uuid)
-        # Check that partition table cell got added
-        setCell_call_list = app.pt.mockGetNamedCalls('setCell')
-        self.assertEquals(len(setCell_call_list), 1)
-        setCell_call_list[0].checkArgs(test_row_list[0][0], created_node,
-                test_row_list[0][1][0][1])
-
-    def test_knownNodeSendPartitionTable(self):
-        test_node = Mock({'getType': NodeTypes.MASTER})
-        test_ptid = 0
-        class App:
-            nm = Mock({'getByUUID': test_node, 'add': None})
-            pt = Mock({'setCell': None})
-            ptid = test_ptid
-        test_storage_uuid = self.getNewUUID()
-        app = App()
-        client_handler = PrimaryBootstrapHandler(app)
-        conn = self.getConnection()
-        # TODO: use realistic values
-        test_row_list = [(0, [(test_storage_uuid, 0)])]
-        client_handler.sendPartitionTable(conn, None, test_ptid, test_row_list)
-        # Check that node did not get created
-        self.assertEquals(len(app.nm.mockGetNamedCalls('add')), 0)
-        # Check that partition table cell got added
-        setCell_call_list = app.pt.mockGetNamedCalls('setCell')
-        self.assertEquals(len(setCell_call_list), 1)
-        setCell_call_list[0].checkArgs(test_row_list[0][0], test_node,
-                test_row_list[0][1][0][1])
 
     def test_nonMasterNotifyNodeInformation(self):
         for node_type in (NodeTypes.CLIENT, NodeTypes.STORAGE):
