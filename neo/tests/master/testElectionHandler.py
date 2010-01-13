@@ -447,7 +447,7 @@ class MasterServerElectionTests(NeoTestBase):
         conn = Mock({"_addPacket" : None, "abort" : None,
                      "isServer" : True})
         self.checkProtocolErrorRaised(
-                election.RequestIdentification,
+                election.requestIdentification,
                 conn,
                 packet=packet,
                 node_type=NodeTypes.MASTER,
@@ -458,7 +458,7 @@ class MasterServerElectionTests(NeoTestBase):
         conn = Mock({"_addPacket" : None, "abort" : None, "expectMessage" : None,
                     "isServer" : True})
         self.checkNotReadyErrorRaised(
-                election.RequestIdentification,
+                election.requestIdentification,
                 conn,
                 packet=packet,
                 node_type=NodeTypes.STORAGE,
@@ -473,7 +473,7 @@ class MasterServerElectionTests(NeoTestBase):
         node = self.app.nm.getMasterList()[0]
         self.assertEqual(node.getUUID(), None)
         self.assertEqual(node.getState(), NodeStates.RUNNING)
-        election.RequestIdentification(conn,
+        election.requestIdentification(conn,
                                                 packet=packet,
                                                 node_type=NodeTypes.MASTER,
                                                 uuid=uuid,
@@ -490,7 +490,7 @@ class MasterServerElectionTests(NeoTestBase):
         self.assertEqual(len(self.app.nm.getMasterList()), 1)
         self.assertEqual(len(self.app.unconnected_master_node_set), 1)
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
-        election.RequestIdentification(conn,
+        election.requestIdentification(conn,
                                                 packet=packet,
                                                 node_type=NodeTypes.MASTER,
                                                 uuid=new_uuid,
@@ -510,7 +510,7 @@ class MasterServerElectionTests(NeoTestBase):
         node.setState(NodeStates.BROKEN)
         self.assertEqual(node.getState(), NodeStates.BROKEN)
         self.checkBrokenNodeDisallowedErrorRaised(
-                election.RequestIdentification,
+                election.requestIdentification,
                 conn,
                 packet=packet,
                 node_type=NodeTypes.MASTER,
