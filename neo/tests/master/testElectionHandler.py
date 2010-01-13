@@ -30,7 +30,7 @@ from neo.connection import ClientConnection
 def _addPacket(self, packet):
     if self.connector is not None:
         self.connector._addPacket(packet)
-def expectMessage(self, packet):
+def expectMessage(self, packet, timeout=5, additional_timeout=30):
     if self.connector is not None:
         self.connector.expectMessage(packet)
 
