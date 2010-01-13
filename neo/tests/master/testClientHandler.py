@@ -294,29 +294,6 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertEqual(len(tid_list), 3)
 
     def __testWithMethod(self, method, state):
-        uuid = self.identifyToMasterNode()
-        # add a second storage node and then declare it as broken
-        self.identifyToMasterNode(port = self.storage_port+2)
-        storage_uuid = self.identifyToMasterNode(port = self.storage_port+1)
-        # fill the pt
-        self.app.pt.make(self.app.nm.getStorageList())
-        self.assertTrue(self.app.pt.filled())
-        self.assertTrue(self.app.pt.operational())
-        conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))
-        lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getByUUID(storage_uuid).getState(),
-                NodeStates.RUNNING)
-        # call the method
-        method(conn)
-        self.assertEquals(self.app.nm.getByUUID(storage_uuid).getState(), state)
-        self.assertEquals(lptid, self.app.pt.getID())
-        # give an uuid, must raise as no other storage node available
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), NodeStates.RUNNING)
-        self.assertRaises(OperationFailure, method, conn)
-        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), state)
-        self.failUnless(lptid < self.app.pt.getID())
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port = self.client_port)
