@@ -244,7 +244,7 @@ class MasterServerElectionTests(NeoTestBase):
     def setUp(self):
         # create an application object
         config = self.getMasterConfiguration()
-        self.app = Application(**config)
+        self.app = Application(config)
         self.app.pt.clear()
         self.app.em = Mock({"getConnectionList" : []})
         self.app.finishing_transaction_dict = {}
