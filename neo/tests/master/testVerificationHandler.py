@@ -75,52 +75,31 @@ class MasterVerificationTests(NeoTestBase):
 
     # Tests
     def test_01_connectionClosed(self):
-        uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)        
-        self.verification.connectionClosed(conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.TEMPORARILY_DOWN)
         # test a storage, must raise as cluster no longer op
         uuid = self.identifyToMasterNode()
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)        
+                NodeStates.UNKNOWN)
         self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.TEMPORARILY_DOWN)
 
     def test_02_timeoutExpired(self):
-        uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)        
-        self.verification.timeoutExpired(conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.TEMPORARILY_DOWN)                
         # test a storage, must raise as cluster no longer op
         uuid = self.identifyToMasterNode()
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)        
+                NodeStates.UNKNOWN)
         self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.TEMPORARILY_DOWN)
 
     def test_03_peerBroken(self):
-        uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)        
-        self.verification.peerBroken(conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.BROKEN)                
         # test a storage, must raise as cluster no longer op
         uuid = self.identifyToMasterNode()
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)        
+                NodeStates.UNKNOWN)
         self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.TEMPORARILY_DOWN)
