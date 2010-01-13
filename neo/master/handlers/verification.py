@@ -17,11 +17,11 @@
 
 from neo import logging
 
-from neo.master.handlers import MasterHandler
+from neo.master.handlers import BaseServiceHandler
 from neo.exception import VerificationFailure
 from neo.util import dump
 
-class VerificationHandler(MasterHandler):
+class VerificationHandler(BaseServiceHandler):
     """This class deals with events for a verification phase."""
 
     def connectionCompleted(self, conn):
