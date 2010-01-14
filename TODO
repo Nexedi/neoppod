@@ -155,7 +155,6 @@ RC  - Review output of pylint (CODE)
       of maximum SQL request size allowed. (SPEED)
     - Prevent from SQL injection, escape() from MySQLdb api is not sufficient,
       consider using query(request, args) instead of query(request % args)
-    - Review database API, move under_transaction verification to generic part.
     - Create database adapter for other RDBMS (sqlite, postgres)
     - fix __undoLog when there is out of date cells, there is a busy loop
       because the client expected more answer than the available number of
