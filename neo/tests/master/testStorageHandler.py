@@ -137,24 +137,6 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.assertEquals(sn.getState(), CellStates.BROKEN)
         self.failUnless(ptid < self.app.pt.getID())
 
-    def test_06_answerLastIDs(self):
-        service = self.service
-        uuid = self.identifyToMasterNode()
-        packet = Packets.AnswerLastIDs()
-        loid = self.app.loid
-        ltid = self.app.ltid
-        lptid = self.app.pt.getID()
-        # send information which are later to what PMN knows, this must raise
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        node_list = []
-        new_ptid = unpack('!Q', lptid)[0]
-        new_ptid = pack('!Q', new_ptid + 1)
-        self.failUnless(new_ptid > self.app.pt.getID())
-        self.assertRaises(OperationFailure, service.answerLastIDs, conn, packet, None, None, new_ptid)
-        self.assertEquals(loid, self.app.loid)
-        self.assertEquals(ltid, self.app.ltid)
-        self.assertEquals(lptid, self.app.pt.getID())
-
     def test_10_notifyInformationLocked(self):
         service = self.service
         uuid = self.identifyToMasterNode(port=10020)
