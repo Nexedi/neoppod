@@ -331,19 +331,6 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.assertRaises(OperationFailure, method, conn)
         self.assertEquals(self.app.nm.getByUUID(uuid).getState(), state)
         self.failUnless(lptid < self.app.pt.getID())
-        # give a client uuid which have unfinished transactions
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
-                                                port = self.client_port)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        lptid = self.app.pt.getID()
-        packet = AskBeginTransaction()
-        service.askBeginTransaction(conn, packet)
-        service.askBeginTransaction(conn, packet)
-        service.askBeginTransaction(conn, packet)
-        self.assertEquals(self.app.nm.getByUUID(client_uuid).getState(),
-                NodeStates.RUNNING)
-        self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 3)
-        method(conn)
         # node must be have been remove, and no more transaction must remains
         self.assertEquals(self.app.nm.getByUUID(client_uuid), None)
         self.assertEquals(lptid, self.app.pt.getID())
