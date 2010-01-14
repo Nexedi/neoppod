@@ -132,10 +132,7 @@ RC  - Review output of pylint (CODE)
       replication should happen independently of cluster state. (Maybe we still 
       need a primary master, to void replicating from an outdated partition 
       table setup.)
-    - Flush objects from partition cells not served (DISK SPACE)
-      Currently, when a node stops serving a partition cell, the objects from 
-      that cell are kept in MySQL. They should be removed (possibly 
-      asynchronously, to avoid performance impact).
+    - Flush asynchronously objects from partition cells not served (DISK SPACE)
     - Close connections to other storage nodes (SYSTEM RESOURCE USAGE)
       When a replication finishes, the connection is not closed currently. It 
       should be closed (possibly asynchronously, and possibly by detecting that
