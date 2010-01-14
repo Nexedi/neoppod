@@ -284,10 +284,10 @@ class NodeManager(object):
         return self._uuid_dict.get(uuid, None)
 
     def hasAddress(self, address):
-        return self._address_dict.get(address, None) is not None
+        return address in self._address_dict
 
     def hasUUID(self, uuid):
-        return self._uuid_dict.get(uuid, None) is not None
+        return uuid in self._uuid_dict
 
     def _createNode(self, klass, **kw):
         node = klass(self, **kw)
