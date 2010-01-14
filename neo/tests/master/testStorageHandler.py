@@ -307,39 +307,28 @@ class MasterStorageHandlerTests(NeoTestBase):
 
     def _testWithMethod(self, method, state):
         service = self.service
-        uuid = self.identifyToMasterNode()
-        # do nothing if no uuid
-        conn = self.getFakeConnection(None, self.storage_address)
-        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), NodeStates.RUNNING)
-        method(conn)
-        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), NodeStates.RUNNING)
-        # add a second storage node and then declare it as broken
-        self.identifyToMasterNode(port = self.storage_port+2)
-        storage_uuid = self.identifyToMasterNode(port = self.storage_port+1)
+        # define two nodes
+        node1, conn1 = self.identifyToMasterNode()
+        node2, conn2 = self.identifyToMasterNode()
+        node1.setRunning()
+        node2.setRunning()
+        self.assertEquals(node1.getState(), NodeStates.RUNNING)
+        self.assertEquals(node2.getState(), NodeStates.RUNNING)
         # filled the pt
         self.app.pt.make(self.app.nm.getStorageList())
         self.assertTrue(self.app.pt.filled())
         self.assertTrue(self.app.pt.operational())
-        conn = self.getFakeConnection(storage_uuid, ('127.0.0.1', self.storage_port+1))
+        # drop one node
         lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getByUUID(storage_uuid).getState(),
-                NodeStates.RUNNING)
-        method(conn)
-        self.assertEquals(self.app.nm.getByUUID(storage_uuid).getState(), state)
+        method(conn1)
+        self.assertEquals(node1.getState(), state)
         self.failUnless(lptid < self.app.pt.getID())
-        # give an uuid, must raise as no other storage node available
-        conn = self.getFakeConnection(uuid, self.storage_address)
+        # drop the second, no storage node left
         lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getByUUID(uuid).getState(),
-                NodeStates.UNKNOWN)
-        self.assertRaises(OperationFailure, method, conn)
-        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), state)
-        self.failUnless(lptid < self.app.pt.getID())
-        # node must be have been remove, and no more transaction must remains
-        self.assertEquals(self.app.nm.getByUUID(client_uuid), None)
+        self.assertEquals(node2.getState(), NodeStates.RUNNING)
+        self.assertRaises(OperationFailure, method, conn2)
+        self.assertEquals(node2.getState(), state)
         self.assertEquals(lptid, self.app.pt.getID())
-        self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 0)
-
 
     def test_15_peerBroken(self):
         self._testWithMethod(self.service.peerBroken, NodeStates.BROKEN)
