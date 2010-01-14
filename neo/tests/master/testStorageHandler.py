@@ -59,8 +59,12 @@ class MasterStorageHandlerTests(NeoTestBase):
                              port=10021):
         """Do first step of identification to MN
         """
+        nm = self.app.nm
         uuid = self.getNewUUID()
-        return uuid
+        node = nm.createFromNodeType(node_type, address=(ip, port),
+                uuid=uuid)
+        conn = self.getFakeConnection(node.getUUID(),node.getAddress())
+        return (node, conn)
 
 
     def test_05_notifyNodeInformation(self):
