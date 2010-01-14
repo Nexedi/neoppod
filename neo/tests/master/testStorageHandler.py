@@ -326,7 +326,8 @@ class MasterStorageHandlerTests(NeoTestBase):
         # give an uuid, must raise as no other storage node available
         conn = self.getFakeConnection(uuid, self.storage_address)
         lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getByUUID(uuid).getState(), NodeStates.RUNNING)
+        self.assertEquals(self.app.nm.getByUUID(uuid).getState(),
+                NodeStates.UNKNOWN)
         self.assertRaises(OperationFailure, method, conn)
         self.assertEquals(self.app.nm.getByUUID(uuid).getState(), state)
         self.failUnless(lptid < self.app.pt.getID())
