@@ -24,6 +24,7 @@ from neo import protocol
 from neo.protocol import Packet, Packets
 from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.master.handlers.storage import StorageServiceHandler
+from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
 from neo.exception import OperationFailure
 
@@ -40,6 +41,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         for address in self.app.master_node_list:
             self.app.nm.createMaster(address=address)
         self.service = StorageServiceHandler(self.app)
+        self.client_handler = ClientServiceHandler(self.app)
         # define some variable to simulate client and storage node
         self.client_port = 11022
         self.storage_port = 10021
@@ -139,27 +141,21 @@ class MasterStorageHandlerTests(NeoTestBase):
 
     def test_10_notifyInformationLocked(self):
         service = self.service
-        uuid = self.identifyToMasterNode(port=10020)
+        node, conn = self.identifyToMasterNode(port=10020)
         packet = Packets.NotifyInformationLocked()
+        packet.setId(0)
         # give an older tid than the PMN known, must abort
-        conn = self.getFakeConnection(uuid, self.storage_address)
         oid_list = []
-        upper, lower = unpack('!LL', self.app.ltid)
-        new_tid = pack('!LL', upper, lower + 10)
+        self.app.ltid = pack('!LL', 0, 1)
+        new_tid = pack('!LL', 0, 10)
         self.checkUnexpectedPacketRaised(service.notifyInformationLocked, conn, packet, new_tid)
-        old_node = self.app.nm.getByUUID(uuid)
         # job done through dispatch -> peerBroken
-        self.app.nm.remove(old_node)
-        self.app.pt.dropNode(old_node)
+        self.app.nm.remove(node)
+        self.app.pt.dropNode(node)
 
         # do the right job
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
-        storage_uuid_1 = self.identifyToMasterNode()
-        storage_uuid_2 = self.identifyToMasterNode(port=10022)
-        storage_conn_1 = self.getFakeConnection(storage_uuid_1, ("127.0.0.1", self.storage_port))
-        storage_conn_2 = self.getFakeConnection(storage_uuid_2, ("127.0.0.1", 10022))
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        service.askBeginTransaction(conn, packet)
+        node, conn = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
+        self.client_handler.askBeginTransaction(conn, packet, None)
         # clean mock object
         conn.mockCalledMethods = {}
         conn.mockAllCalledMethods = []
@@ -200,42 +196,42 @@ class MasterStorageHandlerTests(NeoTestBase):
 
     def test_13_askUnfinishedTransactions(self):
         service = self.service
-        uuid = self.identifyToMasterNode()
+        node, conn = self.identifyToMasterNode()
         packet = Packets.AskUnfinishedTransactions()
         packet.setId(0)
         # give a uuid
-        conn = self.getFakeConnection(uuid, self.storage_address)
         service.askUnfinishedTransactions(conn, packet)
         packet = self.checkAnswerUnfinishedTransactions(conn, answered_packet=packet)
-        tid_list = packet.decode()
-        self.assertEqual(len(tid_list), 0)
+        packet.setId(0)
+        tid_list, = packet.decode()
+        self.assertEqual(tid_list, [])
         # create some transaction
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        service.askBeginTransaction(conn, packet)
-        service.askBeginTransaction(conn, packet)
-        service.askBeginTransaction(conn, packet)
-        conn = self.getFakeConnection(uuid, self.storage_address)
+        self.client_handler.askBeginTransaction(conn, packet, None)
+        self.client_handler.askBeginTransaction(conn, packet, None)
+        self.client_handler.askBeginTransaction(conn, packet, None)
+        conn = self.getFakeConnection(node.getUUID(), self.storage_address)
         service.askUnfinishedTransactions(conn, packet)
         packet = self.checkAnswerUnfinishedTransactions(conn, answered_packet=packet)
-        tid_list = protocol._decodeAnswerUnfinishedTransactions(packet._body)[0]
+        (tid_list, ) = packet.decode()
         self.assertEqual(len(tid_list), 3)
 
 
     def test_14_notifyPartitionChanges(self):
         service = self.service
-        uuid = self.identifyToMasterNode()
+        node, conn = self.identifyToMasterNode()
+        uuid = node.getUUID()
         packet = Packets.NotifyPartitionChanges()
         # do not answer if not a storage node
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
+        client, client_conn = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port=self.client_port)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
+        client_uuid = client.getUUID()
         self.checkUnexpectedPacketRaised(service.notifyPartitionChanges,
                 conn, packet, None, None)
 
         # send a bad state, must not be take into account
-        conn = self.getFakeConnection(uuid, self.storage_address)
         storage_uuid = self.identifyToMasterNode(port=self.storage_port+1)
         offset = 1
         cell_list = [(offset, uuid, CellStates.FEEDING),]
