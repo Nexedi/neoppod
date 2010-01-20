@@ -36,7 +36,6 @@ class MasterClientHandlerTests(NeoTestBase):
         self.app.em = Mock({"getConnectionList" : []})
         self.app.loid = '\0' * 8
         self.app.ltid = '\0' * 8
-        self.app.finishing_transaction_dict = {}
         for address in self.app.master_node_list:
             self.app.nm.createMaster(address=address)
         self.service = ClientServiceHandler(self.app)
@@ -152,8 +151,8 @@ class MasterClientHandlerTests(NeoTestBase):
         conn = self.getFakeConnection(client_uuid, self.client_address)
         service.askBeginTransaction(conn, packet, None)
         self.failUnless(ltid < self.app.ltid)
-        self.assertEquals(len(self.app.finishing_transaction_dict), 1)
-        tid = self.app.finishing_transaction_dict.keys()[0]
+        self.assertEqual(len(self.app.tm.getPendingList()), 1)
+        tid = self.app.tm.getPendingList()[0]
         self.assertEquals(tid, self.app.ltid)
 
     def test_08_askNewOIDs(self):
@@ -197,10 +196,10 @@ class MasterClientHandlerTests(NeoTestBase):
         self.app.em = Mock({"getConnectionList" : [conn, storage_conn]})
         service.finishTransaction(conn, packet, oid_list, tid)
         self.checkLockInformation(storage_conn)
-        self.assertEquals(len(self.app.finishing_transaction_dict), 1)
-        apptid = self.app.finishing_transaction_dict.keys()[0]
+        self.assertEquals(len(self.app.tm.getPendingList()), 1)
+        apptid = self.app.tm.getPendingList()[0]
         self.assertEquals(tid, apptid)
-        txn = self.app.finishing_transaction_dict.values()[0]
+        txn = self.app.tm[tapptid]
         self.assertEquals(len(txn.getOIDList()), 0)
         self.assertEquals(len(txn.getUUIDSet()), 1)
         self.assertEquals(txn.getMessageId(), 9)
@@ -213,16 +212,17 @@ class MasterClientHandlerTests(NeoTestBase):
         # give a bad tid, must not failed, just ignored it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        self.assertEqual(len(self.app.finishing_transaction_dict.keys()), 0)
+        self.assertFalse(self.app.tm.hasPending())
         service.abortTransaction(conn, packet, None)
-        self.assertEqual(len(self.app.finishing_transaction_dict.keys()), 0)
+        self.assertFalse(self.app.tm.hasPending())
         # give a known tid
         conn = self.getFakeConnection(client_uuid, self.client_address)
         tid = self.app.ltid
-        self.app.finishing_transaction_dict[tid] = None
-        self.assertEqual(len(self.app.finishing_transaction_dict.keys()), 1)
+        self.app.tm.remove(tid)
+        self.app.tm.begin(Mock({'__hash__': 1}), tid)
+        self.assertTrue(self.app.tm.hasPending())
         service.abortTransaction(conn, packet, tid)
-        self.assertEqual(len(self.app.finishing_transaction_dict.keys()), 0)
+        self.assertFalse(self.app.tm.hasPending())
 
     def __testWithMethod(self, method, state):
         # give a client uuid which have unfinished transactions
@@ -237,12 +237,12 @@ class MasterClientHandlerTests(NeoTestBase):
         self.service.askBeginTransaction(conn, packet, None)
         self.assertEquals(self.app.nm.getByUUID(client_uuid).getState(),
                 NodeStates.RUNNING)
-        self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 3)
+        self.assertEquals(len(self.app.tm.getPendingList()), 3)
         method(conn)
         # node must be have been remove, and no more transaction must remains
         self.assertEquals(self.app.nm.getByUUID(client_uuid), None)
         self.assertEquals(lptid, self.app.pt.getID())
-        self.assertEquals(len(self.app.finishing_transaction_dict.keys()), 0)
+        self.assertFalse(self.app.tm.hasPending())
 
     def test_15_peerBroken(self):
         self.__testWithMethod(self.service.peerBroken, NodeStates.BROKEN)

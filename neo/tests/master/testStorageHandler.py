@@ -37,7 +37,6 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.app.pt.clear()
         self.app.pt.setID(pack('!Q', 1))
         self.app.em = Mock({"getConnectionList" : []})
-        self.app.finishing_transaction_dict = {}
         for address in self.app.master_node_list:
             self.app.nm.createMaster(address=address)
         self.service = StorageServiceHandler(self.app)
@@ -178,11 +177,11 @@ class MasterStorageHandlerTests(NeoTestBase):
 
     def test_12_askLastIDs(self):
         service = self.service
-        uuid = self.identifyToMasterNode()
+        node, conn = self.identifyToMasterNode()
         packet = Packets.AskLastIDs()
         packet.setId(0)
         # give a uuid
-        conn = self.getFakeConnection(uuid, self.storage_address)
+        conn = self.getFakeConnection(node.getUUID(), self.storage_address)
         ptid = self.app.pt.getID()
         oid = self.app.loid = '\1' * 8
         tid = self.app.ltid = '\1' * 8
@@ -206,9 +205,9 @@ class MasterStorageHandlerTests(NeoTestBase):
         tid_list, = packet.decode()
         self.assertEqual(tid_list, [])
         # create some transaction
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
+        node, conn = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port=self.client_port)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
+        client_uuid = node.getUUID()
         self.client_handler.askBeginTransaction(conn, packet, None)
         self.client_handler.askBeginTransaction(conn, packet, None)
         self.client_handler.askBeginTransaction(conn, packet, None)
