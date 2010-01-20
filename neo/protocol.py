@@ -251,7 +251,6 @@ class Packet(object):
     def getType(self):
         return self.__class__
 
-    # TODO: replace this with __call__ that take the id as parameter
     def __str__(self):
         content = self._body
         length = PACKET_HEADER_SIZE + len(content)

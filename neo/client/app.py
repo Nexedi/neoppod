@@ -236,7 +236,6 @@ class Application(object):
     """The client node application."""
 
     def __init__(self, master_nodes, name, connector=None, **kw):
-        # XXX: use a configuration entry
         # Start polling thread
         self.em = EventManager()
         self.poll_thread = ThreadedPoll(self.em)

@@ -303,9 +303,6 @@ class NeoTestBase(unittest.TestCase):
     def checkAnswerObjectPresent(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerObjectPresent, **kw)
 
-
-# XXX: imported from neo.master.test.connector since it's used at many places
-
 connector_cpt = 0
 
 class DoNothingConnector(Mock):

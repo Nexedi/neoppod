@@ -213,7 +213,6 @@ class NodeManager(object):
 
     def __update(self, index_dict, old_key, new_key, node):
         """ Update an index from old to new key """
-        # FIXME: should the old_key always be indexed ?
         if old_key is not None:
             del index_dict[old_key]
         if new_key is not None:
@@ -231,7 +230,6 @@ class NodeManager(object):
 
     def __updateSet(self, set_dict, old_key, new_key, node):
         """ Update a set index from old to new key """
-        # FIXME: should the old_key always be indexed ?
         if old_key in set_dict and node in set_dict[old_key]:
             set_dict[old_key].remove(node)
         if new_key is not None:
