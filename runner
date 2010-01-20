@@ -115,7 +115,6 @@ class NeoTestRunner(unittest.TestResult):
             try:
                 test_module = __import__(test_module, globals(), locals(), ['*'])
             except ImportError, err:
-                # TODO: include import errors in report
                 self.failedImports[test_module] = err
                 print "Import of %s failed : %s" % (test_module, err)
                 continue
