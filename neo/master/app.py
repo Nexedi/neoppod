@@ -292,10 +292,12 @@ class Application(object):
         elif not node.isAdmin():
             raise RuntimeError('unknown node type')
 
-    def broadcastPartitionChanges(self, ptid, cell_list):
+    def broadcastPartitionChanges(self, cell_list):
         """Broadcast a Notify Partition Changes packet."""
-        # XXX: don't send if cell_list is empty, to have an unique check
         logging.debug('broadcastPartitionChanges')
+        if not cell_list:
+           return
+        ptid = self.pt.setNextID()
         self.pt.log()
         for c in self.em.getConnectionList():
             n = self.nm.getByUUID(c.getUUID())
@@ -315,9 +317,7 @@ class Application(object):
 
     def outdateAndBroadcastPartition(self):
         " Outdate cell of non-working nodes and broadcast changes """
-        cell_list = self.pt.outdate()
-        if cell_list:
-            self.broadcastPartitionChanges(self.pt.setNextID(), cell_list)
+        self.broadcastPartitionChanges(self.pt.outdate())
 
     def sendPartitionTable(self, conn):
         """ Send the partition table through the given connection """
@@ -535,8 +535,7 @@ class Application(object):
         cell_list.extend(self.pt.tweak())
 
         # If anything changed, send the changes.
-        if cell_list:
-            self.broadcastPartitionChanges(self.pt.setNextID(), cell_list)
+        self.broadcastPartitionChanges(cell_list)
 
     def provideService(self):
         """

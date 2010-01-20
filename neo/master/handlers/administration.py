@@ -83,9 +83,7 @@ class AdministrationHandler(MasterHandler):
             else:
                 # outdate node in partition table
                 cell_list = app.pt.outdate()
-            if len(cell_list) != 0:
-                ptid = app.pt.setNextID()
-                app.broadcastPartitionChanges(ptid, cell_list)
+            app.broadcastPartitionChanges(cell_list)
 
         # /!\ send the node information *after* the partition table change
         node.setState(state)
@@ -127,6 +125,6 @@ class AdministrationHandler(MasterHandler):
                 s_conn.notify(Packets.NotifyLastOID(app.loid))
                 s_conn.notify(Packets.StartOperation())
         # broadcast the new partition table
-        app.broadcastPartitionChanges(app.pt.setNextID(), cell_list)
+        app.broadcastPartitionChanges(cell_list)
         p = protocol.noError('node added')
         conn.answer(p, packet.getId())

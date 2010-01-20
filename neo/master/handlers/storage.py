@@ -136,8 +136,6 @@ class StorageServiceHandler(BaseServiceHandler):
                                           CellStates.DISCARDED))
                     break
 
-        if new_cell_list:
-            ptid = app.pt.setNextID()
-            app.broadcastPartitionChanges(ptid, new_cell_list)
+        app.broadcastPartitionChanges(new_cell_list)
 
 
