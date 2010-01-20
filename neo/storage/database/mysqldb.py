@@ -50,7 +50,6 @@ class MySQLDatabaseManager(DatabaseManager):
                 (username, password) = username.split(':')
         return (username, password, database)
 
-    # XXX: unused ?
     def close(self):
         self.conn.close()
 
