@@ -32,6 +32,7 @@ from neo.master.handlers import election, identification, secondary, recovery
 from neo.master.handlers import verification, storage, client, shutdown
 from neo.master.handlers import administration
 from neo.master.pt import PartitionTable
+from neo.master.transactions import TransactionManager
 from neo.util import dump, parseMasterList
 from neo.connector import getConnectorHandler
 
@@ -55,6 +56,7 @@ class Application(object):
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
+        self.tm = TransactionManager()
 
         # Partition table
         replicas, partitions = config.getReplicas(), config.getPartitions()
@@ -94,9 +96,6 @@ class Application(object):
         self.unfinished_tid_set = set()
         self.asking_uuid_dict = {}
         self.object_present = False
-
-        # service related data
-        self.finishing_transaction_dict = {}
 
 
     def run(self):
@@ -551,12 +550,9 @@ class Application(object):
         logging.info('provide service')
         em = self.em
         nm = self.nm
+        self.tm.reset()
 
         self.changeClusterState(ClusterStates.RUNNING)
-
-        # This dictionary is used to hold information on transactions being
-        # finished.
-        self.finishing_transaction_dict = {}
 
         # Now everything is passive.
         while True:
@@ -717,7 +713,7 @@ class Application(object):
         # wait for all transaction to be finished
         while 1:
             self.em.poll(1)
-            if len(self.finishing_transaction_dict) == 0:
+            if not self.tm.hasPending():
                 if self.cluster_state == ClusterStates.RUNNING:
                     sys.exit("Application has been asked to shut down")
                 else:

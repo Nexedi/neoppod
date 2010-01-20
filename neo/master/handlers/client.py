@@ -22,44 +22,6 @@ from neo.protocol import NodeStates, Packets, UnexpectedPacketError
 from neo.master.handlers import BaseServiceHandler
 from neo.util import dump, getNextTID
 
-class FinishingTransaction(object):
-    """This class describes a finishing transaction."""
-
-    def __init__(self, conn):
-        self._conn = conn
-        self._msg_id = None
-        self._oid_list = None
-        self._uuid_set = None
-        self._locked_uuid_set = set()
-
-    def getConnection(self):
-        return self._conn
-
-    def setMessageId(self, msg_id):
-        self._msg_id = msg_id
-
-    def getMessageId(self):
-        return self._msg_id
-
-    def setOIDList(self, oid_list):
-        self._oid_list = oid_list
-
-    def getOIDList(self):
-        return self._oid_list
-
-    def setUUIDSet(self, uuid_set):
-        self._uuid_set = uuid_set
-
-    def getUUIDSet(self):
-        return self._uuid_set
-
-    def addLockedUUID(self, uuid):
-        if uuid in self._uuid_set:
-            self._locked_uuid_set.add(uuid)
-
-    def allLocked(self):
-        return self._uuid_set == self._locked_uuid_set
-
 
 class ClientServiceHandler(BaseServiceHandler):
     """ Handler dedicated to client during service state """
@@ -68,16 +30,14 @@ class ClientServiceHandler(BaseServiceHandler):
         pass
 
     def nodeLost(self, conn, node):
-        app = self.app
-        for tid, t in app.finishing_transaction_dict.items():
-            if t.getConnection() is conn:
-                del app.finishing_transaction_dict[tid]
-        app.nm.remove(node)
+        # cancel it's transactions and forgot the node
+        self.app.tm.abortFor(node)
+        self.app.nm.remove(node)
 
     def abortTransaction(self, conn, packet, tid):
-        try:
-            del self.app.finishing_transaction_dict[tid]
-        except KeyError:
+        if tid in self.app.tm:
+            self.app.tm.remove(tid)
+        else:
             logging.warn('aborting transaction %s does not exist', dump(tid))
 
     def askBeginTransaction(self, conn, packet, tid):
@@ -88,8 +48,10 @@ class ClientServiceHandler(BaseServiceHandler):
         if tid is None:
             # give a new transaction ID
             tid = getNextTID(app.ltid)
+        # TODO: transaction manager should handle last TID
         app.ltid = tid
-        app.finishing_transaction_dict[tid] = FinishingTransaction(conn)
+        node = app.nm.getByUUID(conn.getUUID())
+        app.tm.begin(node, tid)
         conn.answer(Packets.AnswerBeginTransaction(tid), packet.getId())
 
     def askNewOIDs(self, conn, packet, num_oids):
@@ -124,11 +86,5 @@ class ClientServiceHandler(BaseServiceHandler):
                 c.ask(Packets.LockInformation(tid), timeout=60)
                 used_uuid_set.add(c.getUUID())
 
-        try:
-            t = app.finishing_transaction_dict[tid]
-            t.setOIDList(oid_list)
-            t.setUUIDSet(used_uuid_set)
-            t.setMessageId(packet.getId())
-        except KeyError:
-            logging.warn('finishing transaction %s does not exist', dump(tid))
+        app.tm.prepare(tid, oid_list, used_uuid_set, packet.getId())
 

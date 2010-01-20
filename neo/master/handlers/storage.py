@@ -48,9 +48,7 @@ class StorageServiceHandler(BaseServiceHandler):
                 packet.getId())
 
     def askUnfinishedTransactions(self, conn, packet):
-        app = self.app
-        p = Packets.AnswerUnfinishedTransactions(
-                app.finishing_transaction_dict.keys())
+        p = Packets.AnswerUnfinishedTransactions(self.app.tm.getPendingList())
         conn.answer(p, packet.getId())
 
     def notifyInformationLocked(self, conn, packet, tid):
@@ -64,9 +62,12 @@ class StorageServiceHandler(BaseServiceHandler):
             raise UnexpectedPacketError
 
         try:
-            t = app.finishing_transaction_dict[tid]
-            t.addLockedUUID(uuid)
-            if t.allLocked():
+            t = self.app.tm[tid]
+            if t.lock(uuid): # all nodes are locked
+                # XXX: review needed:
+                # don't iterate over connections but search by uuid
+                # include client's uuid in Transaction object
+
                 # I have received all the answers now. So send a Notify
                 # Transaction Finished to the initiated client node,
                 # Invalidate Objects to the other client nodes, and Unlock
@@ -76,7 +77,7 @@ class StorageServiceHandler(BaseServiceHandler):
                     if uuid is not None:
                         node = app.nm.getByUUID(uuid)
                         if node.isClient():
-                            if c is t.getConnection():
+                            if node is t.getNode():
                                 p = Packets.NotifyTransactionFinished(tid)
                                 c.answer(p, t.getMessageId())
                             else:
@@ -84,10 +85,10 @@ class StorageServiceHandler(BaseServiceHandler):
                                         tid)
                                 c.notify(p)
                         elif node.isStorage():
-                            if uuid in t.getUUIDSet():
+                            if uuid in t.getUUIDList():
                                 p = Packets.UnlockInformation(tid)
                                 c.notify(p)
-                del app.finishing_transaction_dict[tid]
+                self.app.tm.remove(tid)
         except KeyError:
             # What is this?
             pass
