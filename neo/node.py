@@ -83,19 +83,15 @@ class Node(object):
         return False
 
     def isIdentified(self):
-        # XXX: knowing the node's UUID is sufficient ?
         return self._uuid is not Node
 
     def isRunning(self):
-        # FIXME: is it like 'connected' ?
         return self._state == NodeStates.RUNNING
 
     def isTemporarilyDown(self):
-        # FIXME: is it like 'unconnected' or UNKNOWN state ?
         return self._state == NodeStates.TEMPORARILY_DOWN
 
     def isDown(self):
-        # FIXME: is it like 'unconnected' or 'forgotten' ?
         return self._state == NodeStates.DOWN
 
     def isBroken(self):

@@ -488,21 +488,6 @@ class Application(object):
         logging.info('start to verify data')
 
         # Gather all unfinished transactions.
-        #
-        # FIXME this part requires more brainstorming. Currently, this deals with
-        # only unfinished transactions. But how about finished transactions?
-        # Suppose that A and B have an unfinished transaction. First, A and B are
-        # asked to commit the transaction. Then, A succeeds. B gets down. Now,
-        # A believes that the transaction has been committed, while B still believes
-        # that the transaction is unfinished. Next, if B goes back and A is working,
-        # no problem; because B's unfinished transaction will be committed correctly.
-        # However, when B goes back, if A is down, what happens? If the state is
-        # not very good, B may be asked to abort the transaction!
-        #
-        # This situation won't happen frequently, and B shouldn't be asked to drop
-        # the transaction, if the cluster is not ready. However, there might be
-        # some corner cases where this may happen. That's why more brainstorming
-        # is required.
         self.asking_uuid_dict = {}
         self.unfinished_tid_set = set()
         for conn in em.getConnectionList():

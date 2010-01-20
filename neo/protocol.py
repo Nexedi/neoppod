@@ -29,7 +29,6 @@ MAX_PACKET_SIZE = 0x4000000
 PACKET_HEADER_SIZE = 10
 
 class ErrorCodes(Enum):
-    # TODO: clarify the use of each error code
     NO_ERROR = Enum.Item(0)
     NOT_READY = Enum.Item(1)
     OID_NOT_FOUND = Enum.Item(2)

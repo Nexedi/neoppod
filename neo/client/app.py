@@ -456,15 +456,6 @@ class Application(object):
                     break
                 if conn.getUUID() is None:
                     # Node identification was refused by master.
-                    # Sleep a bit an retry.
-                    # XXX: This should be replaced by:
-                    # - queuing RequestIdentification at master side
-                    # - sending the acceptance from master when it becomes
-                    #   ready
-                    # Thus removing the need to:
-                    # - needlessly bother the primary master every 5 seconds
-                    #   (...per client)
-                    # - have a sleep in the code (yuck !)
                     sleep(1)
             if self.uuid is not None:
                 conn.lock()

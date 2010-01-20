@@ -242,10 +242,6 @@ class PartitionTable(neo.pt.PartitionTable):
                 self.count_dict[node] += 1
                 num_cells += 1
 
-        # FIXME still not enough. It is necessary to check if it is possible
-        # to reduce differences between frequently used nodes and rarely used
-        # nodes by replacing cells.
-
         self.log()
         return changed_cell_list
 

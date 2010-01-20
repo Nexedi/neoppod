@@ -6,6 +6,10 @@ RC = Release Critical (for next release)
         TEMPORARILY_DOWN becomes UNAVAILABLE
         DOWN becomes UNKNOWN
         BROKEN is removed ?
+    - Clarify the use of each error codes:
+      - NO_ERROR error packet vs ACK special packet
+      - NOT_READY removed (connection kept opened until ready)
+      - Split PROTOCOL_ERROR (BAD IDENTIFICATION, ...)
 RC  - Clarify cell state signification
     - Add docstrings (think of doctests)
 RC  - Update README (TODOs should be dropped/moved here)
@@ -30,6 +34,14 @@ RC  - Review output of pylint (CODE)
       a node, and as all nods can be reperesented as Node class instances, 
       such instance should directly contain associated connection for code 
       simplicity.
+      Link node state and connection state, a node cannot be seens as running 
+      and unconnected at the same time from a node point of view. 
+      Consider something like:
+        - UNAVAILABLE implies UNCONNECTED
+        - UNKNOWN implies UNCONNECTED
+        - RUNNING implies CONNECTED
+        - IDENTIFIED implies RUNNING
+        - DOWN implies that the node is dropped from manager/db/config
     - Rework indexes in NodeManager class (CODE)
       NodeManager should provide indexes to quickly find nodes by type, UUID, 
       (ip, port), connection type (listening...) and state (identified...)
@@ -56,6 +68,16 @@ RC  - Review output of pylint (CODE)
       (don't wait at all).
       There is such delay somewhere in master node startup (near the end of 
       the election phase).
+    - Implements delayed connection acceptation.
+      Currently, any node that connects to early to another that is busy for 
+      some reasons is immediately rejected with the 'not ready' error code. This
+      should be replaced by a queue in the listening node that keep a pool a
+      nodes that will be accepted late, when the conditions will be satisfied.
+      This is mainly the case for :
+        - Client rejected before the cluster is operational
+        - Empty storages rejected during recovery process
+      Masters implies in the election process should still reject any connection
+      as the primary master is still unknown.
     - Connections must support 2 simultaneous handlers (CODE)
       Connections currently define only one handler, which is enough for 
       monothreaded code. But when using multithreaded code, there are 2 
@@ -196,6 +218,8 @@ RC  - Review output of pylint (CODE)
       when moving on to next phase.
     - Optimize operational status check by recording which rows are ready
       instead of parsing the whole partition table. (SPEED)
+    - Improve partition table tweaking algorithm to reduce differences between
+      frequently and rarely used nodes (SCALABILITY)
 
     Client
     - Client should prefer storage nodes it's already connected to when 
