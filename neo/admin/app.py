@@ -27,7 +27,6 @@ from neo.connector import getConnectorHandler
 from neo.bootstrap import BootstrapManager
 from neo.pt import PartitionTable
 from neo import protocol
-from neo.util import parseMasterList
 from neo.protocol import NodeTypes, NodeStates, Packets
 
 class Dispatcher:

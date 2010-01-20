@@ -19,7 +19,6 @@ from neo import logging
 from random import choice
 
 from neo.storage.handlers import replication
-from neo import protocol
 from neo.protocol import NodeTypes, NodeStates, CellStates, Packets
 from neo.connection import ClientConnection
 from neo.util import dump

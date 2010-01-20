@@ -21,7 +21,7 @@ from neo.tests import NeoTestBase
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.verification import VerificationHandler
-from neo.protocol import Packet, Packets, CellStates, ErrorCodes
+from neo.protocol import Packets, CellStates, ErrorCodes
 from neo.protocol import INVALID_OID, INVALID_TID
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.util import p64, u64

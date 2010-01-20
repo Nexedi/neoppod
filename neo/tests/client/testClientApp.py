@@ -25,7 +25,6 @@ from neo.client.exception import NEOStorageError, NEOStorageNotFoundError, \
 from neo import protocol
 from neo.protocol import Packets, INVALID_TID, INVALID_SERIAL
 from neo.util import makeChecksum
-import neo.connection
 
 def _getMasterConnection(self):
     if self.master_conn is None:

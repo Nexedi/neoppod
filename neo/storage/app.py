@@ -30,7 +30,7 @@ from neo.storage.replicator import Replicator
 from neo.storage.database import buildDatabaseManager
 from neo.connector import getConnectorHandler
 from neo.pt import PartitionTable
-from neo.util import dump, parseMasterList
+from neo.util import dump
 from neo.bootstrap import BootstrapManager
 
 class Application(object):

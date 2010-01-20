@@ -15,9 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import os
 import unittest
-from neo import logging
 import MySQLdb
 from mock import Mock
 from neo.util import dump, p64, u64
@@ -59,7 +57,6 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertEquals(db.db, NEO_SQL_DATABASE)
         self.assertEquals(db.user, NEO_SQL_USER)
         # & connect
-        import MySQLdb
         self.assertTrue(isinstance(db.conn, MySQLdb.connection))
         self.assertEquals(db.isUnderTransaction(), False)
 

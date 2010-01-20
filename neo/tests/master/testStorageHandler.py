@@ -16,12 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from neo import logging
 from mock import Mock
-from struct import pack, unpack
+from struct import pack
 from neo.tests import NeoTestBase
-from neo import protocol
-from neo.protocol import Packet, Packets
+from neo.protocol import Packets
 from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.handlers.client import ClientServiceHandler

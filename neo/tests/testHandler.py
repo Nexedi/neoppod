@@ -19,7 +19,6 @@ import unittest
 from mock import Mock
 from neo.tests import NeoTestBase
 from neo.handler import EventHandler
-from neo.protocol import UnexpectedPacketError
 from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
 

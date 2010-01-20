@@ -15,15 +15,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import unittest, os
-from mock import Mock
+import unittest
 from neo import protocol
-from neo.protocol import Packets
 from neo.protocol import NodeTypes, NodeStates, CellStates
-from neo.protocol import ErrorCodes, Packets, Packet
-from neo.protocol import PACKET_HEADER_SIZE
+from neo.protocol import ErrorCodes, Packets
 from neo.tests import NeoTestBase
-from time import time, gmtime
 
 class ProtocolTests(NeoTestBase):
 

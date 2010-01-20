@@ -18,7 +18,6 @@
 from neo import logging
 from neo.locking import RLock
 
-from neo import protocol
 from neo.protocol import PacketMalformedError, Packets
 from neo.event import IdleEvent
 from neo.connector import ConnectorException, ConnectorTryAgainException, \

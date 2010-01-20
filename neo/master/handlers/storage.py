@@ -17,9 +17,8 @@
 
 from neo import logging
 
-from neo import protocol
 from neo.protocol import UnexpectedPacketError, ProtocolError
-from neo.protocol import CellStates, ErrorCodes, Packets
+from neo.protocol import CellStates, Packets
 from neo.master.handlers import BaseServiceHandler
 from neo.exception import OperationFailure
 from neo.util import dump

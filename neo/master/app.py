@@ -33,7 +33,7 @@ from neo.master.handlers import verification, storage, client, shutdown
 from neo.master.handlers import administration
 from neo.master.pt import PartitionTable
 from neo.master.transactions import TransactionManager
-from neo.util import dump, parseMasterList
+from neo.util import dump
 from neo.connector import getConnectorHandler
 
 REQUIRED_NODE_NUMBER = 1

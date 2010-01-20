@@ -21,7 +21,7 @@ from neo.tests import NeoTestBase
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.initialization import InitializationHandler
-from neo.protocol import Packet, Packets, CellStates
+from neo.protocol import Packets, CellStates
 from neo.exception import PrimaryFailure
 
 class StorageInitializationHandlerTests(NeoTestBase):

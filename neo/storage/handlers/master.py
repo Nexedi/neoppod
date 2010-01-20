@@ -17,7 +17,6 @@
 
 from neo import logging
 
-from neo import protocol
 from neo.protocol import CellStates, Packets
 from neo.storage.handlers import BaseMasterHandler
 from neo.exception import OperationFailure

@@ -19,11 +19,9 @@ import unittest
 from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoTestBase
-from neo import protocol
-from neo.protocol import Packet, Packets, NodeTypes, NodeStates
+from neo.protocol import Packets, NodeTypes, NodeStates
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
-from neo.exception import OperationFailure
 
 class MasterClientHandlerTests(NeoTestBase):
 

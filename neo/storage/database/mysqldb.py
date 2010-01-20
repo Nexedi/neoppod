@@ -21,7 +21,6 @@ from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 from neo import logging
 from array import array
 import string
-from struct import pack, unpack
 
 from neo.storage.database import DatabaseManager
 from neo.exception import DatabaseFailure

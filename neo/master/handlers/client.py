@@ -17,7 +17,6 @@
 
 from neo import logging
 
-from neo import protocol
 from neo.protocol import NodeStates, Packets, UnexpectedPacketError
 from neo.master.handlers import BaseServiceHandler
 from neo.util import dump

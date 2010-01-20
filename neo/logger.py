@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo import logging
-from neo.protocol import Packets, PacketMalformedError
+from neo.protocol import PacketMalformedError
 from neo.util import dump
 from neo.handler import EventHandler
 

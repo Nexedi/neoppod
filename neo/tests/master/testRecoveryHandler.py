@@ -18,7 +18,7 @@
 import unittest
 from struct import pack, unpack
 from neo.tests import NeoTestBase
-from neo.protocol import Packet, Packets
+from neo.protocol import Packets
 from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.master.handlers.recovery import RecoveryHandler
 from neo.master.app import Application
