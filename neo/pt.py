@@ -191,8 +191,7 @@ class PartitionTable(object):
             assert offset < self.getPartitions() and not self.hasOffset(offset)
             for uuid, state in row:
                 node = nm.getByUUID(uuid)
-                # XXX: the node should be known before we receive the partition
-                # table, so remove this assert when this is checked.
+                # the node must be known by the node manager
                 assert node is not None
                 self.setCell(offset, node, state)
 
