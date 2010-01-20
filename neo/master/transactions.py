@@ -16,6 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo import logging
+from time import time, gmtime
+from struct import pack, unpack
 
 class Transaction(object):
     """
@@ -96,6 +98,7 @@ class TransactionManager(object):
         self._tid_dict = {}
         # node -> transactions mapping
         self._node_dict = {}
+        self._last_tid = None
 
     def __getitem__(self, tid):
         """
@@ -109,9 +112,47 @@ class TransactionManager(object):
         """
         return tid in self._tid_dict
 
+    def _nextTID(self):
+        """ Compute the next TID based on the current time and check collisions """
+        tm = time()
+        gmt = gmtime(tm)
+        upper = ((((gmt.tm_year - 1900) * 12 + gmt.tm_mon - 1) * 31 \
+                  + gmt.tm_mday - 1) * 24 + gmt.tm_hour) * 60 + gmt.tm_min
+        lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / (60.0 / 65536.0 / 65536.0))
+        tid = pack('!LL', upper, lower)
+        if self._last_tid is not None and tid <= self._last_tid:
+            upper, lower = unpack('!LL', self._last_tid)
+            if lower == 0xffffffff:
+                # This should not happen usually.
+                from datetime import timedelta, datetime
+                d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday,
+                             gmt.tm_hour, gmt.tm_min) \
+                        + timedelta(0, 60)
+                upper = ((((d.year - 1900) * 12 + d.month - 1) * 31 \
+                          + d.day - 1) * 24 + d.hour) * 60 + d.minute
+                lower = 0
+            else:
+                lower += 1
+            tid = pack('!LL', upper, lower)
+        self._last_tid = tid
+        return self._last_tid
+
+    def getLastTID(self):
+        """
+            Returns the last TID used
+        """
+        return self._last_tid
+
+    def setLastTID(self, tid):
+        """
+            Set the last TID, keep the previous if lower
+        """
+        self._last_tid = max(self._last_tid, tid)
+
     def reset(self):
         """
             Discard all manager content
+            This doesn't reset the last TID.
         """
         self._tid_dict = {}
         self._node_dict = {}
@@ -128,16 +169,22 @@ class TransactionManager(object):
         """
         return self._tid_dict.keys()
 
-    # TODO: manager should generate the tid itself
     def begin(self, node, tid):
         """
             Begin a new transaction
         """
         assert node is not None
+        if tid is not None and tid < self._last_tid:
+            # supplied TID is in the past
+            raise protocol.ProtocolError('Invalid TID requested')
+        if tid is None:
+            # give a TID
+            tid = self._nextTID()
         txn = Transaction(node, tid)
         self._tid_dict[tid] = txn
         # XXX: check the data structure
         self._node_dict.setdefault(node, {})[tid] = txn
+        return tid
 
     def prepare(self, tid, oid_list, uuid_list, msg_id):
         """

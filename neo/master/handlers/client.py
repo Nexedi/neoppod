@@ -20,7 +20,7 @@ from neo import logging
 from neo import protocol
 from neo.protocol import NodeStates, Packets, UnexpectedPacketError
 from neo.master.handlers import BaseServiceHandler
-from neo.util import dump, getNextTID
+from neo.util import dump
 
 
 class ClientServiceHandler(BaseServiceHandler):
@@ -41,17 +41,8 @@ class ClientServiceHandler(BaseServiceHandler):
             logging.warn('aborting transaction %s does not exist', dump(tid))
 
     def askBeginTransaction(self, conn, packet, tid):
-        app = self.app
-        if tid is not None and tid < app.ltid:
-            # supplied TID is in the past
-            raise protocol.ProtocolError('invalid TID requested')
-        if tid is None:
-            # give a new transaction ID
-            tid = getNextTID(app.ltid)
-        # TODO: transaction manager should handle last TID
-        app.ltid = tid
-        node = app.nm.getByUUID(conn.getUUID())
-        app.tm.begin(node, tid)
+        node = self.app.nm.getByUUID(conn.getUUID())
+        tid = self.app.tm.begin(node, tid)
         conn.answer(Packets.AnswerBeginTransaction(tid), packet.getId())
 
     def askNewOIDs(self, conn, packet, num_oids):
@@ -62,7 +53,7 @@ class ClientServiceHandler(BaseServiceHandler):
         app = self.app
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
-        if app.ltid < tid:
+        if tid > self.app.tm.getLastTID():
             raise UnexpectedPacketError
 
         # Collect partitions related to this transaction.

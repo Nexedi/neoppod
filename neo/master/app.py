@@ -82,8 +82,6 @@ class Application(object):
 
         # The last OID.
         self.loid = None
-        # The last TID.
-        self.ltid = None
         # The target node's uuid to request next.
         self.target_uuid = None
 
@@ -370,7 +368,6 @@ class Application(object):
         self.broadcastNodesInformation(node_list)
         # resert IDs generators
         self.loid = '\0' * 8
-        self.ltid = '\0' * 8
         # build the partition with this node
         pt.setID(pack('!Q', 1))
         pt.make(node_list)
@@ -388,7 +385,6 @@ class Application(object):
         em = self.em
 
         self.loid = None
-        self.ltid = None
         self.pt.setID(None)
         self.target_uuid = None
 

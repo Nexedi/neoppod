@@ -44,8 +44,8 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def askLastIDs(self, conn, packet):
         app = self.app
-        conn.answer(Packets.AnswerLastIDs(app.loid, app.ltid, app.pt.getID()),
-                packet.getId())
+        conn.answer(Packets.AnswerLastIDs(app.loid, app.tm.getLastTID(), 
+                    app.pt.getID()), packet.getId())
 
     def askUnfinishedTransactions(self, conn, packet):
         p = Packets.AnswerUnfinishedTransactions(self.app.tm.getPendingList())
@@ -58,7 +58,7 @@ class StorageServiceHandler(BaseServiceHandler):
 
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
-        if app.ltid < tid:
+        if tid > self.app.tm.getLastTID():
             raise UnexpectedPacketError
 
         try:

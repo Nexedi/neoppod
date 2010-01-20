@@ -34,7 +34,7 @@ class RecoveryHandler(MasterHandler):
 
         # Get max values.
         app.loid = max(loid, app.loid)
-        app.tid = max(ltid, app.ltid)
+        self.app.tm.setLastTID(ltid)
         if lptid > pt.getID():
             # something newer
             app.target_uuid = conn.getUUID()
