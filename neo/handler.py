@@ -314,7 +314,6 @@ class EventHandler(object):
         raise UnexpectedPacketError
 
     def answerNodeInformation(self, conn, packet):
-        # XXX: Just an acknowledge, to be removed
         raise UnexpectedPacketError
 
     def askClusterState(self, conn, packet):

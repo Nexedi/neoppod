@@ -52,7 +52,6 @@ class DatabaseManager(object):
         """
             Rollback the current transaction
         """
-        # XXX: don't care if not in a transaction ?
         self._rollback()
         self._under_transaction = False
 
