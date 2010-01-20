@@ -153,7 +153,7 @@ class MasterRecoveryTests(NeoTestBase):
         uuid = self.identifyToMasterNode()
         packet = Packets.AnswerLastIDs()
         loid = self.app.loid
-        ltid = self.app.ltid
+        ltid = self.app.tm.getLastTID()
         lptid = self.app.pt.getID()
         # send information which are later to what PMN knows, this must update target node
         conn = self.getFakeConnection(uuid, self.storage_port)
@@ -166,11 +166,11 @@ class MasterRecoveryTests(NeoTestBase):
         new_tid = pack('!LL', upper, lower + 10)
         self.failUnless(new_ptid > self.app.pt.getID())
         self.failUnless(new_oid > self.app.loid)
-        self.failUnless(new_tid > self.app.ltid)
+        self.failUnless(new_tid > self.app.tm.getLastTID())
         self.assertEquals(self.app.target_uuid, None)
         recovery.answerLastIDs(conn, packet, new_oid, new_tid, new_ptid)
         self.assertEquals(new_oid, self.app.loid)
-        self.assertEquals(new_tid, self.app.ltid)
+        self.assertEquals(new_tid, self.app.tm.getLastTID())
         self.assertEquals(new_ptid, self.app.pt.getID())
         self.assertEquals(self.app.target_uuid,uuid)
 

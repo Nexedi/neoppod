@@ -21,21 +21,20 @@ from neo import protocol
 from neo.protocol import Packets
 from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.protocol import ErrorCodes, Packets, Packet
-from neo.protocol import INVALID_TID, PACKET_HEADER_SIZE
+from neo.protocol import PACKET_HEADER_SIZE
 from neo.tests import NeoTestBase
-from neo.util import getNextTID
 from time import time, gmtime
 
 class ProtocolTests(NeoTestBase):
 
     def setUp(self):
-        self.ltid = INVALID_TID
+        self.ltid = None
 
     def tearDown(self):
         pass
 
     def getNextTID(self):
-        self.ltid = getNextTID(self.ltid)
+        self.ltid = super(ProtocolTests, self).getNextTID(self.ltid)
         return self.ltid
 
     def test_03_protocolError(self):

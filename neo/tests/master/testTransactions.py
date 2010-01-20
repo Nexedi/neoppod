@@ -51,7 +51,6 @@ class testTransactionManager(NeoTestBase):
     def testManager(self):
         # test data
         node = Mock({'__hash__': 1})
-        tid = self.makeTID(1)
         msg_id = 1
         oid_list = (oid1, oid2) = self.makeOID(1), self.makeOID(2)
         uuid_list = (uuid1, uuid2) = self.makeUUID(1), self.makeUUID(2)
@@ -59,9 +58,9 @@ class testTransactionManager(NeoTestBase):
         txnman = TransactionManager()
         self.assertFalse(txnman.hasPending())
         self.assertEqual(txnman.getPendingList(), [])
-        self.assertRaises(KeyError, txnman.__getitem__, tid)
         # begin the transaction
-        txnman.begin(node, tid)
+        tid = txnman.begin(node, None)
+        self.assertTrue(tid is not None)
         self.assertTrue(txnman.hasPending())
         self.assertEqual(len(txnman.getPendingList()), 1)
         self.assertEqual(txnman.getPendingList()[0], tid)
@@ -81,14 +80,13 @@ class testTransactionManager(NeoTestBase):
     def testAbortFor(self):
         node1 = Mock({'__hash__': 1})
         node2 = Mock({'__hash__': 2})
-        tid11, tid12 = self.makeTID(11), self.makeTID(12)
-        tid21, tid22 = self.makeTID(21), self.makeTID(22)
         txnman = TransactionManager()
         # register 4 transactions made by two nodes
-        txnman.begin(node1, tid11)
-        txnman.begin(node1, tid12)
-        txnman.begin(node2, tid21)
-        txnman.begin(node2, tid22)
+        tid11 = txnman.begin(node1, None)
+        tid12 = txnman.begin(node1, None)
+        tid21 = txnman.begin(node2, None)
+        tid22 = txnman.begin(node2, None)
+        self.assertTrue(tid11 < tid12 < tid21 < tid22)
         self.assertEqual(len(txnman.getPendingList()), 4)
         # abort transactions of one node
         txnman.abortFor(node1)
@@ -100,6 +98,28 @@ class testTransactionManager(NeoTestBase):
         txnman.abortFor(node2)
         self.assertEqual(txnman.getPendingList(), [])
         self.assertFalse(txnman.hasPending())
+
+    def test_getNextTID(self):
+        txnman = TransactionManager()
+        # no previous TID
+        self.assertEqual(txnman.getLastTID(), None)
+        # first transaction
+        node1 = Mock({'__hash__': 1})
+        tid1 = txnman.begin(node1, None)
+        self.assertTrue(tid1 is not None)
+        self.assertEqual(txnman.getLastTID(), tid1)
+        # set a new last TID 
+        from struct import pack, unpack
+        ntid = pack('!Q', unpack('!Q', tid1)[0] + 10)
+        txnman.setLastTID(ntid)
+        self.assertEqual(txnman.getLastTID(), ntid)
+        self.assertTrue(ntid > tid1)
+        # new trancation
+        node2 = Mock({'__hash__': 2})
+        tid2 = txnman.begin(node2, None)
+        self.assertTrue(tid2 is not None)
+        self.assertTrue(tid2 > ntid > tid1)
+
 
 
 if __name__ == '__main__':

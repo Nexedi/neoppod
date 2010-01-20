@@ -22,16 +22,7 @@ from neo import util
 
 class UtilTests(NeoTestBase):
 
-    def test_getNextTID(self):
-        tid0 = '\0' * 8
-        tid1 = util.getNextTID(tid0)
-        self.assertTrue(tid1 > tid0)
-        tid2 = util.getNextTID(tid1)
-        self.assertTrue(tid2 > tid1)
-        tidx = '\0' + chr(0xFF) * 7
-        tid3 = util.getNextTID(tidx)
-        self.assertTrue(tid3 > tidx)
-
+    pass
 
 if __name__ == "__main__":
     unittest.main()

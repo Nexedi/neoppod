@@ -35,7 +35,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.app.pt.setID(pack('!Q', 1))
         self.app.em = Mock({"getConnectionList" : []})
         self.app.loid = '\0' * 8
-        self.app.ltid = '\0' * 8
+        self.app.tm.setLastTID('\0' * 8)
         for address in self.app.master_node_list:
             self.app.nm.createMaster(address=address)
         self.service = ClientServiceHandler(self.app)
@@ -145,15 +145,15 @@ class MasterClientHandlerTests(NeoTestBase):
         uuid = self.identifyToMasterNode()
         packet = Packets.AskBeginTransaction()
         packet.setId(0)
-        ltid = self.app.ltid
+        ltid = self.app.tm.getLastTID()
         # client call it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         service.askBeginTransaction(conn, packet, None)
-        self.failUnless(ltid < self.app.ltid)
+        self.failUnless(ltid < self.app.tm.getLastTID())
         self.assertEqual(len(self.app.tm.getPendingList()), 1)
         tid = self.app.tm.getPendingList()[0]
-        self.assertEquals(tid, self.app.ltid)
+        self.assertEquals(tid, self.app.tm.getLastTID())
 
     def test_08_askNewOIDs(self):
         service = self.service
@@ -176,7 +176,7 @@ class MasterClientHandlerTests(NeoTestBase):
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         oid_list = []
-        upper, lower = unpack('!LL', self.app.ltid)
+        upper, lower = unpack('!LL', self.app.tm.getLastTID())
         new_tid = pack('!LL', upper, lower + 10)
         self.checkUnexpectedPacketRaised(service.finishTransaction, conn, packet, oid_list, new_tid)
         old_node = self.app.nm.getByUUID(uuid)
@@ -191,7 +191,7 @@ class MasterClientHandlerTests(NeoTestBase):
         conn = self.getFakeConnection(client_uuid, self.client_address)
         service.askBeginTransaction(conn, packet, None)
         oid_list = []
-        tid = self.app.ltid
+        tid = self.app.tm.getLastTID()
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.em = Mock({"getConnectionList" : [conn, storage_conn]})
         service.finishTransaction(conn, packet, oid_list, tid)
@@ -217,7 +217,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertFalse(self.app.tm.hasPending())
         # give a known tid
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        tid = self.app.ltid
+        tid = self.app.tm.getLastTID()
         self.app.tm.remove(tid)
         self.app.tm.begin(Mock({'__hash__': 1}), tid)
         self.assertTrue(self.app.tm.hasPending())

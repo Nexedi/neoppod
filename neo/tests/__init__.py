@@ -23,6 +23,8 @@ from neo import logging
 from mock import Mock
 from neo import protocol
 from neo.protocol import Packets
+from time import time, gmtime
+from struct import pack, unpack
 
 DB_PREFIX = 'test_neo_'
 DB_ADMIN = 'root'
@@ -93,6 +95,29 @@ class NeoTestBase(unittest.TestCase):
     def getNewUUID(self):
         self.uuid = getNewUUID()
         return self.uuid
+
+    def getNextTID(self, ltid):
+        tm = time()
+        gmt = gmtime(tm)
+        upper = ((((gmt.tm_year - 1900) * 12 + gmt.tm_mon - 1) * 31 \
+                  + gmt.tm_mday - 1) * 24 + gmt.tm_hour) * 60 + gmt.tm_min
+        lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / (60.0 / 65536.0 / 65536.0))
+        tid = pack('!LL', upper, lower)
+        if ltid is not None and tid <= ltid:
+            upper, lower = unpack('!LL', self._last_tid)
+            if lower == 0xffffffff:
+                # This should not happen usually.
+                from datetime import timedelta, datetime
+                d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday,
+                             gmt.tm_hour, gmt.tm_min) \
+                        + timedelta(0, 60)
+                upper = ((((d.year - 1900) * 12 + d.month - 1) * 31 \
+                          + d.day - 1) * 24 + d.hour) * 60 + d.minute
+                lower = 0
+            else:
+                lower += 1
+            tid = pack('!LL', upper, lower)
+        return tid
 
     def getTwoIDs(self):
         """ Return a tuple of two sorted UUIDs """

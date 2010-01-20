@@ -42,7 +42,7 @@ class MasterVerificationTests(NeoTestBase):
         self.app.asking_uuid_dict = {}
         self.app.unfinished_tid_set = set()
         self.app.loid = '\0' * 8
-        self.app.ltid = '\0' * 8
+        self.app.tm.setLastTID('\0' * 8)
         for node in self.app.nm.getMasterList():
             self.app.unconnected_master_node_set.add(node.getAddress())
             node.setState(NodeStates.RUNNING)
@@ -109,7 +109,7 @@ class MasterVerificationTests(NeoTestBase):
         uuid = self.identifyToMasterNode()
         packet = Packets.AnswerLastIDs()
         loid = self.app.loid
-        ltid = self.app.ltid
+        ltid = self.app.tm.getLastTID()
         lptid = '\0' * 8
         # send information which are later to what PMN knows, this must raise
         conn = self.getFakeConnection(uuid, self.storage_address)
@@ -122,10 +122,10 @@ class MasterVerificationTests(NeoTestBase):
         new_tid = pack('!LL', upper, lower + 10)
         self.failUnless(new_ptid > self.app.pt.getID())
         self.failUnless(new_oid > self.app.loid)
-        self.failUnless(new_tid > self.app.ltid)
+        self.failUnless(new_tid > self.app.tm.getLastTID())
         self.assertRaises(VerificationFailure, verification.answerLastIDs, conn, packet, new_oid, new_tid, new_ptid)
         self.assertNotEquals(new_oid, self.app.loid)
-        self.assertNotEquals(new_tid, self.app.ltid)
+        self.assertNotEquals(new_tid, self.app.tm.getLastTID())
         self.assertNotEquals(new_ptid, self.app.pt.getID())
 
     def test_11_answerUnfinishedTransactions(self):
@@ -138,7 +138,7 @@ class MasterVerificationTests(NeoTestBase):
         self.app.asking_uuid_dict[uuid]  = True
         self.assertTrue(self.app.asking_uuid_dict.has_key(uuid))
         self.assertEquals(len(self.app.unfinished_tid_set), 0)
-        upper, lower = unpack('!LL', self.app.ltid)
+        upper, lower = unpack('!LL', self.app.tm.getLastTID())
         new_tid = pack('!LL', upper, lower + 10)
         verification.answerUnfinishedTransactions(conn, packet, [new_tid])
         self.assertEquals(len(self.app.unfinished_tid_set), 0)
@@ -147,7 +147,7 @@ class MasterVerificationTests(NeoTestBase):
         self.app.asking_uuid_dict[uuid]  = False
         self.assertTrue(self.app.asking_uuid_dict.has_key(uuid))
         self.assertEquals(len(self.app.unfinished_tid_set), 0)
-        upper, lower = unpack('!LL', self.app.ltid)
+        upper, lower = unpack('!LL', self.app.tm.getLastTID())
         new_tid = pack('!LL', upper, lower + 10)
         verification.answerUnfinishedTransactions(conn, packet, [new_tid,])
         self.assertTrue(self.app.asking_uuid_dict[uuid])
@@ -165,7 +165,7 @@ class MasterVerificationTests(NeoTestBase):
         self.app.asking_uuid_dict[uuid]  = False
         self.app.unfinished_oid_set  = None
         self.assertTrue(self.app.asking_uuid_dict.has_key(uuid))
-        upper, lower = unpack('!LL', self.app.ltid)
+        upper, lower = unpack('!LL', self.app.tm.getLastTID())
         new_tid = pack('!LL', upper, lower + 10)
         oid = unpack('!Q', self.app.loid)[0]
         new_oid = pack('!Q', oid + 1)
@@ -232,7 +232,7 @@ class MasterVerificationTests(NeoTestBase):
         uuid = self.identifyToMasterNode()
         packet = Packets.AnswerObjectPresent()
         # do nothing as asking_uuid_dict is True
-        upper, lower = unpack('!LL', self.app.ltid)
+        upper, lower = unpack('!LL', self.app.tm.getLastTID())
         new_tid = pack('!LL', upper, lower + 10)
         oid = unpack('!Q', self.app.loid)[0]
         new_oid = pack('!Q', oid + 1)

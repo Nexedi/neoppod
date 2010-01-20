@@ -184,7 +184,8 @@ class MasterStorageHandlerTests(NeoTestBase):
         conn = self.getFakeConnection(node.getUUID(), self.storage_address)
         ptid = self.app.pt.getID()
         oid = self.app.loid = '\1' * 8
-        tid = self.app.ltid = '\1' * 8
+        tid = '\1' * 8
+        self.app.tm.setLastTID(tid)
         service.askLastIDs(conn, packet)
         packet = self.checkAnswerLastIDs(conn, answered_packet=packet)
         loid, ltid, lptid = packet.decode()
