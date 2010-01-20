@@ -237,13 +237,12 @@ class Application(object):
 
     def __init__(self, master_nodes, name, connector=None, **kw):
         # XXX: use a configuration entry
-        em = EventManager()
         # Start polling thread
-        self.poll_thread = ThreadedPoll(em)
+        self.em = EventManager()
+        self.poll_thread = ThreadedPoll(self.em)
         # Internal Attributes common to all thread
         self._db = None
         self.name = name
-        self.em = em
         self.connector_handler = getConnectorHandler(connector)
         self.dispatcher = Dispatcher()
         self.nm = NodeManager()
