@@ -80,5 +80,5 @@ class IdentificationHandler(MasterHandler):
         conn.answer(Packets.AcceptIdentification(*args), packet.getId())
         # trigger the event
         handler.connectionCompleted(conn)
-        app.broadcastNodeInformation(node)
+        app.broadcastNodesInformation([node])
 

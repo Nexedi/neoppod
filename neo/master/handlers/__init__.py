@@ -96,7 +96,7 @@ class BaseServiceHandler(MasterHandler):
             logging.info('drop a pending node from the node manager')
             self.app.nm.remove(node)
         node.setState(new_state)
-        self.app.broadcastNodeInformation(node)
+        self.app.broadcastNodesInformation([node])
         # clean node related data in specialized handlers
         self.nodeLost(conn, node)
 

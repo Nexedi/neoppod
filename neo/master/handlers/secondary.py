@@ -29,7 +29,7 @@ class SecondaryMasterHandler(MasterHandler):
         node = self.app.nm.getByUUID(conn.getUUID())
         assert node is not None
         node.setDown()
-        self.app.broadcastNodeInformation(node)
+        self.app.broadcastNodesInformation([node])
 
     def connectionCompleted(self, conn):
         pass

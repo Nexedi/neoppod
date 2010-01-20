@@ -265,32 +265,37 @@ class Application(object):
                     conn.close()
                 bootstrap = False
 
-    # XXX: should accept a node list and send at most one packet per peer
-    def broadcastNodeInformation(self, node):
-        """Broadcast a Notify Node Information packet."""
-        logging.debug('broadcasting node information')
-        node_type = node.getType()
-        state = node.getState()
-        uuid = node.getUUID()
+    def broadcastNodesInformation(self, node_list):
+        """
+          Broadcast changes for a set a nodes
+          Send only one packet per connection to reduce bandwidth
+        """
+        node_dict = {}
+        # group modified nodes by destination node type
+        for node in node_list:
+            address = node.getAddress()
+            uuid = node.getUUID()
+            state = node.getState()
+            node_info = (node.getType(), address, uuid, state)
+            def assign_for_notification(node_type):
+                # helper function
+                node_dict.setdefault(node_type, []).append(node_info)
+            if node.isMaster() or node.isStorage():
+                # client get notifications for master and storage only
+                assign_for_notification(NodeTypes.CLIENT)
+            if node.isMaster() or node.isStorage() or node.isClient():
+                assign_for_notification(NodeTypes.MASTER)
+                assign_for_notification(NodeTypes.STORAGE)
+                assign_for_notification(NodeTypes.ADMIN)
 
-        # The server address may be None.
-        address = node.getAddress()
-
-        if node.isClient():
-            # Only to master nodes and storage nodes.
-            for c in self.em.getConnectionList():
-                if c.getUUID() is not None:
-                    n = self.nm.getByUUID(c.getUUID())
-                    if n.isMaster() or n.isStorage() or n.isAdmin():
-                        node_list = [(node_type, address, uuid, state)]
-                        c.notify(Packets.NotifyNodeInformation(node_list))
-        elif node.isMaster() or node.isStorage():
-            for c in self.em.getConnectionList():
-                if c.getUUID() is not None:
-                    node_list = [(node_type, address, uuid, state)]
-                    c.notify(Packets.NotifyNodeInformation(node_list))
-        elif not node.isAdmin():
-            raise RuntimeError('unknown node type')
+        # send at most one non-empty notification packet per node
+        for conn in self.em.getConnectionList():
+            if conn.getUUID() is None:
+                continue
+            node = self.nm.getByUUID(conn.getUUID())
+            node_list = node_dict.get(node.getType(), [])
+            if node_list:
+                conn.notify(Packets.NotifyNodeInformation(node_list))
 
     def broadcastPartitionChanges(self, cell_list):
         """Broadcast a Notify Partition Changes packet."""
@@ -363,7 +368,7 @@ class Application(object):
         node_list = nm.getStorageList()[:REQUIRED_NODE_NUMBER]
         for node in node_list:
             node.setRunning()
-            self.broadcastNodeInformation(node)
+        self.broadcastNodesInformation(node_list)
         # resert IDs generators
         self.loid = '\0' * 8
         self.ltid = '\0' * 8
@@ -404,7 +409,7 @@ class Application(object):
         refused_node_set = set(self.nm.getStorageList()) - allowed_node_set
         for node in refused_node_set:
             node.setPending()
-            self.broadcastNodeInformation(node)
+        self.broadcastNodesInformation(refused_node_set)
 
         logging.debug('cluster starts with loid=%s and this partition table :',
                 dump(self.loid))

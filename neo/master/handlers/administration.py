@@ -89,7 +89,7 @@ class AdministrationHandler(MasterHandler):
         node.setState(state)
         p = protocol.noError('state changed')
         conn.answer(p, packet.getId())
-        app.broadcastNodeInformation(node)
+        app.broadcastNodesInformation([node])
 
     def addPendingNodes(self, conn, packet, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
@@ -113,12 +113,12 @@ class AdministrationHandler(MasterHandler):
         uuids = ', '.join([dump(uuid) for uuid in uuid_set])
         logging.info('Adding nodes %s' % uuids)
         # switch nodes to running state
-        for uuid in uuid_set:
-            node = nm.getByUUID(uuid)
+        node_list = [nm.getByUUID(uuid) for uuid in uuid_set]
+        for node in node_list:
             new_cells = pt.addNode(node)
             cell_list.extend(new_cells)
             node.setRunning()
-            app.broadcastNodeInformation(node)
+        app.broadcastNodesInformation(node_list)
         # start nodes
         for s_conn in em.getConnectionList():
             if s_conn.getUUID() in uuid_set:
