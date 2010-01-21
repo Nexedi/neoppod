@@ -26,7 +26,6 @@ RC  - write ZODB-API-level tests
     General
 RC  - Review XXX in the code (CODE)
 RC  - Review TODO in the code (CODE)
-RC  - Review FIXME in the code (CODE)
 RC  - Review output of pylint (CODE)
     - Connections should be integrated to Node class instances (CODE)
       Currently, connections are managed separately from nodes, and the code 
