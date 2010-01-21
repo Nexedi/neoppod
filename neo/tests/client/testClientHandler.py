@@ -768,7 +768,7 @@ class ClientHandlerTests(NeoTestBase):
         dispatcher = self.getDispatcher()
         client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
-        # TODO: use realistic values
+        # XXX: use realistic values
         test_object_data = ('\x00\x00\x00\x00\x00\x00\x00\x01', 0, 0, 0, 0, 'test')
         client_handler.answerObject(conn, None, *test_object_data)
         self.assertEquals(app.local_var.asked_object, test_object_data)
@@ -807,7 +807,7 @@ class ClientHandlerTests(NeoTestBase):
         conn = self.getConnection()
         client_handler.answerStoreTransaction(conn, None, test_tid)
         self.assertEquals(len(app.mockGetNamedCalls('setTransactionVoted')), 1)
-        # TODO: test answerObject with test_tid not matching app.tid (not handled in program)
+        # XXX: test answerObject with test_tid not matching app.tid (not handled in program)
 
     def test_AnswerTransactionInformation(self):
         class FakeLocal:
@@ -818,14 +818,14 @@ class ClientHandlerTests(NeoTestBase):
         dispatcher = self.getDispatcher()
         client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
-        tid = '\x00\x00\x00\x00\x00\x00\x00\x01' # TODO: use a more realistic tid
+        tid = '\x00\x00\x00\x00\x00\x00\x00\x01' # XXX: use a more realistic tid
         user = 'bar'
         desc = 'foo'
         ext = 0 # XXX: unused in implementation
         oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
         client_handler.answerTransactionInformation(conn, None, tid, user, desc, ext, oid_list[:])
         stored_dict = app.local_var.txn_info
-        # TODO: test 'time' value ?
+        # XXX: test 'time' value ?
         self.assertEquals(stored_dict['user_name'], user)
         self.assertEquals(stored_dict['description'], desc)
         self.assertEquals(stored_dict['id'], tid)
@@ -841,7 +841,7 @@ class ClientHandlerTests(NeoTestBase):
         client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
         test_oid = '\x00\x00\x00\x00\x00\x00\x00\x01'
-        # TODO: use realistic values
+        # XXX: use realistic values
         test_history_list = [(1, 2), (3, 4)]
         client_handler.answerObjectHistory(conn, None, test_oid, test_history_list[:])
         oid, history = app.local_var.history
