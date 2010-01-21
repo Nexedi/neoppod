@@ -108,7 +108,7 @@ class NeoTestBase(unittest.TestCase):
     def getAdminUUID(self):
         return self._makeUUID('A')
 
-    def getNextTID(self, ltid):
+    def getNextTID(self, ltid=None):
         tm = time()
         gmt = gmtime(tm)
         upper = ((((gmt.tm_year - 1900) * 12 + gmt.tm_mon - 1) * 31 \

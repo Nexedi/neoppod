@@ -818,7 +818,7 @@ class ClientHandlerTests(NeoTestBase):
         dispatcher = self.getDispatcher()
         client_handler = StorageAnswersHandler(app)
         conn = self.getConnection()
-        tid = '\x00\x00\x00\x00\x00\x00\x00\x01' # XXX: use a more realistic tid
+        tid = self.getNextTID()
         user = 'bar'
         desc = 'foo'
         ext = 0 # XXX: unused in implementation
