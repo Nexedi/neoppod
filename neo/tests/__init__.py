@@ -31,13 +31,6 @@ DB_ADMIN = 'root'
 DB_PASSWD = None
 DB_USER = 'test'
 
-def getNewUUID():
-    """ Return a valid UUID """
-    uuid = protocol.INVALID_UUID
-    while uuid == protocol.INVALID_UUID:
-        uuid = os.urandom(16)
-    return uuid
-
 class NeoTestBase(unittest.TestCase):
     """ Base class for neo tests, implements common checks """
 
@@ -90,11 +83,30 @@ class NeoTestBase(unittest.TestCase):
                 'getAdapter': 'MySQL',
         })
 
-    # XXX: according to changes with namespaced UUIDs, it would be better to
-    # implement get<NodeType>UUID() methods
+    def _makeUUID(self, prefix):
+        """
+            Retuns a 16-bytes UUID according to namespace 'prefix'
+        """
+        assert len(prefix) == 1
+        uuid = protocol.INVALID_UUID
+        while uuid[1:] == protocol.INVALID_UUID[1:]:
+            uuid = prefix + os.urandom(15)
+        return uuid
+
     def getNewUUID(self):
-        self.uuid = getNewUUID()
-        return self.uuid
+        return self._makeUUID('\0')
+
+    def getClientUUID(self):
+        return self._makeUUID('C')
+
+    def getMasterUUID(self):
+        return self._makeUUID('M')
+
+    def getStorageUUID(self):
+        return self._makeUUID('S')
+
+    def getAdminUUID(self):
+        return self._makeUUID('A')
 
     def getNextTID(self, ltid):
         tm = time()

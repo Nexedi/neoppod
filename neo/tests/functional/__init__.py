@@ -29,7 +29,6 @@ import traceback
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.protocol import ClusterStates, NodeTypes, CellStates
 from neo.client.Storage import Storage
-from neo.tests import getNewUUID
 from neo.util import dump
 
 NEO_MASTER = 'neomaster'
@@ -196,11 +195,8 @@ class NEOCluster(object):
         return port
 
     def __allocateUUID(self):
-        uuid_set = self.uuid_set
-        uuid = None
-        while uuid is None or uuid in uuid_set:
-            uuid = getNewUUID()
-        uuid_set.add(uuid)
+        uuid = os.urandom(16)
+        self.uuid_set.add(uuid)
         return uuid
 
     def setupDB(self):
