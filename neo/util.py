@@ -17,6 +17,7 @@
 
 
 import re
+import socket
 from zlib import adler32
 from struct import pack, unpack
 
@@ -54,6 +55,19 @@ def makeChecksum(s):
     """Return a 4-byte integer checksum against a string."""
     return adler32(s) & 0xffffffff
 
+
+def resolve(hostname):
+  """
+      Returns the first IP address that match with the given hostname
+  """
+  try:
+      # an IP resolves to itself
+      _, _, address_list = socket.gethostbyname_ex(hostname)
+  except socket.gaierror:
+      return None
+  return address_list[0]
+  
+
 def parseMasterList(masters, except_node=None):
     if not masters:
         return []
@@ -61,6 +75,7 @@ def parseMasterList(masters, except_node=None):
     master_node_list = []
     for node in masters.split('/'):
         ip_address, port = node.split(':')
+        ip_address = resolve(ip_address)
         address = (ip_address, int(port))
         if (address != except_node):
             master_node_list.append(address)

@@ -134,7 +134,6 @@ RC  - Review output of pylint (CODE)
       an incoming packet that trigger the poll() system call.
     - Allow daemonize NEO processes, re-use code from TIDStorage and support
       start/stop/restart/status commands.
-    - Implement name resolution to allow use names instead of IPs
 
 
     Storage

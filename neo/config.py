@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from ConfigParser import SafeConfigParser
-from neo.util import bin, parseMasterList
+from neo import util
 
 
 class ConfigurationManager(object):
@@ -51,7 +51,7 @@ class ConfigurationManager(object):
         if not masters:
             return []
         # load master node list except itself
-        return parseMasterList(masters, except_node=self.getBind())
+        return util.parseMasterList(masters, except_node=self.getBind())
 
     def getBind(self):
         """ Get the address to bind to """
@@ -62,6 +62,7 @@ class ConfigurationManager(object):
             ip = bind
             # took port from default bind address
             port = self.defaults['bind'].split(':')[1]
+        ip = util.resolve(ip)
         return (ip, int(port))
 
     def getDatabase(self):
@@ -90,5 +91,5 @@ class ConfigurationManager(object):
 
     def getUUID(self):
         # only from command line
-        return bin(self.argument_list.get('uuid', None))
+        return util.bin(self.argument_list.get('uuid', None))
 
