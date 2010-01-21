@@ -769,7 +769,7 @@ class Application(object):
             # always accept admin nodes
             node_ctor = self.nm.createAdmin
             handler = administration.AdministrationHandler
-            logging.info('Accept an admin %s' % dump(uuid))
+            logging.info('Accept an admin %s' % (dump(uuid), ))
         elif node_type == NodeTypes.MASTER:
             if node is None:
                 # unknown master, rejected
@@ -777,7 +777,7 @@ class Application(object):
             # always put other master in waiting state
             node_ctor = self.nm.createMaster
             handler = secondary.SecondaryMasterHandler
-            logging.info('Accept a master %s' % dump(uuid))
+            logging.info('Accept a master %s' % (dump(uuid), ))
         elif node_type == NodeTypes.CLIENT:
             # refuse any client before running
             if self.cluster_state != ClusterStates.RUNNING:
@@ -785,10 +785,10 @@ class Application(object):
                 raise protocol.NotReadyError
             node_ctor = self.nm.createClient
             handler = client.ClientServiceHandler
-            logging.info('Accept a client %s' % dump(uuid))
+            logging.info('Accept a client %s' % (dump(uuid), ))
         elif node_type == NodeTypes.STORAGE:
             node_ctor = self.nm.createStorage
             (uuid, state, handler) = self.identifyStorageNode(uuid, node)
-            logging.info('Accept a storage (%s)' % state)
+            logging.info('Accept a storage %s (%s)' % (dump(uuid), state))
         return (uuid, node, state, handler, node_ctor)
 
