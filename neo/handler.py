@@ -331,6 +331,9 @@ class EventHandler(object):
     def notifyLastOID(self, conn, packet, oid):
         raise UnexpectedPacketError
 
+    def notifyReplicationDone(self, conn, packet, offset):
+        raise UnexpectedPacketError
+
 
     # Error packet handlers.
 
@@ -433,6 +436,7 @@ class EventHandler(object):
         d[Packets.AnswerClusterState] = self.answerClusterState
         d[Packets.NotifyClusterInformation] = self.notifyClusterInformation
         d[Packets.NotifyLastOID] = self.notifyLastOID
+        d[Packets.NotifyReplicationDone] = self.notifyReplicationDone
 
         return d
 

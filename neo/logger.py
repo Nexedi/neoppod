@@ -249,5 +249,8 @@ class PacketLogger(EventHandler):
     def notifyLastOID(self, conn, packet, oid):
         pass
 
+    def notifyReplicationDone(self, conn, packet, offset):
+        pass
+
 
 PACKET_LOGGER = PacketLogger()

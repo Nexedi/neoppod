@@ -518,6 +518,20 @@ class NotifyPartitionChanges(Packet):
             cell_list.append((offset, uuid, state))
         return (ptid, cell_list)
 
+class NotifyReplicationDone(Packet):
+    """
+    Notify the master node that a partition has been successully replicated from
+    a storage to another.
+    S -> M
+    """
+
+    def _encode(self, offset):
+        return pack('!L', offset)
+
+    def _decode(self, body):
+        (offset, ) = unpack('!L', body)
+        return (offset, )
+
 class StartOperation(Packet):
     """
     Tell a storage nodes to start an operation. Until a storage node receives
@@ -1317,6 +1331,7 @@ class PacketRegistry(dict):
     AskClusterState = register(0x0028, AskClusterState)
     AnswerClusterState = register(0x8028, AnswerClusterState)
     NotifyLastOID = register(0x0030, NotifyLastOID)
+    NotifyReplicationDone = register(0x0031, NotifyReplicationDone)
 
 # build a "singleton"
 Packets = PacketRegistry()

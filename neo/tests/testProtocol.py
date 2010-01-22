@@ -470,6 +470,12 @@ class ProtocolTests(NeoTestBase):
         p_oid_list  = p.decode()[0]
         self.assertEqual(p_oid_list, oid_list)
 
+    def test_57_notifyReplicationDone(self):
+        offset = 10
+        p = Packets.NotifyReplicationDone(offset)
+        p_offset = p.decode()[0]
+        self.assertEqual(p_offset, offset)
+
 if __name__ == '__main__':
     unittest.main()
 
