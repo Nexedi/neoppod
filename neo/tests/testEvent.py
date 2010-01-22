@@ -36,7 +36,7 @@ class EventTests(NeoTestBase):
         self.assertEqual(len(em.reader_set), 0)
         self.assertEqual(len(em.writer_set), 0)
         self.assertEqual(len(em.event_list), 0)
-        self.failUnless(em.prev_time <time)
+        self.assertTrue(em.prev_time <time)
         self.assertTrue(isinstance(em.epoll, Epoll))
         # use a mock object instead of epoll
         em.epoll = Mock()
@@ -160,7 +160,7 @@ class EventTests(NeoTestBase):
 
         # call with time < t < critical_time
         t = time + 5
-        self.failUnless(t < critical_time)
+        self.assertTrue(t < critical_time)
         r = event(t)
         self.assertTrue(r)
         self.assertEquals(len(conn.mockGetNamedCalls("lock")), 1)
@@ -173,7 +173,7 @@ class EventTests(NeoTestBase):
 
         # call with time < critical_time < t
         t = critical_time + 5
-        self.failUnless(t > critical_time)
+        self.assertTrue(t > critical_time)
         r = event(t)
         self.assertTrue(r)
         self.assertEquals(len(conn.mockGetNamedCalls("lock")), 2)
@@ -211,7 +211,7 @@ class EventTests(NeoTestBase):
 
         # call with time < t < critical_time
         t = time + 1
-        self.failUnless(t < critical_time)
+        self.assertTrue(t < critical_time)
         r = event(t)
         self.assertTrue(r)
         self.assertEquals(len(conn.mockGetNamedCalls("lock")), 1)
@@ -224,7 +224,7 @@ class EventTests(NeoTestBase):
 
         # call with time < critical_time < t
         t = critical_time + 5
-        self.failUnless(t > critical_time)
+        self.assertTrue(t > critical_time)
         r = event(t)
         self.assertTrue(r)
         self.assertEquals(len(conn.mockGetNamedCalls("lock")), 2)

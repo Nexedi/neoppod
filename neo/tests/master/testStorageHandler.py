@@ -186,7 +186,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         lptid = self.app.pt.getID()
         method(conn1)
         self.assertEquals(node1.getState(), state)
-        self.failUnless(lptid < self.app.pt.getID())
+        self.assertTrue(lptid < self.app.pt.getID())
         # drop the second, no storage node left
         lptid = self.app.pt.getID()
         self.assertEquals(node2.getState(), NodeStates.RUNNING)

@@ -79,7 +79,7 @@ class ConnectionTests(NeoTestBase):
         # add connector
         connector = bc.connector_handler()
         bc.setConnector(connector)
-        self.failUnless(isinstance(bc.getConnector(), DoNothingConnector))
+        self.assertTrue(isinstance(bc.getConnector(), DoNothingConnector))
         self.assertNotEqual(bc.getConnector(), None)
         # check it registered the connection in epoll
         self.assertEquals(len(em.mockGetNamedCalls("register")), 1)
@@ -164,7 +164,7 @@ class ConnectionTests(NeoTestBase):
         next_id = bc._getNextId()
         self.assertEqual(next_id, cur_id)
         next_id = bc._getNextId()
-        self.failUnless(next_id > cur_id)
+        self.assertTrue(next_id > cur_id)
         # test overflow of next id
         bc.cur_id =  0xffffffff
         next_id = bc._getNextId()
@@ -959,7 +959,7 @@ class ConnectionTests(NeoTestBase):
         next_id = bc._getNextId()
         self.assertEqual(next_id, cur_id)
         next_id = bc._getNextId()
-        self.failUnless(next_id > cur_id)
+        self.assertTrue(next_id > cur_id)
         # test overflow of next id
         bc.cur_id =  0xffffffff
         next_id = bc._getNextId()
@@ -1083,7 +1083,7 @@ class ConnectionTests(NeoTestBase):
         next_id = bc._getNextId()
         self.assertEqual(next_id, cur_id)
         next_id = bc._getNextId()
-        self.failUnless(next_id > cur_id)
+        self.assertTrue(next_id > cur_id)
         # test overflow of next id
         bc.cur_id =  0xffffffff
         next_id = bc._getNextId()

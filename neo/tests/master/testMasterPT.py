@@ -47,7 +47,7 @@ class MasterPartitionTableTests(NeoTestBase):
         self.assertEqual(len(partition_list), num_partitions)
         for x in xrange(num_partitions):
             part = partition_list[x]
-            self.failUnless(isinstance(part, list))
+            self.assertTrue(isinstance(part, list))
             self.assertEqual(len(part), 0)
         self.assertEqual(len(pt.count_dict), 0)
         # no nodes or cells for now
@@ -125,8 +125,8 @@ class MasterPartitionTableTests(NeoTestBase):
         cells_outdated = pt.outdate()
         self.assertEqual(len(cells_outdated), 3)
         for offset, uuid, state in cells_outdated:
-            self.failUnless(offset in (1,2,3))
-            self.failUnless(uuid in (uuid2,uuid3,uuid4))
+            self.assertTrue(offset in (1,2,3))
+            self.assertTrue(uuid in (uuid2,uuid3,uuid4))
             self.assertEqual(state, CellStates.OUT_OF_DATE)
         # check each cell
         # part 1, already outdated
@@ -190,7 +190,7 @@ class MasterPartitionTableTests(NeoTestBase):
         for x in xrange(num_replicas):
             self.assertEqual(len(pt.getCellList(x)), 2)
             self.assertEqual(pt.getCellList(x)[0].getState(), CellStates.OUT_OF_DATE)
-            self.failUnless(pt.getCellList(x)[0].getNode() in (sn1, sn2))
+            self.assertTrue(pt.getCellList(x)[0].getNode() in (sn1, sn2))
         # test the most used node is remove from some partition
         uuid3 = self.getNewUUID()
         server3 = ("127.0.0.3", 19001)
@@ -231,9 +231,9 @@ class MasterPartitionTableTests(NeoTestBase):
                 elif uuid == uuid6:
                     self.assertEqual(state, CellStates.OUT_OF_DATE)
                 else:
-                    self.failUnless(uuid in (uuid1, uuid6))
+                    self.assertTrue(uuid in (uuid1, uuid6))
             else:
-                self.failUnless(offset in (0, 1))
+                self.assertTrue(offset in (0, 1))
         for x in xrange(num_replicas):
             self.assertEqual(len(pt.getCellList(x)), 2)
         # there is a feeding cell, just dropped
@@ -260,9 +260,9 @@ class MasterPartitionTableTests(NeoTestBase):
                 elif uuid == uuid6:
                     self.assertEqual(state, CellStates.OUT_OF_DATE)
                 else:
-                    self.failUnless(uuid in (uuid1, uuid6))
+                    self.assertTrue(uuid in (uuid1, uuid6))
             else:
-                self.failUnless(offset in (0, 1))
+                self.assertTrue(offset in (0, 1))
         for x in xrange(num_replicas):
             self.assertEqual(len(pt.getCellList(x)), 3)
         # there is no feeding cell, marked as feeding
@@ -285,9 +285,9 @@ class MasterPartitionTableTests(NeoTestBase):
                 elif uuid == uuid6:
                     self.assertEqual(state, CellStates.OUT_OF_DATE)
                 else:
-                    self.failUnless(uuid in (uuid1, uuid6))
+                    self.assertTrue(uuid in (uuid1, uuid6))
             else:
-                self.failUnless(offset in (0, 1))
+                self.assertTrue(offset in (0, 1))
         for x in xrange(num_replicas):
             self.assertEqual(len(pt.getCellList(x)), 3)
 
@@ -332,7 +332,7 @@ class MasterPartitionTableTests(NeoTestBase):
             elif uuid == uuid4:
                 self.assertEqual(state, CellStates.OUT_OF_DATE)
             else:
-                self.failUnless(uuid in (uuid2, uuid4))
+                self.assertTrue(uuid in (uuid2, uuid4))
 
         for x in xrange(num_replicas):
             self.assertEqual(len(pt.getCellList(x)), 2)
@@ -390,8 +390,8 @@ class MasterPartitionTableTests(NeoTestBase):
             self.assertEqual(len(cells), 2)
             nodes = [x.getNode() for x in cells]
             for node in nodes:
-                self.failUnless(node in (sn1, sn4, sn5))
-                self.failUnless(node not in (sn2, sn3))
+                self.assertTrue(node in (sn1, sn4, sn5))
+                self.assertTrue(node not in (sn2, sn3))
         self.assertTrue(pt.filled())
         self.assertTrue(pt.operational())
         # create a pt with less nodes
@@ -471,7 +471,7 @@ class MasterPartitionTableTests(NeoTestBase):
                 self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
             else:
                 self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        self.failUnless(sn2 in [x.getNode() for x in cells])
+        self.assertTrue(sn2 in [x.getNode() for x in cells])
 
         # check part 2
         cells =  pt.getCellList(1)
@@ -481,8 +481,8 @@ class MasterPartitionTableTests(NeoTestBase):
                 self.assertEqual(cell.getState(), CellStates.FEEDING)
             else:
                 self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        self.failUnless(sn3 in [x.getNode() for x in cells])
-        self.failUnless(sn1 in [x.getNode() for x in cells])
+        self.assertTrue(sn3 in [x.getNode() for x in cells])
+        self.assertTrue(sn1 in [x.getNode() for x in cells])
 
         # check part 3
         cells =  pt.getCellList(2)
@@ -492,8 +492,8 @@ class MasterPartitionTableTests(NeoTestBase):
                 self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
             else:
                 self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        self.failUnless(sn3 in [x.getNode() for x in cells])
-        self.failUnless(sn2 in [x.getNode() for x in cells])
+        self.assertTrue(sn3 in [x.getNode() for x in cells])
+        self.assertTrue(sn2 in [x.getNode() for x in cells])
 
         # check part 4
         cells =  pt.getCellList(3)
@@ -509,8 +509,8 @@ class MasterPartitionTableTests(NeoTestBase):
                 self.assertEqual(cell.getState(), CellStates.UP_TO_DATE)
             else:
                 self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
-        self.failUnless(sn1 in [x.getNode() for x in cells])
-        self.failUnless(sn5 in [x.getNode() for x in cells])
+        self.assertTrue(sn1 in [x.getNode() for x in cells])
+        self.assertTrue(sn5 in [x.getNode() for x in cells])
 
 
 if __name__ == '__main__':

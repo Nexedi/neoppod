@@ -76,7 +76,7 @@ class MasterClientHandlerTests(NeoTestBase):
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         service.askBeginTransaction(conn, packet, None)
-        self.failUnless(ltid < self.app.tm.getLastTID())
+        self.assertTrue(ltid < self.app.tm.getLastTID())
         self.assertEqual(len(self.app.tm.getPendingList()), 1)
         tid = self.app.tm.getPendingList()[0]
         self.assertEquals(tid, self.app.tm.getLastTID())
@@ -91,7 +91,7 @@ class MasterClientHandlerTests(NeoTestBase):
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         service.askNewOIDs(conn, packet, 1)
-        self.failUnless(loid < self.app.loid)
+        self.assertTrue(loid < self.app.loid)
 
     def test_09_finishTransaction(self):
         service = self.service

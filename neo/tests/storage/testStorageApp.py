@@ -114,12 +114,12 @@ class StorageAppTests(NeoTestBase):
         self.assertEqual(cell_list[0].getUUID(), client_uuid)
         cell_list = self.app.pt.getCellList(1)
         self.assertEqual(len(cell_list), 2)
-        self.failUnless(cell_list[0].getUUID() in (client_uuid, storage_uuid))
-        self.failUnless(cell_list[1].getUUID() in (client_uuid, storage_uuid))
+        self.assertTrue(cell_list[0].getUUID() in (client_uuid, storage_uuid))
+        self.assertTrue(cell_list[1].getUUID() in (client_uuid, storage_uuid))
         cell_list = self.app.pt.getCellList(2)
         self.assertEqual(len(cell_list), 2)
-        self.failUnless(cell_list[0].getUUID() in (master_uuid, storage_uuid))
-        self.failUnless(cell_list[1].getUUID() in (master_uuid, storage_uuid))
+        self.assertTrue(cell_list[0].getUUID() in (master_uuid, storage_uuid))
+        self.assertTrue(cell_list[1].getUUID() in (master_uuid, storage_uuid))
 
     def test_02_queueEvent(self):
         self.assertEqual(len(self.app.event_queue), 0)

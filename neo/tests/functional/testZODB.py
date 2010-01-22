@@ -117,7 +117,7 @@ class ZODBTests(NEOFunctionalTest):
             else:
                 raise
         else:
-            self.failUnless(not abort_it, 'Did not abort duplication')
+            self.assertTrue(not abort_it, 'Did not abort duplication')
         l1 = list(ob.items())
         l1.sort()
         l2 = list(ob2.items())

@@ -192,34 +192,34 @@ class PartitionTableTests(NeoTestBase):
                 all_cell = pt.getCellList(0)
                 all_nodes = [x.getNode() for x in all_cell]
                 self.assertEqual(len(all_cell), 3)
-                self.failUnless(sn1 in all_nodes)
-                self.failUnless(sn2 in all_nodes)
-                self.failUnless(sn3 in all_nodes)
-                self.failUnless(sn4 not in all_nodes)
+                self.assertTrue(sn1 in all_nodes)
+                self.assertTrue(sn2 in all_nodes)
+                self.assertTrue(sn3 in all_nodes)
+                self.assertTrue(sn4 not in all_nodes)
                 # writable nodes
                 all_cell = pt.getCellList(0, writable=True)
                 all_nodes = [x.getNode() for x in all_cell]
                 self.assertEqual(len(all_cell), 3)
-                self.failUnless(sn1 in all_nodes)
-                self.failUnless(sn2 in all_nodes)
-                self.failUnless(sn3 in all_nodes)
-                self.failUnless(sn4 not in all_nodes)
+                self.assertTrue(sn1 in all_nodes)
+                self.assertTrue(sn2 in all_nodes)
+                self.assertTrue(sn3 in all_nodes)
+                self.assertTrue(sn4 not in all_nodes)
                 # readable nodes
                 all_cell = pt.getCellList(0, readable=True)
                 all_nodes = [x.getNode() for x in all_cell]
                 self.assertEqual(len(all_cell), 2)
-                self.failUnless(sn1 in all_nodes)
-                self.failUnless(sn2 not in all_nodes)
-                self.failUnless(sn3 in all_nodes)
-                self.failUnless(sn4 not in all_nodes)
+                self.assertTrue(sn1 in all_nodes)
+                self.assertTrue(sn2 not in all_nodes)
+                self.assertTrue(sn3 in all_nodes)
+                self.assertTrue(sn4 not in all_nodes)
                 # writable & readable nodes
                 all_cell = pt.getCellList(0, readable=True, writable=True)
                 all_nodes = [x.getNode() for x in all_cell]
                 self.assertEqual(len(all_cell), 2)
-                self.failUnless(sn1 in all_nodes)
-                self.failUnless(sn2 not in all_nodes)
-                self.failUnless(sn3 in all_nodes)
-                self.failUnless(sn4 not in all_nodes)
+                self.assertTrue(sn1 in all_nodes)
+                self.assertTrue(sn2 not in all_nodes)
+                self.assertTrue(sn3 in all_nodes)
+                self.assertTrue(sn4 not in all_nodes)
             else:
                 self.assertEqual(len(pt.getCellList(1, False)), 0)
                 self.assertEqual(len(pt.getCellList(1, True)), 0)
@@ -251,7 +251,7 @@ class PartitionTableTests(NeoTestBase):
         self.assertEqual(len(partition_list), num_partitions)
         for x in xrange(num_partitions):
             part = partition_list[x]
-            self.failUnless(isinstance(part, list))
+            self.assertTrue(isinstance(part, list))
             self.assertEqual(len(part), 0)
         self.assertEqual(len(pt.count_dict), 0)
 
@@ -280,10 +280,10 @@ class PartitionTableTests(NeoTestBase):
         # into account
         self.assertEqual(len(pt.getNodeList()), 2)
         nodes = pt.getNodeList()
-        self.failUnless(sn1 in nodes)
-        self.failUnless(sn2 in nodes)
-        self.failUnless(sn3 not in nodes)
-        self.failUnless(sn4 not in nodes)
+        self.assertTrue(sn1 in nodes)
+        self.assertTrue(sn2 in nodes)
+        self.assertTrue(sn3 not in nodes)
+        self.assertTrue(sn4 not in nodes)
 
     def test_08_filled(self):
         num_partitions = 5
@@ -400,12 +400,12 @@ class PartitionTableTests(NeoTestBase):
         row_0 = pt.getRow(0)
         self.assertEqual(len(row_0), 3)
         for uuid, state in row_0:
-            self.failUnless(uuid in (sn1.getUUID(), sn2.getUUID(), sn3.getUUID()))
+            self.assertTrue(uuid in (sn1.getUUID(), sn2.getUUID(), sn3.getUUID()))
             self.assertEqual(state, CellStates.UP_TO_DATE)
         row_1 = pt.getRow(1)
         self.assertEqual(len(row_1), 2)
         for uuid, state in row_1:
-            self.failUnless(uuid in (sn1.getUUID(), sn2.getUUID()))
+            self.assertTrue(uuid in (sn1.getUUID(), sn2.getUUID()))
             self.assertEqual(state, CellStates.UP_TO_DATE)
         row_2 = pt.getRow(2)
         self.assertEqual(len(row_2), 1)
