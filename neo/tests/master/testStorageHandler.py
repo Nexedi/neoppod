@@ -45,9 +45,20 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.client_address = ('127.0.0.1', self.client_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
 
-
     def tearDown(self):
         NeoTestBase.tearDown(self)
+
+    def _allocatePort(self):
+        self.port = getattr(self, 'port', 1000) + 1
+        return self.port
+
+    def _getClient(self):
+        return self.identifyToMasterNode(node_type=NodeTypes.CLIENT, 
+                ip='127.0.0.1', port=self._allocatePort())
+        
+    def _getStorage(self):
+        return self.identifyToMasterNode(node_type=NodeTypes.STORAGE,
+                ip='127.0.0.1', port=self._allocatePort())
 
     def getLastUUID(self):
         return self.uuid
