@@ -131,6 +131,12 @@ class NeoTestBase(unittest.TestCase):
             tid = pack('!LL', upper, lower)
         return tid
 
+    def getOID(self, i=None):
+        """ Return a 8-bytes OID """
+        if i is None:
+            return os.urandom(4)
+        return pack('!Q', i)
+
     def getTwoIDs(self):
         """ Return a tuple of two sorted UUIDs """
         # generate two ptid, first is lower
