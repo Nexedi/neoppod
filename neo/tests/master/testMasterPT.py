@@ -69,18 +69,18 @@ class MasterPartitionTableTests(NeoTestBase):
         # add nodes
         uuid1 = self.getNewUUID()
         server1 = ("127.0.0.1", 19001)
-        sn1 = StorageNode(Mock(), server1, uuid1)
+        sn1 = StorageNode(Mock(), server1, uuid1, NodeStates.RUNNING)
         pt.setCell(0, sn1, CellStates.UP_TO_DATE)
         pt.setCell(1, sn1, CellStates.UP_TO_DATE)
         pt.setCell(2, sn1, CellStates.UP_TO_DATE)
         uuid2 = self.getNewUUID()
         server2 = ("127.0.0.2", 19001)
-        sn2 = StorageNode(Mock(), server2, uuid2)
+        sn2 = StorageNode(Mock(), server2, uuid2, NodeStates.RUNNING)
         pt.setCell(0, sn2, CellStates.UP_TO_DATE)
         pt.setCell(1, sn2, CellStates.UP_TO_DATE)
         uuid3 = self.getNewUUID()
         server3 = ("127.0.0.3", 19001)
-        sn3 = StorageNode(Mock(), server3, uuid3)
+        sn3 = StorageNode(Mock(), server3, uuid3, NodeStates.RUNNING)
         pt.setCell(0, sn3, CellStates.UP_TO_DATE)
         # test
         node = pt.findLeastUsedNode()
@@ -298,16 +298,16 @@ class MasterPartitionTableTests(NeoTestBase):
         # add nodes
         uuid1 = self.getNewUUID()
         server1 = ("127.0.0.1", 19001)
-        sn1 = StorageNode(Mock(), server1, uuid1)
+        sn1 = StorageNode(Mock(), server1, uuid1, NodeStates.RUNNING)
         uuid2 = self.getNewUUID()
         server2 = ("127.0.0.2", 19002)
-        sn2 = StorageNode(Mock(), server2, uuid2)
+        sn2 = StorageNode(Mock(), server2, uuid2, NodeStates.RUNNING)
         uuid3 = self.getNewUUID()
         server3 = ("127.0.0.3", 19001)
-        sn3 = StorageNode(Mock(), server3, uuid3)
+        sn3 = StorageNode(Mock(), server3, uuid3, NodeStates.RUNNING)
         uuid4 = self.getNewUUID()
         server4 = ("127.0.0.4", 19001)
-        sn4 = StorageNode(Mock(), server4, uuid4)
+        sn4 = StorageNode(Mock(), server4, uuid4, NodeStates.RUNNING)
         # partition looks like:
         # 0 : sn1, sn2
         # 1 : sn1, sn3
@@ -365,7 +365,7 @@ class MasterPartitionTableTests(NeoTestBase):
         # add nodes
         uuid1 = self.getNewUUID()
         server1 = ("127.0.0.1", 19001)
-        sn1 = StorageNode(Mock(), server1, uuid1)
+        sn1 = StorageNode(Mock(), server1, uuid1, NodeStates.RUNNING)
         # add not running node
         uuid2 = self.getNewUUID()
         server2 = ("127.0.0.2", 19001)
@@ -373,14 +373,14 @@ class MasterPartitionTableTests(NeoTestBase):
         sn2.setState(NodeStates.TEMPORARILY_DOWN)
         # add node without uuid
         server3 = ("127.0.0.3", 19001)
-        sn3 = StorageNode(Mock(), server3, None)
+        sn3 = StorageNode(Mock(), server3, None, NodeStates.RUNNING)
         # add clear node
         uuid4 = self.getNewUUID()
         server4 = ("127.0.0.4", 19001)
-        sn4 = StorageNode(Mock(), server4, uuid4)
+        sn4 = StorageNode(Mock(), server4, uuid4, NodeStates.RUNNING)
         uuid5 = self.getNewUUID()
         server5 = ("127.0.0.5", 1900)
-        sn5 = StorageNode(Mock(), server5, uuid5)
+        sn5 = StorageNode(Mock(), server5, uuid5, NodeStates.RUNNING)
         # make the table
         pt.make([sn1, sn2, sn3, sn4, sn5,])
         # check it's ok, only running nodes and node with uuid
@@ -419,19 +419,19 @@ class MasterPartitionTableTests(NeoTestBase):
         # create nodes
         uuid1 = self.getNewUUID()
         server1 = ("127.0.0.1", 19001)
-        sn1 = StorageNode(Mock(), server1, uuid1)
+        sn1 = StorageNode(Mock(), server1, uuid1, NodeStates.RUNNING)
         uuid2 = self.getNewUUID()
         server2 = ("127.0.0.2", 19002)
-        sn2 = StorageNode(Mock(), server2, uuid2)
+        sn2 = StorageNode(Mock(), server2, uuid2, NodeStates.RUNNING)
         uuid3 = self.getNewUUID()
         server3 = ("127.0.0.3", 19003)
-        sn3 = StorageNode(Mock(), server3, uuid3)
+        sn3 = StorageNode(Mock(), server3, uuid3, NodeStates.RUNNING)
         uuid4 = self.getNewUUID()
         server4 = ("127.0.0.4", 19004)
-        sn4 = StorageNode(Mock(), server4, uuid4)
+        sn4 = StorageNode(Mock(), server4, uuid4, NodeStates.RUNNING)
         uuid5 = self.getNewUUID()
         server5 = ("127.0.0.5", 19005)
-        sn5 = StorageNode(Mock(), server5, uuid5)
+        sn5 = StorageNode(Mock(), server5, uuid5, NodeStates.RUNNING)
         # create partition table
         # 0 : sn1(discarded), sn2(up), -> sn2 must remain
         # 1 : sn1(feeding), sn2(feeding), sn3(up) -> one feeding and sn3 must remain
