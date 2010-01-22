@@ -263,7 +263,7 @@ class Connection(BaseConnection):
                 elif packet_type != Packets.Pong:
                     # Skip PONG packets, its only purpose is to drop IdleEvent
                     # generated upong ping.
-                    self._enqueue(packet)
+                    self._queue.append(packet)
             finally:
                 self.read_buf = self.read_buf[len(packet):]
 
@@ -273,23 +273,11 @@ class Connection(BaseConnection):
         """
         return len(self._queue) != 0
 
-    def _enqueue(self, packet):
-        """
-          Enqueue a parsed packet for future processing.
-        """
-        self._queue.append(packet)
-
-    def _dequeue(self):
-        """
-          Dequeue a packet for processing.
-        """
-        return self._queue.pop(0)
-
     def process(self):
         """
           Process a pending packet.
         """
-        packet = self._dequeue()
+        packet = self._queue.pop(0)
         PACKET_LOGGER.dispatch(self, packet, 'from')
         self.handler.packetReceived(self, packet)
 
