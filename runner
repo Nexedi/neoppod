@@ -104,6 +104,7 @@ class NeoTestRunner(unittest.TestResult):
         print "Base directory : %s" % (self.temp_directory, )
 
     def run(self, name, modules):
+        print '\n', name
         suite = unittest.TestSuite()
         loader = unittest.defaultTestLoader
         for test_module in modules:
@@ -142,7 +143,7 @@ class NeoTestRunner(unittest.TestResult):
         stats.time += time.time() - self.lastStart
 
     def startTest(self, test):
-        print test.__class__.__module__, test._TestCase__testMethodName
+        print ' *', test.__class__.__module__, test._TestCase__testMethodName
         unittest.TestResult.startTest(self, test)
         module = test.__class__.__name__
         method = test._TestCase__testMethodName
