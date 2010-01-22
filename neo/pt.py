@@ -188,7 +188,8 @@ class PartitionTable(object):
             self.clear()
             self.id = ptid
         for offset, row in row_list:
-            assert offset < self.getPartitions() and not self.hasOffset(offset)
+            if offset >= self.getPartitions() or self.hasOffset(offset):
+                raise IndexError
             for uuid, state in row:
                 node = nm.getByUUID(uuid)
                 # the node must be known by the node manager
