@@ -1125,7 +1125,7 @@ class AnswerNewNodes(Packet):
 
 class NotifyNodeInformation(Packet):
     """
-    Notify information about one or more nodes. Any -> PM, PM -> Any.
+    Notify information about one or more nodes. PM -> Any.
     """
     def _encode(self, node_list):
         body = [pack('!L', len(node_list))]
