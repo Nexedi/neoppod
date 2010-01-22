@@ -24,6 +24,13 @@ from neo.util import dump
 class RecoveryHandler(MasterHandler):
     """This class deals with events for a recovery phase."""
 
+    def connectionLost(self, conn, new_state):
+        node = self.app.nm.getByUUID(conn.getUUID())
+        assert node is not None
+        if node.getState() == new_state:
+            return
+        node.setState(new_state)
+
     def connectionCompleted(self, conn):
         # ask the last IDs to perform the recovery
         conn.ask(Packets.AskLastIDs())
