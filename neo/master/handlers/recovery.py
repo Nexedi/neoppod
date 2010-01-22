@@ -17,7 +17,7 @@
 
 from neo import logging
 
-from neo.protocol import Packets
+from neo.protocol import Packets, UnexpectedPacketError
 from neo.master.handlers import MasterHandler
 from neo.util import dump
 
@@ -56,5 +56,8 @@ class RecoveryHandler(MasterHandler):
                 if node is None:
                     app.nm.createStorage(uuid=uuid)
         # load partition in memory
-        self.app.pt.load(ptid, row_list, self.app.nm)
+        try:
+            self.app.pt.load(ptid, row_list, self.app.nm)
+        except IndexError:
+            raise UnexpectedPacketError('Invalid offset')
 
