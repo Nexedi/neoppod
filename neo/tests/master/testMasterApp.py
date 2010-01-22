@@ -65,7 +65,7 @@ class MasterAppTests(NeoTestBase):
 
         # no address defined, not send to client node
         c_node = self.app.nm.createClient(uuid = self.getNewUUID())
-        self.app.broadcastNodeInformation(c_node)
+        self.app.broadcastNodesInformation([c_node])
         # check conn
         self.checkNoPacketSent(client_conn)
         self.checkNotifyNodeInformation(master_conn)
@@ -80,7 +80,7 @@ class MasterAppTests(NeoTestBase):
             uuid = self.getNewUUID(),
             address=("127.1.0.1", 3361)
         )
-        self.app.broadcastNodeInformation(c_node)
+        self.app.broadcastNodesInformation([c_node])
         # check conn
         self.checkNoPacketSent(client_conn)
         self.checkNotifyNodeInformation(master_conn)
@@ -96,7 +96,7 @@ class MasterAppTests(NeoTestBase):
             address=("127.0.0.1", 1351)
         )
 
-        self.app.broadcastNodeInformation(s_node)
+        self.app.broadcastNodesInformation([s_node])
         # check conn
         self.checkNotifyNodeInformation(client_conn)
         self.checkNotifyNodeInformation(master_conn)
