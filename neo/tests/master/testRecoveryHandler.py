@@ -95,8 +95,10 @@ class MasterRecoveryTests(NeoTestBase):
         recovery = self.recovery
         uuid = self.identifyToMasterNode()
         packet = Packets.AnswerLastIDs()
-        loid = self.app.loid
+        loid = self.app.loid = '\1' * 8
+        self.app.tm.setLastTID('\1' * 8)
         ltid = self.app.tm.getLastTID()
+        self.app.pt.setID('\1' * 8)
         lptid = self.app.pt.getID()
         # send information which are later to what PMN knows, this must update target node
         conn = self.getFakeConnection(uuid, self.storage_port)
