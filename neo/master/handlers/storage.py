@@ -86,7 +86,7 @@ class StorageServiceHandler(BaseServiceHandler):
                         c.notify(Packets.InvalidateObjects(t.getOIDList(), tid))
                 elif node.isStorage():
                     if uuid in t.getUUIDList():
-                        c.notify(Packets.UnlockInformation(tid))
+                        c.notify(Packets.NotifyUnlockInformation(tid))
 
         # remove transaction from manager
         self.app.tm.remove(tid)

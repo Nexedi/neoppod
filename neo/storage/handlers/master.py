@@ -69,7 +69,7 @@ class MasterOperationHandler(BaseMasterHandler):
             pass
         conn.answer(Packets.NotifyInformationLocked(tid), packet.getId())
 
-    def unlockInformation(self, conn, packet, tid):
+    def notifyUnlockInformation(self, conn, packet, tid):
         app = self.app
         try:
             t = app.transaction_dict[tid]

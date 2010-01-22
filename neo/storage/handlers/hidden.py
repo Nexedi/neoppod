@@ -109,7 +109,7 @@ class HiddenHandler(BaseMasterHandler):
     def lockInformation(self, conn, packet, tid):
         pass
 
-    def unlockInformation(self, conn, packet, tid):
+    def notifyUnlockInformation(self, conn, packet, tid):
         pass
 
     def askObject(self, conn, packet, oid, serial, tid):

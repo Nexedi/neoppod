@@ -234,7 +234,7 @@ class EventHandler(object):
     def invalidateObjects(self, conn, packet, oid_list, tid):
         raise UnexpectedPacketError
 
-    def unlockInformation(self, conn, packet, tid):
+    def notifyUnlockInformation(self, conn, packet, tid):
         raise UnexpectedPacketError
 
     def askStoreObject(self, conn, packet, oid, serial,
@@ -402,7 +402,7 @@ class EventHandler(object):
         d[Packets.LockInformation] = self.lockInformation
         d[Packets.NotifyInformationLocked] = self.notifyInformationLocked
         d[Packets.InvalidateObjects] = self.invalidateObjects
-        d[Packets.UnlockInformation] = self.unlockInformation
+        d[Packets.NotifyUnlockInformation] = self.notifyUnlockInformation
         d[Packets.AskNewOIDs] = self.askNewOIDs
         d[Packets.AnswerNewOIDs] = self.answerNewOIDs
         d[Packets.AskStoreObject] = self.askStoreObject

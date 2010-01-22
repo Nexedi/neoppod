@@ -274,8 +274,8 @@ class NeoTestBase(unittest.TestCase):
     def checkLockInformation(self, conn, **kw):
         return self.checkAskPacket(conn, Packets.LockInformation, **kw)
 
-    def checkUnlockInformation(self, conn, **kw):
-        return self.checkNotifyPacket(conn, Packets.UnlockInformation, **kw)
+    def checkNotifyUnlockInformation(self, conn, **kw):
+        return self.checkNotifyPacket(conn, Packets.NotifyUnlockInformation, **kw)
 
     def checkRequestIdentification(self, conn, **kw):
         return self.checkAskPacket(conn, Packets.RequestIdentification, **kw)

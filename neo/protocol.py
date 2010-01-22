@@ -697,7 +697,7 @@ class InvalidateObjects(Packet):
             oid_list.append(oid)
         return (oid_list, tid)
 
-class UnlockInformation(Packet):
+class NotifyUnlockInformation(Packet):
     """
     Unlock information on a transaction. PM -> S.
     """
@@ -1297,7 +1297,7 @@ class PacketRegistry(dict):
     LockInformation = register(0x0014, LockInformation)
     NotifyInformationLocked = register(0x8014, NotifyInformationLocked)
     InvalidateObjects = register(0x0015, InvalidateObjects)
-    UnlockInformation = register(0x0016, UnlockInformation)
+    NotifyUnlockInformation = register(0x0016, NotifyUnlockInformation)
     AskNewOIDs = register(0x0017, AskNewOIDs)
     AnswerNewOIDs = register(0x8017, AnswerNewOIDs)
     AskStoreObject = register(0x0018, AskStoreObject)

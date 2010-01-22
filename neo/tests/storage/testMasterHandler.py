@@ -164,7 +164,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.operation.lockInformation(conn, packet, '\x01' * 8)
         self.checkNotifyInformationLocked(conn, answered_packet=packet)
 
-    def test_23_unlockInformation2(self):
+    def test_23_notifyUnlockInformation2(self):
         # delete transaction informations
         conn = Mock({ 'isServer': False, })
         self.app.dm = Mock({ })
@@ -174,7 +174,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.app.transaction_dict[INVALID_TID] = transaction
         self.app.load_lock_dict[0] = transaction
         self.app.store_lock_dict[0] = transaction
-        self.operation.unlockInformation(conn, packet, INVALID_TID)
+        self.operation.notifyUnlockInformation(conn, packet, INVALID_TID)
         self.assertEquals(len(self.app.load_lock_dict), 0)
         self.assertEquals(len(self.app.store_lock_dict), 0)
         self.assertEquals(len(self.app.store_lock_dict), 0)

@@ -316,9 +316,9 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(ptid, tid)
         self.assertEqual(p_oid_list, oid_list)
 
-    def test_41_unlockInformation(self):
+    def test_41_notifyUnlockInformation(self):
         tid = self.getNextTID()
-        p = Packets.UnlockInformation(tid)
+        p = Packets.NotifyUnlockInformation(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 

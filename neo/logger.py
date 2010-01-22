@@ -152,7 +152,7 @@ class PacketLogger(EventHandler):
     def invalidateObjects(self, conn, packet, oid_list, tid):
         pass
 
-    def unlockInformation(self, conn, packet, tid):
+    def notifyUnlockInformation(self, conn, packet, tid):
         pass
 
     def askStoreObject(self, conn, packet, oid, serial,

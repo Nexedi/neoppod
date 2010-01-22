@@ -123,8 +123,8 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.service.notifyInformationLocked(storage_conn_2, packet, tid)
         self.checkAnswerTransactionFinished(client_conn_1)
         self.checkInvalidateObjects(client_conn_2)
-        self.checkUnlockInformation(storage_conn_1)
-        self.checkUnlockInformation(storage_conn_2)
+        self.checkNotifyUnlockInformation(storage_conn_1)
+        self.checkNotifyUnlockInformation(storage_conn_2)
 
     def test_12_askLastIDs(self):
         service = self.service
