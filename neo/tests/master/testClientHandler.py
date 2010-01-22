@@ -115,6 +115,10 @@ class MasterClientHandlerTests(NeoTestBase):
         storage_conn = self.getFakeConnection(storage_uuid, self.storage_address)
         self.assertNotEquals(uuid, client_uuid)
         conn = self.getFakeConnection(client_uuid, self.client_address)
+        self.app.pt = Mock({
+            'getPartition': 0,
+            'getCellList': [Mock({'getUUID': storage_uuid})],
+        })
         service.askBeginTransaction(conn, packet, None)
         oid_list = []
         tid = self.app.tm.getLastTID()
@@ -125,9 +129,9 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertEquals(len(self.app.tm.getPendingList()), 1)
         apptid = self.app.tm.getPendingList()[0]
         self.assertEquals(tid, apptid)
-        txn = self.app.tm[tapptid]
+        txn = self.app.tm[tid]
         self.assertEquals(len(txn.getOIDList()), 0)
-        self.assertEquals(len(txn.getUUIDSet()), 1)
+        self.assertEquals(len(txn.getUUIDList()), 1)
         self.assertEquals(txn.getMessageId(), 9)
 
 
