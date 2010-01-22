@@ -74,40 +74,57 @@ class MasterStorageHandlerTests(NeoTestBase):
         conn = self.getFakeConnection(node.getUUID(),node.getAddress())
         return (node, conn)
 
-    def test_10_notifyInformationLocked(self):
-        service = self.service
-        node, conn = self.identifyToMasterNode(port=10020)
-        packet = Packets.NotifyInformationLocked()
-        packet.setId(0)
-        # give an older tid than the PMN known, must abort
-        oid_list = []
-        self.app.ltid = pack('!LL', 0, 1)
-        new_tid = pack('!LL', 0, 10)
-        self.checkUnexpectedPacketRaised(service.notifyInformationLocked, conn, packet, new_tid)
-        # job done through dispatch -> peerBroken
-        self.app.nm.remove(node)
-        self.app.pt.dropNode(node)
+    def test_notifyInformationLocked_1(self):
+        """
+            Master must refuse to lock if the TID is greater than the last TID
+        """
+        tid1 = self.getNextTID()
+        tid2 = self.getNextTID(tid1)
+        self.app.tm.setLastTID(tid1)
+        self.assertTrue(tid1 < tid2)
+        node, conn = self.identifyToMasterNode()
+        packet = Packets.NotifyInformationLocked(tid2)
+        self.checkUnexpectedPacketRaised(self.service.notifyInformationLocked,
+                conn, packet, tid2)
+        self.checkNoPacketSent(conn)
 
-        # do the right job
-        node, conn = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
-        self.client_handler.askBeginTransaction(conn, packet, None)
-        # clean mock object
-        conn.mockCalledMethods = {}
-        conn.mockAllCalledMethods = []
-        self.app.em = Mock({"getConnectionList" : [conn, storage_conn_1, storage_conn_2]})
-        oid_list = []
-        tid = self.app.ltid
-        service.finishTransaction(conn, packet, oid_list, tid)
-        self.checkLockInformation(storage_conn_1)
-        self.checkLockInformation(storage_conn_2)
-        service.notifyInformationLocked(storage_conn_1, packet, tid)
-        self.checkLockInformation(storage_conn_1)
-        self.checkLockInformation(storage_conn_2)
-        service.notifyInformationLocked(storage_conn_2, packet, tid)
-        self.checkNotifyTransactionFinished(conn)
-        self.checkLockInformation(storage_conn_1)
-        self.checkLockInformation(storage_conn_2)
-
+    def test_notifyInformationLocked_2(self):
+        """
+            Master must:
+            - lock each storage
+            - notify the client
+            - invalidate other clients
+            - unlock storages
+        """
+        # one client and two storages required
+        client_1, client_conn_1 = self._getClient()
+        client_2, client_conn_2 = self._getClient()
+        storage_1, storage_conn_1 = self._getStorage()
+        storage_2, storage_conn_2 = self._getStorage()
+        uuid_list = storage_1.getUUID(), storage_2.getUUID()
+        oid_list = self.getOID(), self.getOID()
+        msg_id = 1
+        # a faked event manager
+        connection_list = [client_conn_1, client_conn_2, storage_conn_1, 
+                storage_conn_2]
+        self.app.em = Mock({"getConnectionList" : connection_list})
+        # register a transaction
+        tid = self.app.tm.begin(client_1, None)
+        self.app.tm.prepare(tid, oid_list, uuid_list, msg_id)
+        self.assertTrue(tid in self.app.tm)
+        packet = Packets.NotifyInformationLocked(tid)
+        # the first storage acknowledge the lock
+        self.service.notifyInformationLocked(storage_conn_1, packet, tid)
+        self.checkNoPacketSent(client_conn_1)
+        self.checkNoPacketSent(client_conn_2)
+        self.checkNoPacketSent(storage_conn_1)
+        self.checkNoPacketSent(storage_conn_2)
+        # then the second
+        self.service.notifyInformationLocked(storage_conn_2, packet, tid)
+        self.checkNotifyTransactionFinished(client_conn_1)
+        self.checkInvalidateObjects(client_conn_2)
+        self.checkUnlockInformation(storage_conn_1)
+        self.checkUnlockInformation(storage_conn_2)
 
     def test_12_askLastIDs(self):
         service = self.service
