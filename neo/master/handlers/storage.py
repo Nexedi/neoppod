@@ -60,37 +60,36 @@ class StorageServiceHandler(BaseServiceHandler):
         if tid > self.app.tm.getLastTID():
             raise UnexpectedPacketError
 
-        try:
-            t = self.app.tm[tid]
-            if t.lock(uuid): # all nodes are locked
-                # XXX: review needed:
-                # don't iterate over connections but search by uuid
-                # include client's uuid in Transaction object
+        # transaction locked on this storage node
+        t = self.app.tm[tid]
+        if not t.lock(uuid): 
+            return
 
-                # I have received all the answers now. So send a Notify
-                # Transaction Finished to the initiated client node,
-                # Invalidate Objects to the other client nodes, and Unlock
-                # Information to relevant storage nodes.
-                for c in app.em.getConnectionList():
-                    uuid = c.getUUID()
-                    if uuid is not None:
-                        node = app.nm.getByUUID(uuid)
-                        if node.isClient():
-                            if node is t.getNode():
-                                p = Packets.NotifyTransactionFinished(tid)
-                                c.answer(p, t.getMessageId())
-                            else:
-                                p = Packets.InvalidateObjects(t.getOIDList(),
-                                        tid)
-                                c.notify(p)
-                        elif node.isStorage():
-                            if uuid in t.getUUIDList():
-                                p = Packets.UnlockInformation(tid)
-                                c.notify(p)
-                self.app.tm.remove(tid)
-        except KeyError:
-            # What is this?
-            pass
+        # all nodes are locked
+        # XXX: review needed:
+        # don't iterate over connections but search by uuid
+        # include client's uuid in Transaction object
+
+        # I have received all the answers now. So send a Notify
+        # Transaction Finished to the initiated client node,
+        # Invalidate Objects to the other client nodes, and Unlock
+        # Information to relevant storage nodes.
+        for c in app.em.getConnectionList():
+            uuid = c.getUUID()
+            if uuid is not None:
+                node = app.nm.getByUUID(uuid)
+                if node.isClient():
+                    if node is t.getNode():
+                        p = Packets.NotifyTransactionFinished(tid)
+                        c.answer(p, t.getMessageId())
+                    else:
+                        c.notify(Packets.InvalidateObjects(t.getOIDList(), tid))
+                elif node.isStorage():
+                    if uuid in t.getUUIDList():
+                        c.notify(Packets.UnlockInformation(tid))
+
+        # remove transaction from manager
+        self.app.tm.remove(tid)
 
     def notifyReplicationDone(self, conn, packet, offset):
         uuid = conn.getUUID()
