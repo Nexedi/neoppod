@@ -55,16 +55,15 @@ class Application(object):
         # always use default connector for now
         self.connector_handler = getConnectorHandler()
 
-        self.name = config.getCluster()
-        self.server = config.getBind()
-        self.master_node_list = config.getMasters()
-
-        logging.debug('IP address is %s, port is %d', *(self.server))
-        logging.debug('master nodes are %s', self.master_node_list)
-
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
+
+        self.name = config.getCluster()
+        self.server = config.getBind()
+        self.master_addresses = config.getMasters()
+
+        logging.debug('IP address is %s, port is %d', *(self.server))
 
         # The partition table is initialized after getting the number of
         # partitions.
@@ -113,8 +112,9 @@ class Application(object):
         nm = self.nm
         nm.clear()
         self.cluster_state = None
-        for address in self.master_node_list:
-            nm.createMaster(address=address)
+
+        for address in self.master_addresses:
+            self.nm.createMaster(address=address)
 
         # search, find, connect and identify to the primary master
         bootstrap = BootstrapManager(self, self.name, NodeTypes.ADMIN,

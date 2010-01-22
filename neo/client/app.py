@@ -252,9 +252,7 @@ class Application(object):
         self.trying_master_node = None
 
         # load master node list
-        self.master_node_list = parseMasterList(master_nodes)
-        logging.debug('master nodes are %s', self.master_node_list)
-        for address in self.master_node_list:
+        for address in parseMasterList(master_nodes):
             self.nm.createMaster(address=address)
 
         # no self-assigned UUID, primary master will supply us one

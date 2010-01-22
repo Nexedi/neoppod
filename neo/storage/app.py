@@ -43,18 +43,18 @@ class Application(object):
         # set the cluster name
         self.name = config.getCluster()
 
-        # set the bind address
-        self.server = config.getBind()
-        logging.debug('IP address is %s, port is %d', *(self.server))
-
-        # load master node list
-        self.master_node_list = config.getMasters()
-        logging.debug('master nodes are %s', self.master_node_list)
-
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
         self.dm = buildDatabaseManager(config.getAdapter(), config.getDatabase())
+
+        # load master nodes
+        for address in config.getMasters():
+            self.nm.createMaster(address=address)
+
+        # set the bind address
+        self.server = config.getBind()
+        logging.debug('IP address is %s, port is %d', *(self.server))
 
         # The partition table is initialized after getting the number of
         # partitions.
@@ -131,9 +131,6 @@ class Application(object):
         """Make sure that the status is sane and start a loop."""
         if len(self.name) == 0:
             raise RuntimeError, 'cluster name must be non-empty'
-
-        for address in self.master_node_list:
-            self.nm.createMaster(address=address)
 
         # Make a listening port
         handler = identification.IdentificationHandler(self)

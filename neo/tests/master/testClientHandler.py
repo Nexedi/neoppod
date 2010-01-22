@@ -34,8 +34,6 @@ class MasterClientHandlerTests(NeoTestBase):
         self.app.em = Mock({"getConnectionList" : []})
         self.app.loid = '\0' * 8
         self.app.tm.setLastTID('\0' * 8)
-        for address in self.app.master_node_list:
-            self.app.nm.createMaster(address=address)
         self.service = ClientServiceHandler(self.app)
         # define some variable to simulate client and storage node
         self.client_port = 11022

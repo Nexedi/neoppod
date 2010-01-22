@@ -45,8 +45,6 @@ class StorageStorageHandlerTests(NeoTestBase):
         self.app.store_lock_dict = {}
         self.app.load_lock_dict = {}
         self.app.event_queue = deque()
-        for address in self.app.master_node_list:
-            self.app.nm.createMaster(address=address)
         # handler
         self.operation = StorageOperationHandler(self.app)
         # set pmn

@@ -33,8 +33,6 @@ class MasterVerificationTests(NeoTestBase):
         config = self.getMasterConfiguration()
         self.app = Application(config)
         self.app.pt.clear()
-        for address in self.app.master_node_list:
-            self.app.nm.createMaster(address=address)
         self.verification = VerificationHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()

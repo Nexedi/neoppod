@@ -43,8 +43,6 @@ class MasterClientElectionTests(NeoTestBase):
         self.app = Application(config)
         self.app.pt.clear()
         self.app.em = Mock({"getConnectionList" : []})
-        for address in self.app.master_node_list:
-            self.app.nm.createMaster(address=address)
         self.election = ClientElectionHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
@@ -245,8 +243,6 @@ class MasterServerElectionTests(NeoTestBase):
         self.app = Application(config)
         self.app.pt.clear()
         self.app.em = Mock({"getConnectionList" : []})
-        for address in self.app.master_node_list:
-            self.app.nm.createMaster(address=address)
         self.election = ServerElectionHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()

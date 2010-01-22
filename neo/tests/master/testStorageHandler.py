@@ -35,8 +35,6 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.app.pt.clear()
         self.app.pt.setID(pack('!Q', 1))
         self.app.em = Mock({"getConnectionList" : []})
-        for address in self.app.master_node_list:
-            self.app.nm.createMaster(address=address)
         self.service = StorageServiceHandler(self.app)
         self.client_handler = ClientServiceHandler(self.app)
         # define some variable to simulate client and storage node

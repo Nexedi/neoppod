@@ -46,17 +46,18 @@ class Application(object):
         # always use default connector for now
         self.connector_handler = getConnectorHandler()
 
-        self.name = config.getCluster()
-        self.server = config.getBind()
-        self.master_node_list = config.getMasters()
-
-        logging.debug('IP address is %s, port is %d', *(self.server))
-        logging.debug('master nodes are %s', self.master_node_list)
-
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
         self.tm = TransactionManager()
+
+        self.name = config.getCluster()
+        self.server = config.getBind()
+
+        for address in config.getMasters():
+            self.nm.createMaster(address=address)
+
+        logging.debug('IP address is %s, port is %d', *(self.server))
 
         # Partition table
         replicas, partitions = config.getReplicas(), config.getPartitions()
@@ -98,8 +99,6 @@ class Application(object):
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
-        for address in self.master_node_list:
-            self.nm.createMaster(address=address)
 
         # Make a listening port.
         self.listening_conn = ListeningConnection(self.em, None,
