@@ -92,50 +92,31 @@ class StorageServiceHandler(BaseServiceHandler):
             # What is this?
             pass
 
-    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
-        # This should be sent when a cell becomes up-to-date because
-        # a replication has finished.
+    def notifyReplicationDone(self, conn, packet, offset):
         uuid = conn.getUUID()
-        app = self.app
-        node = app.nm.getByUUID(uuid)
+        node = self.app.nm.getByUUID(uuid)
+        logging.debug("node %s is up for offset %s" % (dump(uuid), offset))
 
-        new_cell_list = []
-        for cell in cell_list:
-            if cell[2] != CellStates.UP_TO_DATE:
-                logging.warn('only up-to-date state should be sent')
-                continue
+        # check the partition is assigned and known as outdated
+        for cell in self.app.pt.getCellList(offset):
+            if cell.getUUID() == uuid:
+                if not cell.isOutOfDate():
+                    raise ProtocolError("Non-oudated partition")
+                break
+        else:
+            raise ProtocolError("Non-assigned partition")
 
-            if uuid != cell[1]:
-                logging.warn('only a cell itself should send this packet')
-                continue
+        # update the partition table
+        self.app.pt.setCell(offset, node, CellStates.UP_TO_DATE)
+        cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
 
-            offset = cell[0]
-            logging.debug("node %s is up for offset %s" %
-                    (dump(node.getUUID()), offset))
-
-            # check the storage said it is up to date for a partition it was
-            # assigne to
-            for xcell in app.pt.getCellList(offset):
-                if xcell.getNode().getUUID() == node.getUUID() and \
-                       xcell.getState() not in (CellStates.OUT_OF_DATE,
-                               CellStates.UP_TO_DATE):
-                    msg = "node %s telling that it is UP TO DATE for offset \
-                    %s but where %s for that offset" % (dump(node.getUUID()),
-                            offset, xcell.getState())
-                    raise ProtocolError(msg)
-
-
-            app.pt.setCell(offset, node, CellStates.UP_TO_DATE)
-            new_cell_list.append(cell)
-
-            # If the partition contains a feeding cell, drop it now.
-            for feeding_cell in app.pt.getCellList(offset):
-                if feeding_cell.getState() == CellStates.FEEDING:
-                    app.pt.removeCell(offset, feeding_cell.getNode())
-                    new_cell_list.append((offset, feeding_cell.getUUID(),
-                                          CellStates.DISCARDED))
-                    break
-
-        app.broadcastPartitionChanges(new_cell_list)
+        # If the partition contains a feeding cell, drop it now.
+        for feeding_cell in self.app.pt.getCellList(offset):
+            if feeding_cell.isFeeding():
+                self.app.pt.removeCell(offset, feeding_cell.getNode())
+                cell = (offset, feeding_cell.getUUID(), CellStates.DISCARDED)
+                cell_list.append(cell)
+                break
+        self.app.broadcastPartitionChanges(cell_list)
 
 
