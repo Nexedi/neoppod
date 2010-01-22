@@ -691,13 +691,13 @@ class ClientHandlerTests(NeoTestBase):
         self.assertEquals(len(setTID_call_list), 1)
         self.assertEquals(setTID_call_list[0].getParam(0), test_tid)
 
-    def test_NotifyTransactionFinished(self):
+    def test_AnswerTransactionFinished(self):
         test_tid = 1
         app = Mock({'getTID': test_tid, 'setTransactionFinished': None})
         dispatcher = self.getDispatcher()
         client_handler = PrimaryAnswersHandler(app)
         conn = self.getConnection()
-        client_handler.notifyTransactionFinished(conn, None, test_tid)
+        client_handler.answerTransactionFinished(conn, None, test_tid)
         self.assertEquals(len(app.mockGetNamedCalls('setTransactionFinished')), 1)
         # TODO: decide what to do when non-current transaction is notified as finished, and test that behaviour
 

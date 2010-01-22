@@ -647,9 +647,9 @@ class FinishTransaction(Packet):
             oid_list.append(oid)
         return (oid_list, tid)
 
-class NotifyTransactionFinished(Packet):
+class AnswerTransactionFinished(Packet):
     """
-    Notify a transaction finished. PM -> C.
+    Answer when a transaction is finished. PM -> C.
     """
     def _encode(self, tid):
         return _encodeTID(tid)
@@ -1293,7 +1293,7 @@ class PacketRegistry(dict):
     AskBeginTransaction = register(0x0012, AskBeginTransaction)
     AnswerBeginTransaction = register(0x8012, AnswerBeginTransaction)
     FinishTransaction = register(0x0013, FinishTransaction)
-    NotifyTransactionFinished = register(0x8013, NotifyTransactionFinished)
+    AnswerTransactionFinished = register(0x8013, AnswerTransactionFinished)
     LockInformation = register(0x0014, LockInformation)
     NotifyInformationLocked = register(0x8014, NotifyInformationLocked)
     InvalidateObjects = register(0x0015, InvalidateObjects)

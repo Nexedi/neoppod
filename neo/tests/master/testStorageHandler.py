@@ -121,7 +121,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.checkNoPacketSent(storage_conn_2)
         # then the second
         self.service.notifyInformationLocked(storage_conn_2, packet, tid)
-        self.checkNotifyTransactionFinished(client_conn_1)
+        self.checkAnswerTransactionFinished(client_conn_1)
         self.checkInvalidateObjects(client_conn_2)
         self.checkUnlockInformation(storage_conn_1)
         self.checkUnlockInformation(storage_conn_2)

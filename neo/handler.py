@@ -222,7 +222,7 @@ class EventHandler(object):
     def finishTransaction(self, conn, packet, oid_list, tid):
         raise UnexpectedPacketError
 
-    def notifyTransactionFinished(self, conn, packet, tid):
+    def answerTransactionFinished(self, conn, packet, tid):
         raise UnexpectedPacketError
 
     def lockInformation(self, conn, packet, tid):
@@ -398,7 +398,7 @@ class EventHandler(object):
         d[Packets.AskBeginTransaction] = self.askBeginTransaction
         d[Packets.AnswerBeginTransaction] = self.answerBeginTransaction
         d[Packets.FinishTransaction] = self.finishTransaction
-        d[Packets.NotifyTransactionFinished] = self.notifyTransactionFinished
+        d[Packets.AnswerTransactionFinished] = self.answerTransactionFinished
         d[Packets.LockInformation] = self.lockInformation
         d[Packets.NotifyInformationLocked] = self.notifyInformationLocked
         d[Packets.InvalidateObjects] = self.invalidateObjects

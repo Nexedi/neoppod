@@ -186,7 +186,7 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
         app.new_oid_list = oid_list
         app.new_oid_list.reverse()
 
-    def notifyTransactionFinished(self, conn, packet, tid):
+    def answerTransactionFinished(self, conn, packet, tid):
         app = self.app
         if tid == app.getTID():
             app.setTransactionFinished()

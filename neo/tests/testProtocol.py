@@ -286,9 +286,9 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(ptid, tid)
         self.assertEqual(p_oid_list, oid_list)
 
-    def test_37_notifyTransactionFinished(self):
+    def test_37_answerTransactionFinished(self):
         tid = self.getNextTID()
-        p = Packets.NotifyTransactionFinished(tid)
+        p = Packets.AnswerTransactionFinished(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 

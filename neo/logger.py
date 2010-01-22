@@ -140,7 +140,7 @@ class PacketLogger(EventHandler):
     def finishTransaction(self, conn, packet, oid_list, tid):
         pass
 
-    def notifyTransactionFinished(self, conn, packet, tid):
+    def answerTransactionFinished(self, conn, packet, tid):
         pass
 
     def lockInformation(self, conn, packet, tid):

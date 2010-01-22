@@ -80,7 +80,7 @@ class StorageServiceHandler(BaseServiceHandler):
                 node = app.nm.getByUUID(uuid)
                 if node.isClient():
                     if node is t.getNode():
-                        p = Packets.NotifyTransactionFinished(tid)
+                        p = Packets.AnswerTransactionFinished(tid)
                         c.answer(p, t.getMessageId())
                     else:
                         c.notify(Packets.InvalidateObjects(t.getOIDList(), tid))

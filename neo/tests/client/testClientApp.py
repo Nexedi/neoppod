@@ -133,7 +133,7 @@ class ClientApplicationTests(NeoTestBase):
     def finishTransaction(self, app):
         txn = app.local_var.txn
         tid = app.local_var.tid
-        packet = Packets.NotifyTransactionFinished(tid)
+        packet = Packets.AnswerTransactionFinished(tid)
         app.master_conn = Mock({
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10010),
@@ -624,7 +624,7 @@ class ClientApplicationTests(NeoTestBase):
         def hook(tid):
             self.f_called = True
             self.f_called_with_tid = tid
-        packet = Packets.NotifyTransactionFinished(tid)
+        packet = Packets.AnswerTransactionFinished(tid)
         app.master_conn = Mock({
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10010),
