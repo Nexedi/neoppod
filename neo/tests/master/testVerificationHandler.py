@@ -33,7 +33,6 @@ class MasterVerificationTests(NeoTestBase):
         config = self.getMasterConfiguration()
         self.app = Application(config)
         self.app.pt.clear()
-        self.app.finishing_transaction_dict = {}
         for address in self.app.master_node_list:
             self.app.nm.createMaster(address=address)
         self.verification = VerificationHandler(self.app)

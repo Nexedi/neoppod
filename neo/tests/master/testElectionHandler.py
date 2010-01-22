@@ -43,7 +43,6 @@ class MasterClientElectionTests(NeoTestBase):
         self.app = Application(config)
         self.app.pt.clear()
         self.app.em = Mock({"getConnectionList" : []})
-        self.app.finishing_transaction_dict = {}
         for address in self.app.master_node_list:
             self.app.nm.createMaster(address=address)
         self.election = ClientElectionHandler(self.app)
@@ -246,7 +245,6 @@ class MasterServerElectionTests(NeoTestBase):
         self.app = Application(config)
         self.app.pt.clear()
         self.app.em = Mock({"getConnectionList" : []})
-        self.app.finishing_transaction_dict = {}
         for address in self.app.master_node_list:
             self.app.nm.createMaster(address=address)
         self.election = ServerElectionHandler(self.app)
