@@ -207,8 +207,8 @@ class Application(object):
                         ClientConnection(self.em, client_handler, addr=addr,
                              connector_handler=self.connector_handler)
             self.em.poll(1)
-            if len(self.unconnected_master_node_set) == 0 \
-               and len(self.negotiating_master_node_set) == 0:
+            if len(self.unconnected_master_node_set |
+                    self.negotiating_master_node_set) == 0:
                 break
 
 
