@@ -58,9 +58,6 @@ class PrimaryHandler(MasterHandler):
         self.app.primary_master_node.setDown()
         raise PrimaryFailure, 'primary master is dead'
 
-    def announcePrimary(self, conn, packet):
-        raise protocol.UnexpectedPacketError
-
     def reelectPrimary(self, conn, packet):
         raise ElectionFailure, 'reelection requested'
 
