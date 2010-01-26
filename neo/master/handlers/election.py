@@ -196,7 +196,7 @@ class ClientElectionHandler(ElectionHandler):
                 app.negotiating_master_node_set.intersection_update(
                     [primary_server])
 
-        # Request a node idenfitication.
+        # Request a node identification.
         conn.ask(Packets.RequestIdentification(
             NodeTypes.MASTER,
             app.uuid,
