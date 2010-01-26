@@ -154,14 +154,7 @@ class Application(object):
                 self.primary = None
                 self.primary_master_node = None
                 self._doElection(bootstrap)
-
                 self.primary = self.primary is None
-                if self.primary:
-                    # i'm the primary, send the announcement
-                    self._announcePrimary()
-                else:
-                    # otherwise, wait for the primary announcement
-                    self._waitForPrimaryAnnouncement()
                 break
         except ElectionFailure, m:
             # something goes wrong, clean then restart
@@ -606,6 +599,8 @@ class Application(object):
         logging.info('play the primary role with %s (%s:%d)',
                 dump(self.uuid), *(self.server))
 
+        # i'm the primary, send the announcement
+        self._announcePrimary()
         # all incoming connections identify through this handler
         self.listening_conn.setHandler(
                 identification.IdentificationHandler(self))
@@ -647,6 +642,8 @@ class Application(object):
         logging.info('play the secondary role with %s (%s:%d)',
                 dump(self.uuid), *(self.server))
 
+        # otherwise, wait for the primary announcement
+        self._waitForPrimaryAnnouncement()
 
         # apply the new handler to the primary connection
         client_list = self.em.getClientList()
