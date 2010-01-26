@@ -80,7 +80,7 @@ class Epoll(object):
         else:
             timeout *= 1000
             timeout = int(timeout)
-        while 1:
+        while True:
             n = epoll_wait(self.efd, byref(self.events), self.maxevents,
                            timeout)
             if n == -1:

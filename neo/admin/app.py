@@ -91,10 +91,10 @@ class Application(object):
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permentnly,
         # until the user explicitly requests a shutdown.
-        while 1:
+        while True:
             self.connectToPrimary()
             try:
-                while 1:
+                while True:
                     self.em.poll(1)
             except PrimaryFailure:
                 logging.error('primary master is down')

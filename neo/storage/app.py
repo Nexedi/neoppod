@@ -140,12 +140,12 @@ class Application(object):
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permentnly,
         # until the user explicitly requests a shutdown.
-        while 1:
+        while True:
             # look for the primary master
             self.connectToPrimary()
             self.operational = False
             try:
-                while 1:
+                while True:
                     try:
                         # check my state
                         node = self.nm.getByUUID(self.uuid)
@@ -262,7 +262,7 @@ class Application(object):
         # The replicator.
         self.replicator = Replicator(self)
 
-        while 1:
+        while True:
             em.poll(1)
             if self.replicator.pending():
                 self.replicator.act()
@@ -275,7 +275,7 @@ class Application(object):
             conn.setHandler(handler)
 
         node = self.nm.getByUUID(self.uuid)
-        while 1:
+        while True:
             self.em.poll(1)
             if not node.isHidden():
                 break

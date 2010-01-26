@@ -109,7 +109,7 @@ class Application(object):
         self.electPrimary()
 
         # Start a normal operation.
-        while 1:
+        while True:
             try:
                 if self.primary:
                     self.playPrimaryRole()
@@ -466,7 +466,7 @@ class Application(object):
         if len(self.asking_uuid_dict) == 0:
             raise VerificationFailure
 
-        while 1:
+        while True:
             em.poll(1)
             if not self.pt.operational():
                 raise VerificationFailure
@@ -494,7 +494,7 @@ class Application(object):
                         self.asking_uuid_dict[uuid] = False
                         conn.ask(Packets.AskObjectPresent(oid, tid))
 
-                while 1:
+                while True:
                     em.poll(1)
                     if not self.pt.operational():
                         raise VerificationFailure
@@ -531,7 +531,7 @@ class Application(object):
                     self.asking_uuid_dict[uuid] = False
                     conn.ask(Packets.AskUnfinishedTransactions())
 
-        while 1:
+        while True:
             em.poll(1)
             if not self.pt.operational():
                 raise VerificationFailure
@@ -633,7 +633,7 @@ class Application(object):
         # recover the cluster status at startup
         self.recoverStatus()
 
-        while 1:
+        while True:
             try:
                 self.verifyData()
             except VerificationFailure:
@@ -657,7 +657,7 @@ class Application(object):
         handler = identification.IdentificationHandler(self)
         self.listening_conn.setHandler(handler)
 
-        while 1:
+        while True:
             self.em.poll(1)
 
     def changeClusterState(self, state):
@@ -740,7 +740,7 @@ class Application(object):
             c.setHandler(handler)
 
         # wait for all transaction to be finished
-        while 1:
+        while True:
             self.em.poll(1)
             if not self.tm.hasPending():
                 if self.cluster_state == ClusterStates.RUNNING:

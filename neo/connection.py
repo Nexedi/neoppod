@@ -235,7 +235,7 @@ class Connection(BaseConnection):
 
     def analyse(self):
         """Analyse received data."""
-        while 1:
+        while True:
             packet = None
             try:
                 packet = Packets.parse(self.read_buf)

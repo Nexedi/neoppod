@@ -297,7 +297,7 @@ class Application(object):
     def _waitMessage(self, target_conn = None, msg_id = None, handler=None):
         """Wait for a message returned by the dispatcher in queues."""
         local_queue = self.local_var.queue
-        while 1:
+        while True:
             if msg_id is None:
                 try:
                     conn, packet = local_queue.get_nowait()
