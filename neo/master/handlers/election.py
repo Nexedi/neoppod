@@ -184,18 +184,17 @@ class ClientElectionHandler(ElectionHandler):
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
                 logging.warning('received an unknown primary node UUID')
-            else:
-                if primary_node.getUUID() == primary_uuid:
-                    # Whatever the situation is, I trust this master.
-                    app.primary = False
-                    app.primary_master_node = primary_node
-                    # Stop waiting for connections than primary master's to
-                    # complete to exit election phase ASAP.
-                    primary_server = primary_node.getAddress()
-                    app.unconnected_master_node_set.intersection_update(
-                        [primary_server])
-                    app.negotiating_master_node_set.intersection_update(
-                        [primary_server])
+            elif primary_node.getUUID() == primary_uuid:
+                # Whatever the situation is, I trust this master.
+                app.primary = False
+                app.primary_master_node = primary_node
+                # Stop waiting for connections than primary master's to
+                # complete to exit election phase ASAP.
+                primary_server = primary_node.getAddress()
+                app.unconnected_master_node_set.intersection_update(
+                    [primary_server])
+                app.negotiating_master_node_set.intersection_update(
+                    [primary_server])
 
         # Request a node idenfitication.
         conn.ask(Packets.RequestIdentification(
