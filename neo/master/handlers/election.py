@@ -191,10 +191,8 @@ class ClientElectionHandler(ElectionHandler):
                 # Stop waiting for connections than primary master's to
                 # complete to exit election phase ASAP.
                 primary_server = primary_node.getAddress()
-                app.unconnected_master_node_set.intersection_update(
-                    [primary_server])
-                app.negotiating_master_node_set.intersection_update(
-                    [primary_server])
+                app.unconnected_master_node_set = set([primary_server])
+                app.negotiating_master_node_set = set([primary_server])
 
         # Request a node identification.
         conn.ask(Packets.RequestIdentification(
