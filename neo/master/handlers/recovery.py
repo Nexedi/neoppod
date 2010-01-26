@@ -17,7 +17,7 @@
 
 from neo import logging
 
-from neo.protocol import Packets, UnexpectedPacketError
+from neo.protocol import Packets, ProtocolError
 from neo.master.handlers import MasterHandler
 from neo.util import dump
 
@@ -66,5 +66,5 @@ class RecoveryHandler(MasterHandler):
         try:
             self.app.pt.load(ptid, row_list, self.app.nm)
         except IndexError:
-            raise UnexpectedPacketError('Invalid offset')
+            raise ProtocolError('Invalid offset')
 

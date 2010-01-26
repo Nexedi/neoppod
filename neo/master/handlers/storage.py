@@ -17,7 +17,7 @@
 
 from neo import logging
 
-from neo.protocol import UnexpectedPacketError, ProtocolError
+from neo.protocol import ProtocolError
 from neo.protocol import CellStates, Packets
 from neo.master.handlers import BaseServiceHandler
 from neo.exception import OperationFailure
@@ -58,7 +58,7 @@ class StorageServiceHandler(BaseServiceHandler):
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
         if tid > self.app.tm.getLastTID():
-            raise UnexpectedPacketError
+            raise ProtocolError('TID too big')
 
         # transaction locked on this storage node
         t = self.app.tm[tid]

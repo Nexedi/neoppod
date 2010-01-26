@@ -28,7 +28,7 @@ class ElectionHandler(MasterHandler):
     def notifyNodeInformation(self, conn, packet, node_list):
         uuid = conn.getUUID()
         if uuid is None:
-            raise protocol.UnexpectedPacketError
+            raise protocol.ProtocolError('Not identified')
         app = self.app
         for node_type, addr, uuid, state in node_list:
             if node_type != NodeTypes.MASTER:
@@ -263,7 +263,7 @@ class ServerElectionHandler(ElectionHandler):
     def announcePrimary(self, conn, packet):
         uuid = conn.getUUID()
         if uuid is None:
-            raise protocol.UnexpectedPacketError
+            raise protocol.ProtocolError('Not identified')
         app = self.app
         if app.primary:
             # I am also the primary... So restart the election.
