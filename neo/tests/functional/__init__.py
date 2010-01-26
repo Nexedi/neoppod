@@ -251,7 +251,7 @@ class NEOCluster(object):
         for process_list in self.process_dict.itervalues():
             for process in process_list:
                 try:
-                    process.kill()
+                    process.kill(signal.SIGKILL)
                     process.wait()
                 except AlreadyStopped:
                     pass
