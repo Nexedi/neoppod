@@ -45,6 +45,7 @@ parser.add_option('-d', '--database', help = 'database connections string')
 arguments = dict(
     uuid = options.uuid,
     bind = options.bind,
+    name = options.name,
     cluster = options.cluster,
     masters = options.masters,
     database = options.database,

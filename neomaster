@@ -41,6 +41,7 @@ parser.add_option('-l', '--logfile', help = 'specify a logging file')
 arguments = dict(
     uuid = options.uuid or None,
     bind = options.bind,
+    name = options.name,
     cluster = options.cluster,
     masters = options.masters,
     replicas = options.replicas,

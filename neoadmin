@@ -39,6 +39,7 @@ parser.add_option('-n', '--name', help = 'the node name (impove logging)')
 (options, args) = parser.parse_args()
 arguments = dict(
     uuid = options.uuid,
+    name = options.name,
     cluster = options.cluster,
     masters = options.masters,
     bind = options.bind,
