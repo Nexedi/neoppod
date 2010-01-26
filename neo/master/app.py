@@ -142,24 +142,26 @@ class Application(object):
             # since down or broken nodes may be already repaired.
             node.setRunning()
 
-        try:
-            while True:
+        while True:
 
-                # handle new connected masters
-                for node in self.nm.getMasterList():
-                    if node.isRunning():
-                        self.unconnected_master_node_set.add(node.getAddress())
+            # handle new connected masters
+            for node in self.nm.getMasterList():
+                if node.isRunning():
+                    self.unconnected_master_node_set.add(node.getAddress())
 
-                # start the election process
-                self.primary = None
-                self.primary_master_node = None
+            # start the election process
+            self.primary = None
+            self.primary_master_node = None
+            try:
                 self._doElection(bootstrap)
+            except ElectionFailure, m:
+                # something goes wrong, clean then restart
+                self._electionFailed(m)
+                bootstrap = False
+            else:
+                # election succeed, stop the process
                 self.primary = self.primary is None
                 break
-        except ElectionFailure, m:
-            # something goes wrong, clean then restart
-            self._electionFailed(m)
-            bootstrap = False
 
 
     def _doElection(self, bootstrap):
