@@ -648,7 +648,8 @@ class Application(object):
         self._waitForPrimaryAnnouncement()
 
         # apply the new handler to the primary connection
-        client_list = self.em.getClientList()
+        client_list = [x for x in self.em.getClientList() if x.getUUID() ==
+                self.primary_master_node.getUUID()]
         assert len(client_list) == 1
         client_list[0].setHandler(secondary.PrimaryHandler(self))
 
