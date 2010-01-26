@@ -51,6 +51,10 @@ class ClientTests(NEOFunctionalTest):
             temp_dir=self.getTempDirectory()
         )
 
+    def tearDown(self):
+        if self.neo is not None:
+            self.neo.stop()
+
     def __setup(self):
         # start cluster
         self.neo.setupDB()
