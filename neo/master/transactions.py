@@ -183,6 +183,7 @@ class TransactionManager(object):
         self._tid_dict[tid] = txn
         # XXX: check the data structure
         self._node_dict.setdefault(node, {})[tid] = txn
+        self.setLastTID(tid)
         return tid
 
     def prepare(self, tid, oid_list, uuid_list, msg_id):
