@@ -284,9 +284,7 @@ class Application(object):
                 break
 
         # Close all connections.
-        for conn in self.em.getClientList():
-            conn.close()
-        for conn in self.em.getServerList():
+        for conn in self.em.getClientList() + self.em.getServerList():
             conn.close()
 
 
