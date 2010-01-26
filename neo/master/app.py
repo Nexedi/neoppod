@@ -332,16 +332,7 @@ class Application(object):
             if n is None:
                 continue
             if n.isClient() or n.isStorage() or n.isAdmin():
-                # Split the packet if too big.
-                size = len(cell_list)
-                start = 0
-                while size:
-                    amt = min(10000, size)
-                    cell_list = cell_list[start:start+amt]
-                    p = Packets.NotifyPartitionChanges(ptid, cell_list)
-                    c.notify(p)
-                    size -= amt
-                    start += amt
+                c.notify(Packets.NotifyPartitionChanges(ptid, cell_list))
 
     def outdateAndBroadcastPartition(self):
         " Outdate cell of non-working nodes and broadcast changes """
