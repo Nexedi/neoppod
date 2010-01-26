@@ -91,7 +91,7 @@ class BootstrapManager(EventHandler):
         for address, uuid in known_master_list:
             node = nm.getByAddress(address)
             if node is None:
-                nm.createMaster(address=address)
+                node = nm.createMaster(address=address)
             node.setUUID(uuid)
 
         self.primary = nm.getByUUID(primary_uuid)
