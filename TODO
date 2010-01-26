@@ -274,6 +274,15 @@ Bugs:
     manager (special case for master during recovery). Sometimes functional
     tests fails on the assert in pt.load(), meaning the node is not in the ode
     manager.
+  - Race condition between master, storage and admin nodes:
+      - Master is in recovery state
+      - Storage connect to the master
+      - Master ask last IDs to the storage
+      - Admin connect
+      - Admin allow the cluster to start
+      - Master change handlers
+      - Storage answer last IDs
+      -> unexpected packet, storage is broken
 
 Old TODO
 
