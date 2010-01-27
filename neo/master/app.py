@@ -460,34 +460,33 @@ class Application(object):
         if self.unfinished_oid_set is None or len(self.unfinished_oid_set) == 0:
             # Not commitable.
             return None
-        else:
-            # Verify that all objects are present.
-            for oid in self.unfinished_oid_set:
-                self.asking_uuid_dict.clear()
-                partition = self.pt.getPartition(oid)
-                object_uuid_list = [cell.getUUID() for cell \
-                            in self.pt.getCellList(partition, readable=True)]
-                if len(object_uuid_list) == 0:
+        # Verify that all objects are present.
+        for oid in self.unfinished_oid_set:
+            self.asking_uuid_dict.clear()
+            partition = self.pt.getPartition(oid)
+            object_uuid_list = [cell.getUUID() for cell \
+                        in self.pt.getCellList(partition, readable=True)]
+            if len(object_uuid_list) == 0:
+                raise VerificationFailure
+            uuid_set.update(object_uuid_list)
+
+            self.object_present = True
+            for conn in em.getConnectionList():
+                uuid = conn.getUUID()
+                if uuid in object_uuid_list:
+                    self.asking_uuid_dict[uuid] = False
+                    conn.ask(Packets.AskObjectPresent(oid, tid))
+
+            while True:
+                em.poll(1)
+                if not self.pt.operational():
                     raise VerificationFailure
-                uuid_set.update(object_uuid_list)
+                if False not in self.asking_uuid_dict.values():
+                    break
 
-                self.object_present = True
-                for conn in em.getConnectionList():
-                    uuid = conn.getUUID()
-                    if uuid in object_uuid_list:
-                        self.asking_uuid_dict[uuid] = False
-                        conn.ask(Packets.AskObjectPresent(oid, tid))
-
-                while True:
-                    em.poll(1)
-                    if not self.pt.operational():
-                        raise VerificationFailure
-                    if False not in self.asking_uuid_dict.values():
-                        break
-
-                if not self.object_present:
-                    # Not commitable.
-                    return None
+            if not self.object_present:
+                # Not commitable.
+                return None
 
         return uuid_set
 
