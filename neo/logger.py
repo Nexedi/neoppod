@@ -44,11 +44,7 @@ class PacketLogger(EventHandler):
         except PacketMalformedError:
             logging.warning("Can't decode packet for logging")
             return
-        try:
-            log_message = logger(conn, packet, *args)
-        except UnexpectedPacketError:
-            logging.warning('No logger implemented for packet' % klass)
-            return
+        log_message = logger(conn, packet, *args)
         if log_message is not None:
             logging.debug('#0x%08x %s', packet.getId(), log_message)
 
