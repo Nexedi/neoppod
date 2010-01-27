@@ -157,7 +157,8 @@ class MasterRecoveryTests(NeoTestBase):
         offset = 1000000
         self.assertFalse(self.app.pt.hasOffset(offset))
         cell_list = [(offset, ((uuid, NodeStates.DOWN,),),)]
-        self.checkUnexpectedPacketRaised(recovery.answerPartitionTable, conn, packet, None, cell_list)
+        self.checkProtocolErrorRaised(recovery.answerPartitionTable, conn, 
+            packet, None, cell_list)
 
 
 if __name__ == '__main__':

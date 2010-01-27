@@ -84,7 +84,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.assertTrue(tid1 < tid2)
         node, conn = self.identifyToMasterNode()
         packet = Packets.NotifyInformationLocked(tid2)
-        self.checkUnexpectedPacketRaised(self.service.notifyInformationLocked,
+        self.checkProtocolErrorRaised(self.service.notifyInformationLocked,
                 conn, packet, tid2)
         self.checkNoPacketSent(conn)
 
