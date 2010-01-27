@@ -18,6 +18,7 @@
 import unittest
 import transaction
 import ZODB
+from ZODB.POSException import ConflictError
 from Persistence import Persistent
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
@@ -34,6 +35,9 @@ class PCounter(Persistent):
 
     def inc(self):
         self._value += 1
+
+
+class PCounterWithResolution(PCounter):
 
     def _p_resolveConflict(self, old, saved, new):
         new['_value'] = saved['_value'] + new['_value']
@@ -68,35 +72,56 @@ class ClientTests(NEOFunctionalTest):
         root = self.db.open(transaction_manager=txn).root()
         return (txn, root)
 
-    def testConflictResolution(self):
+    def testConflictResolutionTriggered(self):
+        """ Check that ConflictError is raised on write conflict """
+        # create the initial objects
         self.__setup()
-
-        # create the initial object
         t, r = self.makeTransaction()
-        r['counter'] = PCounter()
+        r['without_resolution'] = PCounter()
         t.commit()
 
-        # two concurrent transactions modify it
+        # first with no conflict resolution
         t1, r1 = self.makeTransaction()
         t2, r2 = self.makeTransaction()
-        o1, o2 = r1['counter'], r2['counter']
+        o1 = r1['without_resolution']
+        o2 = r2['without_resolution']
+        self.assertEqual(o1.value(), 0)
+        self.assertEqual(o2.value(), 0)
         o1.inc()
         o2.inc()
         o2.inc()
-
-        # the first commit
         t1.commit()
         self.assertEqual(o1.value(), 1)
         self.assertEqual(o2.value(), 2)
-      
-        # and the second (conflict triggered, resolution happen)
+        self.assertRaises(ConflictError, t2.commit)
+
+    def testConflictResolutionTriggered(self):
+        """ Check that conflict resolution works """
+        # create the initial objects
+        self.__setup()
+        t, r = self.makeTransaction()
+        r['with_resolution'] = PCounterWithResolution()
+        t.commit()
+
+        # then with resolution
+        t1, r1 = self.makeTransaction()
+        t2, r2 = self.makeTransaction()
+        o1 = r1['with_resolution']
+        o2 = r2['with_resolution']
+        self.assertEqual(o1.value(), 0)
+        self.assertEqual(o2.value(), 0)
+        o1.inc()
+        o2.inc()
+        o2.inc()
+        t1.commit()
+        self.assertEqual(o1.value(), 1)
+        self.assertEqual(o2.value(), 2)
         t2.commit()
         t1.begin()
         t2.begin()
-        
-        # object graph view must be consistent
         self.assertEqual(o2.value(), 3)
         self.assertEqual(o1.value(), 3)
+
 
 def test_suite():
     return unittest.makeSuite(ClientTests)
