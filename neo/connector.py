@@ -17,7 +17,6 @@
 
 import socket
 import errno
-from neo import logging
 
 # Global connector registry.
 # Fill by calling registerConnectorHandler.
@@ -63,18 +62,14 @@ class SocketConnector:
         self.is_closed = False
         self.remote_addr = addr
         try:
-            try:
-                self.socket.connect(addr)
-            except socket.error, (err, errmsg):
-                if err == errno.EINPROGRESS:
-                    raise ConnectorInProgressException
-                if err == errno.ECONNREFUSED:
-                    raise ConnectorConnectionRefusedException
-                raise ConnectorException, 'makeClientConnection to %s failed:' \
-                    ' %s:%s' % (addr, err, errmsg)
-        finally:
-            logging.debug('%r connecting to %r', self.socket.getsockname(),
-                          addr)
+            self.socket.connect(addr)
+        except socket.error, (err, errmsg):
+            if err == errno.EINPROGRESS:
+                raise ConnectorInProgressException
+            if err == errno.ECONNREFUSED:
+                raise ConnectorConnectionRefusedException
+            raise ConnectorException, 'makeClientConnection to %s failed:' \
+                ' %s:%s' % (addr, err, errmsg)
 
     def makeListeningConnection(self, addr):
         self.is_closed = False
