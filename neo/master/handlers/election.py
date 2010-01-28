@@ -95,9 +95,8 @@ class ClientElectionHandler(ElectionHandler):
         app.negotiating_master_node_set.discard(addr)
         node = app.nm.getByAddress(addr)
         if node.isRunning():
-            app.unconnected_master_node_set.add(addr)
             node.setTemporarilyDown()
-        elif node.isTemporarilyDown():
+        if node.isTemporarilyDown():
             app.unconnected_master_node_set.add(addr)
         MasterHandler.connectionFailed(self, conn)
 
