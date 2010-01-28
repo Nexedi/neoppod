@@ -109,7 +109,7 @@ class BootstrapManager(EventHandler):
                 self.uuid, self.server, self.name))
 
     def acceptIdentification(self, conn, packet, node_type,
-           uuid, address, num_partitions, num_replicas, your_uuid):
+           uuid, num_partitions, num_replicas, your_uuid):
         """
         The primary master has accepted the node.
         """

@@ -84,12 +84,11 @@ class PrimaryHandler(MasterHandler):
                         n.setUUID(uuid)
 
     def acceptIdentification(self, conn, packet, node_type,
-                                       uuid, address, num_partitions,
+                                       uuid, num_partitions,
                                        num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
         assert node_type == NodeTypes.MASTER
-        assert conn.getAddress() == address
 
         if your_uuid != app.uuid:
             # uuid conflict happened, accept the new one

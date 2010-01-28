@@ -84,12 +84,10 @@ class ProtocolTests(NeoTestBase):
     def test_12_AcceptIdentification(self):
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
         p = Packets.AcceptIdentification(NodeTypes.CLIENT, uuid1,
-                                   ("127.0.0.1", 9080), 10, 20, uuid2)
-        node, p_uuid, (ip, port), nb_partitions, nb_replicas, your_uuid  = p.decode()
+            10, 20, uuid2)
+        node, p_uuid, nb_partitions, nb_replicas, your_uuid  = p.decode()
         self.assertEqual(node, NodeTypes.CLIENT)
         self.assertEqual(p_uuid, uuid1)
-        self.assertEqual(ip, "127.0.0.1")
-        self.assertEqual(port, 9080)
         self.assertEqual(nb_partitions, 10)
         self.assertEqual(nb_replicas, 20)
         self.assertEqual(your_uuid, uuid2)

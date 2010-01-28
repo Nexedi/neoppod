@@ -111,22 +111,12 @@ class ClientElectionHandler(ElectionHandler):
         MasterHandler.peerBroken(self, conn)
 
     def acceptIdentification(self, conn, packet, node_type,
-                                       uuid, address, num_partitions,
-                                       num_replicas, your_uuid):
+            uuid, num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
         if node_type != NodeTypes.MASTER:
             # The peer is not a master node!
-            logging.error('%s:%d is not a master node', *address)
-            app.nm.remove(node)
-            app.negotiating_master_node_set.discard(node.getAddress())
-            conn.close()
-            return
-        if conn.getAddress() != address:
-            # The server address is different! Then why was
-            # the connection successful?
-            logging.error('%s:%d is waiting for %s:%d',
-                          conn.getAddress()[0], conn.getAddress()[1], *address)
+            logging.error('%s:%d is not a master node', conn.getAddress())
             app.nm.remove(node)
             app.negotiating_master_node_set.discard(node.getAddress())
             conn.close()
@@ -250,7 +240,6 @@ class ServerElectionHandler(ElectionHandler):
         p = Packets.AcceptIdentification(
             NodeTypes.MASTER,
             app.uuid,
-            app.server,
             app.pt.getPartitions(),
             app.pt.getReplicas(),
             uuid

@@ -37,7 +37,7 @@ class ReplicationHandler(BaseStorageHandler):
         self.app.replicator.reset()
 
     def acceptIdentification(self, conn, packet, node_type,
-                       uuid, address, num_partitions, num_replicas, your_uuid):
+                       uuid, num_partitions, num_replicas, your_uuid):
         # set the UUID on the connection
         conn.setUUID(uuid)
 

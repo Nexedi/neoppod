@@ -321,23 +321,20 @@ class AcceptIdentification(Packet):
     Accept a node identification. This should be a reply to Request Node
     Identification. Any -> Any.
     """
-    def _encode(self, node_type, uuid, address,
+    def _encode(self, node_type, uuid,
              num_partitions, num_replicas, your_uuid):
         uuid = _encodeUUID(uuid)
         your_uuid = _encodeUUID(your_uuid)
-        address = _encodeAddress(address)
-        return pack('!H16s6sLL16s', node_type, uuid, address,
+        return pack('!H16sLL16s', node_type, uuid,
                           num_partitions, num_replicas, your_uuid)
 
     def _decode(self, body):
-        r = unpack('!H16s6sLL16s', body)
-        node_type, uuid, address, num_partitions, num_replicas, your_uuid = r
-        address = _decodeAddress(address)
+        r = unpack('!H16sLL16s', body)
+        node_type, uuid, num_partitions, num_replicas, your_uuid = r
         node_type = _decodeNodeType(node_type)
         uuid = _decodeUUID(uuid)
         your_uuid == _decodeUUID(uuid)
-        return (node_type, uuid, address, num_partitions, num_replicas,
-                your_uuid)
+        return (node_type, uuid, num_partitions, num_replicas, your_uuid)
 
 class AskPrimary(Packet):
     """

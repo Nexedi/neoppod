@@ -60,7 +60,7 @@ class PacketLogger(EventHandler):
         pass
 
     def acceptIdentification(self, conn, packet, node_type,
-                       uuid, address, num_partitions, num_replicas, your_uuid):
+                       uuid, num_partitions, num_replicas, your_uuid):
         pass
 
     def askPrimary(self, conn, packet):
