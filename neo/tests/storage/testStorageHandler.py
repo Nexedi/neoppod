@@ -152,9 +152,13 @@ class StorageStorageHandlerTests(NeoTestBase):
         packet.setId(0)
         cell = Mock({'getUUID':self.app.uuid})
         self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
-        self.app.pt = Mock({'getCellList': (cell, ), 'getPartitions': 1})
+        self.app.pt = Mock({
+            'getCellList': (cell, ), 
+            'getPartitions': 1,
+            'getAssignedPartitionList': [0],
+        })
         self.operation.askTIDs(conn, packet, 1, 2, INVALID_PARTITION)
-        self.assertEquals(len(self.app.pt.mockGetNamedCalls('getCellList')), 1)
+        self.assertEquals(len(self.app.pt.mockGetNamedCalls('getAssignedPartitionList')), 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
         self.assertEquals(len(calls), 1)
         calls[0].checkArgs(1, 1, 1, [0, ])
@@ -216,12 +220,16 @@ class StorageStorageHandlerTests(NeoTestBase):
         packet.setId(0)
         cell = Mock({'getUUID':self.app.uuid})
         self.app.dm = Mock({'getOIDList': (INVALID_OID, )})
-        self.app.pt = Mock({'getCellList': (cell, ), 'getPartitions': 1})
+        self.app.pt = Mock({
+            'getCellList': (cell, ), 
+            'getPartitions': 1,
+            'getAssignedPartitionList': [0],
+        })
         self.operation.askOIDs(conn, packet, 1, 2, INVALID_PARTITION)
-        self.assertEquals(len(self.app.pt.mockGetNamedCalls('getCellList')), 1)
+        self.assertEquals(len(self.app.pt.mockGetNamedCalls('getAssignedPartitionList')), 1)
         calls = self.app.dm.mockGetNamedCalls('getOIDList')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(1, 1, 1, [0, ])
+        calls[0].checkArgs(1, 1, 1, [0])
         self.checkAnswerOids(conn)
 
 
