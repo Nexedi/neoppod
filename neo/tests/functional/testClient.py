@@ -122,6 +122,55 @@ class ClientTests(NEOFunctionalTest):
         self.assertEqual(o2.value(), 3)
         self.assertEqual(o1.value(), 3)
 
+    def testIsolationAtZopeLevel(self):
+        """ Check transaction isolation within zope connection """
+        self.__setup()
+        t, c = self.makeTransaction()
+        c.root()['item'] = 0
+        t.commit()
+        t1, c1 = self.makeTransaction()
+        t2, c2 = self.makeTransaction()
+        c1.root()['item'] = 1
+        t1.commit()
+        # load objet from zope cache
+        self.assertEqual(c1.root()['item'], 1)
+        self.assertEqual(c2.root()['item'], 0)
+
+    def testIsolationWithoutZopeCache(self):
+        """ Check isolation with zope cache cleared """
+        self.__setup()
+        t, c = self.makeTransaction()
+        c.root()['item'] = 0
+        t.commit()
+        t1, c1 = self.makeTransaction()
+        t2, c2 = self.makeTransaction()
+        c1.root()['item'] = 1
+        t1.commit()
+        # clear zope cache to force re-ask NEO
+        c1.cacheMinimize()
+        c2.cacheMinimize()
+        self.assertEqual(c1.root()['item'], 1)
+        self.assertEqual(c2.root()['item'], 0)
+
+    def testIsolationWithNewConnection(self):
+        """ Check isolation with zope cache cleared """
+        self.__setup()
+        t, c = self.makeTransaction()
+        c.root()['item'] = 0
+        t.commit()
+        t1, c1 = self.makeTransaction()
+        t2, c2 = self.makeTransaction()
+        c1.root()['item'] = 1
+        t1.commit()
+        # open a new connection for this transaction
+        c1 = self.db.open(transaction_manager=t1)
+        c2 = self.db.open(transaction_manager=t2)
+        self.assertEqual(c1.root()['item'], 1)
+        self.assertEqual(c2.root()['item'], 0)
+
+
+
+
 
 def test_suite():
     return unittest.makeSuite(ClientTests)
