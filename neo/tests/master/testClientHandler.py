@@ -104,7 +104,7 @@ class MasterClientHandlerTests(NeoTestBase):
         oid_list = []
         upper, lower = unpack('!LL', self.app.tm.getLastTID())
         new_tid = pack('!LL', upper, lower + 10)
-        self.checkUnexpectedPacketRaised(service.finishTransaction, conn, packet, oid_list, new_tid)
+        self.checkProtocolErrorRaised(service.finishTransaction, conn, packet, oid_list, new_tid)
         old_node = self.app.nm.getByUUID(uuid)
         self.app.nm.remove(old_node)
         self.app.pt.dropNode(old_node)
