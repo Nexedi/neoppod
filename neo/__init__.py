@@ -20,7 +20,7 @@ import logging as logging_std
 # default logger
 logging = logging_std.getLogger('NEO')
 
-PREFIX = '%(asctime)s %(levelname)-9s %(name)-8s'
+PREFIX = '%(asctime)s %(levelname)-9s %(name)-10s'
 SUFFIX = ' [%(module)14s:%(lineno)3d] %(message)s'
 
 def setupLog(name='NEO', filename=None, verbose=False):
