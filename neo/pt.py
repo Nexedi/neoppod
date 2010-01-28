@@ -99,6 +99,16 @@ class PartitionTable(object):
         self.partition_list = [[] for x in xrange(self.np)]
         self.count_dict.clear()
 
+    def getAssignedPartitionList(self, uuid):
+        """ Return the partition assigned to the specified UUID """
+        assigned_partitions = []
+        for offset in xrange(self.np):
+            for cell in self.getCellList(offset, readable=True):
+                if cell.getUUID() == uuid:
+                    assigned_partitions.add(offset)
+                    break
+        return assigned_partitions
+
     def hasOffset(self, offset):
         try:
             return len(self.partition_list[offset]) > 0

@@ -37,16 +37,10 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
         app = self.app
 
         if partition == protocol.INVALID_PARTITION:
-            # Collect all usable partitions for me.
-            getCellList = app.pt.getCellList
-            partition_list = []
-            for offset in xrange(app.pt.getPartitions()):
-                for cell in getCellList(offset, readable=True):
-                    if cell.getUUID() == app.uuid:
-                        partition_list.append(offset)
-                        break
+            partition_list = app.pt.getAssignedPartitionList(app.uuid)
         else:
             partition_list = [partition]
+
         oid_list = app.dm.getOIDList(first, last - first,
                                      app.pt.getPartitions(), partition_list)
         conn.answer(Packets.AnswerOIDs(oid_list), packet.getId())
