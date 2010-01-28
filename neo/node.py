@@ -88,6 +88,9 @@ class Node(object):
     def isRunning(self):
         return self._state == NodeStates.RUNNING
 
+    def isUnknown(self):
+        return self._state == NodeStates.UNKNOWN
+
     def isTemporarilyDown(self):
         return self._state == NodeStates.TEMPORARILY_DOWN
 
