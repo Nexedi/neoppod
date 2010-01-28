@@ -105,7 +105,7 @@ class PartitionTable(object):
         for offset in xrange(self.np):
             for cell in self.getCellList(offset, readable=True):
                 if cell.getUUID() == uuid:
-                    assigned_partitions.add(offset)
+                    assigned_partitions.append(offset)
                     break
         return assigned_partitions
 
