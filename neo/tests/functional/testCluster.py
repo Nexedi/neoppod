@@ -63,6 +63,17 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.killStorage()
         self.neo.expectClusterRunning()
 
+    def testElectionWithManyMasters(self):
+        MASTER_COUNT = 20
+        self.neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
+            partitions=10, replicas=0, master_node_count=MASTER_COUNT,
+            temp_dir=self.getTempDirectory())
+        neoctl = self.neo.getNEOCTL()
+        self.neo.start()
+        self.neo.expectClusterRunning()
+        self.neo.expectAllMasters(MASTER_COUNT)
+        self.neo.expectOudatedCells(0)
+
 def test_suite():
     return unittest.makeSuite(ClusterTests)
 
