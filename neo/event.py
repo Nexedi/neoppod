@@ -164,7 +164,11 @@ class EpollEventManager(object):
 
     def _poll(self, timeout = 1):
         rlist, wlist = self.epoll.poll(timeout)
+        r_done_set = set()
         for fd in rlist:
+            if fd in r_done_set:
+                continue
+            r_done_set.add(fd)
             try:
                 conn = self.connection_dict[fd]
             except KeyError:
@@ -178,7 +182,11 @@ class EpollEventManager(object):
                 if conn.hasPendingMessages():
                     self._addPendingConnection(conn)
 
+        w_done_set = set()
         for fd in wlist:
+            if fd in w_done_set:
+                continue
+            w_done_set.add(fd)
             # This can fail, if a connection is closed in readable().
             try:
                 conn = self.connection_dict[fd]
