@@ -197,10 +197,9 @@ class Application(object):
                                 node.getAddress())
 
                 # Try to connect to master nodes.
-                if self.unconnected_master_node_set:
-                    for addr in list(self.unconnected_master_node_set):
-                        ClientConnection(self.em, client_handler, addr=addr,
-                             connector_handler=self.connector_handler)
+                for addr in list(self.unconnected_master_node_set):
+                    ClientConnection(self.em, client_handler, addr=addr,
+                         connector_handler=self.connector_handler)
             self.em.poll(1)
             if len(self.unconnected_master_node_set |
                     self.negotiating_master_node_set) == 0:
