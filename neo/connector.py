@@ -128,7 +128,7 @@ class SocketConnector:
         except socket.error, (err, errmsg):
             if err == errno.EAGAIN:
                 raise ConnectorTryAgainException
-            if err == errno.ECONNRESET:
+            if err in (errno.ECONNRESET, errno.EPIPE):
                 raise ConnectorConnectionClosedException
             raise ConnectorException, 'send failed: %s:%s' % (err, errmsg)
 
