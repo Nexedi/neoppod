@@ -245,6 +245,8 @@ RC  - Review output of pylint (CODE)
       a storage node supposed in running state, then it should notify the master
       to check if this node is well up or not.
     - Cache for loadSerial/loadBefore
+    - Implement restore() ZODB API method to bypass consistency checks during
+      imports.
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might 

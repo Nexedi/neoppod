@@ -105,6 +105,9 @@ class Storage(BaseStorage.BaseStorage,
                                              serials=(tid,
                                                       serial),data=data)
 
+#    def restore(self, oid, serial, data, version, prev_txn, transaction):
+#        raise NotImplementedError
+
     def _clear_temp(self):
         raise NotImplementedError
 
