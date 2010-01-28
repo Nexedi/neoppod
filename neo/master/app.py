@@ -198,13 +198,16 @@ class Application(object):
 
                 # Try to connect to master nodes.
                 for addr in list(self.unconnected_master_node_set):
-                    ClientConnection(self.em, client_handler, addr=addr,
-                         connector_handler=self.connector_handler)
+                    current_connections = [x.getAddress() for x in
+                        self.em.getClientList()]
+                    if addr not in current_connections:
+                        ClientConnection(self.em, client_handler, addr=addr,
+                            connector_handler=self.connector_handler)
             self.em.poll(1)
+
             if len(self.unconnected_master_node_set |
                     self.negotiating_master_node_set) == 0:
                 break
-
 
     def _announcePrimary(self):
         """
