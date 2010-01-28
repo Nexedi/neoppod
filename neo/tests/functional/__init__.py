@@ -28,8 +28,18 @@ import traceback
 
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.protocol import ClusterStates, NodeTypes, CellStates
-from neo.client.Storage import Storage
 from neo.util import dump
+
+import neo
+# Replace neo.setupLog by a no-op function.
+# This will only impact instances created in this process, so client only.
+def dummy_setupLog(*args, **kw):
+  pass
+real_setupLog = neo.setupLog
+neo.setupLog = dummy_setupLog
+# Import Storage only *after* patching neo.setupLog, as it keeps a direct
+# reference to setupLog.
+from neo.client.Storage import Storage
 
 NEO_MASTER = 'neomaster'
 NEO_STORAGE = 'neostorage'
@@ -144,6 +154,9 @@ class NEOCluster(object):
             temp_dir = tempfile.mkdtemp(prefix='neo_')
             print 'Using temp directory %r.' % (temp_dir, )
         self.temp_dir = temp_dir
+        # Setup client logger
+        real_setupLog(name='CLIENT', filename=os.path.join(self.temp_dir,
+            'client.log'), verbose=True)
         admin_port = self.__allocatePort()
         self.cluster_name = 'neo_%s' % (random.randint(0, 100), )
         master_node_list = [self.__allocatePort() for i in xrange(master_node_count)]
