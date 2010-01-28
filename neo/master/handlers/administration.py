@@ -36,7 +36,7 @@ class AdministrationHandler(MasterHandler):
 
     def setClusterState(self, conn, packet, state):
         self.app.changeClusterState(state)
-        p = protocol.noError('cluster state changed')
+        p = protocol.ack('cluster state changed')
         conn.answer(p, packet.getId())
         if state == ClusterStates.STOPPING:
             self.app.cluster_state = state
@@ -54,13 +54,13 @@ class AdministrationHandler(MasterHandler):
             node.setState(state)
             # get message for self
             if state != NodeStates.RUNNING:
-                p = protocol.noError('node state changed')
+                p = protocol.ack('node state changed')
                 conn.answer(p, packet.getId())
                 app.shutdown()
 
         if node.getState() == state:
             # no change, just notify admin node
-            p = protocol.noError('node state changed')
+            p = protocol.ack('node state changed')
             conn.answer(p, packet.getId())
             return
 
@@ -87,7 +87,7 @@ class AdministrationHandler(MasterHandler):
 
         # /!\ send the node information *after* the partition table change
         node.setState(state)
-        p = protocol.noError('state changed')
+        p = protocol.ack('state changed')
         conn.answer(p, packet.getId())
         app.broadcastNodesInformation([node])
 
@@ -107,7 +107,7 @@ class AdministrationHandler(MasterHandler):
         # nothing to do
         if not uuid_set:
             logging.warning('No nodes added')
-            p = protocol.noError('no nodes added')
+            p = protocol.ack('no nodes added')
             conn.answer(p, packet.getId())
             return
         uuids = ', '.join([dump(uuid) for uuid in uuid_set])
@@ -126,5 +126,5 @@ class AdministrationHandler(MasterHandler):
                 s_conn.notify(Packets.StartOperation())
         # broadcast the new partition table
         app.broadcastPartitionChanges(cell_list)
-        p = protocol.noError('node added')
+        p = protocol.ack('node added')
         conn.answer(p, packet.getId())

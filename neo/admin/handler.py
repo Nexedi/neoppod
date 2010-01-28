@@ -63,7 +63,7 @@ class AdminEventHandler(EventHandler):
             raise protocol.ProtocolError('invalid uuid')
         if node.getState() == state and modify_partition_table is False:
             # no change
-            p = protocol.noError('no change')
+            p = protocol.ack('no change')
             conn.answer(p, packet.getId())
             return
         # forward to primary master node
@@ -216,8 +216,8 @@ class MasterRequestEventHandler(EventHandler):
         self.__answerNeoCTL(packet.getId(),
                             Packets.AnswerNodeState(uuid, state))
 
-    def noError(self, conn, packet, msg):
-        self.__answerNeoCTL(packet.getId(), protocol.noError(msg))
+    def ack(self, conn, packet, msg):
+        self.__answerNeoCTL(packet.getId(), protocol.ack(msg))
 
     def protocolError(self, conn, packet, msg):
         self.__answerNeoCTL(packet.getId(), protocol.protocolError(msg))

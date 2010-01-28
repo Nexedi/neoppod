@@ -363,7 +363,7 @@ class EventHandler(object):
     def brokenNodeDisallowedError(self, conn, packet, message):
         raise RuntimeError, 'broken node disallowed error: %s' % (message,)
 
-    def noError(self, conn, packet, message):
+    def ack(self, conn, packet, message):
         logging.debug("no error message : %s" % (message))
 
 
@@ -443,7 +443,7 @@ class EventHandler(object):
     def __initErrorDispatchTable(self):
         d = {}
 
-        d[ErrorCodes.NO_ERROR] = self.noError
+        d[ErrorCodes.ACK] = self.ack
         d[ErrorCodes.NOT_READY] = self.notReady
         d[ErrorCodes.OID_NOT_FOUND] = self.oidNotFound
         d[ErrorCodes.TID_NOT_FOUND] = self.tidNotFound

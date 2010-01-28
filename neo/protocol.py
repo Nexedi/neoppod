@@ -29,7 +29,7 @@ MAX_PACKET_SIZE = 0x4000000
 PACKET_HEADER_SIZE = 10
 
 class ErrorCodes(Enum):
-    NO_ERROR = Enum.Item(0)
+    ACK = Enum.Item(0)
     NOT_READY = Enum.Item(1)
     OID_NOT_FOUND = Enum.Item(2)
     TID_NOT_FOUND = Enum.Item(3)
@@ -1337,8 +1337,8 @@ Packets = PacketRegistry()
 def _error(error_code, error_message):
     return Error(error_code, error_message)
 
-def noError(message):
-    return _error(ErrorCodes.NO_ERROR, message)
+def ack(message):
+    return _error(ErrorCodes.ACK, message)
 
 def protocolError(error_message):
     return _error(ErrorCodes.PROTOCOL_ERROR, 'protocol error: ' + error_message)

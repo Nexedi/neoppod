@@ -70,7 +70,7 @@ class NeoCTL(object):
         packet = Packets.AddPendingNodes(uuid_list)
         response = self.__ask(packet)
         assert response[0] == Packets.Error
-        assert response[1] == ErrorCodes.NO_ERROR
+        assert response[1] == ErrorCodes.ACK
 
     def setClusterState(self, state):
         """
@@ -79,7 +79,7 @@ class NeoCTL(object):
         packet = Packets.SetClusterState(state)
         response = self.__ask(packet)
         assert response[0] == Packets.Error
-        assert response[1] == ErrorCodes.NO_ERROR
+        assert response[1] == ErrorCodes.ACK
 
     def setNodeState(self, node, state, update_partition_table=False):
         """
@@ -92,7 +92,7 @@ class NeoCTL(object):
         packet = Packets.SetNodeState(node, state, update_partition_table)
         response = self.__ask(packet)
         assert response[0] == Packets.Error
-        assert response[1] == ErrorCodes.NO_ERROR
+        assert response[1] == ErrorCodes.ACK
 
     def getClusterState(self):
         """

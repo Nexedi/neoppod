@@ -53,8 +53,8 @@ class CommandEventHandler(EventHandler):
     def __answer(self, conn, packet, *args):
         self.__respond((packet.getType(), ) + args)
 
-    def noError(self, conn, packet, msg):
-        self.__respond((packet.getType(), ErrorCodes.NO_ERROR, msg))
+    def ack(self, conn, packet, msg):
+        self.__respond((packet.getType(), ErrorCodes.ACK, msg))
 
     def notReady(self, conn, packet, msg):
         self.__respond((packet.getType(), ErrorCodes.NOT_READY, msg))
