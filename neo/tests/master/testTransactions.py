@@ -108,7 +108,7 @@ class testTransactionManager(NeoTestBase):
         tid1 = txnman.begin(node1, None)
         self.assertTrue(tid1 is not None)
         self.assertEqual(txnman.getLastTID(), tid1)
-        # set a new last TID 
+        # set a new last TID
         ntid = pack('!Q', unpack('!Q', tid1)[0] + 10)
         txnman.setLastTID(ntid)
         self.assertEqual(txnman.getLastTID(), ntid)

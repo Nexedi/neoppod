@@ -49,9 +49,9 @@ class ClientTests(NEOFunctionalTest):
     def setUp(self):
         NEOFunctionalTest.setUp(self)
         self.neo = NEOCluster(
-            ['test_neo1'], 
+            ['test_neo1'],
             port_base=20000,
-            master_node_count=1, 
+            master_node_count=1,
             temp_dir=self.getTempDirectory()
         )
 

@@ -43,7 +43,7 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def askLastIDs(self, conn, packet):
         app = self.app
-        conn.answer(Packets.AnswerLastIDs(app.loid, app.tm.getLastTID(), 
+        conn.answer(Packets.AnswerLastIDs(app.loid, app.tm.getLastTID(),
                     app.pt.getID()), packet.getId())
 
     def askUnfinishedTransactions(self, conn, packet):
@@ -62,7 +62,7 @@ class StorageServiceHandler(BaseServiceHandler):
 
         # transaction locked on this storage node
         t = self.app.tm[tid]
-        if not t.lock(uuid): 
+        if not t.lock(uuid):
             return
 
         # all nodes are locked

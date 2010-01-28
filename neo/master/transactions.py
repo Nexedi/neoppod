@@ -59,7 +59,7 @@ class Transaction(object):
         """
             Returns the list of OIDs used in the transaction
         """
-        
+
         return list(self._oid_list)
 
     def prepare(self, oid_list, uuid_list, msg_id):
@@ -88,7 +88,7 @@ class Transaction(object):
 
 
 class TransactionManager(object):
-    """ 
+    """
         Manage current transactions
     """
 
@@ -157,7 +157,7 @@ class TransactionManager(object):
         self._node_dict = {}
 
     def hasPending(self):
-        """ 
+        """
             Returns True if some transactions are pending
         """
         return bool(self._tid_dict)

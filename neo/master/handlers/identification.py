@@ -75,7 +75,7 @@ class IdentificationHandler(MasterHandler):
         conn.setUUID(uuid)
         conn.setHandler(handler)
         # answer
-        args = (NodeTypes.MASTER, app.uuid, app.pt.getPartitions(), 
+        args = (NodeTypes.MASTER, app.uuid, app.pt.getPartitions(),
             app.pt.getReplicas(), uuid)
         conn.answer(Packets.AcceptIdentification(*args), packet.getId())
         # trigger the event

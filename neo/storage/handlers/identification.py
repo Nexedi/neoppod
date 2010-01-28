@@ -58,7 +58,7 @@ class IdentificationHandler(BaseStorageHandler):
         conn.setHandler(handler)
         conn.setUUID(uuid)
         node.setUUID(uuid)
-        args = (NodeTypes.STORAGE, app.uuid, app.pt.getPartitions(), 
+        args = (NodeTypes.STORAGE, app.uuid, app.pt.getPartitions(),
             app.pt.getReplicas(), uuid)
         # accept the identification and trigger an event
         conn.answer(Packets.AcceptIdentification(*args), packet.getId())

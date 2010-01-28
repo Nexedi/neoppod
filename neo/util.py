@@ -66,7 +66,7 @@ def resolve(hostname):
   except socket.gaierror:
       return None
   return address_list[0]
-  
+
 
 def parseMasterList(masters, except_node=None):
     if not masters:

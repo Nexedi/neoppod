@@ -53,9 +53,9 @@ class MasterStorageHandlerTests(NeoTestBase):
         return self.port
 
     def _getClient(self):
-        return self.identifyToMasterNode(node_type=NodeTypes.CLIENT, 
+        return self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                 ip='127.0.0.1', port=self._allocatePort())
-        
+
     def _getStorage(self):
         return self.identifyToMasterNode(node_type=NodeTypes.STORAGE,
                 ip='127.0.0.1', port=self._allocatePort())
@@ -105,7 +105,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         oid_list = self.getOID(), self.getOID()
         msg_id = 1
         # a faked event manager
-        connection_list = [client_conn_1, client_conn_2, storage_conn_1, 
+        connection_list = [client_conn_1, client_conn_2, storage_conn_1,
                 storage_conn_2]
         self.app.em = Mock({"getConnectionList" : connection_list})
         # register a transaction

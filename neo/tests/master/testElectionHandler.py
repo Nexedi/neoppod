@@ -617,8 +617,8 @@ class MasterServerElectionTests(NeoTestBase):
         """ Check with a non-master node, must be refused """
         conn = self.__getClient()
         packet = protocol.RequestIdentification(
-            NodeTypes.CLIENT, 
-            conn.getUUID(), 
+            NodeTypes.CLIENT,
+            conn.getUUID(),
             conn.getAddress(),
             name=self.app.name,
         )
@@ -632,7 +632,7 @@ class MasterServerElectionTests(NeoTestBase):
             name=self.app.name
         )
 
-    def testRequestIdentification2(self):     
+    def testRequestIdentification2(self):
         """ Check with an unknown master node """
         conn = self.__getMaster(register=False)
         packet = protocol.RequestIdentification(
