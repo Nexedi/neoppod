@@ -244,6 +244,7 @@ RC  - Review output of pylint (CODE)
     - Discuss about dead lstorage notification. If a client fails to connect to
       a storage node supposed in running state, then it should notify the master
       to check if this node is well up or not.
+    - Cache for loadSerial/loadBefore
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might 
