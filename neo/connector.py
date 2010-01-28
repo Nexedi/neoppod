@@ -57,6 +57,8 @@ class SocketConnector:
             self.socket = s
         # always use non-blocking sockets
         self.socket.setblocking(0)
+        # disable Nagle algorithm to reduce latency
+        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
     def makeClientConnection(self, addr):
         self.is_closed = False
