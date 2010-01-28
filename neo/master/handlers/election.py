@@ -71,42 +71,47 @@ class ClientElectionHandler(ElectionHandler):
         MasterHandler.packetReceived(self, conn, packet)
 
     def connectionStarted(self, conn):
-        app = self.app
         addr = conn.getAddress()
-        app.unconnected_master_node_set.remove(addr)
-        app.negotiating_master_node_set.add(addr)
+        # connection in progress
+        self.app.unconnected_master_node_set.remove(addr)
+        self.app.negotiating_master_node_set.add(addr)
         MasterHandler.connectionStarted(self, conn)
 
-    def connectionCompleted(self, conn):
-        conn.ask(Packets.AskPrimary())
-        MasterHandler.connectionCompleted(self, conn)
-
-    def connectionClosed(self, conn):
-        self.connectionFailed(conn)
-        MasterHandler.connectionClosed(self, conn)
-
-    def timeoutExpired(self, conn):
-        self.connectionFailed(conn)
-        MasterHandler.timeoutExpired(self, conn)
-
     def connectionFailed(self, conn):
-        app = self.app
         addr = conn.getAddress()
-        app.negotiating_master_node_set.discard(addr)
-        node = app.nm.getByAddress(addr)
-        if node.isRunning():
-            node.setTemporarilyDown()
-        if node.isTemporarilyDown():
-            app.unconnected_master_node_set.add(addr)
+        node = self.app.nm.getByAddress(addr)
+        # connection never success, node is still in unknown state
+        self.app.negotiating_master_node_set.discard(addr)
+        self.app.unconnected_master_node_set.add(addr)
         MasterHandler.connectionFailed(self, conn)
 
-    def peerBroken(self, conn):
-        app = self.app
+    def connectionCompleted(self, conn):
         addr = conn.getAddress()
-        node = app.nm.getByAddress(addr)
+        node = self.app.nm.getByAddress(addr)
+        # connection successfull, set it as running
+        node.setRunning()
+        conn.ask(Packets.AskPrimary())
+
+    def connectionClosed(self, conn):
+        addr = conn.getAddress()
+        node = self.app.nm.getByAddress(addr)
+        node.setTemporarilyDown()
+        self.app.negotiating_master_node_set.discard(addr)
+        self.connectionFailed(conn)
+
+    def timeoutExpired(self, conn):
+        addr = conn.getAddress()
+        node = self.app.nm.getByAddress(addr)
+        node.setTemporarilyDown()
+        self.app.negotiating_master_node_set.discard(addr)
+        MasterHandler.timeoutExpired(self, conn)
+
+    def peerBroken(self, conn):
+        addr = conn.getAddress()
+        node = self.app.nm.getByAddress(addr)
         if node is not None:
             node.setDown()
-        app.negotiating_master_node_set.discard(addr)
+        self.app.negotiating_master_node_set.discard(addr)
         MasterHandler.peerBroken(self, conn)
 
     def acceptIdentification(self, conn, packet, node_type,

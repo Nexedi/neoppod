@@ -137,16 +137,11 @@ class Application(object):
         self.negotiating_master_node_set = set()
         self.listening_conn.setHandler(election.ServerElectionHandler(self))
 
-        for node in self.nm.getMasterList():
-            # For now, believe that every node should be available,
-            # since down or broken nodes may be already repaired.
-            node.setRunning()
-
         while True:
 
             # handle new connected masters
             for node in self.nm.getMasterList():
-                if node.isRunning():
+                if node.isRunning() or node.isUnknown():
                     self.unconnected_master_node_set.add(node.getAddress())
 
             # start the election process
