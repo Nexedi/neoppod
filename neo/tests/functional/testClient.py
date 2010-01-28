@@ -69,22 +69,22 @@ class ClientTests(NEOFunctionalTest):
     def makeTransaction(self):
         # create a transaction a get the root object
         txn = transaction.TransactionManager()
-        root = self.db.open(transaction_manager=txn).root()
-        return (txn, root)
+        conn = self.db.open(transaction_manager=txn)
+        return (txn, conn)
 
     def testConflictResolutionTriggered(self):
         """ Check that ConflictError is raised on write conflict """
         # create the initial objects
         self.__setup()
-        t, r = self.makeTransaction()
-        r['without_resolution'] = PCounter()
+        t, c = self.makeTransaction()
+        c.root()['without_resolution'] = PCounter()
         t.commit()
 
         # first with no conflict resolution
-        t1, r1 = self.makeTransaction()
-        t2, r2 = self.makeTransaction()
-        o1 = r1['without_resolution']
-        o2 = r2['without_resolution']
+        t1, c1 = self.makeTransaction()
+        t2, c2 = self.makeTransaction()
+        o1 = c1.root()['without_resolution']
+        o2 = c2.root()['without_resolution']
         self.assertEqual(o1.value(), 0)
         self.assertEqual(o2.value(), 0)
         o1.inc()
@@ -99,15 +99,15 @@ class ClientTests(NEOFunctionalTest):
         """ Check that conflict resolution works """
         # create the initial objects
         self.__setup()
-        t, r = self.makeTransaction()
-        r['with_resolution'] = PCounterWithResolution()
+        t, c = self.makeTransaction()
+        c.root()['with_resolution'] = PCounterWithResolution()
         t.commit()
 
         # then with resolution
-        t1, r1 = self.makeTransaction()
-        t2, r2 = self.makeTransaction()
-        o1 = r1['with_resolution']
-        o2 = r2['with_resolution']
+        t1, c1 = self.makeTransaction()
+        t2, c2 = self.makeTransaction()
+        o1 = c1.root()['with_resolution']
+        o2 = c2.root()['with_resolution']
         self.assertEqual(o1.value(), 0)
         self.assertEqual(o2.value(), 0)
         o1.inc()
