@@ -61,6 +61,7 @@ class EpollData(Union):
 class EpollEvent(Structure):
     _fields_ = [("events", c_uint32),
                 ("data", EpollData)]
+    _pack_ = 1
 
 class Epoll(object):
     efd = -1
