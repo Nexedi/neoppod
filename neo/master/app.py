@@ -99,16 +99,17 @@ class Application(object):
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
+        bootstrap = True
 
         # Make a listening port.
         self.listening_conn = ListeningConnection(self.em, None,
             addr = self.server, connector_handler = self.connector_handler)
 
-        # Start the election of a primary master node.
-        self.electPrimary()
-
         # Start a normal operation.
         while True:
+            # (Re)elect a new primary master.
+            self.electPrimary(bootstrap=bootstrap)
+            bootstrap = False
             try:
                 if self.primary:
                     self.playPrimaryRole()
@@ -119,8 +120,6 @@ class Application(object):
                 # Forget all connections.
                 for conn in self.em.getClientList():
                     conn.close()
-                # Reelect a new primary master.
-                self.electPrimary(bootstrap = False)
 
 
     def electPrimary(self, bootstrap = True):
