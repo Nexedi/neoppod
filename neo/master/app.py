@@ -183,8 +183,7 @@ class Application(object):
             if current_time >= t + 1:
                 t = current_time
                 for node in self.nm.getMasterList():
-                    if node.isTemporarilyDown() \
-                            and node.getLastStateChange() + \
+                    if not node.isRunning() and node.getLastStateChange() + \
                             expiration < current_time:
                         logging.info('%s is down' % (node, ))
                         node.setDown()
