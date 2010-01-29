@@ -157,16 +157,14 @@ class ClientElectionHandler(ElectionHandler):
             if app.server == address:
                 # This is self.
                 continue
-            else:
-                n = app.nm.getByAddress(address)
-                # master node must be known
-                assert n is not None
-
-                if uuid is not None:
-                    # If I don't know the UUID yet, believe what the peer
-                    # told me at the moment.
-                    if n.getUUID() is None or n.getUUID() != uuid:
-                        n.setUUID(uuid)
+            n = app.nm.getByAddress(address)
+            # master node must be known
+            assert n is not None, 'Unknown master node address:' % address
+            if uuid is not None:
+                # If I don't know the UUID yet, believe what the peer
+                # told me at the moment.
+                if n.getUUID() is None or n.getUUID() != uuid:
+                    n.setUUID(uuid)
 
         if primary_uuid is not None:
             # The primary master is defined.
