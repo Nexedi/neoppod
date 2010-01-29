@@ -184,7 +184,7 @@ class ClientElectionHandler(ElectionHandler):
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
                 logging.warning('received an unknown primary node UUID')
-            elif primary_node.getUUID() == primary_uuid:
+            else:
                 # Whatever the situation is, I trust this master.
                 app.primary = False
                 app.primary_master_node = primary_node
