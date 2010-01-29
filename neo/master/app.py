@@ -141,8 +141,8 @@ class Application(object):
 
             # handle new connected masters
             for node in self.nm.getMasterList():
-                if node.isRunning() or node.isUnknown():
-                    self.unconnected_master_node_set.add(node.getAddress())
+                node.setUnknown()
+                self.unconnected_master_node_set.add(node.getAddress())
 
             # start the election process
             self.primary = None
