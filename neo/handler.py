@@ -142,7 +142,7 @@ class EventHandler(object):
     # Packet handlers.
 
     def requestIdentification(self, conn, packet, node_type,
-                                        uuid, name):
+                                        uuid, address, name):
         raise UnexpectedPacketError
 
     def acceptIdentification(self, conn, packet, node_type,
