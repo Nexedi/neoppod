@@ -235,8 +235,7 @@ class Application(object):
                 raise ElectionFailure("Election timeout")
 
         # Now I need only a connection to the primary master node.
-        primary = self.primary_master_node
-        addr = primary.getAddress()
+        addr = self.primary_master_node.getAddress()
         for conn in self.em.getServerList():
             conn.close()
         for conn in self.em.getClientList():
