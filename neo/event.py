@@ -227,40 +227,28 @@ class EpollEventManager(object):
             pass
 
     def addReader(self, conn):
-        try:
-            fd = conn.getConnector().getDescriptor()
-            if fd not in self.reader_set:
-                self.reader_set.add(fd)
-                self.epoll.modify(fd, 1, fd in self.writer_set)
-        except AttributeError:
-            pass
+        fd = conn.getConnector().getDescriptor()
+        if fd not in self.reader_set:
+            self.reader_set.add(fd)
+            self.epoll.modify(fd, 1, fd in self.writer_set)
 
     def removeReader(self, conn):
-        try:
-            fd = conn.getConnector().getDescriptor()
-            if fd in self.reader_set:
-                self.reader_set.remove(fd)
-                self.epoll.modify(fd, 0, fd in self.writer_set)
-        except AttributeError:
-            pass
+        fd = conn.getConnector().getDescriptor()
+        if fd in self.reader_set:
+            self.reader_set.remove(fd)
+            self.epoll.modify(fd, 0, fd in self.writer_set)
 
     def addWriter(self, conn):
-        try:
-            fd = conn.getConnector().getDescriptor()
-            if fd not in self.writer_set:
-                self.writer_set.add(fd)
-                self.epoll.modify(fd, fd in self.reader_set, 1)
-        except AttributeError:
-            pass
+        fd = conn.getConnector().getDescriptor()
+        if fd not in self.writer_set:
+            self.writer_set.add(fd)
+            self.epoll.modify(fd, fd in self.reader_set, 1)
 
     def removeWriter(self, conn):
-        try:
-            fd = conn.getConnector().getDescriptor()
-            if fd in self.writer_set:
-                self.writer_set.remove(fd)
-                self.epoll.modify(fd, fd in self.reader_set, 0)
-        except AttributeError:
-            pass
+        fd = conn.getConnector().getDescriptor()
+        if fd in self.writer_set:
+            self.writer_set.remove(fd)
+            self.epoll.modify(fd, fd in self.reader_set, 0)
 
 # Default to EpollEventManager.
 EventManager = EpollEventManager
