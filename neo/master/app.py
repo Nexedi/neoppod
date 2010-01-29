@@ -104,7 +104,6 @@ class Application(object):
         self.listening_conn = ListeningConnection(self.em, None,
             addr = self.server, connector_handler = self.connector_handler)
 
-        self.cluster_state = ClusterStates.BOOTING
         # Start the election of a primary master node.
         self.electPrimary()
 
@@ -653,9 +652,7 @@ class Application(object):
         nm, em = self.nm, self.em
 
         # select the storage handler
-        if state == ClusterStates.BOOTING:
-            storage_handler = recovery.RecoveryHandler
-        elif state == ClusterStates.RECOVERING:
+        if state == ClusterStates.RECOVERING:
             storage_handler = recovery.RecoveryHandler
         elif state == ClusterStates.VERIFYING:
             storage_handler = verification.VerificationHandler

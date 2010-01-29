@@ -38,7 +38,6 @@ class ErrorCodes(Enum):
 ErrorCodes = ErrorCodes()
 
 class ClusterStates(Enum):
-    BOOTING = Enum.Item(1)
     RECOVERING = Enum.Item(2)
     VERIFYING = Enum.Item(3)
     RUNNING = Enum.Item(4)
