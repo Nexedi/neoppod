@@ -133,6 +133,10 @@ RC  - Review output of pylint (CODE)
       an incoming packet that trigger the poll() system call.
     - Allow daemonize NEO processes, re-use code from TIDStorage and support
       start/stop/restart/status commands.
+    - Remove 'packet' parameter from handler methods. Set the last_received_id
+      attribute on the connection and reload it from answer() method.
+    - Consider don't close the connection after sending a packet but wait (a
+    	bit) for the closure from the remote peer.
 
 
     Storage
