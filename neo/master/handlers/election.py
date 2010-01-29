@@ -64,6 +64,12 @@ class ElectionHandler(MasterHandler):
 
 class ClientElectionHandler(ElectionHandler):
 
+    # FIXME: this packet is not allowed here, but handled in MasterHandler
+    # a global handler review is required.
+    def askPrimary(self, conn, packet):
+        from neo.protocol import UnexpectedPacketError
+        raise UnexpectedPacketError, "askPrimary on server connection"
+
     def packetReceived(self, conn, packet):
         node = self.app.nm.getByAddress(conn.getAddress())
         if not node.isBroken():
