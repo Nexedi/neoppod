@@ -91,13 +91,14 @@ class ClientElectionHandler(ElectionHandler):
         # connection successfull, set it as running
         node.setRunning()
         conn.ask(Packets.AskPrimary())
+        MasterHandler.connectionCompleted(self, conn)
 
     def connectionClosed(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
         node.setTemporarilyDown()
         self.app.negotiating_master_node_set.discard(addr)
-        self.connectionFailed(conn)
+        MasterHandler.connectionClosed(self, conn)
 
     def timeoutExpired(self, conn):
         addr = conn.getAddress()
