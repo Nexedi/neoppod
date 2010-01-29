@@ -38,10 +38,10 @@ class ErrorCodes(Enum):
 ErrorCodes = ErrorCodes()
 
 class ClusterStates(Enum):
-    RECOVERING = Enum.Item(2)
-    VERIFYING = Enum.Item(3)
-    RUNNING = Enum.Item(4)
-    STOPPING = Enum.Item(5)
+    RECOVERING = Enum.Item(1)
+    VERIFYING = Enum.Item(2)
+    RUNNING = Enum.Item(3)
+    STOPPING = Enum.Item(4)
 ClusterStates = ClusterStates()
 
 class NodeTypes(Enum):
