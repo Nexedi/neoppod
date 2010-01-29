@@ -109,6 +109,9 @@ class Node(object):
     def setRunning(self):
         self.setState(NodeStates.RUNNING)
 
+    def setUnknown(self):
+        self.setState(NodeStates.UNKNOWN)
+
     def setTemporarilyDown(self):
         self.setState(NodeStates.TEMPORARILY_DOWN)
 
