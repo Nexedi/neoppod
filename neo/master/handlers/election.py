@@ -93,19 +93,18 @@ class ClientElectionHandler(ElectionHandler):
         conn.ask(Packets.AskPrimary())
         MasterHandler.connectionCompleted(self, conn)
 
-    def connectionClosed(self, conn):
+    def _connectionLost(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
         node.setTemporarilyDown()
         self.app.negotiating_master_node_set.discard(addr)
         MasterHandler.connectionClosed(self, conn)
 
+    def connectionClosed(self, conn):
+        self._connectionLost(conn)
+
     def timeoutExpired(self, conn):
-        addr = conn.getAddress()
-        node = self.app.nm.getByAddress(addr)
-        node.setTemporarilyDown()
-        self.app.negotiating_master_node_set.discard(addr)
-        MasterHandler.timeoutExpired(self, conn)
+        self._connectionLost(conn)
 
     def peerBroken(self, conn):
         addr = conn.getAddress()
