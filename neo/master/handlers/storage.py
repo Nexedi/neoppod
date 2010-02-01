@@ -50,7 +50,7 @@ class StorageServiceHandler(BaseServiceHandler):
         p = Packets.AnswerUnfinishedTransactions(self.app.tm.getPendingList())
         conn.answer(p)
 
-    def notifyInformationLocked(self, conn, tid):
+    def answerInformationLocked(self, conn, tid):
         uuid = conn.getUUID()
         app = self.app
         node = app.nm.getByUUID(uuid)

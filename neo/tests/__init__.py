@@ -265,8 +265,8 @@ class NeoTestBase(unittest.TestCase):
     def checkAnswerTransactionFinished(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerTransactionFinished, **kw)
 
-    def checkNotifyInformationLocked(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.NotifyInformationLocked, **kw)
+    def checkAnswerInformationLocked(self, conn, **kw):
+        return self.checkAnswerPacket(conn, Packets.AnswerInformationLocked, **kw)
 
     def checkLockInformation(self, conn, **kw):
         return self.checkAskPacket(conn, Packets.LockInformation, **kw)

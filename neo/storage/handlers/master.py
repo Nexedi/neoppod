@@ -67,7 +67,7 @@ class MasterOperationHandler(BaseMasterHandler):
             app.dm.storeTransaction(tid, object_list, t.getTransaction())
         except KeyError:
             pass
-        conn.answer(Packets.NotifyInformationLocked(tid))
+        conn.answer(Packets.AnswerInformationLocked(tid))
 
     def notifyUnlockInformation(self, conn, tid):
         app = self.app

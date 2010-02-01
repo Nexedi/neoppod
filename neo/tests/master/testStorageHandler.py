@@ -74,7 +74,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         conn = self.getFakeConnection(node.getUUID(),node.getAddress())
         return (node, conn)
 
-    def test_notifyInformationLocked_1(self):
+    def test_answerInformationLocked_1(self):
         """
             Master must refuse to lock if the TID is greater than the last TID
         """
@@ -83,11 +83,11 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.app.tm.setLastTID(tid1)
         self.assertTrue(tid1 < tid2)
         node, conn = self.identifyToMasterNode()
-        self.checkProtocolErrorRaised(self.service.notifyInformationLocked,
+        self.checkProtocolErrorRaised(self.service.answerInformationLocked,
                 conn, tid2)
         self.checkNoPacketSent(conn)
 
-    def test_notifyInformationLocked_2(self):
+    def test_answerInformationLocked_2(self):
         """
             Master must:
             - lock each storage
@@ -112,13 +112,13 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.app.tm.prepare(tid, oid_list, uuid_list, msg_id)
         self.assertTrue(tid in self.app.tm)
         # the first storage acknowledge the lock
-        self.service.notifyInformationLocked(storage_conn_1, tid)
+        self.service.answerInformationLocked(storage_conn_1, tid)
         self.checkNoPacketSent(client_conn_1)
         self.checkNoPacketSent(client_conn_2)
         self.checkNoPacketSent(storage_conn_1)
         self.checkNoPacketSent(storage_conn_2)
         # then the second
-        self.service.notifyInformationLocked(storage_conn_2, tid)
+        self.service.answerInformationLocked(storage_conn_2, tid)
         self.checkAnswerTransactionFinished(client_conn_1)
         self.checkInvalidateObjects(client_conn_2)
         self.checkNotifyUnlockInformation(storage_conn_1)

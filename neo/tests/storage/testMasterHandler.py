@@ -151,12 +151,12 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.assertEquals(self.app.load_lock_dict[0], INVALID_TID)
         calls = self.app.dm.mockGetNamedCalls('storeTransaction')
         self.assertEquals(len(calls), 1)
-        self.checkNotifyInformationLocked(conn)
+        self.checkAnswerInformationLocked(conn)
         # transaction not in transaction_dict -> KeyError
         transaction = Mock({ 'getObjectList': ((0, ), ), })
         conn = Mock({ 'isServer': False, })
         self.operation.lockInformation(conn, '\x01' * 8)
-        self.checkNotifyInformationLocked(conn)
+        self.checkAnswerInformationLocked(conn)
 
     def test_23_notifyUnlockInformation2(self):
         # delete transaction informations
@@ -177,7 +177,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         transaction = Mock({ 'getObjectList': ((0, ), ), })
         conn = Mock({ 'isServer': False, })
         self.operation.lockInformation(conn, '\x01' * 8)
-        self.checkNotifyInformationLocked(conn)
+        self.checkAnswerInformationLocked(conn)
 
     def test_30_answerLastIDs(self):
         # set critical TID on replicator

@@ -142,7 +142,7 @@ class PacketLogger(EventHandler):
     def lockInformation(self, conn, tid):
         pass
 
-    def notifyInformationLocked(self, conn, tid):
+    def answerInformationLocked(self, conn, tid):
         pass
 
     def invalidateObjects(self, conn, oid_list, tid):

@@ -665,7 +665,7 @@ class LockInformation(Packet):
         (tid, ) = unpack('8s', body)
         return (_decodeTID(tid), )
 
-class NotifyInformationLocked(Packet):
+class AnswerInformationLocked(Packet):
     """
     Notify information on a transaction locked. S -> PM.
     """
@@ -1291,7 +1291,7 @@ class PacketRegistry(dict):
     FinishTransaction = register(0x0013, FinishTransaction)
     AnswerTransactionFinished = register(0x8013, AnswerTransactionFinished)
     LockInformation = register(0x0014, LockInformation)
-    NotifyInformationLocked = register(0x8014, NotifyInformationLocked)
+    AnswerInformationLocked = register(0x8014, AnswerInformationLocked)
     InvalidateObjects = register(0x0015, InvalidateObjects)
     NotifyUnlockInformation = register(0x0016, NotifyUnlockInformation)
     AskNewOIDs = register(0x0017, AskNewOIDs)
