@@ -17,6 +17,7 @@
 
 from time import time, gmtime
 from struct import pack, unpack
+from neo import protocol
 
 class Transaction(object):
     """
