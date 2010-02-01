@@ -68,6 +68,7 @@ class EventHandler(object):
             except KeyError:
                 raise UnexpectedPacketError('no handler found')
             args = packet.decode() or ()
+            conn.setPeerId(packet.getId())
             method(conn, packet, *args)
         except UnexpectedPacketError, e:
             self.__unexpectedPacket(conn, packet, *e.args)

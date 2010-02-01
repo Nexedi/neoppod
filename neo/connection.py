@@ -175,6 +175,7 @@ class Connection(BaseConnection):
         self.read_buf = ""
         self.write_buf = ""
         self.cur_id = 0
+        self.peer_id = 0
         self.event_dict = {}
         self.aborted = False
         self.uuid = None
@@ -190,6 +191,12 @@ class Connection(BaseConnection):
 
     def setUUID(self, uuid):
         self.uuid = uuid
+
+    def setPeerId(self, peer_id):
+        self.peer_id = peer_id
+
+    def getPeerId(self):
+        return self.peer_id
 
     def _getNextId(self):
         next_id = self.cur_id
@@ -403,8 +410,10 @@ class Connection(BaseConnection):
         return msg_id
 
     @not_closed
-    def answer(self, packet, msg_id):
+    def answer(self, packet, msg_id=None):
         """ Answer to a packet by re-using its ID for the packet answer """
+        if msg_id is None:
+            msg_id = self.getPeerId()
         packet.setId(msg_id)
         self._addPacket(packet)
 
