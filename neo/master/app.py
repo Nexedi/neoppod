@@ -317,7 +317,7 @@ class Application(object):
         """Broadcast a Notify Partition Changes packet."""
         logging.debug('broadcastPartitionChanges')
         if not cell_list:
-           return
+            return
         ptid = self.pt.setNextID()
         self.pt.log()
         for c in self.em.getConnectionList():
