@@ -21,6 +21,8 @@ from neo import logging
 from neo.util import dump
 from neo.protocol import NodeTypes, NodeStates
 
+from neo import attributeTracker
+
 class Node(object):
     """This class represents a node."""
 
@@ -144,6 +146,14 @@ class Node(object):
         except KeyError:
             raise NotImplementedError
 
+    def whoSetState(self):
+        """
+          Debugging method: call this method to know who set the current
+          state value.
+        """
+        return attributeTracker.whoSet(self, '_state')
+
+attributeTracker.track(Node)
 
 class MasterNode(Node):
     """This class represents a master node."""
