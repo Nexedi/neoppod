@@ -131,8 +131,8 @@ class Application(object):
         to self as well as master nodes."""
         logging.info('begin the election of a primary master')
 
-        self.unconnected_master_node_set = set()
-        self.negotiating_master_node_set = set()
+        self.unconnected_master_node_set.clear()
+        self.negotiating_master_node_set.clear()
         self.listening_conn.setHandler(election.ServerElectionHandler(self))
 
         while True:
