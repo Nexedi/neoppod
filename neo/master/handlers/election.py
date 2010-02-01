@@ -167,7 +167,7 @@ class ClientElectionHandler(ElectionHandler):
                 continue
             n = app.nm.getByAddress(address)
             # master node must be known
-            assert n is not None, 'Unknown master node address:' % address
+            assert n is not None, 'Unknown master node: %s' % (address, )
             if uuid is not None:
                 # If I don't know the UUID yet, believe what the peer
                 # told me at the moment.
