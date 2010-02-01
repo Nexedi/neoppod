@@ -228,16 +228,13 @@ class NeoTestBase(unittest.TestCase):
             return packet.decode()
         return packet
 
-    def checkAnswerPacket(self, conn, packet_type, answered_packet=None, decode=False):
+    def checkAnswerPacket(self, conn, packet_type, decode=False):
         """ Check if an answer-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('answer')
         self.assertEquals(len(calls), 1)
         packet = calls[0].getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEquals(packet.getType(), packet_type)
-        if answered_packet is not None:
-            msg_id = calls[0].getParam(1)
-            self.assertEqual(msg_id, answered_packet.getId())
         if decode:
             return packet.decode()
         return packet

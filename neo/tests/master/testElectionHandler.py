@@ -141,10 +141,8 @@ class MasterClientElectionTests(NeoTestBase):
     def test_acceptIdentification1(self):
         """ A non-master node accept identification """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.AcceptIdentification()
-        packet.setId(0)
         args = (node.getUUID(), 0, 10, self.app.uuid)
-        self.election.acceptIdentification(conn, packet, 
+        self.election.acceptIdentification(conn, 
             NodeTypes.CLIENT, *args)
         self.assertFalse(node in self.app.unconnected_master_node_set)
         self.assertFalse(node in self.app.negotiating_master_node_set)
@@ -153,22 +151,17 @@ class MasterClientElectionTests(NeoTestBase):
     def test_acceptIdentification2(self):
         """ UUID conflict """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.AcceptIdentification()
-        packet.setId(0)
         new_uuid = self._makeUUID('M')
         args = (node.getUUID(), 0, 10, new_uuid)
         self.assertRaises(ElectionFailure, self.election.acceptIdentification,
-            conn, packet, NodeTypes.MASTER, *args)
+            conn, NodeTypes.MASTER, *args)
         self.assertEqual(self.app.uuid, new_uuid)
 
     def test_acceptIdentification3(self):
         """ Identification accepted """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.AcceptIdentification()
-        packet.setId(0)
         args = (node.getUUID(), 0, 10, self.app.uuid)
-        self.election.acceptIdentification(conn, packet, 
-            NodeTypes.MASTER, *args)
+        self.election.acceptIdentification(conn, NodeTypes.MASTER, *args)
         self.checkUUIDSet(conn, node.getUUID())
         self.assertTrue(self.app.primary or node.getUUID() < self.app.uuid)
         self.assertFalse(node in self.app.negotiating_master_node_set)
@@ -180,21 +173,17 @@ class MasterClientElectionTests(NeoTestBase):
     def test_answerPrimary1(self):
         """ Multiple primary masters -> election failure raised """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.AnswerPrimary()
-        packet.setId(0)
         self.app.primary = True
         self.app.primary_master_node = node
         master_list = self._getMasterList()
         self.assertRaises(ElectionFailure, self.election.answerPrimary,
-                conn, packet, self.app.uuid, master_list)
+                conn, self.app.uuid, master_list)
 
     def test_answerPrimary2(self):
         """ Don't known who's the primary """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.AnswerPrimary()
-        packet.setId(0)
         master_list = self._getMasterList()
-        self.election.answerPrimary(conn, packet, None, master_list)
+        self.election.answerPrimary(conn, None, master_list)
         self.assertFalse(self.app.primary)
         self.assertEqual(self.app.primary_master_node, None)
         self.checkRequestIdentification(conn)
@@ -202,10 +191,8 @@ class MasterClientElectionTests(NeoTestBase):
     def test_answerPrimary3(self):
         """ Answer who's the primary """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.AnswerPrimary()
-        packet.setId(0)
         master_list = self._getMasterList()
-        self.election.answerPrimary(conn, packet, node.getUUID(), master_list)
+        self.election.answerPrimary(conn, node.getUUID(), master_list)
         addr = conn.getAddress()
         self.assertTrue(addr in self.app.unconnected_master_node_set)
         self.assertTrue(addr in self.app.negotiating_master_node_set)
@@ -271,40 +258,32 @@ class MasterServerElectionTests(NeoTestBase):
     def test_requestIdentification1(self):
         """ A non-master node request identification """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.RequestIdentification()
-        packet.setId(0)
         args = (node.getUUID(), node.getAddress(), self.app.name)
         self.assertRaises(protocol.NotReadyError, 
             self.election.requestIdentification, 
-            conn, packet, NodeTypes.CLIENT, *args)
+            conn, NodeTypes.CLIENT, *args)
 
     def test_requestIdentification2(self):
         """ A unknown master node request identification """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.RequestIdentification()
-        packet.setId(0)
         args = (node.getUUID(), ('127.0.0.1', 1000), self.app.name)
         self.checkProtocolErrorRaised(self.election.requestIdentification, 
-            conn, packet, NodeTypes.MASTER, *args)
+            conn, NodeTypes.MASTER, *args)
 
     def test_requestIdentification3(self):
         """ A broken master node request identification """
         node, conn = self.identifyToMasterNode()
         node.setBroken()
-        packet = protocol.RequestIdentification()
-        packet.setId(0)
         args = (node.getUUID(), node.getAddress(), self.app.name)
         self.assertRaises(protocol.BrokenNodeDisallowedError, 
             self.election.requestIdentification, 
-            conn, packet, NodeTypes.MASTER, *args)
+            conn, NodeTypes.MASTER, *args)
 
     def test_requestIdentification4(self):
         """ No conflict """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.RequestIdentification()
-        packet.setId(0)
         args = (node.getUUID(), node.getAddress(), self.app.name)
-        self.election.requestIdentification(conn, packet,
+        self.election.requestIdentification(conn,
             NodeTypes.MASTER, *args)
         self.checkUUIDSet(conn, node.getUUID())
         args = self.checkAcceptIdentification(conn, decode=True)
@@ -315,10 +294,8 @@ class MasterServerElectionTests(NeoTestBase):
     def test_requestIdentification5(self):
         """ UUID conflict """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.RequestIdentification()
-        packet.setId(0)
         args = (self.app.uuid, node.getAddress(), self.app.name)
-        self.election.requestIdentification(conn, packet,
+        self.election.requestIdentification(conn,
             NodeTypes.MASTER, *args)
         self.checkUUIDSet(conn)
         args = self.checkAcceptIdentification(conn, decode=True)
@@ -334,11 +311,9 @@ class MasterServerElectionTests(NeoTestBase):
     def test_notifyNodeInformation1(self):
         """ Not identified """
         node, conn = self.identifyToMasterNode(uuid=None)
-        packet = protocol.NotifyNodeInformation()
-        packet.setId(0)
         node_list = self._getNodeList()
         self.assertRaises(protocol.ProtocolError, 
-            self.election.notifyNodeInformation, conn, packet, node_list)
+            self.election.notifyNodeInformation, conn, node_list)
 
     # TODO: build a full notifyNodeInformation test
 
@@ -367,16 +342,9 @@ class MasterServerElectionTests(NeoTestBase):
     def testRequestIdentification1(self):
         """ Check with a non-master node, must be refused """
         conn = self.__getClient()
-        packet = protocol.RequestIdentification(
-            NodeTypes.CLIENT,
-            conn.getUUID(),
-            conn.getAddress(),
-            name=self.app.name,
-        )
         self.checkNotReadyErrorRaised(
             self.election.requestIdentification,
             conn=conn,
-            packet=packet,
             node_type=NodeTypes.CLIENT,
             uuid=conn.getUUID(),
             address=conn.getAddress(),
@@ -386,16 +354,9 @@ class MasterServerElectionTests(NeoTestBase):
     def testRequestIdentification2(self):
         """ Check with an unknown master node """
         conn = self.__getMaster(register=False)
-        packet = protocol.RequestIdentification(
-            NodeTypes.MASTER,
-            conn.getUUID(),
-            conn.getAddress(),
-            name=self.app.name,
-        )
         self.checkProtocolErrorRaised(
             self.election.requestIdentification,
             conn=conn,
-            packet=packet,
             node_type=NodeTypes.MASTER,
             uuid=conn.getUUID(),
             address=conn.getAddress(),
@@ -405,37 +366,33 @@ class MasterServerElectionTests(NeoTestBase):
     def testAnnouncePrimary1(self):
         """ check the wrong cases """
         announce = self.election.announcePrimary
-        packet = Packets.AnnouncePrimary()
         # No uuid
         node, conn = self.identifyToMasterNode(uuid=None)
-        self.checkProtocolErrorRaised(announce, conn, packet)
+        self.checkProtocolErrorRaised(announce, conn)
         # Announce to a primary, raise
         self.app.primary = True
         node, conn = self.identifyToMasterNode()
         self.assertTrue(self.app.primary)
         self.assertEqual(self.app.primary_master_node, None)
-        self.assertRaises(ElectionFailure, announce, conn, packet)
+        self.assertRaises(ElectionFailure, announce, conn)
 
     def testAnnouncePrimary2(self):
         """ Check the good case """
         announce = self.election.announcePrimary
-        packet = Packets.AnnouncePrimary()
         # Announce, must set the primary
         self.app.primary = False
         node, conn = self.identifyToMasterNode()
         self.assertFalse(self.app.primary)
         self.assertFalse(self.app.primary_master_node)
-        announce(conn, packet)
+        announce(conn)
         self.assertFalse(self.app.primary)
         self.assertEqual(self.app.primary_master_node, node)
 
     def test_askPrimary1(self):
         """ Ask the primary to the primary """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.AskPrimary()
-        packet.setId(0)
         self.app.primary = True
-        self.election.askPrimary(conn, packet)
+        self.election.askPrimary(conn)
         uuid, master_list = self.checkAnswerPrimary(conn, decode=True)
         self.assertEqual(uuid, self.app.uuid)
         self.assertEqual(len(master_list), 2)
@@ -447,12 +404,10 @@ class MasterServerElectionTests(NeoTestBase):
     def test_askPrimary2(self):
         """ Ask the primary to a secondary that known who's te primary """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.AskPrimary()
-        packet.setId(0)
         self.app.primary = False
         # it will answer ourself as primary
         self.app.primary_master_node = node
-        self.election.askPrimary(conn, packet)
+        self.election.askPrimary(conn)
         uuid, master_list = self.checkAnswerPrimary(conn, decode=True)
         self.assertEqual(uuid, node.getUUID())
         self.assertEqual(len(master_list), 2)
@@ -463,11 +418,9 @@ class MasterServerElectionTests(NeoTestBase):
     def test_askPrimary3(self):
         """ Ask the primary to a master that don't known who's the primary """
         node, conn = self.identifyToMasterNode()
-        packet = protocol.AskPrimary()
-        packet.setId(0)
         self.app.primary = False
         self.app.primary_master_node = None
-        self.election.askPrimary(conn, packet)
+        self.election.askPrimary(conn)
         uuid, master_list = self.checkAnswerPrimary(conn, decode=True)
         self.assertEqual(uuid, None)
         self.assertEqual(len(master_list), 2)
@@ -478,10 +431,7 @@ class MasterServerElectionTests(NeoTestBase):
 
     def test_reelectPrimary(self):
         node, conn = self.identifyToMasterNode()
-        packet = Packets.AskPrimary()
-        packet.setId(0)
-        self.assertRaises(ElectionFailure, self.election.reelectPrimary, 
-            conn, packet)
+        self.assertRaises(ElectionFailure, self.election.reelectPrimary, conn)
 
 
 if __name__ == '__main__':

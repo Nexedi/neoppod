@@ -44,39 +44,39 @@ class HandlerTests(NeoTestBase):
         conn = Mock({'getAddress': ('127.0.0.1', 10000)})
         packet = self.getFakePacket()
         # all is ok
-        self.setFakeMethod(lambda c, p: None)
+        self.setFakeMethod(lambda c: None)
         self.handler.dispatch(conn, packet)
         # raise UnexpectedPacketError
         conn.mockCalledMethods = {}
-        def fake(c, p): raise UnexpectedPacketError('fake packet')
+        def fake(c): raise UnexpectedPacketError('fake packet')
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
         # raise PacketMalformedError
         conn.mockCalledMethods = {}
-        def fake(c, p): raise PacketMalformedError('message')
+        def fake(c): raise PacketMalformedError('message')
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
         # raise BrokenNodeDisallowedError
         conn.mockCalledMethods = {}
-        def fake(c, p): raise BrokenNodeDisallowedError
+        def fake(c): raise BrokenNodeDisallowedError
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
         # raise NotReadyError
         conn.mockCalledMethods = {}
-        def fake(c, p): raise NotReadyError
+        def fake(c): raise NotReadyError
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)
         self.checkAborted(conn)
         # raise ProtocolError
         conn.mockCalledMethods = {}
-        def fake(c, p): raise ProtocolError
+        def fake(c): raise ProtocolError
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
         self.checkErrorPacket(conn)

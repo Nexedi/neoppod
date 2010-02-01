@@ -94,7 +94,6 @@ class MasterRecoveryTests(NeoTestBase):
     def test_09_answerLastIDs(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode()
-        packet = Packets.AnswerLastIDs()
         loid = self.app.loid = '\1' * 8
         self.app.tm.setLastTID('\1' * 8)
         ltid = self.app.tm.getLastTID()
@@ -113,7 +112,7 @@ class MasterRecoveryTests(NeoTestBase):
         self.assertTrue(new_oid > self.app.loid)
         self.assertTrue(new_tid > self.app.tm.getLastTID())
         self.assertEquals(self.app.target_uuid, None)
-        recovery.answerLastIDs(conn, packet, new_oid, new_tid, new_ptid)
+        recovery.answerLastIDs(conn, new_oid, new_tid, new_ptid)
         self.assertEquals(new_oid, self.app.loid)
         self.assertEquals(new_tid, self.app.tm.getLastTID())
         self.assertEquals(new_ptid, self.app.pt.getID())
@@ -123,7 +122,6 @@ class MasterRecoveryTests(NeoTestBase):
     def test_10_answerPartitionTable(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode(NodeTypes.MASTER, port=self.master_port)
-        packet = Packets.AnswerPartitionTable()
         # not from target node, ignore
         uuid = self.identifyToMasterNode(NodeTypes.STORAGE, port=self.storage_port)
         conn = self.getFakeConnection(uuid, self.storage_port)
@@ -133,7 +131,7 @@ class MasterRecoveryTests(NeoTestBase):
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, CellStates.OUT_OF_DATE)
-        recovery.answerPartitionTable(conn, packet, None, cell_list)
+        recovery.answerPartitionTable(conn, None, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, CellStates.OUT_OF_DATE)
@@ -147,7 +145,7 @@ class MasterRecoveryTests(NeoTestBase):
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, CellStates.OUT_OF_DATE)
-        recovery.answerPartitionTable(conn, packet, None, cell_list)
+        recovery.answerPartitionTable(conn, None, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, CellStates.UP_TO_DATE)
@@ -158,7 +156,7 @@ class MasterRecoveryTests(NeoTestBase):
         self.assertFalse(self.app.pt.hasOffset(offset))
         cell_list = [(offset, ((uuid, NodeStates.DOWN,),),)]
         self.checkProtocolErrorRaised(recovery.answerPartitionTable, conn,
-            packet, None, cell_list)
+            None, cell_list)
 
 
 if __name__ == '__main__':

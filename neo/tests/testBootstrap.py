@@ -54,8 +54,7 @@ class BootstrapManagerTests(NeoTestBase):
     def testHandleNotReady(self):
         # the primary is not ready
         conn = Mock({})
-        packet = Mock({})
-        self.bootstrap.notReady(conn, packet, '')
+        self.bootstrap.notReady(conn, '')
         self.checkClosed(conn)
         self.checkNoPacketSent(conn)
 

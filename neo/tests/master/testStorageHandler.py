@@ -83,9 +83,8 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.app.tm.setLastTID(tid1)
         self.assertTrue(tid1 < tid2)
         node, conn = self.identifyToMasterNode()
-        packet = Packets.NotifyInformationLocked(tid2)
         self.checkProtocolErrorRaised(self.service.notifyInformationLocked,
-                conn, packet, tid2)
+                conn, tid2)
         self.checkNoPacketSent(conn)
 
     def test_notifyInformationLocked_2(self):
@@ -112,15 +111,14 @@ class MasterStorageHandlerTests(NeoTestBase):
         tid = self.app.tm.begin(client_1, None)
         self.app.tm.prepare(tid, oid_list, uuid_list, msg_id)
         self.assertTrue(tid in self.app.tm)
-        packet = Packets.NotifyInformationLocked(tid)
         # the first storage acknowledge the lock
-        self.service.notifyInformationLocked(storage_conn_1, packet, tid)
+        self.service.notifyInformationLocked(storage_conn_1, tid)
         self.checkNoPacketSent(client_conn_1)
         self.checkNoPacketSent(client_conn_2)
         self.checkNoPacketSent(storage_conn_1)
         self.checkNoPacketSent(storage_conn_2)
         # then the second
-        self.service.notifyInformationLocked(storage_conn_2, packet, tid)
+        self.service.notifyInformationLocked(storage_conn_2, tid)
         self.checkAnswerTransactionFinished(client_conn_1)
         self.checkInvalidateObjects(client_conn_2)
         self.checkNotifyUnlockInformation(storage_conn_1)
@@ -129,16 +127,14 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_12_askLastIDs(self):
         service = self.service
         node, conn = self.identifyToMasterNode()
-        packet = Packets.AskLastIDs()
-        packet.setId(0)
         # give a uuid
         conn = self.getFakeConnection(node.getUUID(), self.storage_address)
         ptid = self.app.pt.getID()
         oid = self.app.loid = '\1' * 8
         tid = '\1' * 8
         self.app.tm.setLastTID(tid)
-        service.askLastIDs(conn, packet)
-        packet = self.checkAnswerLastIDs(conn, answered_packet=packet)
+        service.askLastIDs(conn)
+        packet = self.checkAnswerLastIDs(conn)
         loid, ltid, lptid = packet.decode()
         self.assertEqual(loid, oid)
         self.assertEqual(ltid, tid)
@@ -148,24 +144,21 @@ class MasterStorageHandlerTests(NeoTestBase):
     def test_13_askUnfinishedTransactions(self):
         service = self.service
         node, conn = self.identifyToMasterNode()
-        packet = Packets.AskUnfinishedTransactions()
-        packet.setId(0)
         # give a uuid
-        service.askUnfinishedTransactions(conn, packet)
-        packet = self.checkAnswerUnfinishedTransactions(conn, answered_packet=packet)
-        packet.setId(0)
+        service.askUnfinishedTransactions(conn)
+        packet = self.checkAnswerUnfinishedTransactions(conn)
         tid_list, = packet.decode()
         self.assertEqual(tid_list, [])
         # create some transaction
         node, conn = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port=self.client_port)
         client_uuid = node.getUUID()
-        self.client_handler.askBeginTransaction(conn, packet, None)
-        self.client_handler.askBeginTransaction(conn, packet, None)
-        self.client_handler.askBeginTransaction(conn, packet, None)
+        self.client_handler.askBeginTransaction(conn, None)
+        self.client_handler.askBeginTransaction(conn, None)
+        self.client_handler.askBeginTransaction(conn, None)
         conn = self.getFakeConnection(node.getUUID(), self.storage_address)
-        service.askUnfinishedTransactions(conn, packet)
-        packet = self.checkAnswerUnfinishedTransactions(conn, answered_packet=packet)
+        service.askUnfinishedTransactions(conn)
+        packet = self.checkAnswerUnfinishedTransactions(conn)
         (tid_list, ) = packet.decode()
         self.assertEqual(len(tid_list), 3)
 
