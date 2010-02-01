@@ -21,6 +21,11 @@ from neo import logging
 class ThreadedPoll(Thread):
     """Polling thread."""
 
+    # Garbage collector hint:
+    # Prevent logging module from being garbage-collected as it is needed for
+    # run method to cleanly exit.
+    logging = logging
+
     def __init__(self, em, **kw):
         Thread.__init__(self, **kw)
         self.em = em
@@ -34,8 +39,8 @@ class ThreadedPoll(Thread):
             try:
                 self.em.poll()
             except:
-                logging.error('poll raised, retrying', exc_info=1)
-        logging.debug('Threaded poll stopped')
+                self.logging.error('poll raised, retrying', exc_info=1)
+        self.logging.debug('Threaded poll stopped')
 
     def stop(self):
         self._stop.set()
