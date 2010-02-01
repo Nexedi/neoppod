@@ -86,7 +86,8 @@ class ClientElectionHandler(ElectionHandler):
     def connectionFailed(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
-        assert node.isUnknown(), node.getState()
+        assert node.isUnknown(), (self.app.uuid, node.whoSetState(),
+          node.getState())
         # connection never success, node is still in unknown state
         self.app.negotiating_master_node_set.discard(addr)
         self.app.unconnected_master_node_set.add(addr)
@@ -103,7 +104,8 @@ class ClientElectionHandler(ElectionHandler):
     def _connectionLost(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
-        assert not node.isUnknown(), node.getState()
+        assert not node.isUnknown(), (self.app.uuid, node.whoSetState(),
+          node.getState())
         node.setTemporarilyDown()
         self.app.negotiating_master_node_set.discard(addr)
         MasterHandler.connectionClosed(self, conn)
