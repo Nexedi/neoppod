@@ -266,8 +266,6 @@ RC  - Review output of pylint (CODE)
     to create a new stage for the cluster startup... to be discussed.
 
 Bugs:
-  - Packet queue: sometimes a packet is expected in the packet queue but the
-    latter is empty.
   - Node in partition table already known: When a node receive a partition table
     (full or partial), nodes used must already known and referenced in the node
     manager (special case for master during recovery). Sometimes functional
