@@ -193,9 +193,8 @@ class ClientElectionHandler(ElectionHandler):
                 app.primary_master_node = primary_node
                 # Stop waiting for connections than primary master's to
                 # complete to exit election phase ASAP.
-                primary_server = primary_node.getAddress()
-                app.unconnected_master_node_set = set([primary_server])
-                app.negotiating_master_node_set = set([primary_server])
+                app.unconnected_master_node_set.clear()
+                app.negotiating_master_node_set.clear()
 
         # Request a node identification.
         conn.ask(Packets.RequestIdentification(
@@ -270,5 +269,7 @@ class ServerElectionHandler(ElectionHandler):
         node = app.nm.getByUUID(uuid)
         app.primary = False
         app.primary_master_node = node
+        app.unconnected_master_node_set.clear()
+        app.negotiating_master_node_set.clear()
         logging.info('%s is the primary', node)
 

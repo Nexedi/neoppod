@@ -20,7 +20,7 @@ from neo import logging
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure, PrimaryFailure
 from neo import protocol
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, Packets
 
 class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
@@ -57,6 +57,18 @@ class PrimaryHandler(MasterHandler):
     def connectionLost(self, conn, new_state):
         self.app.primary_master_node.setDown()
         raise PrimaryFailure, 'primary master is dead'
+
+    def connectionFailed(self, conn):
+        self.app.primary_master_node.setDown()
+        raise PrimaryFailure, 'primary master is dead'
+
+    def connectionCompleted(self, conn):
+        addr = conn.getAddress()
+        node = self.app.nm.getByAddress(addr)
+        # connection successfull, set it as running
+        node.setRunning()
+        conn.ask(Packets.AskPrimary())
+        MasterHandler.connectionCompleted(self, conn)
 
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
@@ -98,7 +110,15 @@ class PrimaryHandler(MasterHandler):
         node.setUUID(uuid)
 
     def answerPrimary(self, conn, primary_uuid, known_master_list):
-        pass
+        app = self.app
+        if primary_uuid != app.primary_master_node.getUUID():
+            raise PrimaryFailure, 'unexpected primary uuid'
+        conn.ask(Packets.RequestIdentification(
+            NodeTypes.MASTER,
+            app.uuid,
+            app.server,
+            app.name
+        ))
 
     def notifyClusterInformation(self, conn, state):
         pass

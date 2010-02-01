@@ -238,18 +238,20 @@ class Application(object):
         addr = self.primary_master_node.getAddress()
         for conn in self.em.getServerList():
             conn.close()
-        for conn in self.em.getClientList():
-            if conn.getAddress() != addr:
-                conn.close()
+        connected_to_master = False
 
-        # But if there is no such connection, something wrong
-        # happened.
+        primary_handler = secondary.PrimaryHandler(self)
+
         for conn in self.em.getClientList():
             if conn.getAddress() == addr:
-                # primary master elected and connected
-                break
-        else:
-            raise ElectionFailure('No connection remains to the primary')
+                connected_to_master = True
+                conn.setHandler(primary_handler)
+            else:
+                conn.close()
+
+        if not connected_to_master:
+            ClientConnection(self.em, primary_handler, addr=addr,
+                connector_handler=self.connector_handler)
 
 
     def _electionFailed(self, m):
@@ -627,12 +629,6 @@ class Application(object):
 
         # otherwise, wait for the primary announcement
         self._waitForPrimaryAnnouncement()
-
-        # apply the new handler to the primary connection
-        client_list = [x for x in self.em.getClientList() if x.getUUID() ==
-                self.primary_master_node.getUUID()]
-        assert len(client_list) == 1
-        client_list[0].setHandler(secondary.PrimaryHandler(self))
 
         # and another for the future incoming connections
         handler = identification.IdentificationHandler(self)
