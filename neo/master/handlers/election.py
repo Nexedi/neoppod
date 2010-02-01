@@ -21,6 +21,7 @@ from neo import protocol
 from neo.protocol import NodeTypes, NodeStates, Packets
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
+from neo.util import dump
 
 class ElectionHandler(MasterHandler):
     """This class deals with events for a primary master election."""
@@ -86,7 +87,7 @@ class ClientElectionHandler(ElectionHandler):
     def connectionFailed(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
-        assert node.isUnknown(), (self.app.uuid, node.whoSetState(),
+        assert node.isUnknown(), (dump(self.app.uuid), node.whoSetState(),
           node.getState())
         # connection never success, node is still in unknown state
         self.app.negotiating_master_node_set.discard(addr)
@@ -104,7 +105,7 @@ class ClientElectionHandler(ElectionHandler):
     def _connectionLost(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
-        assert not node.isUnknown(), (self.app.uuid, node.whoSetState(),
+        assert not node.isUnknown(), (dump(self.app.uuid), node.whoSetState(),
           node.getState())
         node.setTemporarilyDown()
         self.app.negotiating_master_node_set.discard(addr)
