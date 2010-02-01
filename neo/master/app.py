@@ -802,5 +802,7 @@ class Application(object):
             node_ctor = self.nm.createStorage
             (uuid, state, handler) = self.identifyStorageNode(uuid, node)
             logging.info('Accept a storage %s (%s)' % (dump(uuid), state))
+        # create a handler instance
+        handler = handler(self)
         return (uuid, node, state, handler, node_ctor)
 

@@ -67,7 +67,6 @@ class IdentificationHandler(MasterHandler):
         if node is None:
             # new node
             node = node_ctor(uuid=uuid, address=address)
-        handler = handler(self.app)
         # set up the node
         node.setUUID(uuid)
         node.setState(state)
