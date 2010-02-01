@@ -21,7 +21,7 @@ from neo import logging
 class ThreadedPoll(Thread):
     """Polling thread."""
 
-    # Garbage collector hint:
+    # Garbage collector hint:
     # Prevent logging module from being garbage-collected as it is needed for
     # run method to cleanly exit.
     logging = logging
