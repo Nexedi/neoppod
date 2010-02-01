@@ -34,13 +34,13 @@ class SecondaryMasterHandler(MasterHandler):
     def connectionCompleted(self, conn):
         pass
 
-    def announcePrimary(self, conn, packet):
+    def announcePrimary(self, conn):
         raise ElectionFailure, 'another primary arises'
 
-    def reelectPrimary(self, conn, packet):
+    def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 
-    def notifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, node_list):
         logging.error('/!\ NotifyNodeInformation packet from secondary master')
 
 
@@ -58,10 +58,10 @@ class PrimaryHandler(MasterHandler):
         self.app.primary_master_node.setDown()
         raise PrimaryFailure, 'primary master is dead'
 
-    def reelectPrimary(self, conn, packet):
+    def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 
-    def notifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, node_list):
         app = self.app
         for node_type, addr, uuid, state in node_list:
             if node_type != NodeTypes.MASTER:
@@ -83,7 +83,7 @@ class PrimaryHandler(MasterHandler):
                     if n.getUUID() is None:
                         n.setUUID(uuid)
 
-    def acceptIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, node_type,
                                        uuid, num_partitions,
                                        num_replicas, your_uuid):
         app = self.app
@@ -97,8 +97,8 @@ class PrimaryHandler(MasterHandler):
         conn.setUUID(uuid)
         node.setUUID(uuid)
 
-    def answerPrimary(self, conn, packet, primary_uuid, known_master_list):
+    def answerPrimary(self, conn, primary_uuid, known_master_list):
         pass
 
-    def notifyClusterInformation(self, conn, packet, state):
+    def notifyClusterInformation(self, conn, state):
         pass

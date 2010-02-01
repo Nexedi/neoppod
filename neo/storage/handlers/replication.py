@@ -36,12 +36,12 @@ class ReplicationHandler(BaseStorageHandler):
         logging.error('replication is stopped due to connection failure')
         self.app.replicator.reset()
 
-    def acceptIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, node_type,
                        uuid, num_partitions, num_replicas, your_uuid):
         # set the UUID on the connection
         conn.setUUID(uuid)
 
-    def answerTIDs(self, conn, packet, tid_list):
+    def answerTIDs(self, conn, tid_list):
         app = self.app
         if app.replicator.current_connection is not conn:
             return
@@ -68,7 +68,7 @@ class ReplicationHandler(BaseStorageHandler):
             conn.ask(p, timeout=300)
             app.replicator.oid_offset = 0
 
-    def answerTransactionInformation(self, conn, packet, tid,
+    def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, oid_list):
         app = self.app
         if app.replicator.current_connection is not conn:
@@ -77,7 +77,7 @@ class ReplicationHandler(BaseStorageHandler):
         # Directly store the transaction.
         app.dm.storeTransaction(tid, (), (oid_list, user, desc, ext), False)
 
-    def answerOIDs(self, conn, packet, oid_list):
+    def answerOIDs(self, conn, oid_list):
         app = self.app
         if app.replicator.current_connection is not conn:
             return
@@ -93,7 +93,7 @@ class ReplicationHandler(BaseStorageHandler):
             # finished.
             app.replicator.replication_done = True
 
-    def answerObjectHistory(self, conn, packet, oid, history_list):
+    def answerObjectHistory(self, conn, oid, history_list):
         app = self.app
         if app.replicator.current_connection is not conn:
             return
@@ -127,7 +127,7 @@ class ReplicationHandler(BaseStorageHandler):
                           app.replicator.current_partition.getRID())
                 conn.ask(p, timeout=300)
 
-    def answerObject(self, conn, packet, oid, serial_start,
+    def answerObject(self, conn, oid, serial_start,
                            serial_end, compression, checksum, data):
         app = self.app
         if app.replicator.current_connection is not conn:

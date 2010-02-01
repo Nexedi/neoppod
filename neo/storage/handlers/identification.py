@@ -28,7 +28,7 @@ class IdentificationHandler(BaseStorageHandler):
     def connectionLost(self, conn, new_state):
         logging.warning('A connection was lost during identification')
 
-    def requestIdentification(self, conn, packet, node_type,
+    def requestIdentification(self, conn, node_type,
                                         uuid, address, name):
         self.checkClusterName(name)
         # reject any incoming connections if not ready
@@ -61,6 +61,6 @@ class IdentificationHandler(BaseStorageHandler):
         args = (NodeTypes.STORAGE, app.uuid, app.pt.getPartitions(),
             app.pt.getReplicas(), uuid)
         # accept the identification and trigger an event
-        conn.answer(Packets.AcceptIdentification(*args), packet.getId())
+        conn.answer(Packets.AcceptIdentification(*args))
         handler.connectionCompleted(conn)
 

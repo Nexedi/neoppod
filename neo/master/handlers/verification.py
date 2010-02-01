@@ -31,7 +31,7 @@ class VerificationHandler(BaseServiceHandler):
         if not self.app.pt.operational():
             raise VerificationFailure, 'cannot continue verification'
 
-    def answerLastIDs(self, conn, packet, loid, ltid, lptid):
+    def answerLastIDs(self, conn, loid, ltid, lptid):
         app = self.app
         # If I get a bigger value here, it is dangerous.
         if app.loid < loid or ltid > app.tm.getLastTID() \
@@ -39,7 +39,7 @@ class VerificationHandler(BaseServiceHandler):
             logging.critical('got later information in verification')
             raise VerificationFailure
 
-    def answerUnfinishedTransactions(self, conn, packet, tid_list):
+    def answerUnfinishedTransactions(self, conn, tid_list):
         uuid = conn.getUUID()
         logging.info('got unfinished transactions %s from %s:%d',
                 tid_list, *(conn.getAddress()))
@@ -50,7 +50,7 @@ class VerificationHandler(BaseServiceHandler):
         app.unfinished_tid_set.update(tid_list)
         app.asking_uuid_dict[uuid] = True
 
-    def answerTransactionInformation(self, conn, packet, tid,
+    def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, oid_list):
         uuid = conn.getUUID()
         app = self.app
@@ -68,7 +68,7 @@ class VerificationHandler(BaseServiceHandler):
             app.unfinished_oid_set = None
         app.asking_uuid_dict[uuid] = True
 
-    def tidNotFound(self, conn, packet, message):
+    def tidNotFound(self, conn, message):
         uuid = conn.getUUID()
         logging.info('TID not found: %s', message)
         app = self.app
@@ -78,7 +78,7 @@ class VerificationHandler(BaseServiceHandler):
         app.unfinished_oid_set = None
         app.asking_uuid_dict[uuid] = True
 
-    def answerObjectPresent(self, conn, packet, oid, tid):
+    def answerObjectPresent(self, conn, oid, tid):
         uuid = conn.getUUID()
         logging.info('object %s:%s found', dump(oid), dump(tid))
         app = self.app
@@ -87,7 +87,7 @@ class VerificationHandler(BaseServiceHandler):
             return
         app.asking_uuid_dict[uuid] = True
 
-    def oidNotFound(self, conn, packet, message):
+    def oidNotFound(self, conn, message):
         uuid = conn.getUUID()
         logging.info('OID not found: %s', message)
         app = self.app

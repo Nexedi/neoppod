@@ -33,22 +33,22 @@ class ClientServiceHandler(BaseServiceHandler):
         self.app.tm.abortFor(node)
         self.app.nm.remove(node)
 
-    def abortTransaction(self, conn, packet, tid):
+    def abortTransaction(self, conn, tid):
         if tid in self.app.tm:
             self.app.tm.remove(tid)
         else:
             logging.warn('aborting transaction %s does not exist', dump(tid))
 
-    def askBeginTransaction(self, conn, packet, tid):
+    def askBeginTransaction(self, conn, tid):
         node = self.app.nm.getByUUID(conn.getUUID())
         tid = self.app.tm.begin(node, tid)
-        conn.answer(Packets.AnswerBeginTransaction(tid), packet.getId())
+        conn.answer(Packets.AnswerBeginTransaction(tid))
 
-    def askNewOIDs(self, conn, packet, num_oids):
+    def askNewOIDs(self, conn, num_oids):
         oid_list = self.app.getNewOIDList(num_oids)
-        conn.answer(Packets.AnswerNewOIDs(oid_list), packet.getId())
+        conn.answer(Packets.AnswerNewOIDs(oid_list))
 
-    def finishTransaction(self, conn, packet, oid_list, tid):
+    def finishTransaction(self, conn, oid_list, tid):
         app = self.app
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
@@ -76,5 +76,5 @@ class ClientServiceHandler(BaseServiceHandler):
                 c.ask(Packets.LockInformation(tid), timeout=60)
                 used_uuid_set.add(c.getUUID())
 
-        app.tm.prepare(tid, oid_list, used_uuid_set, packet.getId())
+        app.tm.prepare(tid, oid_list, used_uuid_set, conn.getPeerId())
 

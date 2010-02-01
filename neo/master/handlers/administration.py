@@ -29,20 +29,20 @@ class AdministrationHandler(MasterHandler):
         node = self.app.nm.getByUUID(conn.getUUID())
         self.app.nm.remove(node)
 
-    def askPrimary(self, conn, packet):
+    def askPrimary(self, conn):
         app = self.app
         # I'm the primary
-        conn.answer(Packets.AnswerPrimary(app.uuid, []), packet.getId())
+        conn.answer(Packets.AnswerPrimary(app.uuid, []))
 
-    def setClusterState(self, conn, packet, state):
+    def setClusterState(self, conn, state):
         self.app.changeClusterState(state)
         p = protocol.ack('cluster state changed')
-        conn.answer(p, packet.getId())
+        conn.answer(p)
         if state == ClusterStates.STOPPING:
             self.app.cluster_state = state
             self.app.shutdown()
 
-    def setNodeState(self, conn, packet, uuid, state, modify_partition_table):
+    def setNodeState(self, conn, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s : %s" %
                 (dump(uuid), state, modify_partition_table))
         app = self.app
@@ -55,13 +55,13 @@ class AdministrationHandler(MasterHandler):
             # get message for self
             if state != NodeStates.RUNNING:
                 p = protocol.ack('node state changed')
-                conn.answer(p, packet.getId())
+                conn.answer(p)
                 app.shutdown()
 
         if node.getState() == state:
             # no change, just notify admin node
             p = protocol.ack('node state changed')
-            conn.answer(p, packet.getId())
+            conn.answer(p)
             return
 
         if state == NodeStates.RUNNING:
@@ -88,10 +88,10 @@ class AdministrationHandler(MasterHandler):
         # /!\ send the node information *after* the partition table change
         node.setState(state)
         p = protocol.ack('state changed')
-        conn.answer(p, packet.getId())
+        conn.answer(p)
         app.broadcastNodesInformation([node])
 
-    def addPendingNodes(self, conn, packet, uuid_list):
+    def addPendingNodes(self, conn, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
         logging.debug('Add nodes %s' % uuids)
         app, nm, em, pt = self.app, self.app.nm, self.app.em, self.app.pt
@@ -108,7 +108,7 @@ class AdministrationHandler(MasterHandler):
         if not uuid_set:
             logging.warning('No nodes added')
             p = protocol.ack('no nodes added')
-            conn.answer(p, packet.getId())
+            conn.answer(p)
             return
         uuids = ', '.join([dump(uuid) for uuid in uuid_set])
         logging.info('Adding nodes %s' % uuids)
@@ -127,4 +127,4 @@ class AdministrationHandler(MasterHandler):
         # broadcast the new partition table
         app.broadcastPartitionChanges(cell_list)
         p = protocol.ack('node added')
-        conn.answer(p, packet.getId())
+        conn.answer(p)

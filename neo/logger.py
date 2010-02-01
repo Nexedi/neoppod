@@ -44,208 +44,208 @@ class PacketLogger(EventHandler):
         except PacketMalformedError:
             logging.warning("Can't decode packet for logging")
             return
-        log_message = logger(conn, packet, *args)
+        log_message = logger(conn, *args)
         if log_message is not None:
             logging.debug('#0x%08x %s', packet.getId(), log_message)
 
 
     # Packet loggers
 
-    def error(self, conn, packet, code, message):
+    def error(self, conn, code, message):
         return "%s (%s)" % (code, message)
 
-    def requestIdentification(self, conn, packet, node_type,
+    def requestIdentification(self, conn, node_type,
                                         uuid, address, name):
         logging.debug('Request identification for cluster %s' % (name, ))
         pass
 
-    def acceptIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, node_type,
                        uuid, num_partitions, num_replicas, your_uuid):
         pass
 
-    def askPrimary(self, conn, packet):
+    def askPrimary(self, conn):
         pass
 
-    def answerPrimary(self, conn, packet, primary_uuid,
+    def answerPrimary(self, conn, primary_uuid,
                                   known_master_list):
         pass
 
-    def announcePrimary(self, conn, packet):
+    def announcePrimary(self, conn):
         pass
 
-    def reelectPrimary(self, conn, packet):
+    def reelectPrimary(self, conn):
         pass
 
-    def notifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, node_list):
         pass
 
-    def askLastIDs(self, conn, packet):
+    def askLastIDs(self, conn):
         pass
 
-    def answerLastIDs(self, conn, packet, loid, ltid, lptid):
+    def answerLastIDs(self, conn, loid, ltid, lptid):
         pass
 
-    def askPartitionTable(self, conn, packet, offset_list):
+    def askPartitionTable(self, conn, offset_list):
         pass
 
-    def answerPartitionTable(self, conn, packet, ptid, row_list):
+    def answerPartitionTable(self, conn, ptid, row_list):
         pass
 
-    def sendPartitionTable(self, conn, packet, ptid, row_list):
+    def sendPartitionTable(self, conn, ptid, row_list):
         pass
 
-    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, ptid, cell_list):
         pass
 
-    def startOperation(self, conn, packet):
+    def startOperation(self, conn):
         pass
 
-    def stopOperation(self, conn, packet):
+    def stopOperation(self, conn):
         pass
 
-    def askUnfinishedTransactions(self, conn, packet):
+    def askUnfinishedTransactions(self, conn):
         pass
 
-    def answerUnfinishedTransactions(self, conn, packet, tid_list):
+    def answerUnfinishedTransactions(self, conn, tid_list):
         pass
 
-    def askObjectPresent(self, conn, packet, oid, tid):
+    def askObjectPresent(self, conn, oid, tid):
         pass
 
-    def answerObjectPresent(self, conn, packet, oid, tid):
+    def answerObjectPresent(self, conn, oid, tid):
         pass
 
-    def deleteTransaction(self, conn, packet, tid):
+    def deleteTransaction(self, conn, tid):
         pass
 
-    def commitTransaction(self, conn, packet, tid):
+    def commitTransaction(self, conn, tid):
         pass
 
-    def askBeginTransaction(self, conn, packet, tid):
+    def askBeginTransaction(self, conn, tid):
         pass
 
-    def answerBeginTransaction(self, conn, packet, tid):
+    def answerBeginTransaction(self, conn, tid):
         pass
 
-    def askNewOIDs(self, conn, packet, num_oids):
+    def askNewOIDs(self, conn, num_oids):
         pass
 
-    def answerNewOIDs(self, conn, packet, num_oids):
+    def answerNewOIDs(self, conn, num_oids):
         pass
 
-    def finishTransaction(self, conn, packet, oid_list, tid):
+    def finishTransaction(self, conn, oid_list, tid):
         pass
 
-    def answerTransactionFinished(self, conn, packet, tid):
+    def answerTransactionFinished(self, conn, tid):
         pass
 
-    def lockInformation(self, conn, packet, tid):
+    def lockInformation(self, conn, tid):
         pass
 
-    def notifyInformationLocked(self, conn, packet, tid):
+    def notifyInformationLocked(self, conn, tid):
         pass
 
-    def invalidateObjects(self, conn, packet, oid_list, tid):
+    def invalidateObjects(self, conn, oid_list, tid):
         pass
 
-    def notifyUnlockInformation(self, conn, packet, tid):
+    def notifyUnlockInformation(self, conn, tid):
         pass
 
-    def askStoreObject(self, conn, packet, oid, serial,
+    def askStoreObject(self, conn, oid, serial,
                              compression, checksum, data, tid):
         pass
 
-    def answerStoreObject(self, conn, packet, conflicting, oid, serial):
+    def answerStoreObject(self, conn, conflicting, oid, serial):
         pass
 
-    def abortTransaction(self, conn, packet, tid):
+    def abortTransaction(self, conn, tid):
         pass
 
-    def askStoreTransaction(self, conn, packet, tid, user, desc,
+    def askStoreTransaction(self, conn, tid, user, desc,
                                   ext, oid_list):
         pass
 
-    def answerStoreTransaction(self, conn, packet, tid):
+    def answerStoreTransaction(self, conn, tid):
         pass
 
-    def askObject(self, conn, packet, oid, serial, tid):
+    def askObject(self, conn, oid, serial, tid):
         pass
 
-    def answerObject(self, conn, packet, oid, serial_start,
+    def answerObject(self, conn, oid, serial_start,
                            serial_end, compression, checksum, data):
         pass
 
-    def askTIDs(self, conn, packet, first, last, partition):
+    def askTIDs(self, conn, first, last, partition):
         pass
 
-    def answerTIDs(self, conn, packet, tid_list):
+    def answerTIDs(self, conn, tid_list):
         pass
 
-    def askTransactionInformation(self, conn, packet, tid):
+    def askTransactionInformation(self, conn, tid):
         pass
 
-    def answerTransactionInformation(self, conn, packet, tid,
+    def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, oid_list):
         pass
 
-    def askObjectHistory(self, conn, packet, oid, first, last):
+    def askObjectHistory(self, conn, oid, first, last):
         pass
 
-    def answerObjectHistory(self, conn, packet, oid, history_list):
+    def answerObjectHistory(self, conn, oid, history_list):
         pass
 
-    def askOIDs(self, conn, packet, first, last, partition):
+    def askOIDs(self, conn, first, last, partition):
         pass
 
-    def answerOIDs(self, conn, packet, oid_list):
+    def answerOIDs(self, conn, oid_list):
         pass
 
-    def askPartitionList(self, conn, packet, min_offset, max_offset, uuid):
+    def askPartitionList(self, conn, min_offset, max_offset, uuid):
         pass
 
-    def answerPartitionList(self, conn, packet, ptid, row_list):
+    def answerPartitionList(self, conn, ptid, row_list):
         pass
 
-    def askNodeList(self, conn, packet, offset_list):
+    def askNodeList(self, conn, offset_list):
         pass
 
-    def answerNodeList(self, conn, packet, node_list):
+    def answerNodeList(self, conn, node_list):
         pass
 
-    def setNodeState(self, conn, packet, uuid, state, modify_partition_table):
+    def setNodeState(self, conn, uuid, state, modify_partition_table):
         pass
 
-    def answerNodeState(self, conn, packet, uuid, state):
+    def answerNodeState(self, conn, uuid, state):
         pass
 
-    def addPendingNodes(self, conn, packet, uuid_list):
+    def addPendingNodes(self, conn, uuid_list):
         pass
 
-    def answerNewNodes(self, conn, packet, uuid_list):
+    def answerNewNodes(self, conn, uuid_list):
         pass
 
-    def askNodeInformation(self, conn, packet):
+    def askNodeInformation(self, conn):
         pass
 
-    def answerNodeInformation(self, conn, packet):
+    def answerNodeInformation(self, conn):
         pass
 
-    def askClusterState(self, conn, packet):
+    def askClusterState(self, conn):
         pass
 
-    def answerClusterState(self, conn, packet, state):
+    def answerClusterState(self, conn, state):
         pass
 
-    def setClusterState(self, conn, packet, state):
+    def setClusterState(self, conn, state):
         pass
 
-    def notifyClusterInformation(self, conn, packet, state):
+    def notifyClusterInformation(self, conn, state):
         pass
 
-    def notifyLastOID(self, conn, packet, oid):
+    def notifyLastOID(self, conn, oid):
         pass
 
-    def notifyReplicationDone(self, conn, packet, offset):
+    def notifyReplicationDone(self, conn, offset):
         pass
 
 

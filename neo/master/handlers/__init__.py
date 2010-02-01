@@ -23,10 +23,10 @@ from neo.protocol import NodeTypes, NodeStates, Packets
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
-    def protocolError(self, conn, packet, message):
+    def protocolError(self, conn, message):
         logging.error('Protocol error %s %s' % (message, conn.getAddress()))
 
-    def askPrimary(self, conn, packet):
+    def askPrimary(self, conn):
         if conn.getConnector() is None:
             # Connection can be closed by peer after he sent AskPrimary
             # if he finds the primary master before we answer him.
@@ -50,24 +50,22 @@ class MasterHandler(EventHandler):
         conn.answer(Packets.AnswerPrimary(
             primary_uuid,
             known_master_list),
-            packet.getId(),
         )
 
-    def askClusterState(self, conn, packet):
+    def askClusterState(self, conn):
         assert conn.getUUID() is not None
         state = self.app.getClusterState()
-        conn.answer(Packets.AnswerClusterState(state), packet.getId())
+        conn.answer(Packets.AnswerClusterState(state))
 
-    def askNodeInformation(self, conn, packet):
+    def askNodeInformation(self, conn):
         self.app.sendNodesInformations(conn)
-        conn.answer(Packets.AnswerNodeInformation(), packet.getId())
+        conn.answer(Packets.AnswerNodeInformation())
 
-    def askPartitionTable(self, conn, packet, offset_list):
+    def askPartitionTable(self, conn, offset_list):
         assert len(offset_list) == 0
         app = self.app
         app.sendPartitionTable(conn)
-        conn.answer(Packets.AnswerPartitionTable(app.pt.getID(), []),
-                    packet.getId())
+        conn.answer(Packets.AnswerPartitionTable(app.pt.getID(), []))
 
 
 DISCONNECTED_STATE_DICT = {

@@ -33,18 +33,18 @@ class BaseMasterHandler(BaseStorageHandler):
     def connectionLost(self, conn, new_state):
         raise PrimaryFailure('connection lost')
 
-    def reelectPrimary(self, conn, packet):
+    def reelectPrimary(self, conn):
         raise PrimaryFailure('re-election occurs')
 
-    def notifyClusterInformation(self, conn, packet, state):
+    def notifyClusterInformation(self, conn, state):
         logging.error('ignoring notify cluster information in %s' %
                 self.__class__.__name__)
 
-    def notifyLastOID(self, conn, packet, oid):
+    def notifyLastOID(self, conn, oid):
         self.app.loid = oid
         self.app.dm.setLastOID(oid)
 
-    def notifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
         self.app.nm.update(node_list)
@@ -64,7 +64,7 @@ class BaseMasterHandler(BaseStorageHandler):
 class BaseClientAndStorageOperationHandler(BaseStorageHandler):
     """ Accept requests common to client and storage nodes """
 
-    def askTIDs(self, conn, packet, first, last, partition):
+    def askTIDs(self, conn, first, last, partition):
         # This method is complicated, because I must return TIDs only
         # about usable partitions assigned to me.
         if first >= last:
@@ -78,9 +78,9 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
 
         tid_list = app.dm.getTIDList(first, last - first,
                              app.pt.getPartitions(), partition_list)
-        conn.answer(Packets.AnswerTIDs(tid_list), packet.getId())
+        conn.answer(Packets.AnswerTIDs(tid_list))
 
-    def askObjectHistory(self, conn, packet, oid, first, last):
+    def askObjectHistory(self, conn, oid, first, last):
         if first >= last:
             raise protocol.ProtocolError( 'invalid offsets')
 
@@ -88,10 +88,9 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
         history_list = app.dm.getObjectHistory(oid, first, last - first)
         if history_list is None:
             history_list = []
-        p = Packets.AnswerObjectHistory(oid, history_list)
-        conn.answer(p, packet.getId())
+        conn.answer(Packets.AnswerObjectHistory(oid, history_list))
 
-    def askTransactionInformation(self, conn, packet, tid):
+    def askTransactionInformation(self, conn, tid):
         app = self.app
         t = app.dm.getTransaction(tid)
         if t is None:
@@ -99,13 +98,13 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
         else:
             p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3],
                     t[0])
-        conn.answer(p, packet.getId())
+        conn.answer(p)
 
-    def askObject(self, conn, packet, oid, serial, tid):
+    def askObject(self, conn, oid, serial, tid):
         app = self.app
         if oid in app.load_lock_dict:
             # Delay the response.
-            app.queueEvent(self.askObject, conn, packet, oid,
+            app.queueEvent(self.askObject, conn, oid,
                            serial, tid)
             return
         o = app.dm.getObject(oid, serial, tid)
@@ -118,5 +117,5 @@ class BaseClientAndStorageOperationHandler(BaseStorageHandler):
         else:
             logging.debug('oid = %s not found', dump(oid))
             p = protocol.oidNotFound('%s does not exist' % dump(oid))
-        conn.answer(p, packet.getId())
+        conn.answer(p)
 

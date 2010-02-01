@@ -27,7 +27,7 @@ class IdentificationHandler(MasterHandler):
     def nodeLost(self, conn, node):
         logging.warning('lost a node in IdentificationHandler : %s' % node)
 
-    def requestIdentification(self, conn, packet, node_type,
+    def requestIdentification(self, conn, node_type,
             uuid, address, name):
 
         self.checkClusterName(name)
@@ -77,7 +77,7 @@ class IdentificationHandler(MasterHandler):
         # answer
         args = (NodeTypes.MASTER, app.uuid, app.pt.getPartitions(),
             app.pt.getReplicas(), uuid)
-        conn.answer(Packets.AcceptIdentification(*args), packet.getId())
+        conn.answer(Packets.AcceptIdentification(*args))
         # trigger the event
         handler.connectionCompleted(conn)
         app.broadcastNodesInformation([node])

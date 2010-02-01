@@ -25,7 +25,7 @@ from neo.exception import ElectionFailure
 class ElectionHandler(MasterHandler):
     """This class deals with events for a primary master election."""
 
-    def notifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, node_list):
         uuid = conn.getUUID()
         if uuid is None:
             raise protocol.ProtocolError('Not identified')
@@ -66,7 +66,7 @@ class ClientElectionHandler(ElectionHandler):
 
     # FIXME: this packet is not allowed here, but handled in MasterHandler
     # a global handler review is required.
-    def askPrimary(self, conn, packet):
+    def askPrimary(self, conn):
         from neo.protocol import UnexpectedPacketError
         raise UnexpectedPacketError, "askPrimary on server connection"
 
@@ -124,7 +124,7 @@ class ClientElectionHandler(ElectionHandler):
         self.app.negotiating_master_node_set.discard(addr)
         MasterHandler.peerBroken(self, conn)
 
-    def acceptIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, node_type,
             uuid, num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
@@ -150,7 +150,7 @@ class ClientElectionHandler(ElectionHandler):
 
         app.negotiating_master_node_set.discard(conn.getAddress())
 
-    def answerPrimary(self, conn, packet, primary_uuid, known_master_list):
+    def answerPrimary(self, conn, primary_uuid, known_master_list):
         if conn.getConnector() is None:
             # Connection can be closed by peer after he sent
             # AnswerPrimary if he finds the primary master before we
@@ -207,7 +207,7 @@ class ClientElectionHandler(ElectionHandler):
 
 class ServerElectionHandler(ElectionHandler):
 
-    def reelectPrimary(self, conn, packet):
+    def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 
     def peerBroken(self, conn):
@@ -218,7 +218,7 @@ class ServerElectionHandler(ElectionHandler):
             node.setBroken()
         MasterHandler.peerBroken(self, conn)
 
-    def requestIdentification(self, conn, packet, node_type,
+    def requestIdentification(self, conn, node_type,
                                         uuid, address, name):
         if conn.getConnector() is None:
             # Connection can be closed by peer after he sent
@@ -256,9 +256,9 @@ class ServerElectionHandler(ElectionHandler):
             app.pt.getReplicas(),
             uuid
         )
-        conn.answer(p, packet.getId())
+        conn.answer(p)
 
-    def announcePrimary(self, conn, packet):
+    def announcePrimary(self, conn):
         uuid = conn.getUUID()
         if uuid is None:
             raise protocol.ProtocolError('Not identified')

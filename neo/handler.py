@@ -41,7 +41,7 @@ class EventHandler(object):
                    packet.getType(), *args)
         response = protocol.protocolError(message)
         if packet is not None:
-            conn.answer(response, packet.getId())
+            conn.answer(response)
         else:
             conn.notify(response)
         conn.abort()
@@ -56,7 +56,7 @@ class EventHandler(object):
             message = 'unexpected packet: %s in %s' % (message,
                     self.__class__.__name__)
         logging.error(message)
-        conn.answer(protocol.protocolError(message), packet.getId())
+        conn.answer(protocol.protocolError(message))
         conn.abort()
         self.peerBroken(conn)
 
@@ -69,24 +69,23 @@ class EventHandler(object):
                 raise UnexpectedPacketError('no handler found')
             args = packet.decode() or ()
             conn.setPeerId(packet.getId())
-            method(conn, packet, *args)
+            method(conn, *args)
         except UnexpectedPacketError, e:
             self.__unexpectedPacket(conn, packet, *e.args)
         except PacketMalformedError, e:
             self._packetMalformed(conn, packet, *e.args)
         except BrokenNodeDisallowedError:
-            answer_packet = protocol.brokenNodeDisallowedError('go away')
-            conn.answer(answer_packet, packet.getId())
+            conn.answer(protocol.brokenNodeDisallowedError('go away'))
             conn.abort()
         except NotReadyError, message:
             if not message.args:
                 message = 'Retry Later'
             message = str(message)
-            conn.answer(protocol.notReady(message), packet.getId())
+            conn.answer(protocol.notReady(message))
             conn.abort()
         except ProtocolError, message:
             message = str(message)
-            conn.answer(protocol.protocolError(message), packet.getId())
+            conn.answer(protocol.protocolError(message))
             conn.abort()
 
     def checkClusterName(self, name):
@@ -142,229 +141,229 @@ class EventHandler(object):
 
     # Packet handlers.
 
-    def requestIdentification(self, conn, packet, node_type,
+    def requestIdentification(self, conn, node_type,
                                         uuid, address, name):
         raise UnexpectedPacketError
 
-    def acceptIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, node_type,
                        uuid, num_partitions, num_replicas, your_uuid):
         raise UnexpectedPacketError
 
-    def askPrimary(self, conn, packet):
+    def askPrimary(self, conn):
         raise UnexpectedPacketError
 
-    def answerPrimary(self, conn, packet, primary_uuid,
+    def answerPrimary(self, conn, primary_uuid,
                                   known_master_list):
         raise UnexpectedPacketError
 
-    def announcePrimary(self, conn, packet):
+    def announcePrimary(self, con):
         raise UnexpectedPacketError
 
-    def reelectPrimary(self, conn, packet):
+    def reelectPrimary(self, conn):
         raise UnexpectedPacketError
 
-    def notifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, node_list):
         raise UnexpectedPacketError
 
-    def askLastIDs(self, conn, packet):
+    def askLastIDs(self, conn):
         raise UnexpectedPacketError
 
-    def answerLastIDs(self, conn, packet, loid, ltid, lptid):
+    def answerLastIDs(self, conn, loid, ltid, lptid):
         raise UnexpectedPacketError
 
-    def askPartitionTable(self, conn, packet, offset_list):
+    def askPartitionTable(self, conn, offset_list):
         raise UnexpectedPacketError
 
-    def answerPartitionTable(self, conn, packet, ptid, row_list):
+    def answerPartitionTable(self, conn, ptid, row_list):
         raise UnexpectedPacketError
 
-    def sendPartitionTable(self, conn, packet, ptid, row_list):
+    def sendPartitionTable(self, conn, ptid, row_list):
         raise UnexpectedPacketError
 
-    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, ptid, cell_list):
         raise UnexpectedPacketError
 
-    def startOperation(self, conn, packet):
+    def startOperation(self, conn):
         raise UnexpectedPacketError
 
-    def stopOperation(self, conn, packet):
+    def stopOperation(self, conn):
         raise UnexpectedPacketError
 
-    def askUnfinishedTransactions(self, conn, packet):
+    def askUnfinishedTransactions(self, conn):
         raise UnexpectedPacketError
 
-    def answerUnfinishedTransactions(self, conn, packet, tid_list):
+    def answerUnfinishedTransactions(self, conn, tid_list):
         raise UnexpectedPacketError
 
-    def askObjectPresent(self, conn, packet, oid, tid):
+    def askObjectPresent(self, conn, oid, tid):
         raise UnexpectedPacketError
 
-    def answerObjectPresent(self, conn, packet, oid, tid):
+    def answerObjectPresent(self, conn, oid, tid):
         raise UnexpectedPacketError
 
-    def deleteTransaction(self, conn, packet, tid):
+    def deleteTransaction(self, conn, tid):
         raise UnexpectedPacketError
 
-    def commitTransaction(self, conn, packet, tid):
+    def commitTransaction(self, conn, tid):
         raise UnexpectedPacketError
 
-    def askBeginTransaction(self, conn, packet, tid):
+    def askBeginTransaction(self, conn, tid):
         raise UnexpectedPacketError
 
-    def answerBeginTransaction(self, conn, packet, tid):
+    def answerBeginTransaction(self, conn, tid):
         raise UnexpectedPacketError
 
-    def askNewOIDs(self, conn, packet, num_oids):
+    def askNewOIDs(self, conn, num_oids):
         raise UnexpectedPacketError
 
-    def answerNewOIDs(self, conn, packet, num_oids):
+    def answerNewOIDs(self, conn, num_oids):
         raise UnexpectedPacketError
 
-    def finishTransaction(self, conn, packet, oid_list, tid):
+    def finishTransaction(self, conn, oid_list, tid):
         raise UnexpectedPacketError
 
-    def answerTransactionFinished(self, conn, packet, tid):
+    def answerTransactionFinished(self, conn, tid):
         raise UnexpectedPacketError
 
-    def lockInformation(self, conn, packet, tid):
+    def lockInformation(self, conn, tid):
         raise UnexpectedPacketError
 
-    def notifyInformationLocked(self, conn, packet, tid):
+    def notifyInformationLocked(self, conn, tid):
         raise UnexpectedPacketError
 
-    def invalidateObjects(self, conn, packet, oid_list, tid):
+    def invalidateObjects(self, conn, oid_list, tid):
         raise UnexpectedPacketError
 
-    def notifyUnlockInformation(self, conn, packet, tid):
+    def notifyUnlockInformation(self, conn, tid):
         raise UnexpectedPacketError
 
-    def askStoreObject(self, conn, packet, oid, serial,
+    def askStoreObject(self, conn, oid, serial,
                              compression, checksum, data, tid):
         raise UnexpectedPacketError
 
-    def answerStoreObject(self, conn, packet, conflicting, oid, serial):
+    def answerStoreObject(self, conn, conflicting, oid, serial):
         raise UnexpectedPacketError
 
-    def abortTransaction(self, conn, packet, tid):
+    def abortTransaction(self, conn, tid):
         raise UnexpectedPacketError
 
-    def askStoreTransaction(self, conn, packet, tid, user, desc,
+    def askStoreTransaction(self, conn, tid, user, desc,
                                   ext, oid_list):
         raise UnexpectedPacketError
 
-    def answerStoreTransaction(self, conn, packet, tid):
+    def answerStoreTransaction(self, conn, tid):
         raise UnexpectedPacketError
 
-    def askObject(self, conn, packet, oid, serial, tid):
+    def askObject(self, conn, oid, serial, tid):
         raise UnexpectedPacketError
 
-    def answerObject(self, conn, packet, oid, serial_start,
+    def answerObject(self, conn, oid, serial_start,
                            serial_end, compression, checksum, data):
         raise UnexpectedPacketError
 
-    def askTIDs(self, conn, packet, first, last, partition):
+    def askTIDs(self, conn, first, last, partition):
         raise UnexpectedPacketError
 
-    def answerTIDs(self, conn, packet, tid_list):
+    def answerTIDs(self, conn, tid_list):
         raise UnexpectedPacketError
 
-    def askTransactionInformation(self, conn, packet, tid):
+    def askTransactionInformation(self, conn, tid):
         raise UnexpectedPacketError
 
-    def answerTransactionInformation(self, conn, packet, tid,
+    def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, oid_list):
         raise UnexpectedPacketError
 
-    def askObjectHistory(self, conn, packet, oid, first, last):
+    def askObjectHistory(self, conn, oid, first, last):
         raise UnexpectedPacketError
 
-    def answerObjectHistory(self, conn, packet, oid, history_list):
+    def answerObjectHistory(self, conn, oid, history_list):
         raise UnexpectedPacketError
 
-    def askOIDs(self, conn, packet, first, last, partition):
+    def askOIDs(self, conn, first, last, partition):
         raise UnexpectedPacketError
 
-    def answerOIDs(self, conn, packet, oid_list):
+    def answerOIDs(self, conn, oid_list):
         raise UnexpectedPacketError
 
-    def askPartitionList(self, conn, packet, min_offset, max_offset, uuid):
+    def askPartitionList(self, conn, min_offset, max_offset, uuid):
         raise UnexpectedPacketError
 
-    def answerPartitionList(self, conn, packet, ptid, row_list):
+    def answerPartitionList(self, conn, ptid, row_list):
         raise UnexpectedPacketError
 
-    def askNodeList(self, conn, packet, offset_list):
+    def askNodeList(self, conn, offset_list):
         raise UnexpectedPacketError
 
-    def answerNodeList(self, conn, packet, node_list):
+    def answerNodeList(self, conn, node_list):
         raise UnexpectedPacketError
 
-    def setNodeState(self, conn, packet, uuid, state, modify_partition_table):
+    def setNodeState(self, conn, uuid, state, modify_partition_table):
         raise UnexpectedPacketError
 
-    def answerNodeState(self, conn, packet, uuid, state):
+    def answerNodeState(self, conn, uuid, state):
         raise UnexpectedPacketError
 
-    def addPendingNodes(self, conn, packet, uuid_list):
+    def addPendingNodes(self, conn, uuid_list):
         raise UnexpectedPacketError
 
-    def answerNewNodes(self, conn, packet, uuid_list):
+    def answerNewNodes(self, conn, uuid_list):
         raise UnexpectedPacketError
 
-    def askNodeInformation(self, conn, packet):
+    def askNodeInformation(self, conn):
         raise UnexpectedPacketError
 
-    def answerNodeInformation(self, conn, packet):
+    def answerNodeInformation(self, conn):
         raise UnexpectedPacketError
 
-    def askClusterState(self, conn, packet):
+    def askClusterState(self, conn):
         raise UnexpectedPacketError
 
-    def answerClusterState(self, conn, packet, state):
+    def answerClusterState(self, conn, state):
         raise UnexpectedPacketError
 
-    def setClusterState(self, conn, packet, state):
+    def setClusterState(self, conn, state):
         raise UnexpectedPacketError
 
-    def notifyClusterInformation(self, conn, packet, state):
+    def notifyClusterInformation(self, conn, state):
         raise UnexpectedPacketError
 
-    def notifyLastOID(self, conn, packet, oid):
+    def notifyLastOID(self, conn, oid):
         raise UnexpectedPacketError
 
-    def notifyReplicationDone(self, conn, packet, offset):
+    def notifyReplicationDone(self, conn, offset):
         raise UnexpectedPacketError
 
 
     # Error packet handlers.
 
-    def error(self, conn, packet, code, message):
+    def error(self, conn, code, message):
         try:
             method = self.error_dispatch_table[code]
-            method(conn, packet, message)
+            method(conn, message)
         except ValueError:
             raise UnexpectedPacketError(message)
 
-    def notReady(self, conn, packet, message):
+    def notReady(self, conn, message):
         raise UnexpectedPacketError
 
-    def oidNotFound(self, conn, packet, message):
+    def oidNotFound(self, conn, message):
         raise UnexpectedPacketError
 
-    def tidNotFound(self, conn, packet, message):
+    def tidNotFound(self, conn, message):
         raise UnexpectedPacketError
 
-    def protocolError(self, conn, packet, message):
+    def protocolError(self, conn, message):
         # the connection should have been closed by the remote peer
         logging.error('protocol error: %s' % (message,))
 
-    def timeoutError(self, conn, packet, message):
+    def timeoutError(self, conn, message):
         logging.error('timeout error: %s' % (message,))
 
-    def brokenNodeDisallowedError(self, conn, packet, message):
+    def brokenNodeDisallowedError(self, conn, message):
         raise RuntimeError, 'broken node disallowed error: %s' % (message,)
 
-    def ack(self, conn, packet, message):
+    def ack(self, conn, message):
         logging.debug("no error message : %s" % (message))
 
 

@@ -113,25 +113,24 @@ class Replicator(object):
         """Return whether there is any pending partition."""
         return len(self.partition_dict) or len(self.new_partition_dict)
 
-    def setCriticalTID(self, packet, tid):
+    def setCriticalTID(self, uuid, tid):
         """This is a callback from OperationEventHandler."""
-        msg_id = packet.getId()
         try:
-            partition_list = self.critical_tid_dict[msg_id]
-            logging.debug('setting critical TID %s to %s',
-                          dump(tid),
+            partition_list = self.critical_tid_dict[uuid]
+            logging.debug('setting critical TID %s to %s', dump(tid),
                          ', '.join([str(p.getRID()) for p in partition_list]))
-            for partition in self.critical_tid_dict[msg_id]:
+            for partition in self.critical_tid_dict[uuid]:
                 partition.setCriticalTID(tid)
-            del self.critical_tid_dict[msg_id]
+            del self.critical_tid_dict[uuid]
         except KeyError:
-            logging.debug("setCriticalTID raised KeyError for msg_id %s" %
-                    (msg_id, ))
+            logging.debug("setCriticalTID raised KeyError for %s" %
+                    (dump(uuid), ))
 
     def _askCriticalTID(self):
         conn = self.primary_master_connection
-        msg_id = conn.ask(Packets.AskLastIDs())
-        self.critical_tid_dict[msg_id] = self.new_partition_dict.values()
+        conn.ask(Packets.AskLastIDs())
+        uuid = conn.getUUID()
+        self.critical_tid_dict[uuid] = self.new_partition_dict.values()
         self.partition_dict.update(self.new_partition_dict)
         self.new_partition_dict = {}
 

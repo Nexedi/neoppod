@@ -141,7 +141,7 @@ class Application(object):
         self.master_conn.ask(Packets.AskNodeInformation())
         self.master_conn.ask(Packets.AskPartitionTable([]))
 
-    def sendPartitionTable(self, conn, min_offset, max_offset, uuid, msg_id):
+    def sendPartitionTable(self, conn, min_offset, max_offset, uuid):
         # we have a pt
         self.pt.log()
         row_list = []
@@ -164,4 +164,4 @@ class Application(object):
             conn.notify(p)
             return
         p = Packets.AnswerPartitionList(self.ptid, row_list)
-        conn.answer(p, msg_id)
+        conn.answer(p)

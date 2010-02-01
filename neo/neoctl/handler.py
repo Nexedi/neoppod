@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo.handler import EventHandler
-from neo.protocol import ErrorCodes
+from neo.protocol import ErrorCodes, Packets
 
 class CommandEventHandler(EventHandler):
     """ Base handler for command """
@@ -50,18 +50,20 @@ class CommandEventHandler(EventHandler):
         super(CommandEventHandler, self).peerBroken(conn)
         self.__disconnected()
 
-    def __answer(self, conn, packet, *args):
-        self.__respond((packet.getType(), ) + args)
+    def ack(self, conn, msg):
+        self.__respond((Packets.Error, ErrorCodes.ACK, msg))
 
-    def ack(self, conn, packet, msg):
-        self.__respond((packet.getType(), ErrorCodes.ACK, msg))
+    def notReady(self, conn, msg):
+        self.__respond((Packets.Error, ErrorCodes.NOT_READY, msg))
 
-    def notReady(self, conn, packet, msg):
-        self.__respond((packet.getType(), ErrorCodes.NOT_READY, msg))
+    def __answer(packet_type):
+        def answer(self, conn, *args):
+            self.__respond((packet_type, ) + args)
+        return answer
 
-    answerPartitionList = __answer
-    answerNodeList = __answer
-    answerNodeState = __answer
-    answerClusterState = __answer
-    answerNewNodes = __answer
-    answerPrimary = __answer
+    answerPartitionList = __answer(Packets.AnswerPartitionList)
+    answerNodeList = __answer(Packets.AnswerNodeList)
+    answerNodeState = __answer(Packets.AnswerNodeState)
+    answerClusterState = __answer(Packets.AnswerClusterState)
+    answerNewNodes = __answer(Packets.AnswerNewNodes)
+    answerPrimary = __answer(Packets.AnswerPrimary)

@@ -25,12 +25,12 @@ from neo.util import dump
 class PrimaryBootstrapHandler(AnswerBaseHandler):
     """ Bootstrap handler used when looking for the primary master """
 
-    def notReady(self, conn, packet, message):
+    def notReady(self, conn, message):
         app = self.app
         app.trying_master_node = None
         app.setNodeNotReady()
 
-    def acceptIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, node_type,
                    uuid, num_partitions, num_replicas, your_uuid):
         app = self.app
         node = app.nm.getByAddress(conn.getAddress())
@@ -49,7 +49,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         # Always create partition table
         app.pt = PartitionTable(num_partitions, num_replicas)
 
-    def answerPrimary(self, conn, packet, primary_uuid,
+    def answerPrimary(self, conn, primary_uuid,
                                   known_master_list):
         app = self.app
         # Register new master nodes.
@@ -81,10 +81,10 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
             app.trying_master_node = None
             conn.close()
 
-    def answerPartitionTable(self, conn, packet, ptid, row_list):
+    def answerPartitionTable(self, conn, ptid, row_list):
         pass
 
-    def answerNodeInformation(self, conn, packet):
+    def answerNodeInformation(self, conn):
         pass
 
 class PrimaryNotificationsHandler(BaseHandler):
@@ -117,10 +117,10 @@ class PrimaryNotificationsHandler(BaseHandler):
             logging.critical("primary master node is broken")
         BaseHandler.peerBroken(self, conn)
 
-    def stopOperation(self, conn, packet):
+    def stopOperation(self, conn):
         logging.critical("master node ask to stop operation")
 
-    def invalidateObjects(self, conn, packet, oid_list, tid):
+    def invalidateObjects(self, conn, oid_list, tid):
         app = self.app
         app._cache_lock_acquire()
         try:
@@ -142,15 +142,15 @@ class PrimaryNotificationsHandler(BaseHandler):
     # to avoid a dead lock. It is safe to not check the master connection
     # because it's in the master handler, so the connection is already
     # established.
-    def notifyPartitionChanges(self, conn, packet, ptid, cell_list):
+    def notifyPartitionChanges(self, conn, ptid, cell_list):
         pt = self.app.pt
         if pt.filled():
             pt.update(ptid, cell_list, self.app.nm)
 
-    def sendPartitionTable(self, conn, packet, ptid, row_list):
+    def sendPartitionTable(self, conn, ptid, row_list):
         self.app.pt.load(ptid, row_list, self.app.nm)
 
-    def notifyNodeInformation(self, conn, packet, node_list):
+    def notifyNodeInformation(self, conn, node_list):
         app = self.app
         self.app.nm.update(node_list)
         for node_type, addr, uuid, state in node_list:
@@ -169,16 +169,16 @@ class PrimaryNotificationsHandler(BaseHandler):
 class PrimaryAnswersHandler(AnswerBaseHandler):
     """ Handle that process expected packets from the primary master """
 
-    def answerBeginTransaction(self, conn, packet, tid):
+    def answerBeginTransaction(self, conn, tid):
         app = self.app
         app.setTID(tid)
 
-    def answerNewOIDs(self, conn, packet, oid_list):
+    def answerNewOIDs(self, conn, oid_list):
         app = self.app
         app.new_oid_list = oid_list
         app.new_oid_list.reverse()
 
-    def answerTransactionFinished(self, conn, packet, tid):
+    def answerTransactionFinished(self, conn, tid):
         app = self.app
         if tid == app.getTID():
             app.setTransactionFinished()

@@ -41,16 +41,16 @@ class StorageServiceHandler(BaseServiceHandler):
         # partition must not oudated to allows a cluster restart.
         self.app.outdateAndBroadcastPartition()
 
-    def askLastIDs(self, conn, packet):
+    def askLastIDs(self, conn):
         app = self.app
         conn.answer(Packets.AnswerLastIDs(app.loid, app.tm.getLastTID(),
-                    app.pt.getID()), packet.getId())
+                    app.pt.getID()))
 
-    def askUnfinishedTransactions(self, conn, packet):
+    def askUnfinishedTransactions(self, conn):
         p = Packets.AnswerUnfinishedTransactions(self.app.tm.getPendingList())
-        conn.answer(p, packet.getId())
+        conn.answer(p)
 
-    def notifyInformationLocked(self, conn, packet, tid):
+    def notifyInformationLocked(self, conn, tid):
         uuid = conn.getUUID()
         app = self.app
         node = app.nm.getByUUID(uuid)
@@ -81,7 +81,7 @@ class StorageServiceHandler(BaseServiceHandler):
                 if node.isClient():
                     if node is t.getNode():
                         p = Packets.AnswerTransactionFinished(tid)
-                        c.answer(p, t.getMessageId())
+                        c.answer(p, msg_id=t.getMessageId())
                     else:
                         c.notify(Packets.InvalidateObjects(t.getOIDList(), tid))
                 elif node.isStorage():
@@ -91,7 +91,7 @@ class StorageServiceHandler(BaseServiceHandler):
         # remove transaction from manager
         self.app.tm.remove(tid)
 
-    def notifyReplicationDone(self, conn, packet, offset):
+    def notifyReplicationDone(self, conn, offset):
         uuid = conn.getUUID()
         node = self.app.nm.getByUUID(uuid)
         logging.debug("node %s is up for offset %s" % (dump(uuid), offset))

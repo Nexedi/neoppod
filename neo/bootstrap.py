@@ -69,7 +69,7 @@ class BootstrapManager(EventHandler):
         """
         self.current = None
 
-    def notReady(self, conn, packet, message):
+    def notReady(self, conn, message):
         """
         The primary master send this message when it is still not ready to
         handle the client node.
@@ -79,7 +79,7 @@ class BootstrapManager(EventHandler):
         self.current = None
         conn.close()
 
-    def answerPrimary(self, conn, packet, primary_uuid, known_master_list):
+    def answerPrimary(self, conn, primary_uuid, known_master_list):
         """
         A master answer who's the primary. If it's another node, connect to it.
         If it's itself then the primary is successfully found, ask
@@ -108,7 +108,7 @@ class BootstrapManager(EventHandler):
         conn.ask(Packets.RequestIdentification(self.node_type,
                 self.uuid, self.server, self.name))
 
-    def acceptIdentification(self, conn, packet, node_type,
+    def acceptIdentification(self, conn, node_type,
            uuid, num_partitions, num_replicas, your_uuid):
         """
         The primary master has accepted the node.
