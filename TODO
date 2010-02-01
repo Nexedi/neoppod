@@ -155,9 +155,6 @@ RC  - Review output of pylint (CODE)
       When a replication finishes, the connection is not closed currently. It 
       should be closed (possibly asynchronously, and possibly by detecting that
       connection is idle - similar to keep-alive principle)
-    - When a cell replication finish, notifyPartitionChange packet is used to
-      notify the master node but it should be sent by the master only for
-      protocol isolation and consistency (CODE)
     - Notify master when storage becomes available for clients (LATENCY)
       Currently, storage presence is broadcasted to client nodes too early, as 
       the storage node would refuse them until it has only up-to-date data (not 
