@@ -219,41 +219,6 @@ class Application(object):
                 break
 
 
-    def _waitForPrimaryAnnouncement(self):
-        """
-            For for the primary announcement as i'm not the primary.
-            If this is too long, raise ElectionFailure to restart the whole
-            election process.
-        """
-        # Wait for an announcement. If this is too long, probably
-        # the primary master is down.
-        t = time()
-        while self.primary_master_node is None:
-            self.em.poll(1)
-            if t + 10 < time():
-                # election timeout
-                raise ElectionFailure("Election timeout")
-
-        # Now I need only a connection to the primary master node.
-        addr = self.primary_master_node.getAddress()
-        for conn in self.em.getServerList():
-            conn.close()
-        connected_to_master = False
-
-        primary_handler = secondary.PrimaryHandler(self)
-
-        for conn in self.em.getClientList():
-            if conn.getAddress() == addr:
-                connected_to_master = True
-                conn.setHandler(primary_handler)
-            else:
-                conn.close()
-
-        if not connected_to_master:
-            ClientConnection(self.em, primary_handler, addr=addr,
-                connector_handler=self.connector_handler)
-
-
     def _electionFailed(self, m):
         """
             Ask other masters to reelect a primary after an election failure.
@@ -627,8 +592,33 @@ class Application(object):
         logging.info('play the secondary role with %s (%s:%d)',
                 dump(self.uuid), *(self.server))
 
-        # otherwise, wait for the primary announcement
-        self._waitForPrimaryAnnouncement()
+        # Wait for an announcement. If this is too long, probably
+        # the primary master is down.
+        t = time()
+        while self.primary_master_node is None:
+            self.em.poll(1)
+            if t + 10 < time():
+                # election timeout
+                raise ElectionFailure("Election timeout")
+
+        # Now I need only a connection to the primary master node.
+        addr = self.primary_master_node.getAddress()
+        for conn in self.em.getServerList():
+            conn.close()
+        connected_to_master = False
+
+        primary_handler = secondary.PrimaryHandler(self)
+
+        for conn in self.em.getClientList():
+            if conn.getAddress() == addr:
+                connected_to_master = True
+                conn.setHandler(primary_handler)
+            else:
+                conn.close()
+
+        if not connected_to_master:
+            ClientConnection(self.em, primary_handler, addr=addr,
+                connector_handler=self.connector_handler)
 
         # and another for the future incoming connections
         handler = identification.IdentificationHandler(self)
