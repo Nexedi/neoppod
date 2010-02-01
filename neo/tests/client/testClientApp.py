@@ -103,7 +103,8 @@ class ClientApplicationTests(NeoTestBase):
 
     def beginTransaction(self, app, tid):
         packet = Packets.AnswerBeginTransaction(tid=tid)
-        app.master_conn = Mock({ 'fakeReceived': packet,    })
+        packet.setId(0)
+        app.master_conn = Mock({ 'fakeReceived': packet, })
         txn = self.makeTransactionObject()
         app.tpc_begin(txn, tid=tid)
         return txn
@@ -114,6 +115,7 @@ class ClientApplicationTests(NeoTestBase):
             oid = self.makeOID()
         obj = (oid, tid, 'DATA', '', app.local_var.txn)
         packet = Packets.AnswerStoreObject(conflicting=0, oid=oid, serial=tid)
+        packet.setId(0)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
         cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
         app.cp = Mock({ 'getConnForCell': conn})
@@ -124,6 +126,7 @@ class ClientApplicationTests(NeoTestBase):
         tid = app.local_var.tid
         txn = app.local_var.txn
         packet = Packets.AnswerStoreTransaction(tid=tid)
+        packet.setId(0)
         conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
         cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
         app.pt = Mock({ 'getCellListForTID': (cell, cell, ) })
@@ -134,6 +137,7 @@ class ClientApplicationTests(NeoTestBase):
         txn = app.local_var.txn
         tid = app.local_var.tid
         packet = Packets.AnswerTransactionFinished(tid)
+        packet.setId(0)
         app.master_conn = Mock({
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10010),
@@ -167,6 +171,7 @@ class ClientApplicationTests(NeoTestBase):
         test_msg_id = 50
         test_oid_list = ['\x00\x00\x00\x00\x00\x00\x00\x01', '\x00\x00\x00\x00\x00\x00\x00\x02']
         response_packet = Packets.AnswerNewOIDs(test_oid_list[:])
+        response_packet.setId(0)
         app.master_conn = Mock({'getNextId': test_msg_id, '_addPacket': None,
                                 'expectMessage': None, 'lock': None,
                                 'unlock': None,
@@ -207,6 +212,7 @@ class ClientApplicationTests(NeoTestBase):
         # connection to SN close
         self.assertTrue(oid not in mq)
         packet = protocol.oidNotFound('')
+        packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({'getUUID': '\x10' * 16,
                      'getAddress': ('127.0.0.1', 0),
@@ -223,6 +229,7 @@ class ClientApplicationTests(NeoTestBase):
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
         packet = protocol.oidNotFound('')
+        packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({
             'getAddress': ('127.0.0.1', 0),
@@ -235,6 +242,7 @@ class ClientApplicationTests(NeoTestBase):
         self.checkAskObject(conn)
         # object found on storage nodes and put in cache
         packet = Packets.AnswerObject(*an_object[1:])
+        packet.setId(0)
         conn = Mock({
             'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,
@@ -263,6 +271,7 @@ class ClientApplicationTests(NeoTestBase):
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
         packet = protocol.oidNotFound('')
+        packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({
             'getAddress': ('127.0.0.1', 0),
@@ -280,6 +289,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertTrue(oid in mq)
         another_object = (1, oid, tid2, INVALID_SERIAL, 0, makeChecksum('RIGHT'), 'RIGHT')
         packet = Packets.AnswerObject(*another_object[1:])
+        packet.setId(0)
         conn = Mock({
             'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,
@@ -300,6 +310,7 @@ class ClientApplicationTests(NeoTestBase):
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
         packet = protocol.oidNotFound('')
+        packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({
             'getAddress': ('127.0.0.1', 0),
@@ -313,6 +324,7 @@ class ClientApplicationTests(NeoTestBase):
         # no previous versions -> return None
         an_object = (1, oid, tid2, INVALID_SERIAL, 0, makeChecksum(''), '')
         packet = Packets.AnswerObject(*an_object[1:])
+        packet.setId(0)
         conn = Mock({
             'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,
@@ -328,6 +340,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertTrue(oid in mq)
         another_object = (1, oid, tid1, tid2, 0, makeChecksum('RIGHT'), 'RIGHT')
         packet = Packets.AnswerObject(*another_object[1:])
+        packet.setId(0)
         conn = Mock({
             'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,
@@ -347,6 +360,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertNotEquals(getattr(app, 'tid', None), tid)
         self.assertNotEquals(getattr(app, 'txn', None), txn)
         packet = Packets.AnswerBeginTransaction(tid=tid)
+        packet.setId(0)
         app.master_conn = Mock({
             'getNextId': 1,
             'fakeReceived': packet,
@@ -365,6 +379,7 @@ class ClientApplicationTests(NeoTestBase):
         #self.assertRaises(NEOStorageError, app.tpc_begin, transaction=txn, tid=None)
         # ask a tid to pmn
         packet = Packets.AnswerBeginTransaction(tid=tid)
+        packet.setId(0)
         app.master_conn = Mock({
             'getNextId': 1,
             'fakeReceived': packet,
@@ -406,6 +421,7 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.txn = txn
         app.local_var.tid = tid
         packet = Packets.AnswerStoreObject(conflicting=1, oid=oid, serial=tid)
+        packet.setId(0)
         conn = Mock({
             'getNextId': 1,
             'fakeReceived': packet,
@@ -435,6 +451,7 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.txn = txn
         app.local_var.tid = tid
         packet = Packets.AnswerStoreObject(conflicting=0, oid=oid, serial=tid)
+        packet.setId(0)
         conn = Mock({
             'getNextId': 1,
             'fakeReceived': packet,
@@ -474,6 +491,7 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.tid = tid
         # wrong answer -> failure
         packet = Packets.AnswerTIDs(())
+        packet.setId(0)
         conn = Mock({
             'getNextId': 1,
             'fakeReceived': packet,
@@ -501,6 +519,7 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.tid = tid
         # response -> OK
         packet = Packets.AnswerStoreTransaction(tid=tid)
+        packet.setId(0)
         conn = Mock({
             'getNextId': 1,
             'fakeReceived': packet,
@@ -600,6 +619,7 @@ class ClientApplicationTests(NeoTestBase):
             self.f_called = True
             self.f_called_with_tid = tid
         packet = Packets.AnswerBeginTransaction(INVALID_TID)
+        packet.setId(0)
         app.master_conn = Mock({
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10000),
@@ -625,6 +645,7 @@ class ClientApplicationTests(NeoTestBase):
             self.f_called = True
             self.f_called_with_tid = tid
         packet = Packets.AnswerTransactionFinished(tid)
+        packet.setId(0)
         app.master_conn = Mock({
             'getNextId': 1,
             'getAddress': ('127.0.0.1', 10010),
@@ -705,6 +726,8 @@ class ClientApplicationTests(NeoTestBase):
         u4p3 = Packets.AnswerStoreObject(conflicting=0, oid=oid2, serial=tid2)
         # test logic
         packets = (u1p1, u1p2, u2p1, u2p2, u3p1, u3p2, u3p3, u3p1, u4p2, u4p3)
+        for i, p in enumerate(packets):
+            p.setId(p)
         conn = Mock({
             'getNextId': 1,
             'fakeReceived': ReturnValues(*packets),
@@ -739,6 +762,8 @@ class ClientApplicationTests(NeoTestBase):
         # TXN info packets
         p3 = Packets.AnswerTransactionInformation(tid1, '', '', '', (oid1, ))
         p4 = Packets.AnswerTransactionInformation(tid2, '', '', '', (oid2, ))
+        p3.setId(0)
+        p4.setId(1)
         conn = Mock({
             'getNextId': 1,
             'getUUID': ReturnValues(uuid1, uuid2),
@@ -772,6 +797,9 @@ class ClientApplicationTests(NeoTestBase):
         # transaction history
         p3 = Packets.AnswerTransactionInformation(tid1, 'u', 'd', 'e', (oid, ))
         p4 = Packets.AnswerTransactionInformation(tid2, 'u', 'd', 'e', (oid, ))
+        p2.setId(0)
+        p3.setId(1)
+        p4.setId(2)
         # faked environnement
         conn = Mock({
             'getNextId': 1,
@@ -868,6 +896,7 @@ class ClientApplicationTests(NeoTestBase):
             self.test_ok = True
         _waitMessage_old = Application._waitMessage
         packet = Packets.AskBeginTransaction(None)
+        packet.setId(0)
         Application._waitMessage = _waitMessage_hook
         try:
             app._askStorage(conn, packet)
@@ -894,6 +923,7 @@ class ClientApplicationTests(NeoTestBase):
         _waitMessage_old = Application._waitMessage
         Application._waitMessage = _waitMessage_hook
         packet = Packets.AskBeginTransaction(None)
+        packet.setId(0)
         try:
             app._askPrimary(packet)
         finally:
