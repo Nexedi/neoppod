@@ -738,7 +738,7 @@ class Application(object):
             if uuid is None:
                 logging.info('reject empty storage node')
                 raise protocol.NotReadyError
-            handler = recovery.RecoveryHandler
+            handler = recovery.RecoveryHandler(self)
         elif self.cluster_state == ClusterStates.VERIFYING:
             if uuid is None or node is None:
                 # if node is unknown, it has been forget when the current
@@ -752,7 +752,7 @@ class Application(object):
             if uuid is None or node is None:
                 # same as for verification
                 state = NodeStates.PENDING
-            handler = storage.StorageServiceHandler
+            handler = storage.StorageServiceHandler(self)
         elif self.cluster_state == ClusterStates.STOPPING:
             raise protocol.NotReadyError
         else:
@@ -762,12 +762,12 @@ class Application(object):
     def identifyNode(self, node_type, uuid, node):
 
         state = NodeStates.RUNNING
-        handler = identification.IdentificationHandler
+        handler = identification.IdentificationHandler(self)
 
         if node_type == NodeTypes.ADMIN:
             # always accept admin nodes
             node_ctor = self.nm.createAdmin
-            handler = administration.AdministrationHandler
+            handler = administration.AdministrationHandler(self)
             logging.info('Accept an admin %s' % (dump(uuid), ))
         elif node_type == NodeTypes.MASTER:
             if node is None:
@@ -775,7 +775,7 @@ class Application(object):
                 raise protocol.ProtocolError('Reject an unknown master node')
             # always put other master in waiting state
             node_ctor = self.nm.createMaster
-            handler = secondary.SecondaryMasterHandler
+            handler = secondary.SecondaryMasterHandler(self)
             logging.info('Accept a master %s' % (dump(uuid), ))
         elif node_type == NodeTypes.CLIENT:
             # refuse any client before running
@@ -783,13 +783,11 @@ class Application(object):
                 logging.info('Reject a connection from a client')
                 raise protocol.NotReadyError
             node_ctor = self.nm.createClient
-            handler = client.ClientServiceHandler
+            handler = client.ClientServiceHandler(self)
             logging.info('Accept a client %s' % (dump(uuid), ))
         elif node_type == NodeTypes.STORAGE:
             node_ctor = self.nm.createStorage
             (uuid, state, handler) = self.identifyStorageNode(uuid, node)
             logging.info('Accept a storage %s (%s)' % (dump(uuid), state))
-        # create a handler instance
-        handler = handler(self)
         return (uuid, node, state, handler, node_ctor)
 
