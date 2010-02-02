@@ -636,12 +636,13 @@ class Application(object):
         nm, em = self.nm, self.em
 
         # select the storage handler
+        client_handler = client.ClientServiceHandler(self)
         if state == ClusterStates.RECOVERING:
-            storage_handler = recovery.RecoveryHandler
+            storage_handler = recovery.RecoveryHandler(self)
         elif state == ClusterStates.VERIFYING:
-            storage_handler = verification.VerificationHandler
+            storage_handler = verification.VerificationHandler(self)
         elif state == ClusterStates.RUNNING:
-            storage_handler = storage.StorageServiceHandler
+            storage_handler = storage.StorageServiceHandler(self)
         else:
             RuntimeError('Unexpected node type')
 
@@ -659,10 +660,9 @@ class Application(object):
             if node.isClient():
                 if state != ClusterStates.RUNNING:
                     conn.close()
-                handler = client.ClientServiceHandler
+                handler = client_handler
             elif node.isStorage():
                 handler = storage_handler
-            handler = handler(self)
             conn.setHandler(handler)
             handler.connectionCompleted(conn)
         self.cluster_state = state
