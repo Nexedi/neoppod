@@ -27,16 +27,15 @@ from neo.node import NodeManager
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection
 from neo.exception import ElectionFailure, PrimaryFailure, OperationFailure
-from neo.master.handlers import election, identification, secondary, recovery
+from neo.master.handlers import election, identification, secondary
 from neo.master.handlers import storage, client, shutdown
 from neo.master.handlers import administration
 from neo.master.pt import PartitionTable
 from neo.master.transactions import TransactionManager
 from neo.master.verification import VerificationManager
+from neo.master.recovery import RecoveryManager
 from neo.util import dump
 from neo.connector import getConnectorHandler
-
-REQUIRED_NODE_NUMBER = 1
 
 class Application(object):
     """The master node application."""
@@ -74,6 +73,7 @@ class Application(object):
         self.primary = None
         self.primary_master_node = None
         self.cluster_state = None
+        self._startup_allowed = False
 
         # Generate an UUID for self
         uuid = config.getUUID()
@@ -83,15 +83,12 @@ class Application(object):
 
         # The last OID.
         self.loid = None
-        # The target node's uuid to request next.
-        self.target_uuid = None
 
         # election related data
         self.unconnected_master_node_set = set()
         self.negotiating_master_node_set = set()
 
         self._current_manager = None
-        self._startup_allowed = False
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
@@ -328,61 +325,6 @@ class Application(object):
             if node is not None and node.isStorage():
                 conn.notify(packet)
 
-    def buildFromScratch(self):
-        nm, em, pt = self.nm, self.em, self.pt
-        logging.debug('creating a new partition table, wait for a storage node')
-        # wait for some empty storage nodes, their are accepted
-        while len(nm.getStorageList()) < REQUIRED_NODE_NUMBER:
-            em.poll(1)
-        # take the first node available
-        node_list = nm.getStorageList()[:REQUIRED_NODE_NUMBER]
-        for node in node_list:
-            node.setRunning()
-        self.broadcastNodesInformation(node_list)
-        # resert IDs generators
-        self.loid = '\0' * 8
-        # build the partition with this node
-        pt.setID(pack('!Q', 1))
-        pt.make(node_list)
-
-    def recoverStatus(self):
-        """
-        Recover the status about the cluster. Obtain the last OID, the last
-        TID, and the last Partition Table ID from storage nodes, then get
-        back the latest partition table or make a new table from scratch,
-        if this is the first time.
-        """
-        logging.info('begin the recovery of the status')
-
-        self.changeClusterState(ClusterStates.RECOVERING)
-        em = self.em
-
-        self.loid = None
-        self.pt.setID(None)
-        self.target_uuid = None
-
-        # collect the last partition table available
-        while not self._startup_allowed:
-            em.poll(1)
-
-        logging.info('startup allowed')
-
-        # build a new partition table
-        if self.pt.getID() is None:
-            self.buildFromScratch()
-
-        # collect node that are connected but not in the selected partition
-        # table and set them in pending state
-        allowed_node_set = set(self.pt.getNodeList())
-        refused_node_set = set(self.nm.getStorageList()) - allowed_node_set
-        for node in refused_node_set:
-            node.setPending()
-        self.broadcastNodesInformation(refused_node_set)
-
-        logging.debug('cluster starts with loid=%s and this partition table :',
-                dump(self.loid))
-        self.pt.log()
-
     def provideService(self):
         """
         This is the normal mode for a primary master node. Handle transactions
@@ -438,7 +380,6 @@ class Application(object):
                 assert node.isMaster()
                 conn.setHandler(handler)
 
-
         # If I know any storage node, make sure that they are not in the
         # running state, because they are not connected at this stage.
         for node in nm.getStorageList():
@@ -446,8 +387,7 @@ class Application(object):
                 node.setTemporarilyDown()
 
         # recover the cluster status at startup
-        self.recoverStatus()
-
+        self.runManager(RecoveryManager)
         while True:
             self.runManager(VerificationManager)
             self.provideService()
@@ -509,9 +449,7 @@ class Application(object):
 
         # select the storage handler
         client_handler = client.ClientServiceHandler(self)
-        if state == ClusterStates.RECOVERING:
-            storage_handler = recovery.RecoveryHandler(self)
-        elif state == ClusterStates.RUNNING:
+        if state == ClusterStates.RUNNING:
             storage_handler = storage.StorageServiceHandler(self)
         elif self._current_manager is not None:
             storage_handler = self._current_manager.getHandler()
@@ -606,21 +544,7 @@ class Application(object):
     def identifyStorageNode(self, uuid, node):
         state = NodeStates.RUNNING
         handler = None
-        if self.cluster_state == ClusterStates.RECOVERING:
-            # accept storage nodes when recovery is over
-            if uuid is None and self._startup_allowed:
-                logging.info('reject empty storage node')
-                raise protocol.NotReadyError
-            handler = recovery.RecoveryHandler(self)
-        elif self.cluster_state == ClusterStates.VERIFYING:
-            if uuid is None or node is None:
-                # if node is unknown, it has been forget when the current
-                # partition was validated by the admin
-                # Here the uuid is not cleared to allow lookup pending nodes by
-                # uuid from the test framework. It's safe since nodes with a
-                # conflicting UUID are rejected in the identification handler.
-                state = NodeStates.PENDING
-        elif self.cluster_state == ClusterStates.RUNNING:
+        if self.cluster_state == ClusterStates.RUNNING:
             if uuid is None or node is None:
                 # same as for verification
                 state = NodeStates.PENDING
