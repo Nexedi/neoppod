@@ -37,7 +37,7 @@ class BaseMasterHandler(BaseStorageHandler):
         raise PrimaryFailure('re-election occurs')
 
     def notifyClusterInformation(self, conn, state):
-        logging.error('ignoring notify cluster information in %s' %
+        logging.warning('ignoring notify cluster information in %s' %
                 self.__class__.__name__)
 
     def notifyLastOID(self, conn, oid):
