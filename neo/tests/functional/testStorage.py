@@ -130,7 +130,9 @@ class StorageTests(NEOFunctionalTest):
         must have the same content """
 
         # populate the cluster then check the databases
-        self.__setup(storage_number=2, replicas=1)
+        (started, _) = self.__setup(storage_number=2, replicas=1)
+        self.__expectRunning(started[0])
+        self.__expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)
         self.__populate()
         self.__checkReplicationDone()
@@ -188,6 +190,8 @@ class StorageTests(NEOFunctionalTest):
 
         # populate the two storages
         (started, _) = self.__setup(storage_number=2, replicas=1)
+        self.__expectRunning(started[0])
+        self.__expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)
         self.__populate()
         self.__checkReplicationDone()
