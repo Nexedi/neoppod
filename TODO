@@ -264,6 +264,9 @@ RC  - Review output of pylint (CODE)
     may cause a big network overhead. It would be better to refuse any client 
     connection and thus no OID allocation during import. It may be interesting 
     to create a new stage for the cluster startup... to be discussed.
+    - Simple deployment solution, based on embedded database, integrated master
+    and storage node that works out of the box
+    - Simple import/export solution that generate SQL/data.fs.
 
 Bugs:
   - Node in partition table already known: When a node receive a partition table
