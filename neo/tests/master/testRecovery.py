@@ -20,7 +20,7 @@ from struct import pack, unpack
 from neo.tests import NeoTestBase
 from neo.protocol import Packets
 from neo.protocol import NodeTypes, NodeStates, CellStates
-from neo.master.handlers.recovery import RecoveryHandler
+from neo.master.recovery import RecoveryManager
 from neo.master.app import Application
 
 class MasterRecoveryTests(NeoTestBase):
@@ -30,7 +30,7 @@ class MasterRecoveryTests(NeoTestBase):
         config = self.getMasterConfiguration()
         self.app = Application(config)
         self.app.pt.clear()
-        self.recovery = RecoveryHandler(self.app)
+        self.recovery = RecoveryManager(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
         for node in self.app.nm.getMasterList():
@@ -111,12 +111,10 @@ class MasterRecoveryTests(NeoTestBase):
         self.assertTrue(new_ptid > self.app.pt.getID())
         self.assertTrue(new_oid > self.app.loid)
         self.assertTrue(new_tid > self.app.tm.getLastTID())
-        self.assertEquals(self.app.target_uuid, None)
         recovery.answerLastIDs(conn, new_oid, new_tid, new_ptid)
         self.assertEquals(new_oid, self.app.loid)
         self.assertEquals(new_tid, self.app.tm.getLastTID())
         self.assertEquals(new_ptid, self.app.pt.getID())
-        self.assertEquals(self.app.target_uuid,uuid)
 
 
     def test_10_answerPartitionTable(self):
@@ -125,7 +123,6 @@ class MasterRecoveryTests(NeoTestBase):
         # not from target node, ignore
         uuid = self.identifyToMasterNode(NodeTypes.STORAGE, port=self.storage_port)
         conn = self.getFakeConnection(uuid, self.storage_port)
-        self.assertNotEquals(self.app.target_uuid, uuid)
         offset = 1
         cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
         cells = self.app.pt.getRow(offset)
@@ -137,9 +134,6 @@ class MasterRecoveryTests(NeoTestBase):
             self.assertEquals(state, CellStates.OUT_OF_DATE)
         # from target node, taken into account
         conn = self.getFakeConnection(uuid, self.storage_port)
-        self.assertNotEquals(self.app.target_uuid, uuid)
-        self.app.target_uuid = uuid
-        self.assertEquals(self.app.target_uuid, uuid)
         offset = 1
         cell_list = [(offset, ((uuid, CellStates.UP_TO_DATE,),),)]
         cells = self.app.pt.getRow(offset)
@@ -150,8 +144,8 @@ class MasterRecoveryTests(NeoTestBase):
         for cell, state in cells:
             self.assertEquals(state, CellStates.UP_TO_DATE)
         # give a bad offset, must send error
+        self.recovery.target_uuid = uuid
         conn = self.getFakeConnection(uuid, self.storage_port)
-        self.assertEquals(self.app.target_uuid, uuid)
         offset = 1000000
         self.assertFalse(self.app.pt.hasOffset(offset))
         cell_list = [(offset, ((uuid, NodeStates.DOWN,),),)]
