@@ -707,28 +707,29 @@ class Application(object):
         # wait for all transaction to be finished
         while True:
             self.em.poll(1)
-            if not self.tm.hasPending():
-                if self.cluster_state == ClusterStates.RUNNING:
-                    sys.exit("Application has been asked to shut down")
-                else:
-                    # no more transaction, ask clients to shutdown
-                    logging.info("asking all clients to shutdown")
-                    for c in self.em.getConnectionList():
-                        node = self.nm.getByUUID(c.getUUID())
-                        if node.isClient():
-                            node_list = [(node.getType(), node.getAddress(),
-                                node.getUUID(), NodeStates.DOWN)]
-                            c.notify(Packets.NotifyNodeInformation(node_list))
-                    # then ask storages and master nodes to shutdown
-                    logging.info("asking all remaining nodes to shutdown")
-                    for c in self.em.getConnectionList():
-                        node = self.nm.getByUUID(c.getUUID())
-                        if node.isStorage() or node.isMaster():
-                            node_list = [(node.getType(), node.getAddress(),
-                                node.getUUID(), NodeStates.DOWN)]
-                            c.notify(Packets.NotifyNodeInformation(node_list))
-                    # then shutdown
-                    sys.exit("Cluster has been asked to shut down")
+            if self.tm.hasPending():
+                continue
+            if self.cluster_state == ClusterStates.RUNNING:
+                sys.exit("Application has been asked to shut down")
+            else:
+                # no more transaction, ask clients to shutdown
+                logging.info("asking all clients to shutdown")
+                for c in self.em.getConnectionList():
+                    node = self.nm.getByUUID(c.getUUID())
+                    if node.isClient():
+                        node_list = [(node.getType(), node.getAddress(),
+                            node.getUUID(), NodeStates.DOWN)]
+                        c.notify(Packets.NotifyNodeInformation(node_list))
+                # then ask storages and master nodes to shutdown
+                logging.info("asking all remaining nodes to shutdown")
+                for c in self.em.getConnectionList():
+                    node = self.nm.getByUUID(c.getUUID())
+                    if node.isStorage() or node.isMaster():
+                        node_list = [(node.getType(), node.getAddress(),
+                            node.getUUID(), NodeStates.DOWN)]
+                        c.notify(Packets.NotifyNodeInformation(node_list))
+                # then shutdown
+                sys.exit("Cluster has been asked to shut down")
 
     def identifyStorageNode(self, uuid, node):
         state = NodeStates.RUNNING
