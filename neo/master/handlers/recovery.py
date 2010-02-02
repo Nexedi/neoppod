@@ -32,8 +32,10 @@ class RecoveryHandler(MasterHandler):
         node.setState(new_state)
 
     def connectionCompleted(self, conn):
-        # ask the last IDs to perform the recovery
-        conn.ask(Packets.AskLastIDs())
+        # XXX: handler split review needed to remove this hack
+        if not self.app._startup_allowed:
+            # ask the last IDs to perform the recovery
+            conn.ask(Packets.AskLastIDs())
 
     def answerLastIDs(self, conn, loid, ltid, lptid):
         app = self.app

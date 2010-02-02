@@ -26,13 +26,13 @@ from neo.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.node import NodeManager
 from neo.event import EventManager
 from neo.connection import ListeningConnection, ClientConnection
-from neo.exception import ElectionFailure, PrimaryFailure, \
-        VerificationFailure, OperationFailure
+from neo.exception import ElectionFailure, PrimaryFailure, OperationFailure
 from neo.master.handlers import election, identification, secondary, recovery
-from neo.master.handlers import verification, storage, client, shutdown
+from neo.master.handlers import storage, client, shutdown
 from neo.master.handlers import administration
 from neo.master.pt import PartitionTable
 from neo.master.transactions import TransactionManager
+from neo.master.verification import VerificationManager
 from neo.util import dump
 from neo.connector import getConnectorHandler
 
@@ -90,12 +90,8 @@ class Application(object):
         self.unconnected_master_node_set = set()
         self.negotiating_master_node_set = set()
 
-        # verification related data
-        self.unfinished_oid_set = set()
-        self.unfinished_tid_set = set()
-        self.asking_uuid_dict = {}
-        self.object_present = False
-
+        self._current_manager = None
+        self._startup_allowed = False
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
@@ -366,7 +362,7 @@ class Application(object):
         self.target_uuid = None
 
         # collect the last partition table available
-        while self.cluster_state == ClusterStates.RECOVERING:
+        while not self._startup_allowed:
             em.poll(1)
 
         logging.info('startup allowed')
@@ -386,132 +382,6 @@ class Application(object):
         logging.debug('cluster starts with loid=%s and this partition table :',
                 dump(self.loid))
         self.pt.log()
-
-    def verifyTransaction(self, tid):
-        em = self.em
-        uuid_set = set()
-
-        # Determine to which nodes I should ask.
-        partition = self.pt.getPartition(tid)
-        transaction_uuid_list = [cell.getUUID() for cell \
-                in self.pt.getCellList(partition, readable=True)]
-        if len(transaction_uuid_list) == 0:
-            raise VerificationFailure
-        uuid_set.update(transaction_uuid_list)
-
-        # Gather OIDs.
-        self.asking_uuid_dict = {}
-        self.unfinished_oid_set = set()
-        for conn in em.getConnectionList():
-            uuid = conn.getUUID()
-            if uuid in transaction_uuid_list:
-                self.asking_uuid_dict[uuid] = False
-                conn.ask(Packets.AskTransactionInformation(tid))
-        if len(self.asking_uuid_dict) == 0:
-            raise VerificationFailure
-
-        while True:
-            em.poll(1)
-            if not self.pt.operational():
-                raise VerificationFailure
-            if False not in self.asking_uuid_dict.values():
-                break
-
-        if self.unfinished_oid_set is None or len(self.unfinished_oid_set) == 0:
-            # Not commitable.
-            return None
-        # Verify that all objects are present.
-        for oid in self.unfinished_oid_set:
-            self.asking_uuid_dict.clear()
-            partition = self.pt.getPartition(oid)
-            object_uuid_list = [cell.getUUID() for cell \
-                        in self.pt.getCellList(partition, readable=True)]
-            if len(object_uuid_list) == 0:
-                raise VerificationFailure
-            uuid_set.update(object_uuid_list)
-
-            self.object_present = True
-            for conn in em.getConnectionList():
-                uuid = conn.getUUID()
-                if uuid in object_uuid_list:
-                    self.asking_uuid_dict[uuid] = False
-                    conn.ask(Packets.AskObjectPresent(oid, tid))
-
-            while True:
-                em.poll(1)
-                if not self.pt.operational():
-                    raise VerificationFailure
-                if False not in self.asking_uuid_dict.values():
-                    break
-
-            if not self.object_present:
-                # Not commitable.
-                return None
-
-        return uuid_set
-
-    def verifyData(self):
-        """Verify the data in storage nodes and clean them up, if necessary."""
-
-        em, nm = self.em, self.nm
-        self.changeClusterState(ClusterStates.VERIFYING)
-
-        # wait for any missing node
-        logging.debug('waiting for the cluster to be operational')
-        while not self.pt.operational():
-            em.poll(1)
-
-        logging.info('start to verify data')
-
-        # Gather all unfinished transactions.
-        self.asking_uuid_dict = {}
-        self.unfinished_tid_set = set()
-        for conn in em.getConnectionList():
-            uuid = conn.getUUID()
-            if uuid is not None:
-                node = nm.getByUUID(uuid)
-                if node.isStorage():
-                    self.asking_uuid_dict[uuid] = False
-                    conn.ask(Packets.AskUnfinishedTransactions())
-
-        while True:
-            em.poll(1)
-            if not self.pt.operational():
-                raise VerificationFailure
-            if False not in self.asking_uuid_dict.values():
-                break
-
-        # Gather OIDs for each unfinished TID, and verify whether the transaction
-        # can be finished or must be aborted. This could be in parallel in theory,
-        # but not so easy. Thus do it one-by-one at the moment.
-        for tid in self.unfinished_tid_set:
-            uuid_set = self.verifyTransaction(tid)
-            if uuid_set is None:
-                # Make sure that no node has this transaction.
-                for conn in em.getConnectionList():
-                    uuid = conn.getUUID()
-                    if uuid is not None:
-                        node = nm.getByUUID(uuid)
-                        if node.isStorage():
-                            conn.notify(Packets.DeleteTransaction(tid))
-            else:
-                for conn in em.getConnectionList():
-                    uuid = conn.getUUID()
-                    if uuid in uuid_set:
-                        conn.ask(Packets.CommitTransaction(tid))
-
-            # If possible, send the packets now.
-            em.poll(0)
-
-        # At this stage, all non-working nodes are out-of-date.
-        cell_list = self.pt.outdate()
-
-        # Tweak the partition table, if the distribution of storage nodes
-        # is not uniform.
-        cell_list.extend(self.pt.tweak())
-
-        # If anything changed, send the changes.
-        self.broadcastPartitionChanges(cell_list)
 
     def provideService(self):
         """
@@ -579,10 +449,7 @@ class Application(object):
         self.recoverStatus()
 
         while True:
-            try:
-                self.verifyData()
-            except VerificationFailure:
-                continue
+            self.runManager(VerificationManager)
             self.provideService()
 
     def playSecondaryRole(self):
@@ -627,6 +494,11 @@ class Application(object):
         while True:
             self.em.poll(1)
 
+    def runManager(self, manager_klass):
+        self._current_manager = manager_klass(self)
+        self._current_manager.run()
+        self._current_manager = None
+
     def changeClusterState(self, state):
         """
         Change the cluster state and apply right handler on each connections
@@ -639,10 +511,10 @@ class Application(object):
         client_handler = client.ClientServiceHandler(self)
         if state == ClusterStates.RECOVERING:
             storage_handler = recovery.RecoveryHandler(self)
-        elif state == ClusterStates.VERIFYING:
-            storage_handler = verification.VerificationHandler(self)
         elif state == ClusterStates.RUNNING:
             storage_handler = storage.StorageServiceHandler(self)
+        elif self._current_manager is not None:
+            storage_handler = self._current_manager.getHandler()
         else:
             RuntimeError('Unexpected cluster state')
 
@@ -735,7 +607,8 @@ class Application(object):
         state = NodeStates.RUNNING
         handler = None
         if self.cluster_state == ClusterStates.RECOVERING:
-            if uuid is None:
+            # accept storage nodes when recovery is over
+            if uuid is None and self._startup_allowed:
                 logging.info('reject empty storage node')
                 raise protocol.NotReadyError
             handler = recovery.RecoveryHandler(self)
@@ -747,7 +620,6 @@ class Application(object):
                 # uuid from the test framework. It's safe since nodes with a
                 # conflicting UUID are rejected in the identification handler.
                 state = NodeStates.PENDING
-            handler = verification.VerificationHandler
         elif self.cluster_state == ClusterStates.RUNNING:
             if uuid is None or node is None:
                 # same as for verification
@@ -787,7 +659,11 @@ class Application(object):
             logging.info('Accept a client %s' % (dump(uuid), ))
         elif node_type == NodeTypes.STORAGE:
             node_ctor = self.nm.createStorage
-            (uuid, state, handler) = self.identifyStorageNode(uuid, node)
+            if self._current_manager is not None:
+                identify = self._current_manager.identifyStorageNode
+                (uuid, state, handler) = identify(uuid, node)
+            else:
+                (uuid, state, handler) = self.identifyStorageNode(uuid, node)
             logging.info('Accept a storage %s (%s)' % (dump(uuid), state))
         return (uuid, node, state, handler, node_ctor)
 

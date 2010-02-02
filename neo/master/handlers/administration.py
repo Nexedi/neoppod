@@ -35,7 +35,11 @@ class AdministrationHandler(MasterHandler):
         conn.answer(Packets.AnswerPrimary(app.uuid, []))
 
     def setClusterState(self, conn, state):
-        self.app.changeClusterState(state)
+        # XXX: dedicate a packet to start the cluster
+        if state == ClusterStates.VERIFYING:
+            self.app._startup_allowed = True
+        else:
+            self.app.changeClusterState(state)
         p = protocol.ack('cluster state changed')
         conn.answer(p)
         if state == ClusterStates.STOPPING:

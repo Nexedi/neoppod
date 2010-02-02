@@ -24,9 +24,6 @@ class ElectionFailure(NeoException):
 class PrimaryFailure(NeoException):
     pass
 
-class VerificationFailure(NeoException):
-    pass
-
 class OperationFailure(NeoException):
     pass
 
