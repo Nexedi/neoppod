@@ -57,15 +57,15 @@ def makeChecksum(s):
 
 
 def resolve(hostname):
-  """
-      Returns the first IP address that match with the given hostname
-  """
-  try:
-      # an IP resolves to itself
-      _, _, address_list = socket.gethostbyname_ex(hostname)
-  except socket.gaierror:
-      return None
-  return address_list[0]
+    """
+        Returns the first IP address that match with the given hostname
+    """
+    try:
+        # an IP resolves to itself
+        _, _, address_list = socket.gethostbyname_ex(hostname)
+    except socket.gaierror:
+        return None
+    return address_list[0]
 
 
 def parseMasterList(masters, except_node=None):
