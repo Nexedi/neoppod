@@ -644,7 +644,7 @@ class Application(object):
         elif state == ClusterStates.RUNNING:
             storage_handler = storage.StorageServiceHandler(self)
         else:
-            RuntimeError('Unexpected node type')
+            RuntimeError('Unexpected cluster state')
 
         # change handlers
         notification_packet = Packets.NotifyClusterInformation(state)
