@@ -77,7 +77,13 @@ class PacketLogger(EventHandler):
         pass
 
     def notifyNodeInformation(self, conn, node_list):
-        pass
+        for node_type, address, uuid, state in node_list:
+            if address is not None:
+                address = '%s:%d' % address
+            else:
+                address = '?'
+            node = (dump(uuid), node_type, address, state)
+            logging.debug(' ! %s | %8s | %22s | %s' % node)
 
     def askLastIDs(self, conn):
         pass
