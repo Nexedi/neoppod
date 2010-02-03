@@ -48,18 +48,17 @@ class StorageBootstrapHandler(AnswerBaseHandler):
     """ Handler used when connecting to a storage node """
 
     def notReady(self, conn, message):
-        app = self.app
-        app.setNodeNotReady()
+        self.app.setNodeNotReady()
 
     def acceptIdentification(self, conn, node_type,
            uuid, num_partitions, num_replicas, your_uuid):
-        app = self.app
-        node = app.nm.getByAddress(conn.getAddress())
         # this must be a storage node
         if node_type != NodeTypes.STORAGE:
             conn.close()
             return
 
+        node = self.app.nm.getByAddress(conn.getAddress())
+        assert node is not None, conn.getAddress()
         conn.setUUID(uuid)
         node.setUUID(uuid)
 
@@ -68,16 +67,14 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     def answerObject(self, conn, oid, start_serial, end_serial,
             compression, checksum, data):
-        app = self.app
-        app.local_var.asked_object = (oid, start_serial, end_serial,
+        self.app.local_var.asked_object = (oid, start_serial, end_serial,
                 compression, checksum, data)
 
     def answerStoreObject(self, conn, conflicting, oid, serial):
-        app = self.app
         if conflicting:
-            app.local_var.object_stored = -1, serial
+            self.app.local_var.object_stored = -1, serial
         else:
-            app.local_var.object_stored = oid, serial
+            self.app.local_var.object_stored = oid, serial
 
     def answerStoreTransaction(self, conn, tid):
         app = self.app
@@ -85,7 +82,6 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, oid_list):
-        app = self.app
         # transaction information are returned as a dict
         info = {}
         info['time'] = TimeStamp(tid).timeTime()
@@ -93,27 +89,23 @@ class StorageAnswersHandler(AnswerBaseHandler):
         info['description'] = desc
         info['id'] = tid
         info['oids'] = oid_list
-        app.local_var.txn_info = info
+        self.app.local_var.txn_info = info
 
     def answerObjectHistory(self, conn, oid, history_list):
-        app = self.app
         # history_list is a list of tuple (serial, size)
-        app.local_var.history = oid, history_list
+        self.app.local_var.history = oid, history_list
 
     def oidNotFound(self, conn, message):
-        app = self.app
         # This can happen either when :
         # - loading an object
         # - asking for history
-        app.local_var.asked_object = -1
-        app.local_var.history = -1
+        self.app.local_var.asked_object = -1
+        self.app.local_var.history = -1
 
     def tidNotFound(self, conn, message):
-        app = self.app
         # This can happen when requiring txn informations
-        app.local_var.txn_info = -1
+        self.app.local_var.txn_info = -1
 
     def answerTIDs(self, conn, tid_list):
-        app = self.app
-        app.local_var.node_tids[conn.getUUID()] = tid_list
+        self.app.local_var.node_tids[conn.getUUID()] = tid_list
 

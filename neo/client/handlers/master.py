@@ -138,9 +138,8 @@ class PrimaryNotificationsHandler(BaseHandler):
     # because it's in the master handler, so the connection is already
     # established.
     def notifyPartitionChanges(self, conn, ptid, cell_list):
-        pt = self.app.pt
-        if pt.filled():
-            pt.update(ptid, cell_list, self.app.nm)
+        if self.app.pt.filled():
+            self.app.pt.update(ptid, cell_list, self.app.nm)
 
     def sendPartitionTable(self, conn, ptid, row_list):
         self.app.pt.load(ptid, row_list, self.app.nm)
@@ -159,20 +158,18 @@ class PrimaryNotificationsHandler(BaseHandler):
                         app.cp.removeConnection(conn)
                         self.dispatcher.unregister(conn)
 
+
 class PrimaryAnswersHandler(AnswerBaseHandler):
     """ Handle that process expected packets from the primary master """
 
     def answerBeginTransaction(self, conn, tid):
-        app = self.app
-        app.setTID(tid)
+        self.app.setTID(tid)
 
     def answerNewOIDs(self, conn, oid_list):
-        app = self.app
-        app.new_oid_list = oid_list
-        app.new_oid_list.reverse()
+        self.app.new_oid_list = oid_list
+        self.app.new_oid_list.reverse()
 
     def answerTransactionFinished(self, conn, tid):
-        app = self.app
-        if tid == app.getTID():
-            app.setTransactionFinished()
+        if tid == self.app.getTID():
+            self.app.setTransactionFinished()
 
