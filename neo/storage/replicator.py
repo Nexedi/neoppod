@@ -167,10 +167,7 @@ class Replicator(object):
                     (dump(node.getUUID()), ))
             return
         if self.current_connection is not None:
-            if self.current_connection.getAddress() == addr:
-                # I can reuse the same connection.
-                pass
-            else:
+            if self.current_connection.getAddress() != addr:
                 self.current_connection.close()
                 self.current_connection = None
 
