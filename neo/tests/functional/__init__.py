@@ -427,13 +427,13 @@ class NEOCluster(object):
             return number_of_oudated == number, number_of_oudated
         self.expectCondition(callback, timeout, delay)
 
-    def expectAssignedCells(self, uuid, number, timeout=0, delay=1):
+    def expectAssignedCells(self, process, number, timeout=0, delay=1):
         def callback(last_try):
             row_list = self.neoctl.getPartitionRowList()[1]
             assigned_cells_number = 0
             for row in row_list:
                 for cell in row[1]:
-                    if cell[0] == uuid:
+                    if cell[0] == process.getUUID():
                         assigned_cells_number += 1
             return assigned_cells_number == number, assigned_cells_number
         self.expectCondition(callback, timeout, delay)

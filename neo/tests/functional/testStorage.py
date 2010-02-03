@@ -178,7 +178,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectOudatedCells(number=0)
         self.__populate()
         self.neo.expectClusterRunning()
-        self.neo.expectAssignedCells(started[0].getUUID(), number=10)
+        self.neo.expectAssignedCells(started[0], number=10)
 
         # start the second
         stopped[0].start()
@@ -188,7 +188,7 @@ class StorageTests(NEOFunctionalTest):
         # add it to the partition table
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
         self.__expectRunning(stopped[0])
-        self.neo.expectAssignedCells(stopped[0].getUUID(), number=10)
+        self.neo.expectAssignedCells(stopped[0], number=10)
         self.neo.expectClusterRunning()
 
         # wait for replication to finish then check
@@ -303,7 +303,7 @@ class StorageTests(NEOFunctionalTest):
             partitions=10, replicas=0)
         self.__expectRunning(started[0])
         self.neo.expectClusterRunning()
-        self.neo.expectAssignedCells(started[0].getUUID(), 10)
+        self.neo.expectAssignedCells(started[0], 10)
         self.neo.expectOudatedCells(number=0)
 
         # start the second and add it to the partition table
@@ -316,8 +316,8 @@ class StorageTests(NEOFunctionalTest):
 
         # the partition table must change, each node should be assigned to
         # five partitions
-        self.neo.expectAssignedCells(started[0].getUUID(), 5)
-        self.neo.expectAssignedCells(stopped[0].getUUID(), 5)
+        self.neo.expectAssignedCells(started[0], 5)
+        self.neo.expectAssignedCells(stopped[0], 5)
 
     def testPartitionTableReorganizedAfterDrop(self):
         """ Check that the partition change when dropping a replicas from a
@@ -329,22 +329,22 @@ class StorageTests(NEOFunctionalTest):
         self.__expectRunning(started[0])
         self.__expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)
-        self.neo.expectAssignedCells(started[0].getUUID(), 10)
-        self.neo.expectAssignedCells(started[1].getUUID(), 10)
+        self.neo.expectAssignedCells(started[0], 10)
+        self.neo.expectAssignedCells(started[1], 10)
 
         # kill one storage, it should be set as unavailable
         started[0].stop()
         self.__expectUnavailable(started[0])
         self.__expectRunning(started[1])
         # and the partition table must not change
-        self.neo.expectAssignedCells(started[0].getUUID(), 10)
-        self.neo.expectAssignedCells(started[1].getUUID(), 10)
+        self.neo.expectAssignedCells(started[0], 10)
+        self.neo.expectAssignedCells(started[1], 10)
 
         # ask neoctl to drop it
         self.neo.neoctl.dropNode(started[0].getUUID())
         self.__expectNotKnown(started[0])
-        self.neo.expectAssignedCells(started[0].getUUID(), 0)
-        self.neo.expectAssignedCells(started[1].getUUID(), 10)
+        self.neo.expectAssignedCells(started[0], 0)
+        self.neo.expectAssignedCells(started[1], 10)
 
     def testReplicationThenRunningWithReplicas(self):
         """ Add a replicas to a cluster, wait for the replication to finish,
@@ -361,7 +361,7 @@ class StorageTests(NEOFunctionalTest):
         self.__populate()
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
-        self.neo.expectAssignedCells(started[0].getUUID(), 10)
+        self.neo.expectAssignedCells(started[0], 10)
         self.__checkDatabase(self.neo.db_list[0])
 
         # add a second storage
@@ -370,8 +370,8 @@ class StorageTests(NEOFunctionalTest):
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
         self.__expectRunning(stopped[0])
         self.neo.expectClusterRunning()
-        self.neo.expectAssignedCells(started[0].getUUID(), 10)
-        self.neo.expectAssignedCells(stopped[0].getUUID(), 10)
+        self.neo.expectAssignedCells(started[0], 10)
+        self.neo.expectAssignedCells(stopped[0], 10)
 
         # wait for replication to finish
         self.neo.expectOudatedCells(number=0)
@@ -382,8 +382,8 @@ class StorageTests(NEOFunctionalTest):
         started[0].stop()
         self.__expectUnavailable(started[0])
         self.neo.expectOudatedCells(number=10)
-        self.neo.expectAssignedCells(started[0].getUUID(), 10)
-        self.neo.expectAssignedCells(stopped[0].getUUID(), 10)
+        self.neo.expectAssignedCells(started[0], 10)
+        self.neo.expectAssignedCells(stopped[0], 10)
         self.neo.expectClusterRunning()
         self.__checkDatabase(self.neo.db_list[0])
 
@@ -391,8 +391,8 @@ class StorageTests(NEOFunctionalTest):
         self.neo.neoctl.dropNode(started[0].getUUID())
         self.__expectNotKnown(started[0])
         self.__expectRunning(stopped[0])
-        self.neo.expectAssignedCells(started[0].getUUID(), 0)
-        self.neo.expectAssignedCells(stopped[0].getUUID(), 10)
+        self.neo.expectAssignedCells(started[0], 0)
+        self.neo.expectAssignedCells(stopped[0], 10)
         self.__checkDatabase(self.neo.db_list[1])
 
     def testStartWithManyPartitions(self):
