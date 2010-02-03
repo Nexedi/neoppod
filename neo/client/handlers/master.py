@@ -33,12 +33,12 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
     def acceptIdentification(self, conn, node_type,
                    uuid, num_partitions, num_replicas, your_uuid):
         app = self.app
-        node = app.nm.getByAddress(conn.getAddress())
         # this must be a master node
         if node_type != NodeTypes.MASTER:
             conn.close()
             return
 
+        node = app.nm.getByAddress(conn.getAddress())
         conn.setUUID(uuid)
         node.setUUID(uuid)
 
