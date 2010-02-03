@@ -131,14 +131,12 @@ class Application(object):
         self.mq_cache = MQ()
         self.new_oid_list = []
         self.last_oid = '\0' * 8
-        self.storage_event_handler = storage.StorageEventHandler(self, self.
-                dispatcher)
+        self.storage_event_handler = storage.StorageEventHandler(self)
         self.storage_bootstrap_handler = storage.StorageBootstrapHandler(self)
         self.storage_handler = storage.StorageAnswersHandler(self)
         self.primary_handler = master.PrimaryAnswersHandler(self)
         self.primary_bootstrap_handler = master.PrimaryBootstrapHandler(self)
-        self.notifications_handler = master.PrimaryNotificationsHandler(
-                self, self.dispatcher)
+        self.notifications_handler = master.PrimaryNotificationsHandler( self)
         # Internal attribute distinct between thread
         self.local_var = ThreadContext()
         # Lock definition :

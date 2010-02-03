@@ -21,9 +21,9 @@ from neo.protocol import ProtocolError
 class BaseHandler(EventHandler):
     """Base class for client-side EventHandler implementations."""
 
-    def __init__(self, app, dispatcher):
+    def __init__(self, app):
         super(BaseHandler, self).__init__(app)
-        self.dispatcher = dispatcher
+        self.dispatcher = app.dispatcher
 
     def dispatch(self, conn, packet):
         # Before calling superclass's dispatch method, lock the connection.
