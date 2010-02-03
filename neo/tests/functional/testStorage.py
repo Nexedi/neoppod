@@ -74,7 +74,7 @@ class StorageTests(NEOFunctionalTest):
         db.close()
 
     def __checkDatabase(self, db_name):
-        db = self.neo.getSQLConnection(db_name)
+        db = self.neo.getSQLConnection(db_name, autocommit=True)
         # wait for the sql transaction to be commited
         def callback(last_try):
             object_number = self.queryCount(db, 'select count(*) from obj')
@@ -107,7 +107,7 @@ class StorageTests(NEOFunctionalTest):
         self.assertEqual(len(storage_list), 2)
 
     def __checkReplicateCount(self, db_name, target_count, timeout=0, delay=1):
-        db = self.neo.getSQLConnection(db_name)
+        db = self.neo.getSQLConnection(db_name, autocommit=True)
         def callback(last_try):
             replicate_count = self.queryCount(db,
                 'select count(distinct uuid) from pt')
