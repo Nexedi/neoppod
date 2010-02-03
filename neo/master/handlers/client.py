@@ -18,20 +18,25 @@
 from neo import logging
 
 from neo.protocol import NodeStates, Packets, ProtocolError
-from neo.master.handlers import BaseServiceHandler
+from neo.master.handlers import MasterHandler
 from neo.util import dump
 
 
-class ClientServiceHandler(BaseServiceHandler):
+class ClientServiceHandler(MasterHandler):
     """ Handler dedicated to client during service state """
 
     def connectionCompleted(self, conn):
         pass
 
-    def nodeLost(self, conn, node):
+    def connectionLost(self, conn, new_state):
         # cancel it's transactions and forgot the node
-        self.app.tm.abortFor(node)
-        self.app.nm.remove(node)
+        app = self.app
+        node = app.nm.getByUUID(conn.getUUID())
+        assert node is not None
+        app.tm.abortFor(node)
+        node.setState(NodeStates.DOWN)
+        app.broadcastNodesInformation([node])
+        app.nm.remove(node)
 
     def abortTransaction(self, conn, tid):
         if tid in self.app.tm:
