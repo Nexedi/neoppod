@@ -226,15 +226,12 @@ class Application(object):
         # Wait until the connections are closed.
         self.primary = None
         self.primary_master_node = None
-        t = time()
-        while self.em.getClientList():
+        t = time() + 10
+        while self.em.getClientList() and time() < t:
             try:
                 self.em.poll(1)
             except ElectionFailure:
                 pass
-            if time() > t + 10:
-                # If too long, do not wait.
-                break
 
         # Close all connections.
         for conn in self.em.getClientList() + self.em.getServerList():
