@@ -190,6 +190,7 @@ class Replicator(object):
 
     def _finishReplication(self):
         app = self.app
+        # TODO: remove try..except: pass
         try:
             self.partition_dict.pop(self.current_partition.getRID())
             # Notify to a primary master node that my cell is now up-to-date.
@@ -238,11 +239,12 @@ class Replicator(object):
 
     def removePartition(self, rid):
         """This is a callback from OperationEventHandler."""
+        # TODO: remove try..except: pass
         try:
             self.partition_dict.pop(rid)
         except KeyError:
             pass
-
+        # TODO: remove try..except: pass
         try:
             self.new_partition_dict.pop(rid)
         except KeyError:

@@ -61,6 +61,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             if t.getUUID() == uuid:
                 for o in t.getObjectList():
                     oid = o[0]
+                    # TODO: remove try..except: pass
                     try:
                         del app.store_lock_dict[oid]
                         del app.load_lock_dict[oid]
@@ -87,11 +88,13 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
     def abortTransaction(self, conn, tid):
         app = self.app
+        # TODO: remove try..except: pass
         try:
             t = app.transaction_dict[tid]
             object_list = t.getObjectList()
             for o in object_list:
                 oid = o[0]
+                # TODO: remove try..except: pass
                 try:
                     del app.load_lock_dict[oid]
                 except KeyError:

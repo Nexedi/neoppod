@@ -41,6 +41,7 @@ class VerificationHandler(BaseMasterHandler):
         try:
             for offset in offset_list:
                 row = []
+                # TODO: remove try..except: pass
                 try:
                     for cell in app.pt.getCellList(offset):
                         row.append((cell.getUUID(), cell.getState()))

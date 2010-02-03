@@ -58,6 +58,7 @@ class MasterOperationHandler(BaseMasterHandler):
 
     def lockInformation(self, conn, tid):
         app = self.app
+        # TODO: remove try..except: pass
         try:
             t = app.transaction_dict[tid]
             object_list = t.getObjectList()
@@ -71,6 +72,7 @@ class MasterOperationHandler(BaseMasterHandler):
 
     def notifyUnlockInformation(self, conn, tid):
         app = self.app
+        # TODO: remove try..except: pass
         try:
             t = app.transaction_dict[tid]
             object_list = t.getObjectList()
