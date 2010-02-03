@@ -225,6 +225,9 @@ class NodeManager(object):
         try:
             del index_dict[key]
         except KeyError:
+            # a node may have not be indexed by uuid or address, eg.:
+            # - a master known by address but without UUID
+            # - a client or admin node that don't have listening address
             pass
 
     def __update(self, index_dict, old_key, new_key, node):
