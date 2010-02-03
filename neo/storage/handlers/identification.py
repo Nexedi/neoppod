@@ -17,12 +17,12 @@
 
 from neo import logging
 
-from neo.storage.handlers import BaseStorageHandler
+from neo.handler import EventHandler
 from neo.protocol import NodeTypes, Packets
 from neo import protocol
 from neo.util import dump
 
-class IdentificationHandler(BaseStorageHandler):
+class IdentificationHandler(EventHandler):
     """ Handler used for incoming connections during operation state """
 
     def connectionLost(self, conn, new_state):

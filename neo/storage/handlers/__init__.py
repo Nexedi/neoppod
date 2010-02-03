@@ -23,12 +23,7 @@ from neo.util import dump
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.protocol import NodeStates, Packets
 
-class BaseStorageHandler(EventHandler):
-    """This class implements a generic part of the event handlers."""
-    pass
-
-
-class BaseMasterHandler(BaseStorageHandler):
+class BaseMasterHandler(EventHandler):
 
     def connectionLost(self, conn, new_state):
         raise PrimaryFailure('connection lost')
@@ -61,7 +56,7 @@ class BaseMasterHandler(BaseStorageHandler):
                     raise OperationFailure
 
 
-class BaseClientAndStorageOperationHandler(BaseStorageHandler):
+class BaseClientAndStorageOperationHandler(EventHandler):
     """ Accept requests common to client and storage nodes """
 
     def askTIDs(self, conn, first, last, partition):
