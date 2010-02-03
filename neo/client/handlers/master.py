@@ -170,6 +170,7 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
         self.app.new_oid_list.reverse()
 
     def answerTransactionFinished(self, conn, tid):
-        if tid == self.app.getTID():
-            self.app.setTransactionFinished()
+        if tid != self.app.getTID():
+            raise ProtocolError('Wrong TID, transaction not started')
+        self.app.setTransactionFinished()
 

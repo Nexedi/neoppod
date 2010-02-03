@@ -18,7 +18,7 @@
 from ZODB.TimeStamp import TimeStamp
 
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, ProtocolError
 
 class StorageEventHandler(BaseHandler):
 
