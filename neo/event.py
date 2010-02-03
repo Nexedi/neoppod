@@ -111,14 +111,23 @@ class EpollEventManager(object):
         return [c for c in self.connection_dict.values() if c.isServer()]
 
     def getConnectionByUUID(self, uuid):
+        # XXX: deprecated, use getConnectionListByUUID instead.
+        result = self.getConnectionListByUUID(uuid)
+        if result is not None:
+            result = result[:1]
+        return result
+
+    def getConnectionListByUUID(self, uuid):
         """ Return the connection associated to the UUID, None if the UUID is
         None, invalid or not found"""
         if uuid is None:
             return None
+        result = []
+        append = result.append
         for conn in self.connection_dict.values():
             if conn.getUUID() == uuid:
-                return conn
-        return None
+                append(conn)
+        return result
 
     def register(self, conn):
         fd = conn.getConnector().getDescriptor()
