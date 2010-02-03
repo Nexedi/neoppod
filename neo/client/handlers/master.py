@@ -152,7 +152,7 @@ class PrimaryNotificationsHandler(BaseHandler):
             if node_type != NodeTypes.STORAGE \
                     or state != NodeStates.RUNNING:
                 continue
-            # close connection to this storage if no longer running
+            # close connection to this node if no longer running
             conn = self.app.em.getConnectionByUUID(uuid)
             if conn is not None:
                 conn.close()
