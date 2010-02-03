@@ -19,7 +19,7 @@ from neo import logging
 
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.pt import MTPartitionTable as PartitionTable
-from neo.protocol import NodeTypes, NodeStates
+from neo.protocol import NodeTypes, NodeStates, ProtocolError
 from neo.util import dump
 
 class PrimaryBootstrapHandler(AnswerBaseHandler):
@@ -38,13 +38,14 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
             conn.close()
             return
 
+        # the master must give an UUID
+        if your_uuid is None:
+            raise ProtocolError('No UUID supplied')
+        app.uuid = your_uuid
+
         node = app.nm.getByAddress(conn.getAddress())
         conn.setUUID(uuid)
         node.setUUID(uuid)
-
-        if your_uuid is not None:
-            # got an uuid from the primary master
-            app.uuid = your_uuid
 
         # Always create partition table
         app.pt = PartitionTable(num_partitions, num_replicas)
