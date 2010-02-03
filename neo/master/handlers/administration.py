@@ -77,20 +77,27 @@ class AdministrationHandler(MasterHandler):
             else:
                 # no connection to the node
                 raise protocol.ProtocolError('no connection to the node')
+            node.setState(state)
 
         elif state == NodeStates.DOWN and node.isStorage():
+            node.setState(state)
+            for storage_conn in app.em.getConnectionListByUUID(uuid):
+                storage_conn.close()
             # modify the partition table if required
             cell_list = []
             if modify_partition_table:
                 # remove from pt
                 cell_list = app.pt.dropNode(node)
+                app.nm.remove(node)
             else:
                 # outdate node in partition table
                 cell_list = app.pt.outdate()
             app.broadcastPartitionChanges(cell_list)
 
+        else:
+            node.setState(state)
+
         # /!\ send the node information *after* the partition table change
-        node.setState(state)
         p = protocol.ack('state changed')
         conn.answer(p)
         app.broadcastNodesInformation([node])
