@@ -77,8 +77,9 @@ class StorageAnswersHandler(AnswerBaseHandler):
             self.app.local_var.object_stored = oid, serial
 
     def answerStoreTransaction(self, conn, tid):
-        app = self.app
-        app.setTransactionVoted()
+        if tid != self.app.getTID():
+            raise ProtocolError('Wrong TID, transaction not started')
+        self.app.setTransactionVoted()
 
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, oid_list):
