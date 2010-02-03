@@ -509,6 +509,9 @@ class Application(object):
 
     def shutdown(self):
         """Close all connections and exit"""
+        # XXX: This behaviour is probably broken, as it applies the same
+        #   handler to all connection types. It must be carefuly reviewed and
+        #   corrected.
         # change handler
         handler = shutdown.ShutdownHandler(self)
         for c in self.em.getConnectionList():
