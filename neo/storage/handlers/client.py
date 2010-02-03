@@ -62,6 +62,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                 for o in t.getObjectList():
                     oid = o[0]
                     # TODO: remove try..except: pass
+                    # XXX: we release locks without checking if tid owns them
                     try:
                         del app.store_lock_dict[oid]
                         del app.load_lock_dict[oid]
@@ -95,6 +96,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             for o in object_list:
                 oid = o[0]
                 # TODO: remove try..except: pass
+                # XXX: we release locks without checking if tid owns them
                 try:
                     del app.load_lock_dict[oid]
                 except KeyError:
