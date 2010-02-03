@@ -255,12 +255,9 @@ class Connection(BaseConnection):
 
             # Remove idle events, if appropriate packets were received.
             for msg_id in (None, packet.getId()):
-                try:
-                    event = self.event_dict[msg_id]
-                    del self.event_dict[msg_id]
+                event = self.event_dict.pop(msg_id, None)
+                if event is not None:
                     self.em.removeIdleEvent(event)
-                except KeyError:
-                    pass
 
             try:
                 packet_type = packet.getType()
