@@ -54,7 +54,8 @@ UNIT_TEST_MODULES = [
     'neo.tests.storage.testVerificationHandler',
     # client application
     'neo.tests.client.testClientApp',
-    'neo.tests.client.testClientHandler',
+    'neo.tests.client.testMasterHandler',
+    'neo.tests.client.testStorageHandler',
     'neo.tests.client.testConnectionPool',
 ]
 
