@@ -249,7 +249,7 @@ class Application(object):
             address = node.getAddress()
             uuid = node.getUUID()
             state = node.getState()
-            node_info = (node.getType(), address, uuid, state)
+            node_info = node.asTuple()
             def assign_for_notification(node_type):
                 # helper function
                 node_dict.setdefault(node_type, []).append(node_info)
