@@ -69,9 +69,9 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                     except KeyError:
                         pass
                 del app.transaction_dict[tid]
+                # Now it may be possible to execute some events.
+                app.executeQueuedEvents()
                 break
-        # Now it may be possible to execute some events.
-        app.executeQueuedEvents()
 
     def timeoutExpired(self, conn):
         self.dealWithClientFailure(conn.getUUID())
