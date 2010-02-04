@@ -57,28 +57,26 @@ class MasterOperationHandler(BaseMasterHandler):
                     app.replicator.addPartition(offset)
 
     def lockInformation(self, conn, tid):
-        app = self.app
-        t = app.transaction_dict[tid]
+        t = self.app.transaction_dict[tid]
         t.setLocked()
         object_list = t.getObjectList()
         for o in object_list:
-            app.load_lock_dict[o[0]] = tid
+            self.app.load_lock_dict[o[0]] = tid
 
-        app.dm.storeTransaction(tid, object_list, t.getTransaction())
+        self.app.dm.storeTransaction(tid, object_list, t.getTransaction())
         conn.answer(Packets.AnswerInformationLocked(tid))
 
     def notifyUnlockInformation(self, conn, tid):
-        app = self.app
-        t = app.transaction_dict[tid]
+        t = self.app.transaction_dict[tid]
         object_list = t.getObjectList()
         for o in object_list:
             oid = o[0]
-            del app.load_lock_dict[oid]
-            del app.store_lock_dict[oid]
+            del self.app.load_lock_dict[oid]
+            del self.app.store_lock_dict[oid]
 
-        app.dm.finishTransaction(tid)
-        del app.transaction_dict[tid]
+        self.app.dm.finishTransaction(tid)
+        del self.app.transaction_dict[tid]
 
         # Now it may be possible to execute some events.
-        app.executeQueuedEvents()
+        self.app.executeQueuedEvents()
 
