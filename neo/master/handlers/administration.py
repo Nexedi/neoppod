@@ -80,8 +80,13 @@ class AdministrationHandler(MasterHandler):
             node.setState(state)
 
         elif state == NodeStates.DOWN and node.isStorage():
+            # update it's state
             node.setState(state)
             for storage_conn in app.em.getConnectionListByUUID(uuid):
+                # notify itself so it can shutdown
+                node_list = [node.asTuple()]
+                storage_conn.notify(Packets.NotifyNodeInformation(node_list))
+                # close to avoid handle the closure as a connection lost
                 storage_conn.close()
             # modify the partition table if required
             cell_list = []
