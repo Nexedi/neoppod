@@ -283,6 +283,14 @@ Bugs:
       - Master change handlers
       - Storage answer last IDs
       -> unexpected packet, storage is broken
+  - Client node disconnect before storage handle NotifyUnlockInformation:
+        - client -> master : finishTransaction
+        - client disconnect from storage
+        - storage cleanup informations related to the client
+        - master -> storage : lockInformation
+        - storage can't find information in memory
+        -> after lockInformation is received by a storage, related data must not
+        be dropped at client failure.
 
 Old TODO
 
