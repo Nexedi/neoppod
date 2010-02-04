@@ -69,6 +69,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                     except KeyError:
                         pass
                 del app.transaction_dict[tid]
+                break
         # Now it may be possible to execute some events.
         app.executeQueuedEvents()
 
