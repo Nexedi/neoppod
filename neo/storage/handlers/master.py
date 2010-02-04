@@ -17,7 +17,7 @@
 
 from neo import logging
 
-from neo.protocol import CellStates, Packets
+from neo.protocol import CellStates, Packets, ProtocolError
 from neo.storage.handlers import BaseMasterHandler
 from neo.exception import OperationFailure
 
@@ -57,7 +57,9 @@ class MasterOperationHandler(BaseMasterHandler):
                     app.replicator.addPartition(offset)
 
     def lockInformation(self, conn, tid):
-        t = self.app.transaction_dict[tid]
+        t = self.app.transaction_dict.get(tid, None)
+        if t is None:
+            raise ProtocolError('Unknown transaction')
         t.setLocked()
         object_list = t.getObjectList()
         for o in object_list:
@@ -67,7 +69,9 @@ class MasterOperationHandler(BaseMasterHandler):
         conn.answer(Packets.AnswerInformationLocked(tid))
 
     def notifyUnlockInformation(self, conn, tid):
-        t = self.app.transaction_dict[tid]
+        t = self.app.transaction_dict.get(tid, None)
+        if t is None:
+            raise ProtocolError('Unknown transaction')
         object_list = t.getObjectList()
         for o in object_list:
             oid = o[0]
