@@ -30,6 +30,13 @@ class TransactionInformation(object):
         self._object_dict = {}
         self._transaction = None
         self._last_oid_changed = False
+        self._locked = False
+
+    def isLocked(self):
+        return self._locked
+
+    def setLocked(self):
+        self._locked = True
 
     def lastOIDLchange(self):
         self._last_oid_changed = True
@@ -59,6 +66,9 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         app = self.app
         for tid, t in app.transaction_dict.items():
             if t.getUUID() == uuid:
+                if t.isLocked():
+                    logging.warning('Node lost while finishing transaction')
+                    break
                 for o in t.getObjectList():
                     oid = o[0]
                     # TODO: remove try..except: pass

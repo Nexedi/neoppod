@@ -59,6 +59,7 @@ class MasterOperationHandler(BaseMasterHandler):
     def lockInformation(self, conn, tid):
         app = self.app
         t = app.transaction_dict[tid]
+        t.setLocked()
         object_list = t.getObjectList()
         for o in object_list:
             app.load_lock_dict[o[0]] = tid
