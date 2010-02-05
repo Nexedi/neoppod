@@ -28,6 +28,7 @@ from neo.storage.handlers import identification, verification, initialization
 from neo.storage.handlers import master, hidden
 from neo.storage.replicator import Replicator
 from neo.storage.database import buildDatabaseManager
+from neo.storage.transactions import TransactionManager
 from neo.connector import getConnectorHandler
 from neo.pt import PartitionTable
 from neo.util import dump
@@ -46,6 +47,7 @@ class Application(object):
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
+        self.tm = TransactionManager(self)
         self.dm = buildDatabaseManager(config.getAdapter(), config.getDatabase())
 
         # load master nodes
@@ -67,9 +69,6 @@ class Application(object):
         self.master_node = None
 
         # operation related data
-        self.transaction_dict = {}
-        self.store_lock_dict = {}
-        self.load_lock_dict = {}
         self.event_queue = None
         self.operational = False
 
@@ -242,19 +241,7 @@ class Application(object):
 
         # Forget all unfinished data.
         self.dm.dropUnfinishedData()
-
-        # This is a mapping between transaction IDs and information on
-        # UUIDs of client nodes which issued transactions and objects
-        # which were stored.
-        self.transaction_dict = {}
-
-        # This is a mapping between object IDs and transaction IDs. Used
-        # for locking objects against store operations.
-        self.store_lock_dict = {}
-
-        # This is a mapping between object IDs and transactions IDs. Used
-        # for locking objects against load operations.
-        self.load_lock_dict = {}
+        self.tm.reset()
 
         # This is a queue of events used to delay operations due to locks.
         self.event_queue = deque()

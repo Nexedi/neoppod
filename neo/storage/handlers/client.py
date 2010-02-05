@@ -15,159 +15,46 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
-
-from neo import protocol
 from neo.protocol import Packets
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
-from neo.util import dump
-
-
-class TransactionInformation(object):
-    """This class represents information on a transaction."""
-    def __init__(self, uuid):
-        self._uuid = uuid
-        self._object_dict = {}
-        self._transaction = None
-        self._last_oid_changed = False
-        self._locked = False
-
-    def isLocked(self):
-        return self._locked
-
-    def setLocked(self):
-        self._locked = True
-
-    def lastOIDLchange(self):
-        self._last_oid_changed = True
-
-    def isLastOIDChanged(self):
-        return self._last_oid_changed
-
-    def getUUID(self):
-        return self._uuid
-
-    def addObject(self, oid, compression, checksum, data):
-        self._object_dict[oid] = (oid, compression, checksum, data)
-
-    def addTransaction(self, oid_list, user, desc, ext):
-        self._transaction = (oid_list, user, desc, ext)
-
-    def getObjectList(self):
-        return self._object_dict.values()
-
-    def getTransaction(self):
-        return self._transaction
-
+from neo.storage.transactions import ConflictError, DelayedError
 
 class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
-    def dealWithClientFailure(self, uuid):
-        app = self.app
-        for tid, t in app.transaction_dict.items():
-            if t.getUUID() == uuid:
-                if t.isLocked():
-                    logging.warning('Node lost while finishing transaction')
-                    break
-                for o in t.getObjectList():
-                    oid = o[0]
-                    # TODO: remove try..except: pass
-                    # XXX: we release locks without checking if tid owns them
-                    try:
-                        del app.store_lock_dict[oid]
-                        del app.load_lock_dict[oid]
-                    except KeyError:
-                        pass
-                del app.transaction_dict[tid]
-        # Now it may be possible to execute some events.
-        app.executeQueuedEvents()
-
     def timeoutExpired(self, conn):
-        self.dealWithClientFailure(conn.getUUID())
+        self.app.tm.abortFor(conn.getUUID())
         BaseClientAndStorageOperationHandler.timeoutExpired(self, conn)
 
     def connectionClosed(self, conn):
-        self.dealWithClientFailure(conn.getUUID())
+        self.app.tm.abortFor(conn.getUUID())
         BaseClientAndStorageOperationHandler.connectionClosed(self, conn)
 
     def peerBroken(self, conn):
-        self.dealWithClientFailure(conn.getUUID())
+        self.app.tm.abortFor(conn.getUUID())
         BaseClientAndStorageOperationHandler.peerBroken(self, conn)
 
     def abortTransaction(self, conn, tid):
-        app = self.app
-        # TODO: remove try..except: pass
-        try:
-            t = app.transaction_dict[tid]
-            object_list = t.getObjectList()
-            for o in object_list:
-                oid = o[0]
-                # TODO: remove try..except: pass
-                # XXX: we release locks without checking if tid owns them
-                try:
-                    del app.load_lock_dict[oid]
-                except KeyError:
-                    pass
-                del app.store_lock_dict[oid]
-
-            del app.transaction_dict[tid]
-
-            # Now it may be possible to execute some events.
-            app.executeQueuedEvents()
-        except KeyError:
-            pass
+        self.app.tm.abort(tid)
 
     def askStoreTransaction(self, conn, tid, user, desc,
                                   ext, oid_list):
         uuid = conn.getUUID()
-        t = self.app.transaction_dict.get(tid, None)
-        if t is None:
-            t = TransactionInformation(uuid)
-            self.app.transaction_dict[tid] = t
-        if t.isLastOIDChanged():
-            self.app.dm.setLastOID(self.app.loid)
-        t.addTransaction(oid_list, user, desc, ext)
+        self.app.tm.storeTransaction(uuid, tid, oid_list, user, desc, ext)
         conn.answer(Packets.AnswerStoreTransaction(tid))
 
     def askStoreObject(self, conn, oid, serial,
                              compression, checksum, data, tid):
         uuid = conn.getUUID()
-        # First, check for the locking state.
-        app = self.app
-        locking_tid = app.store_lock_dict.get(oid)
-        if locking_tid is not None:
-            if locking_tid < tid:
-                # Delay the response.
-                app.queueEvent(self.askStoreObject, conn, oid, serial, 
+        try:
+            self.app.tm.storeObject(uuid, tid, serial, oid, compression,
+                    checksum, data)
+            conn.answer(Packets.AnswerStoreObject(0, oid, serial))
+        except ConflictError, err:
+            # resolvable or not
+            tid_or_serial = err.getTID()
+            conn.answer(Packets.AnswerStoreObject(1, oid, tid_or_serial))
+        except DelayedError:
+            # locked by a previous transaction, retry later
+            self.app.queueEvent(self.askStoreObject, conn, oid, serial,
                     compression, checksum, data, tid)
-            else:
-                # If a newer transaction already locks this object,
-                # do not try to resolve a conflict, so return immediately.
-                logging.info('unresolvable conflict in %s', dump(oid))
-                conn.answer(Packets.AnswerStoreObject(1, oid, locking_tid))
-            return
-
-        # Next, check if this is generated from the latest revision.
-        history_list = app.dm.getObjectHistory(oid)
-        if history_list:
-            last_serial = history_list[0][0]
-            if last_serial != serial:
-                logging.info('resolvable conflict in %s', dump(oid))
-                conn.answer(Packets.AnswerStoreObject(1, oid, last_serial))
-                return
-        # Now store the object.
-        t = self.app.transaction_dict.get(tid, None)
-        if t is None:
-            t = TransactionInformation(uuid)
-            self.app.transaction_dict[tid] = t
-        t.addObject(oid, compression, checksum, data)
-        conn.answer(Packets.AnswerStoreObject(0, oid, serial))
-        app.store_lock_dict[oid] = tid
-
-        # check if a greater OID last the last generated was used
-        if oid != protocol.INVALID_OID and oid > self.app.loid:
-            args = dump(oid), dump(self.app.loid)
-            logging.warning('Greater OID used in StoreObject : %s > %s', *args)
-            self.app.loid = oid
-            t.lastOIDLchange()
 

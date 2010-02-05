@@ -97,10 +97,9 @@ class BaseClientAndStorageOperationHandler(EventHandler):
 
     def askObject(self, conn, oid, serial, tid):
         app = self.app
-        if oid in app.load_lock_dict:
+        if self.app.tm.loadLocked(oid):
             # Delay the response.
-            app.queueEvent(self.askObject, conn, oid,
-                           serial, tid)
+            app.queueEvent(self.askObject, conn, oid, serial, tid)
             return
         o = app.dm.getObject(oid, serial, tid)
         if o is not None:

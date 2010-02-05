@@ -57,30 +57,13 @@ class MasterOperationHandler(BaseMasterHandler):
                     app.replicator.addPartition(offset)
 
     def lockInformation(self, conn, tid):
-        t = self.app.transaction_dict.get(tid, None)
-        if t is None:
+        if not tid in self.app.tm:
             raise ProtocolError('Unknown transaction')
-        t.setLocked()
-        object_list = t.getObjectList()
-        for o in object_list:
-            self.app.load_lock_dict[o[0]] = tid
-
-        self.app.dm.storeTransaction(tid, object_list, t.getTransaction())
+        self.app.tm.lock(tid)
         conn.answer(Packets.AnswerInformationLocked(tid))
 
     def notifyUnlockInformation(self, conn, tid):
-        t = self.app.transaction_dict.get(tid, None)
-        if t is None:
+        if not tid in self.app.tm:
             raise ProtocolError('Unknown transaction')
-        object_list = t.getObjectList()
-        for o in object_list:
-            oid = o[0]
-            del self.app.load_lock_dict[oid]
-            del self.app.store_lock_dict[oid]
-
-        self.app.dm.finishTransaction(tid)
-        del self.app.transaction_dict[tid]
-
-        # Now it may be possible to execute some events.
-        self.app.executeQueuedEvents()
-
+        # TODO: send an answer
+        self.app.tm.unlock(tid)
