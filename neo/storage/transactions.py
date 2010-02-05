@@ -204,6 +204,7 @@ class TransactionManager(object):
             return
         # unlock any object
         for oid in transaction.getOIDList():
+            # XXX: we release locks without checking if tid owns them
             try:
                 del self._load_lock_dict[oid]
             except KeyError:
