@@ -114,7 +114,10 @@ class EventTests(NeoTestBase):
         w_connector = Mock({"getDescriptor" : 351621})
         w_conn = Mock({'getConnector': w_connector})
         em.register(w_conn)
-        em.epoll = Mock({"poll":((r_conn.getDescriptor(),),(w_conn.getDescriptor(),))})
+        em.epoll = Mock({"poll":(
+          (r_connector.getDescriptor(),),
+          (w_connector.getDescriptor(),),
+        )})
         em.poll(timeout=10)
         # check it called poll on epoll
         self.assertEquals(len(em.epoll.mockGetNamedCalls("poll")), 1)

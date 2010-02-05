@@ -178,18 +178,14 @@ class EpollEventManager(object):
             if fd in r_done_set:
                 continue
             r_done_set.add(fd)
+            conn = self.connection_dict[fd]
+            conn.lock()
             try:
-                conn = self.connection_dict[fd]
-            except KeyError:
-                pass
-            else:
-                conn.lock()
-                try:
-                    conn.readable()
-                finally:
-                    conn.unlock()
-                if conn.hasPendingMessages():
-                    self._addPendingConnection(conn)
+                conn.readable()
+            finally:
+                conn.unlock()
+            if conn.hasPendingMessages():
+                self._addPendingConnection(conn)
 
         w_done_set = set()
         for fd in wlist:
