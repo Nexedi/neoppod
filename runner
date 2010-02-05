@@ -52,6 +52,7 @@ UNIT_TEST_MODULES = [
     'neo.tests.storage.testStorageHandler',
     'neo.tests.storage.testStorageMySQLdb',
     'neo.tests.storage.testVerificationHandler',
+    'neo.tests.storage.testTransactions',
     # client application
     'neo.tests.client.testClientApp',
     'neo.tests.client.testMasterHandler',
