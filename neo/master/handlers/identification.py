@@ -27,8 +27,7 @@ class IdentificationHandler(MasterHandler):
     def nodeLost(self, conn, node):
         logging.warning('lost a node in IdentificationHandler : %s' % node)
 
-    def requestIdentification(self, conn, node_type,
-            uuid, address, name):
+    def requestIdentification(self, conn, node_type, uuid, address, name):
 
         self.checkClusterName(name)
         app, nm = self.app, self.app.nm
