@@ -72,7 +72,7 @@ class ClientTests(NEOFunctionalTest):
         conn = self.db.open(transaction_manager=txn)
         return (txn, conn)
 
-    def testConflictResolutionTriggered(self):
+    def testConflictResolutionTriggered1(self):
         """ Check that ConflictError is raised on write conflict """
         # create the initial objects
         self.__setup()
@@ -95,7 +95,7 @@ class ClientTests(NEOFunctionalTest):
         self.assertEqual(o2.value(), 2)
         self.assertRaises(ConflictError, t2.commit)
 
-    def testConflictResolutionTriggered(self):
+    def testConflictResolutionTriggered2(self):
         """ Check that conflict resolution works """
         # create the initial objects
         self.__setup()
