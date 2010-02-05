@@ -208,7 +208,8 @@ class TransactionManager(object):
             try:
                 del self._load_lock_dict[oid]
             except KeyError:
-                # XXX: explain why
+                # The transaction may have not been lock when abort is called,
+                # so no read lock can be held
                 pass
             del self._store_lock_dict[oid]
         # _uuid_dict entry will be deleted at node disconnection
