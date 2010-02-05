@@ -143,9 +143,6 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
         self.assertEqual(self.app.master_conn, None)
         self.assertEqual(self.app.primary_master_node, None)
 
-    def test_stopOperation(self):
-        raise NotImplementedError
-        
     def test_invalidateObjects(self):
         conn = self.getConnection()
         tid = self.getNextTID()
