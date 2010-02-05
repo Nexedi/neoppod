@@ -21,7 +21,7 @@ from mock import Mock
 from collections import deque
 from neo.tests import NeoTestBase
 from neo.storage.app import Application
-from neo.storage.handlers.client import TransactionInformation
+from neo.storage.transactions import ConflictError, DelayedError
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.protocol import Packets, Packet, INVALID_PARTITION
 from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
@@ -46,6 +46,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.app.store_lock_dict = {}
         self.app.load_lock_dict = {}
         self.app.event_queue = deque()
+        self.app.tm = Mock()
         # handler
         self.operation = ClientOperationHandler(self.app)
         # set pmn
@@ -58,44 +59,31 @@ class StorageClientHandlerTests(NeoTestBase):
     def tearDown(self):
         NeoTestBase.tearDown(self)
 
-    def test_01_TransactionInformation(self):
-        uuid = self.getNewUUID()
-        transaction = TransactionInformation(uuid)
-        # uuid
-        self.assertEquals(transaction._uuid, uuid)
-        self.assertEquals(transaction.getUUID(), uuid)
-        # objects
-        self.assertEquals(transaction._object_dict, {})
-        object = (self.getNewUUID(), 1, 2, 3, )
-        transaction.addObject(*object)
-        objects = transaction.getObjectList()
-        self.assertEquals(len(objects), 1)
-        self.assertEquals(objects[0], object)
-        # transactions
-        self.assertEquals(transaction._transaction, None)
-        t = ((1, 2, 3), 'user', 'desc', '')
-        transaction.addTransaction(*t)
-        self.assertEquals(transaction.getTransaction(), t)
+    def _getConnection(self, uuid=None):
+        return Mock({'getUUID': uuid, 'getAddress': ('127.0.0.1', 1000)})
 
-    def test_05_dealWithClientFailure(self):
-        # check if client's transaction are cleaned
+    def _checkTransactionsAborted(self, uuid):
+        calls = self.app.tm.mockGetNamedCalls('abortFor')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(uuid)
+
+    def test_connectionClosed(self):
         uuid = self.getNewUUID()
-        client = self.app.nm.createClient(
-            uuid=uuid,
-            address=('127.0.0.1', 10010)
-        )
-        self.app.store_lock_dict[0] = object()
-        transaction = Mock({
-            'getUUID': uuid,
-            'getObjectList': ((0, ), ),
-        })
-        self.app.transaction_dict[0] = transaction
-        self.assertTrue(1 not in self.app.store_lock_dict)
-        self.assertTrue(1 not in self.app.transaction_dict)
-        self.operation.dealWithClientFailure(uuid)
-        # objects and transaction removed
-        self.assertTrue(0 not in self.app.store_lock_dict)
-        self.assertTrue(0 not in self.app.transaction_dict)
+        conn = self._getConnection(uuid=uuid)
+        self.operation.connectionClosed(conn)
+        self._checkTransactionsAborted(uuid)
+
+    def test_timeoutExpired(self):
+        uuid = self.getNewUUID()
+        conn = self._getConnection(uuid=uuid)
+        self.operation.connectionClosed(conn)
+        self._checkTransactionsAborted(uuid)
+
+    def test_peerBroken(self):
+        uuid = self.getNewUUID()
+        conn = self._getConnection(uuid=uuid)
+        self.operation.connectionClosed(conn)
+        self._checkTransactionsAborted(uuid)
 
     def test_18_askTransactionInformation1(self):
         # transaction does not exists
@@ -115,6 +103,7 @@ class StorageClientHandlerTests(NeoTestBase):
         # delayed response
         conn = Mock({})
         self.app.dm = Mock()
+        self.app.tm = Mock({'loadLocked': True})
         self.app.load_lock_dict[INVALID_OID] = object()
         self.assertEquals(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=INVALID_OID,
@@ -205,87 +194,62 @@ class StorageClientHandlerTests(NeoTestBase):
         self.operation.askObjectHistory(conn, INVALID_OID, 1, 2)
         self.checkAnswerObjectHistory(conn)
 
-    def test_27_askStoreTransaction2(self):
-        # add transaction entry
-        conn = Mock({'getUUID': self.getNewUUID()})
-        self.operation.askStoreTransaction(conn, INVALID_TID, '', '', '', ())
-        t = self.app.transaction_dict.get(INVALID_TID, None)
-        self.assertNotEquals(t, None)
-        self.assertTrue(isinstance(t, TransactionInformation))
-        self.assertEquals(t.getTransaction(), ((), '', '', ''))
+    def test_askStoreTransaction(self):
+        uuid = self.getNewUUID()
+        conn = self._getConnection(uuid=uuid)
+        tid = self.getNextTID()
+        user = 'USER'
+        desc = 'DESC'
+        ext = 'EXT'
+        oid_list = (self.getOID(1), self.getOID(2))
+        self.operation.askStoreTransaction(conn, tid, user, desc, ext, oid_list)
+        calls = self.app.tm.mockGetNamedCalls('storeTransaction')
+        self.assertEqual(len(calls), 1)
         self.checkAnswerStoreTransaction(conn)
 
-    def test_28_askStoreObject2(self):
-        # locked => delayed response
-        conn = Mock({'getUUID': self.app.uuid})
-        oid = '\x02' * 8
-        tid1, tid2 = self.getTwoIDs()
-        self.app.store_lock_dict[oid] = tid1
-        self.assertTrue(oid in self.app.store_lock_dict)
-        t_before = self.app.transaction_dict.items()[:]
-        self.operation.askStoreObject(conn, oid, INVALID_SERIAL, 0, 0, '', tid2)
-        self.assertEquals(len(self.app.event_queue), 1)
-        t_after = self.app.transaction_dict.items()[:]
-        self.assertEquals(t_before, t_after)
-        self.checkNoPacketSent(conn)
-        self.assertTrue(oid in self.app.store_lock_dict)
+    def _getObject(self):
+        oid = self.getOID(0)
+        serial = self.getNextTID()
+        return (oid, serial, 1, '1', 'DATA')
 
-    def test_28_askStoreObject3(self):
-        # locked => unresolvable conflict => answer
-        conn = Mock({'getUUID': self.app.uuid})
-        tid1, tid2 = self.getTwoIDs()
-        self.app.store_lock_dict[INVALID_OID] = tid2
-        self.operation.askStoreObject(conn, INVALID_OID,
-            INVALID_SERIAL, 0, 0, '', tid1)
-        self.checkAnswerStoreObject(conn)
-        self.assertEquals(self.app.store_lock_dict[INVALID_OID], tid2)
-        # conflicting
-        packet = conn.mockGetNamedCalls('answer')[0].getParam(0)
-        self.assertTrue(unpack('!B8s8s', packet._body)[0])
+    def _checkStoreObjectCalled(self, *args):
+        calls = self.app.tm.mockGetNamedCalls('storeObject')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(*args)
 
-    def test_28_askStoreObject4(self):
-        # resolvable conflict => answer
-        conn = Mock({'getUUID': self.app.uuid})
-        self.app.dm = Mock({'getObjectHistory':((self.getNewUUID(), ), )})
-        self.assertEquals(self.app.store_lock_dict.get(INVALID_OID, None), None)
-        self.operation.askStoreObject(conn, INVALID_OID,
-            INVALID_SERIAL, 0, 0, '', INVALID_TID)
-        self.checkAnswerStoreObject(conn)
-        self.assertEquals(self.app.store_lock_dict.get(INVALID_OID, None), None)
-        # conflicting
-        packet = conn.mockGetNamedCalls('answer')[0].getParam(0)
-        self.assertTrue(unpack('!B8s8s', packet._body)[0])
-
-    def test_28_askStoreObject5(self):
+    def test_askStoreObject1(self):
         # no conflict => answer
-        conn = Mock({'getUUID': self.app.uuid})
-        self.operation.askStoreObject(conn, INVALID_OID,
-            INVALID_SERIAL, 0, 0, '', INVALID_TID)
-        t = self.app.transaction_dict.get(INVALID_TID, None)
-        self.assertNotEquals(t, None)
-        self.assertEquals(len(t.getObjectList()), 1)
-        object = t.getObjectList()[0]
-        self.assertEquals(object, (INVALID_OID, 0, 0, ''))
-        # no conflict
-        packet = self.checkAnswerStoreObject(conn)
-        self.assertFalse(unpack('!B8s8s', packet._body)[0])
+        uuid = self.getNewUUID()
+        conn = self._getConnection(uuid=uuid)
+        tid = self.getNextTID()
+        oid, serial, comp, checksum, data = self._getObject()
+        self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
+                data, tid)
+        self._checkStoreObjectCalled(uuid, tid, serial, oid, comp,
+                checksum, data)
+        self.checkAnswerStoreObject(conn)
 
-    def test_29_abortTransaction(self):
-        # remove transaction
-        conn = Mock({'getUUID': self.app.uuid})
-        transaction = Mock({ 'getObjectList': ((0, ), ), })
-        self.called = False
-        def called():
-            self.called = True
-        self.app.executeQueuedEvents = called
-        self.app.load_lock_dict[0] = object()
-        self.app.store_lock_dict[0] = object()
-        self.app.transaction_dict[INVALID_TID] = transaction
-        self.operation.abortTransaction(conn, INVALID_TID)
-        self.assertTrue(self.called)
-        self.assertEquals(len(self.app.load_lock_dict), 0)
-        self.assertEquals(len(self.app.store_lock_dict), 0)
-        self.assertEquals(len(self.app.store_lock_dict), 0)
+    def test_askStoreObject2(self):
+        # conflict error
+        uuid = self.getNewUUID()
+        conn = self._getConnection(uuid=uuid)
+        tid = self.getNextTID()
+        locking_tid = self.getNextTID(tid)
+        def fakeStoreObject(*args):
+            raise ConflictError(locking_tid)
+        self.app.tm.storeObject = lambda *kw: fakeStoreObject
+        oid, serial, comp, checksum, data = self._getObject()
+        self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
+                data, tid)
+        self.checkAnswerStoreObject(conn)
+
+    def test_abortTransaction(self):
+        conn = self._getConnection()
+        tid = self.getNextTID()
+        self.operation.abortTransaction(conn, tid)
+        calls = self.app.tm.mockGetNamedCalls('abort')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(tid)
 
 if __name__ == "__main__":
     unittest.main()
