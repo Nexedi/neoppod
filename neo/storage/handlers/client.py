@@ -95,9 +95,6 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         self.dealWithClientFailure(conn.getUUID())
         BaseClientAndStorageOperationHandler.peerBroken(self, conn)
 
-    def connectionCompleted(self, conn):
-        BaseClientAndStorageOperationHandler.connectionCompleted(self, conn)
-
     def abortTransaction(self, conn, tid):
         app = self.app
         # TODO: remove try..except: pass
