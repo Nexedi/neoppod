@@ -23,7 +23,7 @@ from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.pt import PartitionTable
-from neo.protocol import CellStates, Packets, Packet
+from neo.protocol import CellStates, Packets, Packet, ProtocolError
 from neo.protocol import INVALID_TID, INVALID_OID
 
 class StorageMasterHandlerTests(NeoTestBase):
@@ -141,33 +141,47 @@ class StorageMasterHandlerTests(NeoTestBase):
         conn = Mock({ 'isServer': False })
         self.assertRaises(OperationFailure, self.operation.stopOperation, conn)
 
-    def test_22_lockInformation2(self):
-        # load transaction informations
-        conn = Mock({ 'isServer': False, })
-        self.app.dm = Mock({ })
-        transaction = Mock({ 'getObjectList': ((0, ), ), })
-        self.app.transaction_dict[INVALID_TID] = transaction
-        self.operation.lockInformation(conn, INVALID_TID)
-        self.assertEquals(self.app.load_lock_dict[0], INVALID_TID)
-        calls = self.app.dm.mockGetNamedCalls('storeTransaction')
-        self.assertEquals(len(calls), 1)
+    def _getConnection(self):
+        return Mock({})
+
+    def test_lockInformation1(self):
+        """ Unknown transaction """
+        self.app.tm = Mock({'__contains__': False})
+        conn = self._getConnection()
+        tid = self.getNextTID()
+        handler = self.operation
+        self.assertRaises(ProtocolError, handler.lockInformation, conn, tid)
+
+    def test_lockInformation2(self):
+        """ Lock transaction """
+        self.app.tm = Mock({'__contains__': True})
+        conn = self._getConnection()
+        tid = self.getNextTID()
+        self.operation.lockInformation(conn, tid)
+        calls = self.app.tm.mockGetNamedCalls('lock')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(tid)
         self.checkAnswerInformationLocked(conn)
 
-    def test_23_notifyUnlockInformation2(self):
-        # delete transaction informations
-        conn = Mock({ 'isServer': False, })
-        self.app.dm = Mock({ })
-        transaction = Mock({ 'getObjectList': ((0, ), ), })
-        self.app.transaction_dict[INVALID_TID] = transaction
-        self.app.load_lock_dict[0] = transaction
-        self.app.store_lock_dict[0] = transaction
-        self.operation.notifyUnlockInformation(conn, INVALID_TID)
-        self.assertEquals(len(self.app.load_lock_dict), 0)
-        self.assertEquals(len(self.app.store_lock_dict), 0)
-        self.assertEquals(len(self.app.store_lock_dict), 0)
-        calls = self.app.dm.mockGetNamedCalls('finishTransaction')
-        self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(INVALID_TID)
+    def test_notifyUnlockInformation1(self):
+        """ Unknown transaction """
+        self.app.tm = Mock({'__contains__': False})
+        conn = self._getConnection()
+        tid = self.getNextTID()
+        handler = self.operation
+        self.assertRaises(ProtocolError, handler.notifyUnlockInformation, 
+                conn, tid)
+
+    def test_notifyUnlockInformation2(self):
+        """ Unlock transaction """
+        self.app.tm = Mock({'__contains__': True})
+        conn = self._getConnection()
+        tid = self.getNextTID()
+        self.operation.notifyUnlockInformation(conn, tid)
+        calls = self.app.tm.mockGetNamedCalls('unlock')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(tid)
+        self.checkNoPacketSent(conn)
 
     def test_30_answerLastIDs(self):
         # set critical TID on replicator

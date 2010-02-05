@@ -74,7 +74,7 @@ class StorageStorageHandlerTests(NeoTestBase):
         # delayed response
         conn = Mock({})
         self.app.dm = Mock()
-        packet = Packets.AskObject()
+        self.app.tm = Mock({'loadLocked': True})
         self.app.load_lock_dict[INVALID_OID] = object()
         self.assertEquals(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=INVALID_OID,
