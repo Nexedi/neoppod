@@ -124,8 +124,10 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
     def askStoreTransaction(self, conn, tid, user, desc,
                                   ext, oid_list):
         uuid = conn.getUUID()
-        app = self.app
-        t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
+        t = self.app.transaction_dict.get(tid, None)
+        if t is None:
+            t = TransactionInformation(uuid)
+            self.app.transaction_dict[tid] = t
         if t.isLastOIDChanged():
             self.app.dm.setLastOID(self.app.loid)
         t.addTransaction(oid_list, user, desc, ext)
@@ -158,7 +160,10 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                 conn.answer(Packets.AnswerStoreObject(1, oid, last_serial))
                 return
         # Now store the object.
-        t = app.transaction_dict.setdefault(tid, TransactionInformation(uuid))
+        t = self.app.transaction_dict.get(tid, None)
+        if t is None:
+            t = TransactionInformation(uuid)
+            self.app.transaction_dict[tid] = t
         t.addObject(oid, compression, checksum, data)
         conn.answer(Packets.AnswerStoreObject(0, oid, serial))
         app.store_lock_dict[oid] = tid
