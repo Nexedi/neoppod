@@ -235,7 +235,7 @@ class DatabaseManager(object):
         user information, a description and extension information."""
         raise NotImplementedError
 
-    def askFinishTransaction(self, tid):
+    def finishTransaction(self, tid):
         """Finish a transaction specified by a given ID, by moving
         temporarily data to a finished area."""
         raise NotImplementedError
