@@ -199,18 +199,15 @@ class TransactionManager(object):
             # XXX: this happen sometimes, explain or fix
             return
         transaction = self._transaction_dict[tid]
+        has_load_lock = transaction.isLocked()
         # if the transaction is locked, ensure we can drop it
-        if not even_if_locked and transaction.isLocked():
+        if not even_if_locked and has_load_lock:
             return
         # unlock any object
         for oid in transaction.getOIDList():
-            # XXX: we release locks without checking if tid owns them
-            try:
+            if has_read_lock:
+                # XXX: we release locks without checking if tid owns them
                 del self._load_lock_dict[oid]
-            except KeyError:
-                # The transaction may have not been lock when abort is called,
-                # so no read lock can be held
-                pass
             del self._store_lock_dict[oid]
         # _uuid_dict entry will be deleted at node disconnection
         self._uuid_dict[transaction.getUUID()].discard(transaction)
