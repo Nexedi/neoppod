@@ -274,8 +274,9 @@ class NEOCluster(object):
         return self.neoctl
 
     def getZODBStorage(self):
+        master_nodes = self.master_nodes.replace('/', ' ')
         return Storage(
-            master_nodes=self.master_nodes,
+            master_nodes=master_nodes,
             name=self.cluster_name,
             connector='SocketConnector')
 
