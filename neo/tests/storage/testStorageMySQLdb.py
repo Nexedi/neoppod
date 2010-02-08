@@ -438,7 +438,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         result = self.db.query('select * from ttrans')
         self.assertEquals(len(result), 0)
 
-    def test_25_finishTransaction(self):
+    def test_25_askFinishTransaction(self):
         # data set
         tid1, tid2 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x02'
         oid1, oid2 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x02'

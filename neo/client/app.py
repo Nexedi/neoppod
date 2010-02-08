@@ -651,7 +651,7 @@ class Application(object):
 
             # Call finish on master
             oid_list = self.local_var.data_dict.keys()
-            p = Packets.FinishTransaction(oid_list, self.local_var.tid)
+            p = Packets.AskFinishTransaction(oid_list, self.local_var.tid)
             self._askPrimary(p)
 
             if not self.isTransactionFinished():

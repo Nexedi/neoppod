@@ -53,7 +53,7 @@ class ClientServiceHandler(MasterHandler):
         oid_list = self.app.getNewOIDList(num_oids)
         conn.answer(Packets.AnswerNewOIDs(oid_list))
 
-    def finishTransaction(self, conn, oid_list, tid):
+    def askFinishTransaction(self, conn, oid_list, tid):
         app = self.app
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
@@ -78,7 +78,7 @@ class ClientServiceHandler(MasterHandler):
         used_uuid_set = set()
         for c in app.em.getConnectionList():
             if c.getUUID() in uuid_set:
-                c.ask(Packets.LockInformation(tid), timeout=60)
+                c.ask(Packets.AskLockInformation(tid), timeout=60)
                 used_uuid_set.add(c.getUUID())
 
         app.tm.prepare(tid, oid_list, used_uuid_set, conn.getPeerId())

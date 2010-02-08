@@ -139,13 +139,13 @@ class PacketLogger(EventHandler):
     def answerNewOIDs(self, conn, num_oids):
         pass
 
-    def finishTransaction(self, conn, oid_list, tid):
+    def askFinishTransaction(self, conn, oid_list, tid):
         pass
 
     def answerTransactionFinished(self, conn, tid):
         pass
 
-    def lockInformation(self, conn, tid):
+    def askLockInformation(self, conn, tid):
         pass
 
     def answerInformationLocked(self, conn, tid):

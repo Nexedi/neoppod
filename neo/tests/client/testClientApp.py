@@ -133,7 +133,7 @@ class ClientApplicationTests(NeoTestBase):
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
         app.tpc_vote(txn)
 
-    def finishTransaction(self, app):
+    def askFinishTransaction(self, app):
         txn = app.local_var.txn
         tid = app.local_var.tid
         packet = Packets.AnswerTransactionFinished(tid)
@@ -630,7 +630,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertRaises(NEOStorageError, app.tpc_finish, txn, hook)
         self.assertTrue(self.f_called)
         self.assertEquals(self.f_called_with_tid, tid)
-        self.checkFinishTransaction(app.master_conn)
+        self.checkAskFinishTransaction(app.master_conn)
         self.checkDispatcherRegisterCalled(app, app.master_conn)
 
     def test_tpc_finish3(self):
@@ -656,7 +656,7 @@ class ClientApplicationTests(NeoTestBase):
         app.tpc_finish(txn, hook)
         self.assertTrue(self.f_called)
         self.assertEquals(self.f_called_with_tid, tid)
-        self.checkFinishTransaction(app.master_conn)
+        self.checkAskFinishTransaction(app.master_conn)
         #self.checkDispatcherRegisterCalled(app, app.master_conn)
         self.assertEquals(app.local_var.tid, None)
         self.assertEquals(app.local_var.txn, None)
@@ -699,17 +699,17 @@ class ClientApplicationTests(NeoTestBase):
         txn1 = self.beginTransaction(app, tid=tid1)
         self.storeObject(app, oid=oid1, data='O1V1')
         self.voteTransaction(app)
-        self.finishTransaction(app)
+        self.askFinishTransaction(app)
         # commit version 1 of object 2
         txn2 = self.beginTransaction(app, tid=tid2)
         self.storeObject(app, oid=oid2, data='O1V2')
         self.voteTransaction(app)
-        self.finishTransaction(app)
+        self.askFinishTransaction(app)
         # commit version 2 of object 2
         txn3 = self.beginTransaction(app, tid=tid3)
         self.storeObject(app, oid=oid2, data='O2V2')
         self.voteTransaction(app)
-        self.finishTransaction(app)
+        self.askFinishTransaction(app)
         # undo 1 -> no previous revision
         u1p1 = Packets.AnswerTransactionInformation(tid1, '', '', '', (oid1, ))
         u1p2 = protocol.oidNotFound('oid not found')
@@ -747,7 +747,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertRaises(ConflictError, app.undo, tid3, txn4, wrapper)
         self.assertEquals(len(wrapper.mockGetNamedCalls('tryToResolveConflict')), 1)
         self.assertEquals(app.undo(tid3, txn4, wrapper), (tid4, [oid2, ]))
-        self.finishTransaction(app)
+        self.askFinishTransaction(app)
 
     def test_undoLog(self):
         app = self.getApp()

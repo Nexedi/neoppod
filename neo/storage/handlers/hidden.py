@@ -106,7 +106,7 @@ class HiddenHandler(BaseMasterHandler):
     def commitTransaction(self, conn, tid):
         pass
 
-    def lockInformation(self, conn, tid):
+    def askLockInformation(self, conn, tid):
         pass
 
     def notifyUnlockInformation(self, conn, tid):

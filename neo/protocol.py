@@ -626,7 +626,7 @@ class AnswerBeginTransaction(Packet):
         (tid, ) = unpack('8s', body)
         return (tid, )
 
-class FinishTransaction(Packet):
+class AskFinishTransaction(Packet):
     """
     Finish a transaction. C -> PM.
     """
@@ -654,7 +654,7 @@ class AnswerTransactionFinished(Packet):
         (tid, ) = unpack('8s', body)
         return (_decodeTID(tid), )
 
-class LockInformation(Packet):
+class AskLockInformation(Packet):
     """
     Lock information on a transaction. PM -> S.
     """
@@ -1288,9 +1288,9 @@ class PacketRegistry(dict):
     CommitTransaction = register(0x0011, CommitTransaction)
     AskBeginTransaction = register(0x0012, AskBeginTransaction)
     AnswerBeginTransaction = register(0x8012, AnswerBeginTransaction)
-    FinishTransaction = register(0x0013, FinishTransaction)
+    AskFinishTransaction = register(0x0013, AskFinishTransaction)
     AnswerTransactionFinished = register(0x8013, AnswerTransactionFinished)
-    LockInformation = register(0x0014, LockInformation)
+    AskLockInformation = register(0x0014, AskLockInformation)
     AnswerInformationLocked = register(0x8014, AnswerInformationLocked)
     InvalidateObjects = register(0x0015, InvalidateObjects)
     NotifyUnlockInformation = register(0x0016, NotifyUnlockInformation)

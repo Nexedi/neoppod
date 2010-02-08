@@ -272,14 +272,14 @@ class ProtocolTests(NeoTestBase):
         p_oid_list  = p.decode()[0]
         self.assertEqual(p_oid_list, oid_list)
 
-    def test_36_finishTransaction(self):
+    def test_36_askFinishTransaction(self):
         oid1 = self.getNextTID()
         oid2 = self.getNextTID()
         oid3 = self.getNextTID()
         oid4 = self.getNextTID()
         tid = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = Packets.FinishTransaction(oid_list, tid)
+        p = Packets.AskFinishTransaction(oid_list, tid)
         p_oid_list, ptid  = p.decode()
         self.assertEqual(ptid, tid)
         self.assertEqual(p_oid_list, oid_list)
@@ -290,9 +290,9 @@ class ProtocolTests(NeoTestBase):
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
-    def test_38_lockInformation(self):
+    def test_38_askLockInformation(self):
         tid = self.getNextTID()
-        p = Packets.LockInformation(tid)
+        p = Packets.AskLockInformation(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 

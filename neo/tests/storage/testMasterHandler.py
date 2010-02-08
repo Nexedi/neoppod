@@ -144,20 +144,20 @@ class StorageMasterHandlerTests(NeoTestBase):
     def _getConnection(self):
         return Mock({})
 
-    def test_lockInformation1(self):
+    def test_askLockInformation1(self):
         """ Unknown transaction """
         self.app.tm = Mock({'__contains__': False})
         conn = self._getConnection()
         tid = self.getNextTID()
         handler = self.operation
-        self.assertRaises(ProtocolError, handler.lockInformation, conn, tid)
+        self.assertRaises(ProtocolError, handler.askLockInformation, conn, tid)
 
-    def test_lockInformation2(self):
+    def test_askLockInformation2(self):
         """ Lock transaction """
         self.app.tm = Mock({'__contains__': True})
         conn = self._getConnection()
         tid = self.getNextTID()
-        self.operation.lockInformation(conn, tid)
+        self.operation.askLockInformation(conn, tid)
         calls = self.app.tm.mockGetNamedCalls('lock')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(tid)

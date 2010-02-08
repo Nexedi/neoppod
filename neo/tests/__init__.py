@@ -268,8 +268,8 @@ class NeoTestBase(unittest.TestCase):
     def checkAnswerInformationLocked(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerInformationLocked, **kw)
 
-    def checkLockInformation(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.LockInformation, **kw)
+    def checkAskLockInformation(self, conn, **kw):
+        return self.checkAskPacket(conn, Packets.AskLockInformation, **kw)
 
     def checkNotifyUnlockInformation(self, conn, **kw):
         return self.checkNotifyPacket(conn, Packets.NotifyUnlockInformation, **kw)
@@ -298,8 +298,8 @@ class NeoTestBase(unittest.TestCase):
     def checkAskStoreTransaction(self, conn, **kw):
         return self.checkAskPacket(conn, Packets.AskStoreTransaction, **kw)
 
-    def checkFinishTransaction(self, conn, **kw):
-        return self.checkAskPacket(conn, Packets.FinishTransaction, **kw)
+    def checkAskFinishTransaction(self, conn, **kw):
+        return self.checkAskPacket(conn, Packets.AskFinishTransaction, **kw)
 
     def checkAskNewTid(self, conn, **kw):
         return self.checkAskPacket(conn, Packets.AskBeginTransaction, **kw)

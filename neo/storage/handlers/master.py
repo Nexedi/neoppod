@@ -56,7 +56,7 @@ class MasterOperationHandler(BaseMasterHandler):
                 elif state == CellStates.OUT_OF_DATE:
                     app.replicator.addPartition(offset)
 
-    def lockInformation(self, conn, tid):
+    def askLockInformation(self, conn, tid):
         if not tid in self.app.tm:
             raise ProtocolError('Unknown transaction')
         self.app.tm.lock(tid)
