@@ -80,6 +80,7 @@ class NeoCTL(object):
         response = self.__ask(packet)
         assert response[0] == Packets.Error
         assert response[1] == ErrorCodes.ACK
+        return response[1]
 
     def setNodeState(self, node, state, update_partition_table=False):
         """
@@ -93,6 +94,7 @@ class NeoCTL(object):
         response = self.__ask(packet)
         assert response[0] == Packets.Error
         assert response[1] == ErrorCodes.ACK
+        return response[1]
 
     def getClusterState(self):
         """
@@ -126,13 +128,14 @@ class NeoCTL(object):
         """
           Set cluster into "verifying" state.
         """
-        self.setClusterState(ClusterStates.VERIFYING)
+        return self.setClusterState(ClusterStates.VERIFYING)
 
     def dropNode(self, node):
         """
           Set node into "down" state and remove it from partition table.
         """
-        self.setNodeState(node, NodeStates.DOWN, update_partition_table=1)
+        return self.setNodeState(node, NodeStates.DOWN, 
+                update_partition_table=1)
 
     def getPrimary(self):
         """

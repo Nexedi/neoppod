@@ -151,7 +151,7 @@ class TerminalNeoCTL(object):
             set cluster verifying
         """
         assert len(params) == 0
-        self.neoctl.startCluster()
+        return self.neoctl.startCluster()
 
     def enableStorageList(self, params):
         """
@@ -219,7 +219,6 @@ class Application(object):
                 result = action(args[level:])
             except NotReadyException, message:
                 result = message
-
         return result
 
     def _usage(self, action_dict, level=0):
