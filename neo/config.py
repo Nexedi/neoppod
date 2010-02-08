@@ -51,7 +51,8 @@ class ConfigurationManager(object):
         if not masters:
             return []
         # load master node list except itself
-        return util.parseMasterList(masters, except_node=self.getBind())
+        return util.parseMasterList(masters, except_node=self.getBind(),
+            separator='/')
 
     def getBind(self):
         """ Get the address to bind to """
