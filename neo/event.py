@@ -232,25 +232,33 @@ class EpollEventManager(object):
             pass
 
     def addReader(self, conn):
-        fd = conn.getConnector().getDescriptor()
+        connector = conn.getConnector()
+        assert connector is not None, conn.whoSetConnector()
+        fd = connector.getDescriptor()
         if fd not in self.reader_set:
             self.reader_set.add(fd)
             self.epoll.modify(fd, 1, fd in self.writer_set)
 
     def removeReader(self, conn):
-        fd = conn.getConnector().getDescriptor()
+        connector = conn.getConnector()
+        assert connector is not None, conn.whoSetConnector()
+        fd = connector.getDescriptor()
         if fd in self.reader_set:
             self.reader_set.remove(fd)
             self.epoll.modify(fd, 0, fd in self.writer_set)
 
     def addWriter(self, conn):
-        fd = conn.getConnector().getDescriptor()
+        connector = conn.getConnector()
+        assert connector is not None, conn.whoSetConnector()
+        fd = connector.getDescriptor()
         if fd not in self.writer_set:
             self.writer_set.add(fd)
             self.epoll.modify(fd, fd in self.reader_set, 1)
 
     def removeWriter(self, conn):
-        fd = conn.getConnector().getDescriptor()
+        connector = conn.getConnector()
+        assert connector is not None, conn.whoSetConnector()
+        fd = connector.getDescriptor()
         if fd in self.writer_set:
             self.writer_set.remove(fd)
             self.epoll.modify(fd, fd in self.reader_set, 0)

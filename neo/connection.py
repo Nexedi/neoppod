@@ -26,6 +26,8 @@ from neo.connector import ConnectorException, ConnectorTryAgainException, \
 from neo.util import dump
 from neo.logger import PACKET_LOGGER
 
+from neo import attributeTracker
+
 def not_closed(func):
     def decorator(self, *args, **kw):
         if self.connector is None:
@@ -134,6 +136,14 @@ class BaseConnection(object):
     def hasPendingMessages(self):
         return False
 
+    def whoSetConnector(self):
+        """
+          Debugging method: call this method to know who set the current
+          connector value.
+        """
+        return attributeTracker.whoSet(self, 'connector')
+
+attributeTracker.track(BaseConnection)
 
 class ListeningConnection(BaseConnection):
     """A listen connection."""
