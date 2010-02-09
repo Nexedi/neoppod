@@ -53,21 +53,14 @@ class ThreadContext(object):
     _threads_dict = {}
 
     def __init__(self):
-        self.tid = None
-        self.txn = None
-        self.txn_voted = False
-        self.txn_finished = False
         self.txn_info = 0
         self.history = None
-        self.data_dict = {}
         self.node_tids = {}
         self.node_ready = False
         self.conflict_serial = 0
         self.asked_object = 0
         self.object_stored_counter = 0
         self.voted_counter = 0
-        self.object_stored = 0
-        self.queue = Queue(5)
 
     def __getThreadData(self):
         thread_id = get_ident()
