@@ -208,6 +208,8 @@ class Packet(object):
     a tuple respectively.
     """
 
+    _request = None
+    _answer = None
     _body = None
     _code = None
     _args = None
@@ -279,6 +281,9 @@ class Packet(object):
 
     def isResponse(self):
         return self._code & RESPONSE_MASK == RESPONSE_MASK
+
+    def getAnswer(self):
+        return self._answer
 
 
 class Ping(Packet):
@@ -1224,12 +1229,24 @@ class Error(Packet):
 
 
 StaticRegistry = {}
-def register(code, cls):
+def register(code, request, answer=None):
     """ Register a packet in the packet registry """
-    assert code not in StaticRegistry, "Duplicate packet code"
-    cls._code = code
-    StaticRegistry[code] = cls
-    return cls
+    # register the request
+    # assert code & RESPONSE_MASK == 0
+    assert code not in StaticRegistry, "Duplicate request packet code"
+    request._code = code
+    request._answer = answer
+    StaticRegistry[code] = request
+    if answer not in (None, Error):
+        # compute the answer code
+        code = code | RESPONSE_MASK
+        answer._request = request
+        answer._code = code
+        # and register the answer packet
+        assert code not in StaticRegistry, "Duplicate response packet code"
+        StaticRegistry[code] = answer
+        return (request, answer)
+    return request
 
 
 class PacketRegistry(dict):
@@ -1263,70 +1280,119 @@ class PacketRegistry(dict):
 
     # packets registration
     Error = register(0x8000, Error)
-    Ping = register(0x0001, Ping)
-    Pong = register(0x8001, Pong)
-    RequestIdentification = register(0x0002, RequestIdentification)
-    AcceptIdentification = register(0x8002, AcceptIdentification)
-    AskPrimary = register(0x0003, AskPrimary)
-    AnswerPrimary = register(0x8003, AnswerPrimary)
+    Ping, Pong = register(
+            0x0001,
+            Ping,
+            Pong)
+    RequestIdentification, AcceptIdentification = register(
+            0x0002,
+            RequestIdentification,
+            AcceptIdentification)
+    AskPrimary, AnswerPrimary = register(
+            0x0003,
+            AskPrimary,
+            AnswerPrimary)
     AnnouncePrimary = register(0x0004, AnnouncePrimary)
     ReelectPrimary = register(0x0005, ReelectPrimary)
     NotifyNodeInformation = register(0x0006, NotifyNodeInformation)
-    AskLastIDs = register(0x0007, AskLastIDs)
-    AnswerLastIDs = register(0x8007, AnswerLastIDs)
-    AskPartitionTable = register(0x0008, AskPartitionTable)
-    AnswerPartitionTable = register(0x8008, AnswerPartitionTable)
+    AskLastIDs, AnswerLastIDs = register(
+            0x0007,
+            AskLastIDs,
+            AnswerLastIDs)
+    AskPartitionTable, AnswerPartitionTable = register(
+            0x0008,
+            AskPartitionTable,
+            AnswerPartitionTable)
     SendPartitionTable = register(0x0009, SendPartitionTable)
     NotifyPartitionChanges = register(0x000A, NotifyPartitionChanges)
     StartOperation = register(0x000B, StartOperation)
     StopOperation = register(0x000C, StopOperation)
-    AskUnfinishedTransactions = register(0x000D, AskUnfinishedTransactions)
-    AnswerUnfinishedTransactions = register(0x800d,
+    AskUnfinishedTransactions, AnswerUnfinishedTransactions = register(
+            0x000D,
+            AskUnfinishedTransactions,
             AnswerUnfinishedTransactions)
-    AskObjectPresent = register(0x000f, AskObjectPresent)
-    AnswerObjectPresent = register(0x800f, AnswerObjectPresent)
+    AskObjectPresent, AnswerObjectPresent = register(
+            0x000f,
+            AskObjectPresent,
+            AnswerObjectPresent)
     DeleteTransaction = register(0x0010, DeleteTransaction)
     CommitTransaction = register(0x0011, CommitTransaction)
-    AskBeginTransaction = register(0x0012, AskBeginTransaction)
-    AnswerBeginTransaction = register(0x8012, AnswerBeginTransaction)
-    AskFinishTransaction = register(0x0013, AskFinishTransaction)
-    AnswerTransactionFinished = register(0x8013, AnswerTransactionFinished)
-    AskLockInformation = register(0x0014, AskLockInformation)
-    AnswerInformationLocked = register(0x8014, AnswerInformationLocked)
+    AskBeginTransaction, AnswerBeginTransaction = register(
+            0x0012,
+            AskBeginTransaction,
+            AnswerBeginTransaction)
+    AskFinishTransaction, AnswerTransactionFinished = register(
+            0x0013,
+            AskFinishTransaction,
+            AnswerTransactionFinished)
+    AskLockInformation, AnswerInformationLocked = register(
+            0x0014,
+            AskLockInformation,
+            AnswerInformationLocked)
     InvalidateObjects = register(0x0015, InvalidateObjects)
     NotifyUnlockInformation = register(0x0016, NotifyUnlockInformation)
-    AskNewOIDs = register(0x0017, AskNewOIDs)
-    AnswerNewOIDs = register(0x8017, AnswerNewOIDs)
-    AskStoreObject = register(0x0018, AskStoreObject)
-    AnswerStoreObject = register(0x8018, AnswerStoreObject)
+    AskNewOIDs, AnswerNewOIDs = register(
+            0x0017,
+            AskNewOIDs,
+            AnswerNewOIDs)
+    AskStoreObject, AnswerStoreObject = register(
+            0x0018,
+            AskStoreObject,
+            AnswerStoreObject)
     AbortTransaction = register(0x0019, AbortTransaction)
-    AskStoreTransaction = register(0x001A, AskStoreTransaction)
-    AnswerStoreTransaction = register(0x801A, AnswerStoreTransaction)
-    AskObject = register(0x001B, AskObject)
-    AnswerObject = register(0x801B, AnswerObject)
-    AskTIDs = register(0x001C, AskTIDs)
-    AnswerTIDs = register(0x801D, AnswerTIDs)
-    AskTransactionInformation = register(0x001E, AskTransactionInformation)
-    AnswerTransactionInformation = register(0x801E,
+    AskStoreTransaction, AnswerStoreTransaction = register(
+            0x001A,
+            AskStoreTransaction,
+            AnswerStoreTransaction)
+    AskObject, AnswerObject = register(
+            0x001B,
+            AskObject,
+            AnswerObject)
+    AskTIDs, AnswerTIDs = register(
+            0x001C,
+            AskTIDs,
+            AnswerTIDs)
+    AskTransactionInformation, AnswerTransactionInformation = register(
+            0x001E,
+            AskTransactionInformation,
             AnswerTransactionInformation)
-    AskObjectHistory = register(0x001F, AskObjectHistory)
-    AnswerObjectHistory = register(0x801F, AnswerObjectHistory)
-    AskOIDs = register(0x0020, AskOIDs)
-    AnswerOIDs = register(0x8020, AnswerOIDs)
-    AskPartitionList = register(0x0021, AskPartitionList)
-    AnswerPartitionList = register(0x8021, AnswerPartitionList)
-    AskNodeList = register(0x0022, AskNodeList)
-    AnswerNodeList = register(0x8022, AnswerNodeList)
-    SetNodeState = register(0x0023, SetNodeState)
-    AnswerNodeState = register(0x8023, AnswerNodeState)
-    AddPendingNodes = register(0x0024, AddPendingNodes)
-    AnswerNewNodes = register(0x8024, AnswerNewNodes)
-    AskNodeInformation = register(0x0025, AskNodeInformation)
-    AnswerNodeInformation = register(0x8025, AnswerNodeInformation)
-    SetClusterState = register(0x0026, SetClusterState)
+    AskObjectHistory, AnswerObjectHistory = register(
+            0x001F,
+            AskObjectHistory,
+            AnswerObjectHistory)
+    AskOIDs, AnswerOIDs = register(
+            0x0020,
+            AskOIDs,
+            AnswerOIDs)
+    AskPartitionList, AnswerPartitionList = register(
+            0x0021,
+            AskPartitionList,
+            AnswerPartitionList)
+    AskNodeList, AnswerNodeList = register(
+            0x0022,
+            AskNodeList,
+            AnswerNodeList)
+    SetNodeState, AnswerNodeState = register(
+            0x0023,
+            SetNodeState,
+            AnswerNodeState)
+    AddPendingNodes, AnswerNewNodes = register(
+            0x0024,
+            AddPendingNodes,
+            AnswerNewNodes)
+    AskNodeInformation, AnswerNodeInformation = register(
+            0x0025,
+            AskNodeInformation,
+            AnswerNodeInformation)
+    SetClusterState = register(
+            0x0026,
+            SetClusterState,
+            Error)
     NotifyClusterInformation = register(0x0027, NotifyClusterInformation)
-    AskClusterState = register(0x0028, AskClusterState)
-    AnswerClusterState = register(0x8028, AnswerClusterState)
+    AskClusterState, AnswerClusterState = register(
+            0x0028,
+            AskClusterState,
+            AnswerClusterState)
     NotifyLastOID = register(0x0030, NotifyLastOID)
     NotifyReplicationDone = register(0x0031, NotifyReplicationDone)
 
