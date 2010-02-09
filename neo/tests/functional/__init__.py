@@ -368,7 +368,7 @@ class NEOCluster(object):
             current_try = None
         return current_try
 
-    def expectCondition(self, condition, timeout=0, delay=1):
+    def expectCondition(self, condition, timeout=0, delay=1, on_fail=None):
         end = time.time() + timeout + DELAY_SAFETY_MARGIN
         opaque = None
         opaque_history = []
@@ -380,6 +380,8 @@ class NEOCluster(object):
                 opaque_history.append(opaque)
                 time.sleep(delay)
         else:
+            if on_fail is not None:
+                on_fail(opaque_history)
             raise AssertionError, 'Timeout while expecting condition. ' \
                                 'History: %s' % (opaque_history, )
 
