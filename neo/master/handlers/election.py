@@ -87,6 +87,7 @@ class ClientElectionHandler(ElectionHandler):
     def connectionFailed(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
+        assert node is not None, (dump(self.app.uuid), addr)
         assert node.isUnknown(), (dump(self.app.uuid), node.whoSetState(),
           node.getState())
         # connection never success, node is still in unknown state

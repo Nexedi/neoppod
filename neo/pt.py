@@ -218,7 +218,7 @@ class PartitionTable(object):
         self.id = ptid
         for offset, uuid, state in cell_list:
             node = nm.getByUUID(uuid)
-            assert node is not None
+            assert node is not None, 'No node found for uuid %r' % (dump(uuid), )
             self.setCell(offset, node, state)
         logging.debug('partition table updated')
         self.log()

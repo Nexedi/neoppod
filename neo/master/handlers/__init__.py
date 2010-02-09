@@ -19,6 +19,7 @@ from neo import logging
 
 from neo.handler import EventHandler
 from neo.protocol import NodeTypes, NodeStates, Packets
+from neo.util import dump
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -86,8 +87,11 @@ class BaseServiceHandler(MasterHandler):
         if new_state != NodeStates.BROKEN:
             new_state = DISCONNECTED_STATE_DICT.get(node.getType(),
                     NodeStates.DOWN)
-        if node.getState() == new_state:
-            return
+        assert new_state in (NodeStates.TEMPORARILY_DOWN, NodeStates.DOWN,
+            NodeStates.BROKEN), new_state
+        assert node.getState() not in (NodeStates.TEMPORARILY_DOWN,
+            NodeStates.DOWN, NodeStates.BROKEN), (dump(self.app.uuid),
+            node.whoSetState(), new_state)
         if new_state != NodeStates.BROKEN and node.isPending():
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
