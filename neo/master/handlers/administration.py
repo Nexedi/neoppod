@@ -87,7 +87,7 @@ class AdministrationHandler(MasterHandler):
                 node_list = [node.asTuple()]
                 storage_conn.notify(Packets.NotifyNodeInformation(node_list))
                 # close to avoid handle the closure as a connection lost
-                storage_conn.close()
+                storage_conn.abort()
             # modify the partition table if required
             cell_list = []
             if modify_partition_table:
