@@ -1102,7 +1102,7 @@ class AddPendingNodes(Packet):
     def _decode(self, body):
         (n, ) = unpack('!H', body[:2])
         uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
-        uuid_list = map(_decodeUUID, uuid_list)
+        uuid_list = [_decodeUUID(x) for x in uuid_list]
         return (uuid_list, )
 
 class AnswerNewNodes(Packet):
@@ -1117,7 +1117,7 @@ class AnswerNewNodes(Packet):
     def _decode(self, body):
         (n, ) = unpack('!H', body[:2])
         uuid_list = [unpack('!16s', body[2+i*16:18+i*16])[0] for i in xrange(n)]
-        uuid_list = map(_decodeUUID, uuid_list)
+        uuid_list = [_decodeUUID(x) for x in uuid_list]
         return (uuid_list, )
 
 class NotifyNodeInformation(Packet):
