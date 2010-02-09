@@ -124,6 +124,9 @@ class BaseConnection(object):
     def getUUID(self):
         return None
 
+    def isAborted(self):
+        return False
+
     def isListening(self):
         return False
 
@@ -195,6 +198,9 @@ class Connection(BaseConnection):
                                 connector_handler = connector_handler)
         if connector is not None:
             event_manager.addReader(self)
+
+    def isAborted(self):
+        return self.aborted
 
     def getUUID(self):
         return self.uuid

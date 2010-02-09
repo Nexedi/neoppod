@@ -102,13 +102,13 @@ class EpollEventManager(object):
         self._pending_processing = []
 
     def getConnectionList(self):
-        return self.connection_dict.values()
+        return [x for x in self.connection_dict.values() if not x.isAborted()]
 
     def getClientList(self):
-        return [c for c in self.connection_dict.values() if c.isClient()]
+        return [c for c in self.getConnectionList() if c.isClient()]
 
     def getServerList(self):
-        return [c for c in self.connection_dict.values() if c.isServer()]
+        return [c for c in self.getConnectionList() if c.isServer()]
 
     def getConnectionByUUID(self, uuid):
         # XXX: deprecated, use getConnectionListByUUID instead.
@@ -124,7 +124,7 @@ class EpollEventManager(object):
             return None
         result = []
         append = result.append
-        for conn in self.connection_dict.values():
+        for conn in self.getConnectionList():
             if conn.getUUID() == uuid:
                 append(conn)
         return result
