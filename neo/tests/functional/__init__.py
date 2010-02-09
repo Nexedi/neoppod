@@ -60,15 +60,19 @@ class NEOProcess:
     def __init__(self, command, uuid, arg_dict):
         self.command = command
         self.arg_dict = arg_dict
+        self.with_uuid = True
         self.setUUID(uuid)
 
-    def start(self):
+    def start(self, with_uuid=True):
         # Prevent starting when already forked and wait wasn't called.
         if self.pid != 0:
             raise AlreadyRunning, 'Already running with PID %r' % (self.pid, )
         command = self.command
         args = []
+        self.with_uuid = with_uuid
         for arg, param in self.arg_dict.iteritems():
+            if with_uuid is False and arg == '--uuid':
+                continue
             args.append(arg)
             if param is not None:
                 args.append(str(param))
@@ -121,6 +125,7 @@ class NEOProcess:
         self.wait()
 
     def getUUID(self):
+        assert self.with_uuid, 'UUID disabled on this process'
         return self.uuid
 
     def setUUID(self, uuid):
