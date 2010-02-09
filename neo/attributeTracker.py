@@ -15,6 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+ATTRIBUTE_TRACKER_ENABLED = True
+
 from neo.locking import LockUser
 
 """
@@ -43,11 +45,15 @@ def tracker_setattr(self, attr, value, setattr):
     modification_container[attr] = LockUser()
     setattr(self, attr, value)
 
-def track(klass):
-    original_setattr = klass.__setattr__
-    def klass_tracker_setattr(self, attr, value):
-        tracker_setattr(self, attr, value, original_setattr)
-    klass.__setattr__ = klass_tracker_setattr
+if ATTRIBUTE_TRACKER_ENABLED:
+    def track(klass):
+        original_setattr = klass.__setattr__
+        def klass_tracker_setattr(self, attr, value):
+            tracker_setattr(self, attr, value, original_setattr)
+        klass.__setattr__ = klass_tracker_setattr
+else:
+    def track(klass):
+        pass
 
 def whoSet(instance, attr):
     result = getattr(instance, MODIFICATION_CONTAINER_ID, None)
