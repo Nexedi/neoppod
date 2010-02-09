@@ -1107,7 +1107,7 @@ class AddPendingNodes(Packet):
 
 class AnswerNewNodes(Packet):
     """
-    Anwer what are the nodes added in the partition table
+    Answer what are the nodes added in the partition table
     """
     def _encode(self, uuid_list):
         # an empty list means no new nodes
