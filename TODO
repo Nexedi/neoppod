@@ -267,6 +267,7 @@ RC  - Review output of pylint (CODE)
     - Simple deployment solution, based on embedded database, integrated master
     and storage node that works out of the box
     - Simple import/export solution that generate SQL/data.fs.
+    - Consider using out-of-band TCP feature.
 
 Bugs:
   - Node in partition table already known: When a node receive a partition table
