@@ -16,6 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import optparse
 import unittest
 import tempfile
 import logging
@@ -318,9 +319,19 @@ class NeoTestRunner(unittest.TestResult):
 
 if __name__ == "__main__":
 
+    # handle command line options
+    parser = optparse.OptionParser()
+    parser.add_option('-f', '--functional', action='store_true')
+    parser.add_option('-u', '--unit', action='store_true')
+    (options, args) = parser.parse_args()
+    if options.functional or options.unit:
+        # override defaults
+        FUNCTIONAL_TESTS = options.functional
+        UNIT_TESTS = options.unit
+
     if not UNIT_TESTS and not FUNCTIONAL_TESTS:
         raise RuntimeError('Nothing to run')
-    
+
     # run and build the report
     runner = NeoTestRunner()
     if UNIT_TESTS:
