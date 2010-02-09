@@ -304,14 +304,17 @@ class Connection(BaseConnection):
     def pending(self):
         return self.connector is not None and self.write_buf
 
+    def _closure(self):
+        self.close()
+        self.handler.connectionClosed(self)
+
     def _recv(self):
         """Receive data from a connector."""
         try:
             data = self.connector.receive()
             if not data:
                 logging.debug('Connection %r closed in recv', self.connector)
-                self.close()
-                self.handler.connectionClosed(self)
+                self._closure()
                 return
             self.read_buf += data
         except ConnectorTryAgainException:
@@ -324,12 +327,10 @@ class Connection(BaseConnection):
             # connection resetted by peer, according to the man, this error
             # should not occurs but it seems it's false
             logging.debug('Connection reset by peer: %r', self.connector)
-            self.close()
-            self.handler.connectionClosed(self)
+            self._closure()
         except ConnectorException:
             logging.debug('Unknown connection error: %r', self.connector)
-            self.close()
-            self.handler.connectionClosed(self)
+            self._closure()
             # unhandled connector exception
             raise
 
@@ -341,8 +342,7 @@ class Connection(BaseConnection):
             n = self.connector.send(self.write_buf)
             if not n:
                 logging.debug('Connection %r closed in send', self.connector)
-                self.handler.connectionClosed(self)
-                self.close()
+                self._closure()
                 return
             self.write_buf = self.write_buf[n:]
         except ConnectorTryAgainException:
@@ -350,13 +350,11 @@ class Connection(BaseConnection):
         except ConnectorConnectionClosedException:
             # connection resetted by peer
             logging.debug('Connection reset by peer: %r', self.connector)
-            self.close()
-            self.handler.connectionClosed(self)
+            self._closure()
         except ConnectorException:
             logging.debug('Unknown connection error: %r', self.connector)
             # unhandled connector exception
-            self.close()
-            self.handler.connectionClosed(self)
+            self._closure()
             raise
 
     def _addPacket(self, packet):
