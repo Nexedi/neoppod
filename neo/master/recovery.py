@@ -42,7 +42,7 @@ class RecoveryManager(MasterHandler):
         """
             Returns the handler for storage nodes
         """
-        if uuid is None and self.app._startup_allowed:
+        if uuid is None and not self.app._startup_allowed:
             logging.info('reject empty storage node')
             raise NotReadyError
         return (uuid, NodeStates.RUNNING, self)

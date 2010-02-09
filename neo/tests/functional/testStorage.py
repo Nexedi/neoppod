@@ -52,8 +52,8 @@ class StorageTests(NEOFunctionalTest):
             port_base=20000, master_node_count=master_node_count,
             partitions=partitions, replicas=replicas,
             temp_dir=self.getTempDirectory(),
+            clear_databases=True,
         )
-        self.neo.setupDB()
         # too many pending storage nodes requested
         assert pending_number <= storage_number
         storage_processes  = self.neo.getStorageProcessList()
@@ -433,6 +433,20 @@ class StorageTests(NEOFunctionalTest):
         started[0].start()
         self.__expectPending(started[0])
         self.__expectRunning(started[1])
+
+    def testAcceptFirstEmptyStorageAfterStartupAllowed(self):
+        """ Create a new cluster with no storage node, allow it to starts
+        then run the first empty storage, it must be accepted """
+        (started, stopped) = self.__setup(storage_number=1, replicas=0,
+                pending_number=1, partitions=10)
+        # start without storage
+        self.neo.expectClusterRecovering()
+        self.__expectNotKnown(stopped[0])
+        # start the empty storage, it must be accepted
+        stopped[0].start(with_uuid=False)
+        self.neo.expectClusterRunning()
+        self.assertEqual(len(self.neo.getStorageList()), 1)
+        self.neo.expectOudatedCells(number=0)
 
 
 if __name__ == "__main__":
