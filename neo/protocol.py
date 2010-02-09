@@ -27,6 +27,7 @@ PROTOCOL_VERSION = (4, 0)
 MIN_PACKET_SIZE = 10
 MAX_PACKET_SIZE = 0x4000000
 PACKET_HEADER_SIZE = 10
+RESPONSE_MASK = 0x8000
 
 class ErrorCodes(Enum):
     ACK = Enum.Item(0)
@@ -277,7 +278,7 @@ class Packet(object):
         return ()
 
     def isResponse(self):
-        return self._code & 0x8000 == 0x8000
+        return self._code & RESPONSE_MASK == RESPONSE_MASK
 
 
 class Ping(Packet):
