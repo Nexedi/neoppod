@@ -260,7 +260,7 @@ class MQ(object):
     __setitem__ = store
 
     def invalidate(self, key):
-        if id in self._data:
+        if key in self._data:
             data = self._data[key]
             if data.level >= 0:
                 del self._cache_buffers[data.level][data.element]

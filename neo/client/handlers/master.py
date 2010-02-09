@@ -123,10 +123,8 @@ class PrimaryNotificationsHandler(BaseHandler):
             oids = {}
             for oid in oid_list:
                 oids[oid] = tid
-                try:
+                if oid in app.mq_cache:
                     del app.mq_cache[oid]
-                except KeyError:
-                    pass
             db = app.getDB()
             if db is not None:
                 db.invalidate(tid, oids)
