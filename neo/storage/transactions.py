@@ -206,8 +206,10 @@ class TransactionManager(object):
         # unlock any object
         for oid in transaction.getOIDList():
             if has_load_lock:
-                # XXX: we release locks without checking if tid owns them
-                del self._load_lock_dict[oid]
+                lock_tid = self._load_lock_dict.pop(oid)
+                assert lock_tid == tid, 'Transaction %s tried to release ' \
+                    'the lock on oid %s, but it was held by %s' % (dump(tid),
+                    dump(oid), dump(lock_tid))
             del self._store_lock_dict[oid]
         # _uuid_dict entry will be deleted at node disconnection
         self._uuid_dict[transaction.getUUID()].discard(transaction)
