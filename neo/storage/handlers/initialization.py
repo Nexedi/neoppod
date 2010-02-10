@@ -59,8 +59,14 @@ class InitializationHandler(BaseMasterHandler):
         self.app.has_partition_table = True
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
-        # XXX: Currently it safe to ignore those packets because the master is
-        # single threaded, it send the partition table without any changes at
-        # the same time. Latter it should be needed to put in queue any changes
-        # and apply them when the initial partition is filled.
+        # XXX: This is safe to ignore those notifications because all of the
+        # following applies:
+        # - master is monothreaded (notifyPartitionChanges cannot happen
+        #   between sendPartitionTable/answerPartitionTable packets), so
+        #   receiving the whole partition table is atomic
+        # - we first ask for node information, and *then* partition
+        #   table content, so it is possible to get notifyPartitionChanges
+        #   packets in between (or even before asking for node information).
+        # - this handler will be changed after receiving answerPartitionTable
+        #   and before handling the next packet
         logging.debug('ignoring notifyPartitionChanges during initialization')
