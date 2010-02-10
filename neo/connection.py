@@ -305,6 +305,7 @@ class Connection(BaseConnection):
         return self.connector is not None and self.write_buf
 
     def _closure(self):
+        assert self.connector is not None, self.whoSetConnector()
         self.close()
         self.handler.connectionClosed(self)
 
