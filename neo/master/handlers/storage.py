@@ -55,7 +55,6 @@ class StorageServiceHandler(BaseServiceHandler):
         uuid = conn.getUUID()
         app = self.app
         tm = app.tm
-        node = app.nm.getByUUID(uuid)
 
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
