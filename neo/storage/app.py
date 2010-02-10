@@ -144,23 +144,17 @@ class Application(object):
                 # look for the primary master
                 self.connectToPrimary()
             self.operational = False
+            # check my state
+            node = self.nm.getByUUID(self.uuid)
+            if node is not None and node.isHidden():
+                self.wait()
             try:
-                while True:
-                    try:
-                        # check my state
-                        node = self.nm.getByUUID(self.uuid)
-                        if node is not None and node.isHidden():
-                            self.wait()
-                        self.verifyData()
-                        self.initialize()
-                        self.doOperation()
-                        raise RuntimeError, 'should not reach here'
-                    except OperationFailure:
-                        logging.error('operation stopped')
-                        # XXX still we can receive answer packet here
-                        # this must be handle in order not to fail
-                        self.operational = False
-
+                self.verifyData()
+                self.initialize()
+                self.doOperation()
+                raise RuntimeError, 'should not reach here'
+            except OperationFailure, msg:
+                logging.error('operation stopped: %s', msg)
             except PrimaryFailure, msg:
                 logging.error('primary master is down: %s', msg)
                 self.master_node = None
