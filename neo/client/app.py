@@ -574,7 +574,6 @@ class Application(object):
         ext = dumps(transaction._extension)
         oid_list = self.local_var.data_dict.keys()
         # Store data on each node
-        self._getPartitionTable() # XXX: establish connection if needed
         cell_list = self._getCellListForTID(self.local_var.tid, writable=True)
         self.local_var.voted_counter = 0
         for cell in cell_list:
@@ -599,6 +598,11 @@ class Application(object):
         # check at least one storage node accepted
         if self.local_var.voted_counter == 0:
             raise NEOStorageError('tpc_vote failed')
+        # Check if master connection is still alive.
+        # This is just here to lower the probability of detecting a problem
+        # in tpc_finish, as we should do our best to detect problem before
+        # tpc_finish.
+        self._getMasterConnection()
 
     def tpc_abort(self, transaction):
         """Abort current transaction."""
