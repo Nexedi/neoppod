@@ -153,6 +153,7 @@ class Application(object):
                         self.verifyData()
                         self.initialize()
                         self.doOperation()
+                        raise RuntimeError, 'should not reach here'
                     except OperationFailure:
                         logging.error('operation stopped')
                         # XXX still we can receive answer packet here
