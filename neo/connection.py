@@ -259,15 +259,14 @@ class Connection(BaseConnection):
     def analyse(self):
         """Analyse received data."""
         while True:
-            packet = None
             try:
                 packet = Packets.parse(self.read_buf)
+                if packet is None:
+                    break
             except PacketMalformedError, msg:
                 self.handler._packetMalformed(self, packet, msg)
                 return
 
-            if packet is None:
-                break
 
             # Remove idle events, if appropriate packets were received.
             for msg_id in (None, packet.getId()):
