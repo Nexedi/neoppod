@@ -257,7 +257,6 @@ class Application(object):
                 # client get notifications for master and storage only
                 assign_for_notification(NodeTypes.CLIENT)
             if node.isMaster() or node.isStorage() or node.isClient():
-                assign_for_notification(NodeTypes.MASTER)
                 assign_for_notification(NodeTypes.STORAGE)
                 assign_for_notification(NodeTypes.ADMIN)
 
