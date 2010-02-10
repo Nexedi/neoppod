@@ -4,7 +4,6 @@ RC = Release Critical (for next release)
     - Clarify node state signification, and consider renaming them in the code.
       Ideas:
         TEMPORARILY_DOWN becomes UNAVAILABLE
-        DOWN becomes UNKNOWN
         BROKEN is removed ?
     - Clarify the use of each error codes:
       - NO_ERROR error packet vs ACK special packet
