@@ -259,6 +259,7 @@ class Connection(BaseConnection):
     def analyse(self):
         """Analyse received data."""
         while True:
+            # parse a packet
             try:
                 packet = Packets.parse(self.read_buf)
                 if packet is None:
@@ -266,7 +267,7 @@ class Connection(BaseConnection):
             except PacketMalformedError, msg:
                 self.handler._packetMalformed(self, packet, msg)
                 return
-
+            self.read_buf = self.read_buf[len(packet):]
 
             # Remove idle events, if appropriate packets were received.
             for msg_id in (None, packet.getId()):
@@ -274,17 +275,14 @@ class Connection(BaseConnection):
                 if event is not None:
                     self.em.removeIdleEvent(event)
 
-            try:
-                packet_type = packet.getType()
-                if packet_type == Packets.Ping:
-                    # Send a pong notification
-                    self.answer(Packets.Pong(), packet.getId())
-                elif packet_type != Packets.Pong:
-                    # Skip PONG packets, its only purpose is to drop IdleEvent
-                    # generated upong ping.
-                    self._queue.append(packet)
-            finally:
-                self.read_buf = self.read_buf[len(packet):]
+            packet_type = packet.getType()
+            if packet_type == Packets.Ping:
+                # Send a pong notification
+                self.answer(Packets.Pong(), packet.getId())
+            elif packet_type != Packets.Pong:
+                # Skip PONG packets, its only purpose is to drop IdleEvent
+                # generated upong ping.
+                self._queue.append(packet)
 
     def hasPendingMessages(self):
         """
