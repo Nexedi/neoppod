@@ -768,7 +768,6 @@ class Application(object):
         for tid_list in self.local_var.node_tids.itervalues():
             update(tid_list)
         ordered_tids = list(ordered_tids)
-        # XXX do we need a special cmp function here ?
         ordered_tids.sort(reverse=True)
         logging.debug("UndoLog, tids %s", ordered_tids)
         # For each transaction, get info
