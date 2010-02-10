@@ -279,6 +279,11 @@ if __name__ == '__main__':
         cache = MQ(life_time=100, buffer_levels=9, max_history_size=10000,
                    max_size=2*1024*1024)
 
+        cache[0] = 'foo'
+        assert cache[0] == 'foo', '0 should be present'
+        del cache[0]
+        assert cache.get(0) is None, '0 should not be present'
+
         for i in xrange(10000):
             assert cache.get(i) is None, '%d should not be present' % i
 
