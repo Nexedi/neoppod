@@ -160,7 +160,7 @@ class Application(object):
                         self.operational = False
 
             except PrimaryFailure, msg:
-                logging.error('primary master is down : %s' % msg)
+                logging.error('primary master is down: %s', msg)
 
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.
