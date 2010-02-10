@@ -242,7 +242,7 @@ class Connection(BaseConnection):
     def writable(self):
         """Called when self is writable."""
         self._send()
-        if not self.pending():
+        if not self.write_buf and self.connector is not None:
             if self.aborted:
                 self.close()
             else:
