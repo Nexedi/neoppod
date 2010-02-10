@@ -283,6 +283,12 @@ class Packet(object):
     def isResponse(self):
         return self._code & RESPONSE_MASK == RESPONSE_MASK
 
+    def answerMatch(self, answer):
+        id_match = self._id == answer._id
+        is_error = answer.__class__ == Error
+        assert self._answer is not None
+        return id_match and (is_error or isinstance(answer, self._answer))
+
     def getAnswer(self):
         return self._answer
 
