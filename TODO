@@ -15,7 +15,6 @@ RC  - Clarify cell state signification
 RC  - Update README (TODOs should be dropped/moved here)
 
   Tests
-    - rewrite tests
 RC  - write ZODB-API-level tests
 
   Code
