@@ -27,8 +27,7 @@ class ElectionHandler(MasterHandler):
     """This class deals with events for a primary master election."""
 
     def notifyNodeInformation(self, conn, node_list):
-        uuid = conn.getUUID()
-        if uuid is None:
+        if conn.getUUID() is None:
             raise protocol.ProtocolError('Not identified')
         app = self.app
         for node_type, addr, uuid, state in node_list:
