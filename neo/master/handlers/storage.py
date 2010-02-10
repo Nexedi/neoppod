@@ -54,15 +54,16 @@ class StorageServiceHandler(BaseServiceHandler):
     def answerInformationLocked(self, conn, tid):
         uuid = conn.getUUID()
         app = self.app
+        tm = app.tm
         node = app.nm.getByUUID(uuid)
 
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
-        if tid > self.app.tm.getLastTID():
+        if tid > tm.getLastTID():
             raise ProtocolError('TID too big')
 
         # transaction locked on this storage node
-        t = self.app.tm[tid]
+        t = tm[tid]
         if not t.lock(uuid):
             return
 
@@ -90,7 +91,7 @@ class StorageServiceHandler(BaseServiceHandler):
                         c.notify(Packets.NotifyUnlockInformation(tid))
 
         # remove transaction from manager
-        self.app.tm.remove(tid)
+        tm.remove(tid)
 
     def notifyReplicationDone(self, conn, offset):
         uuid = conn.getUUID()
