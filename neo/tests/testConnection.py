@@ -393,7 +393,7 @@ class ConnectionTests(NeoTestBase):
 
     def test_07_Connection_addPacket(self):
         # no connector
-        p = Mock({"__str__" : "testdata"})
+        p = Mock({"__call__" : "testdata"})
         em = Mock()
         handler = Mock()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
@@ -468,8 +468,7 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2132), self.getNewUUID()))
         p = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p.setId(1)
-        data = str(p)
-        bc.read_buf += data
+        bc.read_buf += p()
         self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
         # check packet decoded
@@ -501,8 +500,7 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2132), self.getNewUUID()))
         p1 = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p1.setId(1)
-        data = str(p1)
-        bc.read_buf += data
+        bc.read_buf += p1()
         # packet 2
         master_list = (
                 (("127.0.0.1", 2135), self.getNewUUID()),
@@ -515,8 +513,7 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2132), self.getNewUUID()))
         p2 = Packets.AnswerPrimary( self.getNewUUID(), master_list)
         p2.setId(2)
-        data = str(p2)
-        bc.read_buf += data
+        bc.read_buf += p2()
         self.assertEqual(len(bc.read_buf), len(p1) + len(p2))
         self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
@@ -570,8 +567,7 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2132), self.getNewUUID()))
         p = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p.setId(1)
-        data = str(p)
-        bc.read_buf += data
+        bc.read_buf += p()
         self.assertEqual(len(bc.event_dict), 0)
         bc.expectMessage(1)
         self.assertEqual(len(bc.event_dict), 1)
@@ -701,7 +697,7 @@ class ConnectionTests(NeoTestBase):
             uuid = self.getNewUUID()
             p = Packets.AnswerPrimary(uuid, master_list)
             p.setId(1)
-            return str(p)
+            return p()
         DoNothingConnector.receive = receive
         connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,

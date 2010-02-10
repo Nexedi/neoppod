@@ -253,7 +253,8 @@ class Packet(object):
     def getType(self):
         return self.__class__
 
-    def __str__(self):
+    def __call__(self):
+        """ Encode a packet as a string to send it over the network """
         content = self._body
         length = PACKET_HEADER_SIZE + len(content)
         return pack('!LHL', self.getId(), self._code, length) + content
