@@ -364,11 +364,7 @@ class Connection(BaseConnection):
             return
 
         PACKET_LOGGER.dispatch(self, packet, ' to ')
-        try:
-            self.write_buf += packet()
-        except PacketMalformedError:
-            logging.critical('trying to send a too big message')
-            raise
+        self.write_buf += packet()
 
         # If this is the first time, enable polling for writing.
         if self.write_buf:
