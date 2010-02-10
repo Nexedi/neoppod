@@ -360,11 +360,13 @@ class Connection(BaseConnection):
         if self.connector is None:
             return
 
+        was_empty = not bool(self.write_buf)
+
         PACKET_LOGGER.dispatch(self, packet, ' to ')
         self.write_buf += packet()
 
-        # If this is the first time, enable polling for writing.
-        if self.write_buf:
+        if was_empty:
+            # enable polling for writing.
             self.em.addWriter(self)
 
     def expectMessage(self, msg_id=None, timeout=5, additional_timeout=30):
