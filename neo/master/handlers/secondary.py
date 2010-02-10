@@ -40,10 +40,6 @@ class SecondaryMasterHandler(MasterHandler):
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 
-    def notifyNodeInformation(self, conn, node_list):
-        logging.error('/!\ NotifyNodeInformation packet from secondary master')
-
-
 class PrimaryHandler(MasterHandler):
     """ Handler used by secondaries to handle primary master"""
 

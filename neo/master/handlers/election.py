@@ -23,46 +23,7 @@ from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
 from neo.util import dump
 
-class ElectionHandler(MasterHandler):
-    """This class deals with events for a primary master election."""
-
-    def notifyNodeInformation(self, conn, node_list):
-        if conn.getUUID() is None:
-            raise protocol.ProtocolError('Not identified')
-        app = self.app
-        for node_type, addr, uuid, state in node_list:
-            if node_type != NodeTypes.MASTER:
-                # No interest.
-                continue
-
-            # Register new master nodes.
-            if app.server == addr:
-                # This is self.
-                continue
-            else:
-                node = app.nm.getByAddress(addr)
-                # The master must be known
-                assert node is not None
-
-                if uuid is not None:
-                    # If I don't know the UUID yet, believe what the peer
-                    # told me at the moment.
-                    if node.getUUID() is None:
-                        node.setUUID(uuid)
-
-                if state in (node.getState(), NodeStates.RUNNING):
-                    # No change. Don't care.
-                    continue
-
-                # Something wrong happened possibly. Cut the connection to
-                # this node, if any, and notify the information to others.
-                # XXX this can be very slow.
-                for c in app.em.getConnectionList():
-                    if c.getUUID() == uuid:
-                        c.close()
-                node.setState(state)
-
-class ClientElectionHandler(ElectionHandler):
+class ClientElectionHandler(MasterHandler):
 
     # FIXME: this packet is not allowed here, but handled in MasterHandler
     # a global handler review is required.
@@ -205,7 +166,7 @@ class ClientElectionHandler(ElectionHandler):
         ))
 
 
-class ServerElectionHandler(ElectionHandler):
+class ServerElectionHandler(MasterHandler):
 
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'

@@ -36,6 +36,3 @@ class ShutdownHandler(BaseServiceHandler):
         logging.error('reject any new demand for new tid')
         raise protocol.ProtocolError('cluster is shutting down')
 
-    def notifyNodeInformation(self, conn, node_list):
-        # don't care about notifications since we are shutdowning
-        pass
