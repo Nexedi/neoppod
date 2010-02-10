@@ -30,6 +30,8 @@ from neo.logger import PACKET_LOGGER
 
 from neo import attributeTracker
 
+APPLY_HANDLER = object()
+
 def not_closed(func):
     def decorator(self, *args, **kw):
         if self.connector is None:
@@ -199,11 +201,23 @@ class Connection(BaseConnection):
         self.uuid = None
         self._queue = []
         self._expected = deque()
+        self._next_handler = None
         BaseConnection.__init__(self, event_manager, handler,
                                 connector = connector, addr = addr,
                                 connector_handler = connector_handler)
         if connector is not None:
             event_manager.addReader(self)
+
+    def setHandler(self, handler):
+        assert self._next_handler is None
+        if self.hasPendingRequests():
+            logging.debug('Delaying: %s -> %s after %s',
+                self.handler.__class__.__name__, handler.__class__.__name__,
+                list(self._expected))
+            self._expected.append(APPLY_HANDLER)
+            self._next_handler = handler
+        else:
+            self.handler = handler
 
     def isAborted(self):
         return self.aborted
@@ -307,11 +321,18 @@ class Connection(BaseConnection):
         """
           Process a pending packet.
         """
+        # check out packet and check if it's and expected answer
         packet = self._queue.pop(0)
         if packet.isResponse():
             request = None
             if self._expected:
                 request = self._expected.popleft()
+            if request is APPLY_HANDLER:
+                logging.debug('Apply handler %s',
+                        self._next_handler.__class__.__name__)
+                self.handler = self._next_handler
+                self._next_handler = None
+                return
             if not request or not request.answerMatch(packet):
                 req_info = ('', '')
                 if request is not None:
@@ -319,6 +340,8 @@ class Connection(BaseConnection):
                 rep_info = (packet.getId(), packet.__class__)
                 logging.warning('Unexpected answer: %s:%s %s:%s' %
                         (rep_info + req_info))
+
+        # process packet
         PACKET_LOGGER.dispatch(self, packet, 'from')
         self.handler.packetReceived(self, packet)
 
