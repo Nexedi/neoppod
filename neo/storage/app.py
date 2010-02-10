@@ -140,8 +140,9 @@ class Application(object):
         # start the operation. This cycle will be executed permentnly,
         # until the user explicitly requests a shutdown.
         while True:
-            # look for the primary master
-            self.connectToPrimary()
+            if self.master_node is None:
+                # look for the primary master
+                self.connectToPrimary()
             self.operational = False
             try:
                 while True:
@@ -162,6 +163,7 @@ class Application(object):
 
             except PrimaryFailure, msg:
                 logging.error('primary master is down: %s', msg)
+                self.master_node = None
 
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.
