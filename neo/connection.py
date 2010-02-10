@@ -265,7 +265,7 @@ class Connection(BaseConnection):
                 if packet is None:
                     break
             except PacketMalformedError, msg:
-                self.handler._packetMalformed(self, packet, msg)
+                self.handler._packetMalformed(self, msg)
                 return
             self.read_buf = self.read_buf[len(packet):]
 

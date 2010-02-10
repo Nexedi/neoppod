@@ -30,20 +30,12 @@ class EventHandler(object):
         self.packet_dispatch_table = self.__initPacketDispatchTable()
         self.error_dispatch_table = self.__initErrorDispatchTable()
 
-    def _packetMalformed(self, conn, packet, message='', *args):
+    def _packetMalformed(self, conn, message='', *args):
         """Called when a packet is malformed."""
         args = (conn.getAddress()[0], conn.getAddress()[1], message)
-        if packet is None:
-            # if decoding fail, there's no packet instance
-            logging.error('malformed packet from %s:%d: %s', *args)
-        else:
-            logging.error('malformed packet %s from %s:%d: %s',
-                   packet.getType(), *args)
+        logging.error('malformed packet from %s:%d: %s', *args)
         response = protocol.protocolError(message)
-        if packet is not None:
-            conn.answer(response)
-        else:
-            conn.notify(response)
+        conn.notify(response)
         conn.abort()
         self.peerBroken(conn)
 
@@ -73,7 +65,7 @@ class EventHandler(object):
         except UnexpectedPacketError, e:
             self.__unexpectedPacket(conn, packet, *e.args)
         except PacketMalformedError, e:
-            self._packetMalformed(conn, packet, *e.args)
+            self._packetMalformed(conn, *e.args)
         except BrokenNodeDisallowedError:
             conn.answer(protocol.brokenNodeDisallowedError('go away'))
             conn.abort()
