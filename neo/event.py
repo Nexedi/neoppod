@@ -21,6 +21,9 @@ from time import time
 
 from neo.epoll import Epoll
 
+PING_DELAY = 5
+PING_TIMEOUT = 5
+
 class IdleEvent(object):
     """
     This class represents an event called when a connection is waiting for
@@ -33,7 +36,7 @@ class IdleEvent(object):
         t = time()
         self._time = t + timeout
         self._critical_time = t + timeout + additional_timeout
-        self._additional_timeout = additional_timeout
+        self.refresh()
 
     def getId(self):
         return self._id
@@ -44,9 +47,12 @@ class IdleEvent(object):
     def getCriticalTime(self):
         return self._critical_time
 
+    def refresh(self):
+        self._next_critical_time = self._critical_time
+
     def __call__(self, t):
         conn = self._conn
-        if t > self._critical_time:
+        if t > self._next_critical_time:
             # No answer after _critical_time, close connection.
             # This means that remote peer is processing the request for too
             # long, although being responsive at network level.
@@ -62,31 +68,20 @@ class IdleEvent(object):
         elif t > self._time:
             # Still no answer after _time, send a ping to see if connection is
             # broken.
-            # Sending a ping triggers a new IdleEvent for the ping (hard timeout
-            # after 5 seconds, see part on additional_timeout above).
-            # XXX: Here, we return True, which causes the current IdleEvent
-            # instance to be discarded, and a new instance is created with
-            # reduced additional_timeout. It must be possible to avoid
-            # recreating a new instance just to keep waiting for the same
-            # response.
             # XXX: This code has no meaning if the remote peer is single-
             # threaded. Nevertheless, it should be kept in case it gets
             # multithreaded, someday (master & storage are the only candidates
             # for using this code, as other don't receive requests).
             conn.lock()
             try:
-                if self._additional_timeout > 5:
-                    # XXX this line is misleading: we modify self, but this
-                    # instance is doomed anyway: we will return True, causing
-                    # it to be discarded.
-                    self._additional_timeout -= 5
-                    conn.expectMessage(self._id, 5, self._additional_timeout)
-                    conn.ping()
-                else:
-                    conn.expectMessage(self._id, self._additional_timeout, 0)
-                return True
+                conn.ping()
             finally:
                 conn.unlock()
+            # Don't retry pinging after at least PING_DELAY seconds have
+            # passed.
+            self._time = t + PING_DELAY
+            self._next_critical_time = min(self._critical_time,
+                t + PING_TIMEOUT)
         return False
 
 class EpollEventManager(object):
@@ -230,6 +225,9 @@ class EpollEventManager(object):
             self.event_list.remove(event)
         except ValueError:
             pass
+
+    def refreshIdleEvent(self, event):
+        event.refresh()
 
     def addReader(self, conn):
         connector = conn.getConnector()

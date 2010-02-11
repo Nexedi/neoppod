@@ -290,13 +290,17 @@ class Connection(BaseConnection):
                 return
             self.read_buf = self.read_buf[len(packet):]
 
+            packet_type = packet.getType()
             # Remove idle events, if appropriate packets were received.
             for msg_id in (None, packet.getId()):
                 event = self.event_dict.pop(msg_id, None)
                 if event is not None:
-                    self.em.removeIdleEvent(event)
+                    if packet_type == Packets.Pong:
+                        self.em.refreshIdleEvent(event)
+                        self.event_dict[msg_id] = event
+                    else:
+                        self.em.removeIdleEvent(event)
 
-            packet_type = packet.getType()
             if packet_type == Packets.Ping:
                 # Send a pong notification
                 self.answer(Packets.Pong(), packet.getId())
@@ -474,12 +478,13 @@ class Connection(BaseConnection):
         assert packet.isResponse(), packet
         self._addPacket(packet)
 
-    def ping(self, timeout=5):
+    def ping(self, timeout=5, msg_id=None):
         """ Send a ping and expect to receive a pong notification """
         packet = Packets.Ping()
-        msg_id = self._getNextId()
+        if msg_id is None:
+            msg_id = self._getNextId()
+            self.expectMessage(msg_id, timeout, 0)
         packet.setId(msg_id)
-        self.expectMessage(msg_id, timeout, 0)
         self._addPacket(packet)
 
 
