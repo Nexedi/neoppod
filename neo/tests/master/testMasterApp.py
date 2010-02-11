@@ -68,7 +68,7 @@ class MasterAppTests(NeoTestBase):
         self.app.broadcastNodesInformation([c_node])
         # check conn
         self.checkNoPacketSent(client_conn)
-        self.checkNotifyNodeInformation(master_conn)
+        self.checkNoPacketSent(master_conn)
         self.checkNotifyNodeInformation(storage_conn)
 
         # address defined and client type
@@ -83,7 +83,7 @@ class MasterAppTests(NeoTestBase):
         self.app.broadcastNodesInformation([c_node])
         # check conn
         self.checkNoPacketSent(client_conn)
-        self.checkNotifyNodeInformation(master_conn)
+        self.checkNoPacketSent(master_conn)
         self.checkNotifyNodeInformation(storage_conn)
 
         # address defined and storage type
@@ -99,7 +99,7 @@ class MasterAppTests(NeoTestBase):
         self.app.broadcastNodesInformation([s_node])
         # check conn
         self.checkNotifyNodeInformation(client_conn)
-        self.checkNotifyNodeInformation(master_conn)
+        self.checkNoPacketSent(master_conn)
         self.checkNotifyNodeInformation(storage_conn)
 
 
