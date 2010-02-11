@@ -459,7 +459,8 @@ class Application(object):
             if conn.isListening() or node is None:
                 # not identified or listening, keep the identification handler
                 continue
-            conn.notify(notification_packet)
+            if not node.isMaster():
+                conn.notify(notification_packet)
             if node.isAdmin() or node.isMaster():
                 # those node types keep their own handler
                 continue
