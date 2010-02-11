@@ -313,8 +313,8 @@ class NeoTestRunner(unittest.TestResult):
         for recipient in RECIPIENTS:
             try:
                 s.sendmail(SENDER, recipient, mail)
-            except smtplib.SMTPRecipientsRefused:
-                print "Mail for %s fails" % recipient
+            except smtplib.SMTPRecipientsRefused, e:
+                print "Mail for %s fails : %s" % (recipient, e)
         s.close()
 
 if __name__ == "__main__":
