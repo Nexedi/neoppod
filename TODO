@@ -241,6 +241,10 @@ RC  - Review output of pylint (CODE)
     - Cache for loadSerial/loadBefore
     - Implement restore() ZODB API method to bypass consistency checks during
       imports.
+    - Make "store" pipeline stored objects. (LATENCY)
+      We should only send objects to store and not wait for server response in
+      order to pipeline store requests, to remove the effect of network
+      round-trip-time between successive "store" calls.
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might 
