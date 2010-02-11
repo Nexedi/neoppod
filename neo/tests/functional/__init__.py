@@ -143,8 +143,10 @@ class NEOCluster(object):
                  db_user='neo', db_password='neo',
                  db_super_user='root', db_super_password=None,
                  cleanup_on_delete=False, temp_dir=None,
-                 clear_databases=True, adapter='MySQL'):
+                 clear_databases=True, adapter='MySQL',
+                 verbose=True):
         self.cleanup_on_delete = cleanup_on_delete
+        self.verbose = verbose
         self.uuid_set = set()
         self.db_super_user = db_super_user
         self.db_super_password = db_super_password
@@ -161,7 +163,7 @@ class NEOCluster(object):
         self.temp_dir = temp_dir
         # Setup client logger
         real_setupLog(name='CLIENT', filename=os.path.join(self.temp_dir,
-            'client.log'), verbose=True)
+            'client.log'), verbose=self.verbose)
         admin_port = self.__allocatePort()
         self.cluster_name = 'neo_%s' % (random.randint(0, 100), )
         master_node_list = [self.__allocatePort() for i in xrange(master_node_count)]
@@ -201,9 +203,11 @@ class NEOCluster(object):
     def __newProcess(self, command, arguments):
         uuid = self.__allocateUUID()
         arguments['--uuid'] = uuid
-        arguments['--verbose'] = None
+        if self.verbose:
+            arguments['--verbose'] = True
         logfile = arguments['--name']
         arguments['--logfile'] = os.path.join(self.temp_dir, '%s.log' % (logfile, ))
+
         self.process_dict.setdefault(command, []).append(
             NEOProcess(command, uuid, arguments))
 
