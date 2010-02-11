@@ -50,15 +50,15 @@ class IdleEvent(object):
             # No answer after _critical_time, close connection.
             # This means that remote peer is processing the request for too
             # long, although being responsive at network level.
+            logging.info('timeout for %r with %s:%d',
+                         self._id, *(conn.getAddress()))
             conn.lock()
             try:
-                logging.info('timeout for %r with %s:%d',
-                             self._id, *(conn.getAddress()))
                 conn.close()
                 conn.getHandler().timeoutExpired(conn)
-                return True
             finally:
                 conn.unlock()
+            return True
         elif t > self._time:
             # Still no answer after _time, send a ping to see if connection is
             # broken.
