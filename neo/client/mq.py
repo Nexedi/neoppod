@@ -129,6 +129,20 @@ class MQ(object):
       - Stored values must be strings.
 
       - The size calculation is not accurate.
+
+      Quick description of Multi-Queue algorythm:
+      - There are multiple "regular" queues, plus a history queue
+      - The queue to store an object in depends on its access frequency
+      - The queue an object is in defines its lifespan (higher-index queue eq.
+        longer lifespan)
+        -> The more often an object is accessed, the higher lifespan it will
+           have
+      - Upon a cache miss, the oldest entry of first non-empty queue is
+        transfered to history queue
+      - Upon cache or history hit, object frequency is increased and object
+        might get moved to longer-lived queue
+      - Each access "ages" objects in cache, and an aging object is moved to
+        shorter-lived queue as it ages without being accessed
     """
 
     def __init__(self, life_time=10000, buffer_levels=9,
