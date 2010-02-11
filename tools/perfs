@@ -1,0 +1,145 @@
+#! /usr/bin/env python
+
+import os
+import sys
+from time import time
+
+from neo.tests.functional import NEOCluster
+from neo.client.Storage import Storage
+from ZODB.FileStorage import FileStorage
+
+SENDER = 'gregory@nexedi.com'
+RECIPIENTS = ['gregory@nexedi.com'] #['neo-report@erp5.org']
+SMTP_SERVER = ( "mail.nexedi.com", "25")
+
+
+def _runImport(filename):
+
+    def _copyTransactionsFrom(self, other):
+        """ taken from ZODB.BaseStorage that build stat during import """
+        def inc(d):
+            # count number of tick per second
+            t = int(time())
+            d.setdefault(t, 0)
+            d[t] += 1
+        txn = {}
+        obj = {}
+        preindex = {};
+        fiter = other.iterator()
+        for transaction in fiter:
+            inc(txn)
+            self.tpc_begin(transaction, transaction.tid, transaction.status)
+            for r in transaction:
+                inc(obj)
+                pre = preindex.get(r.oid, None)
+                s = self.store(r.oid, pre, r.data, r.version, transaction)
+                preindex[r.oid] = s
+            self.tpc_vote(transaction)
+            self.tpc_finish(transaction)
+        fiter.close()
+        return {
+            'Transactions': txn.values(),
+            'Objects': obj.values(),
+        }
+
+    # start a NEO cluster
+    neo = NEOCluster(db_list=['test_import_neo1'], verbose=False)
+    neo.setupDB()
+    neo.start()
+
+    # open storage clients
+    neo_storage = neo.getZODBStorage()
+    dfs_storage = FileStorage(file_name=filename)
+    dfs_size = os.path.getsize(filename)
+
+    # monkey patch import method and run the import
+    start = time()
+    Storage.copyTransactionsFrom = _copyTransactionsFrom
+    stats = neo_storage.copyTransactionsFrom(dfs_storage)
+    elapsed = time() - start
+    neo.stop()
+    return (dfs_size, elapsed, stats)
+
+
+def _buildSystemInfo():
+    import platform
+    import datetime
+    s = """
+Date        : %s
+Node        : %s
+Processor   : %s (%s)
+System      : %s (%s)
+    """ % (
+        datetime.date.today().isoformat(),
+        platform.node(),
+        platform.processor(),
+        platform.architecture()[0],
+        platform.system(),
+        platform.release(),
+    )
+    return s
+
+def _buildResult(dfs_size, elapsed, stats):
+    """ build a report for the given import data """
+    result = '\n'
+    pat = '%20s | %8s | %5s | %5s | %5s \n'
+    sep = '%20s+%8s+%5s+%5s+%5s\n'
+    sep %= ('-' * 21, '-' * 10) + ('-' * 7, ) * 3
+    result += pat % ('', ' num ', 'min/s', 'avg/s', 'max/s')
+    for k, v in stats.items():
+        result += sep
+        s = sum(v)
+        result += pat % (k, s,  min(v), s / len(v), max(v))
+    dfs_size /= 1024
+    result += sep
+    result += '\n%20s: %6.1f MB' % ('Input size', dfs_size / 1024)
+    result += '\n%20s: %6d sec' % ('Import duration', elapsed)
+    result += '\n%20s: %6.1f KB/s\n' % ('Average speed', dfs_size / elapsed)
+
+    return result
+
+def sendReport(report):
+    """ Send a mail with the report summary """
+
+    import smtplib
+    from email.MIMEMultipart import MIMEMultipart
+    from email.MIMEText import MIMEText
+
+    # build the email
+    msg = MIMEMultipart()
+    msg['Subject'] = 'NEO : Import report'
+    msg['From']    = SENDER
+    msg['To']      = ', '.join(RECIPIENTS)
+    msg.epilogue = ''
+    # write the body
+    msg.attach(MIMEText(report))
+
+    # Send the email via our own SMTP server.
+    s = smtplib.SMTP()
+    s.connect(*SMTP_SERVER)
+    mail = msg.as_string()
+    for recipient in RECIPIENTS:
+        try:
+            s.sendmail(SENDER, recipient, mail)
+        except smtplib.SMTPRecipientsRefused:
+            print "Mail for %s fails" % recipient
+    s.close()
+
+
+if __name__ == "__main__":
+
+    if len(sys.argv) != 2:
+        sys.exit('Missing data.fs argument')
+
+    result = _runImport(sys.argv[1])
+    result = _buildResult(*result)
+
+    # build the report and send it
+    report = ' ' * 30 + ' NEO PERF REPORT\n\n'
+    report += _buildSystemInfo()
+    report += result
+
+    print report
+    sendReport(report)
+
+
