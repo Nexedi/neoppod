@@ -74,7 +74,7 @@ class IdleEvent(object):
             # for using this code, as other don't receive requests).
             conn.lock()
             try:
-                conn.ping()
+                conn.ping(msg_id=self._id)
             finally:
                 conn.unlock()
             # Don't retry pinging after at least PING_DELAY seconds have
