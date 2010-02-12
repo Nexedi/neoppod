@@ -201,7 +201,9 @@ class TransactionManager(object):
             Abort a transaction
         """
         if tid not in self._transaction_dict:
-            # XXX: this happen sometimes, explain or fix
+            # the tid may be unknown as the transaction is aborted on every node
+            # of the partition, even if no data was received (eg. conflict on
+            # another node)
             return
         transaction = self._transaction_dict[tid]
         has_load_lock = transaction.isLocked()
