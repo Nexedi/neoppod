@@ -61,7 +61,6 @@ class Application(object):
         # The partition table is initialized after getting the number of
         # partitions.
         self.pt = None
-        self.loid = None
 
         self.replicator = None
         self.listening_conn = None

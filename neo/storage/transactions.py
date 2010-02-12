@@ -97,8 +97,8 @@ class TransactionManager(object):
         self._store_lock_dict = {}
         self._load_lock_dict = {}
         self._uuid_dict = {}
-        # TODO: replace app.loid with this one:
         self._loid = None
+        self._loid_seen = None
 
     def __contains__(self, tid):
         """
@@ -116,6 +116,10 @@ class TransactionManager(object):
             self._uuid_dict.setdefault(uuid, set()).add(transaction)
             self._transaction_dict[tid] = transaction
         return transaction
+
+    def setLastOID(self, oid):
+        assert oid >= self._loid
+        self._loid = oid
 
     def reset(self):
         """
@@ -150,11 +154,11 @@ class TransactionManager(object):
         self.abort(tid, even_if_locked=True)
 
         # update loid if needed
-        if self._loid != self._app.loid:
-            args = dump(self._loid), dump(self._app.loid)
+        if self._loid_seen > self._loid:
+            args = dump(self._loid_seen), dump(self._loid_seen)
             logging.warning('Greater OID used in StoreObject : %s > %s', *args)
-            self._app.loid = self._loid
-            self._app.dm.setLastOID(self._app.loid)
+            self._loid = self._loid_seen
+            self._app.dm.setLastOID(self._loid)
 
     def storeTransaction(self, uuid, tid, oid_list, user, desc, ext):
         """
@@ -190,7 +194,7 @@ class TransactionManager(object):
         self._store_lock_dict[oid] = tid
 
         # update loid
-        self._loid = max(oid, self._app.loid)
+        self._loid_seen = oid
 
     def abort(self, tid, even_if_locked=True):
         """
