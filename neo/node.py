@@ -139,7 +139,6 @@ class Node(object):
             return self._uuid > node._uuid
         return self._address > node._address
 
-    # XXX: for comptatibility, to be removed
     def getType(self):
         try:
             return NODE_CLASS_MAPPING[self.__class__]
