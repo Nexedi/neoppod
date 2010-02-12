@@ -22,25 +22,17 @@ from neo.protocol import NodeTypes, ProtocolError
 
 class StorageEventHandler(BaseHandler):
 
-    def _dealWithStorageFailure(self, conn):
-        app = self.app
-        node = app.nm.getByAddress(conn.getAddress())
-        assert node is not None
-        # Remove from pool connection
-        app.cp.removeConnection(node)
-        app.dispatcher.unregister(conn)
-
     def connectionLost(self, conn, new_state):
-        self._dealWithStorageFailure(conn)
+        node = self.app.nm.getByAddress(conn.getAddress())
+        assert node is not None
+        self.app.cp.removeConnection(node)
+        self.app.dispatcher.unregister(conn)
 
     def connectionFailed(self, conn):
-        # XXX: a connection failure is not like a connection lost, we should not
-        # have to clear the dispatcher because the connection was never
-        # established and so, no packet should have been send and thus, nothing
-        # must be expected. This should be well done if the first packet sent is
-        # done after the connectionCompleted event or a packet received.
         # Connection to a storage node failed
-        self._dealWithStorageFailure(conn)
+        node = self.app.nm.getByAddress(conn.getAddress())
+        assert node is not None
+        self.app.cp.removeConnection(node)
         super(StorageEventHandler, self).connectionFailed(conn)
 
 
