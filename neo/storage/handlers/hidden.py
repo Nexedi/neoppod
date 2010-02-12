@@ -23,10 +23,6 @@ from neo.protocol import NodeTypes, NodeStates, CellStates
 class HiddenHandler(BaseMasterHandler):
     """This class implements a generic part of the event handlers."""
 
-    def __init__(self, app):
-        self.app = app
-        BaseMasterHandler.__init__(self, app)
-
     def notifyNodeInformation(self, conn, node_list):
         """Store information on nodes, only if this is sent by a primary
         master node."""
