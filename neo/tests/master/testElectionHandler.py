@@ -315,8 +315,6 @@ class MasterServerElectionTests(NeoTestBase):
         self.assertRaises(protocol.ProtocolError, 
             self.election.notifyNodeInformation, conn, node_list)
 
-    # TODO: build a full notifyNodeInformation test
-
     def __getClient(self):
         uuid = self.getNewUUID()
         conn = Mock({
