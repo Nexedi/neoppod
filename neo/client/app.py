@@ -92,7 +92,7 @@ class ThreadContext(object):
             'object_stored': 0,
             'txn_voted': False,
             'txn_finished': False,
-            'queue': Queue(5),
+            'queue': Queue(0),
         }
 
 
