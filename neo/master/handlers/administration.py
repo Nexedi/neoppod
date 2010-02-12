@@ -22,6 +22,13 @@ from neo.master.handlers import MasterHandler
 from neo.protocol import ClusterStates, NodeStates, Packets, ProtocolError
 from neo.util import dump
 
+CLUSTER_STATE_WORKFLOW = {
+    # destination: sources
+    ClusterStates.VERIFYING: set([ClusterStates.RECOVERING]),
+    ClusterStates.STOPPING: set([ClusterStates.RECOVERING,
+            ClusterStates.VERIFYING, ClusterStates.RUNNING]),
+}
+
 class AdministrationHandler(MasterHandler):
     """This class deals with messages from the admin node only"""
 
@@ -35,14 +42,22 @@ class AdministrationHandler(MasterHandler):
         conn.answer(Packets.AnswerPrimary(app.uuid, []))
 
     def setClusterState(self, conn, state):
-        # TODO: check which cluster state transition we are told to follow,
-        # and refuse to follow meaningless ones.
+        # check request
+        if not state in CLUSTER_STATE_WORKFLOW.keys():
+            raise ProtocolError('Invalid state requested')
+        valid_current_states = CLUSTER_STATE_WORKFLOW[state]
+        if self.app.cluster_state not in valid_current_states:
+            raise ProtocolError('Cannot switch to this state')
+
+        # change state
         if state == ClusterStates.VERIFYING:
+            # XXX: /!\ this allow leave the first phase of recovery
             self.app._startup_allowed = True
         else:
             self.app.changeClusterState(state)
-        p = protocol.ack('cluster state changed')
-        conn.answer(p)
+
+        # answer
+        conn.answer(protocol.ack('cluster state changed'))
         if state == ClusterStates.STOPPING:
             self.app.cluster_state = state
             self.app.shutdown()
