@@ -305,8 +305,7 @@ class MasterServerElectionTests(NeoTestBase):
 
 
     def _getNodeList(self):
-        return [(x.getType(), x.getAddress(), x.getUUID(), x.getState())
-              for x in self.app.nm.getList()]
+        return [x.asTuple() for x in self.app.nm.getList()]
 
     def test_notifyNodeInformation1(self):
         """ Not identified """
