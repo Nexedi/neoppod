@@ -50,7 +50,7 @@ class Dispatcher:
     def pop(self, conn, msg_id, default=MARKER):
         """Retrieve register-time provided payload."""
         result = self.message_table.get(id(conn), EMPTY).pop(msg_id, default)
-        if default is MARKER:
+        if result is MARKER:
             raise KeyError, (id(conn), msg_id)
         return result
 
