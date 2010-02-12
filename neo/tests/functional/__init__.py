@@ -135,6 +135,9 @@ class NEOProcess:
         self.uuid = uuid
         self.arg_dict['--uuid'] = dump(uuid)
 
+    def isAlive(self):
+        return os.path.exists('/proc/%d' % self.pid)
+
 
 class NEOCluster(object):
 
@@ -464,6 +467,12 @@ class NEOCluster(object):
 
     def expectClusterRunning(self, timeout=0, delay=1):
         self.expectClusterState(ClusterStates.RUNNING)
+
+    def expectAlive(self, process, timeout=0, delay=1):
+        def callback(last_try):
+            current_try = process.isAlive()
+            return current_try, current_try
+        self.expectCondition(callback, timeout, delay)
 
     def __del__(self):
         if self.cleanup_on_delete:
