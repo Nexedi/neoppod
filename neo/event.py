@@ -105,13 +105,6 @@ class EpollEventManager(object):
     def getServerList(self):
         return [c for c in self.getConnectionList() if c.isServer()]
 
-    def getConnectionByUUID(self, uuid):
-        # XXX: deprecated, use getConnectionListByUUID instead.
-        result = self.getConnectionListByUUID(uuid)
-        if result is not None:
-            result = result[:1]
-        return result
-
     def getConnectionListByUUID(self, uuid):
         """ Return the connection associated to the UUID, None if the UUID is
         None, invalid or not found"""
