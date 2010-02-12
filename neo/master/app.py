@@ -526,14 +526,11 @@ class Application(object):
                 node = self.nm.getByUUID(c.getUUID())
                 if node is None:
                     continue
+                notification = Packets.NotifyNodeInformation([node.asTuple()])
                 if node.isClient():
-                    node_list = [(node.getType(), node.getAddress(),
-                        node.getUUID(), NodeStates.DOWN)]
-                    c.notify(Packets.NotifyNodeInformation(node_list))
-                if node.isStorage() or node.isMaster():
-                    node_list = [(node.getType(), node.getAddress(),
-                        node.getUUID(), NodeStates.DOWN)]
-                    c.notify(Packets.NotifyNodeInformation(node_list))
+                    c.notify(notification)
+                elif node.isStorage() or node.isMaster():
+                    c.notify(notification)
             # then shutdown
             sys.exit("Cluster has been asked to shut down")
 
