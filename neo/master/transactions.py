@@ -182,7 +182,6 @@ class TransactionManager(object):
             tid = self._nextTID()
         txn = Transaction(node, tid)
         self._tid_dict[tid] = txn
-        # XXX: check the data structure
         self._node_dict.setdefault(node, {})[tid] = txn
         self.setLastTID(tid)
         return tid
