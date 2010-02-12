@@ -36,7 +36,7 @@ class VerificationHandler(BaseMasterHandler):
         app, pt = self.app, self.app.pt
         if not offset_list:
             # all is requested
-            offset_list = range(0, pt.getPartitions())
+            offset_list = xrange(0, self.app.pt.getPartitions())
         row_list = []
         try:
             for offset in offset_list:
