@@ -278,6 +278,9 @@ Bugs:
     tests fails on the assert in pt.load(), meaning the node is not in the ode
     manager.
 
+Tools:
+    - Include cluster configuration in perf report.
+
 Old TODO
 
     - Handling connection timeouts.
