@@ -524,6 +524,8 @@ class Application(object):
             logging.info("asking all nodes to shutdown")
             for c in self.em.getConnectionList():
                 node = self.nm.getByUUID(c.getUUID())
+                if node is None:
+                    continue
                 if node.isClient():
                     node_list = [(node.getType(), node.getAddress(),
                         node.getUUID(), NodeStates.DOWN)]
