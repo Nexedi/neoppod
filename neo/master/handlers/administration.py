@@ -19,7 +19,7 @@ from neo import logging
 
 from neo import protocol
 from neo.master.handlers import MasterHandler
-from neo.protocol import ClusterStates, NodeStates, Packets
+from neo.protocol import ClusterStates, NodeStates, Packets, ProtocolError
 from neo.util import dump
 
 class AdministrationHandler(MasterHandler):
@@ -53,7 +53,7 @@ class AdministrationHandler(MasterHandler):
         app = self.app
         node = app.nm.getByUUID(uuid)
         if node is None:
-            raise protocol.ProtocolError('unknown node')
+            raise ProtocolError('unknown node')
 
         if uuid == app.uuid:
             node.setState(state)
@@ -77,7 +77,7 @@ class AdministrationHandler(MasterHandler):
                     break
             else:
                 # no connection to the node
-                raise protocol.ProtocolError('no connection to the node')
+                raise ProtocolError('no connection to the node')
             node.setState(state)
 
         elif state == NodeStates.DOWN and node.isStorage():
