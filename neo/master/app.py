@@ -521,18 +521,13 @@ class Application(object):
                 continue
             if self.cluster_state == ClusterStates.RUNNING:
                 sys.exit("Application has been asked to shut down")
-            # no more transaction, ask clients to shutdown
-            logging.info("asking all clients to shutdown")
+            logging.info("asking all nodes to shutdown")
             for c in self.em.getConnectionList():
                 node = self.nm.getByUUID(c.getUUID())
                 if node.isClient():
                     node_list = [(node.getType(), node.getAddress(),
                         node.getUUID(), NodeStates.DOWN)]
                     c.notify(Packets.NotifyNodeInformation(node_list))
-            # then ask storages and master nodes to shutdown
-            logging.info("asking all remaining nodes to shutdown")
-            for c in self.em.getConnectionList():
-                node = self.nm.getByUUID(c.getUUID())
                 if node.isStorage() or node.isMaster():
                     node_list = [(node.getType(), node.getAddress(),
                         node.getUUID(), NodeStates.DOWN)]
