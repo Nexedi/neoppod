@@ -44,7 +44,6 @@ class TransactionTests(NeoTestBase):
 
     def testTransaction(self):
         txn = Transaction(self.getNewUUID(), self.getNextTID())
-        self.assertRaises(AssertionError, txn.getTransactionInformations)
         oid_list = [self.getOID(1), self.getOID(2)]
         txn_info = (oid_list, 'USER', 'DESC', 'EXT')
         txn.prepare(*txn_info)

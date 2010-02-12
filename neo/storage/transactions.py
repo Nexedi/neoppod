@@ -83,7 +83,6 @@ class Transaction(object):
         return self._object_dict.keys()
 
     def getTransactionInformations(self):
-        assert self._transaction is not None
         return self._transaction
 
 
@@ -137,6 +136,8 @@ class TransactionManager(object):
         for oid in transaction.getOIDList():
             self._load_lock_dict[oid] = tid
         object_list = transaction.getObjectList()
+        # txn_info is None is the transaction information is not stored on 
+        # this storage.
         txn_info = transaction.getTransactionInformations()
         # store data from memory to temporary table
         self._app.dm.storeTransaction(tid, object_list, txn_info)
