@@ -252,3 +252,4 @@ class Replicator(object):
         if not self.partition_dict.has_key(rid) \
                 and not self.new_partition_dict.has_key(rid):
             self.new_partition_dict[rid] = Partition(rid)
+
