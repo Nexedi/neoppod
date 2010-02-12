@@ -42,27 +42,6 @@ class HiddenHandler(BaseMasterHandler):
                         erase_db = state == NodeStates.DOWN
                         self.app.shutdown(erase=erase_db)
 
-    def requestIdentification(self, conn, node_type,
-                                        uuid, address, name):
-        pass
-
-    def acceptIdentification(self, conn, node_type,
-                   uuid, num_partitions, num_replicas, your_uuid):
-        pass
-
-    def answerPrimary(self, conn, primary_uuid,
-                                  known_master_list):
-        pass
-
-    def askLastIDs(self, conn):
-        pass
-
-    def askPartitionTable(self, conn, offset_list):
-        pass
-
-    def sendPartitionTable(self, conn, ptid, row_list):
-        pass
-
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
@@ -87,57 +66,4 @@ class HiddenHandler(BaseMasterHandler):
 
     def startOperation(self, conn):
         self.app.operational = True
-
-    def stopOperation(self, conn):
-        pass
-
-    def askUnfinishedTransactions(self, conn):
-        pass
-
-    def askTransactionInformation(self, conn, tid):
-        pass
-
-    def askObjectPresent(self, conn, oid, tid):
-        pass
-
-    def deleteTransaction(self, conn, tid):
-        pass
-
-    def commitTransaction(self, conn, tid):
-        pass
-
-    def askLockInformation(self, conn, tid):
-        pass
-
-    def notifyUnlockInformation(self, conn, tid):
-        pass
-
-    def askObject(self, conn, oid, serial, tid):
-        pass
-
-    def askTIDs(self, conn, first, last, partition):
-        pass
-
-    def askObjectHistory(self, conn, oid, first, last):
-        pass
-
-    def askStoreTransaction(self, conn, tid, user, desc,
-                                  ext, oid_list):
-        pass
-
-    def askStoreObject(self, conn, oid, serial,
-                             compression, checksum, data, tid):
-        pass
-
-    def abortTransaction(self, conn, tid):
-        logging.debug('ignoring abort transaction')
-
-    def answerLastIDs(self, conn, loid, ltid, lptid):
-        logging.debug('ignoring answer last ids')
-
-    def answerUnfinishedTransactions(self, conn, tid_list):
-        logging.debug('ignoring answer unfinished transactions')
-
-    def askOIDs(self, conn, first, last, partition):
-        logging.debug('ignoring ask oids')
 
