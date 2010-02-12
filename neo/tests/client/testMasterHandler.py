@@ -186,7 +186,8 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
             (NodeTypes.STORAGE, addr, self.getNewUUID(), NodeStates.DOWN),
         ]
         conn1, conn2 = Mock({'__repr__': 'conn1'}), Mock({'__repr__': 'conn2'})
-        self.app.em = Mock({'getConnectionByUUID': ReturnValues(conn1, conn2)})
+        self.app.em = Mock({'getConnectionListByUUID': ReturnValues([conn1],
+                    [conn2])})
         self.app.cp = Mock()
         self.handler.notifyNodeInformation(conn, node_list)
         # node manager updated
