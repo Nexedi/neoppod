@@ -2,6 +2,9 @@
 
 import os
 import sys
+import optparse
+import platform
+import datetime
 from time import time
 
 from neo.tests.functional import NEOCluster
@@ -13,7 +16,7 @@ RECIPIENTS = ['gregory@nexedi.com'] #['neo-report@erp5.org']
 SMTP_SERVER = ( "mail.nexedi.com", "25")
 
 
-def _runImport(filename):
+def runImport(neo, datafs):
 
     def _copyTransactionsFrom(self, other):
         """ taken from ZODB.BaseStorage that build stat during import """
@@ -24,7 +27,7 @@ def _runImport(filename):
             d[t] += 1
         txn = {}
         obj = {}
-        preindex = {};
+        preindex = {}
         fiter = other.iterator()
         for transaction in fiter:
             inc(txn)
@@ -42,63 +45,58 @@ def _runImport(filename):
             'Objects': obj.values(),
         }
 
-    # start a NEO cluster
-    neo = NEOCluster(db_list=['test_import_neo1'], verbose=False)
-    neo.setupDB()
-    neo.start()
-
-    # open storage clients
+    # open storages clients
     neo_storage = neo.getZODBStorage()
-    dfs_storage = FileStorage(file_name=filename)
-    dfs_size = os.path.getsize(filename)
+    dfs_storage = FileStorage(file_name=datafs)
+    dfs_size = os.path.getsize(datafs)
 
     # monkey patch import method and run the import
     start = time()
     Storage.copyTransactionsFrom = _copyTransactionsFrom
     stats = neo_storage.copyTransactionsFrom(dfs_storage)
     elapsed = time() - start
-    neo.stop()
+
     return (dfs_size, elapsed, stats)
 
-
-def _buildSystemInfo():
-    import platform
-    import datetime
-    s = """
-Date        : %s
-Node        : %s
-Processor   : %s (%s)
-System      : %s (%s)
-    """ % (
-        datetime.date.today().isoformat(),
-        platform.node(),
-        platform.processor(),
-        platform.architecture()[0],
-        platform.system(),
-        platform.release(),
-    )
-    return s
-
-def _buildResult(dfs_size, elapsed, stats):
+def buildReport(dfs_size, elapsed, stats):
     """ build a report for the given import data """
-    result = '\n'
-    pat = '%20s | %8s | %5s | %5s | %5s \n'
-    sep = '%20s+%8s+%5s+%5s+%5s\n'
-    sep %= ('-' * 21, '-' * 10) + ('-' * 7, ) * 3
-    result += pat % ('', ' num ', 'min/s', 'avg/s', 'max/s')
+
+    pat = '%19s | %8s | %5s | %5s | %5s \n'
+    sep = '%19s+%8s+%5s+%5s+%5s\n'
+    sep %= ('-' * 20, '-' * 10) + ('-' * 7, ) * 3
+
+    # system informations
+    report = ' ' * 20 + ' NEO PERF REPORT\n\n'
+    report += "\tDate        : %s\n" % datetime.date.today().isoformat()
+    report += "\tNode        : %s\n" % platform.node()
+    report += "\tProcessor   : %s (%s)\n" % (platform.processor(),
+            platform.architecture()[0])
+    report += "\tSystem      : %s (%s)\n" % (platform.system(),
+            platform.release())
+    report += '\n\n'
+
+    # stats on objects and transactions
+    report += pat % ('', ' num ', 'min/s', 'avg/s', 'max/s')
     for k, v in stats.items():
-        result += sep
+        report += sep
         s = sum(v)
-        result += pat % (k, s,  min(v), s / len(v), max(v))
+        report += pat % (k, s,  min(v), s / len(v), max(v))
+    report += sep
+
+    # global results
     dfs_size /= 1024
-    result += sep
-    result += '\n%20s: %6.1f MB' % ('Input size', dfs_size / 1024)
-    result += '\n%20s: %6d sec' % ('Import duration', elapsed)
-    result += '\n%20s: %6.1f KB/s\n' % ('Average speed', dfs_size / elapsed)
+    size = dfs_size / 1024
+    speed = dfs_size / elapsed
+    report += '\n%19s: %6.1f MB' % ('Input size', size)
+    report += '\n%19s: %6d sec' % ('Import duration', elapsed)
+    report += '\n%19s: %6.1f KB/s\n' % ('Average speed', speed)
 
-    return result
+    # build summary
+    summary = 'Neo : %6.1f KB/s (%6.1f MB)' % (speed, size)
 
-def sendReport(report):
+    return (summary, report)
+
+def sendReport(summary, report):
     """ Send a mail with the report summary """
 
     import smtplib
@@ -107,14 +105,13 @@ def sendReport(report):
 
     # build the email
     msg = MIMEMultipart()
-    msg['Subject'] = 'NEO : Import report'
+    msg['Subject'] = summary
     msg['From']    = SENDER
     msg['To']      = ', '.join(RECIPIENTS)
     msg.epilogue = ''
-    # write the body
     msg.attach(MIMEText(report))
 
-    # Send the email via our own SMTP server.
+    # Send via smtp server
     s = smtplib.SMTP()
     s.connect(*SMTP_SERVER)
     mail = msg.as_string()
@@ -125,21 +122,52 @@ def sendReport(report):
             print "Mail for %s fails" % recipient
     s.close()
 
-
 if __name__ == "__main__":
 
-    if len(sys.argv) != 2:
-        sys.exit('Missing data.fs argument')
+    # handle command line options
+    parser = optparse.OptionParser()
+    parser.add_option('-d', '--datafs')
+    parser.add_option('-m', '--master-count')
+    parser.add_option('-s', '--storage-count')
+    parser.add_option('-p', '--partition-count')
+    parser.add_option('-r', '--replica-count')
+    parser.add_option('', '--recipient', action='append')
+    parser.add_option('', '--sender')
+    parser.add_option('', '--server')
+    (options, args) = parser.parse_args()
 
-    result = _runImport(sys.argv[1])
-    result = _buildResult(*result)
+    # check arguments
+    if not options.datafs or not os.path.exists(options.datafs):
+        sys.exit('Missing or wrong data.fs argument')
+    if bool(options.sender) ^ bool(options.recipient):
+        sys.exit('Need a sender and recipients to mail report')
 
-    # build the report and send it
-    report = ' ' * 30 + ' NEO PERF REPORT\n\n'
-    report += _buildSystemInfo()
-    report += result
+    # load options or defaults
+    masters = int(options.master_count or 1)
+    storages = int(options.storage_count or 1)
+    partitions = int(options.partition_count or 10)
+    replicas = int(options.replica_count or 0)
+    datafs = options.datafs
 
+    # start neo
+    neo = NEOCluster(
+        db_list=['test_import_%d' % i for i in xrange(storages)],
+        clear_databases=True,
+        partitions=partitions,
+        replicas=replicas,
+        master_node_count=masters,
+        verbose=True,
+    )
+
+    # import datafs
+    neo.start()
+    summary, report = buildReport(*runImport(neo, datafs))
+    neo.stop()
+
+    # display and/or send the report
+    print summary
     print report
-    sendReport(report)
+    if options.sender:
+        sendReport(summary, report)
 
 
