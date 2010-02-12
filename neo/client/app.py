@@ -525,6 +525,8 @@ class Application(object):
             data = ''
         compressed_data = compress(data)
         checksum = makeChecksum(compressed_data)
+        p = Packets.AskStoreObject(oid, serial, 1,
+                 checksum, compressed_data, self.local_var.tid)
         # Store data on each node
         self.local_var.object_stored_counter = 0
         for cell in cell_list:
@@ -533,8 +535,6 @@ class Application(object):
                 continue
 
             self.local_var.object_stored = 0
-            p = Packets.AskStoreObject(oid, serial, 1,
-                     checksum, compressed_data, self.local_var.tid)
             try:
                 self._askStorage(conn, p)
             except ConnectionClosed:
