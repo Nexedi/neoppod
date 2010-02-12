@@ -23,21 +23,6 @@ from neo.protocol import NodeTypes, NodeStates, CellStates
 class HiddenHandler(BaseMasterHandler):
     """This class implements a generic part of the event handlers."""
 
-    def notifyNodeInformation(self, conn, node_list):
-        """Store information on nodes, only if this is sent by a primary
-        master node."""
-        app = self.app
-        self.app.nm.update(node_list)
-        for node_type, addr, uuid, state in node_list:
-            if node_type == NodeTypes.STORAGE:
-                if uuid == self.app.uuid:
-                    # This is me, do what the master tell me
-                    if state in (NodeStates.DOWN, NodeStates.TEMPORARILY_DOWN,
-                            NodeStates.BROKEN):
-                        conn.close()
-                        erase_db = state == NodeStates.DOWN
-                        self.app.shutdown(erase=erase_db)
-
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
         the information is only about changes from the previous."""
