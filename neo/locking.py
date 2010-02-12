@@ -116,7 +116,7 @@ class VerboseRLock(VerboseLockBase):
         self.lock = threading_RLock()
 
     def _locked(self):
-        return self.lock.__block.locked()
+        return self.lock._RLock__block.locked()
 
     def _is_owned(self):
         return self.lock._is_owned()
