@@ -204,35 +204,38 @@ class Replicator(object):
         if self.new_partition_dict:
             self._askCriticalTID()
 
-        if self.current_partition is None:
-            # I need to choose something.
-            if self.waiting_for_unfinished_tids:
-                # Still waiting.
-                logging.debug('waiting for unfinished tids')
-                return
-            elif self.unfinished_tid_list is not None:
-                # Try to select something.
-                for partition in self.partition_dict.values():
-                    if partition.safe(self.unfinished_tid_list):
-                        self.current_partition = partition
-                        self.unfinished_tid_list = None
-                        break
-                else:
-                    # Not yet.
-                    logging.debug('not ready yet')
-                    self.unfinished_tid_list = None
-                    return
-
-                self._startReplication()
-            else:
-                # Ask pending transactions.
-                logging.debug('asking unfinished tids')
-                self._askUnfinishedTIDs()
-        else:
+        if self.current_partition is not None:
             if self.replication_done:
+                # finish a replication
                 logging.info('replication is done for %s' %
                         (self.current_partition.getRID(), ))
                 self._finishReplication()
+            return
+
+        if self.waiting_for_unfinished_tids:
+            # Still waiting.
+            logging.debug('waiting for unfinished tids')
+            return
+
+        if self.unfinished_tid_list is None:
+            # Ask pending transactions.
+            logging.debug('asking unfinished tids')
+            self._askUnfinishedTIDs()
+            return
+
+        # Try to select something.
+        for partition in self.partition_dict.values():
+            if partition.safe(self.unfinished_tid_list):
+                self.current_partition = partition
+                self.unfinished_tid_list = None
+                break
+        else:
+            # Not yet.
+            logging.debug('not ready yet')
+            self.unfinished_tid_list = None
+            return
+
+        self._startReplication()
 
     def removePartition(self, rid):
         """This is a callback from OperationEventHandler."""
