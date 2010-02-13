@@ -156,7 +156,7 @@ if __name__ == "__main__":
         partitions=partitions,
         replicas=replicas,
         master_node_count=masters,
-        verbose=True,
+        verbose=False,
     )
 
     # import datafs
