@@ -216,14 +216,16 @@ class Application(object):
     def _getMasterConnection(self):
         """ Connect to the primary master node on demand """
         # acquire the lock to allow only one thread to connect to the primary
-        self._connecting_to_master_node_acquire()
-        try:
-            if self.master_conn is None:
+        result = self.master_conn
+        if result is None:
+            self._connecting_to_master_node_acquire()
+            try:
                 self.new_oid_list = []
-                self.master_conn = self._connectToPrimaryNode()
-            return self.master_conn
-        finally:
-            self._connecting_to_master_node_release()
+                result = self._connectToPrimaryNode()
+                self.master_conn = result
+            finally:
+                self._connecting_to_master_node_release()
+        return result
 
     def _getPartitionTable(self):
         """ Return the partition table manager, reconnect the PMN if needed """
