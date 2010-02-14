@@ -236,11 +236,7 @@ class Connection(BaseConnection):
 
     def _getNextId(self):
         next_id = self.cur_id
-        # Deal with an overflow.
-        if self.cur_id == 0xffffffff:
-            self.cur_id = 0
-        else:
-            self.cur_id += 1
+        self.cur_id = (next_id + 1) & 0xffffffff
         return next_id
 
     def close(self):
