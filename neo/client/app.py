@@ -18,7 +18,7 @@
 from thread import get_ident
 from cPickle import dumps
 from zlib import compress, decompress
-from Queue import Queue, Empty
+from neo.locking import Queue, Empty
 from random import shuffle
 from time import sleep
 
