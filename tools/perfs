@@ -23,6 +23,7 @@ def runImport(neo, datafs):
         def updateLastSerial(oid, result):
             if result:
                 if isinstance(result, str):
+                    assert oid is not None
                     preindex[oid] = result
                 else:
                     for oid, serial in result:
@@ -40,7 +41,7 @@ def runImport(neo, datafs):
                 pre = preindex.get(r.oid, None)
                 s = self.store(r.oid, pre, r.data, r.version, transaction)
                 updateLastSerial(r.oid, s)
-            self.tpc_vote(transaction)
+            updateLastSerial(None, self.tpc_vote(transaction))
             self.tpc_finish(transaction)
         fiter.close()
         return {
