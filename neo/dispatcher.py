@@ -70,9 +70,12 @@ class Dispatcher:
         try:
             message_table = self.message_table.pop(id(conn), EMPTY)
         finally:
-            self.message_table_lock_release()
+        notified_set = set()
         for queue in message_table.itervalues():
-            queue.put((conn, None))
+            queue_id = id(queue)
+            if queue_id not in notified_set:
+                queue.put((conn, None))
+                notified_set.add(queue_id)
 
     def registered(self, conn):
         """Check if a connection is registered into message table."""
