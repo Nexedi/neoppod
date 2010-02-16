@@ -32,6 +32,7 @@ class Dispatcher:
 
     def __init__(self):
         self.message_table = {}
+        self.queue_dict = {}
         lock = Lock()
         self.lock_acquire = lock.acquire
         self.lock_release = lock.release
@@ -42,6 +43,7 @@ class Dispatcher:
         queue = self.message_table.get(id(conn), EMPTY).pop(msg_id, None)
         if queue is None:
             return False
+        self.queue_dict[id(queue)] -= 1
         queue.put(data)
         return True
 
@@ -49,6 +51,12 @@ class Dispatcher:
     def register(self, conn, msg_id, queue):
         """Register an expectation for a reply."""
         self.message_table.setdefault(id(conn), {})[msg_id] = queue
+        queue_dict = self.queue_dict
+        key = id(queue)
+        try:
+            queue_dict[key] += 1
+        except KeyError:
+            queue_dict[key] = 1
 
     def unregister(self, conn):
         """ Unregister a connection and put fake packet in queues to unlock
@@ -59,13 +67,19 @@ class Dispatcher:
         finally:
             self.lock_release()
         notified_set = set()
+        queue_dict = self.queue_dict
         for queue in message_table.itervalues():
             queue_id = id(queue)
             if queue_id not in notified_set:
                 queue.put((conn, None))
                 notified_set.add(queue_id)
+            queue_dict[queue_id] -= 1
 
     def registered(self, conn):
         """Check if a connection is registered into message table."""
         return len(self.message_table.get(id(conn), EMPTY)) != 0
+
+    @giant_lock
+    def pending(self, queue):
+        return not queue.empty() or self.queue_dict[id(queue)] > 0
 

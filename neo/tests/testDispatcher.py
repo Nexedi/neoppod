@@ -64,6 +64,49 @@ class DispatcherTests(unittest.TestCase):
         self.assertFalse(self.dispatcher.registered(conn1))
         self.assertFalse(self.dispatcher.registered(conn2))
 
+    def testPending(self):
+        conn1 = object()
+        conn2 = object()
+        class Queue(object):
+            _empty = True
+
+            def empty(self):
+                return self._empty
+
+            def put(self, value):
+                pass
+        queue1 = Queue()
+        queue2 = Queue()
+        self.dispatcher.register(conn1, 1, queue1)
+        self.assertTrue(self.dispatcher.pending(queue1))
+        self.dispatcher.register(conn2, 2, queue1)
+        self.assertTrue(self.dispatcher.pending(queue1))
+        self.dispatcher.register(conn2, 3, queue2)
+        self.assertTrue(self.dispatcher.pending(queue1))
+        self.assertTrue(self.dispatcher.pending(queue2))
+
+        self.dispatcher.dispatch(conn1, 1, None)
+        self.assertTrue(self.dispatcher.pending(queue1))
+        self.assertTrue(self.dispatcher.pending(queue2))
+        self.dispatcher.dispatch(conn2, 2, None)
+        self.assertFalse(self.dispatcher.pending(queue1))
+        self.assertTrue(self.dispatcher.pending(queue2))
+
+        queue1._empty = False
+        self.assertTrue(self.dispatcher.pending(queue1))
+        queue1._empty = True
+
+        self.dispatcher.register(conn1, 4, queue1)
+        self.dispatcher.register(conn2, 5, queue1)
+        self.assertTrue(self.dispatcher.pending(queue1))
+        self.assertTrue(self.dispatcher.pending(queue2))
+
+        self.dispatcher.unregister(conn2)
+        self.assertTrue(self.dispatcher.pending(queue1))
+        self.assertFalse(self.dispatcher.pending(queue2))
+        self.dispatcher.unregister(conn1)
+        self.assertFalse(self.dispatcher.pending(queue1))
+        self.assertFalse(self.dispatcher.pending(queue2))
 
 if __name__ == '__main__':
     unittest.main()
