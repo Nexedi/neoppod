@@ -47,14 +47,6 @@ class Storage(BaseStorage.BaseStorage,
         # We have no such thing, so make this method a no-op.
         pass
 
-    def lastSerial(self):
-        # does not seem to be used
-        raise NotImplementedError
-
-    def lastTransaction(self):
-        # does not seem to be used
-        raise NotImplementedError
-
     def new_oid(self):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
@@ -105,12 +97,6 @@ class Storage(BaseStorage.BaseStorage,
                                              serials=(tid,
                                                       serial),data=data)
 
-#    def restore(self, oid, serial, data, version, prev_txn, transaction):
-#        raise NotImplementedError
-
-    def _clear_temp(self):
-        raise NotImplementedError
-
     def getSerial(self, oid):
         try:
             return self.app.getSerial(oid = oid)
@@ -158,10 +144,6 @@ class Storage(BaseStorage.BaseStorage,
     def commitVersion(self, src, dest, transaction):
         return '', []
 
-    def set_max_oid(self, possible_new_max_oid):
-        # seems to be only use by FileStorage
-        raise NotImplementedError
-
     def __len__(self):
         return self.app.getStorageSize()
 
@@ -174,3 +156,23 @@ class Storage(BaseStorage.BaseStorage,
     def sync(self):
         self.app.sync()
 
+#    def restore(self, oid, serial, data, version, prev_txn, transaction):
+#        raise NotImplementedError
+
+    def pack(self, t, referencesf):
+        raise NotImplementedError
+
+    def lastSerial(self):
+        # seems unused
+        raise NotImplementedError
+
+    def lastTransaction(self):
+        # seems unused
+        raise NotImplementedError
+
+    def _clear_temp(self):
+        raise NotImplementedError
+
+    def set_max_oid(self, possible_new_max_oid):
+        # seems used only by FileStorage
+        raise NotImplementedError
