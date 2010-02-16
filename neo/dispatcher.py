@@ -16,7 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo.locking import Lock
-MARKER = []
 EMPTY = {}
 
 def giant_lock(func):
@@ -38,12 +37,13 @@ class Dispatcher:
         self.lock_release = lock.release
 
     @giant_lock
-    def pop(self, conn, msg_id, default=MARKER):
-        """Retrieve register-time provided payload."""
-        result = self.message_table.get(id(conn), EMPTY).pop(msg_id, default)
-        if result is MARKER:
-            raise KeyError, (id(conn), msg_id)
-        return result
+    def dispatch(self, conn, msg_id, data):
+        """Retrieve register-time provided queue, and put data in it."""
+        queue = self.message_table.get(id(conn), EMPTY).pop(msg_id, None)
+        if queue is None:
+            return False
+        queue.put(data)
+        return True
 
     @giant_lock
     def register(self, conn, msg_id, queue):

@@ -19,6 +19,7 @@ import unittest
 
 from mock import Mock
 from neo.dispatcher import Dispatcher
+from Queue import Queue
 
 class DispatcherTests(unittest.TestCase):
 
@@ -27,9 +28,15 @@ class DispatcherTests(unittest.TestCase):
 
     def testRegister(self):
         conn = object()
-        self.dispatcher.register(conn, 1, 0)
-        self.assertEqual(self.dispatcher.pop(conn, 1, None), 0)
-        self.assertEqual(self.dispatcher.pop(conn, 2, 3), 3)
+        queue = Queue()
+        MARKER = object()
+        self.dispatcher.register(conn, 1, queue)
+        self.assertTrue(queue.empty())
+        self.assertTrue(self.dispatcher.dispatch(conn, 1, MARKER))
+        self.assertFalse(queue.empty())
+        self.assertTrue(queue.get(block=False) is MARKER)
+        self.assertTrue(queue.empty())
+        self.assertFalse(self.dispatcher.dispatch(conn, 2, None))
 
     def testUnregister(self):
         conn = object()
@@ -37,7 +44,7 @@ class DispatcherTests(unittest.TestCase):
         self.dispatcher.register(conn, 2, queue)
         self.dispatcher.unregister(conn)
         self.assertEqual(len(queue.mockGetNamedCalls('put')), 1)
-        self.assertEqual(self.dispatcher.pop(conn, 2, 3), 3)
+        self.assertFalse(self.dispatcher.dispatch(conn, 2, None))
 
     def testRegistered(self):
         conn1 = object()
