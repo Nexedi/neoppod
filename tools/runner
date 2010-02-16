@@ -71,6 +71,18 @@ FUNC_TEST_MODULES = [
 ]
 
 ZODB_TEST_MODULES = [
+    ('neo.tests.zodb.testBasic', 'check'),
+    ('neo.tests.zodb.testConflict', 'check'),
+    ('neo.tests.zodb.testHistory', 'check'),
+    ('neo.tests.zodb.testIterator', 'check'),
+    ('neo.tests.zodb.testMT', 'check'),
+    # ('neo.tests.zodb.testPack', 'check'),
+    ('neo.tests.zodb.testPersistent', 'check'),
+    ('neo.tests.zodb.testReadOnly', 'check'),
+    ('neo.tests.zodb.testRevision', 'check'),
+    ('neo.tests.zodb.testSynchronization', 'check'),
+    # ('neo.tests.zodb.testVersion', 'check'),
+    ('neo.tests.zodb.testUndo', 'check'),
     ('neo.tests.zodb.testZODB', 'check'),
 ]
 
