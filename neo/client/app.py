@@ -568,15 +568,17 @@ class Application(object):
 
     def tpc_vote(self, transaction):
         """Store current transaction."""
-        if transaction is not self.local_var.txn:
+        local_var = self.local_var
+        if transaction is not local_var.txn:
             raise StorageTransactionError(self, transaction)
+        tid = local_var.tid
         user = transaction.user
         desc = transaction.description
         ext = dumps(transaction._extension)
         oid_list = self.local_var.data_dict.keys()
         # Store data on each node
         voted_counter = 0
-        cell_list = self._getCellListForTID(self.local_var.tid, writable=True)
+        cell_list = self._getCellListForTID(tid, writable=True)
         for cell in cell_list:
             logging.debug("voting object %s %s" %(cell.getAddress(),
                 cell.getState()))
@@ -584,8 +586,8 @@ class Application(object):
             if conn is None:
                 continue
 
-            self.local_var.txn_voted = False
-            p = Packets.AskStoreTransaction(self.local_var.tid,
+            local_var.txn_voted = False
+            p = Packets.AskStoreTransaction(tid,
                     user, desc, ext, oid_list)
             try:
                 self._askStorage(conn, p)
