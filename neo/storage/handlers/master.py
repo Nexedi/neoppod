@@ -25,9 +25,6 @@ from neo.exception import OperationFailure
 class MasterOperationHandler(BaseMasterHandler):
     """ This handler is used for the primary master """
 
-    def stopOperation(self, conn):
-        raise OperationFailure('operation stopped')
-
     def answerLastIDs(self, conn, loid, ltid, lptid):
         self.app.replicator.setCriticalTID(conn.getUUID(), ltid)
 

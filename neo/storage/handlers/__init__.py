@@ -28,6 +28,9 @@ class BaseMasterHandler(EventHandler):
     def connectionLost(self, conn, new_state):
         raise PrimaryFailure('connection lost')
 
+    def stopOperation(self, conn):
+        raise OperationFailure('operation stopped')
+
     def reelectPrimary(self, conn):
         raise PrimaryFailure('re-election occurs')
 
