@@ -51,7 +51,7 @@ class InitializationHandler(BaseMasterHandler):
                 if cell.getUUID() == app.uuid:
                     assigned_to_me = True
             if not assigned_to_me:
-                logging.warning('drop data for partition %d' % offset)
+                logging.debug('drop data for partition %d' % offset)
                 # not for me, delete objects database
                 app.dm.dropPartition(app.pt.getPartitions(), offset)
 
