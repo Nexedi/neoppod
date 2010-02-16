@@ -21,7 +21,7 @@ from Queue import Empty
   classes).
 """
 
-__all__ = ['Lock', 'RLock']
+__all__ = ['Lock', 'RLock', 'Queue', 'Empty']
 
 VERBOSE_LOCKING = False
 
