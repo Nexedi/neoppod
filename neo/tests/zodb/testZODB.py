@@ -16,11 +16,11 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from ZODB.tests.testZODB import ZODBTests
+from ZODB.tests import testZODB
 
 from neo.tests.zodb import ZODBTestCase
 
-class NEOZODBTests(ZODBTestCase, ZODBTests):
+class NEOZODBTests(ZODBTestCase, testZODB.ZODBTests):
     pass
 
 if __name__ == "__main__":
