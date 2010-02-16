@@ -578,8 +578,8 @@ class Application(object):
             transaction.description, dumps(transaction._extension),
             local_var.data_dict.keys())
         for cell in self._getCellListForTID(tid, writable=True):
-            logging.debug("voting object %s %s" %(cell.getAddress(),
-                cell.getState()))
+            logging.debug("voting object %s %s", cell.getAddress(),
+                cell.getState())
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
