@@ -62,14 +62,18 @@ def runImport(neo, datafs):
 
     return (dfs_size, elapsed, stats)
 
-def buildReport(dfs_size, elapsed, stats):
+def buildReport(config, dfs_size, elapsed, stats):
     """ build a report for the given import data """
 
     pat = '%19s | %8s | %5s | %5s | %5s \n'
     sep = '%19s+%8s+%5s+%5s+%5s\n'
     sep %= ('-' * 20, '-' * 10) + ('-' * 7, ) * 3
 
-    # system informations
+    dfs_size /= 1024
+    size = dfs_size / 1024
+    speed = dfs_size / elapsed
+
+    # system
     report = ' ' * 20 + ' NEO PERF REPORT\n\n'
     report += "\tDate        : %s\n" % datetime.date.today().isoformat()
     report += "\tNode        : %s\n" % platform.node()
@@ -77,6 +81,17 @@ def buildReport(dfs_size, elapsed, stats):
             platform.architecture()[0])
     report += "\tSystem      : %s (%s)\n" % (platform.system(),
             platform.release())
+    report += '\n'
+    # configuration
+    report += "\tMasters     : %s\n" % (config['masters'], )
+    report += "\tStorages    : %s\n" % (config['storages'], )
+    report += "\tReplicas    : %s\n" % (config['replicas'], )
+    report += "\tPartitions  : %s\n" % (config['partitions'], )
+    report += '\n'
+    # results
+    report += '\n%19s: %6.1f MB' % ('Input size', size)
+    report += '\n%19s: %6d sec' % ('Import duration', elapsed)
+    report += '\n%19s: %6.1f KB/s\n' % ('Average speed', speed)
     report += '\n\n'
 
     # stats on objects and transactions
@@ -86,14 +101,6 @@ def buildReport(dfs_size, elapsed, stats):
         s = sum(v)
         report += pat % (k, s,  min(v), s / len(v), max(v))
     report += sep
-
-    # global results
-    dfs_size /= 1024
-    size = dfs_size / 1024
-    speed = dfs_size / elapsed
-    report += '\n%19s: %6.1f MB' % ('Input size', size)
-    report += '\n%19s: %6d sec' % ('Import duration', elapsed)
-    report += '\n%19s: %6.1f KB/s\n' % ('Average speed', speed)
 
     # build summary
     summary = 'Neo : %6.1f KB/s (%6.1f MB)' % (speed, size)
@@ -147,12 +154,14 @@ if __name__ == "__main__":
         sys.exit('Need a sender and recipients to mail report')
 
     # load options or defaults
-    masters = int(options.master_count or 1)
-    storages = int(options.storage_count or 1)
-    partitions = int(options.partition_count or 10)
-    replicas = int(options.replica_count or 0)
-    datafs = options.datafs
+    config = dict(
+        masters = int(options.master_count or 1),
+        storages = int(options.storage_count or 1),
+        partitions = int(options.partition_count or 10),
+        replicas = int(options.replica_count or 0),
+    )
 
+    datafs = options.datafs
     mail_server = options.server or '127.0.0.1:25'
     mail_server = mail_server.split(':')
     sender = options.sender
@@ -160,17 +169,17 @@ if __name__ == "__main__":
 
     # start neo
     neo = NEOCluster(
-        db_list=['test_import_%d' % i for i in xrange(storages)],
+        db_list=['test_import_%d' % i for i in xrange(config['storages'])],
         clear_databases=True,
-        partitions=partitions,
-        replicas=replicas,
-        master_node_count=masters,
+        partitions=config['partitions'],
+        replicas=config['replicas'],
+        master_node_count=config['masters'],
         verbose=False,
     )
 
     # import datafs
     neo.start()
-    summary, report = buildReport(*runImport(neo, datafs))
+    summary, report = buildReport(config, *runImport(neo, datafs))
     neo.stop()
 
     # display and/or send the report
