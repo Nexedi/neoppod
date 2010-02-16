@@ -63,12 +63,15 @@ UNIT_TEST_MODULES = [
 ]
 
 FUNC_TEST_MODULES = [
-    ('neo.tests.functional.testZODB', 'check'),
     'neo.tests.functional.testMaster',
     'neo.tests.functional.testClient',
     'neo.tests.functional.testCluster',
     'neo.tests.functional.testStorage',
     'neo.tests.functional.testImportExport',
+]
+
+ZODB_TEST_MODULES = [
+    ('neo.tests.zodb.testZODB', 'check'),
 ]
 
 # configuration 
@@ -323,6 +326,7 @@ if __name__ == "__main__":
     parser = optparse.OptionParser()
     parser.add_option('-f', '--functional', action='store_true')
     parser.add_option('-u', '--unit', action='store_true')
+    parser.add_option('-z', '--zodb', action='store_true')
     parser.add_option('', '--recipient', action='append')
     parser.add_option('', '--sender')
     parser.add_option('', '--server')
@@ -331,7 +335,7 @@ if __name__ == "__main__":
     # check arguments
     if bool(options.sender) ^ bool(options.recipient):
         sys.exit('Need a sender and recipients to mail report')
-    if not (options.unit or options.functional):
+    if not (options.unit or options.functional or options.zodb):
         sys.exit('Nothing to run, please set -f and/or -u flag')
     mail_server = options.server or '127.0.0.1:25'
     mail_server = mail_server.split(':')
@@ -342,6 +346,8 @@ if __name__ == "__main__":
         runner.run('Unit tests', UNIT_TEST_MODULES)
     if options.functional:
         runner.run('Functional tests', FUNC_TEST_MODULES)
+    if options.zodb:
+        runner.run('ZODB tests', ZODB_TEST_MODULES)
 
     # build report
     runner.build()
