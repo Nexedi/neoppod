@@ -155,41 +155,65 @@ class Application(object):
         self._nm_acquire = lock.acquire
         self._nm_release = lock.release
 
-    def _waitMessage(self, target_conn = None, msg_id = None, handler=None):
-        """Wait for a message returned by the dispatcher in queues."""
-        local_queue = self.local_var.queue
-        while True:
-            if msg_id is None:
-                try:
-                    conn, packet = local_queue.get_nowait()
-                except Empty:
-                    break
-            else:
-                conn, packet = local_queue.get()
-            # check fake packet
-            if packet is None:
-                if conn.getUUID() == target_conn.getUUID():
-                    raise ConnectionClosed
-                else:
-                    continue
+    def _handlePacket(self, conn, packet, handler=None):
+        """
+          conn
+            The connection which received the packet (forwarded to handler).
+          packet
+            The packet to handle.
+          handler
+            The handler to use to handle packet.
+            If not given, it will be guessed from connection's not type.
+        """
+        if handler is None:
             # Guess the handler to use based on the type of node on the
             # connection
-            if handler is None:
-                node = self.nm.getByAddress(conn.getAddress())
-                if node is None:
-                    raise ValueError, 'Expecting an answer from a node ' \
-                        'which type is not known... Is this right ?'
-                else:
-                    if node.isStorage():
-                        handler = self.storage_handler
-                    elif node.isMaster():
-                        handler = self.primary_handler
-                    else:
-                        raise ValueError, 'Unknown node type: %r' % (
-                            node.__class__, )
-            handler.dispatch(conn, packet)
-            if target_conn is conn and msg_id == packet.getId():
+            node = self.nm.getByAddress(conn.getAddress())
+            if node is None:
+                raise ValueError, 'Expecting an answer from a node ' \
+                    'which type is not known... Is this right ?'
+            if node.isStorage():
+                handler = self.storage_handler
+            elif node.isMaster():
+                handler = self.primary_handler
+            else:
+                raise ValueError, 'Unknown node type: %r' % (node.__class__, )
+        handler.dispatch(conn, packet)
+
+    def _waitAnyMessage(self, block=True):
+        """
+          Handle all pending packets.
+          block
+            If True (default), will block until at least one packet was
+            received.
+        """
+        get = self.local_var.queue.get
+        _handlePacket = self._handlePacket
+        while True:
+            try:
+                conn, packet = get(block)
+            except Empty:
                 break
+            block = False
+            try:
+                _handlePacket(conn, packet)
+            except ConnectionClosed:
+                pass
+
+    def _waitMessage(self, target_conn, msg_id, handler=None):
+        """Wait for a message returned by the dispatcher in queues."""
+        get = self.local_var.queue.get
+        _handlePacket = self._handlePacket
+        while True:
+            conn, packet = get(True)
+            if target_conn is conn:
+                # check fake packet
+                if packet is None:
+                    raise ConnectionClosed
+                if msg_id == packet.getId():
+                    self._handlePacket(conn, packet, handler=handler)
+                    break
+            self._handlePacket(conn, packet)
 
     def _askStorage(self, conn, packet, timeout=5, additional_timeout=30):
         """ Send a request to a storage node and process it's answer """
@@ -756,10 +780,7 @@ class Application(object):
 
         # Wait for answers from all storages.
         while len(self.local_var.node_tids) != len(storage_node_list):
-            try:
-                self._waitMessage(handler=self.storage_handler)
-            except ConnectionClosed:
-                continue
+            self._waitAnyMessage()
 
         # Reorder tids
         ordered_tids = set()
@@ -893,7 +914,7 @@ class Application(object):
     close = __del__
 
     def sync(self):
-        self._waitMessage()
+        self._waitAnyMessage(False)
 
     def setNodeReady(self):
         self.local_var.node_ready = True

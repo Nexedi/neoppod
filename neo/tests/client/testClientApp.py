@@ -43,12 +43,11 @@ def _getPartitionTable(self):
         self.master_conn = _getMasterConnection(self)
     return self.pt
 
-def _waitMessage(self, conn=None, msg_id=None, handler=None):
-    if conn is not None and handler is not None:
-        handler.dispatch(conn, conn.fakeReceived())
-    else:
+def _waitMessage(self, conn, msg_id, handler=None):
+    if handler is None:
         raise NotImplementedError
-
+    else:
+        handler.dispatch(conn, conn.fakeReceived())
 
 class ClientApplicationTests(NeoTestBase):
 
@@ -218,7 +217,7 @@ class ClientApplicationTests(NeoTestBase):
                      'getAddress': ('127.0.0.1', 0),
                      'fakeReceived': packet,
                      })
-        app.local_var.queue = Mock({'get_nowait' : (conn, None)})
+        app.local_var.queue = Mock({'get' : (conn, None)})
         app.pt = Mock({ 'getCellListForOID': (cell, ), })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = -1
@@ -776,11 +775,11 @@ class ClientApplicationTests(NeoTestBase):
             'getCellListForTID': ReturnValues([cell1], [cell2]),
         })
         app.cp = Mock({ 'getConnForCell': conn})
-        def _waitMessage(self, conn=None, msg_id=None, handler=None):
+        def _waitAnyMessage(self):
             self.local_var.node_tids = {uuid1: (tid1, ), uuid2: (tid2, )}
-            Application._waitMessage = _waitMessage_old
-        _waitMessage_old = Application._waitMessage
-        Application._waitMessage = _waitMessage
+            Application._waitAnyMessage = _waitAnyMessage_old
+        _waitAnyMessage_old = Application._waitAnyMessage
+        Application._waitAnyMessage = _waitAnyMessage
         def txn_filter(info):
             return info['id'] > '\x00' * 8
         result = app.undoLog(0, 4, filter=txn_filter)
@@ -835,42 +834,42 @@ class ClientApplicationTests(NeoTestBase):
         # TODO: test more connection failure cases
         # Seventh packet : askNodeInformation succeeded
         all_passed = []
-        def _waitMessage8(self, conn=None, msg_id=None, handler=None):
+        def _waitMessage8(self, conn, msg_id, handler=None):
             all_passed.append(1)
         # Sixth packet : askPartitionTable succeeded
-        def _waitMessage7(self, conn=None, msg_id=None, handler=None):
+        def _waitMessage7(self, conn, msg_id, handler=None):
             app.pt = Mock({'operational': True})
             Application._waitMessage = _waitMessage8
         # fifth packet : request node identification succeeded
-        def _waitMessage6(self, conn=None, msg_id=None, handler=None):
+        def _waitMessage6(self, conn, msg_id, handler=None):
             conn.setUUID('D' * 16)
             app.uuid = 'C' * 16
             Application._waitMessage = _waitMessage7
         # fourth iteration : connection to primary master succeeded
-        def _waitMessage5(self, conn=None, msg_id=None, handler=None):
+        def _waitMessage5(self, conn, msg_id, handler=None):
             app.trying_master_node = app.primary_master_node = Mock({
                 'getAddress': ('192.168.1.1', 10000),
                 '__str__': 'Fake master node',
             })
             Application._waitMessage = _waitMessage6
         # third iteration : node not ready
-        def _waitMessage4(app, conn=None, msg_id=None, handler=None):
+        def _waitMessage4(app, conn, msg_id, handler=None):
             app.setNodeNotReady()
             app.trying_master_node = None
             Application._waitMessage = _waitMessage5
         # second iteration : master node changed
-        def _waitMessage3(app, conn=None, msg_id=None, handler=None):
+        def _waitMessage3(app, conn, msg_id, handler=None):
             app.primary_master_node = Mock({
                 'getAddress': ('192.168.1.1', 10000),
                 '__str__': 'Fake master node',
             })
             Application._waitMessage = _waitMessage4
         # first iteration : connection failed
-        def _waitMessage2(app, conn=None, msg_id=None, handler=None):
+        def _waitMessage2(app, conn, msg_id, handler=None):
             app.trying_master_node = None
             Application._waitMessage = _waitMessage3
         # do nothing for the first call
-        def _waitMessage1(app, conn=None, msg_id=None, handler=None):
+        def _waitMessage1(app, conn, msg_id, handler=None):
             Application._waitMessage = _waitMessage2
         _waitMessage_old = Application._waitMessage
         Application._waitMessage = _waitMessage1
@@ -892,7 +891,7 @@ class ClientApplicationTests(NeoTestBase):
         app.dispatcher = Mock()
         conn = Mock()
         self.test_ok = False
-        def _waitMessage_hook(app, conn=None, msg_id=None, handler=None):
+        def _waitMessage_hook(app, conn, msg_id, handler=None):
             self.test_ok = True
         _waitMessage_old = Application._waitMessage
         packet = Packets.AskBeginTransaction(None)
@@ -917,7 +916,7 @@ class ClientApplicationTests(NeoTestBase):
         app.master_conn = conn
         app.primary_handler = Mock()
         self.test_ok = False
-        def _waitMessage_hook(app, conn=None, msg_id=None, handler=None):
+        def _waitMessage_hook(app, conn, msg_id, handler=None):
             self.assertTrue(handler is app.primary_handler)
             self.test_ok = True
         _waitMessage_old = Application._waitMessage
