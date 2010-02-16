@@ -60,7 +60,6 @@ class ThreadContext(object):
         self.conflict_serial = 0
         self.asked_object = 0
         self.object_stored_counter = 0
-        self.voted_counter = 0
 
     def __getThreadData(self):
         thread_id = get_ident()
@@ -576,8 +575,8 @@ class Application(object):
         ext = dumps(transaction._extension)
         oid_list = self.local_var.data_dict.keys()
         # Store data on each node
+        voted_counter = 0
         cell_list = self._getCellListForTID(self.local_var.tid, writable=True)
-        self.local_var.voted_counter = 0
         for cell in cell_list:
             logging.debug("voting object %s %s" %(cell.getAddress(),
                 cell.getState()))
@@ -595,10 +594,10 @@ class Application(object):
 
             if not self.isTransactionVoted():
                 raise NEOStorageError('tpc_vote failed')
-            self.local_var.voted_counter += 1
+            voted_counter += 1
 
         # check at least one storage node accepted
-        if self.local_var.voted_counter == 0:
+        if voted_counter == 0:
             raise NEOStorageError('tpc_vote failed')
         # Check if master connection is still alive.
         # This is just here to lower the probability of detecting a problem
