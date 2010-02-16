@@ -4,6 +4,7 @@ import sys
 import os
 import math
 import optparse
+import traceback
 from time import time
 
 from neo.tests.functional import NEOCluster
@@ -35,7 +36,8 @@ def run(masters, storages, replicas, partitions, datafs, verbose):
             neo_storage.copyTransactionsFrom(dfs_storage)
             return time() - start
         except:
-            return -1
+            traceback.print_exc()
+            return None
     finally:
         neo.stop()
 
@@ -45,8 +47,10 @@ def runMatrix(datafs, storages, replicas, verbose):
     for s in storages:
         for r in [r for r in replicas if r < s]:
             stats.setdefault(s, {})
-            speed = size / run(1, s, r, 100, datafs, verbose)
-            stats[s][r] = speed / 1024
+            result = run(1, s, r, 100, datafs, verbose)
+            if result is not None:
+                result = size / result / 1024
+            stats[s][r] = result
     return stats
 
 def buildArray(storages, replicas, results):
@@ -61,7 +65,10 @@ def buildArray(storages, replicas, results):
         assert s in results
         for r in replicas:
             if r in results[s]:
-                values.append('%8.1f' % results[s][r])
+                if results[s][r] is None:
+                    values.append('FAIL')
+                else:
+                    values.append('%8.1f' % results[s][r])
             else:
                 values.append('N/A')
         report += fmt % (tuple([s] + values))
