@@ -30,10 +30,14 @@ def run(masters, storages, replicas, partitions, datafs, verbose):
     # Storage.store = store
     neo.start()
     start = time()
-    neo_storage.copyTransactionsFrom(dfs_storage)
-    diff = time() - start
-    neo.stop()
-    return diff
+    try:
+        try:
+            neo_storage.copyTransactionsFrom(dfs_storage)
+            return time() - start
+        except:
+            return -1
+    finally:
+        neo.stop()
 
 def runMatrix(datafs, storages, replicas, verbose):
     stats = {}
@@ -41,12 +45,8 @@ def runMatrix(datafs, storages, replicas, verbose):
     for s in storages:
         for r in [r for r in replicas if r < s]:
             stats.setdefault(s, {})
-            try:
-                speed = size / run(1, s, r, 100, datafs, verbose)
-                stats[s][r] = speed / 1024
-            except:
-                raise
-                stats[s][r] = 0
+            speed = size / run(1, s, r, 100, datafs, verbose)
+            stats[s][r] = speed / 1024
     return stats
 
 def buildArray(storages, replicas, results):
