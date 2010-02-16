@@ -1,0 +1,107 @@
+#!/usr/bin/python
+
+import sys
+import os
+import math
+import optparse
+from time import time
+
+from neo.tests.functional import NEOCluster
+from neo.client.Storage import Storage
+from ZODB.FileStorage import FileStorage
+
+def run(masters, storages, replicas, partitions, datafs, verbose):
+    print "Import of %s with m=%s, s=%s, r=%s, p=%s" % (
+            datafs, masters, storages, replicas, partitions)
+    def store(*args):
+        pass
+    # cluster
+    neo = NEOCluster(
+        db_list=['test_import_%d' % i for i in xrange(storages)],
+        clear_databases=True,
+        partitions=partitions,
+        replicas=replicas,
+        master_node_count=masters,
+        verbose=verbose,
+    )
+    # import
+    neo_storage = neo.getZODBStorage()
+    dfs_storage = FileStorage(file_name=datafs)
+    # Storage.store = store
+    neo.start()
+    start = time()
+    neo_storage.copyTransactionsFrom(dfs_storage)
+    diff = time() - start
+    neo.stop()
+    return diff
+
+def runMatrix(datafs, storages, replicas, verbose):
+    stats = {}
+    size = float(os.path.getsize(datafs))
+    for s in storages:
+        for r in [r for r in replicas if r < s]:
+            stats.setdefault(s, {})
+            try:
+                speed = size / run(1, s, r, 100, datafs, verbose)
+                stats[s][r] = speed / 1024
+            except:
+                raise
+                stats[s][r] = 0
+    return stats
+
+def buildArray(storages, replicas, results):
+    # draw an array with results
+    fmt = '|' + '|'.join(['  %8s  '] * (len(replicas) + 1)) + '|\n'
+    sep = '+' + '+'.join(['-' * 12] * (len(replicas) + 1)) + '+\n'
+    report = sep
+    report += fmt % tuple(['S\R'] + range(0, len(replicas)))
+    report += sep
+    for s in storages:
+        values = []
+        assert s in results
+        for r in replicas:
+            if r in results[s]:
+                values.append('%8.1f' % results[s][r])
+            else:
+                values.append('N/A')
+        report += fmt % (tuple([s] + values))
+        report += sep
+    return report
+
+if __name__ == "__main__":
+
+    # options
+    parser = optparse.OptionParser()
+    parser.add_option('-d', '--datafs')
+    parser.add_option('', '--min-storages')
+    parser.add_option('', '--max-storages')
+    parser.add_option('', '--min-replicas')
+    parser.add_option('', '--max-replicas')
+    parser.add_option('-v', '--verbose', action='store_true')
+    (options, args) = parser.parse_args()
+
+    # check arguments
+    if not options.datafs or not os.path.exists(options.datafs):
+        sys.exit('Missing or wrong data.fs argument')
+
+    # parse args
+    min_s = int(options.min_storages or 1)
+    max_s = int(options.max_storages or 2)
+    min_r = int(options.min_replicas or 0)
+    max_r = int(options.max_replicas or 1)
+    datafs = options.datafs
+    verbose = options.verbose or False
+
+    # build storage (logarithm) & replicas (linear) lists
+    min_s2 = int(math.log(min_s, 2))
+    max_s2 = int(math.log(max_s, 2))
+    storages = [2 ** x for x in range(min_s2, max_s2 + 1)]
+    if storages[0] < min_s:
+        storages[0] = min_s
+    if storages[-1] < max_s:
+        storages.append(max_s)
+    replicas = range(min_r, max_r + 1)
+    results = runMatrix(datafs, storages, replicas, verbose)
+    print buildArray(storages, replicas, results)
+
+
