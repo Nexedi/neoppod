@@ -572,14 +572,12 @@ class Application(object):
         if transaction is not local_var.txn:
             raise StorageTransactionError(self, transaction)
         tid = local_var.tid
-        user = transaction.user
-        desc = transaction.description
-        ext = dumps(transaction._extension)
-        oid_list = self.local_var.data_dict.keys()
         # Store data on each node
         voted_counter = 0
-        cell_list = self._getCellListForTID(tid, writable=True)
-        for cell in cell_list:
+        p = Packets.AskStoreTransaction(tid, transaction.user,
+            transaction.description, dumps(transaction._extension),
+            local_var.data_dict.keys())
+        for cell in self._getCellListForTID(tid, writable=True):
             logging.debug("voting object %s %s" %(cell.getAddress(),
                 cell.getState()))
             conn = self.cp.getConnForCell(cell)
@@ -587,8 +585,6 @@ class Application(object):
                 continue
 
             local_var.txn_voted = False
-            p = Packets.AskStoreTransaction(tid,
-                    user, desc, ext, oid_list)
             try:
                 self._askStorage(conn, p)
             except ConnectionClosed:
