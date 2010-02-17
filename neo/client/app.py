@@ -50,9 +50,8 @@ from neo.util import u64, parseMasterList
 
 class ThreadContext(object):
 
-    _threads_dict = {}
-
     def __init__(self):
+        super(ThreadContext, self).__setattr__('_threads_dict', {})
         self.txn_info = 0
         self.history = None
         self.node_tids = {}

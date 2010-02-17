@@ -939,6 +939,19 @@ class ClientApplicationTests(NeoTestBase):
         # check disabled since we reonnect to pmn
         #self.assertRaises(NEOStorageError, app._askPrimary, packet)
 
+    def test_threadContextIsolation(self):
+        """ Thread context properties must not be visible accross instances
+            while remaining in the same thread """
+        app1 = self.getApp()
+        app1_local = app1.local_var
+        app2 = self.getApp()
+        app2_local = app2.local_var
+        property_id = 'thread_context_test'
+        self.assertFalse(hasattr(app1_local, property_id))
+        self.assertFalse(hasattr(app2_local, property_id))
+        setattr(app1_local, property_id, 'value')
+        self.assertTrue(hasattr(app1_local, property_id))
+        self.assertFalse(hasattr(app2_local, property_id))
 
 if __name__ == '__main__':
     unittest.main()
