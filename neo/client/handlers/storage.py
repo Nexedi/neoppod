@@ -63,10 +63,18 @@ class StorageAnswersHandler(AnswerBaseHandler):
                 compression, checksum, data)
 
     def answerStoreObject(self, conn, conflicting, oid, serial):
+        local_var = self.app.local_var
+        object_stored_counter_dict = local_var.object_stored_counter_dict
         if conflicting:
-            self.app.local_var.object_stored = -1, serial
+            assert object_stored_counter_dict[oid] == 0, \
+                object_stored_counter_dict[oid]
+            previous_conflict_serial = local_var.conflict_serial_dict.get(oid,
+                None)
+            assert previous_conflict_serial in (None, serial), \
+                (previous_conflict_serial, serial)
+            local_var.conflict_serial_dict[oid] = serial
         else:
-            self.app.local_var.object_stored = oid, serial
+            object_stored_counter_dict[oid] += 1
 
     def answerStoreTransaction(self, conn, tid):
         if tid != self.app.getTID():

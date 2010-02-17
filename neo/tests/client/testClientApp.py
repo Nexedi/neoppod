@@ -20,8 +20,7 @@ from mock import Mock, ReturnValues
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
 from neo.tests import NeoTestBase
 from neo.client.app import Application
-from neo.client.exception import NEOStorageError, NEOStorageNotFoundError, \
-        NEOStorageConflictError
+from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo import protocol
 from neo.protocol import Packets, INVALID_TID, INVALID_SERIAL
 from neo.util import makeChecksum
@@ -48,6 +47,12 @@ def _waitMessage(self, conn, msg_id, handler=None):
         raise NotImplementedError
     else:
         handler.dispatch(conn, conn.fakeReceived())
+
+def resolving_tryToResolveConflict(oid, conflict_serial, serial, data):
+  return data
+
+def failing_tryToResolveConflict(oid, conflict_serial, serial, data):
+  return None
 
 class ClientApplicationTests(NeoTestBase):
 
@@ -130,7 +135,7 @@ class ClientApplicationTests(NeoTestBase):
         cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
         app.pt = Mock({ 'getCellListForTID': (cell, cell, ) })
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
-        app.tpc_vote(txn)
+        app.tpc_vote(txn, resolving_tryToResolveConflict)
 
     def askFinishTransaction(self, app):
         txn = app.local_var.txn
@@ -399,14 +404,16 @@ class ClientApplicationTests(NeoTestBase):
         # invalid transaction > StorageTransactionError
         app.local_var.txn = old_txn = object()
         self.assertTrue(app.local_var.txn is not txn)
-        self.assertRaises(StorageTransactionError, app.store, oid, tid, '', None, txn)
+        self.assertRaises(StorageTransactionError, app.store, oid, tid, '',
+            None, txn, resolving_tryToResolveConflict)
         self.assertEquals(app.local_var.txn, old_txn)
         # check partition_id and an empty cell list -> NEOStorageError
         app.local_var.txn = txn
         app.local_var.tid = tid
         app.pt = Mock({ 'getCellListForOID': (), })
         app.num_partitions = 2
-        self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None, txn)
+        self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None,
+            txn, resolving_tryToResolveConflict)
         calls = app.pt.mockGetNamedCalls('getCellListForOID')
         self.assertEquals(len(calls), 1)
         self.assertEquals(calls[0].getParam(0), oid) # oid=11
@@ -421,9 +428,10 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.tid = tid
         packet = Packets.AnswerStoreObject(conflicting=1, oid=oid, serial=tid)
         packet.setId(0)
+        storage_address = ('127.0.0.1', 10020)
         conn = Mock({
             'getNextId': 1,
-            'fakeReceived': packet,
+            'getAddress': storage_address,
         })
         cell = Mock({
             'getAddress': 'FakeServer',
@@ -431,15 +439,21 @@ class ClientApplicationTests(NeoTestBase):
         })
         app.pt = Mock({ 'getCellListForOID': (cell, cell, )})
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn)})
-        app.dispatcher = Mock({})
+        class Dispatcher(object):
+            def pending(self, queue): 
+                return not queue.empty()
+        app.dispatcher = Dispatcher()
+        app.nm.createStorage(address=storage_address)
         app.local_var.object_stored = (oid, tid)
         app.local_var.data_dict[oid] = 'BEFORE'
-        self.assertRaises(NEOStorageConflictError, app.store, oid, tid, '', None, txn)
+        app.store(oid, tid, '', None, txn, failing_tryToResolveConflict)
+        app.local_var.queue.put((conn, packet))
+        self.assertRaises(ConflictError, app.waitStoreResponses,
+            failing_tryToResolveConflict)
         self.assertTrue(oid not in app.local_var.data_dict)
-        self.assertEquals(app.getConflictSerial(), tid)
-        self.assertEquals(app.local_var.object_stored, (-1, tid))
+        self.assertEquals(app.local_var.conflict_serial_dict[oid], tid)
+        self.assertEquals(app.local_var.object_stored_counter_dict[oid], 0)
         self.checkAskStoreObject(conn)
-        self.checkDispatcherRegisterCalled(app, conn)
 
     def test_store3(self):
         app = self.getApp()
@@ -451,9 +465,10 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.tid = tid
         packet = Packets.AnswerStoreObject(conflicting=0, oid=oid, serial=tid)
         packet.setId(0)
+        storage_address = ('127.0.0.1', 10020)
         conn = Mock({
             'getNextId': 1,
-            'fakeReceived': packet,
+            'getAddress': storage_address,
         })
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn, ) })
         cell = Mock({
@@ -461,15 +476,18 @@ class ClientApplicationTests(NeoTestBase):
             'getState': 'FakeState',
         })
         app.pt = Mock({ 'getCellListForOID': (cell, cell, ) })
-        app.dispatcher = Mock({})
-        app.conflict_serial = None # reset by hand
-        app.local_var.object_stored = ()
-        app.store(oid, tid, 'DATA', None, txn)
-        self.assertEquals(app.local_var.object_stored, (oid, tid))
-        self.assertEquals(app.local_var.data_dict.get(oid, None), 'DATA')
-        self.assertNotEquals(app.conflict_serial, tid)
+        class Dispatcher(object):
+            def pending(self, queue): 
+                return not queue.empty()
+        app.dispatcher = Dispatcher()
+        app.nm.createStorage(address=storage_address)
+        app.store(oid, tid, 'DATA', None, txn, resolving_tryToResolveConflict)
         self.checkAskStoreObject(conn)
-        self.checkDispatcherRegisterCalled(app, conn)
+        app.local_var.queue.put((conn, packet))
+        app.waitStoreResponses(resolving_tryToResolveConflict)
+        self.assertEquals(app.local_var.object_stored_counter_dict[oid], 1)
+        self.assertEquals(app.local_var.data_dict.get(oid, None), 'DATA')
+        self.assertFalse(oid in app.local_var.conflict_serial_dict)
 
     def test_tpc_vote1(self):
         app = self.getApp()
@@ -478,7 +496,8 @@ class ClientApplicationTests(NeoTestBase):
         # invalid transaction > StorageTransactionError
         app.local_var.txn = old_txn = object()
         self.assertTrue(app.local_var.txn is not txn)
-        self.assertRaises(StorageTransactionError, app.tpc_vote, txn)
+        self.assertRaises(StorageTransactionError, app.tpc_vote, txn,
+            resolving_tryToResolveConflict)
         self.assertEquals(app.local_var.txn, old_txn)
 
     def test_tpc_vote2(self):
@@ -504,7 +523,8 @@ class ClientApplicationTests(NeoTestBase):
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
         app.dispatcher = Mock()
         app.tpc_begin(txn, tid)
-        self.assertRaises(NEOStorageError, app.tpc_vote, txn)
+        self.assertRaises(NEOStorageError, app.tpc_vote, txn,
+            resolving_tryToResolveConflict)
         calls = conn.mockGetNamedCalls('ask')
         self.assertEquals(len(calls), 1)
         packet = calls[0].getParam(1)
@@ -531,7 +551,7 @@ class ClientApplicationTests(NeoTestBase):
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
         app.dispatcher = Mock()
         app.tpc_begin(txn, tid)
-        app.tpc_vote(txn)
+        app.tpc_vote(txn, resolving_tryToResolveConflict)
         self.checkAskStoreTransaction(conn)
         self.checkDispatcherRegisterCalled(app, conn)
 
@@ -668,18 +688,21 @@ class ClientApplicationTests(NeoTestBase):
         app = self.getApp()
         tid = self.makeTID()
         txn = self.makeTransactionObject()
-        wrapper = Mock()
+        marker = []
+        def tryToResolveConflict(oid, conflict_serial, serial, data):
+            marker.append(1)
         app.local_var.txn = old_txn = object()
         app.master_conn = Mock()
         self.assertFalse(app.local_var.txn is txn)
         conn = Mock()
         cell = Mock()
-        self.assertRaises(StorageTransactionError, app.undo, tid, txn, wrapper)
+        self.assertRaises(StorageTransactionError, app.undo, tid, txn,
+            tryToResolveConflict)
         # no packet sent
         self.checkNoPacketSent(conn)
         self.checkNoPacketSent(app.master_conn)
         # nothing done
-        self.assertEquals(len(wrapper.mockGetNamedCalls('tryToResolveConflict')), 0)
+        self.assertEquals(marker, [])
         self.assertEquals(app.local_var.txn, old_txn)
 
     def test_undo2(self):
@@ -724,13 +747,19 @@ class ClientApplicationTests(NeoTestBase):
         u4p2 = Packets.AnswerObject(oid2, tid3, tid3, 0, makeChecksum('O2V2'), 'O2V2')
         u4p3 = Packets.AnswerStoreObject(conflicting=0, oid=oid2, serial=tid2)
         # test logic
-        packets = (u1p1, u1p2, u2p1, u2p2, u3p1, u3p2, u3p3, u3p1, u4p2, u4p3)
+        packets = (u1p1, u1p2, u2p1, u2p2, u3p1, u3p2, u3p3, u4p1, u4p2, u4p3)
         for i, p in enumerate(packets):
             p.setId(p)
+        storage_address = ('127.0.0.1', 10010)
         conn = Mock({
             'getNextId': 1,
-            'fakeReceived': ReturnValues(*packets),
-            'getAddress': ('127.0.0.1', 10010),
+            'fakeReceived': ReturnValues(
+                u1p1, u1p2,
+                u2p1, u2p2,
+                u4p1, u4p2,
+                u3p1, u3p2,
+            ),
+            'getAddress': storage_address,
         })
         cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
         app.pt = Mock({
@@ -738,14 +767,27 @@ class ClientApplicationTests(NeoTestBase):
             'getCellListForOID': (cell, ),
         })
         app.cp = Mock({ 'getConnForCell': conn})
-        wrapper = Mock({'tryToResolveConflict': None})
+        marker = []
+        def tryToResolveConflict(oid, conflict_serial, serial, data):
+            marker.append(1)
+        class Dispatcher(object):
+            def pending(self, queue): 
+                return not queue.empty()
+        app.dispatcher = Dispatcher()
+        app.nm.createStorage(address=storage_address)
         txn4 = self.beginTransaction(app, tid=tid4)
         # all start here
-        self.assertRaises(UndoError, app.undo, tid1, txn4, wrapper)
-        self.assertRaises(UndoError, app.undo, tid2, txn4, wrapper)
-        self.assertRaises(ConflictError, app.undo, tid3, txn4, wrapper)
-        self.assertEquals(len(wrapper.mockGetNamedCalls('tryToResolveConflict')), 1)
-        self.assertEquals(app.undo(tid3, txn4, wrapper), (tid4, [oid2, ]))
+        self.assertRaises(UndoError, app.undo, tid1, txn4,
+            tryToResolveConflict)
+        self.assertRaises(UndoError, app.undo, tid2, txn4,
+            tryToResolveConflict)
+        app.local_var.queue.put((conn, u4p3))
+        self.assertEquals(app.undo(tid3, txn4, tryToResolveConflict),
+            (tid4, [oid2, ]))
+        app.local_var.queue.put((conn, u3p3))
+        self.assertRaises(ConflictError, app.undo, tid3, txn4,
+            tryToResolveConflict)
+        self.assertEquals(marker, [1])
         self.askFinishTransaction(app)
 
     def test_undoLog(self):

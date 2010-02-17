@@ -86,13 +86,18 @@ class StorageAnswerHandlerTests(NeoTestBase):
         oid = self.getOID(0)
         tid = self.getNextTID()
         # conflict
-        self.app.local_var.object_stored = None
+        local_var = self.app.local_var
+        local_var.object_stored_counter_dict = {oid: 0}
+        local_var.conflict_serial_dict = {}
         self.handler.answerStoreObject(conn, 1, oid, tid)
-        self.assertEqual(self.app.local_var.object_stored, (-1, tid))
+        self.assertEqual(local_var.conflict_serial_dict[oid], tid)
+        self.assertFalse(local_var.object_stored_counter_dict[oid], 0)
         # no conflict
-        self.app.local_var.object_stored = None
+        local_var.object_stored_counter_dict = {oid: 0}
+        local_var.conflict_serial_dict = {}
         self.handler.answerStoreObject(conn, 0, oid, tid)
-        self.assertEqual(self.app.local_var.object_stored, (oid, tid))
+        self.assertFalse(oid in local_var.conflict_serial_dict)
+        self.assertEqual(local_var.object_stored_counter_dict[oid], 1)
 
     def test_answerStoreTransaction(self):
         conn = self.getConnection()

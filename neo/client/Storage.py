@@ -18,8 +18,7 @@
 from ZODB import BaseStorage, ConflictResolution, POSException
 
 from neo.client.app import Application
-from neo.client.exception import NEOStorageConflictError, \
-        NEOStorageNotFoundError
+from neo.client.exception import NEOStorageNotFoundError
 
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
@@ -61,7 +60,8 @@ class Storage(BaseStorage.BaseStorage,
     def tpc_vote(self, transaction):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        return self.app.tpc_vote(transaction=transaction)
+        return self.app.tpc_vote(transaction=transaction,
+            tryToResolveConflict=self.tryToResolveConflict)
 
     def tpc_abort(self, transaction):
         if self._is_read_only:
@@ -72,30 +72,11 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.tpc_finish(transaction=transaction, f=f)
 
     def store(self, oid, serial, data, version, transaction):
-        app = self.app
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        try:
-            return app.store(oid = oid, serial = serial,
-                             data = data, version = version,
-                             transaction = transaction)
-        except NEOStorageConflictError:
-            conflict_serial = app.getConflictSerial()
-            tid = app.getTID()
-            if conflict_serial <= tid:
-                # Try to resolve conflict only if conflicting serial is older
-                # than the current transaction ID
-                new_data = self.tryToResolveConflict(oid,
-                                                     conflict_serial,
-                                                     serial, data)
-                if new_data is not None:
-                    # Try again after conflict resolution
-                    self.store(oid, conflict_serial,
-                               new_data, version, transaction)
-                    return ConflictResolution.ResolvedSerial
-            raise POSException.ConflictError(oid=oid,
-                                             serials=(tid,
-                                                      serial),data=data)
+        return self.app.store(oid=oid, serial=serial,
+            data=data, version=version, transaction=transaction,
+            tryToResolveConflict=self.tryToResolveConflict)
 
     def getSerial(self, oid):
         try:
@@ -123,11 +104,8 @@ class Storage(BaseStorage.BaseStorage,
     def undo(self, transaction_id, txn):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
-        try:
-            return self.app.undo(transaction_id = transaction_id,
-                                 txn = txn, wrapper = self)
-        except NEOStorageConflictError:
-            raise POSException.ConflictError
+        return self.app.undo(transaction_id=transaction_id, txn=txn,
+            tryToResolveConflict=self.tryToResolveConflict)
 
 
     def undoLog(self, first, last, filter):

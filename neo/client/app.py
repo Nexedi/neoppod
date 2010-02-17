@@ -23,6 +23,7 @@ from random import shuffle
 from time import sleep
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
+from ZODB.ConflictResolution import ResolvedSerial
 
 from neo import setupLog
 setupLog('CLIENT', verbose=True)
@@ -36,7 +37,7 @@ from neo.locking import Lock
 from neo.connection import MTClientConnection
 from neo.node import NodeManager
 from neo.connector import getConnectorHandler
-from neo.client.exception import NEOStorageError, NEOStorageConflictError
+from neo.client.exception import NEOStorageError
 from neo.client.exception import NEOStorageNotFoundError, ConnectionClosed
 from neo.exception import NeoException
 from neo.client.handlers import storage, master
@@ -80,6 +81,9 @@ class ThreadContext(object):
             'tid': None,
             'txn': None,
             'data_dict': {},
+            'object_serial_dict': {},
+            'object_stored_counter_dict': {},
+            'conflict_serial_dict': {},
             'object_stored': 0,
             'txn_voted': False,
             'txn_finished': False,
@@ -88,9 +92,7 @@ class ThreadContext(object):
             'history': None,
             'node_tids': {},
             'node_ready': False,
-            'conflict_serial': 0,
             'asked_object': 0,
-            'object_stored_counter': 0,
         }
 
 
@@ -534,7 +536,8 @@ class Application(object):
         self.local_var.txn = transaction
 
 
-    def store(self, oid, serial, data, version, transaction):
+    def store(self, oid, serial, data, version, transaction,
+        tryToResolveConflict):
         """Store object."""
         if transaction is not self.local_var.txn:
             raise StorageTransactionError(self, transaction)
@@ -551,49 +554,100 @@ class Application(object):
         checksum = makeChecksum(compressed_data)
         p = Packets.AskStoreObject(oid, serial, 1,
                  checksum, compressed_data, self.local_var.tid)
+        # Store object in tmp cache
+        self.local_var.data_dict[oid] = data
         # Store data on each node
-        self.local_var.object_stored_counter = 0
+        self.local_var.object_stored_counter_dict[oid] = 0
+        self.local_var.object_serial_dict[oid] = (serial, version)
+        local_queue = self.local_var.queue
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
-
-            self.local_var.object_stored = 0
             try:
-                self._askStorage(conn, p)
+                try:
+                    conn.ask(local_queue, p)
+                finally:
+                    conn.unlock()
             except ConnectionClosed:
                 continue
 
-            # Check we don't get any conflict
-            if self.local_var.object_stored[0] == -1:
-                if self.local_var.data_dict.has_key(oid):
-                    # One storage already accept the object, is it normal ??
-                    # remove from dict and raise ConflictError, don't care of
-                    # previous node which already store data as it would be
-                    # resent again if conflict is resolved or txn will be
-                    # aborted
-                    del self.local_var.data_dict[oid]
-                self.local_var.conflict_serial = self.local_var.object_stored[1]
-                raise NEOStorageConflictError
-            # increase counter so that we know if a node has stored the object
-            # or not
-            self.local_var.object_stored_counter += 1
+        self._waitAnyMessage(False)
+        return None
 
-        if self.local_var.object_stored_counter == 0:
-            # no storage nodes were available
-            raise NEOStorageError('tpc_store failed')
+    def _handleConflicts(self, tryToResolveConflict):
+        result = []
+        append = result.append
+        local_var = self.local_var
+        # Check for conflicts
+        data_dict = local_var.data_dict
+        object_serial_dict = local_var.object_serial_dict
+        for oid, conflict_serial in local_var.conflict_serial_dict.items():
+            serial, version = object_serial_dict[oid]
+            data = data_dict[oid]
+            tid = local_var.tid
+            resolved = False
+            if conflict_serial <= tid:
+                new_data = tryToResolveConflict(oid, conflict_serial, serial,
+                    data)
+                if new_data is not None:
+                    # Forget this conflict
+                    del local_var.conflict_serial_dict[oid]
+                    # Try to store again
+                    self.store(oid, conflict_serial, new_data, version,
+                        local_var.txn, tryToResolveConflict)
+                    append(oid)
+                    resolved = True
+            if not resolved:
+                # XXX: Is it really required to remove from data_dict ?
+                del data_dict[oid]
+                raise ConflictError(oid=oid,
+                    serials=(tid, serial), data=data)
+        return result
 
-        # Store object in tmp cache
-        self.local_var.data_dict[oid] = data
+    def waitStoreResponses(self, tryToResolveConflict):
+        result = []
+        append = result.append
+        resolved_oid_set = set()
+        update = resolved_oid_set.update
+        local_var = self.local_var
+        queue = self.local_var.queue
+        tid = local_var.tid
+        _waitAnyMessage = self._waitAnyMessage
+        _handleConflicts = self._handleConflicts
+        pending = self.dispatcher.pending
+        while True:
+            # Wait for all requests to be answered (or their connection to be
+            # dected as closed)
+            while pending(queue):
+                _waitAnyMessage()
+            conflicts = _handleConflicts(tryToResolveConflict)
+            if conflicts:
+                update(conflicts)
+            else:
+                # No more conflict resolutions to do, no more pending store
+                # requests
+                break
 
-        return self.local_var.tid
+        # Check for never-stored objects, and update result for all others
+        for oid, store_count in \
+            local_var.object_stored_counter_dict.iteritems():
+            if store_count == 0:
+                raise NEOStorageError('tpc_store failed')
+            elif oid in resolved_oid_set:
+                append((oid, ResolvedSerial))
+            else:
+                append((oid, tid))
+        return result
 
-
-    def tpc_vote(self, transaction):
+    def tpc_vote(self, transaction, tryToResolveConflict):
         """Store current transaction."""
         local_var = self.local_var
         if transaction is not local_var.txn:
             raise StorageTransactionError(self, transaction)
+
+        result = self.waitStoreResponses(tryToResolveConflict)
+
         tid = local_var.tid
         # Store data on each node
         voted_counter = 0
@@ -625,6 +679,8 @@ class Application(object):
         # in tpc_finish, as we should do our best to detect problem before
         # tpc_finish.
         self._getMasterConnection()
+
+        return result
 
     def tpc_abort(self, transaction):
         """Abort current transaction."""
@@ -690,7 +746,7 @@ class Application(object):
         finally:
             self._load_lock_release()
 
-    def undo(self, transaction_id, txn, wrapper):
+    def undo(self, transaction_id, txn, tryToResolveConflict):
         if txn is not self.local_var.txn:
             raise StorageTransactionError(self, transaction_id)
 
@@ -739,19 +795,9 @@ class Application(object):
         # Third do transaction with old data
         oid_list = data_dict.keys()
         for oid in oid_list:
-            data = data_dict[oid]
-            try:
-                self.store(oid, transaction_id, data, None, txn)
-            except NEOStorageConflictError, serial:
-                if serial <= self.local_var.tid:
-                    new_data = wrapper.tryToResolveConflict(oid,
-                            self.local_var.tid, serial, data)
-                    if new_data is not None:
-                        self.store(oid, self.local_var.tid, new_data, None, txn)
-                        continue
-                raise ConflictError(oid = oid, serials = (self.local_var.tid,
-                    serial),
-                                    data = data)
+            self.store(oid, transaction_id, data_dict[oid], None, txn,
+                tryToResolveConflict)
+        self.waitStoreResponses(tryToResolveConflict)
         return self.local_var.tid, oid_list
 
     def __undoLog(self, first, last, filter=None, block=0, with_oids=False):
@@ -929,9 +975,6 @@ class Application(object):
 
     def getTID(self):
         return self.local_var.tid
-
-    def getConflictSerial(self):
-        return self.local_var.conflict_serial
 
     def setTransactionFinished(self):
         self.local_var.txn_finished = True
