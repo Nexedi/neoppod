@@ -52,13 +52,6 @@ class ThreadContext(object):
 
     def __init__(self):
         super(ThreadContext, self).__setattr__('_threads_dict', {})
-        self.txn_info = 0
-        self.history = None
-        self.node_tids = {}
-        self.node_ready = False
-        self.conflict_serial = 0
-        self.asked_object = 0
-        self.object_stored_counter = 0
 
     def __getThreadData(self):
         thread_id = get_ident()
@@ -91,6 +84,13 @@ class ThreadContext(object):
             'txn_voted': False,
             'txn_finished': False,
             'queue': Queue(0),
+            'txn_info': 0,
+            'history': None,
+            'node_tids': {},
+            'node_ready': False,
+            'conflict_serial': 0,
+            'asked_object': 0,
+            'object_stored_counter': 0,
         }
 
 
