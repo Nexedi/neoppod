@@ -28,5 +28,5 @@ class UndoTests(ZODBTestCase, StorageTestBase, TransactionalUndoStorage,
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(UndoTests, 'check')
-    unittest.TextTestRunner().run(suite)
+    unittest.main(defaultTest='suite')
 

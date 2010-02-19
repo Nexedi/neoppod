@@ -26,5 +26,5 @@ class MTTests(ZODBTestCase, StorageTestBase, MTStorage):
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(MTTests, 'check')
-    unittest.TextTestRunner().run(suite)
+    unittest.main(defaultTest='suite')
 

@@ -26,5 +26,5 @@ class HistoryTests(ZODBTestCase, StorageTestBase, HistoryStorage):
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(HistoryTests, 'check')
-    unittest.TextTestRunner().run(suite)
+    unittest.main(defaultTest='suite')
 

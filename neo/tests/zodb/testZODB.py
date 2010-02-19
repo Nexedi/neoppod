@@ -25,4 +25,4 @@ class NEOZODBTests(ZODBTestCase, testZODB.ZODBTests):
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(NEOZODBTests, 'check')
-    unittest.TextTestRunner().run(suite)
+    unittest.main(defaultTest='suite')

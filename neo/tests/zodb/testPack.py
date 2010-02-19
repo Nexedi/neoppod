@@ -29,5 +29,5 @@ class PackableTests(ZODBTestCase, StorageTestBase, PackableStorage,
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(PackableTests, 'check')
-    unittest.TextTestRunner().run(suite)
+    unittest.main(defaultTest='suite')
 

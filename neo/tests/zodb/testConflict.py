@@ -26,5 +26,5 @@ class ConflictTests(ZODBTestCase, StorageTestBase, ConflictResolvingStorage):
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(ConflictTests, 'check')
-    unittest.TextTestRunner().run(suite)
+    unittest.main(defaultTest='suite')
 

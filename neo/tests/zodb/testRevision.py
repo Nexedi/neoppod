@@ -26,5 +26,5 @@ class RevisionTests(ZODBTestCase, StorageTestBase, RevisionStorage):
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(RevisionTests, 'check')
-    unittest.TextTestRunner().run(suite)
+    unittest.main(defaultTest='suite')
 

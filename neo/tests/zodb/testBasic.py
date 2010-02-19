@@ -24,7 +24,8 @@ from neo.tests.zodb import ZODBTestCase
 class BasicTests(ZODBTestCase, StorageTestBase, BasicStorage):
     pass
 
+
 if __name__ == "__main__":
     suite = unittest.makeSuite(BasicTests, 'check')
-    unittest.TextTestRunner().run(suite)
+    unittest.main(defaultTest='suite')
 
