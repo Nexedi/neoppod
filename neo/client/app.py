@@ -938,7 +938,7 @@ class Application(object):
             self.local_var.txn_info.pop('id')
             self.local_var.txn_info.pop('oids')
             self.local_var.txn_info['tid'] = serial
-            self.local_var.txn_info['version'] = None
+            self.local_var.txn_info['version'] = ''
             self.local_var.txn_info['size'] = size
             if filter is None or filter(self.local_var.txn_info):
                 history_list.append(self.local_var.txn_info)
