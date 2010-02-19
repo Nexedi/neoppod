@@ -97,17 +97,22 @@ class EpollEventManager(object):
         self._pending_processing = []
 
     def getConnectionList(self):
+        # XXX: use index
         return [x for x in self.connection_dict.values() if not x.isAborted()]
 
     def getClientList(self):
+        # XXX: use index
         return [c for c in self.getConnectionList() if c.isClient()]
 
     def getServerList(self):
+        # XXX: use index
         return [c for c in self.getConnectionList() if c.isServer()]
 
     def getConnectionListByUUID(self, uuid):
         """ Return the connection associated to the UUID, None if the UUID is
         None, invalid or not found"""
+        # XXX: use index
+        # XXX: consider remove UUID from connection and thus this method
         if uuid is None:
             return None
         result = []
