@@ -8,14 +8,11 @@ import traceback
 from time import time
 
 from neo.tests.functional import NEOCluster
-from neo.client.Storage import Storage
 from ZODB.FileStorage import FileStorage
 
 def run(masters, storages, replicas, partitions, datafs, verbose):
     print "Import of %s with m=%s, s=%s, r=%s, p=%s" % (
             datafs, masters, storages, replicas, partitions)
-    def store(*args):
-        pass
     # cluster
     neo = NEOCluster(
         db_list=['test_import_%d' % i for i in xrange(storages)],
@@ -28,7 +25,6 @@ def run(masters, storages, replicas, partitions, datafs, verbose):
     # import
     neo_storage = neo.getZODBStorage()
     dfs_storage = FileStorage(file_name=datafs)
-    # Storage.store = store
     neo.start()
     start = time()
     try:
