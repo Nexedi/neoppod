@@ -87,7 +87,7 @@ class Storage(BaseStorage.BaseStorage,
         try:
             return self.app.loadBefore(oid=oid, tid=tid)
         except NEOStorageNotFoundError:
-            raise POSException.POSKeyError (oid, tid)
+            return None
 
     def iterator(self, start=None, stop=None):
         return self.app.iterator(start, stop)
