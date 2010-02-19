@@ -195,6 +195,9 @@ class Application(object):
                 conn, packet = get(block)
             except Empty:
                 break
+            if packet is None:
+                # connection was closed
+                continue
             block = False
             try:
                 _handlePacket(conn, packet)
