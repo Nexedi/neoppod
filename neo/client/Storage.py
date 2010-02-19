@@ -106,7 +106,10 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.undoLog(first, last, filter)
 
     def supportsUndo(self):
-        return 0
+        return True
+
+    def supportsTransactionalUndo(self):
+        return True
 
     def abortVersion(self, src, transaction):
         return '', []
