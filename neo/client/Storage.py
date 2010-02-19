@@ -100,7 +100,7 @@ class Storage(BaseStorage.BaseStorage,
             tryToResolveConflict=self.tryToResolveConflict)
 
 
-    def undoLog(self, first, last, filter):
+    def undoLog(self, first, last, filter=None):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
         return self.app.undoLog(first, last, filter)
