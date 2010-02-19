@@ -909,6 +909,11 @@ class Application(object):
             # Use by getSerial
             return self.local_var.history
 
+        if self.local_var.history[1] == []:
+            # KeyError expected if no history was found
+            # XXX: this may requires an error from the storages
+            raise KeyError
+
         # Now that we have object informations, get txn informations
         history_list = []
         for serial, size in self.local_var.history[1]:
