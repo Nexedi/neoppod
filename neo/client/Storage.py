@@ -38,14 +38,6 @@ class Storage(BaseStorage.BaseStorage,
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
-    def close(self):
-        return self.app.close()
-
-    def cleanup(self):
-        # Used in unit tests to remove local database files.
-        # We have no such thing, so make this method a no-op.
-        pass
-
     def new_oid(self):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
@@ -154,3 +146,15 @@ class Storage(BaseStorage.BaseStorage,
     def set_max_oid(self, possible_new_max_oid):
         # seems used only by FileStorage
         raise NotImplementedError
+
+    def cleanup(self):
+        # Used in unit tests to remove local database files.
+        # We have no such thing, so make this method a no-op.
+        pass
+
+    def close(self):
+        # The purpose of this method is unclear, the NEO implementation may
+        # stop the client node or ask the primary master to shutdown/freeze the
+        # cluster. For now make this a no-op.
+        pass
+
