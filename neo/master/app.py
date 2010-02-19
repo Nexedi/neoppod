@@ -101,8 +101,10 @@ class Application(object):
         # Start a normal operation.
         while True:
             # (Re)elect a new primary master.
-            self.electPrimary(bootstrap=bootstrap)
-            bootstrap = False
+            self.primary = not bool(self.nm.getMasterList())
+            if not self.primary:
+                self.electPrimary(bootstrap=bootstrap)
+                bootstrap = False
             try:
                 if self.primary:
                     self.playPrimaryRole()
