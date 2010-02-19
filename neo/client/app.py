@@ -400,7 +400,7 @@ class Application(object):
         finally:
             self._cache_lock_release()
         # history return serial, so use it
-        hist = self.history(oid, length = 1, object_only = 1)
+        hist = self.history(oid, size=1, object_only=1)
         if len(hist) == 0:
             raise NEOStorageNotFoundError()
         if hist[0] != oid:
@@ -878,7 +878,7 @@ class Application(object):
     def transactionLog(self, first, last):
         return self.__undoLog(first, last, with_oids=True)
 
-    def history(self, oid, version=None, length=1, filter=None, object_only=0):
+    def history(self, oid, version=None, size=1, filter=None, object_only=0):
         # Get history informations for object first
         cell_list = self._getCellListForOID(oid, readable=True)
         shuffle(cell_list)
@@ -890,7 +890,7 @@ class Application(object):
 
             self.local_var.history = None
             try:
-                self._askStorage(conn, Packets.AskObjectHistory(oid, 0, length))
+                self._askStorage(conn, Packets.AskObjectHistory(oid, 0, size))
             except ConnectionClosed:
                 continue
 

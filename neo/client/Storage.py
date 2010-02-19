@@ -123,8 +123,8 @@ class Storage(BaseStorage.BaseStorage,
     def registerDB(self, db, limit):
         self.app.registerDB(db, limit)
 
-    def history(self, oid, version, length=1, filter=None):
-        return self.app.history(oid, version, length, filter)
+    def history(self, oid, version=None, size=1, filter=None):
+        return self.app.history(oid, version, size, filter)
 
     def sync(self):
         self.app.sync()
