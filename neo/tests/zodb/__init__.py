@@ -38,3 +38,7 @@ class ZODBTestCase(NEOFunctionalTest):
         self._storage.cleanup()
         self.neo.stop()
 
+    def open(self, read_only=False):
+        # required for some tests (see PersitentTests), no-op for NEO ?
+        self._storage._is_read_only = read_only
+
