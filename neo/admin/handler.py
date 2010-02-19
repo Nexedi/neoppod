@@ -19,7 +19,7 @@ from neo import logging
 
 from neo.handler import EventHandler
 from neo import protocol
-from neo.protocol import Packets
+from neo.protocol import Packets, Errors
 from neo.exception import PrimaryFailure
 from neo.util import dump
 
@@ -62,7 +62,7 @@ class AdminEventHandler(EventHandler):
             raise protocol.ProtocolError('invalid uuid')
         if node.getState() == state and modify_partition_table is False:
             # no change
-            p = protocol.ack('no change')
+            p = Errors.Ack('no change')
             conn.answer(p)
             return
         # forward to primary master node
@@ -213,8 +213,8 @@ class MasterRequestEventHandler(EventHandler):
                             Packets.AnswerNodeState(uuid, state))
 
     def ack(self, conn, msg):
-        self.__answerNeoCTL(conn, protocol.ack(msg))
+        self.__answerNeoCTL(conn, Errors.Ack(msg))
 
     def protocolError(self, conn, msg):
-        self.__answerNeoCTL(conn, protocol.protocolError(msg))
+        self.__answerNeoCTL(conn, Errors.ProtocolError(msg))
 

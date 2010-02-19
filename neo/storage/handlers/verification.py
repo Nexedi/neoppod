@@ -18,8 +18,7 @@
 from neo import logging
 
 from neo.storage.handlers import BaseMasterHandler
-from neo import protocol
-from neo.protocol import Packets
+from neo.protocol import Packets, Errors, ProtocolError
 from neo.util import dump
 from neo.exception import OperationFailure
 
@@ -38,7 +37,7 @@ class VerificationHandler(BaseMasterHandler):
             offset_list = xrange(0, self.app.pt.getPartitions())
         else:
             if max(offset_list) >= self.app.pt.getPartitions():
-                raise protocol.ProtocolError('invalid partition table offset')
+                raise ProtocolError('invalid partition table offset')
 
         # build a table with requested partitions
         row_list = [(offset, [(cell.getUUID(), cell.getState())
@@ -73,7 +72,7 @@ class VerificationHandler(BaseMasterHandler):
         app = self.app
         t = app.dm.getTransaction(tid, all=True)
         if t is None:
-            p = protocol.tidNotFound('%s does not exist' % dump(tid))
+            p = Errors.TidNotFound('%s does not exist' % dump(tid))
         else:
             p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3],
                     t[0])
@@ -83,7 +82,7 @@ class VerificationHandler(BaseMasterHandler):
         if self.app.dm.objectPresent(oid, tid):
             p = Packets.AnswerObjectPresent(oid, tid)
         else:
-            p = protocol.oidNotFound(
+            p = Errors.OidNotFound(
                           '%s:%s do not exist' % (dump(oid), dump(tid)))
         conn.answer(p)
 

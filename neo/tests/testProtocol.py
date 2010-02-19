@@ -18,7 +18,7 @@
 import unittest
 from neo import protocol
 from neo.protocol import NodeTypes, NodeStates, CellStates
-from neo.protocol import ErrorCodes, Packets
+from neo.protocol import ErrorCodes, Packets, Errors
 from neo.tests import NeoTestBase
 
 class ProtocolTests(NeoTestBase):
@@ -34,33 +34,33 @@ class ProtocolTests(NeoTestBase):
         return self.ltid
 
     def test_03_protocolError(self):
-        p = protocol.protocolError("bad protocol")
+        p = Errors.ProtocolError("bad protocol")
         error_code, error_msg = p.decode()
         self.assertEqual(error_code, ErrorCodes.PROTOCOL_ERROR)
-        self.assertEqual(error_msg, "protocol error: bad protocol")
+        self.assertEqual(error_msg, "bad protocol")
 
     def test_05_notReady(self):
-        p = protocol.notReady("wait")
+        p = Errors.NotReady("wait")
         error_code, error_msg = p.decode()
         self.assertEqual(error_code, ErrorCodes.NOT_READY)
-        self.assertEqual(error_msg, "not ready: wait")
+        self.assertEqual(error_msg, "wait")
 
     def test_06_brokenNodeDisallowedError(self):
-        p = protocol.brokenNodeDisallowedError("broken")
+        p = Errors.Broken("broken")
         error_code, error_msg = p.decode()
         self.assertEqual(error_code, ErrorCodes.BROKEN_NODE)
-        self.assertEqual(error_msg, "broken node disallowed error: broken")
+        self.assertEqual(error_msg, "broken")
 
     def test_07_oidNotFound(self):
-        p = protocol.oidNotFound("no oid")
+        p = Errors.OidNotFound("no oid")
         error_code, error_msg = p.decode()
-        self.assertEqual(error_msg, "oid not found: no oid")
+        self.assertEqual(error_msg, "no oid")
 
     def test_08_oidNotFound(self):
-        p = protocol.tidNotFound("no tid")
+        p = Errors.TidNotFound("no tid")
         error_code, error_msg = p.decode()
         self.assertEqual(error_code, ErrorCodes.TID_NOT_FOUND)
-        self.assertEqual(error_msg, "tid not found: no tid")
+        self.assertEqual(error_msg, "no tid")
 
     def test_09_ping(self):
         p = Packets.Ping()

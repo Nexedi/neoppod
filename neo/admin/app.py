@@ -27,7 +27,7 @@ from neo.connector import getConnectorHandler
 from neo.bootstrap import BootstrapManager
 from neo.pt import PartitionTable
 from neo import protocol
-from neo.protocol import NodeTypes, NodeStates, Packets
+from neo.protocol import NodeTypes, NodeStates, Packets, Errors
 
 class Dispatcher:
     """Dispatcher use to redirect master request to handler"""
@@ -160,7 +160,7 @@ class Application(object):
                     pass
                 row_list.append((offset, row))
         except IndexError:
-            p = protocol.protocolError('invalid partition table offset')
+            p = Errors.ProtocolError('invalid partition table offset')
             conn.notify(p)
             return
         p = Packets.AnswerPartitionList(self.ptid, row_list)

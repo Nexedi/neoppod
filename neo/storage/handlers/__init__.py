@@ -21,7 +21,7 @@ from neo.handler import EventHandler
 from neo import protocol
 from neo.util import dump
 from neo.exception import PrimaryFailure, OperationFailure
-from neo.protocol import NodeStates, Packets
+from neo.protocol import NodeStates, Packets, Errors
 
 class BaseMasterHandler(EventHandler):
 
@@ -92,7 +92,7 @@ class BaseClientAndStorageOperationHandler(EventHandler):
         app = self.app
         t = app.dm.getTransaction(tid)
         if t is None:
-            p = protocol.tidNotFound('%s does not exist' % dump(tid))
+            p = Errors.TidNotFound('%s does not exist' % dump(tid))
         else:
             p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3],
                     t[0])
@@ -113,6 +113,6 @@ class BaseClientAndStorageOperationHandler(EventHandler):
                            compression, checksum, data)
         else:
             logging.debug('oid = %s not found', dump(oid))
-            p = protocol.oidNotFound('%s does not exist' % dump(oid))
+            p = Errors.OidNotFound('%s does not exist' % dump(oid))
         conn.answer(p)
 

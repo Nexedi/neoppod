@@ -17,9 +17,9 @@
 
 from neo import logging
 
-from neo import protocol
 from neo.master.handlers import MasterHandler
 from neo.protocol import ClusterStates, NodeStates, Packets, ProtocolError
+from neo.protocol import Errors
 from neo.util import dump
 
 CLUSTER_STATE_WORKFLOW = {
@@ -57,7 +57,7 @@ class AdministrationHandler(MasterHandler):
             self.app.changeClusterState(state)
 
         # answer
-        conn.answer(protocol.ack('cluster state changed'))
+        conn.answer(Errors.Ack('cluster state changed'))
         if state == ClusterStates.STOPPING:
             self.app.cluster_state = state
             self.app.shutdown()
@@ -74,13 +74,13 @@ class AdministrationHandler(MasterHandler):
             node.setState(state)
             # get message for self
             if state != NodeStates.RUNNING:
-                p = protocol.ack('node state changed')
+                p = Errors.Ack('node state changed')
                 conn.answer(p)
                 app.shutdown()
 
         if node.getState() == state:
             # no change, just notify admin node
-            p = protocol.ack('node state changed')
+            p = Errors.Ack('node state changed')
             conn.answer(p)
             return
 
@@ -119,7 +119,7 @@ class AdministrationHandler(MasterHandler):
             node.setState(state)
 
         # /!\ send the node information *after* the partition table change
-        p = protocol.ack('state changed')
+        p = Errors.Ack('state changed')
         conn.answer(p)
         app.broadcastNodesInformation([node])
 
@@ -139,7 +139,7 @@ class AdministrationHandler(MasterHandler):
         # nothing to do
         if not uuid_set:
             logging.warning('No nodes added')
-            p = protocol.ack('no nodes added')
+            p = Errors.Ack('no nodes added')
             conn.answer(p)
             return
         uuids = ', '.join([dump(uuid) for uuid in uuid_set])
@@ -158,5 +158,5 @@ class AdministrationHandler(MasterHandler):
                 s_conn.notify(Packets.StartOperation())
         # broadcast the new partition table
         app.broadcastPartitionChanges(cell_list)
-        p = protocol.ack('node added')
+        p = Errors.Ack('node added')
         conn.answer(p)

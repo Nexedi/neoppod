@@ -16,8 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo import logging
-from neo import protocol
-from neo.protocol import NodeStates, ErrorCodes, Packets
+from neo.protocol import NodeStates, ErrorCodes, Packets, Errors
 from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
 
@@ -34,7 +33,7 @@ class EventHandler(object):
         """Called when a packet is malformed."""
         args = (conn.getAddress()[0], conn.getAddress()[1], message)
         logging.error('malformed packet from %s:%d: %s', *args)
-        response = protocol.protocolError(message)
+        response = Errors.ProtocolError(message)
         conn.notify(response)
         conn.abort()
         self.peerBroken(conn)
@@ -48,7 +47,7 @@ class EventHandler(object):
             message = 'unexpected packet: %s in %s' % (message,
                     self.__class__.__name__)
         logging.error(message)
-        conn.answer(protocol.protocolError(message))
+        conn.answer(Errors.ProtocolError(message))
         conn.abort()
         self.peerBroken(conn)
 
@@ -67,24 +66,24 @@ class EventHandler(object):
         except PacketMalformedError, e:
             self._packetMalformed(conn, *e.args)
         except BrokenNodeDisallowedError:
-            conn.answer(protocol.brokenNodeDisallowedError('go away'))
+            conn.answer(Errors.Broken('go away'))
             conn.abort()
         except NotReadyError, message:
             if not message.args:
                 message = 'Retry Later'
             message = str(message)
-            conn.answer(protocol.notReady(message))
+            conn.answer(Errors.NotReady(message))
             conn.abort()
         except ProtocolError, message:
             message = str(message)
-            conn.answer(protocol.protocolError(message))
+            conn.answer(Errors.ProtocolError(message))
             conn.abort()
 
     def checkClusterName(self, name):
         # raise an exception if the fiven name mismatch the current cluster name
         if self.app.name != name:
             logging.error('reject an alien cluster')
-            raise protocol.ProtocolError('invalid cluster name')
+            raise ProtocolError('invalid cluster name')
 
 
     # Network level handlers

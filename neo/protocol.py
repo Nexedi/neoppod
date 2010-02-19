@@ -1,4 +1,4 @@
-#
+
 # Copyright (C) 2006-2010  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
@@ -1406,26 +1406,25 @@ class PacketRegistry(dict):
 # build a "singleton"
 Packets = PacketRegistry()
 
+def register(code):
+    def wrapper(registry, message=''):
+        return Error(code, message)
+    return wrapper
 
-def _error(error_code, error_message):
-    return Error(error_code, error_message)
+class ErrorRegistry(dict):
+    """
+        Error packet packet registry
+    """
 
-def ack(message):
-    return _error(ErrorCodes.ACK, message)
+    def __init__(self):
+        dict.__init__(self)
 
-def protocolError(error_message):
-    return _error(ErrorCodes.PROTOCOL_ERROR, 'protocol error: ' + error_message)
+    Ack = register(ErrorCodes.ACK)
+    ProtocolError = register(ErrorCodes.PROTOCOL_ERROR)
+    TidNotFound = register(ErrorCodes.TID_NOT_FOUND)
+    OidNotFound = register(ErrorCodes.OID_NOT_FOUND)
+    NotReady = register(ErrorCodes.NOT_READY)
+    Broken = register(ErrorCodes.BROKEN_NODE)
 
-def notReady(error_message):
-    return _error(ErrorCodes.NOT_READY, 'not ready: ' + error_message)
-
-def brokenNodeDisallowedError(error_message):
-    return _error(ErrorCodes.BROKEN_NODE,
-                      'broken node disallowed error: ' + error_message)
-
-def oidNotFound(error_message):
-    return _error(ErrorCodes.OID_NOT_FOUND, 'oid not found: ' + error_message)
-
-def tidNotFound(error_message):
-    return _error(ErrorCodes.TID_NOT_FOUND, 'tid not found: ' + error_message)
+Errors = ErrorRegistry()
 

@@ -21,8 +21,7 @@ from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
 from neo.tests import NeoTestBase
 from neo.client.app import Application
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
-from neo import protocol
-from neo.protocol import Packets, INVALID_TID, INVALID_SERIAL
+from neo.protocol import Packet, Packets, Errors, INVALID_TID, INVALID_SERIAL
 from neo.util import makeChecksum
 
 def _getMasterConnection(self):
@@ -78,7 +77,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertEquals(len(calls), 1)
         # client connection got queue as first parameter
         packet = calls[0].getParam(1)
-        self.assertTrue(isinstance(packet, protocol.Packet))
+        self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), packet_type)
         if decode:
             return packet.decode()
@@ -215,7 +214,7 @@ class ClientApplicationTests(NeoTestBase):
         an_object = (1, oid, tid1, tid2, 0, makeChecksum('OBJ'), 'OBJ')
         # connection to SN close
         self.assertTrue(oid not in mq)
-        packet = protocol.oidNotFound('')
+        packet = Errors.OidNotFound('')
         packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({'getUUID': '\x10' * 16,
@@ -232,7 +231,7 @@ class ClientApplicationTests(NeoTestBase):
         Application._waitMessage = _waitMessage
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
-        packet = protocol.oidNotFound('')
+        packet = Errors.OidNotFound('')
         packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({
@@ -274,7 +273,7 @@ class ClientApplicationTests(NeoTestBase):
         tid2 = self.makeTID(2)
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
-        packet = protocol.oidNotFound('')
+        packet = Errors.OidNotFound('')
         packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({
@@ -313,7 +312,7 @@ class ClientApplicationTests(NeoTestBase):
         tid2 = self.makeTID(2)
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue(oid not in mq)
-        packet = protocol.oidNotFound('')
+        packet = Errors.OidNotFound('')
         packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({
@@ -734,7 +733,7 @@ class ClientApplicationTests(NeoTestBase):
         self.askFinishTransaction(app)
         # undo 1 -> no previous revision
         u1p1 = Packets.AnswerTransactionInformation(tid1, '', '', '', (oid1, ))
-        u1p2 = protocol.oidNotFound('oid not found')
+        u1p2 = Errors.OidNotFound('oid not found')
         # undo 2 -> not end tid
         u2p1 = Packets.AnswerTransactionInformation(tid2, '', '', '', (oid2, ))
         u2p2 = Packets.AnswerObject(oid2, tid2, tid3, 0, makeChecksum('O2V1'), 'O2V1')
