@@ -957,6 +957,11 @@ class Application(object):
     def iterator(self, start=None, stop=None):
         return Iterator(self, start, stop)
 
+    def lastTransaction(self):
+        # XXX: this doesn't consider transactions created by other clients,
+        #  should ask the primary master
+        return self.local_var.tid
+
     def __del__(self):
         """Clear all connection."""
         # Due to bug in ZODB, close is not always called when shutting
