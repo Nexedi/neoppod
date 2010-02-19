@@ -49,13 +49,15 @@ def runMatrix(datafs, storages, replicas, verbose):
             stats[s][r] = result
     return stats
 
-def buildArray(storages, replicas, results):
+def buildReport(storages, replicas, results):
     # draw an array with results
     fmt = '|' + '|'.join(['  %8s  '] * (len(replicas) + 1)) + '|\n'
     sep = '+' + '+'.join(['-' * 12] * (len(replicas) + 1)) + '+\n'
     report = sep
     report += fmt % tuple(['S\R'] + range(0, len(replicas)))
     report += sep
+    failures = 0
+    speedlist = []
     for s in storages:
         values = []
         assert s in results
@@ -63,13 +65,46 @@ def buildArray(storages, replicas, results):
             if r in results[s]:
                 if results[s][r] is None:
                     values.append('FAIL')
+                    failures += 1
                 else:
                     values.append('%8.1f' % results[s][r])
+                    speedlist.append(results[s][r])
             else:
                 values.append('N/A')
         report += fmt % (tuple([s] + values))
         report += sep
-    return report
+    if failures:
+        info = '%d failures' % (failures, )
+    else:
+        info = '%.1f KB/s' % (sum(speedlist) / len(speedlist))
+    summary = 'Matrix : %s ' % (info, )
+    return (summary, report)
+
+def sendReport(sender, recipients, server, summary, report):
+    """ Send a mail with the report summary """
+    # XXX: C/C from perfs bench
+    import smtplib
+    from email.MIMEMultipart import MIMEMultipart
+    from email.MIMEText import MIMEText
+
+    # build the email
+    msg = MIMEMultipart()
+    msg['Subject'] = summary
+    msg['From']    = sender
+    msg['To']      = ', '.join(recipients)
+    msg.epilogue = ''
+    msg.attach(MIMEText(report))
+
+    # Send via smtp server
+    s = smtplib.SMTP()
+    s.connect(*server)
+    mail = msg.as_string()
+    for recipient in recipients:
+        try:
+            s.sendmail(sender, recipient, mail)
+        except smtplib.SMTPRecipientsRefused:
+            print "Mail for %s fails" % recipient
+    s.close()
 
 if __name__ == "__main__":
 
@@ -80,12 +115,17 @@ if __name__ == "__main__":
     parser.add_option('', '--max-storages')
     parser.add_option('', '--min-replicas')
     parser.add_option('', '--max-replicas')
+    parser.add_option('', '--recipient', action='append')
+    parser.add_option('', '--sender')
+    parser.add_option('', '--server')
     parser.add_option('-v', '--verbose', action='store_true')
     (options, args) = parser.parse_args()
 
     # check arguments
     if not options.datafs or not os.path.exists(options.datafs):
         sys.exit('Missing or wrong data.fs argument')
+    if bool(options.sender) ^ bool(options.recipient):
+        sys.exit('Need a sender and recipients to mail report')
 
     # parse args
     min_s = int(options.min_storages or 1)
@@ -93,6 +133,10 @@ if __name__ == "__main__":
     min_r = int(options.min_replicas or 0)
     max_r = int(options.max_replicas or 1)
     datafs = options.datafs
+    mail_server = options.server or '127.0.0.1:25'
+    mail_server = mail_server.split(':')
+    sender = options.sender
+    recipient = options.recipient
     verbose = options.verbose or False
 
     # build storage (logarithm) & replicas (linear) lists
@@ -105,6 +149,12 @@ if __name__ == "__main__":
         storages.append(max_s)
     replicas = range(min_r, max_r + 1)
     results = runMatrix(datafs, storages, replicas, verbose)
-    print buildArray(storages, replicas, results)
+    summary, report = buildReport(storages, replicas, results)
 
+    print summary
+    print
+    print report
+
+    if options.sender:
+        sendReport(sender, recipient, mail_server, summary, report)
 
