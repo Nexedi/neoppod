@@ -451,7 +451,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def getTIDList(self, offset, length, num_partitions, partition_list):
         q = self.query
         r = q("""SELECT tid FROM trans WHERE MOD(tid, %d) in (%s)
-                    ORDER BY tid DESC LIMIT %d,%d""" \
+                    ORDER BY tid ASC LIMIT %d,%d""" \
                 % (num_partitions,
                    ','.join([str(p) for p in partition_list]),
                    offset, length))
