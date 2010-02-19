@@ -99,7 +99,8 @@ class Iterator(object):
         user = txn['user_name']
         desc = txn['description']
         oid_list = txn['oids']
-        txn = Transaction(self.app, tid, ' ', user, desc, None, oid_list)
+        extension = {} # as expected by the ZODB
+        txn = Transaction(self.app, tid, ' ', user, desc, extension, oid_list)
         return txn
 
     def __str__(self):
