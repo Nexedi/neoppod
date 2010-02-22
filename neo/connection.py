@@ -245,6 +245,10 @@ class Connection(BaseConnection):
         BaseConnection.close(self)
         for event in self.event_dict.itervalues():
             self.em.removeIdleEvent(event)
+        from neo.node import NodeManager
+        node = NodeManager.getByUUID(self.getUUID())
+        if node is not None:
+            node.setConnection(None)
         self.event_dict.clear()
         self.write_buf = ""
         self.read_buf = ""

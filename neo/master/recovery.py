@@ -106,6 +106,7 @@ class RecoveryManager(MasterHandler):
         assert node is not None
         if node.getState() == new_state:
             return
+        node.setConnection(None)
         node.setState(new_state)
 
     def connectionCompleted(self, conn):

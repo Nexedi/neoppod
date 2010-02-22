@@ -36,6 +36,8 @@ class StorageServiceHandler(BaseServiceHandler):
     def nodeLost(self, conn, node):
         logging.info('storage node lost')
         assert not node.isRunning(), node.getState()
+        node.setConnection(None)
+
         if not self.app.pt.operational():
             raise OperationFailure, 'cannot continue operation'
         # this is intentionaly placed after the raise because the last cell in a

@@ -69,6 +69,7 @@ class IdentificationHandler(MasterHandler):
         # set up the node
         node.setUUID(uuid)
         node.setState(state)
+        node.setConnection(conn)
         # set up the connection
         conn.setUUID(uuid)
         conn.setHandler(handler)
