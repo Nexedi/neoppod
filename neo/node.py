@@ -78,16 +78,25 @@ class Node(object):
         return self._uuid
 
     def onConnectionClosed(self):
+        """
+            Callback from node's connection when closed
+        """
         assert self._connection is not None
         self._connection = None
 
     def setConnection(self, connection):
+        """
+            Define the connection that is currently available to this node.
+        """
         assert connection is not None
         assert self._connection is None
         self._connection = connection
         connection.setOnClose(self.onConnectionClosed)
 
     def getConnection(self):
+        """
+            Returns the connection to the node if available
+        """
         assert self._connection is not None
         return self._connection
 
