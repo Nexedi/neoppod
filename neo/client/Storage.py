@@ -111,11 +111,13 @@ class Storage(BaseStorage.BaseStorage,
     def supportsTransactionalUndo(self):
         return True
 
+    @check_read_only
     def abortVersion(self, src, transaction):
-        return '', []
+        return self.app.abortVersion(src, transaction)
 
+    @check_read_only
     def commitVersion(self, src, dest, transaction):
-        return '', []
+        return self.app.commitVersion(src, dest, transaction)
 
     def __len__(self):
         return self.app.getStorageSize()

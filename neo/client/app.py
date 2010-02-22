@@ -962,6 +962,16 @@ class Application(object):
         #  should ask the primary master
         return self.local_var.tid
 
+    def abortVersion(self, src, transaction):
+        if transaction is not self.local_var.txn:
+            raise StorageTransactionError(self, transaction)
+        return '', []
+
+    def commitVersion(self, src, dest, transaction):
+        if transaction is not self.local_var.txn:
+            raise StorageTransactionError(self, transaction)
+        return '', []
+
     def __del__(self):
         """Clear all connection."""
         # Due to bug in ZODB, close is not always called when shutting
