@@ -264,16 +264,16 @@ class MySQLDatabaseManager(DatabaseManager):
                     % (oid, before_tid))
             try:
                 serial, compression, checksum, data = r[0]
-                r = q("""SELECT serial FROM obj
-                            WHERE oid = %d AND serial >= %d
-                            ORDER BY serial LIMIT 1""" \
-                        % (oid, before_tid))
-                try:
-                    next_serial = r[0][0]
-                except IndexError:
-                    next_serial = None
             except IndexError:
                 return None
+            r = q("""SELECT serial FROM obj
+                        WHERE oid = %d AND serial >= %d
+                        ORDER BY serial LIMIT 1""" \
+                    % (oid, before_tid))
+            try:
+                next_serial = r[0][0]
+            except IndexError:
+                next_serial = None
         else:
             # XXX I want to express "HAVING serial = MAX(serial)", but
             # MySQL does not use an index for a HAVING clause!
