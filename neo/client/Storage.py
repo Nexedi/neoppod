@@ -102,7 +102,7 @@ class Storage(BaseStorage.BaseStorage,
 
 
     @check_read_only
-    def undoLog(self, first, last, filter=None):
+    def undoLog(self, first=0, last=-20, filter=None):
         return self.app.undoLog(first, last, filter)
 
     def supportsUndo(self):
