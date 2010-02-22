@@ -35,6 +35,18 @@ class Node(object):
         self._last_state_change = time()
         self._connection = None
 
+    def notify(self, packet):
+        assert self.isConnected(), 'Not connected'
+        self._connection.notify(packet)
+
+    def ask(self, packet, timeout=5, additional_timeout=30):
+        assert self.isConnected(), 'Not connected'
+        self._connection.ask(packet, timeout, additional_timeout)
+
+    def answer(self, packet, msg_id=None):
+        assert self.isConnected(), 'Not connected'
+        self._connection.answer(packet, msg_id)
+
     def getLastStateChange(self):
         return self._last_state_change
 
