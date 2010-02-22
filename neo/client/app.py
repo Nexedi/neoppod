@@ -979,6 +979,10 @@ class Application(object):
             raise StorageTransactionError(self, transaction)
         return '', []
 
+    def loadEx(self, oid, version):
+        data, serial = self.load(oid=oid)
+        return data, serial, ''
+
     def __del__(self):
         """Clear all connection."""
         # Due to bug in ZODB, close is not always called when shutting

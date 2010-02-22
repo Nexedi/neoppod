@@ -119,6 +119,12 @@ class Storage(BaseStorage.BaseStorage,
     def commitVersion(self, src, dest, transaction):
         return self.app.commitVersion(src, dest, transaction)
 
+    def loadEx(self, oid, version):
+        try:
+            return self.app.loadEx(oid=oid, version=version)
+        except NEOStorageNotFoundError:
+            raise POSException.POSKeyError(oid)
+
     def __len__(self):
         return self.app.getStorageSize()
 
