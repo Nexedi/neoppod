@@ -279,6 +279,24 @@ class NodeManager(object):
             return list(self._node_set)
         return filter(node_filter, self._node_set)
 
+    def getIdentifiedList(self, pool_set=None):
+        """
+            Returns a generator to iterate over identified nodes
+        """
+        # TODO: use an index
+        if pool_set is None:
+            return [x for x in self._node_set if x.isIdentified()]
+        else:
+            return [x for x in self._node_set if x.isIdentified() and
+            x.getUUID() in pool_set]
+
+    def getConnectedList(self):
+        """
+            Returns a generator to iterate over connected nodes
+        """
+        # TODO: use an index
+        return [x for x in self._node_set if x.isConnected()]
+
     def __getList(self, index_dict, key):
         return list(index_dict.setdefault(key, set()))
 
