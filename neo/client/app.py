@@ -556,8 +556,13 @@ class Application(object):
             # this is a George Bailey object, stored as an empty string
             data = ''
         compressed_data = compress(data)
+        if len(compressed_data) > data:
+            compressed_data = data
+            compression = 0
+        else:
+            compression = 1
         checksum = makeChecksum(compressed_data)
-        p = Packets.AskStoreObject(oid, serial, 1,
+        p = Packets.AskStoreObject(oid, serial, compression,
                  checksum, compressed_data, self.local_var.tid)
         # Store object in tmp cache
         self.local_var.data_dict[oid] = data
