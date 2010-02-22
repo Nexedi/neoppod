@@ -52,6 +52,7 @@ class Application(object):
 
     def __init__(self, config):
 
+        NodeManager.init()
         # always use default connector for now
         self.connector_handler = getConnectorHandler()
 
