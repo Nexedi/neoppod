@@ -73,6 +73,7 @@ class Node(object):
         old_uuid = self._uuid
         self._uuid = uuid
         self._manager._updateUUID(self, old_uuid)
+        self._manager._updateIdentified(self)
 
     def getUUID(self):
         return self._uuid
@@ -83,6 +84,7 @@ class Node(object):
         """
         assert self._connection is not None
         self._connection = None
+        self._manager._updateIdentified(self)
 
     def setConnection(self, connection):
         """
@@ -92,6 +94,7 @@ class Node(object):
         assert self._connection is None
         self._connection = connection
         connection.setOnClose(self.onConnectionClosed)
+        self._manager._updateIdentified(self)
 
     def getConnection(self):
         """
@@ -250,6 +253,7 @@ class NodeManager(object):
         self._uuid_dict = {}
         self._type_dict = {}
         self._state_dict = {}
+        self._identified_dict = {}
 
     def add(self, node):
         if node in self._node_set:
@@ -259,6 +263,7 @@ class NodeManager(object):
         self._updateUUID(node, None)
         self.__updateSet(self._type_dict, None, node.__class__, node)
         self.__updateSet(self._state_dict, None, node.getState(), node)
+        self._updateIdentified(node)
 
     def remove(self, node):
         if node is None or node not in self._node_set:
@@ -268,6 +273,7 @@ class NodeManager(object):
         self.__drop(self._uuid_dict, node.getUUID())
         self.__dropSet(self._state_dict, node.getState(), node)
         self.__dropSet(self._type_dict, node.__class__, node)
+        self._updateIdentified(node)
 
     def __drop(self, index_dict, key):
         try:
@@ -284,6 +290,16 @@ class NodeManager(object):
             del index_dict[old_key]
         if new_key is not None:
             index_dict[new_key] = node
+
+    def _updateIdentified(self, node):
+        uuid = node.getUUID()
+        if node.isIdentified():
+            self._identified_dict[uuid] = node
+        else:
+            try:
+                del self._identified_dict[uuid]
+            except KeyError:
+                pass
 
     def _updateAddress(self, node, old_address):
         self.__update(self._address_dict, old_address, node.getAddress(), node)
@@ -313,13 +329,12 @@ class NodeManager(object):
     def getIdentifiedList(self, pool_set=None):
         """
             Returns a generator to iterate over identified nodes
+            pool_set is an iterable of UUIDs allowed
         """
-        # TODO: use an index
-        if pool_set is None:
-            return [x for x in self._node_set if x.isIdentified()]
-        else:
-            return [x for x in self._node_set if x.isIdentified() and
-            x.getUUID() in pool_set]
+        if pool_set is not None:
+            identified_nodes = self._identified_dict.items()
+            return [v for k, v in identified_nodes if k in pool_set]
+        return list(self._identified_dict.values())
 
     def getConnectedList(self):
         """
@@ -329,30 +344,33 @@ class NodeManager(object):
         return [x for x in self._node_set if x.isConnected()]
 
     def __getList(self, index_dict, key):
-        return list(index_dict.setdefault(key, set()))
+        return index_dict.setdefault(key, set())
 
     def getByStateList(self, state):
         """ Get a node list filtered per the node state """
-        return self.__getList(self._state_dict, state)
+        return list(self.__getList(self._state_dict, state))
 
-    def __getTypeList(self, type_klass):
-        return self.__getList(self._type_dict, type_klass)
+    def __getTypeList(self, type_klass, only_identified=False):
+        node_set = self.__getList(self._type_dict, type_klass)
+        if only_identified:
+            return [x for x in node_set if x.getUUID() in self._identified_dict]
+        return list(node_set)
 
-    def getMasterList(self):
+    def getMasterList(self, only_identified=False):
         """ Return a list with master nodes """
-        return self.__getTypeList(MasterNode)
+        return self.__getTypeList(MasterNode, only_identified)
 
-    def getStorageList(self):
+    def getStorageList(self, only_identified=False):
         """ Return a list with storage nodes """
-        return self.__getTypeList(StorageNode)
+        return self.__getTypeList(StorageNode, only_identified)
 
-    def getClientList(self):
+    def getClientList(self, only_identified=False):
         """ Return a list with client nodes """
-        return self.__getTypeList(ClientNode)
+        return self.__getTypeList(ClientNode, only_identified)
 
-    def getAdminList(self):
+    def getAdminList(self, only_identified=False):
         """ Return a list with admin nodes """
-        return self.__getTypeList(AdminNode)
+        return self.__getTypeList(AdminNode, only_identified)
 
     def getByAddress(self, address):
         """ Return the node that match with a given address """
