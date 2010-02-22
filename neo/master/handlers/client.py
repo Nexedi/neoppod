@@ -76,10 +76,9 @@ class ClientServiceHandler(MasterHandler):
         # build a new set as we may not send the message to all nodes as some
         # might be not reachable at that time
         used_uuid_set = set()
-        for c in app.em.getConnectionList():
-            if c.getUUID() in uuid_set:
-                c.ask(Packets.AskLockInformation(tid), timeout=60)
-                used_uuid_set.add(c.getUUID())
+        for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
+            node.ask(Packets.AskLockInformation(tid), timeout=60)
+            used_uuid_set.add(node.getUUID())
 
         app.tm.prepare(tid, oid_list, used_uuid_set, conn.getPeerId())
 

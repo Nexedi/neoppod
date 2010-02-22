@@ -185,9 +185,19 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
             (NodeTypes.CLIENT, addr, self.getNewUUID(), NodeStates.UNKNOWN),
             (NodeTypes.STORAGE, addr, self.getNewUUID(), NodeStates.DOWN),
         ]
+        # XXX: it might be better to test with real node & node manager
         conn1, conn2 = Mock({'__repr__': 'conn1'}), Mock({'__repr__': 'conn2'})
-        self.app.em = Mock({'getConnectionListByUUID': ReturnValues([conn1],
-                    [conn2])})
+        node1 = Mock({
+            'getConnection': conn1, 
+            '__nonzero__': 1,
+            'isConnected': True,
+        })
+        node2 = Mock({
+            'getConnection': conn2, 
+            '__nonzero__': 1,
+            'isConnected': True,
+        })
+        self.app.nm = Mock({'getByUUID': ReturnValues(node1, node2)})
         self.app.cp = Mock()
         self.handler.notifyNodeInformation(conn, node_list)
         # node manager updated

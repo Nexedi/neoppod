@@ -86,24 +86,18 @@ class AdministrationHandler(MasterHandler):
 
         if state == NodeStates.RUNNING:
             # first make sure to have a connection to the node
-            node_conn = None
-            for node_conn in app.em.getConnectionList():
-                if node_conn.getUUID() == node.getUUID():
-                    break
-            else:
-                # no connection to the node
+            if not node.isConnected():
                 raise ProtocolError('no connection to the node')
             node.setState(state)
 
         elif state == NodeStates.DOWN and node.isStorage():
             # update it's state
             node.setState(state)
-            for storage_conn in app.em.getConnectionListByUUID(uuid):
+            if node.isConnected():
                 # notify itself so it can shutdown
-                node_list = [node.asTuple()]
-                storage_conn.notify(Packets.NotifyNodeInformation(node_list))
+                node.notify(Packets.NotifyNodeInformation([node.asTuple()]))
                 # close to avoid handle the closure as a connection lost
-                storage_conn.abort()
+                node.getConnection().abort()
             # modify the partition table if required
             cell_list = []
             if modify_partition_table:
@@ -152,10 +146,9 @@ class AdministrationHandler(MasterHandler):
             node.setRunning()
         app.broadcastNodesInformation(node_list)
         # start nodes
-        for s_conn in em.getConnectionList():
-            if s_conn.getUUID() in uuid_set:
-                s_conn.notify(Packets.NotifyLastOID(app.loid))
-                s_conn.notify(Packets.StartOperation())
+        for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
+                node.notify(Packets.NotifyLastOID(app.loid))
+                node.notify(Packets.StartOperation())
         # broadcast the new partition table
         app.broadcastPartitionChanges(cell_list)
         p = Errors.Ack('node added')

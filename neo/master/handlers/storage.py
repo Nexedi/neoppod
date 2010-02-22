@@ -77,19 +77,16 @@ class StorageServiceHandler(BaseServiceHandler):
         # Transaction Finished to the initiated client node,
         # Invalidate Objects to the other client nodes, and Unlock
         # Information to relevant storage nodes.
-        for c in app.em.getConnectionList():
-            uuid = c.getUUID()
-            if uuid is not None:
-                node = app.nm.getByUUID(uuid)
-                if node.isClient():
-                    if node is t.getNode():
-                        p = Packets.AnswerTransactionFinished(tid)
-                        c.answer(p, msg_id=t.getMessageId())
-                    else:
-                        c.notify(Packets.InvalidateObjects(t.getOIDList(), tid))
-                elif node.isStorage():
-                    if uuid in t.getUUIDList():
-                        c.notify(Packets.NotifyUnlockInformation(tid))
+        for node in self.app.nm.getIdentifiedList():
+            if node.isClient():
+                if node is t.getNode():
+                    p = Packets.AnswerTransactionFinished(tid)
+                    node.answer(p, msg_id=t.getMessageId())
+                else:
+                    node.notify(Packets.InvalidateObjects(t.getOIDList(), tid))
+            elif node.isStorage():
+                if uuid in t.getUUIDList():
+                    node.notify(Packets.NotifyUnlockInformation(tid))
 
         # remove transaction from manager
         tm.remove(tid)

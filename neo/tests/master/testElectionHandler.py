@@ -43,7 +43,7 @@ class MasterClientElectionTests(NeoTestBase):
         config = self.getMasterConfiguration(master_number=1)
         self.app = Application(config)
         self.app.pt.clear()
-        self.app.em = Mock({"getConnectionList" : []})
+        self.app.em = Mock()
         self.app.uuid = self._makeUUID('M')
         self.app.server = ('127.0.0.1', 10000)
         self.app.name = 'NEOCLUSTER'
@@ -209,7 +209,7 @@ class MasterServerElectionTests(NeoTestBase):
         self.app = Application(config)
         self.app.pt.clear()
         self.app.name = 'NEOCLUSTER'
-        self.app.em = Mock({"getConnectionList" : []})
+        self.app.em = Mock()
         self.election = ServerElectionHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()

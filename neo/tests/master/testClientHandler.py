@@ -31,7 +31,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.app = Application(config)
         self.app.pt.clear()
         self.app.pt.setID(pack('!Q', 1))
-        self.app.em = Mock({"getConnectionList" : []})
+        self.app.em = Mock()
         self.app.loid = '\0' * 8
         self.app.tm.setLastTID('\0' * 8)
         self.service = ClientServiceHandler(self.app)
@@ -117,7 +117,7 @@ class MasterClientHandlerTests(NeoTestBase):
         oid_list = []
         tid = self.app.tm.getLastTID()
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        self.app.em = Mock({"getConnectionList" : [conn, storage_conn]})
+        self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         service.askFinishTransaction(conn, oid_list, tid)
         self.checkAskLockInformation(storage_conn)
         self.assertEquals(len(self.app.tm.getPendingList()), 1)

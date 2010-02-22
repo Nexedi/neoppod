@@ -50,18 +50,20 @@ class MasterAppTests(NeoTestBase):
     def test_06_broadcastNodeInformation(self):
         # defined some nodes to which data will be send
         master_uuid = self.getNewUUID()
-        self.app.nm.createMaster(uuid=master_uuid)
+        master = self.app.nm.createMaster(uuid=master_uuid)
         storage_uuid = self.getNewUUID()
         storage = self.app.nm.createStorage(uuid=storage_uuid)
         client_uuid = self.getNewUUID()
         client = self.app.nm.createClient(uuid=client_uuid)
+        # create conn and patch em
+        master_conn = Mock()
+        storage_conn = Mock()
+        client_conn = Mock()
+        master.setConnection(master_conn)
+        storage.setConnection(storage_conn)
+        client.setConnection(client_conn)
         self.app.nm.add(storage)
         self.app.nm.add(client)
-        # create conn and patch em
-        master_conn = Mock({"getUUID" : master_uuid})
-        storage_conn = Mock({"getUUID" : storage_uuid})
-        client_conn = Mock({"getUUID" : client_uuid})
-        self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
 
         # no address defined, not send to client node
         c_node = self.app.nm.createClient(uuid = self.getNewUUID())
@@ -72,10 +74,6 @@ class MasterAppTests(NeoTestBase):
         self.checkNotifyNodeInformation(storage_conn)
 
         # address defined and client type
-        master_conn = Mock({"getUUID" : master_uuid})
-        storage_conn = Mock({"getUUID" : storage_uuid})
-        client_conn = Mock({"getUUID" : client_uuid})
-        self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
         s_node = self.app.nm.createClient(
             uuid = self.getNewUUID(),
             address=("127.1.0.1", 3361)
@@ -87,10 +85,6 @@ class MasterAppTests(NeoTestBase):
         self.checkNotifyNodeInformation(storage_conn)
 
         # address defined and storage type
-        master_conn = Mock({"getUUID" : master_uuid})
-        storage_conn = Mock({"getUUID" : storage_uuid})
-        client_conn = Mock({"getUUID" : client_uuid})
-        self.app.em = Mock({"getConnectionList" : (master_conn, storage_conn, client_conn)})
         s_node = self.app.nm.createStorage(
             uuid=self.getNewUUID(),
             address=("127.0.0.1", 1351)

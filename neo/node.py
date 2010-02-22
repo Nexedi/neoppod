@@ -225,6 +225,10 @@ NODE_CLASS_MAPPING = {
 class NodeManager(object):
     """This class manages node status."""
 
+    # TODO: rework getXXXList() methods, filter first by node type
+    # - getStorageList(identified=True, connected=True, )
+    # - getList(...)
+
     def __init__(self):
         self._node_set = set()
         self._address_dict = {}

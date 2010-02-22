@@ -93,13 +93,10 @@ class VerificationManager(BaseServiceHandler):
         logging.info('start to verify data')
 
         # Gather all unfinished transactions.
-        for conn in em.getConnectionList():
-            uuid = conn.getUUID()
-            if uuid is not None:
-                node = nm.getByUUID(uuid)
-                if node.isStorage():
-                    self._uuid_dict[uuid] = False
-                    conn.ask(Packets.AskUnfinishedTransactions())
+        for node in self.app.nm.getIdentifiedList():
+            if node.isStorage():
+                self._uuid_dict[node.getUUID()] = False
+                node.ask(Packets.AskUnfinishedTransactions())
 
         while True:
             em.poll(1)
@@ -116,40 +113,34 @@ class VerificationManager(BaseServiceHandler):
             uuid_set = self.verifyTransaction(tid)
             if uuid_set is None:
                 # Make sure that no node has this transaction.
-                for conn in em.getConnectionList():
-                    uuid = conn.getUUID()
-                    if uuid is not None:
-                        node = nm.getByUUID(uuid)
-                        if node.isStorage():
-                            conn.notify(Packets.DeleteTransaction(tid))
+                for node in self.app.nm.getIdentifiedList():
+                    if node.isStorage():
+                        node.notify(Packets.DeleteTransaction(tid))
             else:
-                for conn in em.getConnectionList():
-                    uuid = conn.getUUID()
-                    if uuid in uuid_set:
-                        conn.ask(Packets.CommitTransaction(tid))
+                for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
+                    node.ask(Packets.CommitTransaction(tid))
 
             # If possible, send the packets now.
             em.poll(0)
 
     def verifyTransaction(self, tid):
         em = self.app.em
+        nm = self.app.nm
         uuid_set = set()
 
         # Determine to which nodes I should ask.
         partition = self.app.pt.getPartition(tid)
-        transaction_uuid_list = [cell.getUUID() for cell \
+        uuid_list = [cell.getUUID() for cell \
                 in self.app.pt.getCellList(partition, readable=True)]
-        if len(transaction_uuid_list) == 0:
+        if len(uuid_list) == 0:
             raise VerificationFailure
-        uuid_set.update(transaction_uuid_list)
+        uuid_set.update(uuid_list)
 
         # Gather OIDs.
         self._uuid_dict = {}
-        for conn in em.getConnectionList():
-            uuid = conn.getUUID()
-            if uuid in transaction_uuid_list:
-                self._uuid_dict[uuid] = False
-                conn.ask(Packets.AskTransactionInformation(tid))
+        for node in self.app.nm.getIdentifiedList(pool_set=uuid_list):
+            self._uuid_dict[node.getUUID()] = False
+            node.ask(Packets.AskTransactionInformation(tid))
         if len(self._uuid_dict) == 0:
             raise VerificationFailure
 
@@ -174,11 +165,9 @@ class VerificationManager(BaseServiceHandler):
             uuid_set.update(object_uuid_list)
 
             self._object_present = True
-            for conn in em.getConnectionList():
-                uuid = conn.getUUID()
-                if uuid in object_uuid_list:
-                    self._uuid_dict[uuid] = False
-                    conn.ask(Packets.AskObjectPresent(oid, tid))
+            for node in nm.getIdentifiedList(pool_set=object_uuid_list):
+                self._uuid_dict[node.getUUID()] = False
+                node.ask(Packets.AskObjectPresent(oid, tid))
 
             while True:
                 em.poll(1)

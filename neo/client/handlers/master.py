@@ -148,9 +148,9 @@ class PrimaryNotificationsHandler(BaseHandler):
         for node_type, addr, uuid, state in node_list:
             if state != NodeStates.RUNNING:
                 # close connection to this node if no longer running
-                conn_list = self.app.em.getConnectionListByUUID(uuid)
-                if conn_list:
-                    conn = conn_list[0]
+                node = self.app.nm.getByUUID(uuid)
+                if node and node.isConnected():
+                    conn = node.getConnection()
                     conn.close()
                     if node_type == NodeTypes.STORAGE:
                         # Remove from pool connection

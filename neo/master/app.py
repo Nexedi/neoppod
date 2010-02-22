@@ -264,13 +264,10 @@ class Application(object):
                 assign_for_notification(NodeTypes.ADMIN)
 
         # send at most one non-empty notification packet per node
-        for conn in self.em.getConnectionList():
-            if conn.getUUID() is None:
-                continue
-            node = self.nm.getByUUID(conn.getUUID())
+        for node in self.nm.getIdentifiedList():
             node_list = node_dict.get(node.getType(), [])
             if node_list:
-                conn.notify(Packets.NotifyNodeInformation(node_list))
+                node.notify(Packets.NotifyNodeInformation(node_list))
 
     def broadcastPartitionChanges(self, cell_list):
         """Broadcast a Notify Partition Changes packet."""
@@ -279,12 +276,9 @@ class Application(object):
             return
         ptid = self.pt.setNextID()
         self.pt.log()
-        for c in self.em.getConnectionList():
-            n = self.nm.getByUUID(c.getUUID())
-            if n is None:
-                continue
-            if n.isClient() or n.isStorage() or n.isAdmin():
-                c.notify(Packets.NotifyPartitionChanges(ptid, cell_list))
+        for node in self.nm.getIdentifiedList():
+            if node.isClient() or node.isStorage() or node.isAdmin():
+                node.notify(Packets.NotifyPartitionChanges(ptid, cell_list))
 
     def outdateAndBroadcastPartition(self):
         " Outdate cell of non-working nodes and broadcast changes """
@@ -319,10 +313,9 @@ class Application(object):
     def broadcastLastOID(self, oid):
         logging.debug('Broadcast last OID to storages : %s' % dump(oid))
         packet = Packets.NotifyLastOID(oid)
-        for conn in self.em.getConnectionList():
-            node = self.nm.getByUUID(conn.getUUID())
-            if node is not None and node.isStorage():
-                conn.notify(packet)
+        for node in self.nm.getIdentifiedList():
+            if node.isStorage():
+                node.notify(packet)
 
     def provideService(self):
         """
@@ -345,13 +338,11 @@ class Application(object):
                 # If not operational, send Stop Operation packets to storage
                 # nodes and client nodes. Abort connections to client nodes.
                 logging.critical('No longer operational, stopping the service')
-                for conn in em.getConnectionList():
-                    node = nm.getByUUID(conn.getUUID())
-                    if node is not None and (node.isStorage()
-                            or node.isClient()):
-                        conn.notify(Packets.StopOperation())
+                for node in self.nm.getIdentifiedList():
+                    if node.isStorage() or node.isClient():
+                        node.notify(Packets.StopOperation())
                         if node.isClient():
-                            conn.abort()
+                            node.getConnection().abort()
 
                 # Then, go back, and restart.
                 return
@@ -457,16 +448,13 @@ class Application(object):
 
         # change handlers
         notification_packet = Packets.NotifyClusterInformation(state)
-        for conn in em.getConnectionList():
-            node = nm.getByUUID(conn.getUUID())
-            if conn.isListening() or node is None:
-                # not identified or listening, keep the identification handler
-                continue
+        for node in self.nm.getIdentifiedList():
             if not node.isMaster():
-                conn.notify(notification_packet)
+                node.notify(notification_packet)
             if node.isAdmin() or node.isMaster():
                 # those node types keep their own handler
                 continue
+            conn = node.getConnection()
             if node.isClient():
                 if state != ClusterStates.RUNNING:
                     conn.close()
@@ -514,8 +502,8 @@ class Application(object):
         #   corrected.
         # change handler
         handler = shutdown.ShutdownHandler(self)
-        for c in self.em.getConnectionList():
-            c.setHandler(handler)
+        for node in self.nm.getIdentifiedList():
+            node.getConnection().setHandler(handler)
 
         # wait for all transaction to be finished
         while True:
@@ -525,15 +513,12 @@ class Application(object):
             if self.cluster_state == ClusterStates.RUNNING:
                 sys.exit("Application has been asked to shut down")
             logging.info("asking all nodes to shutdown")
-            for c in self.em.getConnectionList():
-                node = self.nm.getByUUID(c.getUUID())
-                if node is None:
-                    continue
+            for node in self.nm.getIdentifiedList():
                 notification = Packets.NotifyNodeInformation([node.asTuple()])
                 if node.isClient():
-                    c.notify(notification)
+                    node.notify(notification)
                 elif node.isStorage() or node.isMaster():
-                    c.notify(notification)
+                    node.notify(notification)
             # then shutdown
             sys.exit("Cluster has been asked to shut down")
 

@@ -34,7 +34,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.app = Application(config)
         self.app.pt.clear()
         self.app.pt.setID(pack('!Q', 1))
-        self.app.em = Mock({"getConnectionList" : []})
+        self.app.em = Mock()
         self.service = StorageServiceHandler(self.app)
         self.client_handler = ClientServiceHandler(self.app)
         # define some variable to simulate client and storage node
@@ -72,6 +72,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         node = nm.createFromNodeType(node_type, address=(ip, port),
                 uuid=uuid)
         conn = self.getFakeConnection(node.getUUID(),node.getAddress())
+        node.setConnection(conn)
         return (node, conn)
 
     def test_answerInformationLocked_1(self):
@@ -106,7 +107,6 @@ class MasterStorageHandlerTests(NeoTestBase):
         # a faked event manager
         connection_list = [client_conn_1, client_conn_2, storage_conn_1,
                 storage_conn_2]
-        self.app.em = Mock({"getConnectionList" : connection_list})
         # register a transaction
         tid = self.app.tm.begin(client_1, None)
         self.app.tm.prepare(tid, oid_list, uuid_list, msg_id)
