@@ -556,7 +556,7 @@ class Application(object):
             # this is a George Bailey object, stored as an empty string
             data = ''
         compressed_data = compress(data)
-        if len(compressed_data) > data:
+        if len(compressed_data) > len(data):
             compressed_data = data
             compression = 0
         else:
