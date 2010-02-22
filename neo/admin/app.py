@@ -52,13 +52,12 @@ class Application(object):
 
     def __init__(self, config):
 
-        NodeManager.init()
         # always use default connector for now
         self.connector_handler = getConnectorHandler()
 
         # Internal attributes.
         self.em = EventManager()
-        self.nm = NodeManager
+        self.nm = NodeManager()
 
         self.name = config.getCluster()
         self.server = config.getBind()

@@ -100,8 +100,6 @@ class Application(object):
     """The client node application."""
 
     def __init__(self, master_nodes, name, connector=None, **kw):
-
-        NodeManager.init()
         # Start polling thread
         self.em = EventManager()
         self.poll_thread = ThreadedPoll(self.em)
@@ -110,7 +108,7 @@ class Application(object):
         self.name = name
         self.connector_handler = getConnectorHandler(connector)
         self.dispatcher = Dispatcher()
-        self.nm = NodeManager
+        self.nm = NodeManager()
         self.cp = ConnectionPool(self)
         self.pt = None
         self.master_conn = None

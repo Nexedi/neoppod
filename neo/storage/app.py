@@ -38,8 +38,6 @@ class Application(object):
     """The storage node application."""
 
     def __init__(self, config):
-
-        NodeManager.init()
         # always use default connector for now
         self.connector_handler = getConnectorHandler()
 
@@ -48,7 +46,7 @@ class Application(object):
 
         # Internal attributes.
         self.em = EventManager()
-        self.nm = NodeManager
+        self.nm = NodeManager()
         self.tm = TransactionManager(self)
         self.dm = buildDatabaseManager(config.getAdapter(), config.getDatabase())
 

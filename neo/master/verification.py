@@ -249,7 +249,6 @@ class VerificationManager(BaseServiceHandler):
         pass
 
     def nodeLost(self, conn, node):
-        node.setConnection(None)
         if not self.app.pt.operational():
             raise VerificationFailure, 'cannot continue verification'
 

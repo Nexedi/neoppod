@@ -77,9 +77,15 @@ class Node(object):
     def getUUID(self):
         return self._uuid
 
+    def onConnectionClosed(self):
+        assert self._connection is not None
+        self._connection = None
+
     def setConnection(self, connection):
-        assert self._connection is None or connection is None
+        assert connection is not None
+        assert self._connection is None
         self._connection = connection
+        connection.setOnClose(self.onConnectionClosed)
 
     def getConnection(self):
         assert self._connection is not None
@@ -429,5 +435,3 @@ class NodeManager(object):
             logging.debug(' * %32s | %8s | %22s | %s' % (
                 uuid, node.getType(), address, node.getState()))
 
-# pseudo singleton
-NodeManager = NodeManager()

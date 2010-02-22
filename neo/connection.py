@@ -202,6 +202,7 @@ class Connection(BaseConnection):
         self._queue = []
         self._expected = deque()
         self._next_handler = None
+        self._on_close = None
         BaseConnection.__init__(self, event_manager, handler,
                                 connector = connector, addr = addr,
                                 connector_handler = connector_handler)
@@ -218,6 +219,10 @@ class Connection(BaseConnection):
             self._next_handler = handler
         else:
             self.handler = handler
+
+    def setOnClose(self, callback):
+        assert self._on_close is None
+        self._on_close = callback
 
     def isAborted(self):
         return self.aborted
@@ -245,10 +250,9 @@ class Connection(BaseConnection):
         BaseConnection.close(self)
         for event in self.event_dict.itervalues():
             self.em.removeIdleEvent(event)
-        from neo.node import NodeManager
-        node = NodeManager.getByUUID(self.getUUID())
-        if node is not None:
-            node.setConnection(None)
+        if self._on_close is not None:
+            self._on_close()
+            self._on_close = None
         self.event_dict.clear()
         self.write_buf = ""
         self.read_buf = ""

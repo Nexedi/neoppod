@@ -125,7 +125,7 @@ class NodesTests(NeoTestBase):
 class NodeManagerTests(NeoTestBase):
 
     def setUp(self):
-        self.manager = nm = NodeManager.__class__()
+        self.manager = nm = NodeManager()
         self.storage = StorageNode(nm, ('127.0.0.1', 1000), self.getNewUUID())
         self.master = MasterNode(nm, ('127.0.0.1', 2000), self.getNewUUID())
         self.client = ClientNode(nm, None, self.getNewUUID())
