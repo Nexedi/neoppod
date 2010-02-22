@@ -33,6 +33,7 @@ class Node(object):
         self._uuid = uuid
         self._manager = manager
         self._last_state_change = time()
+        self._connection = None
 
     def getLastStateChange(self):
         return self._last_state_change
@@ -64,6 +65,26 @@ class Node(object):
     def getUUID(self):
         return self._uuid
 
+    def setConnection(self, connection):
+        assert self._connection is None or connection is None
+        self._connection = connection
+
+    def getConnection(self):
+        assert self._connection is not None
+        return self._connection
+
+    def isConnected(self):
+        """
+            Returns True is a connection is established with the node
+        """
+        return self._connection is not None
+
+    def isIdentified(self):
+        """
+            Returns True is the node is connected and identified
+        """
+        return self._connection is not None and self._uuid is not None
+
     def __repr__(self):
         return '<%s(uuid=%s, address=%s, state=%s)>' % (
             self.__class__.__name__,
@@ -83,9 +104,6 @@ class Node(object):
 
     def isAdmin(self):
         return False
-
-    def isIdentified(self):
-        return self._uuid is not Node
 
     def isRunning(self):
         return self._state == NodeStates.RUNNING
