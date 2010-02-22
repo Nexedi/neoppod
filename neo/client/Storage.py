@@ -142,8 +142,8 @@ class Storage(BaseStorage.BaseStorage,
         raise NotImplementedError
 
     def lastTransaction(self):
-        # seems unused
-        raise NotImplementedError
+        # Used in ZODB unit tests
+        return self.app.lastTransaction()
 
     def _clear_temp(self):
         raise NotImplementedError
