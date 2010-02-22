@@ -328,7 +328,7 @@ class NodeManager(object):
             raise RuntimeError('Unknown node type : %s' % node_type)
         return self._createNode(klass, **kw)
 
-    def clear(self):
+    def init(self):
         self._node_set.clear()
         self._type_dict.clear()
         self._state_dict.clear()

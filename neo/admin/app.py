@@ -110,7 +110,7 @@ class Application(object):
         at this stage."""
 
         nm = self.nm
-        nm.clear()
+        nm.init()
         self.cluster_state = None
 
         for address in self.master_addresses:
