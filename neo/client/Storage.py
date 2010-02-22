@@ -20,6 +20,13 @@ from ZODB import BaseStorage, ConflictResolution, POSException
 from neo.client.app import Application
 from neo.client.exception import NEOStorageNotFoundError
 
+def check_read_only(func):
+    def wrapped(self, *args, **kw):
+        if self._is_read_only:
+            raise POSException.ReadOnlyError()
+        return func(self, *args, **kw)
+    return wrapped
+
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
@@ -38,34 +45,29 @@ class Storage(BaseStorage.BaseStorage,
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
+    @check_read_only
     def new_oid(self):
-        if self._is_read_only:
-            raise POSException.ReadOnlyError()
         return self.app.new_oid()
 
+    @check_read_only
     def tpc_begin(self, transaction, tid=None, status=' '):
-        if self._is_read_only:
-            raise POSException.ReadOnlyError()
         return self.app.tpc_begin(transaction=transaction, tid=tid,
                 status=status)
 
+    @check_read_only
     def tpc_vote(self, transaction):
-        if self._is_read_only:
-            raise POSException.ReadOnlyError()
         return self.app.tpc_vote(transaction=transaction,
             tryToResolveConflict=self.tryToResolveConflict)
 
+    @check_read_only
     def tpc_abort(self, transaction):
-        if self._is_read_only:
-            raise POSException.ReadOnlyError()
         return self.app.tpc_abort(transaction=transaction)
 
     def tpc_finish(self, transaction, f=None):
         return self.app.tpc_finish(transaction=transaction, f=f)
 
+    @check_read_only
     def store(self, oid, serial, data, version, transaction):
-        if self._is_read_only:
-            raise POSException.ReadOnlyError()
         return self.app.store(oid=oid, serial=serial,
             data=data, version=version, transaction=transaction,
             tryToResolveConflict=self.tryToResolveConflict)
@@ -93,16 +95,14 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.iterator(start, stop)
 
     # undo
+    @check_read_only
     def undo(self, transaction_id, txn):
-        if self._is_read_only:
-            raise POSException.ReadOnlyError()
         return self.app.undo(transaction_id=transaction_id, txn=txn,
             tryToResolveConflict=self.tryToResolveConflict)
 
 
+    @check_read_only
     def undoLog(self, first, last, filter=None):
-        if self._is_read_only:
-            raise POSException.ReadOnlyError()
         return self.app.undoLog(first, last, filter)
 
     def supportsUndo(self):
