@@ -57,7 +57,7 @@ class Application(object):
 
         # Internal attributes.
         self.em = EventManager()
-        self.nm = NodeManager()
+        self.nm = NodeManager
 
         self.name = config.getCluster()
         self.server = config.getBind()

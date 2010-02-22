@@ -377,3 +377,5 @@ class NodeManager(object):
             logging.debug(' * %32s | %8s | %22s | %s' % (
                 uuid, node.getType(), address, node.getState()))
 
+# pseudo singleton
+NodeManager = NodeManager()

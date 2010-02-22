@@ -108,7 +108,7 @@ class Application(object):
         self.name = name
         self.connector_handler = getConnectorHandler(connector)
         self.dispatcher = Dispatcher()
-        self.nm = NodeManager()
+        self.nm = NodeManager
         self.cp = ConnectionPool(self)
         self.pt = None
         self.master_conn = None
