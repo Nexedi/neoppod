@@ -365,29 +365,3 @@ class DoNothingConnector(Mock):
     def getDescriptor(self):
         return self.desc
 
-
-class TestElectionConnector(DoNothingConnector):
-
-    def receive(self):
-        """ simulate behavior of election """
-        if self.packet_cpt == 0:
-            # first : identify
-            logging.info("in patched analyse / IDENTIFICATION")
-            p = protocol.Packet()
-            self.uuid = getNewUUID()
-            p.AcceptIdentification(1, NodeType.MASTER, self.uuid,
-                 self.getAddress()[0], self.getAddress()[1], 1009, 2)
-            self.packet_cpt += 1
-            return p.encode()
-        elif self.packet_cpt == 1:
-            # second : answer primary master nodes
-            logging.info("in patched analyse / ANSWER PM")
-            p = protocol.Packet()
-            p.answerPrimary(2, protocol.INVALID_UUID, [])
-            self.packet_cpt += 1
-            return p.encode()
-        else:
-            # then do nothing
-            from neo.connector import ConnectorTryAgainException
-            raise ConnectorTryAgainException
-
