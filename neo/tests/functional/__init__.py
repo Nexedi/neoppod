@@ -34,7 +34,7 @@ import neo
 # Replace neo.setupLog by a no-op function.
 # This will only impact instances created in this process, so client only.
 def dummy_setupLog(*args, **kw):
-  pass
+    pass
 real_setupLog = neo.setupLog
 neo.setupLog = dummy_setupLog
 # Import Storage only *after* patching neo.setupLog, as it keeps a direct

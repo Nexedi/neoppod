@@ -48,10 +48,10 @@ def _waitMessage(self, conn, msg_id, handler=None):
         handler.dispatch(conn, conn.fakeReceived())
 
 def resolving_tryToResolveConflict(oid, conflict_serial, serial, data):
-  return data
+    return data
 
 def failing_tryToResolveConflict(oid, conflict_serial, serial, data):
-  return None
+    return None
 
 class ClientApplicationTests(NeoTestBase):
 
