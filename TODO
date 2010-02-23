@@ -25,23 +25,6 @@ RC  - write ZODB-API-level tests
 RC  - Review XXX in the code (CODE)
 RC  - Review TODO in the code (CODE)
 RC  - Review output of pylint (CODE)
-    - Connections should be integrated to Node class instances (CODE)
-      Currently, connections are managed separately from nodes, and the code 
-      very often needs to find one from the other. As all connections are to 
-      a node, and as all nods can be reperesented as Node class instances, 
-      such instance should directly contain associated connection for code 
-      simplicity.
-      Link node state and connection state, a node cannot be seens as running 
-      and unconnected at the same time from a node point of view. 
-      Consider something like:
-        - UNAVAILABLE implies UNCONNECTED
-        - UNKNOWN implies UNCONNECTED
-        - RUNNING implies CONNECTED
-        - IDENTIFIED implies RUNNING
-        - DOWN implies that the node is dropped from manager/db/config
-    - Rework indexes in NodeManager class (CODE)
-      NodeManager should provide indexes to quickly find nodes by type, UUID, 
-      (ip, port), connection type (listening...) and state (identified...)
     - Keep-alive (HIGH AVAILABILITY)
       Consider the need to implement a keep-alive system (packets sent 
       automatically when there is no activity on the connection for a period 
