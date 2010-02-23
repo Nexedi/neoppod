@@ -24,18 +24,6 @@ from neo.node import StorageNode
 
 class MasterPartitionTableTests(NeoTestBase):
 
-    def _test_01_setNextID(self):
-        pt = PartitionTable(100, 2)
-        # must raise as we don"t have one
-        self.assertEqual(pt.getID(), INVALID_PTID)
-        self.assertRaises(RuntimeError, pt.setNextID)
-        # set one
-        pt.setID(p64(23))
-        nptid = pt.setNextID()
-        self.assertEqual(pt.getID(), nptid)
-        self.assertTrue(u64(pt.getID()) > 23)
-        self.assertEqual(u64(pt.getID()), 24)
-
     def test_02_PartitionTable_creation(self):
         num_partitions = 5
         num_replicas = 3
