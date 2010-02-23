@@ -36,7 +36,6 @@ class PacketLogger(EventHandler):
                 packet.__class__.__name__, direction, uuid, ip, port)
         logger = self.packet_dispatch_table.get(klass, None)
         if logger is None:
-            logging.warning('No logger found for packet %s' % klass)
             return
         # enhanced log
         try:
