@@ -21,7 +21,7 @@ from collections import deque
 from neo.tests import NeoTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.storage import StorageOperationHandler
-from neo.protocol import Packets, Packet, INVALID_PARTITION
+from neo.protocol import INVALID_PARTITION
 from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
 
 class StorageStorageHandlerTests(NeoTestBase):

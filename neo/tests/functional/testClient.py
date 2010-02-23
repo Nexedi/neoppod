@@ -22,7 +22,6 @@ from ZODB.POSException import ConflictError
 from Persistence import Persistent
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
-from neo.protocol import ClusterStates, NodeStates
 
 
 # simple persitent object with conflict resolution

@@ -17,7 +17,7 @@
 
 from neo import logging
 from neo.util import dump
-from neo.protocol import ClusterStates, Packets, NodeTypes, NodeStates
+from neo.protocol import ClusterStates, Packets, NodeStates
 from neo.master.handlers import BaseServiceHandler
 
 

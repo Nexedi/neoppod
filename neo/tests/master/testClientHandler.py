@@ -19,7 +19,7 @@ import unittest
 from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoTestBase
-from neo.protocol import Packets, NodeTypes, NodeStates
+from neo.protocol import NodeTypes, NodeStates
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
 

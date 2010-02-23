@@ -18,7 +18,7 @@
 from neo import logging
 
 from neo import protocol
-from neo.protocol import NodeTypes, NodeStates, Packets
+from neo.protocol import NodeTypes, Packets
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
 from neo.util import dump

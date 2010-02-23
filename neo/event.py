@@ -16,7 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo import logging
-from select import select
 from time import time
 
 from neo.epoll import Epoll

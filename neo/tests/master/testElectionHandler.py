@@ -19,11 +19,10 @@ import unittest
 from mock import Mock
 from neo import protocol
 from neo.tests import NeoTestBase
-from neo.protocol import Packet, Packets, NodeTypes, NodeStates, INVALID_UUID
+from neo.protocol import Packet, NodeTypes, NodeStates
 from neo.master.handlers.election import ClientElectionHandler, ServerElectionHandler
 from neo.master.app import Application
 from neo.exception import ElectionFailure
-from neo.tests import DoNothingConnector
 from neo.connection import ClientConnection
 
 # patch connection so that we can register _addPacket messages

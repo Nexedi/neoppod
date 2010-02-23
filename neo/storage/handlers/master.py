@@ -19,7 +19,6 @@ from neo import logging
 
 from neo.protocol import CellStates, Packets, ProtocolError
 from neo.storage.handlers import BaseMasterHandler
-from neo.exception import OperationFailure
 
 
 class MasterOperationHandler(BaseMasterHandler):

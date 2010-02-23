@@ -16,7 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from neo import protocol
 from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.protocol import ErrorCodes, Packets, Errors
 from neo.tests import NeoTestBase

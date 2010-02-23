@@ -18,7 +18,7 @@
 from neo import logging
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.protocol import NodeTypes, NodeStates, CellStates
+from neo.protocol import CellStates
 
 class HiddenHandler(BaseMasterHandler):
     """This class implements a generic part of the event handlers."""

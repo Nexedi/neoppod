@@ -26,7 +26,6 @@ from neo.admin.handler import AdminEventHandler, MasterEventHandler, \
 from neo.connector import getConnectorHandler
 from neo.bootstrap import BootstrapManager
 from neo.pt import PartitionTable
-from neo import protocol
 from neo.protocol import NodeTypes, NodeStates, Packets, Errors
 
 class Dispatcher:

@@ -18,8 +18,6 @@
 import unittest
 from struct import pack, unpack
 from neo.tests import NeoTestBase
-from neo import protocol
-from neo.protocol import Packets
 from neo.protocol import NodeTypes, NodeStates
 from neo.master.verification import VerificationManager, VerificationFailure
 from neo.master.app import Application

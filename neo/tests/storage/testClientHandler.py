@@ -16,14 +16,13 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from struct import unpack
 from mock import Mock
 from collections import deque
 from neo.tests import NeoTestBase
 from neo.storage.app import Application
-from neo.storage.transactions import ConflictError, DelayedError
+from neo.storage.transactions import ConflictError
 from neo.storage.handlers.client import ClientOperationHandler
-from neo.protocol import Packets, Packet, INVALID_PARTITION
+from neo.protocol import INVALID_PARTITION
 from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
 
 class StorageClientHandlerTests(NeoTestBase):
