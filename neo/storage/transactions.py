@@ -63,12 +63,12 @@ class Transaction(object):
     def isLocked(self):
         return self._locked
 
-    def prepare(self, oid_list, user, desc, ext):
+    def prepare(self, oid_list, user, desc, ext, packed):
         """
             Set the transaction informations
         """
         # assert self._transaction is not None
-        self._transaction = (oid_list, user, desc, ext)
+        self._transaction = (oid_list, user, desc, ext, packed)
 
     def addObject(self, oid, compression, checksum, data):
         """
@@ -160,12 +160,12 @@ class TransactionManager(object):
             self._loid = self._loid_seen
             self._app.dm.setLastOID(self._loid)
 
-    def storeTransaction(self, uuid, tid, oid_list, user, desc, ext):
+    def storeTransaction(self, uuid, tid, oid_list, user, desc, ext, packed):
         """
             Store transaction information received from client node
         """
         transaction = self._getTransaction(tid, uuid)
-        transaction.prepare(oid_list, user, desc, ext)
+        transaction.prepare(oid_list, user, desc, ext, packed)
 
     def storeObject(self, uuid, tid, serial, oid, compression, checksum, data):
         """

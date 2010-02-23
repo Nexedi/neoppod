@@ -82,7 +82,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
         self.app.setTransactionVoted()
 
     def answerTransactionInformation(self, conn, tid,
-                                           user, desc, ext, oid_list):
+                                           user, desc, ext, packed, oid_list):
         # transaction information are returned as a dict
         info = {}
         info['time'] = TimeStamp(tid).timeTime()
@@ -90,6 +90,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
         info['description'] = desc
         info['id'] = tid
         info['oids'] = oid_list
+        info['packed'] = packed
         self.app.local_var.txn_info = info
 
     def answerObjectHistory(self, conn, oid, history_list):

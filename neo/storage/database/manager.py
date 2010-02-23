@@ -232,7 +232,8 @@ class DatabaseManager(object):
         contains tuples, each of which consists of an object ID,
         a compression specification, a checksum and object data.
         The transaction is either None or a tuple of the list of OIDs,
-        user information, a description and extension information."""
+        user information, a description, extension information and transaction
+        pack state (True for packed)."""
         raise NotImplementedError
 
     def finishTransaction(self, tid):

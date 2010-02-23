@@ -262,7 +262,7 @@ class EventHandler(object):
         raise UnexpectedPacketError
 
     def answerTransactionInformation(self, conn, tid,
-                                           user, desc, ext, oid_list):
+                                           user, desc, ext, packed, oid_list):
         raise UnexpectedPacketError
 
     def askObjectHistory(self, conn, oid, first, last):

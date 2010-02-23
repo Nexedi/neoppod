@@ -201,7 +201,7 @@ class VerificationManager(BaseServiceHandler):
         self._uuid_dict[uuid] = True
 
     def answerTransactionInformation(self, conn, tid,
-                                           user, desc, ext, oid_list):
+                                           user, desc, ext, packed, oid_list):
         uuid = conn.getUUID()
         app = self.app
         if self._uuid_dict.get(uuid, True):

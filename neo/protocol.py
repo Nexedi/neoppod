@@ -21,7 +21,7 @@ from socket import inet_ntoa, inet_aton
 from neo.util import Enum
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (4, 0)
+PROTOCOL_VERSION = (4, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -905,9 +905,10 @@ class AnswerTransactionInformation(Packet):
     """
     Answer information (user, description) about a transaction. S -> Any.
     """
-    def _encode(self, tid, user, desc, ext, oid_list):
-        body = [pack('!8sHHHL', tid, len(user), len(desc), len(ext),
-            len(oid_list))]
+    def _encode(self, tid, user, desc, ext, packed, oid_list):
+        packed = packed and 1 or 0
+        body = [pack('!8sHHHBL', tid, len(user), len(desc), len(ext),
+            packed, len(oid_list))]
         body.append(user)
         body.append(desc)
         body.append(ext)
@@ -915,8 +916,9 @@ class AnswerTransactionInformation(Packet):
         return ''.join(body)
 
     def _decode(self, body):
-        r = unpack('!8sHHHL', body[:18])
-        tid, user_len, desc_len, ext_len, oid_len = r
+        r = unpack('!8sHHHBL', body[:18])
+        tid, user_len, desc_len, ext_len, packed, oid_len = r
+        packed = bool(packed)
         body = body[18:]
         user = body[:user_len]
         body = body[user_len:]
@@ -929,7 +931,7 @@ class AnswerTransactionInformation(Packet):
             (oid, ) = unpack('8s', body[:8])
             body = body[8:]
             oid_list.append(oid)
-        return (tid, user, desc, ext, oid_list)
+        return (tid, user, desc, ext, packed, oid_list)
 
 class AskObjectHistory(Packet):
     """

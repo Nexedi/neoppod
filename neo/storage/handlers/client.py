@@ -39,7 +39,8 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
     def askStoreTransaction(self, conn, tid, user, desc,
                                   ext, oid_list):
         uuid = conn.getUUID()
-        self.app.tm.storeTransaction(uuid, tid, oid_list, user, desc, ext)
+        self.app.tm.storeTransaction(uuid, tid, oid_list, user, desc, ext,
+            False)
         conn.answer(Packets.AnswerStoreTransaction(tid))
 
     def askStoreObject(self, conn, oid, serial,

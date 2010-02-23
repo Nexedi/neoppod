@@ -132,6 +132,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "trans" stores information on committed transactions.
         q("""CREATE TABLE IF NOT EXISTS trans (
                  tid BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+                 packed BOOLEAN NOT NULL,
                  oids MEDIUMBLOB NOT NULL,
                  user BLOB NOT NULL,
                  description BLOB NOT NULL,
@@ -151,6 +152,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "ttrans" stores information on uncommitted transactions.
         q("""CREATE TABLE IF NOT EXISTS ttrans (
                  tid BIGINT UNSIGNED NOT NULL,
+                 packed BOOLEAN NOT NULL,
                  oids MEDIUMBLOB NOT NULL,
                  user BLOB NOT NULL,
                  description BLOB NOT NULL,
@@ -364,13 +366,14 @@ class MySQLDatabaseManager(DatabaseManager):
                 q("""REPLACE INTO %s VALUES (%d, %d, %d, %d, '%s')""" \
                         % (obj_table, oid, tid, compression, checksum, data))
             if transaction is not None:
-                oid_list, user, desc, ext = transaction
+                oid_list, user, desc, ext, packed = transaction
+                packed = packed and 1 or 0
                 oids = e(''.join(oid_list))
                 user = e(user)
                 desc = e(desc)
                 ext = e(ext)
-                q("""REPLACE INTO %s VALUES (%d, '%s', '%s', '%s', '%s')""" \
-                        % (trans_table, tid, oids, user, desc, ext))
+                q("""REPLACE INTO %s VALUES (%d, %i, '%s', '%s', '%s', '%s')""" \
+                        % (trans_table, tid, packed, oids, user, desc, ext))
         except:
             self.rollback()
             raise
@@ -412,22 +415,22 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         tid = util.u64(tid)
         self.begin()
-        r = q("""SELECT oids, user, description, ext FROM trans
+        r = q("""SELECT oids, user, description, ext, packed FROM trans
                     WHERE tid = %d""" \
                 % tid)
         if not r and all:
-            r = q("""SELECT oids, user, description, ext FROM ttrans
+            r = q("""SELECT oids, user, description, ext, packed FROM ttrans
                         WHERE tid = %d""" \
                     % tid)
         self.commit()
         if r:
-            oids, user, desc, ext = r[0]
+            oids, user, desc, exti, packed = r[0]
             if (len(oids) % 8) != 0 or len(oids) == 0:
                 raise DatabaseFailure('invalid oids for tid %x' % tid)
             oid_list = []
             for i in xrange(0, len(oids), 8):
                 oid_list.append(oids[i:i+8])
-            return oid_list, user, desc, ext
+            return oid_list, user, desc, ext, bool(packed)
         return None
 
     def getOIDList(self, offset, length, num_partitions, partition_list):

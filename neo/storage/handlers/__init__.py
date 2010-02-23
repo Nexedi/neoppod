@@ -95,7 +95,7 @@ class BaseClientAndStorageOperationHandler(EventHandler):
             p = Errors.TidNotFound('%s does not exist' % dump(tid))
         else:
             p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3],
-                    t[0])
+                    t[4], t[0])
         conn.answer(p)
 
     def askObject(self, conn, oid, serial, tid):

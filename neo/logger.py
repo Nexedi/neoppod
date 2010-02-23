@@ -191,7 +191,7 @@ class PacketLogger(EventHandler):
         pass
 
     def answerTransactionInformation(self, conn, tid,
-                                           user, desc, ext, oid_list):
+                                           user, desc, ext, packed, oid_list):
         pass
 
     def askObjectHistory(self, conn, oid, first, last):

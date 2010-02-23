@@ -69,13 +69,14 @@ class ReplicationHandler(EventHandler):
             app.replicator.oid_offset = 0
 
     def answerTransactionInformation(self, conn, tid,
-                                           user, desc, ext, oid_list):
+                                           user, desc, ext, packed, oid_list):
         app = self.app
         if app.replicator.current_connection is not conn:
             return
 
         # Directly store the transaction.
-        app.dm.storeTransaction(tid, (), (oid_list, user, desc, ext), False)
+        app.dm.storeTransaction(tid, (), (oid_list, user, desc, ext, packed),
+            False)
 
     def answerOIDs(self, conn, oid_list):
         app = self.app
