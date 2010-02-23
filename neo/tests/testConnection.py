@@ -100,7 +100,7 @@ class ConnectionTests(NeoTestBase):
         conn = call.getParam(0)
         self.assertEquals(conn, bc)
 
-    def test_02_ListeningConnection(self):
+    def test_02_ListeningConnection1(self):
         # test init part
         em = Mock()
         handler = Mock()
@@ -120,6 +120,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(len(connector.mockGetNamedCalls("getNewConnection")), 1)
         self.assertEqual(len(handler.mockGetNamedCalls("connectionAccepted")), 1)
 
+    def test_02_ListeningConnection2(self):
         # test with exception raise when getting new connection
         em = Mock()
         handler = Mock()
@@ -138,7 +139,6 @@ class ConnectionTests(NeoTestBase):
         bc.readable()
         self.assertEqual(len(connector.mockGetNamedCalls("getNewConnection")), 1)
         self.assertEqual(len(handler.mockGetNamedCalls("connectionAccepted")), 0)
-
 
     def test_03_Connection(self):
         em = Mock()
@@ -176,7 +176,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(bc.aborted, True)
         self.assertFalse(bc.isServer())
 
-    def test_04_Connection_pending(self):
+    def test_Connection_pending(self):
         em = Mock()
         handler = Mock()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
@@ -200,10 +200,10 @@ class ConnectionTests(NeoTestBase):
         self.assertTrue(bc.pending())
 
 
-    def test_05_Connection_recv(self):
+    def test_Connection_recv1(self):
+        # patch receive method to return data
         em = Mock()
         handler = Mock()
-        # patch receive method to return data
         def receive(self):
             return "testdata"
         DoNothingConnector.receive = receive
@@ -216,7 +216,10 @@ class ConnectionTests(NeoTestBase):
         bc._recv()
         self.assertEqual(bc.read_buf, "testdata")
 
+    def test_Connection_recv2(self):
         # patch receive method to raise try again
+        em = Mock()
+        handler = Mock()
         def receive(self):
             raise ConnectorTryAgainException
         DoNothingConnector.receive = receive
@@ -229,7 +232,11 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(bc.read_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
+
+    def test_Connection_recv3(self):
         # patch receive method to raise ConnectorConnectionRefusedException
+        em = Mock()
+        handler = Mock()
         def receive(self):
             raise ConnectorConnectionRefusedException
         DoNothingConnector.receive = receive
@@ -244,7 +251,11 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(bc.read_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 1)
+
+    def test_Connection_recv4(self):
         # patch receive method to raise any other connector error
+        em = Mock()
+        handler = Mock()
         def receive(self):
             raise ConnectorException
         DoNothingConnector.receive = receive
@@ -256,10 +267,10 @@ class ConnectionTests(NeoTestBase):
         self.assertRaises(ConnectorException, bc._recv)
         self.assertEqual(bc.read_buf, '')
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 1)
-        self.assertEquals(len(em.mockGetNamedCalls("unregister")), 2)
+        self.assertEquals(len(em.mockGetNamedCalls("unregister")), 1)
 
 
-    def test_06_Connection_send(self):
+    def test_Connection_send1(self):
         # no data, nothing done
         em = Mock()
         handler = Mock()
@@ -274,7 +285,10 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
 
+    def test_Connection_send2(self):
         # send all data
+        em = Mock()
+        handler = Mock()
         def send(self, data):
             return len(data)
         DoNothingConnector.send = send
@@ -293,7 +307,10 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
 
+    def test_Connection_send3(self):
         # send part of the data
+        em = Mock()
+        handler = Mock()
         def send(self, data):
             return len(data)/2
         DoNothingConnector.send = send
@@ -312,7 +329,10 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
 
+    def test_Connection_send4(self):
         # send multiple packet
+        em = Mock()
+        handler = Mock()
         def send(self, data):
             return len(data)
         DoNothingConnector.send = send
@@ -331,7 +351,10 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
 
+    def test_Connection_send5(self):
         # send part of multiple packet
+        em = Mock()
+        handler = Mock()
         def send(self, data):
             return len(data)/2
         DoNothingConnector.send = send
@@ -350,7 +373,10 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
 
+    def test_Connection_send6(self):
         # raise try again
+        em = Mock()
+        handler = Mock()
         def send(self, data):
             raise ConnectorTryAgainException
         DoNothingConnector.send = send
@@ -369,7 +395,10 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 0)
 
+    def test_Connection_send7(self):
         # raise other error
+        em = Mock()
+        handler = Mock()
         def send(self, data):
             raise ConnectorException
         DoNothingConnector.send = send
@@ -389,7 +418,6 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(handler.mockGetNamedCalls("connectionClosed")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("removeReader")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("unregister")), 1)
-
 
     def test_07_Connection_addPacket(self):
         # no connector
@@ -438,7 +466,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(em.mockGetNamedCalls("addIdleEvent")), 1)
 
 
-    def test_09_Connection_analyse(self):
+    def test_Connection_analyse1(self):
         # nothing to read, nothing is done
         em = Mock()
         handler = Mock()
@@ -480,9 +508,11 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(len(bc.event_dict), 0)
         self.assertEqual(bc.read_buf, '')
 
+    def test_Connection_analyse2(self):
         # give multiple packet
         em = Mock()
         handler = Mock()
+        connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
         bc._queue = Mock()
@@ -533,9 +563,11 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(len(bc.event_dict), 0)
         self.assertEqual(len(bc.read_buf), 0)
 
+    def test_Connection_analyse3(self):
         # give a bad packet, won't be decoded
         em = Mock()
         handler = Mock()
+        connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
         bc._queue = Mock()
@@ -547,9 +579,11 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("removeIdleEvent")), 0)
 
+    def test_Connection_analyse4(self):
         # give an expected packet
         em = Mock()
         handler = Mock()
+        connector = DoNothingConnector()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
                         connector=connector, addr=("127.0.0.7", 93413))
         bc._queue = Mock()
@@ -581,7 +615,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(len(bc.event_dict), 0)
         self.assertEqual(bc.read_buf, '')
 
-    def test_10_Connection_writable(self):
+    def test_Connection_writable1(self):
         # with  pending operation after send
         em = Mock()
         handler = Mock()
@@ -613,7 +647,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(connector.mockGetNamedCalls("shutdown")), 0)
         self.assertEquals(len(connector.mockGetNamedCalls("close")), 0)
 
-
+    def test_Connection_writable2(self):
         # with no longer pending operation after send
         em = Mock()
         handler = Mock()
@@ -645,6 +679,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(connector.mockGetNamedCalls("shutdown")), 0)
         self.assertEquals(len(connector.mockGetNamedCalls("close")), 0)
 
+    def test_Connection_writable3(self):
         # with no longer pending operation after send and aborted set to true
         em = Mock()
         handler = Mock()
@@ -677,8 +712,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(connector.mockGetNamedCalls("shutdown")), 1)
         self.assertEquals(len(connector.mockGetNamedCalls("close")), 1)
 
-
-    def test_11_Connection_readable(self):
+    def test_Connection_readable(self):
         # With aborted set to false
         em = Mock()
         handler = Mock()
@@ -723,9 +757,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(connector.mockGetNamedCalls("shutdown")), 0)
         self.assertEquals(len(connector.mockGetNamedCalls("close")), 0)
 
-
-    def test_12_ClientConnection_init(self):
-        makeClientConnection_org = DoNothingConnector.makeClientConnection
+    def test_ClientConnection_init1(self):
         # create a good client connection
         em = Mock()
         handler = Mock()
@@ -750,7 +782,9 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(em.mockGetNamedCalls("addReader")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 0)
 
+    def test_ClientConnection_init2(self):
         # raise connection in progress
+        makeClientConnection_org = DoNothingConnector.makeClientConnection
         def makeClientConnection(self, *args, **kw):
             raise ConnectorInProgressException
         em = Mock()
@@ -780,7 +814,9 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(em.mockGetNamedCalls("addReader")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 1)
 
+    def test_ClientConnection_init3(self):
         # raise another error, connection must fail
+        makeClientConnection_org = DoNothingConnector.makeClientConnection
         def makeClientConnection(self, *args, **kw):
             raise ConnectorException
         em = Mock()
@@ -793,17 +829,14 @@ class ConnectionTests(NeoTestBase):
             DoNothingConnector.makeClientConnection = makeClientConnection_org
         # since the exception was raised, the connection is not created
         # check call to handler
-        self.assertNotEqual(bc.getHandler(), None)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionStarted")), 1)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 0)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 1)
         # check call to event manager
-        self.assertNotEqual(bc.getEventManager(), None)
         self.assertEquals(len(em.mockGetNamedCalls("addReader")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 0)
 
-
-    def test_13_ClientConnection_writable(self):
+    def test_ClientConnection_writable1(self):
         # with a non connecting connection, will call parent's method
         em = Mock()
         handler = Mock()
@@ -812,14 +845,12 @@ class ConnectionTests(NeoTestBase):
         def send(self, data):
             return len(data)
         makeClientConnection_org = DoNothingConnector.makeClientConnection
-        send_org = DoNothingConnector.send
         DoNothingConnector.send = send
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
             bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
                                   addr=("127.0.0.7", 93413))
         finally:
-            DoNothingConnector.send = send_org
             DoNothingConnector.makeClientConnection = makeClientConnection_org
         # check connector created and connection initialize
         self.assertFalse(bc.connecting)
@@ -855,7 +886,7 @@ class ConnectionTests(NeoTestBase):
         data = call.getParam(0)
         self.assertEquals(data, "testdata")
 
-
+    def test_ClientConnection_writable2(self):
         # with a connecting connection, must not call parent's method
         # with no error, just complete connection
         em = Mock()
@@ -892,6 +923,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(conn.mockGetNamedCalls("shutdown")), 0)
         self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
 
+    def test_ClientConnection_writable3(self):
         # with a connecting connection, must not call parent's method
         # with errors, close connection
         em = Mock()
@@ -924,7 +956,6 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(em.mockGetNamedCalls("addReader")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("removeWriter")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("removeReader")), 1)
-
 
     def test_14_ServerConnection(self):
         em = Mock()
@@ -963,8 +994,7 @@ class ConnectionTests(NeoTestBase):
         self.assertTrue(bc.isServer())
 
 
-    def test_15_MTClientConnection(self):
-        makeClientConnection_org = DoNothingConnector.makeClientConnection
+    def test_MTClientConnection1(self):
         # same as ClientConnection, except definition of some lock
         # create a good client connection
         em = Mock()
@@ -990,11 +1020,15 @@ class ConnectionTests(NeoTestBase):
         self.assertNotEqual(bc.getEventManager(), None)
         self.assertEquals(len(em.mockGetNamedCalls("addReader")), 1)
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 0)
+
+    def test_MTClientConnection2(self):
         # raise connection in progress
+        makeClientConnection_org = DoNothingConnector.makeClientConnection
         def makeClientConnection(self, *args, **kw):
             raise ConnectorInProgressException
         em = Mock()
         handler = Mock()
+        dispatcher = Mock()
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
             bc = MTClientConnection(em, handler, connector_handler=DoNothingConnector,
@@ -1020,11 +1054,14 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(em.mockGetNamedCalls("addReader")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 1)
 
+    def test_MTClientConnection3(self):
         # raise another error, connection must fail
+        makeClientConnection_org = DoNothingConnector.makeClientConnection
         def makeClientConnection(self, *args, **kw):
             raise ConnectorException
         em = Mock()
         handler = Mock()
+        dispatcher = Mock()
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
             self.assertRaises(ConnectorException, MTClientConnection, em, handler,
@@ -1034,12 +1071,10 @@ class ConnectionTests(NeoTestBase):
             DoNothingConnector.makeClientConnection = makeClientConnection_org
         # the connection is not created
         # check call to handler
-        self.assertNotEqual(bc.getHandler(), None)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionStarted")), 1)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionCompleted")), 0)
         self.assertEquals(len(handler.mockGetNamedCalls("connectionFailed")), 1)
         # check call to event manager
-        self.assertNotEqual(bc.getEventManager(), None)
         self.assertEquals(len(em.mockGetNamedCalls("addReader")), 0)
         self.assertEquals(len(em.mockGetNamedCalls("addWriter")), 0)
 
