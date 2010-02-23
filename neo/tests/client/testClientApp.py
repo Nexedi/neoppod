@@ -97,7 +97,8 @@ class ClientApplicationTests(NeoTestBase):
     makeTID = makeOID
 
     def makeTransactionObject(self, user='u', description='d', _extension='e'):
-        class Transaction(object): pass
+        class Transaction(object):
+            pass
         txn = Transaction()
         txn.user = user
         txn.description = description
