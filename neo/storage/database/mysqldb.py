@@ -424,7 +424,7 @@ class MySQLDatabaseManager(DatabaseManager):
                     % tid)
         self.commit()
         if r:
-            oids, user, desc, exti, packed = r[0]
+            oids, user, desc, ext, packed = r[0]
             if (len(oids) % 8) != 0 or len(oids) == 0:
                 raise DatabaseFailure('invalid oids for tid %x' % tid)
             oid_list = []

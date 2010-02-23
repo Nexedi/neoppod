@@ -421,13 +421,14 @@ class ProtocolTests(NeoTestBase):
         oid4 = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
         p = Packets.AnswerTransactionInformation(tid, "moi",
-                "transaction", "exti", oid_list)
-        ptid, user, desc, ext, p_oid_list = p.decode()
+                "transaction", "exti", False, oid_list)
+        ptid, user, desc, ext, packed, p_oid_list = p.decode()
         self.assertEqual(ptid, tid)
         self.assertEqual(p_oid_list, oid_list)
         self.assertEqual(user, "moi")
         self.assertEqual(desc, "transaction")
         self.assertEqual(ext, "exti")
+        self.assertFalse(packed)
 
     def test_53_askObjectHistory(self):
         oid = self.getNextTID()

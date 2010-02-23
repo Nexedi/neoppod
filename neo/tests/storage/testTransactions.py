@@ -45,7 +45,7 @@ class TransactionTests(NeoTestBase):
     def testTransaction(self):
         txn = Transaction(self.getNewUUID(), self.getNextTID())
         oid_list = [self.getOID(1), self.getOID(2)]
-        txn_info = (oid_list, 'USER', 'DESC', 'EXT')
+        txn_info = (oid_list, 'USER', 'DESC', 'EXT', False)
         txn.prepare(*txn_info)
         self.assertEqual(txn.getTransactionInformations(), txn_info)
 
@@ -76,7 +76,7 @@ class TransactionManagerTests(NeoTestBase):
     def _getTransaction(self):
         tid = self.getNextTID(self.ltid)
         oid_list = [self.getOID(1), self.getOID(2)]
-        return (tid, (oid_list, 'USER', 'DESC', 'EXT'))
+        return (tid, (oid_list, 'USER', 'DESC', 'EXT', False))
 
     def _getObject(self, value):
         oid = self.getOID(value)

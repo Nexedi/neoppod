@@ -733,17 +733,21 @@ class ClientApplicationTests(NeoTestBase):
         self.voteTransaction(app)
         self.askFinishTransaction(app)
         # undo 1 -> no previous revision
-        u1p1 = Packets.AnswerTransactionInformation(tid1, '', '', '', (oid1, ))
+        u1p1 = Packets.AnswerTransactionInformation(tid1, '', '', '',
+                False, (oid1, ))
         u1p2 = Errors.OidNotFound('oid not found')
         # undo 2 -> not end tid
-        u2p1 = Packets.AnswerTransactionInformation(tid2, '', '', '', (oid2, ))
+        u2p1 = Packets.AnswerTransactionInformation(tid2, '', '', '',
+                False, (oid2, ))
         u2p2 = Packets.AnswerObject(oid2, tid2, tid3, 0, makeChecksum('O2V1'), 'O2V1')
         # undo 3 -> conflict
-        u3p1 = Packets.AnswerTransactionInformation(tid3, '', '', '', (oid2, ))
+        u3p1 = Packets.AnswerTransactionInformation(tid3, '', '', '',
+                False, (oid2, ))
         u3p2 = Packets.AnswerObject(oid2, tid3, tid3, 0, makeChecksum('O2V2'), 'O2V2')
         u3p3 = Packets.AnswerStoreObject(conflicting=1, oid=oid2, serial=tid2)
         # undo 4 -> ok
-        u4p1 = Packets.AnswerTransactionInformation(tid3, '', '', '', (oid2, ))
+        u4p1 = Packets.AnswerTransactionInformation(tid3, '', '', '',
+                False, (oid2, ))
         u4p2 = Packets.AnswerObject(oid2, tid3, tid3, 0, makeChecksum('O2V2'), 'O2V2')
         u4p3 = Packets.AnswerStoreObject(conflicting=0, oid=oid2, serial=tid2)
         # test logic
@@ -801,8 +805,10 @@ class ClientApplicationTests(NeoTestBase):
         oid1, oid2 = self.makeOID(1), self.makeOID(2)
         # TIDs packets supplied by _waitMessage hook
         # TXN info packets
-        p3 = Packets.AnswerTransactionInformation(tid1, '', '', '', (oid1, ))
-        p4 = Packets.AnswerTransactionInformation(tid2, '', '', '', (oid2, ))
+        p3 = Packets.AnswerTransactionInformation(tid1, '', '', '',
+                False, (oid1, ))
+        p4 = Packets.AnswerTransactionInformation(tid2, '', '', '',
+                False, (oid2, ))
         p3.setId(0)
         p4.setId(1)
         conn = Mock({
@@ -836,8 +842,10 @@ class ClientApplicationTests(NeoTestBase):
         # object history, first is a wrong oid, second is valid
         p2 = Packets.AnswerObjectHistory(oid, object_history)
         # transaction history
-        p3 = Packets.AnswerTransactionInformation(tid1, 'u', 'd', 'e', (oid, ))
-        p4 = Packets.AnswerTransactionInformation(tid2, 'u', 'd', 'e', (oid, ))
+        p3 = Packets.AnswerTransactionInformation(tid1, 'u', 'd', 'e',
+                False, (oid, ))
+        p4 = Packets.AnswerTransactionInformation(tid2, 'u', 'd', 'e',
+                False, (oid, ))
         p2.setId(0)
         p3.setId(1)
         p4.setId(2)

@@ -93,7 +93,7 @@ class StorageClientHandlerTests(NeoTestBase):
     def test_18_askTransactionInformation2(self):
         # answer
         conn = Mock({ })
-        dm = Mock({ "getTransaction": (INVALID_TID, 'user', 'desc', '', ), })
+        dm = Mock({ "getTransaction": (INVALID_TID, 'user', 'desc', '', False), })
         self.app.dm = dm
         self.operation.askTransactionInformation(conn, INVALID_TID)
         self.checkAnswerTransactionInformation(conn)

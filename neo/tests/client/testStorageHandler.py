@@ -124,7 +124,7 @@ class StorageAnswerHandlerTests(NeoTestBase):
         oid_list = [self.getOID(0), self.getOID(1)]
         self.app.local_var.txn_info = None
         self.handler.answerTransactionInformation(conn, tid, user, desc, ext,
-            oid_list)
+            False, oid_list)
         txn_info = self.app.local_var.txn_info
         self.assertTrue(isinstance(txn_info, dict))
         self.assertEqual(txn_info['user_name'], user)

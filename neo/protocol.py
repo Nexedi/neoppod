@@ -916,10 +916,10 @@ class AnswerTransactionInformation(Packet):
         return ''.join(body)
 
     def _decode(self, body):
-        r = unpack('!8sHHHBL', body[:18])
+        r = unpack('!8sHHHBL', body[:19])
         tid, user_len, desc_len, ext_len, packed, oid_len = r
         packed = bool(packed)
-        body = body[18:]
+        body = body[19:]
         user = body[:user_len]
         body = body[user_len:]
         desc = body[:desc_len]

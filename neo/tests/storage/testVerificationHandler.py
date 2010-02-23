@@ -244,7 +244,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False })
         self.verification.askTransactionInformation(conn, p64(1))
-        tid, user, desc, ext, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
+        tid, user, desc, ext, packed, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
         self.assertEqual(u64(tid), 1)
         self.assertEqual(user, 'u2')
         self.assertEqual(desc, 'd2')
@@ -255,7 +255,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
         conn = Mock({ "getAddress" : ("127.0.0.1", self.master_port),
                       'isServer': False })
         self.verification.askTransactionInformation(conn, p64(3))
-        tid, user, desc, ext, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
+        tid, user, desc, ext, packed, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
         self.assertEqual(u64(tid), 3)
         self.assertEqual(user, 'u1')
         self.assertEqual(desc, 'd1')
@@ -268,7 +268,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
                       'isServer': True })
         # find the one in trans
         self.verification.askTransactionInformation(conn, p64(1))
-        tid, user, desc, ext, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
+        tid, user, desc, ext, packed, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
         self.assertEqual(u64(tid), 1)
         self.assertEqual(user, 'u2')
         self.assertEqual(desc, 'd2')

@@ -402,7 +402,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         tid = '\x00' * 7 + '\x01'
         oid1, oid2 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x02'
         object_list = ( (oid1, 0, 0, ''), (oid2, 0, 0, ''),)
-        transaction = ((oid1, oid2), 'user', 'desc', 'ext')
+        transaction = ((oid1, oid2), 'user', 'desc', 'ext', False)
         # store objects in temporary table
         self.db.setup()
         self.db.storeTransaction(tid, object_list, transaction=None, temporary=True)
@@ -443,7 +443,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         tid1, tid2 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x02'
         oid1, oid2 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x02'
         object_list = ( (oid1, 0, 0, ''), (oid2, 0, 0, ''),)
-        transaction = ((oid1, oid2), 'u', 'd', 'e')
+        transaction = ((oid1, oid2), 'u', 'd', 'e', False)
         self.db.setup(reset=True)
         # store two temporary transactions
         self.db.storeTransaction(tid1, object_list, transaction, temporary=True)
@@ -461,7 +461,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertEquals(result[1], (2L, 1L, 0, 0, ''))
         result = self.db.query('select * from trans')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (1L, oid1 + oid2, 'u', 'd', 'e',))
+        self.assertEquals(result[0], (1L, 0, oid1 + oid2, 'u', 'd', 'e',))
         # t2 should stay in temporary tables
         result = self.db.query('select * from tobj order by oid asc')
         self.assertEquals(len(result), 2)
@@ -469,14 +469,14 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertEquals(result[1], (2L, 2L, 0, 0, ''))
         result = self.db.query('select * from ttrans')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (2L, oid1 + oid2, 'u', 'd', 'e',))
+        self.assertEquals(result[0], (2L, 0, oid1 + oid2, 'u', 'd', 'e',))
 
     def test_26_deleteTransaction(self):
         # data set
         tid1, tid2 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x02'
         oid1, oid2 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x02'
         object_list = ( (oid1, 0, 0, ''), (oid2, 0, 0, ''),)
-        transaction = ((oid1, oid2), 'u', 'd', 'e')
+        transaction = ((oid1, oid2), 'u', 'd', 'e', False)
         self.db.setup(reset=True)
         # store two transactions in both state
         self.db.storeTransaction(tid1, object_list, transaction, temporary=True)
@@ -500,14 +500,14 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertEquals(result[1], (2L, 2L, 0, 0, ''))
         result = self.db.query('select * from ttrans')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (2L, oid1 + oid2, 'u', 'd', 'e',))
+        self.assertEquals(result[0], (2L, 0, oid1 + oid2, 'u', 'd', 'e',))
         result = self.db.query('select * from obj order by oid asc')
         self.assertEquals(len(result), 2)
         self.assertEquals(result[0], (1L, 2L, 0, 0, ''))
         self.assertEquals(result[1], (2L, 2L, 0, 0, ''))
         result = self.db.query('select * from trans')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (2L, oid1 + oid2, 'u', 'd', 'e',))
+        self.assertEquals(result[0], (2L, 0, oid1 + oid2, 'u', 'd', 'e',))
         # store t1 again
         self.db.storeTransaction(tid1, object_list, transaction, temporary=True)
         self.db.storeTransaction(tid1, object_list, transaction, temporary=False)
@@ -520,7 +520,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertEquals(result[1], (2L, 2L, 0, 0, ''))
         result = self.db.query('select * from ttrans')
         self.assertEquals(len(result), 1)
-        self.assertEquals(result[0], (2L, oid1 + oid2, 'u', 'd', 'e',))
+        self.assertEquals(result[0], (2L, 0, oid1 + oid2, 'u', 'd', 'e',))
         result = self.db.query('select * from obj order by oid, serial asc')
         self.assertEquals(len(result), 4)
         self.assertEquals(result[0], (1L, 1L, 0, 0, ''))
@@ -529,30 +529,30 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertEquals(result[3], (2L, 2L, 0, 0, ''))
         result = self.db.query('select * from trans order by tid asc')
         self.assertEquals(len(result), 2)
-        self.assertEquals(result[0], (1L, oid1 + oid2, 'u', 'd', 'e',))
-        self.assertEquals(result[1], (2L, oid1 + oid2, 'u', 'd', 'e',))
+        self.assertEquals(result[0], (1L, 0, oid1 + oid2, 'u', 'd', 'e',))
+        self.assertEquals(result[1], (2L, 0, oid1 + oid2, 'u', 'd', 'e',))
 
     def test_27_getTransaction(self):
         # data set
         tid1, tid2 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x02'
         oid1, oid2 = '\x00' * 7 + '\x01', '\x00' * 7 + '\x02'
         oids = [oid1, oid2]
-        transaction = ((oid1, oid2), 'u', 'd', 'e')
+        transaction = ((oid1, oid2), 'u', 'd', 'e', False)
         self.db.setup(reset=True)
         # store t1 in temporary and t2 in persistent tables
         self.db.storeTransaction(tid1, (), transaction, temporary=True)
         self.db.storeTransaction(tid2, (), transaction, temporary=False)
         # get t1 from all -> OK
         t = self.db.getTransaction(tid1, all=True)
-        self.assertEquals(t, (oids, 'u', 'd', 'e'))
+        self.assertEquals(t, (oids, 'u', 'd', 'e', False))
         # get t1 from no tmp only -> fail
         t = self.db.getTransaction(tid1, all=False)
         self.assertEquals(t, None)
         # get t2 from all or not -> always OK
         t = self.db.getTransaction(tid2, all=True)
-        self.assertEquals(t, (oids, 'u', 'd', 'e'))
+        self.assertEquals(t, (oids, 'u', 'd', 'e', False))
         t = self.db.getTransaction(tid2, all=False)
-        self.assertEquals(t, (oids, 'u', 'd', 'e'))
+        self.assertEquals(t, (oids, 'u', 'd', 'e', False))
         # store wrong oids -> DatabaseFailure
         self.db.setup(reset=True)
         self.db.query("""replace into trans (tid, oids, user, description, ext)
@@ -594,7 +594,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         oid = '\x00' * 8
         for tid in tids:
             self.db.query("replace into obj values (%d, %d, 0, 0, '')" %
-                (u64(oid), u64(tid)))
+                    (u64(oid), u64(tid)))
         # unkwown object
         result = self.db.getObjectHistory(oid='\x01' * 8)
         self.assertEquals(result, None)
@@ -616,8 +616,8 @@ class StorageMySQSLdbTests(NeoTestBase):
         tids = ['\x00' * 7 + chr(i) for i in xrange(4)]
         tid1, tid2, tid3, tid4 = tids
         for tid in tids:
-            self.db.query("replace into trans values (%d, '', 'u', 'd', 'e')" %
-                (u64(tid)))
+            self.db.query("""replace into trans values (%d, '', 'u', 'd', 'e',
+                False)""" % (u64(tid)))
         # get all tids for all partitions
         result = self.db.getTIDList(0, 4, 2, (0, 1))
         self.assertEquals(result, [tid1, tid2, tid3, tid4])
@@ -643,8 +643,8 @@ class StorageMySQSLdbTests(NeoTestBase):
         tid = '\x00' * 7 + '\x01'
         tid1, tid2, tid3, tid4 = ['\x00' * 7 + chr(i) for i in xrange(4)]
         for tid in (tid1, tid2, tid3, tid4):
-            self.db.query("replace into trans values (%d, '', 'u', 'd', 'e')" %
-                (u64(tid)))
+            self.db.query("""replace into trans values (%d, '', 'u', 'd', 'e',
+                    False)""" % (u64(tid)))
         # all match
         result = self.db.getTIDListPresent((tid1, tid2, tid3, tid4))
         expected = [tid1, tid2, tid3, tid4]
@@ -663,8 +663,8 @@ class StorageMySQSLdbTests(NeoTestBase):
         tid1, tid2, tid3, tid4 = tids
         oid = '\x00' * 8
         for tid in tids:
-            self.db.query("replace into obj values (%d, %d, 0, 0, '')" %
-                (u64(oid), u64(tid)))
+            self.db.query("replace into obj values (%d, %d, 0, 0, '')" % (u64(oid), 
+                u64(tid)))
         # all match
         result = self.db.getSerialListPresent(oid, tids)
         expected = list(tids)

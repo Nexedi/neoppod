@@ -157,7 +157,7 @@ class MasterVerificationTests(NeoTestBase):
         oid = unpack('!Q', self.app.loid)[0]
         new_oid = pack('!Q', oid + 1)
         verification.answerTransactionInformation(conn, new_tid,
-                                                        "user", "desc", "ext", [new_oid,])
+                "user", "desc", "ext", False, [new_oid,])
         self.assertEquals(self.verification._oid_set, None)
         # do nothing as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
@@ -167,7 +167,7 @@ class MasterVerificationTests(NeoTestBase):
         self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         self.assertEquals(len(self.verification._oid_set), 0)
         verification.answerTransactionInformation(conn, new_tid,
-                                                        "user", "desc", "ext", [new_oid,])
+                "user", "desc", "ext", False, [new_oid,])
         self.assertEquals(len(self.verification._oid_set), 0)
         # do work
         conn = self.getFakeConnection(uuid, self.storage_address)
@@ -176,7 +176,7 @@ class MasterVerificationTests(NeoTestBase):
         self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         self.assertEquals(len(self.verification._oid_set), 0)
         verification.answerTransactionInformation(conn, new_tid,
-                                                        "user", "desc", "ext", [new_oid,])
+                "user", "desc", "ext", False, [new_oid,])
         self.assertEquals(len(self.verification._oid_set), 1)
         self.assertTrue(new_oid in self.verification._oid_set)
         # do not work as oid is diff
@@ -190,7 +190,7 @@ class MasterVerificationTests(NeoTestBase):
         new_oid = pack('!Q', oid + 1)
         self.assertNotEqual(new_oid, old_oid)
         verification.answerTransactionInformation(conn, new_tid,
-                                                        "user", "desc", "ext", [new_oid,])
+                "user", "desc", "ext", False, [new_oid,])
         self.assertEquals(self.verification._oid_set, None)
 
     def test_13_tidNotFound(self):
