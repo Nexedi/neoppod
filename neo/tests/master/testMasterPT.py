@@ -73,9 +73,9 @@ class MasterPartitionTableTests(NeoTestBase):
         # test
         node = pt.findLeastUsedNode()
         self.assertEqual(node, sn3)
-        node = pt.findLeastUsedNode((sn3,))
+        node = pt.findLeastUsedNode((sn3, ))
         self.assertEqual(node, sn2)
-        node = pt.findLeastUsedNode((sn3,sn2))
+        node = pt.findLeastUsedNode((sn3, sn2))
         self.assertEqual(node, sn1)
 
     def test_13_outdate(self):
@@ -113,8 +113,8 @@ class MasterPartitionTableTests(NeoTestBase):
         cells_outdated = pt.outdate()
         self.assertEqual(len(cells_outdated), 3)
         for offset, uuid, state in cells_outdated:
-            self.assertTrue(offset in (1,2,3))
-            self.assertTrue(uuid in (uuid2,uuid3,uuid4))
+            self.assertTrue(offset in (1, 2, 3))
+            self.assertTrue(uuid in (uuid2, uuid3, uuid4))
             self.assertEqual(state, CellStates.OUT_OF_DATE)
         # check each cell
         # part 1, already outdated
@@ -213,7 +213,7 @@ class MasterPartitionTableTests(NeoTestBase):
         # sn1 is removed twice and sn6 is added twice
         self.assertEqual(len(cell_list), 4)
         for offset, uuid, state  in cell_list:
-            if offset in (0,1):
+            if offset in (0, 1):
                 if uuid == uuid1:
                     self.assertEqual(state, CellStates.DISCARDED)
                 elif uuid == uuid6:
@@ -242,7 +242,7 @@ class MasterPartitionTableTests(NeoTestBase):
         # sn1 is removed twice and sn6 is added twice
         self.assertEqual(len(cell_list), 4)
         for offset, uuid, state  in cell_list:
-            if offset in (0,1):
+            if offset in (0, 1):
                 if uuid == uuid1:
                     self.assertEqual(state, CellStates.DISCARDED)
                 elif uuid == uuid6:
@@ -267,7 +267,7 @@ class MasterPartitionTableTests(NeoTestBase):
         # sn1 is removed twice and sn6 is added twice
         self.assertEqual(len(cell_list), 4)
         for offset, uuid, state  in cell_list:
-            if offset in (0,1):
+            if offset in (0, 1):
                 if uuid == uuid1:
                     self.assertEqual(state, CellStates.FEEDING)
                 elif uuid == uuid6:
@@ -339,7 +339,7 @@ class MasterPartitionTableTests(NeoTestBase):
         for offset, uuid, state  in cell_list:
             self.assertEqual(offset, 0)
             self.assertEqual(state, CellStates.DISCARDED)
-            self.assertEqual(uuid ,uuid2)
+            self.assertEqual(uuid, uuid2)
         for x in xrange(num_replicas):
             if x == 0:
                 self.assertEqual(len(pt.getCellList(x)), 1)
@@ -370,7 +370,7 @@ class MasterPartitionTableTests(NeoTestBase):
         server5 = ("127.0.0.5", 1900)
         sn5 = StorageNode(Mock(), server5, uuid5, NodeStates.RUNNING)
         # make the table
-        pt.make([sn1, sn2, sn3, sn4, sn5,])
+        pt.make([sn1, sn2, sn3, sn4, sn5])
         # check it's ok, only running nodes and node with uuid
         # must be present
         for x in xrange(num_partitions):
@@ -386,7 +386,7 @@ class MasterPartitionTableTests(NeoTestBase):
         pt.clear()
         self.assertFalse(pt.filled())
         self.assertFalse(pt.operational())
-        pt.make([sn1,])
+        pt.make([sn1])
         # check it's ok
         for x in xrange(num_partitions):
             cells = pt.getCellList(x)
