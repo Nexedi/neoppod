@@ -765,6 +765,8 @@ class Application(object):
 
         # First get transaction information from a storage node.
         cell_list = self._getCellListForTID(transaction_id, readable=True)
+        assert len(cell_list), 'No cell found for transaction %s' % (
+            dump(tid), )
         shuffle(cell_list)
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
@@ -787,8 +789,7 @@ class Application(object):
                 break
             else:
                 raise NEOStorageError('undo failed')
-
-        if self.local_var.txn_info in (-1, 0):
+        else:
             raise NEOStorageError('undo failed')
 
         oid_list = self.local_var.txn_info['oids']
