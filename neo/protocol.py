@@ -1408,7 +1408,7 @@ class PacketRegistry(dict):
 # build a "singleton"
 Packets = PacketRegistry()
 
-def register(code):
+def register_error(code):
     def wrapper(registry, message=''):
         return Error(code, message)
     return wrapper
@@ -1421,12 +1421,12 @@ class ErrorRegistry(dict):
     def __init__(self):
         dict.__init__(self)
 
-    Ack = register(ErrorCodes.ACK)
-    ProtocolError = register(ErrorCodes.PROTOCOL_ERROR)
-    TidNotFound = register(ErrorCodes.TID_NOT_FOUND)
-    OidNotFound = register(ErrorCodes.OID_NOT_FOUND)
-    NotReady = register(ErrorCodes.NOT_READY)
-    Broken = register(ErrorCodes.BROKEN_NODE)
+    Ack = register_error(ErrorCodes.ACK)
+    ProtocolError = register_error(ErrorCodes.PROTOCOL_ERROR)
+    TidNotFound = register_error(ErrorCodes.TID_NOT_FOUND)
+    OidNotFound = register_error(ErrorCodes.OID_NOT_FOUND)
+    NotReady = register_error(ErrorCodes.NOT_READY)
+    Broken = register_error(ErrorCodes.BROKEN_NODE)
 
 Errors = ErrorRegistry()
 
