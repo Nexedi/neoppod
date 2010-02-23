@@ -34,10 +34,6 @@ RC  - Review output of pylint (CODE)
       involved nodes.
       It must be changed to a correspondance table using shorter keys (sent 
       in the packet) to avoid repeating the same UUIDs many times.
-    - Make IdleEvent know what message they are expecting (DEBUGABILITY)
-      If a PING packet is sent, there is currently no way to know which 
-      request created associated IdleEvent, nor which response is expected 
-      (knowing either should be enough).
     - Consider using multicast for cluster-wide notifications. (BANDWITH)
       Currently, multi-receivers notifications are sent in unicast to each 
       receiver. Multicast should be used.
