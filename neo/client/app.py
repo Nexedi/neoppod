@@ -780,6 +780,8 @@ class Application(object):
 
             if self.local_var.txn_info == -1:
                 # Tid not found, try with next node
+                logging.warning('Transaction %s was not found on node %s',
+                    dump(tid), self.nm.getByAddress(conn.getAddress()))
                 continue
             elif isinstance(self.local_var.txn_info, dict):
                 break
