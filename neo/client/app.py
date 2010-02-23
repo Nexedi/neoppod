@@ -764,7 +764,7 @@ class Application(object):
             raise StorageTransactionError(self, transaction_id)
 
         # First get transaction information from a storage node.
-        cell_list = self._getCellListForTID(transaction_id, writable=True)
+        cell_list = self._getCellListForTID(transaction_id, readable=True)
         shuffle(cell_list)
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
