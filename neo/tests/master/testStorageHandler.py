@@ -103,9 +103,6 @@ class MasterStorageHandlerTests(NeoTestBase):
         uuid_list = storage_1.getUUID(), storage_2.getUUID()
         oid_list = self.getOID(), self.getOID()
         msg_id = 1
-        # a faked event manager
-        connection_list = [client_conn_1, client_conn_2, storage_conn_1,
-                storage_conn_2]
         # register a transaction
         tid = self.app.tm.begin(client_1, None)
         self.app.tm.prepare(tid, oid_list, uuid_list, msg_id)
@@ -151,7 +148,6 @@ class MasterStorageHandlerTests(NeoTestBase):
         # create some transaction
         node, conn = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port=self.client_port)
-        client_uuid = node.getUUID()
         self.client_handler.askBeginTransaction(conn, None)
         self.client_handler.askBeginTransaction(conn, None)
         self.client_handler.askBeginTransaction(conn, None)
@@ -162,7 +158,6 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.assertEqual(len(tid_list), 3)
 
     def _testWithMethod(self, method, state):
-        service = self.service
         # define two nodes
         node1, conn1 = self.identifyToMasterNode()
         node2, conn2 = self.identifyToMasterNode()

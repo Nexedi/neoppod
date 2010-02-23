@@ -100,7 +100,6 @@ class MasterRecoveryTests(NeoTestBase):
         lptid = self.app.pt.getID()
         # send information which are later to what PMN knows, this must update target node
         conn = self.getFakeConnection(uuid, self.storage_port)
-        node_list = []
         new_ptid = unpack('!Q', lptid)[0]
         new_ptid = pack('!Q', new_ptid + 1)
         oid = unpack('!Q', loid)[0]

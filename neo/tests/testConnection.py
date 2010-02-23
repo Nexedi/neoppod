@@ -417,7 +417,6 @@ class ConnectionTests(NeoTestBase):
 
     def test_08_Connection_expectMessage(self):
         # no connector -> nothing is done
-        p = Mock()
         em = Mock()
         handler = Mock()
         bc = Connection(em, handler, connector_handler=DoNothingConnector,
@@ -441,7 +440,6 @@ class ConnectionTests(NeoTestBase):
 
     def test_09_Connection_analyse(self):
         # nothing to read, nothing is done
-        p = Mock()
         em = Mock()
         handler = Mock()
         connector = DoNothingConnector()
@@ -731,7 +729,6 @@ class ConnectionTests(NeoTestBase):
         # create a good client connection
         em = Mock()
         handler = Mock()
-        connector = DoNothingConnector()
         bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
                               addr=("127.0.0.7", 93413))
         # check connector created and connection initialize
@@ -758,7 +755,6 @@ class ConnectionTests(NeoTestBase):
             raise ConnectorInProgressException
         em = Mock()
         handler = Mock()
-        connector = DoNothingConnector()
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
             bc = ClientConnection(em, handler, connector_handler=DoNothingConnector,
@@ -789,7 +785,6 @@ class ConnectionTests(NeoTestBase):
             raise ConnectorException
         em = Mock()
         handler = Mock()
-        connector = DoNothingConnector()
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
             self.assertRaises(ConnectorException, ClientConnection, em, handler,
@@ -975,7 +970,6 @@ class ConnectionTests(NeoTestBase):
         em = Mock()
         handler = Mock()
         dispatcher = Mock()
-        connector = DoNothingConnector()
         bc = MTClientConnection(em, handler, connector_handler=DoNothingConnector,
                               addr=("127.0.0.7", 93413), dispatcher=dispatcher)
         # check connector created and connection initialize
@@ -1001,7 +995,6 @@ class ConnectionTests(NeoTestBase):
             raise ConnectorInProgressException
         em = Mock()
         handler = Mock()
-        connector = DoNothingConnector()
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
             bc = MTClientConnection(em, handler, connector_handler=DoNothingConnector,
@@ -1032,7 +1025,6 @@ class ConnectionTests(NeoTestBase):
             raise ConnectorException
         em = Mock()
         handler = Mock()
-        connector = DoNothingConnector()
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
             self.assertRaises(ConnectorException, MTClientConnection, em, handler,

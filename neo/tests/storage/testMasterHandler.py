@@ -127,7 +127,6 @@ class StorageMasterHandlerTests(NeoTestBase):
         app.pt = PartitionTable(3, 1)
         app.dm = Mock({ })
         app.replicator = Mock({})
-        count = len(app.nm.getList())
         self.operation.notifyPartitionChanges(conn, ptid2, cells)
         # ptid set
         self.assertEquals(app.pt.getID(), ptid2)

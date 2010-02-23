@@ -192,7 +192,6 @@ class MasterClientElectionTests(NeoTestBase):
         node, conn = self.identifyToMasterNode()
         master_list = self._getMasterList()
         self.election.answerPrimary(conn, node.getUUID(), master_list)
-        addr = conn.getAddress()
         self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
         self.assertFalse(self.app.primary)

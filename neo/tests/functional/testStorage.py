@@ -400,7 +400,6 @@ class StorageTests(NEOFunctionalTest):
         1000, because currently there is an arbitrary packet split at
         every 1000 partition when sending a partition table. """
         self.__setup(storage_number=2, partitions=5000, master_node_count=1)
-        neoctl = self.neo.getNEOCTL()
         self.neo.expectClusterState(ClusterStates.RUNNING)
 
     def testDropNodeThenRestartCluster(self):

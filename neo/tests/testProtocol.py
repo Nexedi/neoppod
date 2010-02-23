@@ -118,7 +118,6 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(p.decode(), ())
 
     def test_17_notifyNodeInformation(self):
-        uuid = self.getNewUUID()
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
@@ -179,7 +178,6 @@ class ProtocolTests(NeoTestBase):
         ptid = self.getNextTID()
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
-        uuid3 = self.getNewUUID()
         cell_list = [(0, uuid1, CellStates.UP_TO_DATE),
                      (43, uuid2, CellStates.OUT_OF_DATE),
                      (124, uuid1, CellStates.DISCARDED)]

@@ -68,7 +68,6 @@ class MasterClientHandlerTests(NeoTestBase):
     # Tests
     def test_07_askBeginTransaction(self):
         service = self.service
-        uuid = self.identifyToMasterNode()
         ltid = self.app.tm.getLastTID()
         # client call it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
@@ -81,7 +80,6 @@ class MasterClientHandlerTests(NeoTestBase):
 
     def test_08_askNewOIDs(self):
         service = self.service
-        uuid = self.identifyToMasterNode()
         loid = self.app.loid
         # client call it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
@@ -130,7 +128,6 @@ class MasterClientHandlerTests(NeoTestBase):
 
     def test_11_abortTransaction(self):
         service = self.service
-        uuid = self.identifyToMasterNode()
         # give a bad tid, must not failed, just ignored it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)

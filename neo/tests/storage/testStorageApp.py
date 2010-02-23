@@ -60,7 +60,6 @@ class StorageAppTests(NeoTestBase):
         storage_uuid = self.getNewUUID()
         storage = self.app.nm.createStorage(uuid=storage_uuid)
         client_uuid = self.getNewUUID()
-        client = self.app.nm.createClient(uuid=client_uuid)
 
         self.app.pt.setCell(0, master, CellStates.UP_TO_DATE)
         self.app.pt.setCell(0, storage, CellStates.UP_TO_DATE)
