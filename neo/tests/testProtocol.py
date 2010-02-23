@@ -53,6 +53,7 @@ class ProtocolTests(NeoTestBase):
     def test_07_oidNotFound(self):
         p = Errors.OidNotFound("no oid")
         error_code, error_msg = p.decode()
+        self.assertEqual(error_code, ErrorCodes.OID_NOT_FOUND)
         self.assertEqual(error_msg, "no oid")
 
     def test_08_tidNotFound(self):
