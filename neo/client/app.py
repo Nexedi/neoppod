@@ -77,6 +77,11 @@ class ThreadContext(object):
     def clear(self, thread_id=None):
         if thread_id is None:
             thread_id = get_ident()
+        thread_dict = self._threads_dict.get(thread_id)
+        if thread_dict is None:
+            queue = Queue(0)
+        else:
+            queue = thread_dict['queue']
         self._threads_dict[thread_id] = {
             'tid': None,
             'txn': None,
@@ -87,7 +92,7 @@ class ThreadContext(object):
             'object_stored': 0,
             'txn_voted': False,
             'txn_finished': False,
-            'queue': Queue(0),
+            'queue': queue,
             'txn_info': 0,
             'history': None,
             'node_tids': {},
