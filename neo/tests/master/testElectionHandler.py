@@ -244,14 +244,6 @@ class MasterServerElectionTests(NeoTestBase):
         return (node, conn)
 
 
-
-    def checkCalledAskPrimary(self, conn, packet_number=0):
-        """ Check ask primary master has been send"""
-        call = conn.mockGetNamedCalls("_addPacket")[packet_number]
-        packet = call.getParam(0)
-        self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(),AskPrimary)
-
     # Tests
 
     def test_requestIdentification1(self):
