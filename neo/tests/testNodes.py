@@ -211,7 +211,7 @@ class NodeManagerTests(NeoTestBase):
         self.checkByServer(self.admin)
         self.checkByUUID(self.admin)
 
-    def testInit(self):
+    def testReInit(self):
         """ Check that the manager clear all its content """
         manager = self.manager
         self.checkNodes([])
