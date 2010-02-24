@@ -750,8 +750,11 @@ class Application(object):
             try:
                 for oid in self.local_var.data_dict.iterkeys():
                     data = self.local_var.data_dict[oid]
-                    # Now serial is same as tid
-                    self.mq_cache[oid] = self.local_var.tid, data
+                    if data == '':
+                        del self.mq_cache[oid]
+                    else:
+                        # Now serial is same as tid
+                        self.mq_cache[oid] = self.local_var.tid, data
             finally:
                 self._cache_lock_release()
             self.local_var.clear()
