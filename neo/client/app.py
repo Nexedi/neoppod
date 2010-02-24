@@ -809,9 +809,8 @@ class Application(object):
             data_dict[oid] = data
 
         # Third do transaction with old data
-        oid_list = data_dict.keys()
-        for oid in oid_list:
-            self.store(oid, transaction_id, data_dict[oid], None, txn,
+        for oid, data in data_dict.iteritems():
+            self.store(oid, transaction_id, data, None, txn,
                 tryToResolveConflict)
         self.waitStoreResponses(tryToResolveConflict)
         return self.local_var.tid, oid_list
