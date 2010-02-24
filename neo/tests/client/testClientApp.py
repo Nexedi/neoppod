@@ -192,14 +192,21 @@ class ClientApplicationTests(NeoTestBase):
         mq = app.mq_cache
         oid = self.makeOID()
         tid = self.makeTID()
-        # cache cleared -> result from ZODB
+        # cache cleared
         self.assertTrue(oid not in mq)
         app.pt = Mock({ 'getCellListForOID': (), })
         app.local_var.history = (oid, [(tid, 0)])
+        # If object len is 0, this object doesn't exist anymore because its
+        # creation has been undone.
+        self.assertRaises(KeyError, app.getSerial, oid)
+        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForOID')), 1)
+        # Otherwise, result from ZODB
+        app.pt = Mock({ 'getCellListForOID': (), })
+        app.local_var.history = (oid, [(tid, 1)])
         self.assertEquals(app.getSerial(oid), tid)
         self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForOID')), 1)
         # fill the cache -> hit
-        mq.store(oid, (tid, ''))
+        mq.store(oid, (tid, ' '))
         self.assertTrue(oid in mq)
         app.pt = Mock({ 'getCellListForOID': (), })
         app.getSerial(oid)
