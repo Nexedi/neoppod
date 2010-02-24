@@ -26,7 +26,13 @@ PROTOCOL_VERSION = (4, 1)
 # Size restrictions.
 MIN_PACKET_SIZE = 10
 MAX_PACKET_SIZE = 0x4000000
-PACKET_HEADER_SIZE = 10
+PACKET_HEADER_FORMAT = '!LHL'
+PACKET_HEADER_SIZE = calcsize(PACKET_HEADER_FORMAT)
+# Check that header size is the expected value.
+# If it is not, it means that struct module result is incompatible with
+# "reference" platform (python 2.4 on x86-64).
+assert PACKET_HEADER_SIZE == 10, \
+    'Unsupported platform, packet header length = %i' % (PACKET_HEADER_SIZE, )
 RESPONSE_MASK = 0x8000
 
 class ErrorCodes(Enum):
@@ -261,7 +267,8 @@ class Packet(object):
         """ Encode a packet as a string to send it over the network """
         content = self._body
         length = PACKET_HEADER_SIZE + len(content)
-        return pack('!LHL', self.getId(), self._code, length) + content
+        return pack(PACKET_HEADER_FORMAT, self.getId(), self._code, length) \
+            + content
 
     def __len__(self):
         return PACKET_HEADER_SIZE + len(self._body)
@@ -1510,7 +1517,8 @@ class PacketRegistry(dict):
     def parse(self, msg):
         if len(msg) < MIN_PACKET_SIZE:
             return None
-        msg_id, msg_type, msg_len = unpack('!LHL', msg[:PACKET_HEADER_SIZE])
+        msg_id, msg_type, msg_len = unpack(PACKET_HEADER_FORMAT,
+            msg[:PACKET_HEADER_SIZE])
         try:
             packet_klass = self[msg_type]
         except KeyError:
