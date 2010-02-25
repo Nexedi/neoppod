@@ -808,8 +808,12 @@ class Application(object):
             try:
                 result = self.loadBefore(oid, transaction_id)
             except NEOStorageNotFoundError:
-                # no previous revision, can't undo (as in filestorage)
-                raise UndoError("no previous record", oid)
+                if oid == '\x00' * 8:
+                    # Refuse undoing root object creation.
+                    raise UndoError("no previous record", oid)
+                else:
+                    # Undo object creation
+                    result = ('', None, transaction_id)
             data, start, end = result
             # end must be TID we are going to undone otherwise it means
             # a later transaction modify the object

@@ -713,8 +713,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertEquals(app.local_var.txn, old_txn)
 
     def test_undo2(self):
-        # Four tests here :
-        # undo txn1 where obj1 was created -> fail
+        # Three tests here :
         # undo txn2 where obj2 was modified in tid3 -> fail
         # undo txn3 where there is a conflict on obj2
         # undo txn3 where obj2 was altered from tid2 -> ok
@@ -722,13 +721,8 @@ class ClientApplicationTests(NeoTestBase):
         app = self.getApp()
         app.num_partitions = 2
         oid1, oid2 = self.makeOID(1), self.makeOID(2)
-        tid1, tid2 = self.makeTID(1), self.makeTID(2)
+        tid2 = self.makeTID(2)
         tid3, tid4 = self.makeTID(3), self.makeTID(4)
-        # commit version 1 of object 1
-        txn1 = self.beginTransaction(app, tid=tid1)
-        self.storeObject(app, oid=oid1, data='O1V1')
-        self.voteTransaction(app)
-        self.askFinishTransaction(app)
         # commit version 1 of object 2
         txn2 = self.beginTransaction(app, tid=tid2)
         self.storeObject(app, oid=oid2, data='O1V2')
@@ -739,10 +733,6 @@ class ClientApplicationTests(NeoTestBase):
         self.storeObject(app, oid=oid2, data='O2V2')
         self.voteTransaction(app)
         self.askFinishTransaction(app)
-        # undo 1 -> no previous revision
-        u1p1 = Packets.AnswerTransactionInformation(tid1, '', '', '',
-                False, (oid1, ))
-        u1p2 = Errors.OidNotFound('oid not found')
         # undo 2 -> not end tid
         u2p1 = Packets.AnswerTransactionInformation(tid2, '', '', '',
                 False, (oid2, ))
@@ -758,14 +748,13 @@ class ClientApplicationTests(NeoTestBase):
         u4p2 = Packets.AnswerObject(oid2, tid3, tid3, 0, makeChecksum('O2V2'), 'O2V2')
         u4p3 = Packets.AnswerStoreObject(conflicting=0, oid=oid2, serial=tid2)
         # test logic
-        packets = (u1p1, u1p2, u2p1, u2p2, u3p1, u3p2, u3p3, u4p1, u4p2, u4p3)
+        packets = (u2p1, u2p2, u3p1, u3p2, u3p3, u4p1, u4p2, u4p3)
         for i, p in enumerate(packets):
             p.setId(p)
         storage_address = ('127.0.0.1', 10010)
         conn = Mock({
             'getNextId': 1,
             'fakeReceived': ReturnValues(
-                u1p1, u1p2,
                 u2p1, u2p2,
                 u4p1, u4p2,
                 u3p1, u3p2,
@@ -788,8 +777,6 @@ class ClientApplicationTests(NeoTestBase):
         app.nm.createStorage(address=storage_address)
         txn4 = self.beginTransaction(app, tid=tid4)
         # all start here
-        self.assertRaises(UndoError, app.undo, tid1, txn4,
-            tryToResolveConflict)
         self.assertRaises(UndoError, app.undo, tid2, txn4,
             tryToResolveConflict)
         app.local_var.queue.put((conn, u4p3))
