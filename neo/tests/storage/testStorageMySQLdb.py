@@ -620,16 +620,16 @@ class StorageMySQSLdbTests(NeoTestBase):
                 False)""" % (u64(tid)))
         # get all tids for all partitions
         result = self.db.getTIDList(0, 4, 2, (0, 1))
-        self.assertEquals(result, [tid1, tid2, tid3, tid4])
+        self.assertEquals(result, [tid4, tid3, tid2, tid1])
         # get all tids but from the second with a limit a two
         result = self.db.getTIDList(1, 2, 2, (0, 1))
-        self.assertEquals(result, [tid2, tid3])
+        self.assertEquals(result, [tid3, tid2])
         # get all tids for the first partition
         result = self.db.getTIDList(0, 2, 2, (0, ))
-        self.assertEquals(result, [tid1, tid3])
+        self.assertEquals(result, [tid3, tid1])
         # get all tids for the second partition with a limit of one
         result = self.db.getTIDList(0, 1, 2, (1, ))
-        self.assertEquals(result, [tid2])
+        self.assertEquals(result, [tid4])
         # get all tids for the second partition with an offset of 3 > nothing
         result = self.db.getTIDList(3, 2, 2, (1, ))
         self.assertEquals(result, [])

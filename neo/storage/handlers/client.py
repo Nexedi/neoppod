@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from neo import protocol
 from neo.protocol import Packets
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
 from neo.storage.transactions import ConflictError, DelayedError
@@ -58,4 +59,20 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             # locked by a previous transaction, retry later
             self.app.queueEvent(self.askStoreObject, conn, oid, serial,
                     compression, checksum, data, tid)
+
+    def askTIDs(self, conn, first, last, partition):
+        # This method is complicated, because I must return TIDs only
+        # about usable partitions assigned to me.
+        if first >= last:
+            raise protocol.ProtocolError('invalid offsets')
+
+        app = self.app
+        if partition == protocol.INVALID_PARTITION:
+            partition_list = app.pt.getAssignedPartitionList(app.uuid)
+        else:
+            partition_list = [partition]
+
+        tid_list = app.dm.getTIDList(first, last - first,
+                             app.pt.getPartitions(), partition_list)
+        conn.answer(Packets.AnswerTIDs(tid_list))
 

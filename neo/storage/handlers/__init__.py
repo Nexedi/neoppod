@@ -62,22 +62,6 @@ class BaseMasterHandler(EventHandler):
 class BaseClientAndStorageOperationHandler(EventHandler):
     """ Accept requests common to client and storage nodes """
 
-    def askTIDs(self, conn, first, last, partition):
-        # This method is complicated, because I must return TIDs only
-        # about usable partitions assigned to me.
-        if first >= last:
-            raise protocol.ProtocolError('invalid offsets')
-
-        app = self.app
-        if partition == protocol.INVALID_PARTITION:
-            partition_list = app.pt.getAssignedPartitionList(app.uuid)
-        else:
-            partition_list = [partition]
-
-        tid_list = app.dm.getTIDList(first, last - first,
-                             app.pt.getPartitions(), partition_list)
-        conn.answer(Packets.AnswerTIDs(tid_list))
-
     def askObjectHistory(self, conn, oid, first, last):
         if first >= last:
             raise protocol.ProtocolError( 'invalid offsets')

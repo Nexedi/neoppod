@@ -114,15 +114,15 @@ class StorageStorageHandlerTests(NeoTestBase):
         conn = Mock({})
         self.checkProtocolErrorRaised(self.operation.askTIDs, conn, 1, 1, None)
         self.assertEquals(len(app.pt.mockGetNamedCalls('getCellList')), 0)
-        self.assertEquals(len(app.dm.mockGetNamedCalls('getTIDList')), 0)
+        self.assertEquals(len(app.dm.mockGetNamedCalls('getReplicationTIDList')), 0)
 
     def test_25_askTIDs2(self):
         # well case => answer
         conn = Mock({})
-        self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
+        self.app.dm = Mock({'getReplicationTIDList': (INVALID_TID, )})
         self.app.pt = Mock({'getPartitions': 1})
         self.operation.askTIDs(conn, 1, 2, 1)
-        calls = self.app.dm.mockGetNamedCalls('getTIDList')
+        calls = self.app.dm.mockGetNamedCalls('getReplicationTIDList')
         self.assertEquals(len(calls), 1)
         calls[0].checkArgs(1, 1, 1, [1, ])
         self.checkAnswerTids(conn)
@@ -131,7 +131,7 @@ class StorageStorageHandlerTests(NeoTestBase):
         # invalid partition => answer usable partitions
         conn = Mock({})
         cell = Mock({'getUUID':self.app.uuid})
-        self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
+        self.app.dm = Mock({'getReplicationTIDList': (INVALID_TID, )})
         self.app.pt = Mock({
             'getCellList': (cell, ), 
             'getPartitions': 1,
@@ -139,7 +139,7 @@ class StorageStorageHandlerTests(NeoTestBase):
         })
         self.operation.askTIDs(conn, 1, 2, INVALID_PARTITION)
         self.assertEquals(len(self.app.pt.mockGetNamedCalls('getAssignedPartitionList')), 1)
-        calls = self.app.dm.mockGetNamedCalls('getTIDList')
+        calls = self.app.dm.mockGetNamedCalls('getReplicationTIDList')
         self.assertEquals(len(calls), 1)
         calls[0].checkArgs(1, 1, 1, [0, ])
         self.checkAnswerTids(conn)

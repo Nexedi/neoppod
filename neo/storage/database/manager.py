@@ -269,6 +269,13 @@ class DatabaseManager(object):
         raise NotImplementedError
 
     def getTIDList(self, offset, length, num_partitions, partition_list):
+        """Return a list of TIDs in ascending order from an offset,
+        at most the specified length. The list of partitions are passed
+        to filter out non-applicable TIDs."""
+        raise NotImplementedError
+
+    def getReplicationTIDList(self, offset, length, num_partitions,
+        partition_list):
         """Return a list of TIDs in descending order from an offset,
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""

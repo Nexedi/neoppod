@@ -44,3 +44,19 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
                                      app.pt.getPartitions(), partition_list)
         conn.answer(Packets.AnswerOIDs(oid_list))
 
+    def askTIDs(self, conn, first, last, partition):
+        # This method is complicated, because I must return TIDs only
+        # about usable partitions assigned to me.
+        if first >= last:
+            raise protocol.ProtocolError('invalid offsets')
+
+        app = self.app
+        if partition == protocol.INVALID_PARTITION:
+            partition_list = app.pt.getAssignedPartitionList(app.uuid)
+        else:
+            partition_list = [partition]
+
+        tid_list = app.dm.getReplicationTIDList(first, last - first,
+                             app.pt.getPartitions(), partition_list)
+        conn.answer(Packets.AnswerTIDs(tid_list))
+
