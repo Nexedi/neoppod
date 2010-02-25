@@ -69,8 +69,7 @@ class Storage(BaseStorage.BaseStorage,
     @check_read_only
     def store(self, oid, serial, data, version, transaction):
         return self.app.store(oid=oid, serial=serial,
-            data=data, version=version, transaction=transaction,
-            tryToResolveConflict=self.tryToResolveConflict)
+            data=data, version=version, transaction=transaction)
 
     def getSerial(self, oid):
         try:

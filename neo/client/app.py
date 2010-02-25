@@ -544,8 +544,7 @@ class Application(object):
         self.local_var.txn = transaction
 
 
-    def store(self, oid, serial, data, version, transaction,
-        tryToResolveConflict):
+    def store(self, oid, serial, data, version, transaction):
         """Store object."""
         if transaction is not self.local_var.txn:
             raise StorageTransactionError(self, transaction)
@@ -608,7 +607,7 @@ class Application(object):
                     del local_var.conflict_serial_dict[oid]
                     # Try to store again
                     self.store(oid, conflict_serial, new_data, version,
-                        local_var.txn, tryToResolveConflict)
+                        local_var.txn)
                     append(oid)
                     resolved = True
             if not resolved:
@@ -820,8 +819,7 @@ class Application(object):
 
         # Third do transaction with old data
         for oid, data in data_dict.iteritems():
-            self.store(oid, transaction_id, data, None, txn,
-                tryToResolveConflict)
+            self.store(oid, transaction_id, data, None, txn)
         self.waitStoreResponses(tryToResolveConflict)
         return self.local_var.tid, oid_list
 

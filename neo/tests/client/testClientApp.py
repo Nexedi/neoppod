@@ -412,7 +412,7 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.txn = old_txn = object()
         self.assertTrue(app.local_var.txn is not txn)
         self.assertRaises(StorageTransactionError, app.store, oid, tid, '',
-            None, txn, resolving_tryToResolveConflict)
+            None, txn)
         self.assertEquals(app.local_var.txn, old_txn)
         # check partition_id and an empty cell list -> NEOStorageError
         app.local_var.txn = txn
@@ -420,7 +420,7 @@ class ClientApplicationTests(NeoTestBase):
         app.pt = Mock({ 'getCellListForOID': (), })
         app.num_partitions = 2
         self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None,
-            txn, resolving_tryToResolveConflict)
+            txn)
         calls = app.pt.mockGetNamedCalls('getCellListForOID')
         self.assertEquals(len(calls), 1)
         self.assertEquals(calls[0].getParam(0), oid) # oid=11
@@ -453,7 +453,7 @@ class ClientApplicationTests(NeoTestBase):
         app.nm.createStorage(address=storage_address)
         app.local_var.object_stored = (oid, tid)
         app.local_var.data_dict[oid] = 'BEFORE'
-        app.store(oid, tid, '', None, txn, failing_tryToResolveConflict)
+        app.store(oid, tid, '', None, txn)
         app.local_var.queue.put((conn, packet))
         self.assertRaises(ConflictError, app.waitStoreResponses,
             failing_tryToResolveConflict)
@@ -488,7 +488,7 @@ class ClientApplicationTests(NeoTestBase):
                 return not queue.empty()
         app.dispatcher = Dispatcher()
         app.nm.createStorage(address=storage_address)
-        app.store(oid, tid, 'DATA', None, txn, resolving_tryToResolveConflict)
+        app.store(oid, tid, 'DATA', None, txn)
         self.checkAskStoreObject(conn)
         app.local_var.queue.put((conn, packet))
         app.waitStoreResponses(resolving_tryToResolveConflict)
