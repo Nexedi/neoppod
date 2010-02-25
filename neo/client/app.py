@@ -634,6 +634,8 @@ class Application(object):
             # dected as closed)
             while pending(queue):
                 _waitAnyMessage()
+            if tryToResolveConflict is None:
+                break
             conflicts = _handleConflicts(tryToResolveConflict)
             if conflicts:
                 update(conflicts)
@@ -642,15 +644,16 @@ class Application(object):
                 # requests
                 break
 
-        # Check for never-stored objects, and update result for all others
-        for oid, store_count in \
-            local_var.object_stored_counter_dict.iteritems():
-            if store_count == 0:
-                raise NEOStorageError('tpc_store failed')
-            elif oid in resolved_oid_set:
-                append((oid, ResolvedSerial))
-            else:
-                append((oid, tid))
+        if tryToResolveConflict is not None:
+            # Check for never-stored objects, and update result for all others
+            for oid, store_count in \
+                local_var.object_stored_counter_dict.iteritems():
+                if store_count == 0:
+                    raise NEOStorageError('tpc_store failed')
+                elif oid in resolved_oid_set:
+                    append((oid, ResolvedSerial))
+                else:
+                    append((oid, tid))
         return result
 
     def tpc_vote(self, transaction, tryToResolveConflict):
@@ -699,6 +702,10 @@ class Application(object):
         """Abort current transaction."""
         if transaction is not self.local_var.txn:
             return
+
+        # Just wait for response to arrive, don't handle any conflict, and
+        # ignore the outcome: we are going to abort anyway.
+        self.waitStoreResponses(None)
 
         cell_set = set()
         # select nodes where objects were stored
