@@ -896,8 +896,8 @@ class Application(object):
         # Check we return at least one element, otherwise call
         # again but extend offset
         if len(undo_info) == 0 and not block:
-            undo_info = self.undoLog(first=first, last=last*5, filter=filter,
-                    block=1)
+            undo_info = self.__undoLog(first=first, last=last*5, filter=filter,
+                    block=1, with_oids=with_oids)
         return undo_info
 
     def undoLog(self, first, last, filter=None, block=0):
