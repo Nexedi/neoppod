@@ -122,23 +122,27 @@ class StorageAppTests(NeoTestBase):
 
     def test_02_queueEvent(self):
         self.assertEqual(len(self.app.event_queue), 0)
-        event = Mock({"getId": 1325136})
-        self.app.queueEvent(event, "test", key="value")
+        msg_id = 1325136
+        event = Mock({'__repr__': 'event'})
+        conn = Mock({'__repr__': 'conn', 'getPeerId': msg_id})
+        self.app.queueEvent(event, conn, "test", key="value")
         self.assertEqual(len(self.app.event_queue), 1)
-        event, args, kw = self.app.event_queue[0]
-        self.assertEqual(event.getId(), 1325136)
+        _event, _msg_id, _conn, args, kw = self.app.event_queue[0]
+        self.assertEqual(msg_id, _msg_id)
         self.assertEqual(len(args), 1)
         self.assertEqual(args[0], "test")
         self.assertEqual(kw, {"key" : "value"})
 
     def test_03_executeQueuedEvents(self):
         self.assertEqual(len(self.app.event_queue), 0)
-        event = Mock({"getId": 1325136})
-        self.app.queueEvent(event, "test", key="value")
+        msg_id = 1325136
+        event = Mock({'__repr__': 'event'})
+        conn = Mock({'__repr__': 'conn', 'getPeerId': msg_id})
+        self.app.queueEvent(event, conn, "test", key="value")
         self.app.executeQueuedEvents()
         self.assertEquals(len(event.mockGetNamedCalls("__call__")), 1)
         call = event.mockGetNamedCalls("__call__")[0]
-        params = call.getParam(0)
+        params = call.getParam(1)
         self.assertEqual(params, "test")
         params = call.kwparams
         self.assertEqual(params, {'key': 'value'})

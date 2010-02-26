@@ -263,15 +263,17 @@ class Application(object):
             if not node.isHidden():
                 break
 
-    def queueEvent(self, some_callable, *args, **kwargs):
-        self.event_queue.append((some_callable, args, kwargs))
+    def queueEvent(self, some_callable, conn, *args, **kwargs):
+        msg_id = conn.getPeerId()
+        self.event_queue.append((some_callable, msg_id, conn, args, kwargs))
 
     def executeQueuedEvents(self):
         l = len(self.event_queue)
         p = self.event_queue.popleft
         for i in xrange(l):
-            some_callable, args, kwargs = p()
-            some_callable(*args, **kwargs)
+            some_callable, msg_id, conn, args, kwargs = p()
+            conn.setPeerId(msg_id)
+            some_callable(conn, *args, **kwargs)
 
     def shutdown(self, erase=False):
         """Close all connections and exit"""
