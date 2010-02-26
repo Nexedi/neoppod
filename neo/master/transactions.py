@@ -175,8 +175,8 @@ class TransactionManager(object):
         """
         assert node is not None
         if tid is not None and tid < self._last_tid:
-            # supplied TID is in the past
-            raise protocol.ProtocolError('Invalid TID requested')
+            logging.warn('Transaction began with a decreased TID: %s, ' \
+                'expected at least %s', tid, self._last_tid)
         if tid is None:
             # give a TID
             tid = self._nextTID()
