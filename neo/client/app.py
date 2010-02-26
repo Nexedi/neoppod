@@ -222,7 +222,8 @@ class Application(object):
                 if msg_id == packet.getId():
                     self._handlePacket(conn, packet, handler=handler)
                     break
-            self._handlePacket(conn, packet)
+            elif packet is not None:
+                self._handlePacket(conn, packet)
 
     def _askStorage(self, conn, packet, timeout=5, additional_timeout=30):
         """ Send a request to a storage node and process it's answer """
