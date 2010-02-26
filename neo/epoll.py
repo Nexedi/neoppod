@@ -97,7 +97,7 @@ class Epoll(object):
                     ev = self.events[i]
                     if ev.events & (EPOLLIN | EPOLLERR | EPOLLHUP):
                         readable_fd_list.append(int(ev.data.fd))
-                    elif ev.events & (EPOLLOUT | EPOLLERR | EPOLLHUP):
+                    elif ev.events & EPOLLOUT:
                         writable_fd_list.append(int(ev.data.fd))
                 return readable_fd_list, writable_fd_list
 
