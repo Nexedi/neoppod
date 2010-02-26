@@ -67,25 +67,24 @@ class StorageServiceHandler(BaseServiceHandler):
         if not t.lock(uuid):
             return
 
-        # all nodes are locked
-        # XXX: review needed:
-        # don't iterate over connections but search by uuid
-        # include client's uuid in Transaction object
+        # I have received all the lock answers now:
+        # - send a Notify Transaction Finished to the initiated client node
+        # - Invalidate Objects to the other client nodes
+        nm = app.nm
+        transaction_node = t.getNode()
+        invalidate_objects = Packets.InvalidateObjects(t.getOIDList(), tid)
+        answer_transaction_finished = Packets.AnswerTransactionFinished(tid)
+        for client_node in nm.getClientList():
+            c = client_node.getConnection()
+            if client_node is transaction_node:
+                c.answer(answer_transaction_finished, msg_id=t.getMessageId())
+            else:
+                c.notify(invalidate_objects)
 
-        # I have received all the answers now. So send a Notify
-        # Transaction Finished to the initiated client node,
-        # Invalidate Objects to the other client nodes, and Unlock
-        # Information to relevant storage nodes.
-        for node in self.app.nm.getIdentifiedList():
-            if node.isClient():
-                if node is t.getNode():
-                    p = Packets.AnswerTransactionFinished(tid)
-                    node.answer(p, msg_id=t.getMessageId())
-                else:
-                    node.notify(Packets.InvalidateObjects(t.getOIDList(), tid))
-            elif node.isStorage():
-                if uuid in t.getUUIDList():
-                    node.notify(Packets.NotifyUnlockInformation(tid))
+        # - Unlock Information to relevant storage nodes.
+        notify_unlock = Packets.NotifyUnlockInformation(tid)
+        for storage_uuid in t.getUUIDList():
+            nm.getByUUID(storage_uuid).getConnection().notify(notify_unlock)
 
         # remove transaction from manager
         tm.remove(tid)
