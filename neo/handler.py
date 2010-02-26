@@ -29,6 +29,9 @@ class EventHandler(object):
         self.packet_dispatch_table = self.__initPacketDispatchTable()
         self.error_dispatch_table = self.__initErrorDispatchTable()
 
+    def __repr__(self):
+        return self.__class__.__name__
+
     def _packetMalformed(self, conn, message='', *args):
         """Called when a packet is malformed."""
         args = (conn.getAddress()[0], conn.getAddress()[1], message)

@@ -273,6 +273,9 @@ class Packet(object):
     def __len__(self):
         return PACKET_HEADER_SIZE + len(self._body)
 
+    def __repr__(self):
+        return self.__class__.__name__
+
     def __eq__(self, other):
         """ Compare packets with their code instead of content """
         if other is None:
