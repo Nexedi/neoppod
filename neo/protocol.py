@@ -274,7 +274,7 @@ class Packet(object):
         return PACKET_HEADER_SIZE + len(self._body)
 
     def __repr__(self):
-        return self.__class__.__name__
+        return '%s[%r]' % (self.__class__.__name__, self._id)
 
     def __eq__(self, other):
         """ Compare packets with their code instead of content """
