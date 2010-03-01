@@ -217,7 +217,7 @@ class ListeningConnection(BaseConnection):
         BaseConnection.__init__(self, event_manager, handler,
                                 addr = addr,
                                 connector_handler = connector_handler)
-        connector = self.connector_handler()
+        connector = connector_handler()
         connector.makeListeningConnection(addr)
         self.setConnector(connector)
         self.em.addReader(self)
@@ -528,7 +528,7 @@ class ClientConnection(Connection):
                             connector_handler = connector_handler)
         handler.connectionStarted(self)
         try:
-            connector = self.connector_handler()
+            connector = connector_handler()
             self.setConnector(connector)
             try:
                 connector.makeClientConnection(addr)
