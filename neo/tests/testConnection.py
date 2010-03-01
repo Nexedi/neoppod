@@ -17,7 +17,8 @@
 import unittest
 from mock import Mock
 from neo.connection import BaseConnection, ListeningConnection, Connection, \
-     ClientConnection, ServerConnection, MTClientConnection, MTServerConnection
+     ClientConnection, ServerConnection, MTClientConnection, \
+     MTServerConnection, HandlerSwitcher
 from neo.connector import getConnectorHandler, registerConnectorHandler
 from neo.handler import EventHandler
 from neo.tests import DoNothingConnector
@@ -40,7 +41,7 @@ class ConnectionTests(NeoTestBase):
         # no connector
         bc = BaseConnection(em, handler)
         self.assertNotEqual(bc.em, None)
-        self.assertEqual(bc.handler, handler)
+        self.assertEqual(bc.getHandler(), handler)
         self.assertNotEqual(bc.getEventManager(), None)
         self.assertEqual(bc.getHandler(), handler)
         self.assertEqual(bc.getUUID(), None)
@@ -1120,6 +1121,156 @@ class ConnectionTests(NeoTestBase):
 
         # XXX check locking ???
 
+class HandlerSwitcherTests(NeoTestBase):
+
+    def setUp(self):
+        self._handler = handler = Mock({
+            '__repr__': 'initial handler',
+        })
+        self._connection = connection = Mock({
+            '__repr__': 'connection',
+            'getAddress': ('127.0.0.1', 10000),
+        })
+        self._handlers = HandlerSwitcher(connection, handler)
+
+    def _makeNotification(self, msg_id):
+        packet = Packets.StartOperation()
+        packet.setId(msg_id)
+        return packet
+
+    def _makeRequest(self, msg_id):
+        packet = Packets.AskBeginTransaction(self.getNextTID())
+        packet.setId(msg_id)
+        return packet
+
+    def _makeAnswer(self, msg_id):
+        packet = Packets.AnswerBeginTransaction(self.getNextTID())
+        packet.setId(msg_id)
+        return packet
+
+    def _makeHandler(self):
+        return Mock({'__repr__': 'handler'})
+
+    def _checkPacketReceived(self, handler, packet, index=0):
+        calls = handler.mockGetNamedCalls('packetReceived')
+        self.assertEqual(len(calls), index + 1)
+
+    def _checkCurrentHandler(self, handler):
+        self.assertTrue(self._handlers.getHandler() is handler)
+
+    def testInit(self):
+        self._checkCurrentHandler(self._handler)
+        self.assertFalse(self._handlers.isPending())
+
+    def testEmit(self):
+        self.assertFalse(self._handlers.isPending())
+        request = self._makeRequest(1)
+        self._handlers.emit(request)
+        self.assertTrue(self._handlers.isPending())
+
+    def testHandleNotification(self):
+        # handle with current handler
+        notif1 = self._makeNotification(1)
+        self._handlers.handle(notif1)
+        self._checkPacketReceived(self._handler, notif1)
+        # emit a request and delay an handler
+        request = self._makeRequest(2)
+        self._handlers.emit(request)
+        handler = self._makeHandler()
+        self._handlers.setHandler(handler)
+        # next notification fall into the current handler
+        notif2 = self._makeNotification(3)
+        self._handlers.handle(notif2)
+        self._checkPacketReceived(self._handler, notif2, index=1)
+        # handle with new handler
+        answer = self._makeAnswer(2)
+        self._handlers.handle(answer)
+        notif3 = self._makeNotification(4)
+        self._handlers.handle(notif3)
+        self._checkPacketReceived(handler, notif2)
+
+    def testHandleAnswer1(self):
+        # handle with current handler
+        request = self._makeRequest(1)
+        self._handlers.emit(request)
+        answer = self._makeAnswer(1)
+        self._handlers.handle(answer)
+        self._checkPacketReceived(self._handler, answer)
+
+    def testHandleAnswer2(self):
+        # handle with blocking handler
+        request = self._makeRequest(1)
+        self._handlers.emit(request)
+        handler = self._makeHandler()
+        self._handlers.setHandler(handler)
+        answer = self._makeAnswer(1)
+        self._handlers.handle(answer)
+        self._checkPacketReceived(self._handler, answer)
+        self._checkCurrentHandler(handler)
+
+    def testHandleAnswer3(self):
+        # multiple setHandler
+        r1 = self._makeRequest(1)
+        r2 = self._makeRequest(2)
+        r3 = self._makeRequest(3)
+        a1 = self._makeAnswer(1)
+        a2 = self._makeAnswer(2)
+        a3 = self._makeAnswer(3)
+        h1 = self._makeHandler()
+        h2 = self._makeHandler()
+        h3 = self._makeHandler()
+        # emit all requests and setHandleres
+        self._handlers.emit(r1)
+        self._handlers.setHandler(h1)
+        self._handlers.emit(r2)
+        self._handlers.setHandler(h2)
+        self._handlers.emit(r3)
+        self._handlers.setHandler(h3)
+        self._checkCurrentHandler(self._handler)
+        self.assertTrue(self._handlers.isPending())
+        # process answers
+        self._handlers.handle(a1)
+        self._checkCurrentHandler(h1)
+        self._handlers.handle(a2)
+        self._checkCurrentHandler(h2)
+        self._handlers.handle(a3)
+        self._checkCurrentHandler(h3)
+
+    def testHandleAnswer4(self):
+        # process in disorder
+        r1 = self._makeRequest(1)
+        r2 = self._makeRequest(2)
+        r3 = self._makeRequest(3)
+        a1 = self._makeAnswer(1)
+        a2 = self._makeAnswer(2)
+        a3 = self._makeAnswer(3)
+        h = self._makeHandler()
+        # emit all requests
+        self._handlers.emit(r1)
+        self._handlers.emit(r2)
+        self._handlers.emit(r3)
+        self._handlers.setHandler(h)
+        # process answers
+        self._handlers.handle(a1)
+        self._checkCurrentHandler(self._handler)
+        self._handlers.handle(a2)
+        self._checkCurrentHandler(self._handler)
+        self._handlers.handle(a3)
+        self._checkCurrentHandler(h)
+
+    def testHandleUnexpected(self):
+        # process in disorder
+        r1 = self._makeRequest(1)
+        r2 = self._makeRequest(2)
+        a2 = self._makeAnswer(2)
+        h = self._makeHandler()
+        # emit requests aroung state setHandler
+        self._handlers.emit(r1)
+        self._handlers.setHandler(h)
+        self._handlers.emit(r2)
+        # process answer for next state
+        self._handlers.handle(a2)
+        self.checkAborted(self._connection)
 
 
 if __name__ == '__main__':
