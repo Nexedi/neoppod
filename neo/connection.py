@@ -371,10 +371,14 @@ class Connection(BaseConnection):
     def pending(self):
         return self.connector is not None and self.write_buf
 
-    def _closure(self):
+    def _closure(self, was_connected=False):
         assert self.connector is not None, self.whoSetConnector()
+        handler = self.getHandler()
         self.close()
-        self.getHandler().connectionClosed(self)
+        if was_connected:
+            handler.connectionFailed(self)
+        else:
+            handler.connectionClosed(self)
 
     def _recv(self):
         """Receive data from a connector."""
@@ -389,8 +393,7 @@ class Connection(BaseConnection):
             pass
         except ConnectorConnectionRefusedException:
             # should only occur while connecting
-            self.close()
-            self.getHandler().connectionFailed(self)
+            self._closure(was_connected=True)
         except ConnectorConnectionClosedException:
             # connection resetted by peer, according to the man, this error
             # should not occurs but it seems it's false
@@ -526,12 +529,10 @@ class ClientConnection(Connection):
                 self.getHandler().connectionCompleted(self)
                 event_manager.addReader(self)
         except ConnectorConnectionRefusedException:
-            handler.connectionFailed(self)
-            self.close()
+            self._closure(was_connected=True)
         except ConnectorException:
             # unhandled connector exception
-            handler.connectionFailed(self)
-            self.close()
+            self._closure(was_connected=True)
             raise
 
     def writable(self):
@@ -539,8 +540,7 @@ class ClientConnection(Connection):
         if self.connecting:
             err = self.connector.getError()
             if err:
-                self.getHandler().connectionFailed(self)
-                self.close()
+                self._closure(was_connected=True)
                 return
             else:
                 self.connecting = False
