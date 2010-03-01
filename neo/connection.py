@@ -246,8 +246,8 @@ class Connection(BaseConnection):
     def __init__(self, event_manager, handler,
                  connector = None, addr = None,
                  connector_handler = None):
-        self.read_buf = ""
-        self.write_buf = ""
+        self.read_buf = []
+        self.write_buf = []
         self.cur_id = 0
         self.peer_id = 0
         self.event_dict = {}
@@ -295,8 +295,8 @@ class Connection(BaseConnection):
             self._on_close()
             self._on_close = None
         self.event_dict.clear()
-        self.write_buf = ""
-        self.read_buf = ""
+        del self.write_buf[:]
+        del self.read_buf[:]
         self._handlers.clear()
 
     def abort(self):
@@ -324,16 +324,21 @@ class Connection(BaseConnection):
 
     def analyse(self):
         """Analyse received data."""
+        read_buf = self.read_buf
+        if len(read_buf) == 1:
+            msg = read_buf[0]
+        else:
+            msg = ''.join(self.read_buf)
         while True:
             # parse a packet
             try:
-                packet = Packets.parse(self.read_buf)
+                packet = Packets.parse(msg)
                 if packet is None:
                     break
             except PacketMalformedError, msg:
                 self.getHandler()._packetMalformed(self, msg)
                 return
-            self.read_buf = self.read_buf[len(packet):]
+            msg = msg[len(packet):]
 
             packet_type = packet.getType()
             # Remove idle events, if appropriate packets were received.
@@ -353,6 +358,7 @@ class Connection(BaseConnection):
                 # Skip PONG packets, its only purpose is to drop IdleEvent
                 # generated upong ping.
                 self._queue.append(packet)
+        self.read_buf = [msg]
 
     def hasPendingMessages(self):
         """
@@ -388,7 +394,7 @@ class Connection(BaseConnection):
                 logging.debug('Connection %r closed in recv', self.connector)
                 self._closure()
                 return
-            self.read_buf += data
+            self.read_buf.append(data)
         except ConnectorTryAgainException:
             pass
         except ConnectorConnectionRefusedException:
@@ -410,12 +416,16 @@ class Connection(BaseConnection):
         if not self.write_buf:
             return
         try:
-            n = self.connector.send(self.write_buf)
+            msg = ''.join(self.write_buf)
+            n = self.connector.send(msg)
             if not n:
                 logging.debug('Connection %r closed in send', self.connector)
                 self._closure()
                 return
-            self.write_buf = self.write_buf[n:]
+            if n == len(msg):
+                del self.write_buf[:]
+            else:
+                self.write_buf = [msg[n:]]
         except ConnectorTryAgainException:
             pass
         except ConnectorConnectionClosedException:
@@ -436,7 +446,7 @@ class Connection(BaseConnection):
         was_empty = not bool(self.write_buf)
 
         PACKET_LOGGER.dispatch(self, packet, ' to ')
-        self.write_buf += packet.encode()
+        self.write_buf.extend(packet.encode())
 
         if was_empty:
             # enable polling for writing.

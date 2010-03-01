@@ -267,8 +267,8 @@ class Packet(object):
         """ Encode a packet as a string to send it over the network """
         content = self._body
         length = PACKET_HEADER_SIZE + len(content)
-        return pack(PACKET_HEADER_FORMAT, self.getId(), self._code, length) \
-            + content
+        return (pack(PACKET_HEADER_FORMAT, self._id, self._code, length),
+            content)
 
     def __len__(self):
         return PACKET_HEADER_SIZE + len(self._body)
