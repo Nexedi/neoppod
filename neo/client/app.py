@@ -805,21 +805,22 @@ class Application(object):
         oid_list = self.local_var.txn_info['oids']
         # Second get object data from storage node using loadBefore
         data_dict = {}
+        # XXX: this way causes each object to be loaded 3 times from storage,
+        # this work should rather be offloaded to it.
         for oid in oid_list:
+            current_data = self.load(oid)[0]
+            after_data = self.loadSerial(oid, transaction_id)
+            if current_data != after_data:
+                raise UndoError("non-undoable transaction", oid)
             try:
-                result = self.loadBefore(oid, transaction_id)
+                data = self.loadBefore(oid, transaction_id)[0]
             except NEOStorageNotFoundError:
                 if oid == '\x00' * 8:
                     # Refuse undoing root object creation.
                     raise UndoError("no previous record", oid)
                 else:
                     # Undo object creation
-                    result = ('', None, transaction_id)
-            data, start, end = result
-            # end must be TID we are going to undone otherwise it means
-            # a later transaction modify the object
-            if end != transaction_id:
-                raise UndoError("non-undoable transaction", oid)
+                    data = ''
             data_dict[oid] = data
 
         # Third do transaction with old data
