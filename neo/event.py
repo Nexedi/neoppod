@@ -207,10 +207,7 @@ class EpollEventManager(object):
                 while event_list:
                     event = event_list[0]
                     if event(t):
-                        try:
-                            event_list.remove(event)
-                        except ValueError:
-                            pass
+                        self.removeIdleEvent(event)
                     else:
                         break
 
