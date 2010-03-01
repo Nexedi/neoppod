@@ -96,7 +96,7 @@ class Application(object):
 
         # Make a listening port.
         self.listening_conn = ListeningConnection(self.em, None,
-            addr = self.server, connector_handler = self.connector_handler)
+            addr=self.server, connector=self.connector_handler())
 
         # Start a normal operation.
         while True:
@@ -189,7 +189,7 @@ class Application(object):
                         self.em.getClientList()]
                     if addr not in current_connections:
                         ClientConnection(self.em, client_handler, addr=addr,
-                            connector_handler=self.connector_handler)
+                            connector=self.connector_handler())
             self.em.poll(1)
 
             if len(self.unconnected_master_node_set |
@@ -414,7 +414,7 @@ class Application(object):
 
         if not connected_to_master:
             ClientConnection(self.em, primary_handler, addr=addr,
-                connector_handler=self.connector_handler)
+                connector=self.connector_handler())
 
         # and another for the future incoming connections
         handler = identification.IdentificationHandler(self)

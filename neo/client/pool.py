@@ -49,9 +49,9 @@ class ConnectionPool(object):
             logging.debug('trying to connect to %s - %s', node, node.getState())
             app.setNodeReady()
             conn = MTClientConnection(app.em, app.storage_event_handler, addr,
-                                      connector_handler=app.connector_handler,
-                                      dispatcher=app.dispatcher)
+                connector=app.connector_handler(), dispatcher=app.dispatcher)
             conn.lock()
+
             try:
                 if conn.getConnector() is None:
                     # This happens, if a connection could not be established.

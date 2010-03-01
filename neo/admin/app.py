@@ -84,8 +84,8 @@ class Application(object):
 
         # Make a listening port.
         handler = AdminEventHandler(self)
-        ListeningConnection(self.em, handler, addr = self.server,
-                            connector_handler = self.connector_handler)
+        ListeningConnection(self.em, handler, addr=self.server,
+                            connector=self.connector_handler())
 
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permentnly,

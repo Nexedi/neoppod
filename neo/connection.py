@@ -123,17 +123,13 @@ class HandlerSwitcher(object):
 class BaseConnection(object):
     """A base connection."""
 
-    def __init__(self, event_manager, handler, connector = None,
-                 addr = None, connector_handler = None):
+    def __init__(self, event_manager, handler, connector, addr=None):
+        assert connector is not None, "Need a low-level connector"
         self.em = event_manager
         self.connector = connector
         self.addr = addr
         self._handlers = HandlerSwitcher(self, handler)
-        if connector is not None:
-            self.connector_handler = connector.__class__
-            event_manager.register(self)
-        else:
-            self.connector_handler = connector_handler
+        event_manager.register(self)
 
     def lock(self):
         return 1
@@ -143,13 +139,6 @@ class BaseConnection(object):
 
     def getConnector(self):
         return self.connector
-
-    def setConnector(self, connector):
-        if self.connector is not None:
-            raise RuntimeError, 'cannot overwrite a connector in a connection'
-        if connector is not None:
-            self.connector = connector
-            self.em.register(self)
 
     def getAddress(self):
         return self.addr
@@ -162,8 +151,8 @@ class BaseConnection(object):
 
     def close(self):
         """Close the connection."""
-        em = self.em
         if self.connector is not None:
+            em = self.em
             em.removeReader(self)
             em.removeWriter(self)
             em.unregister(self)
@@ -212,14 +201,11 @@ attributeTracker.track(BaseConnection)
 class ListeningConnection(BaseConnection):
     """A listen connection."""
 
-    def __init__(self, event_manager, handler, addr, connector_handler, **kw):
+    def __init__(self, event_manager, handler, addr, connector, **kw):
         logging.debug('listening to %s:%d', *addr)
         BaseConnection.__init__(self, event_manager, handler,
-                                addr = addr,
-                                connector_handler = connector_handler)
-        connector = connector_handler()
-        connector.makeListeningConnection(addr)
-        self.setConnector(connector)
+                                addr=addr, connector=connector)
+        self.connector.makeListeningConnection(addr)
         self.em.addReader(self)
 
     def readable(self):
@@ -228,7 +214,7 @@ class ListeningConnection(BaseConnection):
             logging.debug('accepted a connection from %s:%d', *addr)
             handler = self.getHandler()
             new_conn = ServerConnection(self.getEventManager(), handler,
-                                        connector=new_s, addr=addr)
+                connector=new_s, addr=addr)
             handler.connectionAccepted(new_conn)
         except ConnectorTryAgainException:
             pass
@@ -243,9 +229,9 @@ class ListeningConnection(BaseConnection):
 class Connection(BaseConnection):
     """A connection."""
 
-    def __init__(self, event_manager, handler,
-                 connector = None, addr = None,
-                 connector_handler = None):
+    def __init__(self, event_manager, handler, connector, addr=None):
+        BaseConnection.__init__(self, event_manager, handler,
+                                connector=connector, addr=addr)
         self.read_buf = []
         self.write_buf = []
         self.cur_id = 0
@@ -255,11 +241,7 @@ class Connection(BaseConnection):
         self.uuid = None
         self._queue = []
         self._on_close = None
-        BaseConnection.__init__(self, event_manager, handler,
-                                connector = connector, addr = addr,
-                                connector_handler = connector_handler)
-        if connector is not None:
-            event_manager.addReader(self)
+        event_manager.addReader(self)
 
     def setOnClose(self, callback):
         assert self._on_close is None
@@ -522,22 +504,19 @@ class Connection(BaseConnection):
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
 
-    def __init__(self, event_manager, handler, addr, connector_handler, **kw):
+    def __init__(self, event_manager, handler, addr, connector, **kw):
         self.connecting = True
-        Connection.__init__(self, event_manager, handler, addr = addr,
-                            connector_handler = connector_handler)
+        Connection.__init__(self, event_manager, handler, addr=addr,
+                            connector=connector)
         handler.connectionStarted(self)
         try:
-            connector = connector_handler()
-            self.setConnector(connector)
             try:
-                connector.makeClientConnection(addr)
+                self.connector.makeClientConnection(addr)
             except ConnectorInProgressException:
                 event_manager.addWriter(self)
             else:
                 self.connecting = False
                 self.getHandler().connectionCompleted(self)
-                event_manager.addReader(self)
         except ConnectorConnectionRefusedException:
             self._closure(was_connected=True)
         except ConnectorException:

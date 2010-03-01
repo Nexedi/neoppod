@@ -303,7 +303,7 @@ class Application(object):
                 # Connect to master
                 conn = MTClientConnection(self.em, self.notifications_handler,
                         addr=self.trying_master_node.getAddress(),
-                        connector_handler=self.connector_handler,
+                        connector=self.connector_handler(),
                         dispatcher=self.dispatcher)
                 # Query for primary master node
                 conn.lock()

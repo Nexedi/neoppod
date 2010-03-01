@@ -38,9 +38,8 @@ class NeoCTL(object):
 
     def __getConnection(self):
         if not self.connected:
-            self.connection = ClientConnection(
-                self.em, self.handler, addr=self.server,
-                connector_handler=self.connector_handler)
+            self.connection = ClientConnection(self.em, self.handler, 
+                    addr=self.server, connector=self.connector_handler())
             while not self.connected and self.connection is not None:
                 self.em.poll(0)
             if self.connection is None:

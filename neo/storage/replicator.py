@@ -174,7 +174,7 @@ class Replicator(object):
         if self.current_connection is None:
             handler = replication.ReplicationHandler(app)
             self.current_connection = ClientConnection(app.em, handler,
-                   addr = addr, connector_handler = app.connector_handler)
+                   addr=addr, connector=app.connector_handler())
             p = Packets.RequestIdentification(NodeTypes.STORAGE,
                     app.uuid, app.server, app.name)
             self.current_connection.ask(p)

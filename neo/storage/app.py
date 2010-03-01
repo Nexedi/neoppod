@@ -133,7 +133,7 @@ class Application(object):
         # Make a listening port
         handler = identification.IdentificationHandler(self)
         self.listening_conn = ListeningConnection(self.em, handler,
-            addr=self.server, connector_handler=self.connector_handler)
+            addr=self.server, connector=self.connector_handler())
 
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permentnly,
