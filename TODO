@@ -46,8 +46,6 @@ RC  - Review output of pylint (CODE)
       They must be removed to be either infinite (sleep until some condition 
       becomes true, without waking up needlessly in the meantime) or null 
       (don't wait at all).
-      There is such delay somewhere in master node startup (near the end of 
-      the election phase).
     - Implements delayed connection acceptation.
       Currently, any node that connects to early to another that is busy for 
       some reasons is immediately rejected with the 'not ready' error code. This
