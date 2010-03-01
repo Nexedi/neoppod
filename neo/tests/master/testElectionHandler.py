@@ -297,13 +297,6 @@ class MasterServerElectionTests(NeoTestBase):
     def _getNodeList(self):
         return [x.asTuple() for x in self.app.nm.getList()]
 
-    def test_notifyNodeInformation1(self):
-        """ Not identified """
-        node, conn = self.identifyToMasterNode(uuid=None)
-        node_list = self._getNodeList()
-        self.assertRaises(protocol.ProtocolError, 
-            self.election.notifyNodeInformation, conn, node_list)
-
     def __getClient(self):
         uuid = self.getNewUUID()
         conn = Mock({
