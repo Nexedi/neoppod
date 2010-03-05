@@ -139,8 +139,8 @@ class Storage(BaseStorage.BaseStorage,
     def copyTransactionsFrom(self, source, verbose=False):
         return self.app.copyTransactionsFrom(source, self.tryToResolveConflict)
 
-#    def restore(self, oid, serial, data, version, prev_txn, transaction):
-#        raise NotImplementedError
+    def restore(self, oid, serial, data, version, prev_txn, transaction):
+        raise NotImplementedError
 
     def pack(self, t, referencesf):
         raise NotImplementedError
