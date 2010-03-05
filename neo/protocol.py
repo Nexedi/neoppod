@@ -886,6 +886,7 @@ class AskStoreObject(Packet):
         header_len = self._header_len
         r = unpack(self._header_format, body[:header_len])
         oid, serial, tid, compression, checksum = r
+        serial = _decodeTID(serial)
         (data, _) = _readString(body, 'data', offset=header_len)
         return (oid, serial, compression, checksum, data, tid)
 
