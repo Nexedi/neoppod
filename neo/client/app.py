@@ -225,23 +225,21 @@ class Application(object):
             elif packet is not None:
                 self._handlePacket(conn, packet)
 
-    def _askStorage(self, conn, packet, timeout=5, additional_timeout=30):
+    def _askStorage(self, conn, packet):
         """ Send a request to a storage node and process it's answer """
         try:
-            msg_id = conn.ask(self.local_var.queue, packet, timeout,
-                              additional_timeout)
+            msg_id = conn.ask(self.local_var.queue, packet)
         finally:
             # assume that the connection was already locked
             conn.unlock()
         self._waitMessage(conn, msg_id, self.storage_handler)
 
-    def _askPrimary(self, packet, timeout=5, additional_timeout=30):
+    def _askPrimary(self, packet):
         """ Send a request to the primary master and process it's answer """
         conn = self._getMasterConnection()
         conn.lock()
         try:
-            msg_id = conn.ask(self.local_var.queue, packet, timeout,
-                              additional_timeout)
+            msg_id = conn.ask(self.local_var.queue, packet)
         finally:
             conn.unlock()
         self._waitMessage(conn, msg_id, self.primary_handler)
