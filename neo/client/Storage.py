@@ -136,6 +136,9 @@ class Storage(BaseStorage.BaseStorage,
     def sync(self):
         self.app.sync()
 
+    def copyTransactionsFrom(self, source, verbose=False):
+        return self.app.copyTransactionsFrom(source, self.tryToResolveConflict)
+
 #    def restore(self, oid, serial, data, version, prev_txn, transaction):
 #        raise NotImplementedError
 

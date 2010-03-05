@@ -981,6 +981,30 @@ class Application(object):
 
         return history_list
 
+    def copyTransactionsFrom(self, source, tryToResolveConflict):
+        serials = {}
+        def updateLastSerial(oid, result):
+            if result:
+                if isinstance(result, str):
+                    assert oid is not None
+                    serials[oid] = result
+                else:
+                    for oid, serial in result:
+                        assert isinstance(serial, str), serial
+                        serials[oid] = serial
+        transaction_iter = source.iterator()
+        for transaction in transaction_iter:
+            self.tpc_begin(transaction, transaction.tid, transaction.status)
+            for r in transaction:
+                pre = serials.get(r.oid, None)
+                # TODO: bypass conflict resolution, locks...
+                result = self.store(r.oid, pre, r.data, r.version, transaction)
+                updateLastSerial(r.oid, result)
+            updateLastSerial(None, self.tpc_vote(transaction,
+                        tryToResolveConflict))
+            self.tpc_finish(transaction)
+        transaction_iter.close()
+
     def iterator(self, start=None, stop=None):
         return Iterator(self, start, stop)
 
