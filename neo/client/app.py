@@ -756,13 +756,14 @@ class Application(object):
             # Update cache
             self._cache_lock_acquire()
             try:
+                mq_cache = self.mq_cache
                 for oid, data in self.local_var.data_dict.iteritems():
                     if data == '':
-                        if oid in self.mq_cache:
-                            del self.mq_cache[oid]
+                        if oid in mq_cache:
+                            del mq_cache[oid]
                     else:
                         # Now serial is same as tid
-                        self.mq_cache[oid] = tid, data
+                        mq_cache[oid] = tid, data
             finally:
                 self._cache_lock_release()
             self.local_var.clear()
