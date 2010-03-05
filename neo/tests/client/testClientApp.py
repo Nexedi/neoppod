@@ -757,7 +757,7 @@ class ClientApplicationTests(NeoTestBase):
         packets = (u2p1, u2p2, u2p3, u3p1, u3p2, u3p3, u3p4, u3p5, u4p1, u4p2,
                    u4p3, u4p4, u4p5)
         for i, p in enumerate(packets):
-            p.setId(p)
+            p.setId(i)
         storage_address = ('127.0.0.1', 10010)
         conn = Mock({
             'getNextId': 1,
