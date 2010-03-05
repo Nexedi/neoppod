@@ -39,9 +39,9 @@ class Node(object):
         assert self.isConnected(), 'Not connected'
         self._connection.notify(packet)
 
-    def ask(self, packet, timeout=5, additional_timeout=30):
+    def ask(self, packet, *args, **kw):
         assert self.isConnected(), 'Not connected'
-        self._connection.ask(packet, timeout, additional_timeout)
+        self._connection.ask(packet, *args, **kw)
 
     def answer(self, packet, msg_id=None):
         assert self.isConnected(), 'Not connected'
