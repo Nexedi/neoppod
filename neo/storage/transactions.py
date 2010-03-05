@@ -155,7 +155,7 @@ class TransactionManager(object):
 
         # update loid if needed
         if self._loid_seen > self._loid:
-            args = dump(self._loid_seen), dump(self._loid_seen)
+            args = dump(self._loid_seen), dump(self._loid)
             logging.warning('Greater OID used in StoreObject : %s > %s', *args)
             self._loid = self._loid_seen
             self._app.dm.setLastOID(self._loid)
