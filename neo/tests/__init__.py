@@ -250,6 +250,9 @@ class NeoTestBase(unittest.TestCase):
             return packet.decode()
         return packet
 
+    def checkNotify(self, conn, **kw):
+        return self.checkNotifyPacket(conn, Packets.Notify, **kw)
+
     def checkNotifyNodeInformation(self, conn, **kw):
         return self.checkNotifyPacket(conn, Packets.NotifyNodeInformation, **kw)
 

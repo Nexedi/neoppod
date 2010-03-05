@@ -303,13 +303,21 @@ class Packet(object):
     def getAnswerClass(self):
         return self._answer
 
+class Notify(Packet):
+    """
+        General purpose notification (remote logging)
+    """
+    def _encode(self, message):
+        return message
+
+    def _decode(self, body):
+        return (body, )
 
 class Ping(Packet):
     """
     Check if a peer is still alive. Any -> Any.
     """
     pass
-
 
 class Pong(Packet):
     """
@@ -1536,6 +1544,7 @@ class PacketRegistry(dict):
 
     # packets registration
     Error = register(0x8000, Error)
+    Notify = register(0x0032, Notify)
     Ping, Pong = register(
             0x0001,
             Ping,

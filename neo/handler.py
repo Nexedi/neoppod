@@ -133,6 +133,9 @@ class EventHandler(object):
 
     # Packet handlers.
 
+    def notify(self, conn, message):
+        logging.info('notification from %s:%d: %s', *(conn.getAddress(), message))
+
     def requestIdentification(self, conn, node_type,
                                         uuid, address, name):
         raise UnexpectedPacketError
