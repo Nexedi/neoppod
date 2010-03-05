@@ -755,8 +755,7 @@ class Application(object):
             # Update cache
             self._cache_lock_acquire()
             try:
-                for oid in self.local_var.data_dict.iterkeys():
-                    data = self.local_var.data_dict[oid]
+                for oid, data in self.local_var.data_dict.iteritems():
                     if data == '':
                         if oid in self.mq_cache:
                             del self.mq_cache[oid]
