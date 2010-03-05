@@ -55,9 +55,9 @@ defaults = dict(
     partitions = 100,
 )
 config = ConfigurationManager(
-        defaults, 
-        options.file, 
-        options.section or 'master', 
+        defaults,
+        options.file,
+        options.section or 'master',
         arguments,
 )
 
