@@ -108,6 +108,12 @@ class Iterator(object):
             self._next += len(self.txn_list)
         txn = self.txn_list.pop()
         self._index += 1
+        if txn['oids'] == ['\0' * 8]:
+            # XXX: hack, skip initial transaction that store the root object
+            if not self.txn_list:
+                raise StopIteration
+            txn = self.txn_list.pop()
+            self._index += 1
         tid = txn['id']
         user = txn['user_name']
         desc = txn['description']
