@@ -33,7 +33,11 @@ class HandlerTests(NeoTestBase):
         self.handler.packet_dispatch_table[self.fake_type] = method
 
     def getFakePacket(self):
-        return Mock({'getType': self.fake_type, 'decode': ()})
+        return Mock({
+            'getType': self.fake_type,
+            'decode': (),
+            '__repr__': 'Fake Packet',
+        })
 
     def checkFakeCalled(self):
         method = self.handler.packet_dispatch_table[self.fake_type]
@@ -60,7 +64,7 @@ class HandlerTests(NeoTestBase):
             raise PacketMalformedError('message')
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
-        self.checkErrorPacket(conn)
+        self.checkNotify(conn)
         self.checkAborted(conn)
         # raise BrokenNodeDisallowedError
         conn.mockCalledMethods = {}

@@ -32,15 +32,6 @@ class EventHandler(object):
     def __repr__(self):
         return self.__class__.__name__
 
-    def _packetMalformed(self, conn, message='', *args):
-        """Called when a packet is malformed."""
-        args = (conn.getAddress()[0], conn.getAddress()[1], message)
-        logging.error('malformed packet from %s:%d: %s', *args)
-        response = Errors.ProtocolError(message)
-        conn.notify(response)
-        conn.abort()
-        self.peerBroken(conn)
-
     def __unexpectedPacket(self, conn, packet, message=None):
         """Handle an unexpected packet."""
         if message is None:
@@ -66,8 +57,11 @@ class EventHandler(object):
             method(conn, *args)
         except UnexpectedPacketError, e:
             self.__unexpectedPacket(conn, packet, *e.args)
-        except PacketMalformedError, e:
-            self._packetMalformed(conn, *e.args)
+        except PacketMalformedError:
+            logging.error('malformed packet from %s:%d', *(conn.getAddress()))
+            conn.notify(Packets.Notify('Malformed packet: %r' % (packet, )))
+            conn.abort()
+            self.peerBroken(conn)
         except BrokenNodeDisallowedError:
             conn.answer(Errors.Broken('go away'))
             conn.abort()
