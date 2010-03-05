@@ -80,6 +80,7 @@ ZODB_TEST_MODULES = [
     ('neo.tests.zodb.testPersistent', 'check'),
     ('neo.tests.zodb.testReadOnly', 'check'),
     ('neo.tests.zodb.testRevision', 'check'),
+    #('neo.tests.zodb.testRecovery', 'check'),
     ('neo.tests.zodb.testSynchronization', 'check'),
     # ('neo.tests.zodb.testVersion', 'check'),
     ('neo.tests.zodb.testUndo', 'check'),
