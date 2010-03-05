@@ -231,7 +231,8 @@ class TransactionManager(object):
         for tid in [x.getTID() for x in self._uuid_dict.get(uuid, [])]:
             self.abort(tid, even_if_locked=False)
         # cleanup _uuid_dict if no transaction remains for this node
-        if not self._uuid_dict.get(uuid):
+        transaction_set = self._uuid_dict.get(uuid)
+        if transaction_set is not None and not transaction_set:
             del self._uuid_dict[uuid]
 
     def loadLocked(self, oid):
