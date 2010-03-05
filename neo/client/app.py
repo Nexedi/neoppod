@@ -740,13 +740,14 @@ class Application(object):
             return
         self._load_lock_acquire()
         try:
+            tid = self.local_var.tid
             # Call function given by ZODB
             if f is not None:
-                f(self.local_var.tid)
+                f(tid)
 
             # Call finish on master
             oid_list = self.local_var.data_dict.keys()
-            p = Packets.AskFinishTransaction(oid_list, self.local_var.tid)
+            p = Packets.AskFinishTransaction(oid_list, tid)
             self._askPrimary(p)
 
             if not self.isTransactionFinished():
@@ -761,11 +762,11 @@ class Application(object):
                             del self.mq_cache[oid]
                     else:
                         # Now serial is same as tid
-                        self.mq_cache[oid] = self.local_var.tid, data
+                        self.mq_cache[oid] = tid, data
             finally:
                 self._cache_lock_release()
             self.local_var.clear()
-            return self.local_var.tid
+            return tid
         finally:
             self._load_lock_release()
 
