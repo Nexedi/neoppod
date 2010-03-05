@@ -715,7 +715,6 @@ class ClientApplicationTests(NeoTestBase):
     def test_undo2(self):
         # Three tests here :
         # undo txn2 where obj2 was modified in tid3 -> fail
-        # undo txn3 where there is a conflict on obj2
         # undo txn3 where obj2 was altered from tid2 -> ok
         # txn4 is the transaction where the undo occurs
         app = self.getApp()
