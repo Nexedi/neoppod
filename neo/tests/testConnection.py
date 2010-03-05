@@ -15,10 +15,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 import unittest
+from time import time
 from mock import Mock
 from neo.connection import ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, \
-     MTServerConnection, HandlerSwitcher
+     MTServerConnection, HandlerSwitcher, Timeout
 from neo.connector import getConnectorHandler, registerConnectorHandler
 from neo.tests import DoNothingConnector
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
@@ -122,12 +123,6 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(len(calls), n)
         self.assertEqual(calls[n-1].getParam(0), self.address)
 
-    def _checkAddIdleEvent(self, n=1):
-        self.assertEquals(len(self.em.mockGetNamedCalls("addIdleEvent")), n)
-
-    def _checkRemoveIdleEvent(self, n=1):
-        self.assertEquals(len(self.em.mockGetNamedCalls("removeIdleEvent")), n)
-
     def _checkPacketReceived(self, n=1):
         calls = self.handler.mockGetNamedCalls('packetReceived')
         self.assertEquals(len(calls), n)
@@ -192,7 +187,6 @@ class ConnectionTests(NeoTestBase):
         self._checkReadBuf(bc, '')
         self._checkWriteBuf(bc, '')
         self.assertEqual(bc.cur_id, 0)
-        self.assertEqual(bc.event_dict, {})
         self.assertEqual(bc.aborted, False)
         # test uuid
         self.assertEqual(bc.uuid, None)
@@ -377,25 +371,14 @@ class ConnectionTests(NeoTestBase):
         self._checkWriteBuf(bc, 'testdata')
         self._checkWriterAdded(1)
 
-    def test_08_Connection_expectMessage(self):
-        # with a right connector -> event created
-        bc = self._makeConnection()
-        self.assertEqual(len(bc.event_dict), 0)
-        bc.expectMessage('1')
-        self.assertEqual(len(bc.event_dict), 1)
-        self._checkAddIdleEvent(1)
-
     def test_Connection_analyse1(self):
         # nothing to read, nothing is done
         bc = self._makeConnection()
         bc._queue = Mock()
         self._checkReadBuf(bc, '')
-        self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
-        self._checkRemoveIdleEvent(0)
         self._checkPacketReceived(0)
         self._checkReadBuf(bc, '')
-        self.assertEqual(len(bc.event_dict), 0)
 
         # give some data to analyse
         master_list = (
@@ -410,17 +393,14 @@ class ConnectionTests(NeoTestBase):
         p = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p.setId(1)
         bc.read_buf += p.encode()
-        self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
         # check packet decoded
-        self._checkRemoveIdleEvent(0)
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
         self.assertEqual(data.getType(), p.getType())
         self.assertEqual(data.getId(), p.getId())
         self.assertEqual(data.decode(), p.decode())
-        self.assertEqual(len(bc.event_dict), 0)
         self._checkReadBuf(bc, '')
 
     def test_Connection_analyse2(self):
@@ -454,10 +434,8 @@ class ConnectionTests(NeoTestBase):
         p2.setId(2)
         bc.read_buf += p2.encode()
         self.assertEqual(len(''.join(bc.read_buf)), len(p1) + len(p2))
-        self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
         # check two packets decoded
-        self._checkRemoveIdleEvent(0)
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 2)
         # packet 1
         call = bc._queue.mockGetNamedCalls("append")[0]
@@ -471,7 +449,6 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(data.getType(), p2.getType())
         self.assertEqual(data.getId(), p2.getId())
         self.assertEqual(data.decode(), p2.decode())
-        self.assertEqual(len(bc.event_dict), 0)
         self._checkReadBuf(bc, '')
 
     def test_Connection_analyse3(self):
@@ -480,11 +457,9 @@ class ConnectionTests(NeoTestBase):
         bc._queue = Mock()
         bc.read_buf += "datadatadatadata"
         self.assertEqual(len(bc.read_buf), 16)
-        self.assertEqual(len(bc.event_dict), 0)
         bc.analyse()
         self.assertEqual(len(bc.read_buf), 16)
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 0)
-        self._checkRemoveIdleEvent(0)
 
     def test_Connection_analyse4(self):
         # give an expected packet
@@ -502,19 +477,14 @@ class ConnectionTests(NeoTestBase):
         p = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p.setId(1)
         bc.read_buf += p.encode()
-        self.assertEqual(len(bc.event_dict), 0)
-        bc.expectMessage(1)
-        self.assertEqual(len(bc.event_dict), 1)
         bc.analyse()
         # check packet decoded
-        self._checkRemoveIdleEvent(1)
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
         self.assertEqual(data.getType(), p.getType())
         self.assertEqual(data.getId(), p.getId())
         self.assertEqual(data.decode(), p.decode())
-        self.assertEqual(len(bc.event_dict), 0)
         self.assertEqual(''.join(bc.read_buf), '')
 
     def test_Connection_writable1(self):
@@ -614,13 +584,11 @@ class ConnectionTests(NeoTestBase):
         bc.readable()
         # check packet decoded
         self._checkReadBuf(bc, '')
-        self._checkRemoveIdleEvent(0)
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
         self.assertEqual(data.getType(), Packets.AnswerPrimary)
         self.assertEqual(data.getId(), 1)
-        self.assertEqual(len(bc.event_dict), 0)
         self._checkReadBuf(bc, '')
         # check not aborted
         self.assertFalse(bc.aborted)
@@ -763,7 +731,6 @@ class ConnectionTests(NeoTestBase):
         self._checkReadBuf(bc, '')
         self._checkWriteBuf(bc, '')
         self.assertEqual(bc.cur_id, 0)
-        self.assertEqual(bc.event_dict, {})
         self.assertEqual(bc.aborted, False)
         # test uuid
         self.assertEqual(bc.uuid, None)
@@ -940,6 +907,52 @@ class HandlerSwitcherTests(NeoTestBase):
         self._handlers.handle(a2)
         self.checkAborted(self._connection)
 
+
+class TestTimeout(NeoTestBase):
+    """ assume PING_DELAY=5 """
+
+    def setUp(self):
+        self.initial = time()
+        self.current = self.initial
+        self.timeout = Timeout()
+
+    def checkAfter(self, n, soft, hard):
+        at = self.current + n
+        self.assertEqual(soft, self.timeout.softExpired(at))
+        self.assertEqual(hard, self.timeout.hardExpired(at))
+
+    def refreshAfter(self, n):
+        self.current += n
+        self.timeout.refresh(self.current)
+
+    def testNoTimeout(self):
+        self.timeout.update(self.initial, 5)
+        self.checkAfter(1, False, False)
+        self.checkAfter(4, False, False)
+        self.refreshAfter(4) # answer received
+        self.checkAfter(1, False, False)
+
+    def testSoftTimeout(self):
+        self.timeout.update(self.initial, 5)
+        self.checkAfter(1, False, False)
+        self.checkAfter(4, False, False)
+        self.checkAfter(6, True, True) # ping
+        self.refreshAfter(8) # pong
+        self.checkAfter(1, False, False)
+        self.checkAfter(4, False, True)
+
+    def testHardTimeout(self):
+        self.timeout.update(self.initial, 5)
+        self.checkAfter(1, False, False)
+        self.checkAfter(4, False, False)
+        self.checkAfter(6, True, True) # ping
+        self.refreshAfter(6) # pong
+        self.checkAfter(1, False, False)
+        self.checkAfter(4, False, False)
+        self.checkAfter(6, False, True) # ping
+        self.refreshAfter(6) # pong
+        self.checkAfter(1, False, True) # too late
+        self.checkAfter(5, False, True)
 
 if __name__ == '__main__':
     unittest.main()

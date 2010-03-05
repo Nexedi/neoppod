@@ -15,11 +15,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from time import time
+
 from neo import logging
 from neo.locking import RLock
 
 from neo.protocol import PacketMalformedError, Packets
-from neo.event import IdleEvent
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
         ConnectorConnectionClosedException
@@ -27,6 +28,11 @@ from neo.util import dump
 from neo.logger import PACKET_LOGGER
 
 from neo import attributeTracker
+
+PING_DELAY = 5
+PING_TIMEOUT = 5
+INCOMING_TIMEOUT = 10
+CRITICAL_TIMEOUT = 30
 
 APPLY_HANDLER = object()
 
@@ -120,6 +126,34 @@ class HandlerSwitcher(object):
             self._pending.append([{}, handler])
 
 
+class Timeout(object):
+    """ Keep track of current timeouts """
+
+    def __init__(self):
+        self._ping_time = None
+        self._critical_time = None
+
+    def update(self, t, timeout=CRITICAL_TIMEOUT):
+        """ Update the new critical time """
+        self._ping_time = t + PING_TIMEOUT
+        critical_time = self._ping_time + timeout
+        self._critical_time = max(critical_time, self._critical_time)
+
+    def refresh(self, t):
+        """ Refresh timeout after something received """
+        self._ping_time = t + PING_DELAY
+
+    def softExpired(self, t):
+        """ Indicate if the soft timeout (ping delay) is reached """
+        # hard timeout takes precedences
+        return self._ping_time < t < self._critical_time
+
+    def hardExpired(self, t):
+        """ Indicate if hard (or pong) timeout is reached """
+        # should be called if softExpired if False
+        return self._critical_time < t or self._ping_time < t
+
+
 class BaseConnection(object):
     """A base connection."""
 
@@ -129,7 +163,19 @@ class BaseConnection(object):
         self.connector = connector
         self.addr = addr
         self._handlers = HandlerSwitcher(self, handler)
+        self._timeout = Timeout()
         event_manager.register(self)
+
+    def checkTimeout(self, t):
+        if self._handlers.isPending():
+            if self._timeout.softExpired(t):
+                self._timeout.refresh(t)
+                self.ping()
+            elif self._timeout.hardExpired(t):
+                # critical time reach or pong not received, abort
+                logging.info('timeout with %s:%d', *(self.getAddress()))
+                self.close()
+                self.getHandler().timeoutExpired(self)
 
     def lock(self):
         return 1
@@ -215,6 +261,8 @@ class ListeningConnection(BaseConnection):
             handler = self.getHandler()
             new_conn = ServerConnection(self.getEventManager(), handler,
                 connector=new_s, addr=addr)
+            # A request for a node identification should arrive.
+            self._timeout.update(time(), timeout=INCOMING_TIMEOUT)
             handler.connectionAccepted(new_conn)
         except ConnectorTryAgainException:
             pass
@@ -236,7 +284,6 @@ class Connection(BaseConnection):
         self.write_buf = []
         self.cur_id = 0
         self.peer_id = 0
-        self.event_dict = {}
         self.aborted = False
         self.uuid = None
         self._queue = []
@@ -271,12 +318,9 @@ class Connection(BaseConnection):
         logging.debug('closing a connector for %s (%s:%d)',
                 dump(self.uuid), *(self.addr))
         BaseConnection.close(self)
-        for event in self.event_dict.itervalues():
-            self.em.removeIdleEvent(event)
         if self._on_close is not None:
             self._on_close()
             self._on_close = None
-        self.event_dict.clear()
         del self.write_buf[:]
         del self.read_buf[:]
         self._handlers.clear()
@@ -320,24 +364,14 @@ class Connection(BaseConnection):
             except PacketMalformedError, msg:
                 self.getHandler()._packetMalformed(self, msg)
                 return
+            self._timeout.refresh(time())
             msg = msg[len(packet):]
-
             packet_type = packet.getType()
-            # Remove idle events, if appropriate packets were received.
-            for msg_id in (None, packet.getId()):
-                event = self.event_dict.pop(msg_id, None)
-                if event is not None:
-                    if packet_type == Packets.Pong:
-                        self.em.refreshIdleEvent(event)
-                        self.event_dict[msg_id] = event
-                    else:
-                        self.em.removeIdleEvent(event)
-
             if packet_type == Packets.Ping:
                 # Send a pong notification
                 self.answer(Packets.Pong(), packet.getId())
             elif packet_type != Packets.Pong:
-                # Skip PONG packets, its only purpose is to drop IdleEvent
+                # Skip PONG packets, its only purpose is refresh the timeout
                 # generated upong ping.
                 self._queue.append(packet)
         self.read_buf = [msg]
@@ -434,33 +468,6 @@ class Connection(BaseConnection):
             # enable polling for writing.
             self.em.addWriter(self)
 
-    def expectMessage(self, msg_id=None, timeout=5, additional_timeout=30):
-        """Expect a message for a reply to a given message ID or any message.
-
-        The purpose of this method is to define how much amount of time is
-        acceptable to wait for a message, thus to detect a down or broken
-        peer. This is important, because one error may halt a whole cluster
-        otherwise. Although TCP defines a keep-alive feature, the timeout
-        is too long generally, and it does not detect a certain type of reply,
-        thus it is better to probe problems at the application level.
-
-        The message ID specifies what ID is expected. Usually, this should
-        be identical with an ID for a request message. If it is None, any
-        message is acceptable, so it can be used to check idle time.
-
-        The timeout is the amount of time to wait until keep-alive messages start.
-        Once the timeout is expired, the connection starts to ping the peer.
-
-        The additional timeout defines the amount of time after the timeout
-        to invoke a timeoutExpired callback. If it is zero, no ping is sent, and
-        the callback is executed immediately."""
-        if self.connector is None:
-            return
-
-        event = IdleEvent(self, msg_id, timeout, additional_timeout)
-        self.event_dict[msg_id] = event
-        self.em.addIdleEvent(event)
-
     @not_closed
     def notify(self, packet):
         """ Then a packet with a new ID """
@@ -470,15 +477,15 @@ class Connection(BaseConnection):
         return msg_id
 
     @not_closed
-    def ask(self, packet, timeout=5, additional_timeout=30):
+    def ask(self, packet, timeout=CRITICAL_TIMEOUT):
         """
         Send a packet with a new ID and register the expectation of an answer
         """
         msg_id = self._getNextId()
         packet.setId(msg_id)
-        self.expectMessage(msg_id, timeout=timeout,
-                additional_timeout=additional_timeout)
         self._addPacket(packet)
+        if not self._handlers.isPending():
+            self._timeout.update(time(), timeout=timeout)
         self._handlers.emit(packet)
         return msg_id
 
@@ -491,13 +498,10 @@ class Connection(BaseConnection):
         assert packet.isResponse(), packet
         self._addPacket(packet)
 
-    def ping(self, timeout=5, msg_id=None):
-        """ Send a ping and expect to receive a pong notification """
+    @not_closed
+    def ping(self):
         packet = Packets.Ping()
-        if msg_id is None:
-            msg_id = self._getNextId()
-            self.expectMessage(msg_id, timeout, 0)
-        packet.setId(msg_id)
+        packet.setId(self._getNextId())
         self._addPacket(packet)
 
 
@@ -583,26 +587,27 @@ class MTClientConnection(ClientConnection):
         return super(MTClientConnection, self).analyse(*args, **kw)
 
     @lockCheckWrapper
-    def expectMessage(self, *args, **kw):
-        return super(MTClientConnection, self).expectMessage(*args, **kw)
-
-    @lockCheckWrapper
     def notify(self, *args, **kw):
         return super(MTClientConnection, self).notify(*args, **kw)
 
     @lockCheckWrapper
-    def ask(self, queue, packet, timeout=5, additional_timeout=30):
+    def ask(self, queue, packet, timeout=CRITICAL_TIMEOUT):
         msg_id = self._getNextId()
         packet.setId(msg_id)
         self.dispatcher.register(self, msg_id, queue)
-        self.expectMessage(msg_id)
         self._addPacket(packet)
+        if not self._handlers.isPending():
+            self._timeout.update(time(), timeout=timeout)
         self._handlers.emit(packet)
         return msg_id
 
     @lockCheckWrapper
     def answer(self, *args, **kw):
         return super(MTClientConnection, self).answer(*args, **kw)
+
+    @lockCheckWrapper
+    def checkTimeout(self, *args, **kw):
+        return super(MTClientConnection, self).checkTimeout(*args, **kw)
 
     def close(self):
         self.lock()
@@ -645,10 +650,6 @@ class MTServerConnection(ServerConnection):
         return super(MTServerConnection, self).analyse(*args, **kw)
 
     @lockCheckWrapper
-    def expectMessage(self, *args, **kw):
-        return super(MTServerConnection, self).expectMessage(*args, **kw)
-
-    @lockCheckWrapper
     def notify(self, *args, **kw):
         return super(MTServerConnection, self).notify(*args, **kw)
 
@@ -659,4 +660,8 @@ class MTServerConnection(ServerConnection):
     @lockCheckWrapper
     def answer(self, *args, **kw):
         return super(MTServerConnection, self).answer(*args, **kw)
+
+    @lockCheckWrapper
+    def checkTimeout(self, *args, **kw):
+        return super(MTServerConnection, self).checkTimeout(*args, **kw)
 

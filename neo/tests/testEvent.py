@@ -19,7 +19,7 @@ from mock import Mock
 from time import time
 from neo.tests import NeoTestBase
 from neo.epoll import Epoll
-from neo.event import EpollEventManager, IdleEvent
+from neo.event import EpollEventManager
 
 class EventTests(NeoTestBase):
 
@@ -35,7 +35,6 @@ class EventTests(NeoTestBase):
         self.assertEqual(len(em.connection_dict), 0)
         self.assertEqual(len(em.reader_set), 0)
         self.assertEqual(len(em.writer_set), 0)
-        self.assertEqual(len(em.event_list), 0)
         self.assertTrue(em.prev_time <time)
         self.assertTrue(isinstance(em.epoll, Epoll))
         # use a mock object instead of epoll
@@ -62,16 +61,6 @@ class EventTests(NeoTestBase):
         data = call.getParam(0)
         self.assertEqual(data, 1014)
         self.assertEqual(len(em.getConnectionList()), 0)
-
-        # add/removeIdleEvent
-        event = Mock()
-        self.assertEqual(len(em.event_list), 0)
-        em.addIdleEvent(event)
-        self.assertEqual(len(em.event_list), 1)
-        em.removeIdleEvent(event)
-        self.assertEqual(len(em.event_list), 0)
-        em.removeIdleEvent(event) # must not fail
-        self.assertEqual(len(em.event_list), 0)
 
         # add/removeReader
         connector = Mock({"getDescriptor" : 1515})
@@ -135,102 +124,6 @@ class EventTests(NeoTestBase):
         #self.assertEquals(len(w_conn.mockGetNamedCalls("unlock")), 1)
         #self.assertEquals(len(w_conn.mockGetNamedCalls("readable")), 0)
         #self.assertEquals(len(w_conn.mockGetNamedCalls("writable")), 1)
-
-    def test_02_IdleEvent(self):
-        # test init
-        handler = Mock()
-        conn = Mock({"getAddress" : ("127.9.9.9", 135),
-                     "getHandler" : handler})
-        event = IdleEvent(conn, 1, 10, 20)
-        self.assertEqual(event.getId(), 1)
-        self.assertNotEqual(event.getTime(), None)
-        time = event.getTime()
-        self.assertNotEqual(event.getCriticalTime(), None)
-        critical_time = event.getCriticalTime()
-        self.assertEqual(critical_time, time+20)
-
-        # call with t < time < critical_time
-        t = time - 10
-        r = event(t)
-        self.assertFalse(r)
-        self.assertEquals(len(conn.mockGetNamedCalls("lock")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("getHandler")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 0)
-        self.checkNoPacketSent(conn)
-        self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
-
-        # call with time < t < critical_time
-        t = time + 5
-        self.assertTrue(t < critical_time)
-        r = event(t)
-        self.assertFalse(r)
-        self.assertEquals(len(conn.mockGetNamedCalls("lock")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("getHandler")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("ping")), 1)
-        self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
-
-        # call with time < critical_time < t
-        t = critical_time + 5
-        self.assertTrue(t > critical_time)
-        r = event(t)
-        self.assertTrue(r)
-        self.assertEquals(len(conn.mockGetNamedCalls("lock")), 2)
-        self.assertEquals(len(conn.mockGetNamedCalls("getHandler")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("close")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 2)
-        self.assertEquals(len(conn.mockGetNamedCalls("ping")), 1)
-        self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 1)
-
-        # same test with additional time < 5
-        # test init
-        handler = Mock()
-        conn = Mock({"getAddress" : ("127.9.9.9", 135),
-                     "getHandler" : handler})
-        event = IdleEvent(conn, 1, 10, 3)
-        self.assertEqual(event.getId(), 1)
-        self.assertNotEqual(event.getTime(), None)
-        time = event.getTime()
-        self.assertNotEqual(event.getCriticalTime(), None)
-        critical_time = event.getCriticalTime()
-        self.assertEqual(critical_time, time+3)
-
-        # call with t < time < critical_time
-        t = time - 10
-        r = event(t)
-        self.assertFalse(r)
-        self.assertEquals(len(conn.mockGetNamedCalls("lock")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("getHandler")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 0)
-        self.checkNoPacketSent(conn)
-        self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
-
-        # call with time < t < critical_time
-        t = time + 1
-        self.assertTrue(t < critical_time)
-        r = event(t)
-        self.assertFalse(r)
-        self.assertEquals(len(conn.mockGetNamedCalls("lock")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("getHandler")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("close")), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 1)
-        self.checkNoPacketSent(conn)
-        self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 0)
-
-        # call with time < critical_time < t
-        t = critical_time + 5
-        self.assertTrue(t > critical_time)
-        r = event(t)
-        self.assertTrue(r)
-        self.assertEquals(len(conn.mockGetNamedCalls("lock")), 2)
-        self.assertEquals(len(conn.mockGetNamedCalls("getHandler")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("close")), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls("unlock")), 2)
-        self.checkNoPacketSent(conn)
-        self.assertEquals(len(handler.mockGetNamedCalls("timeoutExpired")), 1)
 
 
 if __name__ == '__main__':

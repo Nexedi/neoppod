@@ -30,10 +30,6 @@ from neo.connection import ClientConnection
 def _addPacket(self, packet):
     if self.connector is not None:
         self.connector._addPacket(packet)
-def expectMessage(self, packet, timeout=5, additional_timeout=30):
-    if self.connector is not None:
-        self.connector.expectMessage(packet)
-
 
 class MasterClientElectionTests(NeoTestBase):
 
@@ -56,14 +52,11 @@ class MasterClientElectionTests(NeoTestBase):
         self.master_port = 10011
         # apply monkey patches
         self._addPacket = ClientConnection._addPacket
-        self.expectMessage = ClientConnection.expectMessage
         ClientConnection._addPacket = _addPacket
-        ClientConnection.expectMessage = expectMessage
 
     def tearDown(self):
         # restore patched methods
         ClientConnection._addPacket = self._addPacket
-        ClientConnection.expectMessage = self.expectMessage
         NeoTestBase.tearDown(self)
 
     def identifyToMasterNode(self):
@@ -220,15 +213,12 @@ class MasterServerElectionTests(NeoTestBase):
         self.master_address = ('127.0.0.1', 3000)
         # apply monkey patches
         self._addPacket = ClientConnection._addPacket
-        self.expectMessage = ClientConnection.expectMessage
         ClientConnection._addPacket = _addPacket
-        ClientConnection.expectMessage = expectMessage
 
     def tearDown(self):
         NeoTestBase.tearDown(self)
         # restore environnement
         ClientConnection._addPacket = self._addPacket
-        ClientConnection.expectMessage = self.expectMessage
 
     def identifyToMasterNode(self, uuid=True):
         node = self.app.nm.getMasterList()[0]

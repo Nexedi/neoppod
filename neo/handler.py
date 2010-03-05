@@ -109,8 +109,6 @@ class EventHandler(object):
 
     def connectionAccepted(self, conn):
         """Called when a connection is accepted."""
-        # A request for a node identification should arrive.
-        conn.expectMessage(timeout = 10, additional_timeout = 0)
 
     def timeoutExpired(self, conn):
         """Called when a timeout event occurs."""
