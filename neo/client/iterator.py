@@ -80,12 +80,15 @@ class Iterator(object):
         self.app = app
         self.txn_list = []
         self.index = 0
+        self._closed = False
 
     def __iter__(self):
         return self
 
     def next(self):
         """ Return an iterator for the next transaction"""
+        if self._closed:
+            raise IOError, 'iterator closed'
         app = self.app
         if not self.txn_list:
             # ask some transactions
@@ -107,4 +110,4 @@ class Iterator(object):
         return 'NEO transactions iteratpr'
 
     def close(self):
-        pass
+        self._closed = True
