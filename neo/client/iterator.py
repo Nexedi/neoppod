@@ -79,11 +79,20 @@ class Iterator(object):
             raise NotImplementedError('partial scan not implemented yet')
         self.app = app
         self.txn_list = []
-        self.index = 0
+        # next index to load from storage nodes
+        self._next = 0
+        # index of current iteration
+        self._index = 0
         self._closed = False
 
     def __iter__(self):
         return self
+
+    def __getitem__(self, index):
+        """ Simple index-based iterator """
+        if index != self._index:
+            raise IndexError, index
+        return self.next()
 
     def next(self):
         """ Return an iterator for the next transaction"""
@@ -92,12 +101,13 @@ class Iterator(object):
         app = self.app
         if not self.txn_list:
             # ask some transactions
-            self.txn_list = app.transactionLog(self.index, self.index + 100)
+            self.txn_list = app.transactionLog(self._next, self._next + 100)
             if not self.txn_list:
                 # scan finished
                 raise StopIteration
-            self.index += len(self.txn_list)
+            self._next += len(self.txn_list)
         txn = self.txn_list.pop()
+        self._index += 1
         tid = txn['id']
         user = txn['user_name']
         desc = txn['description']
