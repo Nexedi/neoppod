@@ -176,7 +176,8 @@ class BaseConnection(object):
             elif self._timeout.hardExpired(t):
                 # critical time reach or pong not received, abort
                 logging.info('timeout with %s:%d', *(self.getAddress()))
-                self.close()
+                self.notify(Packets.Notify('Timeout'))
+                self.abort()
                 self.getHandler().timeoutExpired(self)
 
     def lock(self):
