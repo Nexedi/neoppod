@@ -77,7 +77,7 @@ class PartitionTable(object):
         # Note: don't use [[]] * num_partition construct, as it duplicates
         # instance *references*, so the outer list contains really just one
         # inner list instance.
-        self.partition_list = [[] for x in xrange(num_partitions)]
+        self.partition_list = [[] for _ in xrange(num_partitions)]
         self.count_dict = {}
 
     def getID(self):
@@ -96,7 +96,7 @@ class PartitionTable(object):
         # Note: don't use [[]] * self.np construct, as it duplicates
         # instance *references*, so the outer list contains really just one
         # inner list instance.
-        self.partition_list = [[] for x in xrange(self.np)]
+        self.partition_list = [[] for _ in xrange(self.np)]
         self.count_dict.clear()
 
     def getAssignedPartitionList(self, uuid):

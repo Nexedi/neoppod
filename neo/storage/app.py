@@ -270,7 +270,7 @@ class Application(object):
     def executeQueuedEvents(self):
         l = len(self.event_queue)
         p = self.event_queue.popleft
-        for i in xrange(l):
+        for _ in xrange(l):
             some_callable, msg_id, conn, args, kwargs = p()
             conn.setPeerId(msg_id)
             some_callable(conn, *args, **kwargs)

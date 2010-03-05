@@ -405,7 +405,7 @@ class AnswerPrimary(Packet):
         known_master_list = []
         list_entry_len = self._list_entry_len
         list_entry_format = self._list_entry_format
-        for i in xrange(n):
+        for _ in xrange(n):
             next_packet_offset = packet_offset + list_entry_len
             address, uuid = unpack(list_entry_format,
                 body[packet_offset:next_packet_offset])
@@ -476,7 +476,7 @@ class AskPartitionTable(Packet):
         offset_list = []
         list_entry_len = self._list_entry_len
         list_entry_format = self._list_entry_format
-        for i in xrange(n):
+        for _ in xrange(n):
             next_packet_offset = packet_offset + list_entry_len
             offset = unpack(list_entry_format,
                 body[packet_offset:next_packet_offset])[0]
@@ -516,11 +516,11 @@ class AnswerPartitionTable(Packet):
         row_entry_len = self._row_entry_len
         cell_entry_format = self._cell_entry_format
         cell_entry_len = self._cell_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_index = index + row_entry_len
             offset, m = unpack(row_entry_format, body[index:next_index])
             index = next_index
-            for j in xrange(m):
+            for _ in xrange(m):
                 next_index = index + cell_entry_len
                 uuid, state = unpack(cell_entry_format, body[index:next_index])
                 index = next_index
@@ -563,11 +563,11 @@ class SendPartitionTable(Packet):
         row_entry_len = self._row_entry_len
         cell_entry_format = self._cell_entry_format
         cell_entry_len = self._cell_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_index = index + row_entry_len
             offset, m = unpack(row_entry_format, body[index:next_index])
             index = next_index
-            for j in xrange(m):
+            for _ in xrange(m):
                 next_index = index + cell_entry_len
                 uuid, state = unpack(cell_entry_format, body[index:next_index])
                 index = next_index
@@ -603,7 +603,7 @@ class NotifyPartitionChanges(Packet):
         cell_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_packet_offset = packet_offset + list_entry_len
             (offset, uuid, state) = unpack(list_entry_format,
                 body[packet_offset:next_packet_offset])
@@ -667,7 +667,7 @@ class AnswerUnfinishedTransactions(Packet):
         tid_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_offset = offset + list_entry_len
             tid = unpack(list_entry_format, body[offset:next_offset])[0]
             offset = next_offset
@@ -754,7 +754,7 @@ class AskFinishTransaction(Packet):
         oid_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_offset = offset + list_entry_len
             oid = unpack(list_entry_format, body[offset:next_offset])[0]
             offset = next_offset
@@ -813,7 +813,7 @@ class InvalidateObjects(Packet):
         oid_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_offset = offset + list_entry_len
             oid = unpack(list_entry_format, body[offset:next_offset])[0]
             offset = next_offset
@@ -862,7 +862,7 @@ class AnswerNewOIDs(Packet):
         oid_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_offset = offset + list_entry_len
             oid = unpack(list_entry_format, body[offset:next_offset])[0]
             offset = next_offset
@@ -941,7 +941,7 @@ class AskStoreTransaction(Packet):
         ext = body[:ext_len]
         body = body[ext_len:]
         oid_list = []
-        for i in xrange(oid_len):
+        for _ in xrange(oid_len):
             (oid, ) = unpack('8s', body[:8])
             body = body[8:]
             oid_list.append(oid)
@@ -1034,7 +1034,7 @@ class AnswerTIDs(Packet):
         tid_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_offset = offset + list_entry_len
             tid = unpack(list_entry_format, body[offset:next_offset])[0]
             offset = next_offset
@@ -1077,7 +1077,7 @@ class AnswerTransactionInformation(Packet):
         ext = body[:ext_len]
         body = body[ext_len:]
         oid_list = []
-        for i in xrange(oid_len):
+        for _ in xrange(oid_len):
             (oid, ) = unpack('8s', body[:8])
             body = body[8:]
             oid_list.append(oid)
@@ -1118,7 +1118,7 @@ class AnswerObjectHistory(Packet):
         history_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for i in xrange(length):
+        for _ in xrange(length):
             next_offset = offset + list_entry_len
             serial, size = unpack(list_entry_format, body[offset:next_offset])
             offset = next_offset
@@ -1157,7 +1157,7 @@ class AnswerOIDs(Packet):
         oid_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_offset = offset + list_entry_len
             oid = unpack(list_entry_format, body[offset:next_offset])[0]
             offset = next_offset
@@ -1213,11 +1213,11 @@ class AnswerPartitionList(Packet):
         row_entry_len = self._row_entry_len
         cell_entry_format = self._cell_entry_format
         cell_entry_len = self._cell_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_index = index + row_entry_len
             offset, m = unpack(row_entry_format, body[index:next_index])
             index = next_index
-            for j in xrange(m):
+            for _ in xrange(m):
                 next_index = index + cell_entry_len
                 uuid, state = unpack(cell_entry_format, body[index:next_index])
                 index = next_index
@@ -1266,7 +1266,7 @@ class AnswerNodeList(Packet):
         node_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_offset = offset + list_entry_len
             r = unpack(list_entry_format, body[offset:next_offset])
             offset = next_offset
@@ -1386,7 +1386,7 @@ class NotifyNodeInformation(Packet):
         node_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for i in xrange(n):
+        for _ in xrange(n):
             next_offset = offset + list_entry_len
             r = unpack(list_entry_format, body[offset:next_offset])
             offset = next_offset

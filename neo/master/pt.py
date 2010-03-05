@@ -53,7 +53,7 @@ class PartitionTable(neo.pt.PartitionTable):
         index = 0
         for offset in xrange(self.np):
             row = []
-            for i in xrange(repeats):
+            for _ in xrange(repeats):
                 node = node_list[index]
                 row.append(neo.pt.Cell(node))
                 self.count_dict[node] = self.count_dict.get(node, 0) + 1
