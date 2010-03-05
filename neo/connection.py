@@ -112,6 +112,8 @@ class HandlerSwitcher(object):
                 logging.debug('Apply handler %r', self._pending[0][1])
         else:
             logging.error('Unexpected answer: %r', packet)
+            notification = Packets.Notify('Unexpected answer: %r' % packet)
+            self._connection.notify(notification)
             self._connection.abort()
             handler.peerBroken()
 
