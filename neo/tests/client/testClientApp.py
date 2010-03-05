@@ -721,7 +721,8 @@ class ClientApplicationTests(NeoTestBase):
         app = self.getApp()
         app.num_partitions = 2
         oid1, oid2 = self.makeOID(1), self.makeOID(2)
-        tid2 = self.makeTID(2)
+        oid3 = self.makeOID(3)
+        tid1, tid2 = self.makeTID(1), self.makeTID(2)
         tid3, tid4 = self.makeTID(3), self.makeTID(4)
         # commit version 1 of object 2
         txn2 = self.beginTransaction(app, tid=tid2)
@@ -736,28 +737,34 @@ class ClientApplicationTests(NeoTestBase):
         # undo 2 -> not end tid
         u2p1 = Packets.AnswerTransactionInformation(tid2, '', '', '',
                 False, (oid2, ))
-        u2p2 = Packets.AnswerObject(oid2, tid2, tid3, 0, makeChecksum('O2V1'), 'O2V1')
+        u2p2 = Packets.AnswerObject(oid2, tid1, tid2, 0, makeChecksum('O2V1'), 'O2V1')
+        u2p3 = Packets.AnswerObject(oid2, tid2, tid3, 0, makeChecksum('O2V2'), 'O2V2')
         # undo 3 -> conflict
         u3p1 = Packets.AnswerTransactionInformation(tid3, '', '', '',
-                False, (oid2, ))
-        u3p2 = Packets.AnswerObject(oid2, tid3, tid3, 0, makeChecksum('O2V2'), 'O2V2')
-        u3p3 = Packets.AnswerStoreObject(conflicting=1, oid=oid2, serial=tid2)
+                False, (oid3, ))
+        u3p2 = Packets.AnswerObject(oid3, tid3, tid3, 0, makeChecksum('O3V1'), 'O3V1')
+        u3p3 = Packets.AnswerObject(oid3, tid3, tid3, 0, makeChecksum('O3V1'), 'O3V1')
+        u3p4 = Packets.AnswerObject(oid3, tid3, tid3, 0, makeChecksum('O3V1'), 'O3V1')
+        u3p5 = Packets.AnswerStoreObject(conflicting=1, oid=oid3, serial=tid2)
         # undo 4 -> ok
         u4p1 = Packets.AnswerTransactionInformation(tid3, '', '', '',
-                False, (oid2, ))
-        u4p2 = Packets.AnswerObject(oid2, tid3, tid3, 0, makeChecksum('O2V2'), 'O2V2')
-        u4p3 = Packets.AnswerStoreObject(conflicting=0, oid=oid2, serial=tid2)
+                False, (oid1, ))
+        u4p2 = Packets.AnswerObject(oid1, tid3, tid3, 0, makeChecksum('O1V1'), 'O1V1')
+        u4p3 = Packets.AnswerObject(oid1, tid3, tid3, 0, makeChecksum('O1V1'), 'O1V1')
+        u4p4 = Packets.AnswerObject(oid1, tid3, tid3, 0, makeChecksum('O1V1'), 'O1V1')
+        u4p5 = Packets.AnswerStoreObject(conflicting=0, oid=oid1, serial=tid2)
         # test logic
-        packets = (u2p1, u2p2, u3p1, u3p2, u3p3, u4p1, u4p2, u4p3)
+        packets = (u2p1, u2p2, u2p3, u3p1, u3p2, u3p3, u3p4, u3p5, u4p1, u4p2,
+                   u4p3, u4p4, u4p5)
         for i, p in enumerate(packets):
             p.setId(p)
         storage_address = ('127.0.0.1', 10010)
         conn = Mock({
             'getNextId': 1,
             'fakeReceived': ReturnValues(
-                u2p1, u2p2,
-                u4p1, u4p2,
-                u3p1, u3p2,
+                u2p1, u2p2, u2p3,
+                u4p1, u4p2, u4p3, u4p4,
+                u3p1, u3p2, u3p3, u3p4,
             ),
             'getAddress': storage_address,
         })
@@ -779,10 +786,10 @@ class ClientApplicationTests(NeoTestBase):
         # all start here
         self.assertRaises(UndoError, app.undo, tid2, txn4,
             tryToResolveConflict)
-        app.local_var.queue.put((conn, u4p3))
+        app.local_var.queue.put((conn, u4p5))
         self.assertEquals(app.undo(tid3, txn4, tryToResolveConflict),
-            (tid4, [oid2, ]))
-        app.local_var.queue.put((conn, u3p3))
+            (tid4, [oid1, ]))
+        app.local_var.queue.put((conn, u3p5))
         self.assertRaises(ConflictError, app.undo, tid3, txn4,
             tryToResolveConflict)
         self.assertEquals(marker, [1])
