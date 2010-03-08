@@ -868,7 +868,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertEquals(result[0]['size'], 42)
         self.assertEquals(result[1]['size'], 42)
 
-    def test_connectToPrimaryNode(self):
+    def _test_connectToPrimaryNode(self):
         # here we have three master nodes :
         # the connection to the first will fail
         # the second will have changed
