@@ -15,54 +15,37 @@ from neo.profiling import PROFILING_ENABLED, profiler_decorator, \
 
 def runImport(neo, datafs):
 
-    @profiler_decorator
-    def _copyTransactionsFrom(self, other):
-        """ taken from ZODB.BaseStorage that build stat during import """
-        def inc(d):
+    def counter(wrapped, d):
+        @profiler_decorator
+        def wrapper(*args, **kw):
             # count number of tick per second
             t = int(time())
             d.setdefault(t, 0)
             d[t] += 1
-        def updateLastSerial(oid, result):
-            if result:
-                if isinstance(result, str):
-                    assert oid is not None
-                    preindex[oid] = result
-                else:
-                    for oid, serial in result:
-                        assert isinstance(serial, str), serial
-                        preindex[oid] = serial
-        txn = {}
-        obj = {}
-        preindex = {}
-        fiter = other.iterator()
-        for transaction in fiter:
-            inc(txn)
-            self.tpc_begin(transaction, transaction.tid, transaction.status)
-            for r in transaction:
-                inc(obj)
-                pre = preindex.get(r.oid, None)
-                s = self.store(r.oid, pre, r.data, r.version, transaction)
-                updateLastSerial(r.oid, s)
-            updateLastSerial(None, self.tpc_vote(transaction))
-            self.tpc_finish(transaction)
-        fiter.close()
-        return {
-            'Transactions': txn.values(),
-            'Objects': obj.values(),
-        }
+            # call original method
+            wrapped(*args, **kw)
+        return wrapper
 
     # open storages clients
     neo_storage = neo.getZODBStorage()
     dfs_storage = FileStorage(file_name=datafs)
     dfs_size = os.path.getsize(datafs)
 
-    # monkey patch import method and run the import
+    # monkey patch storage
+    txn_dict, obj_dict = {}, {}
+    neo_storage.app.tpc_begin = counter(neo_storage.app.tpc_begin, txn_dict)
+    neo_storage.app.store = counter(neo_storage.app.store, obj_dict)
+
+    # run import
     start = time()
-    Storage.copyTransactionsFrom = _copyTransactionsFrom
     stats = neo_storage.copyTransactionsFrom(dfs_storage)
     elapsed = time() - start
 
+    # return stats
+    stats = {
+        'Transactions': txn_dict.values(),
+        'Objects': obj_dict.values(),
+    }
     return (dfs_size, elapsed, stats)
 
 def buildReport(config, dfs_size, elapsed, stats):
