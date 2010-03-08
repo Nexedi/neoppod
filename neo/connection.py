@@ -565,9 +565,10 @@ class ServerConnection(Connection):
 class MTClientConnection(ClientConnection):
     """A Multithread-safe version of ClientConnection."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, local_var, *args, **kwargs):
         # _lock is only here for lock debugging purposes. Do not use.
         self._lock = lock = RLock()
+        self._local_var = local_var
         self.acquire = lock.acquire
         self.release = lock.release
         self.dispatcher = kwargs.pop('dispatcher')
@@ -600,10 +601,10 @@ class MTClientConnection(ClientConnection):
         return super(MTClientConnection, self).notify(*args, **kw)
 
     @lockCheckWrapper
-    def ask(self, queue, packet, timeout=CRITICAL_TIMEOUT):
+    def ask(self, packet, timeout=CRITICAL_TIMEOUT):
         msg_id = self._getNextId()
         packet.setId(msg_id)
-        self.dispatcher.register(self, msg_id, queue)
+        self.dispatcher.register(self, msg_id, self._local_var.queue)
         self._addPacket(packet)
         if not self._handlers.isPending():
             self._timeout.update(time(), timeout=timeout)

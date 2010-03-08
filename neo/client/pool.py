@@ -50,7 +50,8 @@ class ConnectionPool(object):
         while True:
             logging.debug('trying to connect to %s - %s', node, node.getState())
             app.setNodeReady()
-            conn = MTClientConnection(app.em, app.storage_event_handler, addr,
+            conn = MTClientConnection(app.local_var, app.em,
+                app.storage_event_handler, addr,
                 connector=app.connector_handler(), dispatcher=app.dispatcher)
             conn.lock()
 
@@ -62,7 +63,7 @@ class ConnectionPool(object):
 
                 p = Packets.RequestIdentification(NodeTypes.CLIENT,
                             app.uuid, None, app.name)
-                msg_id = conn.ask(app.local_var.queue, p)
+                msg_id = conn.ask(p)
             finally:
                 conn.unlock()
 

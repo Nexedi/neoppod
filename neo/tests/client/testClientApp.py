@@ -76,7 +76,7 @@ class ClientApplicationTests(NeoTestBase):
         calls = conn.mockGetNamedCalls('ask')
         self.assertEquals(len(calls), 1)
         # client connection got queue as first parameter
-        packet = calls[0].getParam(1)
+        packet = calls[0].getParam(0)
         self.assertTrue(isinstance(packet, Packet))
         self.assertEquals(packet.getType(), packet_type)
         if decode:

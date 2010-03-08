@@ -246,7 +246,7 @@ class Application(object):
     def _askStorage(self, conn, packet):
         """ Send a request to a storage node and process it's answer """
         try:
-            msg_id = conn.ask(self.local_var.queue, packet)
+            msg_id = conn.ask(packet)
         finally:
             # assume that the connection was already locked
             conn.unlock()
@@ -258,7 +258,7 @@ class Application(object):
         conn = self._getMasterConnection()
         conn.lock()
         try:
-            msg_id = conn.ask(self.local_var.queue, packet)
+            msg_id = conn.ask(packet)
         finally:
             conn.unlock()
         self._waitMessage(conn, msg_id, self.primary_handler)
@@ -321,7 +321,8 @@ class Application(object):
                         self.trying_master_node = master_list[0]
                     index += 1
                 # Connect to master
-                conn = MTClientConnection(self.em, self.notifications_handler,
+                conn = MTClientConnection(self.local_var, self.em,
+                        self.notifications_handler,
                         addr=self.trying_master_node.getAddress(),
                         connector=self.connector_handler(),
                         dispatcher=self.dispatcher)
@@ -333,8 +334,7 @@ class Application(object):
                         logging.error('Connection to master node %s failed',
                                       self.trying_master_node)
                         continue
-                    msg_id = conn.ask(self.local_var.queue,
-                            Packets.AskPrimary())
+                    msg_id = conn.ask(Packets.AskPrimary())
                 finally:
                     conn.unlock()
                 try:
@@ -358,7 +358,7 @@ class Application(object):
                         break
                     p = Packets.RequestIdentification(NodeTypes.CLIENT,
                             self.uuid, None, self.name)
-                    msg_id = conn.ask(self.local_var.queue, p)
+                    msg_id = conn.ask(p)
                 finally:
                     conn.unlock()
                 try:
@@ -373,16 +373,14 @@ class Application(object):
             if self.uuid is not None:
                 conn.lock()
                 try:
-                    msg_id = conn.ask(self.local_var.queue,
-                                      Packets.AskNodeInformation())
+                    msg_id = conn.ask(Packets.AskNodeInformation())
                 finally:
                     conn.unlock()
                 self._waitMessage(conn, msg_id,
                         handler=self.primary_bootstrap_handler)
                 conn.lock()
                 try:
-                    msg_id = conn.ask(self.local_var.queue,
-                                      Packets.AskPartitionTable([]))
+                    msg_id = conn.ask(Packets.AskPartitionTable([]))
                 finally:
                     conn.unlock()
                 self._waitMessage(conn, msg_id,
@@ -600,14 +598,13 @@ class Application(object):
         # Store data on each node
         self.local_var.object_stored_counter_dict[oid] = 0
         self.local_var.object_serial_dict[oid] = (serial, version)
-        local_queue = self.local_var.queue
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
             try:
                 try:
-                    conn.ask(local_queue, p)
+                    conn.ask(p)
                 finally:
                     conn.unlock()
             except ConnectionClosed:
@@ -882,8 +879,7 @@ class Application(object):
                 continue
 
             try:
-                conn.ask(self.local_var.queue, Packets.AskTIDs(first, last,
-                    INVALID_PARTITION))
+                conn.ask(Packets.AskTIDs(first, last, INVALID_PARTITION))
             finally:
                 conn.unlock()
 
