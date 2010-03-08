@@ -116,7 +116,6 @@ class ConnectionPool(object):
             return None
 
         self.connection_dict[node.getUUID()] = conn
-        conn.lock()
         return conn
 
     @profiler_decorator
@@ -135,7 +134,6 @@ class ConnectionPool(object):
             try:
                 conn = self.connection_dict[uuid]
                 # Already connected to node
-                conn.lock()
                 return conn
             except KeyError:
                 # Create new connection to node

@@ -596,20 +596,26 @@ class MTClientConnection(ClientConnection):
     def analyse(self, *args, **kw):
         return super(MTClientConnection, self).analyse(*args, **kw)
 
-    @lockCheckWrapper
     def notify(self, *args, **kw):
-        return super(MTClientConnection, self).notify(*args, **kw)
+        self.lock()
+        try:
+            return super(MTClientConnection, self).notify(*args, **kw)
+        finally:
+            self.unlock()
 
-    @lockCheckWrapper
     def ask(self, packet, timeout=CRITICAL_TIMEOUT):
-        msg_id = self._getNextId()
-        packet.setId(msg_id)
-        self.dispatcher.register(self, msg_id, self._local_var.queue)
-        self._addPacket(packet)
-        if not self._handlers.isPending():
-            self._timeout.update(time(), timeout=timeout)
-        self._handlers.emit(packet)
-        return msg_id
+        self.lock()
+        try:
+            msg_id = self._getNextId()
+            packet.setId(msg_id)
+            self.dispatcher.register(self, msg_id, self._local_var.queue)
+            self._addPacket(packet)
+            if not self._handlers.isPending():
+                self._timeout.update(time(), timeout=timeout)
+            self._handlers.emit(packet)
+            return msg_id
+        finally:
+            self.unlock()
 
     @lockCheckWrapper
     def answer(self, *args, **kw):

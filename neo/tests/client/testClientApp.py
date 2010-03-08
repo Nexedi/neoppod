@@ -950,7 +950,6 @@ class ClientApplicationTests(NeoTestBase):
             Application._waitMessage = _waitMessage_old
         # check packet sent, connection unlocked and dispatcher updated
         self.checkAskNewTid(conn)
-        self.assertEquals(len(conn.mockGetNamedCalls('unlock')), 1)
         self.checkDispatcherRegisterCalled(app, conn)
         # and _waitMessage called
         self.assertTrue(self.test_ok)
@@ -976,8 +975,6 @@ class ClientApplicationTests(NeoTestBase):
             Application._waitMessage = _waitMessage_old
         # check packet sent, connection locked during process and dispatcher updated
         self.checkAskNewTid(conn)
-        self.assertEquals(len(conn.mockGetNamedCalls('lock')), 1)
-        self.assertEquals(len(conn.mockGetNamedCalls('unlock')), 1)
         self.checkDispatcherRegisterCalled(app, conn)
         # and _waitMessage called
         self.assertTrue(self.test_ok)

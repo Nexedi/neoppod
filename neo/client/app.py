@@ -245,22 +245,14 @@ class Application(object):
     @profiler_decorator
     def _askStorage(self, conn, packet):
         """ Send a request to a storage node and process it's answer """
-        try:
-            msg_id = conn.ask(packet)
-        finally:
-            # assume that the connection was already locked
-            conn.unlock()
+        msg_id = conn.ask(packet)
         self._waitMessage(conn, msg_id, self.storage_handler)
 
     @profiler_decorator
     def _askPrimary(self, packet):
         """ Send a request to the primary master and process it's answer """
         conn = self._getMasterConnection()
-        conn.lock()
-        try:
-            msg_id = conn.ask(packet)
-        finally:
-            conn.unlock()
+        msg_id = conn.ask(packet)
         self._waitMessage(conn, msg_id, self.primary_handler)
 
     @profiler_decorator
@@ -327,16 +319,12 @@ class Application(object):
                         connector=self.connector_handler(),
                         dispatcher=self.dispatcher)
                 # Query for primary master node
-                conn.lock()
-                try:
-                    if conn.getConnector() is None:
-                        # This happens if a connection could not be established.
-                        logging.error('Connection to master node %s failed',
-                                      self.trying_master_node)
-                        continue
-                    msg_id = conn.ask(Packets.AskPrimary())
-                finally:
-                    conn.unlock()
+                if conn.getConnector() is None:
+                    # This happens if a connection could not be established.
+                    logging.error('Connection to master node %s failed',
+                                  self.trying_master_node)
+                    continue
+                msg_id = conn.ask(Packets.AskPrimary())
                 try:
                     self._waitMessage(conn, msg_id,
                             handler=self.primary_bootstrap_handler)
@@ -349,18 +337,14 @@ class Application(object):
             logging.info('connected to a primary master node')
             # Identify to primary master and request initial data
             while conn.getUUID() is None:
-                conn.lock()
-                try:
-                    if conn.getConnector() is None:
-                        logging.error('Connection to master node %s lost',
-                                      self.trying_master_node)
-                        self.primary_master_node = None
-                        break
-                    p = Packets.RequestIdentification(NodeTypes.CLIENT,
-                            self.uuid, None, self.name)
-                    msg_id = conn.ask(p)
-                finally:
-                    conn.unlock()
+                if conn.getConnector() is None:
+                    logging.error('Connection to master node %s lost',
+                                  self.trying_master_node)
+                    self.primary_master_node = None
+                    break
+                p = Packets.RequestIdentification(NodeTypes.CLIENT,
+                        self.uuid, None, self.name)
+                msg_id = conn.ask(p)
                 try:
                     self._waitMessage(conn, msg_id,
                             handler=self.primary_bootstrap_handler)
@@ -371,18 +355,10 @@ class Application(object):
                     # Node identification was refused by master.
                     sleep(1)
             if self.uuid is not None:
-                conn.lock()
-                try:
-                    msg_id = conn.ask(Packets.AskNodeInformation())
-                finally:
-                    conn.unlock()
+                msg_id = conn.ask(Packets.AskNodeInformation())
                 self._waitMessage(conn, msg_id,
                         handler=self.primary_bootstrap_handler)
-                conn.lock()
-                try:
-                    msg_id = conn.ask(Packets.AskPartitionTable([]))
-                finally:
-                    conn.unlock()
+                msg_id = conn.ask(Packets.AskPartitionTable([]))
                 self._waitMessage(conn, msg_id,
                         handler=self.primary_bootstrap_handler)
             ready = self.uuid is not None and self.pt is not None \
@@ -603,10 +579,7 @@ class Application(object):
             if conn is None:
                 continue
             try:
-                try:
-                    conn.ask(p)
-                finally:
-                    conn.unlock()
+                conn.ask(p)
             except ConnectionClosed:
                 continue
 
@@ -749,18 +722,11 @@ class Application(object):
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
-            try:
-                conn.notify(Packets.AbortTransaction(self.local_var.tid))
-            finally:
-                conn.unlock()
+            conn.notify(Packets.AbortTransaction(self.local_var.tid))
 
         # Abort the transaction in the primary master node.
         conn = self._getMasterConnection()
-        conn.lock()
-        try:
-            conn.notify(Packets.AbortTransaction(self.local_var.tid))
-        finally:
-            conn.unlock()
+        conn.notify(Packets.AbortTransaction(self.local_var.tid))
         self.local_var.clear()
 
     @profiler_decorator
@@ -877,11 +843,7 @@ class Application(object):
             conn = self.cp.getConnForNode(storage_node)
             if conn is None:
                 continue
-
-            try:
-                conn.ask(Packets.AskTIDs(first, last, INVALID_PARTITION))
-            finally:
-                conn.unlock()
+            conn.ask(Packets.AskTIDs(first, last, INVALID_PARTITION))
 
         # Wait for answers from all storages.
         while len(self.local_var.node_tids) != len(storage_node_list):
