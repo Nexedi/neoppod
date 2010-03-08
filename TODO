@@ -204,13 +204,6 @@ RC  - Review output of pylint (CODE)
       replicate on other storages. Locks on objects would then be released by 
       storage nodes.
     - Use generic bootstrap module (CODE)
-    - Extend waitMessage to expect more than one response, on multiple 
-      connections (LATENCY)
-      To be able to pipeline requests, waitMessage must be extended to allow 
-      responses to arrive out of order.
-      The extreme case is when we must ask multiple nodes for object history 
-      (used to support undo) because different msg_ids are expected on different
-      connections.
     - Find a way to make ask() from the thread poll to allow send initial packet
       (requestNodeIdentification) from the connectionCompleted() event instead
       of app. This requires to know to what thread will wait for the answer.
