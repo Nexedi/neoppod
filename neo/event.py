@@ -82,7 +82,7 @@ class EpollEventManager(object):
     def _addPendingConnection(self, conn):
         self._pending_processing.append(conn)
 
-    def poll(self, timeout = 1):
+    def poll(self, timeout=1):
         to_process = self._getPendingConnection()
         if to_process is None:
             # Fetch messages from polled file descriptors
@@ -98,7 +98,7 @@ class EpollEventManager(object):
                 if to_process.hasPendingMessages():
                     self._addPendingConnection(to_process)
 
-    def _poll(self, timeout = 1):
+    def _poll(self, timeout=1):
         rlist, wlist, elist = self.epoll.poll(timeout)
         r_done_set = set()
         for fd in rlist:
