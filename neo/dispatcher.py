@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo.locking import Lock
+from neo.profiling import profiler_decorator
 EMPTY = {}
 
 def giant_lock(func):
@@ -38,6 +39,7 @@ class Dispatcher:
         self.lock_release = lock.release
 
     @giant_lock
+    @profiler_decorator
     def dispatch(self, conn, msg_id, data):
         """Retrieve register-time provided queue, and put data in it."""
         queue = self.message_table.get(id(conn), EMPTY).pop(msg_id, None)
@@ -48,6 +50,7 @@ class Dispatcher:
         return True
 
     @giant_lock
+    @profiler_decorator
     def register(self, conn, msg_id, queue):
         """Register an expectation for a reply."""
         self.message_table.setdefault(id(conn), {})[msg_id] = queue
@@ -58,6 +61,7 @@ class Dispatcher:
         except KeyError:
             queue_dict[key] = 1
 
+    @profiler_decorator
     def unregister(self, conn):
         """ Unregister a connection and put fake packet in queues to unlock
         threads excepting responses from that connection """
@@ -75,11 +79,13 @@ class Dispatcher:
                 notified_set.add(queue_id)
             queue_dict[queue_id] -= 1
 
+    @profiler_decorator
     def registered(self, conn):
         """Check if a connection is registered into message table."""
         return len(self.message_table.get(id(conn), EMPTY)) != 0
 
     @giant_lock
+    @profiler_decorator
     def pending(self, queue):
         return not queue.empty() or self.queue_dict[id(queue)] > 0
 

@@ -19,6 +19,7 @@ from neo import logging
 from neo.protocol import PacketMalformedError
 from neo.util import dump
 from neo.handler import EventHandler
+from neo.profiling import profiler_decorator
 
 class PacketLogger(EventHandler):
     """ Logger at packet level (for debugging purpose) """
@@ -26,6 +27,7 @@ class PacketLogger(EventHandler):
     def __init__(self):
         EventHandler.__init__(self, None)
 
+    @profiler_decorator
     def dispatch(self, conn, packet, direction):
         """This is a helper method to handle various packet types."""
         # default log message

@@ -10,9 +10,12 @@ from time import time
 from neo.tests.functional import NEOCluster
 from neo.client.Storage import Storage
 from ZODB.FileStorage import FileStorage
+from neo.profiling import PROFILING_ENABLED, profiler_decorator, \
+    profiler_report
 
 def runImport(neo, datafs):
 
+    @profiler_decorator
     def _copyTransactionsFrom(self, other):
         """ taken from ZODB.BaseStorage that build stat during import """
         def inc(d):
@@ -181,6 +184,9 @@ if __name__ == "__main__":
     neo.start()
     summary, report = buildReport(config, *runImport(neo, datafs))
     neo.stop()
+
+    if PROFILING_ENABLED:
+        print profiler_report()
 
     # display and/or send the report
     print summary

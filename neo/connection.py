@@ -28,6 +28,7 @@ from neo.util import dump
 from neo.logger import PACKET_LOGGER
 
 from neo import attributeTracker
+from neo.profiling import profiler_decorator
 
 PING_DELAY = 5
 PING_TIMEOUT = 5
@@ -312,6 +313,7 @@ class Connection(BaseConnection):
     def getPeerId(self):
         return self.peer_id
 
+    @profiler_decorator
     def _getNextId(self):
         next_id = self.cur_id
         self.cur_id = (next_id + 1) & 0xffffffff
@@ -405,6 +407,7 @@ class Connection(BaseConnection):
         else:
             handler.connectionClosed(self)
 
+    @profiler_decorator
     def _recv(self):
         """Receive data from a connector."""
         try:
@@ -430,6 +433,7 @@ class Connection(BaseConnection):
             # unhandled connector exception
             raise
 
+    @profiler_decorator
     def _send(self):
         """Send data to a connector."""
         if not self.write_buf:
@@ -457,6 +461,7 @@ class Connection(BaseConnection):
             self._closure()
             raise
 
+    @profiler_decorator
     def _addPacket(self, packet):
         """Add a packet into the write buffer."""
         if self.connector is None:
@@ -479,6 +484,7 @@ class Connection(BaseConnection):
         self._addPacket(packet)
         return msg_id
 
+    @profiler_decorator
     @not_closed
     def ask(self, packet, timeout=CRITICAL_TIMEOUT):
         """

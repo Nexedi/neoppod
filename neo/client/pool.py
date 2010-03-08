@@ -21,6 +21,7 @@ from neo.locking import RLock
 from neo.protocol import NodeTypes, Packets
 from neo.connection import MTClientConnection
 from neo.client.exception import ConnectionClosed
+from neo.profiling import profiler_decorator
 
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
@@ -36,6 +37,7 @@ class ConnectionPool(object):
         self.connection_lock_acquire = l.acquire
         self.connection_lock_release = l.release
 
+    @profiler_decorator
     def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
         addr = node.getAddress()
@@ -78,6 +80,7 @@ class ConnectionPool(object):
                 logging.info('Storage node %s not ready', node)
                 return None
 
+    @profiler_decorator
     def _dropConnections(self):
         """Drop connections."""
         for node_uuid, conn in self.connection_dict.items():
@@ -95,6 +98,7 @@ class ConnectionPool(object):
             finally:
                 conn.unlock()
 
+    @profiler_decorator
     def _createNodeConnection(self, node):
         """Create a connection to a given storage node."""
         if len(self.connection_dict) > self.max_pool_size:
@@ -114,9 +118,11 @@ class ConnectionPool(object):
         conn.lock()
         return conn
 
+    @profiler_decorator
     def getConnForCell(self, cell):
         return self.getConnForNode(cell.getNode())
 
+    @profiler_decorator
     def getConnForNode(self, node):
         """Return a locked connection object to a given node
         If no connection exists, create a new one"""
@@ -136,6 +142,7 @@ class ConnectionPool(object):
         finally:
             self.connection_lock_release()
 
+    @profiler_decorator
     def removeConnection(self, node):
         """Explicitly remove connection when a node is broken."""
         self.connection_lock_acquire()

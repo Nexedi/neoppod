@@ -17,7 +17,7 @@
 
 from thread import get_ident
 from cPickle import dumps
-from zlib import compress, decompress
+from zlib import compress as real_compress, decompress
 from neo.locking import Queue, Empty
 from random import shuffle
 from time import sleep
@@ -32,7 +32,7 @@ from neo import logging
 from neo import protocol
 from neo.protocol import NodeTypes, Packets
 from neo.event import EventManager
-from neo.util import makeChecksum, dump
+from neo.util import makeChecksum as real_makeChecksum, dump
 from neo.locking import Lock
 from neo.connection import MTClientConnection
 from neo.node import NodeManager
@@ -47,7 +47,22 @@ from neo.client.iterator import Iterator
 from neo.client.mq import MQ
 from neo.client.pool import ConnectionPool
 from neo.util import u64, parseMasterList
+from neo.profiling import profiler_decorator, PROFILING_ENABLED
 
+if PROFILING_ENABLED:
+    # Those functions require a "real" python function wrapper before they can
+    # be decorated.
+    @profiler_decorator
+    def compress(data):
+        return real_compress(data)
+
+    @profiler_decorator
+    def makeChecksum(data):
+        return real_makeChecksum(data)
+else:
+    # If profiling is disabled, directly use original functions.
+    compress = real_compress
+    makeChecksum = real_makeChecksum
 
 class ThreadContext(object):
 
@@ -161,6 +176,7 @@ class Application(object):
         self._nm_acquire = lock.acquire
         self._nm_release = lock.release
 
+    @profiler_decorator
     def _handlePacket(self, conn, packet, handler=None):
         """
           conn
@@ -186,6 +202,7 @@ class Application(object):
                 raise ValueError, 'Unknown node type: %r' % (node.__class__, )
         handler.dispatch(conn, packet)
 
+    @profiler_decorator
     def _waitAnyMessage(self, block=True):
         """
           Handle all pending packets.
@@ -209,6 +226,7 @@ class Application(object):
             except ConnectionClosed:
                 pass
 
+    @profiler_decorator
     def _waitMessage(self, target_conn, msg_id, handler=None):
         """Wait for a message returned by the dispatcher in queues."""
         get = self.local_var.queue.get
@@ -225,6 +243,7 @@ class Application(object):
             elif packet is not None:
                 self._handlePacket(conn, packet)
 
+    @profiler_decorator
     def _askStorage(self, conn, packet):
         """ Send a request to a storage node and process it's answer """
         try:
@@ -234,6 +253,7 @@ class Application(object):
             conn.unlock()
         self._waitMessage(conn, msg_id, self.storage_handler)
 
+    @profiler_decorator
     def _askPrimary(self, packet):
         """ Send a request to the primary master and process it's answer """
         conn = self._getMasterConnection()
@@ -244,6 +264,7 @@ class Application(object):
             conn.unlock()
         self._waitMessage(conn, msg_id, self.primary_handler)
 
+    @profiler_decorator
     def _getMasterConnection(self):
         """ Connect to the primary master node on demand """
         # acquire the lock to allow only one thread to connect to the primary
@@ -265,6 +286,7 @@ class Application(object):
         self._getMasterConnection()
         return self.pt
 
+    @profiler_decorator
     def _getCellListForOID(self, oid, readable=False, writable=False):
         """ Return the cells available for the specified OID """
         pt = self._getPartitionTable()
@@ -275,6 +297,7 @@ class Application(object):
         pt = self._getPartitionTable()
         return pt.getCellListForTID(tid, readable, writable)
 
+    @profiler_decorator
     def _connectToPrimaryNode(self):
         logging.debug('connecting to primary master...')
         ready = False
@@ -377,6 +400,7 @@ class Application(object):
     def getDB(self):
         return self._db
 
+    @profiler_decorator
     def new_oid(self):
         """Get a new OID."""
         self._oid_lock_acquire()
@@ -398,6 +422,7 @@ class Application(object):
         # return the last OID used, this is innacurate
         return int(u64(self.last_oid))
 
+    @profiler_decorator
     def getSerial(self, oid):
         # Try in cache first
         self._cache_lock_acquire()
@@ -415,6 +440,7 @@ class Application(object):
         return hist[1][0][0]
 
 
+    @profiler_decorator
     def _load(self, oid, serial=None, tid=None, cache=0):
         """Internal method which manage load ,loadSerial and loadBefore."""
         cell_list = self._getCellListForOID(oid, readable=True)
@@ -489,6 +515,7 @@ class Application(object):
         return data, start_serial, end_serial
 
 
+    @profiler_decorator
     def load(self, oid, version=None):
         """Load an object for a given oid."""
         # First try from cache
@@ -508,6 +535,7 @@ class Application(object):
             self._load_lock_release()
 
 
+    @profiler_decorator
     def loadSerial(self, oid, serial):
         """Load an object for a given oid and serial."""
         # Do not try in cache as it manages only up-to-date object
@@ -515,6 +543,7 @@ class Application(object):
         return self._load(oid, serial=serial)[0]
 
 
+    @profiler_decorator
     def loadBefore(self, oid, tid):
         """Load an object for a given oid before tid committed."""
         # Do not try in cache as it manages only up-to-date object
@@ -527,6 +556,7 @@ class Application(object):
             return data, start, end
 
 
+    @profiler_decorator
     def tpc_begin(self, transaction, tid=None, status=' '):
         """Begin a new transaction."""
         # First get a transaction, only one is allowed at a time
@@ -543,6 +573,7 @@ class Application(object):
         self.local_var.txn = transaction
 
 
+    @profiler_decorator
     def store(self, oid, serial, data, version, transaction):
         """Store object."""
         if transaction is not self.local_var.txn:
@@ -586,6 +617,7 @@ class Application(object):
         self._waitAnyMessage(False)
         return None
 
+    @profiler_decorator
     def _handleConflicts(self, tryToResolveConflict):
         result = []
         append = result.append
@@ -616,6 +648,7 @@ class Application(object):
                     serials=(tid, serial), data=data)
         return result
 
+    @profiler_decorator
     def waitStoreResponses(self, tryToResolveConflict):
         result = []
         append = result.append
@@ -654,6 +687,7 @@ class Application(object):
                     append((oid, tid))
         return result
 
+    @profiler_decorator
     def tpc_vote(self, transaction, tryToResolveConflict):
         """Store current transaction."""
         local_var = self.local_var
@@ -696,6 +730,7 @@ class Application(object):
 
         return result
 
+    @profiler_decorator
     def tpc_abort(self, transaction):
         """Abort current transaction."""
         if transaction is not self.local_var.txn:
@@ -732,6 +767,7 @@ class Application(object):
             conn.unlock()
         self.local_var.clear()
 
+    @profiler_decorator
     def tpc_finish(self, transaction, f=None):
         """Finish current transaction."""
         if self.local_var.txn is not transaction:

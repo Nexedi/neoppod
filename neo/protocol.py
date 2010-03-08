@@ -17,6 +17,7 @@
 
 from struct import pack, unpack, error, calcsize
 from socket import inet_ntoa, inet_aton
+from neo.profiling import profiler_decorator
 
 from neo.util import Enum
 
@@ -263,6 +264,7 @@ class Packet(object):
     def getType(self):
         return self.__class__
 
+    @profiler_decorator
     def encode(self):
         """ Encode a packet as a string to send it over the network """
         content = self._body
