@@ -532,10 +532,7 @@ class ClientApplicationTests(NeoTestBase):
         app.tpc_begin(txn, tid)
         self.assertRaises(NEOStorageError, app.tpc_vote, txn,
             resolving_tryToResolveConflict)
-        calls = conn.mockGetNamedCalls('ask')
-        self.assertEquals(len(calls), 1)
-        packet = calls[0].getParam(1)
-        self.assertTrue(isinstance(packet, Packets.AskStoreTransaction))
+        self.checkAskPacket(conn, Packets.AskStoreTransaction)
 
     def test_tpc_vote3(self):
         app = self.getApp()
