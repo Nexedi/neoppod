@@ -29,8 +29,7 @@ from neo import setupLog
 setupLog('CLIENT', verbose=True)
 
 from neo import logging
-from neo import protocol
-from neo.protocol import NodeTypes, Packets
+from neo.protocol import NodeTypes, Packets, INVALID_PARTITION
 from neo.event import EventManager
 from neo.util import makeChecksum as real_makeChecksum, dump
 from neo.locking import Lock
@@ -884,7 +883,7 @@ class Application(object):
 
             try:
                 conn.ask(self.local_var.queue, Packets.AskTIDs(first, last,
-                    protocol.INVALID_PARTITION))
+                    INVALID_PARTITION))
             finally:
                 conn.unlock()
 
