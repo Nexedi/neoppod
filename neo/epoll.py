@@ -93,13 +93,17 @@ class Epoll(object):
             else:
                 readable_fd_list = []
                 writable_fd_list = []
+                error_fd_list = []
                 for i in xrange(n):
                     ev = self.events[i]
-                    if ev.events & (EPOLLIN | EPOLLERR | EPOLLHUP):
-                        readable_fd_list.append(int(ev.data.fd))
-                    elif ev.events & EPOLLOUT:
-                        writable_fd_list.append(int(ev.data.fd))
-                return readable_fd_list, writable_fd_list
+                    fd = int(ev.data.fd)
+                    if ev.events & EPOLLIN:
+                        readable_fd_list.append(fd)
+                    if ev.events & EPOLLOUT:
+                        writable_fd_list.append(fd)
+                    if ev.events & (EPOLLERR | EPOLLHUP):
+                        error_fd_list.append(fd)
+                return readable_fd_list, writable_fd_list, error_fd_list
 
     def register(self, fd):
         ev = EpollEvent()

@@ -100,7 +100,7 @@ class EpollEventManager(object):
 
     def _poll(self, timeout = 1):
         assert timeout >= 0
-        rlist, wlist = self.epoll.poll(timeout)
+        rlist, wlist, elist = self.epoll.poll(timeout)
         r_done_set = set()
         for fd in rlist:
             if fd in r_done_set:
@@ -129,6 +129,24 @@ class EpollEventManager(object):
                 conn.lock()
                 try:
                     conn.writable()
+                finally:
+                    conn.unlock()
+
+        e_done_set = set()
+        for fd in elist:
+            if fd in e_done_set:
+                continue
+            e_done_set.add(fd)
+            # This can fail, if a connection is closed in previous calls to
+            # readable() or writable().
+            try:
+                conn = self.connection_dict[fd]
+            except KeyError:
+                pass
+            else:
+                conn.lock()
+                try:
+                    conn.readable()
                 finally:
                     conn.unlock()
 

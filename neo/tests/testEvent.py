@@ -106,6 +106,7 @@ class EventTests(NeoTestBase):
         em.epoll = Mock({"poll":(
           (r_connector.getDescriptor(),),
           (w_connector.getDescriptor(),),
+          (),
         )})
         em.poll(timeout=10)
         # check it called poll on epoll
