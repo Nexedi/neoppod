@@ -169,7 +169,7 @@ class MasterEventHandler(EventHandler):
             for uuid, state in row:
                 node = nm.getByUUID(uuid)
                 if node is None:
-                    nm.createStorage(uuid=uuid)
+                    node = nm.createStorage(uuid=uuid)
                 pt.setCell(offset, node, state)
         pt.log()
 
