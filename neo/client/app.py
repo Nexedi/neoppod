@@ -811,7 +811,7 @@ class Application(object):
         # First get transaction information from a storage node.
         cell_list = self._getCellListForTID(transaction_id, readable=True)
         assert len(cell_list), 'No cell found for transaction %s' % (
-            dump(tid), )
+            dump(transaction_id), )
         shuffle(cell_list)
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
@@ -828,7 +828,7 @@ class Application(object):
             if self.local_var.txn_info == -1:
                 # Tid not found, try with next node
                 logging.warning('Transaction %s was not found on node %s',
-                    dump(tid), self.nm.getByAddress(conn.getAddress()))
+                    dump(transaction_id), self.nm.getByAddress(conn.getAddress()))
                 continue
             elif isinstance(self.local_var.txn_info, dict):
                 break
