@@ -99,7 +99,6 @@ class EpollEventManager(object):
                     self._addPendingConnection(to_process)
 
     def _poll(self, timeout = 1):
-        assert timeout >= 0
         rlist, wlist, elist = self.epoll.poll(timeout)
         r_done_set = set()
         for fd in rlist:
