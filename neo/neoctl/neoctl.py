@@ -41,6 +41,7 @@ class NeoCTL(object):
             self.connection = ClientConnection(self.em, self.handler, 
                     addr=self.server, connector=self.connector_handler())
             while not self.connected and self.connection is not None:
+                # XXX: this burn the CPU
                 self.em.poll(0)
             if self.connection is None:
                 raise NotReadyException
@@ -53,6 +54,7 @@ class NeoCTL(object):
         response_queue = self.response_queue
         assert len(response_queue) == 0
         while len(response_queue) == 0:
+            # XXX: this burn the CPU
             self.em.poll(0)
             if not self.connected:
                 raise NotReadyException, 'Connection closed'
