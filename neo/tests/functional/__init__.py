@@ -124,6 +124,9 @@ class NEOProcess(object):
         self.kill()
         self.wait()
 
+    def getPID(self):
+        return self.pid
+
     def getUUID(self):
         assert self.with_uuid, 'UUID disabled on this process'
         return self.uuid
