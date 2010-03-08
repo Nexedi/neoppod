@@ -19,7 +19,7 @@ from time import time
 from mock import Mock
 from neo.connection import ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, \
-     MTServerConnection, HandlerSwitcher, Timeout
+     HandlerSwitcher, Timeout
 from neo.connector import getConnectorHandler, registerConnectorHandler
 from neo.tests import DoNothingConnector
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
