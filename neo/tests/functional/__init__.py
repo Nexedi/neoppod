@@ -54,7 +54,7 @@ class AlreadyRunning(Exception):
 class AlreadyStopped(Exception):
     pass
 
-class NEOProcess:
+class NEOProcess(object):
     pid = 0
 
     def __init__(self, command, uuid, arg_dict):
