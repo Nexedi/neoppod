@@ -235,9 +235,6 @@ RC  - Review output of pylint (CODE)
     - Simple import/export solution that generate SQL/data.fs.
     - Consider using out-of-band TCP feature.
 
-Tools:
-    - Include cluster configuration in perf report.
-
 Old TODO
 
     - Handling connection timeouts.
