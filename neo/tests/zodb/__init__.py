@@ -16,7 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-import ZODB
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
 
@@ -31,10 +30,8 @@ class ZODBTestCase(NEOFunctionalTest):
         self.neo.setupDB()
         self.neo.start()
         self._storage = self.neo.getZODBStorage()
-        self._db = ZODB.DB(self._storage)
 
     def tearDown(self):
-        self._db.close()
         self._storage.cleanup()
         self.neo.stop()
 

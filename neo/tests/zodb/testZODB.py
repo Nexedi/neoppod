@@ -17,11 +17,19 @@
 
 import unittest
 from ZODB.tests import testZODB
+import ZODB
 
 from neo.tests.zodb import ZODBTestCase
 
 class NEOZODBTests(ZODBTestCase, testZODB.ZODBTests):
-    pass
+
+    def setUp(self):
+        super(NEOZODBTests, self).setUp()
+        self._db = ZODB.DB(self._storage)
+
+    def tearDown(self):
+        self._db.close()
+        super(NEOZODBTests, self).tearDown()
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(NEOZODBTests, 'check')
