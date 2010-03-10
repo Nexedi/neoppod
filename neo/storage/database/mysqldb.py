@@ -74,9 +74,13 @@ class MySQLDatabaseManager(DatabaseManager):
         self.query("""BEGIN""")
 
     def _commit(self):
+        if LOG_QUERIES:
+            logging.debug('committing...')
         self.conn.commit()
 
     def _rollback(self):
+        if LOG_QUERIES:
+            logging.debug('aborting...')
         self.conn.rollback()
 
     def query(self, query):
