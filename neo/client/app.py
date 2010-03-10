@@ -618,22 +618,26 @@ class Application(object):
         return result
 
     @profiler_decorator
+    def waitResponses(self):
+        """Wait for all requests to be answered (or their connection to be
+        dected as closed)"""
+        queue = self.local_var.queue
+        pending = self.dispatcher.pending
+        _waitAnyMessage = self._waitAnyMessage
+        while pending(queue):
+            _waitAnyMessage()
+
+    @profiler_decorator
     def waitStoreResponses(self, tryToResolveConflict):
         result = []
         append = result.append
         resolved_oid_set = set()
         update = resolved_oid_set.update
         local_var = self.local_var
-        queue = self.local_var.queue
         tid = local_var.tid
-        _waitAnyMessage = self._waitAnyMessage
         _handleConflicts = self._handleConflicts
-        pending = self.dispatcher.pending
         while True:
-            # Wait for all requests to be answered (or their connection to be
-            # dected as closed)
-            while pending(queue):
-                _waitAnyMessage()
+            self.waitResponses()
             if tryToResolveConflict is None:
                 break
             conflicts = _handleConflicts(tryToResolveConflict)
