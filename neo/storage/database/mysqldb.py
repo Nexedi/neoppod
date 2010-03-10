@@ -29,6 +29,15 @@ from neo import util
 
 LOG_QUERIES = False
 
+def splitOIDField(tid, oids):
+    if (len(oids) % 8) != 0 or len(oids) == 0:
+        raise DatabaseFailure('invalid oids for tid %x' % tid)
+    oid_list = []
+    append = oid_list.append
+    for i in xrange(0, len(oids), 8):
+        append(oids[i:i+8])
+    return oid_list
+
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
@@ -425,11 +434,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.commit()
         if r:
             oids, user, desc, ext, packed = r[0]
-            if (len(oids) % 8) != 0 or len(oids) == 0:
-                raise DatabaseFailure('invalid oids for tid %x' % tid)
-            oid_list = []
-            for i in xrange(0, len(oids), 8):
-                oid_list.append(oids[i:i+8])
+            oid_list = splitOIDField(tid, oids)
             return oid_list, user, desc, ext, bool(packed)
         return None
 
