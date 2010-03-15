@@ -112,7 +112,7 @@ class MySQLDatabaseManager(DatabaseManager):
         except OperationalError, m:
             if m[0] in (SERVER_GONE_ERROR, SERVER_LOST):
                 logging.info('the MySQL server is gone; reconnecting')
-                self.connect()
+                self._connect()
                 return self.query(query)
             raise DatabaseFailure('MySQL error %d: %s' % (m[0], m[1]))
         return r
