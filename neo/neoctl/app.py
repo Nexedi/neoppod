@@ -55,10 +55,10 @@ class TerminalNeoCTL(object):
         return bin(value)
 
     def formatRowList(self, row_list):
-        return '\n'.join('%s | %s' % (offset,
-                                      ''.join('%s - %s |' % (dump(uuid), state)
-                                       for (uuid, state) in cell_list))
-                         for (offset, cell_list) in row_list)
+        return '\n'.join('%03d | %s' % (offset,
+            ''.join('%s - %s |' % (dump(uuid), state)
+            for (uuid, state) in cell_list))
+            for (offset, cell_list) in row_list)
 
     def formatNodeList(self, node_list):
         if not node_list:
