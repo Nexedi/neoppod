@@ -58,7 +58,7 @@ Installation
 
     d. Tell the cluster it can provide service.
 
-       neoctl start cluster
+       neoctl start
 
 How to use
 

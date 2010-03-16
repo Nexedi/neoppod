@@ -30,9 +30,7 @@ action_dict = {
         'node': 'setNodeState',
         'cluster': 'setClusterState',
     },
-    'start': {
-        'cluster': 'startCluster',
-    },
+    'start': 'startCluster',
     'add': 'enableStorageList',
     'drop': 'dropNode',
 }
