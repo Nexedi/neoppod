@@ -57,7 +57,7 @@ class AdministrationHandler(MasterHandler):
             self.app.changeClusterState(state)
 
         # answer
-        conn.answer(Errors.Ack('cluster state changed'))
+        conn.answer(Errors.Ack('Cluster state changed'))
         if state == ClusterStates.STOPPING:
             self.app.cluster_state = state
             self.app.shutdown()
@@ -133,8 +133,7 @@ class AdministrationHandler(MasterHandler):
         # nothing to do
         if not uuid_set:
             logging.warning('No nodes added')
-            p = Errors.Ack('no nodes added')
-            conn.answer(p)
+            conn.answer(Errors.Ack('No nodes added'))
             return
         uuids = ', '.join([dump(uuid) for uuid in uuid_set])
         logging.info('Adding nodes %s' % uuids)
@@ -151,5 +150,4 @@ class AdministrationHandler(MasterHandler):
             node.notify(Packets.StartOperation())
         # broadcast the new partition table
         app.broadcastPartitionChanges(cell_list)
-        p = Errors.Ack('node added')
-        conn.answer(p)
+        conn.answer(Errors.Ack('Nodes added: %s' % (uuids, )))
