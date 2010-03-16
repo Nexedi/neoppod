@@ -68,12 +68,14 @@ def resolve(hostname):
     return address_list[0]
 
 
-def parseMasterList(masters, except_node=None, separator=' '):
+def parseMasterList(masters, except_node=None):
     if not masters:
         return []
     # load master node list
     master_node_list = []
-    for node in masters.split(separator):
+    # XXX: support '/' and ' ' as separator
+    masters = masters.replace('/', ' ')
+    for node in masters.split(' '):
         ip_address, port = node.split(':')
         ip_address = resolve(ip_address)
         address = (ip_address, int(port))
