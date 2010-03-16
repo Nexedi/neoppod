@@ -40,10 +40,6 @@ handler = options.handler or "SocketConnector"
 
 setupLog('NEOCTL', options.verbose)
 from neo.neoctl.app import Application
-app = Application(address, port, handler)
-result = app.execute(args)
-if result is None:
-    print "failure"
-    sys.exit(1)    
-print result
+
+print Application(address, port, handler).execute(args)
 

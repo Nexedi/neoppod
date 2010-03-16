@@ -61,6 +61,8 @@ class TerminalNeoCTL(object):
                          for (offset, cell_list) in row_list)
 
     def formatNodeList(self, node_list):
+        if not node_list:
+            return 'Empty list!'
         result = []
         for node_type, address, uuid, state in node_list:
             if address is None:
@@ -89,9 +91,8 @@ class TerminalNeoCTL(object):
         max_offset = int(max_offset)
         if node is not None:
             node = self.asNode(node)
-        ptid, row_list = self.neoctl.getPartitionRowList(min_offset=min_offset,
-                                                         max_offset=max_offset,
-                                                         node=node)
+        ptid, row_list = self.neoctl.getPartitionRowList(
+                min_offset=min_offset, max_offset=max_offset, node=node)
         # TODO: return ptid
         return self.formatRowList(row_list)
 
@@ -132,7 +133,7 @@ class TerminalNeoCTL(object):
             update_partition_table = not(not(int(params[2])))
         else:
             update_partition_table = False
-        self.neoctl.setNodeState(node, state,
+        return self.neoctl.setNodeState(node, state,
             update_partition_table=update_partition_table)
 
     def setClusterState(self, params):
@@ -142,7 +143,7 @@ class TerminalNeoCTL(object):
             state: state to put the cluster in
         """
         assert len(params) == 1
-        self.neoctl.setClusterState(self.asClusterState(params[0]))
+        return self.neoctl.setClusterState(self.asClusterState(params[0]))
 
     def startCluster(self, params):
         """
@@ -166,7 +167,7 @@ class TerminalNeoCTL(object):
             uuid_list = [node[2] for node in node_list]
         else:
             uuid_list = [self.asNode(x) for x in params]
-        self.neoctl.enableStorageList(uuid_list)
+        return self.neoctl.enableStorageList(uuid_list)
 
     def dropNode(self, params):
         """
@@ -177,7 +178,7 @@ class TerminalNeoCTL(object):
             set node state (node) DOWN
         """
         assert len(params) == 1
-        self.neoctl.dropNode(self.asNode(params[0]))
+        return self.neoctl.dropNode(self.asNode(params[0]))
 
     def getPrimary(self, params):
         """
@@ -206,20 +207,15 @@ class Application(object):
               isinstance(current_action, dict):
             current_action = current_action.get(args[level])
             level += 1
+        action = None
         if isinstance(current_action, basestring):
             action = getattr(self.neoctl, current_action, None)
-        else:
-            action = None
         if action is None:
-            result = self.usage('unknown command')
-            if result is None:
-                result = 'Ok'
-        else:
-            try:
-                result = action(args[level:])
-            except NotReadyException, message:
-                result = message
-        return result
+            return self.usage('unknown command')
+        try:
+            return action(args[level:])
+        except NotReadyException, message:
+            return 'ERROR: %s' % (message, )
 
     def _usage(self, action_dict, level=0):
         result = []
