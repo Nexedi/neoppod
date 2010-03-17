@@ -115,7 +115,7 @@ class StorageMySQSLdbTests(NeoTestBase):
             # mock object, break raise/connect loop
             self.db.conn = Mock({'num_rows': 0})
             self.connect_called = True
-        self.db.connect = connect_hook
+        self.db._connect = connect_hook
         # make a query, exception will be raised then connect() will be
         # called and the second query will use the mock object
         self.db.query('QUERY')
