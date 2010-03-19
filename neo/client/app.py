@@ -889,6 +889,7 @@ class Application(object):
                 break
 
             if filter is None or filter(self.local_var.txn_info):
+                self.local_var.txn_info.pop('packed')
                 if not with_oids:
                     self.local_var.txn_info.pop("oids")
                 append(self.local_var.txn_info)
@@ -973,6 +974,7 @@ class Application(object):
             # create history dict
             self.local_var.txn_info.pop('id')
             self.local_var.txn_info.pop('oids')
+            self.local_var.txn_info.pop('packed')
             self.local_var.txn_info['tid'] = serial
             self.local_var.txn_info['version'] = ''
             self.local_var.txn_info['size'] = size
