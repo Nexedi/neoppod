@@ -885,6 +885,9 @@ class Application(object):
                                     'transaction info for TID %r could not ' \
                                     'be found' % (tid, )
 
+            if self.local_var.txn_info['packed']:
+                break
+
             if filter is None or filter(self.local_var.txn_info):
                 if not with_oids:
                     self.local_var.txn_info.pop("oids")
