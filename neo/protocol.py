@@ -371,7 +371,7 @@ class AcceptIdentification(Packet):
         node_type, uuid, num_partitions, num_replicas, your_uuid = r
         node_type = _decodeNodeType(node_type)
         uuid = _decodeUUID(uuid)
-        your_uuid == _decodeUUID(uuid)
+        your_uuid = _decodeUUID(your_uuid)
         return (node_type, uuid, num_partitions, num_replicas, your_uuid)
 
 class AskPrimary(Packet):
