@@ -21,13 +21,14 @@ from neo.util import dump
 from neo.handler import EventHandler
 from neo.profiling import profiler_decorator
 
+LOGGER_ENABLED = False
+
 class PacketLogger(EventHandler):
     """ Logger at packet level (for debugging purpose) """
 
     def __init__(self):
         EventHandler.__init__(self, None)
 
-    @profiler_decorator
     def dispatch(self, conn, packet, direction):
         """This is a helper method to handle various packet types."""
         # default log message
@@ -257,3 +258,6 @@ class PacketLogger(EventHandler):
 
 
 PACKET_LOGGER = PacketLogger()
+if not LOGGER_ENABLED:
+    # disable logger
+    PACKET_LOGGER.dispatch = lambda *args, **kw: None
