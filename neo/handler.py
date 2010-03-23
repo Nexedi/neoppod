@@ -362,6 +362,7 @@ class EventHandler(object):
         d = {}
 
         d[Packets.Error] = self.error
+        d[Packets.Notify] = self.notify
         d[Packets.RequestIdentification] = self.requestIdentification
         d[Packets.AcceptIdentification] = self.acceptIdentification
         d[Packets.AskPrimary] = self.askPrimary
