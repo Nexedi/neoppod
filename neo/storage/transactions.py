@@ -26,6 +26,7 @@ class ConflictError(Exception):
     """
 
     def __init__(self, tid):
+        super(ConflictError, self).__init__()
         self._tid = tid
 
     def getTID(self):
