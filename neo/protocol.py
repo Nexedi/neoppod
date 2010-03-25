@@ -207,7 +207,7 @@ def _decodeString(buf, name, offset=0):
         raise PacketMalformedError("can't read string <%s>" % name)
     return (string, buf[offset+size:])
 
-def _writeString(buf):
+def _encodeString(buf):
     return pack('!L', len(buf)) + buf
 
 class Packet(object):
@@ -339,7 +339,7 @@ class RequestIdentification(Packet):
         address = _encodeAddress(address)
         return pack(self._header_format, PROTOCOL_VERSION[0],
                           PROTOCOL_VERSION[1], node_type, uuid, address) + \
-                          _writeString(name)
+                          _encodeString(name)
 
     def _decode(self, body):
         r = unpack(self._header_format, body[:self._header_len])
@@ -882,7 +882,7 @@ class AskStoreObject(Packet):
         if serial is None:
             serial = INVALID_TID
         return pack(self._header_format, oid, serial, tid, compression,
-                          checksum) + _writeString(data)
+                          checksum) + _encodeString(data)
 
     def _decode(self, body):
         header_len = self._header_len
@@ -994,7 +994,7 @@ class AnswerObject(Packet):
         if serial_end is None:
             serial_end = INVALID_TID
         return pack(self._header_format, oid, serial_start, serial_end,
-                          compression, checksum) + _writeString(data)
+                          compression, checksum) + _encodeString(data)
 
     def _decode(self, body):
         header_len = self._header_len
@@ -1478,7 +1478,7 @@ class Error(Packet):
     _header_format = '!H'
 
     def _encode(self, code, message):
-        return pack(self._header_format, code) + _writeString(message)
+        return pack(self._header_format, code) + _encodeString(message)
 
     def _decode(self, body):
         offset = self._header_len
