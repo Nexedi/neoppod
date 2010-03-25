@@ -131,6 +131,12 @@ class NeoTestBase(unittest.TestCase):
             tid = pack('!LL', upper, lower)
         return tid
 
+    def getPTID(self, i=None):
+        """ Return a 8-bytes PTID """
+        if i is None:
+            return os.urandom(4)
+        return pack('!Q', i)
+
     def getOID(self, i=None):
         """ Return a 8-bytes OID """
         if i is None:
