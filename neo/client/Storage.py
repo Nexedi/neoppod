@@ -96,7 +96,7 @@ class Storage(BaseStorage.BaseStorage,
     # undo
     @check_read_only
     def undo(self, transaction_id, txn):
-        return self.app.undo(transaction_id=transaction_id, txn=txn,
+        return self.app.undo(undone_tid=transaction_id, txn=txn,
             tryToResolveConflict=self.tryToResolveConflict)
 
 

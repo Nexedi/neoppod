@@ -771,14 +771,14 @@ class Application(object):
         finally:
             self._load_lock_release()
 
-    def undo(self, transaction_id, txn, tryToResolveConflict):
+    def undo(self, undone_tid, txn, tryToResolveConflict):
         if txn is not self.local_var.txn:
-            raise StorageTransactionError(self, transaction_id)
+            raise StorageTransactionError(self, undone_tid)
 
         # First get transaction information from a storage node.
-        cell_list = self._getCellListForTID(transaction_id, readable=True)
+        cell_list = self._getCellListForTID(undone_tid, readable=True)
         assert len(cell_list), 'No cell found for transaction %s' % (
-            dump(transaction_id), )
+            dump(undone_tid), )
         shuffle(cell_list)
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
@@ -788,14 +788,14 @@ class Application(object):
             self.local_var.txn_info = 0
             try:
                 self._askStorage(conn, Packets.AskTransactionInformation(
-                    transaction_id))
+                    undone_tid))
             except ConnectionClosed:
                 continue
 
             if self.local_var.txn_info == -1:
                 # Tid not found, try with next node
                 logging.warning('Transaction %s was not found on node %s',
-                    dump(transaction_id), self.nm.getByAddress(conn.getAddress()))
+                    dump(undone_tid), self.nm.getByAddress(conn.getAddress()))
                 continue
             elif isinstance(self.local_var.txn_info, dict):
                 break
@@ -811,11 +811,11 @@ class Application(object):
         # this work should rather be offloaded to it.
         for oid in oid_list:
             current_data = self.load(oid)[0]
-            after_data = self.loadSerial(oid, transaction_id)
+            after_data = self.loadSerial(oid, undone_tid)
             if current_data != after_data:
                 raise UndoError("non-undoable transaction", oid)
             try:
-                data = self.loadBefore(oid, transaction_id)[0]
+                data = self.loadBefore(oid, undone_tid)[0]
             except NEOStorageNotFoundError:
                 if oid == '\x00' * 8:
                     # Refuse undoing root object creation.
@@ -827,7 +827,7 @@ class Application(object):
 
         # Third do transaction with old data
         for oid, data in data_dict.iteritems():
-            self.store(oid, transaction_id, data, None, txn)
+            self.store(oid, undone_tid, data, None, txn)
         self.waitStoreResponses(tryToResolveConflict)
         return self.local_var.tid, oid_list
 
