@@ -205,7 +205,7 @@ def _decodeString(buf, name, offset=0):
     string = buf[4:4+size]
     if len(string) != size:
         raise PacketMalformedError("can't read string <%s>" % name)
-    return (string, buf[offset+size:])
+    return (string, buf[offset+4+size:])
 
 def _encodeString(buf):
     return pack('!L', len(buf)) + buf
