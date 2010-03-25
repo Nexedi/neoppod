@@ -31,7 +31,8 @@ LOG_QUERIES = False
 
 def splitOIDField(tid, oids):
     if (len(oids) % 8) != 0 or len(oids) == 0:
-        raise DatabaseFailure('invalid oids for tid %x' % tid)
+        raise DatabaseFailure('invalid oids length for tid %d: %d' % (tid,
+            len(oids)))
     oid_list = []
     append = oid_list.append
     for i in xrange(0, len(oids), 8):
