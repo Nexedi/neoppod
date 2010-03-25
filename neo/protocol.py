@@ -199,7 +199,7 @@ def _encodeTID(tid):
         return INVALID_TID
     return tid
 
-def _readString(buf, name, offset=0):
+def _decodeString(buf, name, offset=0):
     buf = buf[offset:]
     (size, ) = unpack('!L', buf[:4])
     string = buf[4:4+size]
@@ -345,7 +345,7 @@ class RequestIdentification(Packet):
         r = unpack(self._header_format, body[:self._header_len])
         major, minor, node_type, uuid, address = r
         address = _decodeAddress(address)
-        (name, _) = _readString(body, 'name', offset=self._header_len)
+        (name, _) = _decodeString(body, 'name', offset=self._header_len)
         node_type = _decodeNodeType(node_type)
         uuid = _decodeUUID(uuid)
         if (major, minor) != PROTOCOL_VERSION:
@@ -889,7 +889,7 @@ class AskStoreObject(Packet):
         r = unpack(self._header_format, body[:header_len])
         oid, serial, tid, compression, checksum = r
         serial = _decodeTID(serial)
-        (data, _) = _readString(body, 'data', offset=header_len)
+        (data, _) = _decodeString(body, 'data', offset=header_len)
         return (oid, serial, compression, checksum, data, tid)
 
 class AnswerStoreObject(Packet):
@@ -1002,7 +1002,7 @@ class AnswerObject(Packet):
         oid, serial_start, serial_end, compression, checksum = r
         if serial_end == INVALID_TID:
             serial_end = None
-        (data, _) = _readString(body, 'data', offset=header_len)
+        (data, _) = _decodeString(body, 'data', offset=header_len)
         return (oid, serial_start, serial_end, compression, checksum, data)
 
 class AskTIDs(Packet):
@@ -1484,7 +1484,7 @@ class Error(Packet):
         offset = self._header_len
         (code, ) = unpack(self._header_format, body[:offset])
         code = _decodeErrorCode(code)
-        (message, _) = _readString(body, 'message', offset=offset)
+        (message, _) = _decodeString(body, 'message', offset=offset)
         return (code, message)
 
 
