@@ -532,7 +532,8 @@ class Application(object):
         elif self.cluster_state == ClusterStates.STOPPING:
             raise protocol.NotReadyError
         else:
-            raise RuntimeError('unhandled cluster state')
+            raise RuntimeError('unhandled cluster state: %s' %
+                    (self.cluster_state, ))
         return (uuid, state, handler)
 
     def identifyNode(self, node_type, uuid, node):
