@@ -185,8 +185,9 @@ class VerificationManager(BaseServiceHandler):
     def answerLastIDs(self, conn, loid, ltid, lptid):
         app = self.app
         # If I get a bigger value here, it is dangerous.
-        if app.loid < loid or app.tm.getLastTID() < ltid \
-          or app.pt.getID() < lptid:
+        if (loid is not None and app.loid < loid) or \
+           (ltid is not None and app.tm.getLastTID() < ltid) or \
+           (lptid is not None and app.pt.getID() < lptid):
             logging.critical('got later information in verification')
             raise VerificationFailure
 

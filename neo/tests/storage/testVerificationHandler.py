@@ -94,8 +94,8 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.app.pt = Mock({'getID': last_ptid})
         self.verification.askLastIDs(conn)
         oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
-        self.assertEqual(oid, INVALID_OID)
-        self.assertEqual(tid, INVALID_TID)
+        self.assertEqual(oid, None)
+        self.assertEqual(tid, None)
         self.assertEqual(ptid, last_ptid)
 
         # return value stored in db

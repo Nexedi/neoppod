@@ -119,8 +119,13 @@ class RecoveryManager(MasterHandler):
         pt = app.pt
 
         # Get max values.
-        app.loid = max(loid, app.loid)
-        self.app.tm.setLastTID(ltid)
+        if loid is not None:
+            if app.loid is None:
+                app.loid = loid
+            else:
+                app.loid = max(loid, app.loid)
+        if ltid is not None:
+            self.app.tm.setLastTID(ltid)
         if lptid > pt.getID():
             # something newer
             self.target_uuid = conn.getUUID()

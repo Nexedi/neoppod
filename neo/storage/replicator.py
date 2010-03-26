@@ -37,6 +37,8 @@ class Partition(object):
         return self.tid
 
     def setCriticalTID(self, tid):
+        if tid is None:
+            tid = '\x00' * 8
         self.tid = tid
 
     def safe(self, pending_tid_list):

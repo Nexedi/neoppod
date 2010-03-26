@@ -453,6 +453,9 @@ class AnswerLastIDs(Packet):
 
     def _decode(self, body):
         (loid, ltid, lptid) = unpack('!8s8s8s', body)
+        if loid == INVALID_OID:
+            loid = None
+        ltid = _decodeTID(ltid)
         lptid = _decodePTID(lptid)
         return (loid, ltid, lptid)
 

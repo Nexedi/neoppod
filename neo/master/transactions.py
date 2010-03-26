@@ -148,7 +148,10 @@ class TransactionManager(object):
         """
             Set the last TID, keep the previous if lower
         """
-        self._last_tid = max(self._last_tid, tid)
+        if self._last_tid is None:
+            self._last_tid = tid
+        else:
+            self._last_tid = max(self._last_tid, tid)
 
     def reset(self):
         """
