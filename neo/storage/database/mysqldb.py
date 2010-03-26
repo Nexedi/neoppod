@@ -317,6 +317,8 @@ class MySQLDatabaseManager(DatabaseManager):
                 q("""TRUNCATE pt""")
             for offset, uuid, state in cell_list:
                 uuid = e(util.dump(uuid))
+                # TODO: this logic should move out of database manager
+                # add 'dropCells(cell_list)' to API and use one query
                 if state == CellStates.DISCARDED:
                     q("""DELETE FROM pt WHERE rid = %d AND uuid = '%s'""" \
                             % (offset, uuid))
