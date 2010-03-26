@@ -18,6 +18,7 @@
 import unittest
 from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.protocol import ErrorCodes, Packets, Errors
+from neo.protocol import INVALID_TID
 from neo.tests import NeoTestBase
 
 class ProtocolTests(NeoTestBase):
@@ -241,7 +242,7 @@ class ProtocolTests(NeoTestBase):
 
     def test_32_askBeginTransaction(self):
         # try with an invalid TID, None must be returned
-        tid = '\0' * 8
+        tid = INVALID_TID
         p = Packets.AskBeginTransaction(tid)
         self.assertEqual(p.decode(), (None, ))
         # and with another TID
