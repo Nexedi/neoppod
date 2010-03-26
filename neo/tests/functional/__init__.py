@@ -270,7 +270,10 @@ class NEOCluster(object):
                 raise AssertionError, 'Timeout when starting cluster'
             storage_node_list = neoctl.getNodeList(
                 node_type=NodeTypes.STORAGE)
-            if len(storage_node_list) == target_count:
+            # wait at least number of started storages, admin node can know
+            # more nodes when the cluster restart with an existing partition
+            # table referencing non-running nodes
+            if len(storage_node_list) >= target_count:
                 break
             time.sleep(0.5)
         neoctl.enableStorageList([x[2] for x in storage_node_list])
