@@ -105,9 +105,12 @@ class Application(object):
         elif name != self.name:
             raise RuntimeError('name does not match with the database')
         ptid = dm.getPTID()
-        logging.info("Configuration: uuid=%s, ptid=%s, name=%s, np=%s, nr=%s" \
-                % (dump(self.uuid), dump(ptid), name, num_partitions,
-                    num_replicas))
+        logging.info('Configuration loaded:')
+        logging.info('UUID      : %s', dump(self.uuid))
+        logging.info('PTID      : %s', dump(ptid))
+        logging.info('Name      : %s', name)
+        logging.info('Partitions: %s', num_partitions)
+        logging.info('Replicas  : %s', num_replicas)
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""

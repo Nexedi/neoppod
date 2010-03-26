@@ -65,9 +65,10 @@ class Application(object):
         if partitions <= 0:
             raise RuntimeError, 'partitions must be more than zero'
         self.pt = PartitionTable(partitions, replicas)
-        logging.debug('the number of replicas is %d, the number of ' \
-                'partitions is %d, the name is %s',
-                replicas, partitions, self.name)
+        logging.info('Configuration:')
+        logging.info('Partitions: %d', partitions)
+        logging.info('Replicas  : %d', replicas)
+        logging.info('Name      : %s', self.name)
 
         self.listening_conn = None
         self.primary = None
