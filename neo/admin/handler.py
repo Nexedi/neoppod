@@ -199,7 +199,7 @@ class MasterRequestEventHandler(EventHandler):
     def answerClusterState(self, conn, state):
         logging.info("answerClusterState for a conn")
         self.app.cluster_state = state
-        self.__answerNeoCTL(conn, Packets.AnswerClusterState(state))
+        self._answerNeoCTL(conn, Packets.AnswerClusterState(state))
 
     def answerPartitionTable(self, conn, ptid, row_list):
         logging.info("answerPartitionTable for a conn")
