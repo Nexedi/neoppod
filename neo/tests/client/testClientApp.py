@@ -839,22 +839,13 @@ class ClientApplicationTests(NeoTestBase):
         tid1, tid2 = self.makeTID(1), self.makeTID(2)
         object_history = ( (tid1, 42), (tid2, 42),)
         # object history, first is a wrong oid, second is valid
-<<<<<<< HEAD
         p2 = Packets.AnswerObjectHistory(oid, object_history)
-        # transaction history
-        p3 = Packets.AnswerTransactionInformation(tid1, 'u', 'd', 'e',
-                False, (oid, ))
-        p4 = Packets.AnswerTransactionInformation(tid2, 'u', 'd', 'e',
-                False, (oid, ))
-=======
-        p2 = Packets.AnswerObjectHistory('', oid, object_history)
         extension = dumps({'k': 'v'})
         # transaction history
-        p3 = Packets.AnswerTransactionInformation('export', tid1, 'u', 'd',
+        p3 = Packets.AnswerTransactionInformation(tid1, 'u', 'd',
                 extension, False, (oid, ))
-        p4 = Packets.AnswerTransactionInformation('export', tid2, 'u', 'd',
+        p4 = Packets.AnswerTransactionInformation(tid2, 'u', 'd',
                 extension, False, (oid, ))
->>>>>>> f540962... Insert extension's data in transaction informations returned to ZODB.
         p2.setId(0)
         p3.setId(1)
         p4.setId(2)
