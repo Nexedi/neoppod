@@ -91,6 +91,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
         info['id'] = tid
         info['oids'] = oid_list
         info['packed'] = packed
+        self.app.local_var.txn_ext = ext
         self.app.local_var.txn_info = info
 
     def answerObjectHistory(self, conn, oid, history_list):

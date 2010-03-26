@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from thread import get_ident
-from cPickle import dumps
+from cPickle import dumps, loads
 from zlib import compress as real_compress, decompress
 from neo.locking import Queue, Empty
 from random import shuffle
@@ -786,6 +786,7 @@ class Application(object):
                 continue
 
             self.local_var.txn_info = 0
+            self.local_var.txn_ext = 0
             try:
                 self._askStorage(conn, Packets.AskTransactionInformation(
                     undone_tid))
@@ -831,6 +832,10 @@ class Application(object):
         self.waitStoreResponses(tryToResolveConflict)
         return self.local_var.tid, oid_list
 
+    def _insertMetadata(self, txn_info, extension):
+        for k, v in loads(extension).items():
+            txn_info[k] = v
+
     def __undoLog(self, first, last, filter=None, block=0, with_oids=False):
         if last < 0:
             # See FileStorage.py for explanation
@@ -871,6 +876,7 @@ class Application(object):
                 conn = self.cp.getConnForCell(cell)
                 if conn is not None:
                     self.local_var.txn_info = 0
+                    self.local_var.txn_ext = 0
                     try:
                         self._askStorage(conn,
                                 Packets.AskTransactionInformation(tid))
@@ -890,6 +896,8 @@ class Application(object):
                 if not with_oids:
                     self.local_var.txn_info.pop("oids")
                 append(self.local_var.txn_info)
+                self._insertMetadata(self.local_var.txn_info,
+                        self.local_var.txn_ext)
                 if len(undo_info) >= last - first:
                     break
         # Check we return at least one element, otherwise call
@@ -977,6 +985,8 @@ class Application(object):
             self.local_var.txn_info['size'] = size
             if filter is None or filter(self.local_var.txn_info):
                 history_list.append(self.local_var.txn_info)
+            self._insertMetadata(self.local_var.txn_info,
+                    self.local_var.txn_ext)
 
         return history_list
 
