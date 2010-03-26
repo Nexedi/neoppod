@@ -26,6 +26,15 @@ class UndoTests(ZODBTestCase, StorageTestBase, TransactionalUndoStorage,
         ConflictResolvingTransUndoStorage):
     pass
 
+# Don't run this test. It cannot run with pipelined store, and is not executed
+# on Zeo - but because Zeo doesn't have an iterator, while Neo has.
+# Note that it is possible to run this test on Neo with a simple fix:
+# instead of expecting "store" to return object's serial, it should
+# just load it after commit, and keep its serial.
+# When iterator is fully implemented in Neo, a fork of that test should be
+# done with above fix.
+del TransactionalUndoStorage.checkTransactionalUndoIterator
+
 if __name__ == "__main__":
     suite = unittest.makeSuite(UndoTests, 'check')
     unittest.main(defaultTest='suite')
