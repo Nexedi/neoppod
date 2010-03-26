@@ -126,8 +126,7 @@ class MasterVerificationTests(NeoTestBase):
         self.verification._uuid_dict[uuid]  = True
         self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         self.assertEquals(len(self.verification._tid_set), 0)
-        upper, lower = unpack('!LL', self.app.tm.getLastTID())
-        new_tid = pack('!LL', upper, lower + 10)
+        new_tid = self.getNextTID()
         verification.answerUnfinishedTransactions(conn, [new_tid])
         self.assertEquals(len(self.verification._tid_set), 0)
         # update dict
@@ -135,13 +134,11 @@ class MasterVerificationTests(NeoTestBase):
         self.verification._uuid_dict[uuid]  = False
         self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         self.assertEquals(len(self.verification._tid_set), 0)
-        upper, lower = unpack('!LL', self.app.tm.getLastTID())
-        new_tid = pack('!LL', upper, lower + 10)
+        new_tid = self.getNextTID(new_tid)
         verification.answerUnfinishedTransactions(conn, [new_tid,])
         self.assertTrue(self.verification._uuid_dict[uuid])
         self.assertEquals(len(self.verification._tid_set), 1)
         self.assertTrue(new_tid in self.verification._tid_set)
-
 
     def test_12_answerTransactionInformation(self):
         verification = self.verification
@@ -152,10 +149,8 @@ class MasterVerificationTests(NeoTestBase):
         self.verification._uuid_dict[uuid]  = False
         self.verification._oid_set  = None
         self.assertTrue(self.verification._uuid_dict.has_key(uuid))
-        upper, lower = unpack('!LL', self.app.tm.getLastTID())
-        new_tid = pack('!LL', upper, lower + 10)
-        oid = unpack('!Q', self.app.loid)[0]
-        new_oid = pack('!Q', oid + 1)
+        new_tid = self.getNextTID()
+        new_oid = self.getOID(1)
         verification.answerTransactionInformation(conn, new_tid,
                 "user", "desc", "ext", False, [new_oid,])
         self.assertEquals(self.verification._oid_set, None)
@@ -185,10 +180,7 @@ class MasterVerificationTests(NeoTestBase):
         self.verification._uuid_dict[uuid]  = False
         self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         self.assertEquals(len(self.verification._oid_set), 1)
-        old_oid = new_oid
-        oid = unpack('!Q', old_oid)[0]
-        new_oid = pack('!Q', oid + 1)
-        self.assertNotEqual(new_oid, old_oid)
+        new_oid = self.getOID(2)
         verification.answerTransactionInformation(conn, new_tid,
                 "user", "desc", "ext", False, [new_oid,])
         self.assertEquals(self.verification._oid_set, None)
@@ -217,10 +209,8 @@ class MasterVerificationTests(NeoTestBase):
         verification = self.verification
         uuid = self.identifyToMasterNode()
         # do nothing as asking_uuid_dict is True
-        upper, lower = unpack('!LL', self.app.tm.getLastTID())
-        new_tid = pack('!LL', upper, lower + 10)
-        oid = unpack('!Q', self.app.loid)[0]
-        new_oid = pack('!Q', oid + 1)
+        new_tid = self.getNextTID()
+        new_oid = self.getOID(1)
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.verification._uuid_dict), 0)
         self.verification._uuid_dict[uuid]  = True
