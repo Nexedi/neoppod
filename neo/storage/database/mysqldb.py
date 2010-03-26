@@ -159,7 +159,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  serial BIGINT UNSIGNED NOT NULL,
                  compression TINYINT UNSIGNED NOT NULL,
                  checksum INT UNSIGNED NOT NULL,
-                 value MEDIUMBLOB NOT NULL,
+                 value LONGBLOB NOT NULL,
                  PRIMARY KEY (oid, serial)
              ) ENGINE = InnoDB""")
 
@@ -179,7 +179,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  serial BIGINT UNSIGNED NOT NULL,
                  compression TINYINT UNSIGNED NOT NULL,
                  checksum INT UNSIGNED NOT NULL,
-                 value MEDIUMBLOB NOT NULL
+                 value LONGBLOB NOT NULL
              ) ENGINE = InnoDB""")
 
     def getConfiguration(self, key):
