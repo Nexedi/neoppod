@@ -123,11 +123,15 @@ class StorageTests(NEOFunctionalTest):
     def __expectPending(self, process):
         self.neo.expectStorageState(process.getUUID(), NodeStates.PENDING)
 
+    def __expectUnknown(self, process):
+        self.neo.expectStorageState(process.getUUID(), NodeStates.UNKNOWN)
+
     def __expectUnavailable(self, process):
         self.neo.expectStorageState(process.getUUID(),
                 NodeStates.TEMPORARILY_DOWN)
 
     def __expectNotKnown(self, process):
+        # /!\ Not Known != Unknown
         def expected_storage_not_known(last_try):
             storage_list = self.neo.getStorageList()
             for storage in storage_list:
