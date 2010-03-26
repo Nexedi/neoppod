@@ -136,11 +136,15 @@ class RecoveryManager(MasterHandler):
                     'for %s', dump(uuid), dump(self.target_uuid))
             return
         # load unknown storage nodes
+        new_nodes = []
         for offset, row in row_list:
             for uuid, state in row:
                 node = app.nm.getByUUID(uuid)
                 if node is None:
-                    app.nm.createStorage(uuid=uuid)
+                    new_nodes.append(app.nm.createStorage(uuid=uuid))
+        # notify about new nodes
+        if new_nodes:
+            self.app.broadcastNodesInformation(new_nodes)
         # load partition in memory
         try:
             self.app.pt.load(ptid, row_list, self.app.nm)

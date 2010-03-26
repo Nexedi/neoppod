@@ -468,5 +468,22 @@ class StorageTests(NEOFunctionalTest):
         self.__expectNotKnown(started[0])
         self.__expectPending(stopped[0])
 
+    def testRestartWithMissingStorage(self):
+        # start a cluster with a replica
+        (started, stopped) = self.__setup(storage_number=2, replicas=1,
+                pending_number=0, partitions=10)
+        self.__expectRunning(started[0])
+        self.__expectRunning(started[1])
+        self.neo.expectOudatedCells(number=0)
+        self.neo.expectClusterRunning()
+
+        # restart it with one storage only
+        self.neo.stop()
+        self.neo.start(except_storages=(started[1], ))
+        self.__expectRunning(started[0])
+        self.__expectUnknown(started[1])
+        self.neo.expectClusterRunning()
+
+
 if __name__ == "__main__":
     unittest.main()
