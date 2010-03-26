@@ -266,7 +266,7 @@ class Application(object):
         # send at most one non-empty notification packet per node
         for node in self.nm.getIdentifiedList():
             node_list = node_dict.get(node.getType(), [])
-            if node_list:
+            if node_list and node.isRunning():
                 node.notify(Packets.NotifyNodeInformation(node_list))
 
     def broadcastPartitionChanges(self, cell_list):
@@ -277,6 +277,8 @@ class Application(object):
         ptid = self.pt.setNextID()
         self.pt.log()
         for node in self.nm.getIdentifiedList():
+            if not node.isRunning():
+                continue
             if node.isClient() or node.isStorage() or node.isAdmin():
                 node.notify(Packets.NotifyPartitionChanges(ptid, cell_list))
 

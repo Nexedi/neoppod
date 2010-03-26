@@ -62,6 +62,9 @@ class MasterAppTests(NeoTestBase):
         master.setConnection(master_conn)
         storage.setConnection(storage_conn)
         client.setConnection(client_conn)
+        master.setRunning()
+        client.setRunning()
+        storage.setRunning()
         self.app.nm.add(storage)
         self.app.nm.add(client)
 
@@ -89,6 +92,15 @@ class MasterAppTests(NeoTestBase):
             uuid=self.getNewUUID(),
             address=("127.0.0.1", 1351)
         )
+
+        self.app.broadcastNodesInformation([s_node])
+        # check conn
+        self.checkNotifyNodeInformation(client_conn)
+        self.checkNoPacketSent(master_conn)
+        self.checkNotifyNodeInformation(storage_conn)
+
+        # node not running, don't send informations
+        client.setPending()
 
         self.app.broadcastNodesInformation([s_node])
         # check conn

@@ -451,6 +451,22 @@ class StorageTests(NEOFunctionalTest):
         self.assertEqual(len(self.neo.getStorageList()), 1)
         self.neo.expectOudatedCells(number=0)
 
+    def testDropNodeWithOtherPending(self):
+        """ Ensure we can drop a node """
+        # start with one storage
+        (started, stopped) = self.__setup(storage_number=2, replicas=1,
+                pending_number=1, partitions=10)
+        self.__expectRunning(started[0])
+        self.__expectNotKnown(stopped[0])
+        self.neo.expectOudatedCells(number=0)
+        self.neo.expectClusterRunning()
+
+        # set the second storage in pending state and drop the first
+        stopped[0].start()
+        self.__expectPending(stopped[0])
+        self.neo.neoctl.dropNode(started[0].getUUID())
+        self.__expectNotKnown(started[0])
+        self.__expectPending(stopped[0])
 
 if __name__ == "__main__":
     unittest.main()
