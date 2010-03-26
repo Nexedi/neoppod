@@ -76,10 +76,14 @@ class StorageAnswerHandlerTests(NeoTestBase):
         oid = self.getOID(0)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID(tid1)
-        the_object = (oid, tid1, tid2, 0, '', 'DATA')
+        the_object = (oid, tid1, tid2, 0, '', 'DATA', None)
         self.app.local_var.asked_object = None
         self.handler.answerObject(conn, *the_object)
-        self.assertEqual(self.app.local_var.asked_object, the_object)
+        self.assertEqual(self.app.local_var.asked_object, the_object[:-1])
+        # Check handler raises on non-None data_serial.
+        the_object = (oid, tid1, tid2, 0, '', 'DATA', self.getNextTID())
+        self.app.local_var.asked_object = None
+        self.assertRaises(ValueError, self.handler.answerObject, conn, *the_object)
 
     def test_answerStoreObject(self):
         conn = self.getConnection()
@@ -162,6 +166,28 @@ class StorageAnswerHandlerTests(NeoTestBase):
         self.assertTrue(uuid in self.app.local_var.node_tids)
         self.assertEqual(self.app.local_var.node_tids[uuid], tid_list)
 
+    def test_answerUndoTransaction(self):
+        local_var = self.app.local_var
+        undo_conflict_oid_list = local_var.undo_conflict_oid_list = []
+        undo_error_oid_list = local_var.undo_error_oid_list = []
+        data_dict = local_var.data_dict = {}
+        conn = None # Nothing is done on connection in this handler
+        
+        # Nothing undone, check nothing changed
+        self.handler.answerUndoTransaction(conn, [], [], [])
+        self.assertEqual(undo_conflict_oid_list, [])
+        self.assertEqual(undo_error_oid_list, [])
+        self.assertEqual(data_dict, {})
+
+        # One OID for each case, check they are inserted in expected local_var
+        # entries.
+        oid_1 = self.getOID(0)
+        oid_2 = self.getOID(1)
+        oid_3 = self.getOID(2)
+        self.handler.answerUndoTransaction(conn, [oid_1], [oid_2], [oid_3])
+        self.assertEqual(undo_conflict_oid_list, [oid_3])
+        self.assertEqual(undo_error_oid_list, [oid_2])
+        self.assertEqual(data_dict, {oid_1: ''})
 
 if __name__ == '__main__':
     unittest.main()

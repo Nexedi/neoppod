@@ -112,6 +112,8 @@ class ThreadContext(object):
             'node_tids': {},
             'node_ready': False,
             'asked_object': 0,
+            'undo_conflict_oid_list': [],
+            'undo_error_oid_list': [],
         }
 
 
@@ -805,31 +807,54 @@ class Application(object):
         else:
             raise NEOStorageError('undo failed')
 
-        oid_list = self.local_var.txn_info['oids']
-        # Second get object data from storage node using loadBefore
-        data_dict = {}
-        # XXX: this way causes each object to be loaded 3 times from storage,
-        # this work should rather be offloaded to it.
-        for oid in oid_list:
-            current_data = self.load(oid)[0]
-            after_data = self.loadSerial(oid, undone_tid)
-            if current_data != after_data:
-                raise UndoError("non-undoable transaction", oid)
-            try:
-                data = self.loadBefore(oid, undone_tid)[0]
-            except NEOStorageNotFoundError:
-                if oid == '\x00' * 8:
-                    # Refuse undoing root object creation.
-                    raise UndoError("no previous record", oid)
-                else:
-                    # Undo object creation
-                    data = ''
-            data_dict[oid] = data
+        if self.local_var.txn_info['packed']:
+            UndoError('non-undoable transaction')
 
-        # Third do transaction with old data
-        for oid, data in data_dict.iteritems():
-            self.store(oid, undone_tid, data, None, txn)
-        self.waitStoreResponses(tryToResolveConflict)
+        tid = self.local_var.tid
+
+        undo_conflict_oid_list = self.local_var.undo_conflict_oid_list = []
+        undo_error_oid_list = self.local_var.undo_error_oid_list = []
+        ask_undo_transaction = Packets.AskUndoTransaction(tid, undone_tid)
+        getConnForNode = self.cp.getConnForNode
+        for storage_node in self.nm.getStorageList():
+            storage_conn = getConnForNode(storage_node)
+            storage_conn.ask(ask_undo_transaction)
+        # Wait for all AnswerUndoTransaction.
+        self.waitResponses()
+
+        # Don't do any handling for "live" conflicts, raise
+        if undo_conflict_oid_list:
+            raise ConflictError(oid=undo_conflict_oid_list[0], serials=(tid,
+                undone_tid), data=None)
+
+        # Try to resolve undo conflicts
+        for oid in undo_error_oid_list:
+            def loadBefore(oid, tid):
+                try:
+                    result = self._load(oid, tid=tid)
+                except NEOStorageNotFoundError:
+                    raise UndoError("Object not found while resolving undo " \
+                        "conflict")
+                return result[:2]
+            # Load the latest version we are supposed to see
+            data, data_tid = loadBefore(oid, tid)
+            # Load the version we were undoing to
+            undo_data, _ = loadBefore(oid, undone_tid)
+            # Resolve conflict
+            new_data = tryToResolveConflict(oid, data_tid, undone_tid, undo_data,
+                data)
+            if new_data is None:
+                raise UndoError('Some data were modified by a later ' \
+                    'transaction', oid)
+            else:
+                self.store(oid, data_tid, new_data, '', self.local_var.txn)
+
+        oid_list = self.local_var.txn_info['oids']
+        # Consistency checking: all oids of the transaction must have been
+        # reported as undone
+        data_dict = self.local_var.data_dict
+        for oid in oid_list:
+            assert oid in data_dict, repr(oid)
         return self.local_var.tid, oid_list
 
     def _insertMetadata(self, txn_info, extension):

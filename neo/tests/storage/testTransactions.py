@@ -52,8 +52,8 @@ class TransactionTests(NeoTestBase):
     def testObjects(self):
         txn = Transaction(self.getNewUUID(), self.getNextTID())
         oid1, oid2 = self.getOID(1), self.getOID(2)
-        object1 = (oid1, 1, '1', 'O1')
-        object2 = (oid2, 1, '2', 'O2')
+        object1 = (oid1, 1, '1', 'O1', None)
+        object2 = (oid2, 1, '2', 'O2', None)
         self.assertEqual(txn.getObjectList(), [])
         self.assertEqual(txn.getOIDList(), [])
         txn.addObject(*object1)
@@ -63,6 +63,14 @@ class TransactionTests(NeoTestBase):
         self.assertEqual(txn.getObjectList(), [object1, object2])
         self.assertEqual(txn.getOIDList(), [oid1, oid2])
 
+    def test_getObject(self):
+        oid_1 = self.getOID(1)
+        oid_2 = self.getOID(2)
+        txn = Transaction(self.getNewUUID(), self.getNextTID())
+        object_info = (oid_1, None, None, None, None)
+        txn.addObject(*object_info)
+        self.assertEqual(txn.getObject(oid_2), None)
+        self.assertEqual(txn.getObject(oid_1), object_info)
 
 class TransactionManagerTests(NeoTestBase):
 
@@ -81,7 +89,7 @@ class TransactionManagerTests(NeoTestBase):
     def _getObject(self, value):
         oid = self.getOID(value)
         serial = self.getNextTID()
-        return (serial, (oid, 1, str(value), 'O' + str(value)))
+        return (serial, (oid, 1, str(value), 'O' + str(value), None))
 
     def _checkTransactionStored(self, *args):
         calls = self.app.dm.mockGetNamedCalls('storeTransaction')
@@ -254,6 +262,19 @@ class TransactionManagerTests(NeoTestBase):
         self.assertFalse(tid in self.manager)
         self.assertFalse(self.manager.loadLocked(obj[0]))
 
+    def test_getObjectFromTransaction(self):
+        uuid = self.getNewUUID()
+        tid1, txn1 = self._getTransaction()
+        tid2, txn2 = self._getTransaction()
+        serial1, obj1 = self._getObject(1)
+        serial2, obj2 = self._getObject(2)
+        self.manager.storeObject(uuid, tid1, serial1, *obj1)
+        self.assertEqual(self.manager.getObjectFromTransaction(tid2, obj1[0]),
+            None)
+        self.assertEqual(self.manager.getObjectFromTransaction(tid1, obj2[0]),
+            None)
+        self.assertEqual(self.manager.getObjectFromTransaction(tid1, obj1[0]),
+            obj1)
 
 if __name__ == "__main__":
     unittest.main()

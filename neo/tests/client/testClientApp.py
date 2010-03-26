@@ -220,7 +220,7 @@ class ClientApplicationTests(NeoTestBase):
         oid = self.makeOID()
         tid1 = self.makeTID(1)
         tid2 = self.makeTID(2)
-        an_object = (1, oid, tid1, tid2, 0, makeChecksum('OBJ'), 'OBJ')
+        an_object = (1, oid, tid1, tid2, 0, makeChecksum('OBJ'), 'OBJ', None)
         # connection to SN close
         self.assertTrue(oid not in mq)
         packet = Errors.OidNotFound('')
@@ -260,7 +260,7 @@ class ClientApplicationTests(NeoTestBase):
             'fakeReceived': packet,
         })
         app.cp = Mock({ 'getConnForCell' : conn})
-        app.local_var.asked_object = an_object
+        app.local_var.asked_object = an_object[:-1]
         result = app.load(oid)
         self.assertEquals(result, ('OBJ', tid1))
         self.checkAskObject(conn)
@@ -299,7 +299,8 @@ class ClientApplicationTests(NeoTestBase):
         # now a cached version ewxists but should not be hit
         mq.store(oid, (tid1, 'WRONG'))
         self.assertTrue(oid in mq)
-        another_object = (1, oid, tid2, INVALID_SERIAL, 0, makeChecksum('RIGHT'), 'RIGHT')
+        another_object = (1, oid, tid2, INVALID_SERIAL, 0,
+            makeChecksum('RIGHT'), 'RIGHT', None)
         packet = Packets.AnswerObject(*another_object[1:])
         packet.setId(0)
         conn = Mock({
@@ -307,7 +308,7 @@ class ClientApplicationTests(NeoTestBase):
             'fakeReceived': packet,
         })
         app.cp = Mock({ 'getConnForCell' : conn})
-        app.local_var.asked_object = another_object
+        app.local_var.asked_object = another_object[:-1]
         result = app.loadSerial(oid, tid1)
         self.assertEquals(result, 'RIGHT')
         self.checkAskObject(conn)
@@ -334,7 +335,8 @@ class ClientApplicationTests(NeoTestBase):
         self.assertRaises(NEOStorageNotFoundError, app.loadBefore, oid, tid2)
         self.checkAskObject(conn)
         # no previous versions -> return None
-        an_object = (1, oid, tid2, INVALID_SERIAL, 0, makeChecksum(''), '')
+        an_object = (1, oid, tid2, INVALID_SERIAL, 0, makeChecksum(''), '',
+            None)
         packet = Packets.AnswerObject(*an_object[1:])
         packet.setId(0)
         conn = Mock({
@@ -342,7 +344,7 @@ class ClientApplicationTests(NeoTestBase):
             'fakeReceived': packet,
         })
         app.cp = Mock({ 'getConnForCell' : conn})
-        app.local_var.asked_object = an_object
+        app.local_var.asked_object = an_object[:-1]
         result = app.loadBefore(oid, tid1)
         self.assertEquals(result, None)
         # object should not have been cached
@@ -350,7 +352,8 @@ class ClientApplicationTests(NeoTestBase):
         # as for loadSerial, the object is cached but should be loaded from db
         mq.store(oid, (tid1, 'WRONG'))
         self.assertTrue(oid in mq)
-        another_object = (1, oid, tid1, tid2, 0, makeChecksum('RIGHT'), 'RIGHT')
+        another_object = (1, oid, tid1, tid2, 0, makeChecksum('RIGHT'),
+            'RIGHT', None)
         packet = Packets.AnswerObject(*another_object[1:])
         packet.setId(0)
         conn = Mock({
@@ -731,65 +734,97 @@ class ClientApplicationTests(NeoTestBase):
         self.storeObject(app, oid=oid2, data='O2V2')
         self.voteTransaction(app)
         self.askFinishTransaction(app)
-        # undo 2 -> not end tid
+        # undo 1 -> undoing non-last TID, and conflict resolution succeeded
+        u1p1 = Packets.AnswerTransactionInformation(tid1, '', '', '',
+                False, (oid2, ))
+        u1p2 = Packets.AnswerUndoTransaction([], [oid2], [])
+        # undo 2 -> undoing non-last TID, and conflict resolution failed
         u2p1 = Packets.AnswerTransactionInformation(tid2, '', '', '',
                 False, (oid2, ))
-        u2p2 = Packets.AnswerObject(oid2, tid1, tid2, 0, makeChecksum('O2V1'), 'O2V1')
-        u2p3 = Packets.AnswerObject(oid2, tid2, tid3, 0, makeChecksum('O2V2'), 'O2V2')
-        # undo 3 -> conflict
+        u2p2 = Packets.AnswerUndoTransaction([], [oid2], [])
+        # undo 3 -> "live" conflict (another transaction modifying the object
+        # we want to undo)
         u3p1 = Packets.AnswerTransactionInformation(tid3, '', '', '',
                 False, (oid3, ))
-        u3p2 = Packets.AnswerObject(oid3, tid3, tid3, 0, makeChecksum('O3V1'), 'O3V1')
-        u3p3 = Packets.AnswerObject(oid3, tid3, tid3, 0, makeChecksum('O3V1'), 'O3V1')
-        u3p4 = Packets.AnswerObject(oid3, tid3, tid3, 0, makeChecksum('O3V1'), 'O3V1')
-        u3p5 = Packets.AnswerStoreObject(conflicting=1, oid=oid3, serial=tid2)
-        # undo 4 -> ok
+        u3p2 = Packets.AnswerUndoTransaction([], [], [oid3])
+        # undo 4 -> undoing last tid
         u4p1 = Packets.AnswerTransactionInformation(tid3, '', '', '',
                 False, (oid1, ))
-        u4p2 = Packets.AnswerObject(oid1, tid3, tid3, 0, makeChecksum('O1V1'), 'O1V1')
-        u4p3 = Packets.AnswerObject(oid1, tid3, tid3, 0, makeChecksum('O1V1'), 'O1V1')
-        u4p4 = Packets.AnswerObject(oid1, tid3, tid3, 0, makeChecksum('O1V1'), 'O1V1')
-        u4p5 = Packets.AnswerStoreObject(conflicting=0, oid=oid1, serial=tid2)
+        u4p2 = Packets.AnswerUndoTransaction([oid1], [], [])
         # test logic
-        packets = (u2p1, u2p2, u2p3, u3p1, u3p2, u3p3, u3p4, u3p5, u4p1, u4p2,
-                   u4p3, u4p4, u4p5)
+        packets = (u1p1, u1p2, u2p1, u2p2, u3p1, u3p2, u4p1, u4p2)
         for i, p in enumerate(packets):
             p.setId(i)
         storage_address = ('127.0.0.1', 10010)
         conn = Mock({
             'getNextId': 1,
             'fakeReceived': ReturnValues(
-                u2p1, u2p2, u2p3,
-                u4p1, u4p2, u4p3, u4p4,
-                u3p1, u3p2, u3p3, u3p4,
+                u1p1,
+                u2p1,
+                u4p1,
+                u3p1,
             ),
             'getAddress': storage_address,
         })
-        cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
+        cell = Mock({
+            'getAddress': 'FakeServer',
+            'getState': 'FakeState',
+        })
         app.pt = Mock({
             'getCellListForTID': (cell, ),
             'getCellListForOID': (cell, ),
         })
-        app.cp = Mock({ 'getConnForCell': conn})
-        marker = []
-        def tryToResolveConflict(oid, conflict_serial, serial, data):
+        app.cp = Mock({'getConnForCell': conn, 'getConnForNode': conn})
+        def tryToResolveConflict(oid, conflict_serial, serial, data,
+                committedData=''):
             marker.append(1)
+            return resolution_result
         class Dispatcher(object):
             def pending(self, queue): 
                 return not queue.empty()
         app.dispatcher = Dispatcher()
+        def _load(oid, tid=None, serial=None):
+            assert tid is not None
+            assert serial is None, serial
+            return ('dummy', oid, tid)
+        app._load = _load
         app.nm.createStorage(address=storage_address)
-        txn4 = self.beginTransaction(app, tid=tid4)
         # all start here
+        app.local_var.clear()
+        txn4 = self.beginTransaction(app, tid=tid4)
+        marker = []
+        resolution_result = 'solved'
+        app.local_var.queue.put((conn, u1p2))
+        app.undo(tid1, txn4, tryToResolveConflict)
+        self.assertEquals(marker, [1])
+
+        app.local_var.clear()
+        txn4 = self.beginTransaction(app, tid=tid4)
+        marker = []
+        resolution_result = None
+        app.local_var.queue.put((conn, u2p2))
         self.assertRaises(UndoError, app.undo, tid2, txn4,
             tryToResolveConflict)
-        app.local_var.queue.put((conn, u4p5))
+        self.assertEquals(marker, [1])
+
+        app.local_var.clear()
+        txn4 = self.beginTransaction(app, tid=tid4)
+        marker = []
+        resolution_result = None
+        app.local_var.queue.put((conn, u4p2))
         self.assertEquals(app.undo(tid3, txn4, tryToResolveConflict),
             (tid4, [oid1, ]))
-        app.local_var.queue.put((conn, u3p5))
+        self.assertEquals(marker, [])
+
+        app.local_var.clear()
+        txn4 = self.beginTransaction(app, tid=tid4)
+        marker = []
+        resolution_result = None
+        app.local_var.queue.put((conn, u3p2))
         self.assertRaises(ConflictError, app.undo, tid3, txn4,
             tryToResolveConflict)
-        self.assertEquals(marker, [1])
+        self.assertEquals(marker, [])
+
         self.askFinishTransaction(app)
 
     def test_undoLog(self):

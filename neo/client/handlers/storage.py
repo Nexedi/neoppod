@@ -19,6 +19,7 @@ from ZODB.TimeStamp import TimeStamp
 
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.protocol import NodeTypes, ProtocolError
+from neo.util import dump
 
 class StorageEventHandler(BaseHandler):
 
@@ -58,7 +59,10 @@ class StorageAnswersHandler(AnswerBaseHandler):
     """ Handle all messages related to ZODB operations """
 
     def answerObject(self, conn, oid, start_serial, end_serial,
-            compression, checksum, data):
+            compression, checksum, data, data_serial):
+        if data_serial is not None:
+            raise ValueError, 'Storage should never send non-None ' \
+                'data_serial to clients, got %s' % (dump(data_serial), )
         self.app.local_var.asked_object = (oid, start_serial, end_serial,
                 compression, checksum, data)
 
@@ -111,4 +115,13 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     def answerTIDs(self, conn, tid_list):
         self.app.local_var.node_tids[conn.getUUID()] = tid_list
+
+    def answerUndoTransaction(self, conn, oid_list, error_oid_list,
+            conflict_oid_list):
+        local_var = self.app.local_var
+        local_var.undo_conflict_oid_list.extend(conflict_oid_list)
+        local_var.undo_error_oid_list.extend(error_oid_list)
+        data_dict = local_var.data_dict
+        for oid in oid_list:
+            data_dict[oid] = ''
 

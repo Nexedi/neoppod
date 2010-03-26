@@ -247,7 +247,7 @@ class EventHandler(object):
         raise UnexpectedPacketError
 
     def answerObject(self, conn, oid, serial_start,
-                           serial_end, compression, checksum, data):
+            serial_end, compression, checksum, data, data_serial):
         raise UnexpectedPacketError
 
     def askTIDs(self, conn, first, last, partition):
@@ -323,6 +323,11 @@ class EventHandler(object):
     def notifyReplicationDone(self, conn, offset):
         raise UnexpectedPacketError
 
+    def askUndoTransaction(self, conn, tid, undone_tid):
+        raise UnexpectedPacketError
+
+    def answerUndoTransaction(self, conn, oid_list, error_oid_list, conflict_oid_list):
+        raise UnexpectedPacketError
 
     # Error packet handlers.
 
@@ -427,6 +432,8 @@ class EventHandler(object):
         d[Packets.NotifyClusterInformation] = self.notifyClusterInformation
         d[Packets.NotifyLastOID] = self.notifyLastOID
         d[Packets.NotifyReplicationDone] = self.notifyReplicationDone
+        d[Packets.AskUndoTransaction] = self.askUndoTransaction
+        d[Packets.AnswerUndoTransaction] = self.answerUndoTransaction
 
         return d
 

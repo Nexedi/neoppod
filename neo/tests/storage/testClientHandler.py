@@ -20,10 +20,11 @@ from mock import Mock
 from collections import deque
 from neo.tests import NeoTestBase
 from neo.storage.app import Application
-from neo.storage.transactions import ConflictError
+from neo.storage.transactions import ConflictError, DelayedError
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.protocol import INVALID_PARTITION
 from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
+from neo.protocol import Packets
 
 class StorageClientHandlerTests(NeoTestBase):
 
@@ -126,7 +127,7 @@ class StorageClientHandlerTests(NeoTestBase):
 
     def test_24_askObject3(self):
         # object found => answer
-        self.app.dm = Mock({'getObject': ('', '', 0, 0, '', )})
+        self.app.dm = Mock({'getObject': ('', '', 0, 0, '', None)})
         conn = Mock({})
         self.assertEquals(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=INVALID_OID,
@@ -225,7 +226,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
                 data, tid)
         self._checkStoreObjectCalled(uuid, tid, serial, oid, comp,
-                checksum, data)
+                checksum, data, None)
         self.checkAnswerStoreObject(conn)
 
     def test_askStoreObject2(self):
@@ -249,6 +250,45 @@ class StorageClientHandlerTests(NeoTestBase):
         calls = self.app.tm.mockGetNamedCalls('abort')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(tid)
+
+    def test_askUndoTransaction(self):
+        conn = self._getConnection()
+        tid = self.getNextTID()
+        undone_tid = self.getNextTID()
+        oid_1 = self.getNextTID()
+        oid_2 = self.getNextTID()
+        oid_3 = self.getNextTID()
+        oid_4 = self.getNextTID()
+        def getTransactionUndoData(tid, undone_tid, getObjectFromTransaction):
+            return {
+                oid_1: (1, 1),
+                oid_2: (1, -1),
+                oid_3: (1, 2),
+                oid_4: (1, 3),
+            }
+        self.app.dm.getTransactionUndoData = getTransactionUndoData
+        original_storeObject = self.app.tm.storeObject
+        def storeObject(uuid, tid, serial, oid, *args, **kw):
+            if oid == oid_3:
+                raise ConflictError(0)
+            elif oid == oid_4 and delay_store:
+                raise DelayedError
+            return original_storeObject(uuid, tid, serial, oid, *args, **kw)
+        self.app.tm.storeObject = storeObject
+
+        # Check if delaying a store (of oid_4) is supported
+        delay_store = True
+        self.operation.askUndoTransaction(conn, tid, undone_tid)
+        self.checkNoPacketSent(conn)
+
+        delay_store = False
+        self.operation.askUndoTransaction(conn, tid, undone_tid)
+        oid_list_1, oid_list_2, oid_list_3 = self.checkAnswerPacket(conn,
+            Packets.AnswerUndoTransaction, decode=True)
+        # Compare sets as order doens't matter here.
+        self.assertEqual(set(oid_list_1), set([oid_1, oid_4]))
+        self.assertEqual(oid_list_2, [oid_2])
+        self.assertEqual(oid_list_3, [oid_3])
 
 if __name__ == "__main__":
     unittest.main()

@@ -22,6 +22,9 @@ from neo.storage.transactions import ConflictError, DelayedError
 
 class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
+    def _askObject(self, oid, serial, tid):
+        return self.app.dm.getObject(oid, serial, tid)
+
     def timeoutExpired(self, conn):
         self.app.tm.abortFor(conn.getUUID())
         BaseClientAndStorageOperationHandler.timeoutExpired(self, conn)
@@ -49,7 +52,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         uuid = conn.getUUID()
         try:
             self.app.tm.storeObject(uuid, tid, serial, oid, compression,
-                    checksum, data)
+                    checksum, data, None)
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
         except ConflictError, err:
             # resolvable or not
@@ -75,4 +78,39 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         tid_list = app.dm.getTIDList(first, last - first,
                              app.pt.getPartitions(), partition_list)
         conn.answer(Packets.AnswerTIDs(tid_list))
+
+    def askUndoTransaction(self, conn, tid, undone_tid):
+        app = self.app
+        tm = app.tm
+        storeObject = tm.storeObject
+        uuid = conn.getUUID()
+        oid_list = []
+        error_oid_list = []
+        conflict_oid_list = []
+
+        undo_tid_dict = app.dm.getTransactionUndoData(tid, undone_tid,
+            tm.getObjectFromTransaction)
+        for oid, (current_serial, undone_value_serial) in \
+                undo_tid_dict.iteritems():
+            if undone_value_serial == -1:
+                # Some data were modified by a later transaction
+                # This must be propagated to client, who will
+                # attempt a conflict resolution, and store resolved
+                # data.
+                to_append_list = error_oid_list
+            else:
+                try:
+                    storeObject(uuid, tid, current_serial, oid, None,
+                        None, None, undone_value_serial)
+                except ConflictError:
+                    to_append_list = conflict_oid_list
+                except DelayedError:
+                    app.queueEvent(self.askUndoTransaction, conn, tid,
+                        undone_tid)
+                    return
+                else:
+                    to_append_list = oid_list
+            to_append_list.append(oid)
+        conn.answer(Packets.AnswerUndoTransaction(oid_list, error_oid_list,
+            conflict_oid_list))
 

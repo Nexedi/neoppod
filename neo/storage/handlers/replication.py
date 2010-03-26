@@ -129,13 +129,13 @@ class ReplicationHandler(EventHandler):
                 conn.ask(p, timeout=300)
 
     def answerObject(self, conn, oid, serial_start,
-                           serial_end, compression, checksum, data):
+            serial_end, compression, checksum, data, data_serial):
         app = self.app
         if app.replicator.current_connection is not conn:
             return
 
         # Directly store the transaction.
-        obj = (oid, compression, checksum, data)
+        obj = (oid, compression, checksum, data, data_serial)
         app.dm.storeTransaction(serial_start, [obj], None, False)
         del obj
         del data

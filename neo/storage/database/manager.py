@@ -236,6 +236,16 @@ class DatabaseManager(object):
         pack state (True for packed)."""
         raise NotImplementedError
 
+    def getTransactionUndoData(self, tid, undone_tid,
+            getObjectFromTransaction):
+        """Undo transaction with "undone_tid" tid. "tid" is the tid of the
+        transaction in which the undo happens.
+        getObjectFromTransaction is a callback allowing to find object data
+        stored to this storage in the same transaction (it is useful for
+        example when undoing twice in the same transaction).
+        """
+        raise NotImplementedError
+
     def finishTransaction(self, tid):
         """Finish a transaction specified by a given ID, by moving
         temporarily data to a finished area."""

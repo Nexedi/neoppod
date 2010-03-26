@@ -71,11 +71,15 @@ class Transaction(object):
         # assert self._transaction is not None
         self._transaction = (oid_list, user, desc, ext, packed)
 
-    def addObject(self, oid, compression, checksum, data):
+    def addObject(self, oid, compression, checksum, data, value_serial):
         """
             Add an object to the transaction
         """
-        self._object_dict[oid] = (oid, compression, checksum, data)
+        self._object_dict[oid] = (oid, compression, checksum, data,
+            value_serial)
+
+    def getObject(self, oid):
+        return self._object_dict.get(oid)
 
     def getObjectList(self):
         return self._object_dict.values()
@@ -117,6 +121,16 @@ class TransactionManager(object):
             self._uuid_dict.setdefault(uuid, set()).add(transaction)
             self._transaction_dict[tid] = transaction
         return transaction
+
+    def getObjectFromTransaction(self, tid, oid):
+        """
+            Return object data for given running transaction.
+            Return None if not found.
+        """
+        result = self._transaction_dict.get(tid)
+        if result is not None:
+            result = result.getObject(oid)
+        return result
 
     def setLastOID(self, oid):
         assert oid >= self._loid
@@ -168,30 +182,35 @@ class TransactionManager(object):
         transaction = self._getTransaction(tid, uuid)
         transaction.prepare(oid_list, user, desc, ext, packed)
 
-    def storeObject(self, uuid, tid, serial, oid, compression, checksum, data):
+    def storeObject(self, uuid, tid, serial, oid, compression, checksum, data,
+            value_serial):
         """
             Store an object received from client node
         """
         # check if the object if locked
         locking_tid = self._store_lock_dict.get(oid, None)
-        if locking_tid is not None:
-            if locking_tid < tid:
-                # a previous transaction lock this object, retry later
-                raise DelayedError
-            # If a newer transaction already locks this object,
-            # do not try to resolve a conflict, so return immediately.
-            logging.info('unresolvable conflict in %s', dump(oid))
-            raise ConflictError(locking_tid)
+        if locking_tid == tid:
+            logging.info('Transaction %s storing %s more than once', dump(tid),
+                dump(oid))
+        else:
+            if locking_tid is not None:
+                if locking_tid < tid:
+                    # a previous transaction lock this object, retry later
+                    raise DelayedError
+                # If a newer transaction already locks this object,
+                # do not try to resolve a conflict, so return immediately.
+                logging.info('unresolvable conflict in %s', dump(oid))
+                raise ConflictError(locking_tid)
 
-        # check if this is generated from the latest revision.
-        history_list = self._app.dm.getObjectHistory(oid)
-        if history_list and history_list[0][0] != serial:
-            logging.info('resolvable conflict in %s', dump(oid))
-            raise ConflictError(history_list[0][0])
+            # check if this is generated from the latest revision.
+            history_list = self._app.dm.getObjectHistory(oid)
+            if history_list and history_list[0][0] != serial:
+                logging.info('resolvable conflict in %s', dump(oid))
+                raise ConflictError(history_list[0][0])
 
         # store object
         transaction = self._getTransaction(tid, uuid)
-        transaction.addObject(oid, compression, checksum, data)
+        transaction.addObject(oid, compression, checksum, data, value_serial)
         self._store_lock_dict[oid] = tid
 
         # update loid

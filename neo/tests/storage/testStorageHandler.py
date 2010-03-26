@@ -93,12 +93,13 @@ class StorageStorageHandlerTests(NeoTestBase):
         calls = self.app.dm.mockGetNamedCalls('getObject')
         self.assertEquals(len(self.app.event_queue), 0)
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(INVALID_OID, INVALID_TID, INVALID_TID)
+        calls[0].checkArgs(INVALID_OID, INVALID_TID, INVALID_TID,
+            resolve_data=False)
         self.checkErrorPacket(conn)
 
     def test_24_askObject3(self):
         # object found => answer
-        self.app.dm = Mock({'getObject': ('', '', 0, 0, '', )})
+        self.app.dm = Mock({'getObject': ('', '', 0, 0, '', None)})
         conn = Mock({})
         self.assertEquals(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=INVALID_OID,

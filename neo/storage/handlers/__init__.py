@@ -82,19 +82,22 @@ class BaseClientAndStorageOperationHandler(EventHandler):
                     t[4], t[0])
         conn.answer(p)
 
+    def _askObject(self, oid, serial, tid):
+        raise NotImplementedError
+
     def askObject(self, conn, oid, serial, tid):
         app = self.app
         if self.app.tm.loadLocked(oid):
             # Delay the response.
             app.queueEvent(self.askObject, conn, oid, serial, tid)
             return
-        o = app.dm.getObject(oid, serial, tid)
+        o = self._askObject(oid, serial, tid)
         if o is not None:
-            serial, next_serial, compression, checksum, data = o
+            serial, next_serial, compression, checksum, data, data_serial = o
             logging.debug('oid = %s, serial = %s, next_serial = %s',
                           dump(oid), dump(serial), dump(next_serial))
             p = Packets.AnswerObject(oid, serial, next_serial,
-                           compression, checksum, data)
+                compression, checksum, data, data_serial)
         else:
             logging.debug('oid = %s not found', dump(oid))
             p = Errors.OidNotFound('%s does not exist' % dump(oid))

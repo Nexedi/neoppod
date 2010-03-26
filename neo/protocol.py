@@ -18,6 +18,7 @@
 from struct import pack, unpack, error, calcsize
 from socket import inet_ntoa, inet_aton
 from neo.profiling import profiler_decorator
+from cStringIO import StringIO
 
 from neo.util import Enum
 
@@ -102,6 +103,7 @@ INVALID_OID = '\xff' * 8
 INVALID_PTID = '\0' * 8
 INVALID_SERIAL = INVALID_TID
 INVALID_PARTITION = 0xffffffff
+OID_LEN = len(INVALID_OID)
 
 UUID_NAMESPACES = {
     NodeTypes.STORAGE: 'S',
@@ -988,25 +990,30 @@ class AnswerObject(Packet):
     """
     Answer the requested object. S -> C.
     """
-    _header_format = '!8s8s8sBL'
+    _header_format = '!8s8s8s8sBL'
 
     def _encode(self, oid, serial_start, serial_end, compression,
-            checksum, data):
+            checksum, data, data_serial):
         if serial_start is None:
             serial_start = INVALID_TID
         if serial_end is None:
             serial_end = INVALID_TID
+        if data_serial is None:
+            data_serial = INVALID_TID
         return pack(self._header_format, oid, serial_start, serial_end,
-                          compression, checksum) + _encodeString(data)
+            data_serial, compression, checksum) + _encodeString(data)
 
     def _decode(self, body):
         header_len = self._header_len
         r = unpack(self._header_format, body[:header_len])
-        oid, serial_start, serial_end, compression, checksum = r
+        oid, serial_start, serial_end, data_serial, compression, checksum = r
         if serial_end == INVALID_TID:
             serial_end = None
+        if data_serial == INVALID_TID:
+            data_serial = None
         (data, _) = _decodeString(body, 'data', offset=header_len)
-        return (oid, serial_start, serial_end, compression, checksum, data)
+        return (oid, serial_start, serial_end, compression, checksum, data,
+            data_serial)
 
 class AskTIDs(Packet):
     """
@@ -1354,7 +1361,8 @@ class AnswerNewNodes(Packet):
     def _encode(self, uuid_list):
         list_header_format = self._list_header_format
         # an empty list means no new nodes
-        uuid_list = [pack(list_header_format, _encodeUUID(uuid)) for uuid in uuid_list]
+        uuid_list = [pack(list_header_format, _encodeUUID(uuid)) for \
+            uuid in uuid_list]
         return pack(self._header_format, len(uuid_list)) + ''.join(uuid_list)
 
     def _decode(self, body):
@@ -1471,6 +1479,56 @@ class NotifyLastOID(Packet):
     def _decode(self, body):
         (loid, ) = unpack('8s', body)
         return (loid, )
+
+class AskUndoTransaction(Packet):
+    """
+    Ask storage to undo given transaction
+    C -> S
+    """
+    def _encode(self, tid, undone_tid):
+        return _encodeTID(tid) + _encodeTID(undone_tid)
+
+    def _decode(self, body):
+        tid = _decodeTID(body[:8])
+        undone_tid = _decodeTID(body[8:])
+        return (tid, undone_tid)
+
+class AnswerUndoTransaction(Packet):
+    """
+    Answer an undo request, telling if undo could be done, with an oid list.
+    If undo failed, the list contains oid(s) causing problems.
+    If undo succeeded; the list contains all undone oids for given storage.
+    S -> C
+    """
+    _header_format = '!LLL'
+
+    def _encode(self, oid_list, error_oid_list, conflict_oid_list):
+        body = StringIO()
+        write = body.write
+        oid_list_list = [oid_list, error_oid_list, conflict_oid_list]
+        write(pack(self._header_format, *[len(x) for x in oid_list_list]))
+        for oid_list in oid_list_list:
+            for oid in oid_list:
+                write(oid)
+        return body.getvalue()
+
+    def _decode(self, body):
+        body = StringIO(body)
+        read = body.read
+        oid_list_len, error_oid_list_len, conflict_oid_list_len = unpack(
+            self._header_format, read(self._header_len))
+        oid_list = []
+        error_oid_list = []
+        conflict_oid_list = []
+        for some_list, some_list_len in (
+                    (oid_list, oid_list_len),
+                    (error_oid_list, error_oid_list_len),
+                    (conflict_oid_list, conflict_oid_list_len),
+                ):
+            append = some_list.append
+            for _ in xrange(some_list_len):
+                append(read(OID_LEN))
+        return (oid_list, error_oid_list, conflict_oid_list)
 
 class Error(Packet):
     """
@@ -1671,6 +1729,10 @@ class PacketRegistry(dict):
             AnswerClusterState)
     NotifyLastOID = register(0x0030, NotifyLastOID)
     NotifyReplicationDone = register(0x0031, NotifyReplicationDone)
+    AskUndoTransaction, AnswerUndoTransaction = register(
+            0x0033,
+            AskUndoTransaction,
+            AnswerUndoTransaction)
 
 # build a "singleton"
 Packets = PacketRegistry()

@@ -382,14 +382,18 @@ class ProtocolTests(NeoTestBase):
         oid = self.getNextTID()
         serial_start = self.getNextTID()
         serial_end = self.getNextTID()
-        p = Packets.AnswerObject(oid, serial_start, serial_end, 1, 55, "to",)
-        poid, pserial_start, pserial_end, compression, checksum, data= p.decode()
+        data_serial = self.getNextTID()
+        p = Packets.AnswerObject(oid, serial_start, serial_end, 1, 55, "to",
+            data_serial)
+        poid, pserial_start, pserial_end, compression, checksum, data, \
+            pdata_serial = p.decode()
         self.assertEqual(oid, poid)
         self.assertEqual(serial_start, pserial_start)
         self.assertEqual(serial_end, pserial_end)
         self.assertEqual(compression, 1)
         self.assertEqual(checksum, 55)
         self.assertEqual(data, "to")
+        self.assertEqual(pdata_serial, data_serial)
 
     def test_49_askTIDs(self):
         p = Packets.AskTIDs(1, 10, 5)
@@ -473,6 +477,24 @@ class ProtocolTests(NeoTestBase):
         p = Packets.NotifyReplicationDone(offset)
         p_offset = p.decode()[0]
         self.assertEqual(p_offset, offset)
+
+    def test_askUndoTransaction(self):
+        tid = self.getNextTID()
+        undone_tid = self.getNextTID()
+        p = Packets.AskUndoTransaction(tid, undone_tid)
+        p_tid, p_undone_tid = p.decode()
+        self.assertEqual(p_tid, tid)
+        self.assertEqual(p_undone_tid, undone_tid)
+
+    def test_answerUndoTransaction(self):
+        oid_list_1 = [self.getNextTID()]
+        oid_list_2 = [self.getNextTID(), self.getNextTID()]
+        oid_list_3 = [self.getNextTID(), self.getNextTID(), self.getNextTID()]
+        p = Packets.AnswerUndoTransaction(oid_list_1, oid_list_2, oid_list_3)
+        p_oid_list_1, p_oid_list_2, p_oid_list_3 = p.decode()
+        self.assertEqual(p_oid_list_1, oid_list_1)
+        self.assertEqual(p_oid_list_2, oid_list_2)
+        self.assertEqual(p_oid_list_3, oid_list_3)
 
 if __name__ == '__main__':
     unittest.main()
