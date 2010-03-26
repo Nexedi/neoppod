@@ -28,6 +28,7 @@ from neo.util import dump
 from neo.logger import PACKET_LOGGER
 
 from neo import attributeTracker
+from neo.util import ReadBuffer
 from neo.profiling import profiler_decorator
 
 PING_DELAY = 5
@@ -284,7 +285,7 @@ class Connection(BaseConnection):
     def __init__(self, event_manager, handler, connector, addr=None):
         BaseConnection.__init__(self, event_manager, handler,
                                 connector=connector, addr=addr)
-        self.read_buf = []
+        self.read_buf = ReadBuffer()
         self.write_buf = []
         self.cur_id = 0
         self.peer_id = 0
@@ -327,7 +328,7 @@ class Connection(BaseConnection):
             self._on_close()
             self._on_close = None
         del self.write_buf[:]
-        del self.read_buf[:]
+        self.read_buf.clear()
         self._handlers.clear()
 
     def abort(self):
@@ -355,22 +356,16 @@ class Connection(BaseConnection):
 
     def analyse(self):
         """Analyse received data."""
-        read_buf = self.read_buf
-        if len(read_buf) == 1:
-            msg = read_buf[0]
-        else:
-            msg = ''.join(self.read_buf)
         while True:
             # parse a packet
             try:
-                packet = Packets.parse(msg)
+                packet = Packets.parse(self.read_buf)
                 if packet is None:
                     break
             except PacketMalformedError, msg:
                 self.getHandler()._packetMalformed(self, msg)
                 return
             self._timeout.refresh(time())
-            msg = msg[len(packet):]
             packet_type = packet.getType()
             if packet_type == Packets.Ping:
                 # Send a pong notification
@@ -379,7 +374,6 @@ class Connection(BaseConnection):
                 # Skip PONG packets, its only purpose is refresh the timeout
                 # generated upong ping.
                 self._queue.append(packet)
-        self.read_buf = [msg]
 
     def hasPendingMessages(self):
         """

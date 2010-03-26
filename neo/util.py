@@ -19,6 +19,7 @@
 import re
 import socket
 from zlib import adler32
+from Queue import deque
 from struct import pack, unpack
 
 def u64(s):
@@ -129,4 +130,84 @@ class Enum(dict):
 
     def getByName(self, name):
         return getattr(self, name)
+
+
+class ReadBuffer(object):
+    """
+        Implementation of a lazy buffer. Main purpose if to reduce useless
+        copies of data by storing chunks and join them only when the requested
+        size is available.
+    """
+
+    def __init__(self):
+        self.size = 0
+        self.content = deque()
+
+    def append(self, data):
+        """ Append some data and compute the new buffer size """
+        size = len(data)
+        self.size += size
+        self.content.append((size, data))
+
+    def __len__(self):
+        """ Return the current buffer size """
+        return self.size
+
+    def _read(self, size):
+        """ Join all required chunks to build a string of requested size """
+        chunk_list = []
+        pop_chunk = self.content.popleft
+        append_data = chunk_list.append
+        # select required chunks
+        while size > 0:
+            chunk_size, chunk_data = pop_chunk()
+            size -= chunk_size
+            append_data(chunk_data)
+        if size < 0:
+            # too many bytes consumed, cut the last chunk
+            last_chunk = chunk_list[-1]
+            keep, let = last_chunk[:size], last_chunk[size:]
+            self.content.appendleft((-size, let))
+            chunk_list[-1] = keep
+        # join all chunks (one copy)
+        return ''.join(chunk_list)
+
+    def skip(self, size):
+        """ Skip at most size bytes """
+        if self.size <= size:
+            self.size = 0
+            self.content.clear()
+            return
+        pop_chunk = self.content.popleft
+        self.size -= size
+        # skip chunks
+        while size > 0:
+            chunk_size, last_chunk = pop_chunk()
+            size -= chunk_size
+        if size < 0:
+            # but keep a part of the last one if needed
+            self.content.append((-size, last_chunk[size:]))
+
+    def peek(self, size):
+        """ Read size bytes but don't consume """
+        if self.size < size:
+            return None
+        data = self._read(size)
+        self.content.appendleft((size, data))
+        assert len(data) == size
+        return data
+
+    def read(self, size):
+        """ Read and consume size bytes """
+        if self.size < size:
+            return None
+        self.size -= size
+        data = self._read(size)
+        assert len(data) == size
+        return data
+
+    def clear(self):
+        """ Erase all buffer content """
+        self.size = 0
+        self.content.clear()
 

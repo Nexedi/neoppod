@@ -1525,11 +1525,12 @@ class PacketRegistry(dict):
         # load packet classes
         self.update(StaticRegistry)
 
-    def parse(self, msg):
-        if len(msg) < MIN_PACKET_SIZE:
+    def parse(self, buf):
+        if len(buf) < PACKET_HEADER_SIZE:
             return None
-        msg_id, msg_type, msg_len = unpack(PACKET_HEADER_FORMAT,
-            msg[:PACKET_HEADER_SIZE])
+        header = buf.peek(PACKET_HEADER_SIZE)
+        assert header is not None
+        msg_id, msg_type, msg_len = unpack(PACKET_HEADER_FORMAT, header)
         try:
             packet_klass = self[msg_type]
         except KeyError:
@@ -1538,11 +1539,15 @@ class PacketRegistry(dict):
             raise PacketMalformedError('message too big (%d)' % msg_len)
         if msg_len < MIN_PACKET_SIZE:
             raise PacketMalformedError('message too small (%d)' % msg_len)
-        if len(msg) < msg_len:
+        if len(buf) < msg_len:
             # Not enough.
             return None
+        buf.skip(PACKET_HEADER_SIZE)
+        msg_len -= PACKET_HEADER_SIZE
         packet = packet_klass()
-        packet.setContent(msg_id, msg[PACKET_HEADER_SIZE:msg_len])
+        data = buf.read(msg_len)
+        assert data is not None
+        packet.setContent(msg_id, data)
         return packet
 
     # packets registration

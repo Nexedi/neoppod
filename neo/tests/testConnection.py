@@ -128,7 +128,15 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(calls), n)
 
     def _checkReadBuf(self, bc, data):
-        self.assertEqual(''.join(bc.read_buf), data)
+        content = bc.read_buf.peek(len(bc.read_buf))
+        self.assertEqual(''.join(content), data)
+
+    def _appendToReadBuf(self, bc, data):
+        bc.read_buf.append(data)
+
+    def _appendPacketToReadBuf(self, bc, packet):
+        data = ''.join(packet.encode())
+        bc.read_buf.append(data)
 
     def _checkWriteBuf(self, bc, data):
         self.assertEqual(''.join(bc.write_buf), data)
@@ -392,7 +400,7 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2132), self.getNewUUID()))
         p = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p.setId(1)
-        bc.read_buf += p.encode()
+        self._appendPacketToReadBuf(bc, p)
         bc.analyse()
         # check packet decoded
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
@@ -419,7 +427,7 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2132), self.getNewUUID()))
         p1 = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p1.setId(1)
-        bc.read_buf += p1.encode()
+        self._appendPacketToReadBuf(bc, p1)
         # packet 2
         master_list = (
                 (("127.0.0.1", 2135), self.getNewUUID()),
@@ -432,8 +440,8 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2132), self.getNewUUID()))
         p2 = Packets.AnswerPrimary( self.getNewUUID(), master_list)
         p2.setId(2)
-        bc.read_buf += p2.encode()
-        self.assertEqual(len(''.join(bc.read_buf)), len(p1) + len(p2))
+        self._appendPacketToReadBuf(bc, p2)
+        self.assertEqual(len(bc.read_buf), len(p1) + len(p2))
         bc.analyse()
         # check two packets decoded
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 2)
@@ -455,7 +463,7 @@ class ConnectionTests(NeoTestBase):
         # give a bad packet, won't be decoded
         bc = self._makeConnection()
         bc._queue = Mock()
-        bc.read_buf += "datadatadatadata"
+        self._appendToReadBuf(bc, 'datadatadatadata')
         self.assertEqual(len(bc.read_buf), 16)
         bc.analyse()
         self.assertEqual(len(bc.read_buf), 16)
@@ -476,7 +484,7 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2132), self.getNewUUID()))
         p = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p.setId(1)
-        bc.read_buf += p.encode()
+        self._appendPacketToReadBuf(bc, p)
         bc.analyse()
         # check packet decoded
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
@@ -485,7 +493,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(data.getType(), p.getType())
         self.assertEqual(data.getId(), p.getId())
         self.assertEqual(data.decode(), p.decode())
-        self.assertEqual(''.join(bc.read_buf), '')
+        self._checkReadBuf(bc, '')
 
     def test_Connection_writable1(self):
         # with  pending operation after send
