@@ -115,7 +115,8 @@ class Enum(dict):
             if other is None:
                 return False
             assert isinstance(other, (Enum.Item, int, float, long))
-            assert self._enum == other._enum
+            if isinstance(other, Enum):
+                assert self._enum == other._enum
             return int(self) == int(other)
 
     def __init__(self):
