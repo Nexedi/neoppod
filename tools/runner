@@ -67,7 +67,6 @@ FUNC_TEST_MODULES = [
     'neo.tests.functional.testClient',
     'neo.tests.functional.testCluster',
     'neo.tests.functional.testStorage',
-    'neo.tests.functional.testImportExport',
 ]
 
 ZODB_TEST_MODULES = [
