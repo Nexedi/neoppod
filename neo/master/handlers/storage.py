@@ -30,7 +30,6 @@ class StorageServiceHandler(BaseServiceHandler):
     def connectionCompleted(self, conn):
         node = self.app.nm.getByUUID(conn.getUUID())
         if node.isRunning():
-            conn.notify(Packets.NotifyLastOID(self.app.loid))
             conn.notify(Packets.StartOperation())
 
     def nodeLost(self, conn, node):

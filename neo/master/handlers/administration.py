@@ -146,7 +146,6 @@ class AdministrationHandler(MasterHandler):
         app.broadcastNodesInformation(node_list)
         # start nodes
         for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
-            node.notify(Packets.NotifyLastOID(app.loid))
             node.notify(Packets.StartOperation())
         # broadcast the new partition table
         app.broadcastPartitionChanges(cell_list)
