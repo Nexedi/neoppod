@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from neo.protocol import NodeTypes, NodeStates, CellStates
+from neo.protocol import NodeTypes, NodeStates, CellStates, ClusterStates
 from neo.protocol import ErrorCodes, Packets, Errors
 from neo.protocol import INVALID_TID
 from neo.tests import NeoTestBase
@@ -495,6 +495,96 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(p_oid_list_1, oid_list_1)
         self.assertEqual(p_oid_list_2, oid_list_2)
         self.assertEqual(p_oid_list_3, oid_list_3)
+
+    def test_NotifyLastOID(self):
+        oid = self.getOID(1)
+        p = Packets.NotifyLastOID(oid)
+        self.assertEqual(p.decode(), (oid, ))
+
+    def test_AnswerClusterState(self):
+        state = ClusterStates.RUNNING
+        p = Packets.AnswerClusterState(state)
+        self.assertEqual(p.decode(), (state, ))
+
+    def test_AskClusterState(self):
+        p = Packets.AskClusterState()
+        self.assertEqual(p.decode(), ())
+
+    def test_NotifyClusterInformation(self):
+        state = ClusterStates.RECOVERING
+        p = Packets.NotifyClusterInformation(state)
+        self.assertEqual(p.decode(), (state, ))
+
+    def test_SetClusterState(self):
+        state = ClusterStates.VERIFYING
+        p = Packets.SetClusterState(state)
+        self.assertEqual(p.decode(), (state, ))
+
+    def test_AnswerNodeInformation(self):
+        p = Packets.AnswerNodeInformation()
+        self.assertEqual(p.decode(), ())
+
+    def test_AskNodeInformation(self):
+        p = Packets.AskNodeInformation()
+        self.assertEqual(p.decode(), ())
+
+    def test_AnswerNewNodes(self):
+        uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
+        p = Packets.AnswerNewNodes([uuid1, uuid2])
+        self.assertEqual(p.decode(), ([uuid1, uuid2], ))
+
+    def test_AddPendingNodes(self):
+        uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
+        p = Packets.AddPendingNodes([uuid1, uuid2])
+        self.assertEqual(p.decode(), ([uuid1, uuid2], ))
+
+    def test_AnswerNodeState(self):
+        uuid = self.getNewUUID()
+        state = NodeStates.RUNNING
+        p = Packets.AnswerNodeState(uuid, state)
+        self.assertEqual(p.decode(), (uuid, state))
+
+    def test_SetNodeState(self):
+        uuid = self.getNewUUID()
+        state = NodeStates.PENDING
+        p = Packets.SetNodeState(uuid, state, True)
+        self.assertEqual(p.decode(), (uuid, state, True))
+
+    def test_AskNodeList(self):
+        node_type = NodeTypes.STORAGE
+        p = Packets.AskNodeList(node_type)
+        self.assertEqual(p.decode(), (node_type, ))
+
+    def test_AnswerNodeList(self):
+        node1 = (NodeTypes.CLIENT, ('127.0.0.1', 1000),
+                self.getNewUUID(), NodeStates.DOWN)
+        node2 = (NodeTypes.MASTER, ('127.0.0.1', 2000),
+                self.getNewUUID(), NodeStates.RUNNING)
+        p = Packets.AnswerNodeList([node1, node2])
+        self.assertEqual(p.decode(), ([node1, node2], ))
+
+    def test_AskPartitionList(self):
+        min_offset = 10
+        max_offset = 20
+        uuid = self.getNewUUID()
+        p = Packets.AskPartitionList(min_offset, max_offset, uuid)
+        self.assertEqual(p.decode(), (min_offset, max_offset, uuid))
+
+    def test_AnswerPartitionList(self):
+        ptid = self.getPTID(1)
+        row_list = [
+            (0, (
+                (self.getNewUUID(), CellStates.UP_TO_DATE),
+                (self.getNewUUID(), CellStates.OUT_OF_DATE),
+                )),
+            (1, (
+                (self.getNewUUID(), CellStates.FEEDING),
+                (self.getNewUUID(), CellStates.DISCARDED),
+                )),
+        ]
+        p = Packets.AnswerPartitionList(ptid, row_list)
+        self.assertEqual(p.decode(), (ptid, row_list))
+
 
 if __name__ == '__main__':
     unittest.main()
