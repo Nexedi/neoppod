@@ -183,13 +183,10 @@ class VerificationManager(BaseServiceHandler):
         return uuid_set
 
     def answerLastIDs(self, conn, loid, ltid, lptid):
-        app = self.app
-        # If I get a bigger value here, it is dangerous.
-        if (loid is not None and app.loid < loid) or \
-           (ltid is not None and app.tm.getLastTID() < ltid) or \
-           (lptid is not None and app.pt.getID() < lptid):
-            logging.critical('got later information in verification')
-            raise VerificationFailure
+        # FIXME: this packet should not allowed here, the master already
+        # accepted the current partition table end IDs. As there were manually
+        # approved during recovery, there is no need to check them here.
+        pass
 
     def answerUnfinishedTransactions(self, conn, tid_list):
         uuid = conn.getUUID()

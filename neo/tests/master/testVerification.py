@@ -94,7 +94,8 @@ class MasterVerificationTests(NeoTestBase):
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.TEMPORARILY_DOWN)
 
-    def test_09_answerLastIDs(self):
+    def _test_09_answerLastIDs(self):
+        # XXX: test disabled, should be an unexpected packet
         verification = self.verification
         uuid = self.identifyToMasterNode()
         loid = self.app.loid
