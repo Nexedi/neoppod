@@ -1015,7 +1015,7 @@ class Application(object):
 
         return history_list
 
-    def copyTransactionsFrom(self, source, tryToResolveConflict):
+    def importFrom(self, source, start, stop, tryToResolveConflict):
         serials = {}
         def updateLastSerial(oid, result):
             if result:
@@ -1026,7 +1026,7 @@ class Application(object):
                     for oid, serial in result:
                         assert isinstance(serial, str), serial
                         serials[oid] = serial
-        transaction_iter = source.iterator()
+        transaction_iter = source.iterator(start, stop)
         for transaction in transaction_iter:
             self.tpc_begin(transaction, transaction.tid, transaction.status)
             for r in transaction:
