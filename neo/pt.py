@@ -117,11 +117,8 @@ class PartitionTable(object):
 
     def getNodeList(self):
         """Return all used nodes."""
-        node_list = []
-        for node, count in self.count_dict.iteritems():
-            if count > 0:
-                node_list.append(node)
-        return node_list
+        return [node for node, count in self.count_dict.iteritems() \
+                if count > 0]
 
     def getCellList(self, offset, readable=False, writable=False):
         # allow all cell states
@@ -132,10 +129,9 @@ class PartitionTable(object):
         if readable:
             # except non writables
             state_set.remove(CellStates.OUT_OF_DATE)
-        allowed_states = tuple(state_set)
         try:
             return [cell for cell in self.partition_list[offset] \
-                    if cell is not None and cell.getState() in allowed_states]
+                    if cell is not None and cell.getState() in state_set]
         except (TypeError, KeyError):
             return []
 
