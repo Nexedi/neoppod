@@ -135,7 +135,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # persistent data.
         q("""CREATE TABLE IF NOT EXISTS config (
                  name VARBINARY(16) NOT NULL PRIMARY KEY,
-                 value VARBINARY(255) NOT NULL
+                 value VARBINARY(255) NULL
              ) ENGINE = InnoDB""")
 
         # The table "pt" stores a partition table.
@@ -191,18 +191,20 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         e = self.escape
         key = e(str(key))
-        r = q("""SELECT value FROM config WHERE name = '%s'""" % key)
         try:
-            return r[0][0]
+            return q("SELECT value FROM config WHERE name = '%s'" % key)[0][0]
         except IndexError:
-            return None
+            raise KeyError, key
 
     def _setConfiguration(self, key, value):
         q = self.query
         e = self.escape
         key = e(str(key))
-        value = e(str(value))
-        q("""REPLACE INTO config VALUES ('%s', '%s')""" % (key, value))
+        if value is None:
+            value = 'NULL'
+        else:
+            value = "'%s'" % (e(str(value)), )
+        q("""REPLACE INTO config VALUES ('%s', %s)""" % (key, value))
 
     def getPartitionTable(self):
         q = self.query

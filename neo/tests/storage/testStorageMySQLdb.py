@@ -151,9 +151,8 @@ class StorageMySQSLdbTests(NeoTestBase):
     def test_10_getConfiguration(self):
         # check if a configuration entry is well read
         self.db.setup()
-        result = self.db.getConfiguration('a')
-        # doesn't exists, None expected
-        self.assertEquals(result, None)
+        # doesn't exists, raise
+        self.assertRaises(KeyError, self.db.getConfiguration, 'a')
         self.db.query("insert into config values ('a', 'b');")
         result = self.db.getConfiguration('a')
         # exists, check result
@@ -169,7 +168,7 @@ class StorageMySQSLdbTests(NeoTestBase):
     def checkConfigEntry(self, get_call, set_call, value):
         # generic test for all configuration entries accessors
         self.db.setup()
-        self.assertEquals(get_call(), None)
+        self.assertRaises(KeyError, get_call)
         set_call(value)
         self.assertEquals(get_call(), value)
         set_call(value * 2)
@@ -194,13 +193,10 @@ class StorageMySQSLdbTests(NeoTestBase):
             value='TEST_NAME')
 
     def test_15_PTID(self):
-        test = '\x01' * 8
-        self.db.setup()
-        self.assertEquals(self.db.getPTID(), None)
-        self.db.setPTID(test)
-        self.assertEquals(self.db.getPTID(), test)
-        self.db.setPTID(test * 2)
-        self.assertEquals(self.db.getPTID(), test * 2)
+        self.checkConfigEntry(
+            get_call=self.db.getPTID,
+            set_call=self.db.setPTID,
+            value=self.getPTID(1))
 
     def test_16_getPartitionTable(self):
         # insert an entry and check it

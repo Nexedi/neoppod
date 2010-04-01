@@ -87,34 +87,46 @@ class Application(object):
         """Load persistent configuration data from the database.
         If data is not present, generate it."""
 
+        def NoneOnKeyError(getter):
+            try:
+                return getter()
+            except KeyError:
+                return None
         dm = self.dm
 
-        self.uuid = dm.getUUID()
-        num_partitions = dm.getNumPartitions()
-        num_replicas = dm.getNumReplicas()
+        # check cluster name
+        try:
+            if dm.getName() != self.name:
+                raise RuntimeError('name does not match with the database')
+        except KeyError:
+            dm.setName(self.name)
 
+        # load configuration
+        self.uuid = NoneOnKeyError(dm.getUUID)
+        num_partitions = NoneOnKeyError(dm.getNumPartitions)
+        num_replicas = NoneOnKeyError(dm.getNumReplicas)
+        ptid = NoneOnKeyError(dm.getPTID)
+
+        # check partition table configuration
         if num_partitions is not None and num_replicas is not None:
             if num_partitions <= 0:
                 raise RuntimeError, 'partitions must be more than zero'
             # create a partition table
             self.pt = PartitionTable(num_partitions, num_replicas)
 
-        name = dm.getName()
-        if name is None:
-            dm.setName(self.name)
-        elif name != self.name:
-            raise RuntimeError('name does not match with the database')
-        ptid = dm.getPTID()
         logging.info('Configuration loaded:')
         logging.info('UUID      : %s', dump(self.uuid))
         logging.info('PTID      : %s', dump(ptid))
-        logging.info('Name      : %s', name)
+        logging.info('Name      : %s', self.name)
         logging.info('Partitions: %s', num_partitions)
         logging.info('Replicas  : %s', num_replicas)
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
-        ptid = self.dm.getPTID()
+        try:
+            ptid = self.dm.getPTID()
+        except KeyError:
+            ptid = None
         cell_list = self.dm.getPartitionTable()
         new_cell_list = []
         for offset, uuid, state in cell_list:
