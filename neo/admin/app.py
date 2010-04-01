@@ -69,7 +69,6 @@ class Application(object):
         self.pt = None
         self.uuid = config.getUUID()
         self.primary_master_node = None
-        self.ptid = None
         self.request_handler = MasterRequestEventHandler(self)
         self.master_event_handler = MasterEventHandler(self)
         self.dispatcher = Dispatcher()
@@ -162,5 +161,5 @@ class Application(object):
             p = Errors.ProtocolError('invalid partition table offset')
             conn.notify(p)
             return
-        p = Packets.AnswerPartitionList(self.ptid, row_list)
+        p = Packets.AnswerPartitionList(self.pt.getID(), row_list)
         conn.answer(p)

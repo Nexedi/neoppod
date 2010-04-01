@@ -152,29 +152,12 @@ class MasterEventHandler(EventHandler):
         logging.debug("answerPartitionTable")
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
-        app = self.app
-        if ptid < app.ptid:
-            # Ignore this packet.
-            return
-        app.ptid = ptid
-        app.pt.update(ptid, cell_list, app.nm)
+        self.app.pt.update(ptid, cell_list, self.app.nm)
 
     def sendPartitionTable(self, conn, ptid, row_list):
-        uuid = conn.getUUID()
-        app = self.app
-        nm = app.nm
-        pt = app.pt
-        node = app.nm.getByUUID(uuid)
-        if app.ptid != ptid:
-            app.ptid = ptid
-            pt.clear()
-        for offset, row in row_list:
-            for uuid, state in row:
-                node = nm.getByUUID(uuid)
-                if node is None:
-                    node = nm.createStorage(uuid=uuid)
-                pt.setCell(offset, node, state)
-        pt.log()
+        self.app.pt.clear()
+        self.app.pt.load(ptid, row_list, self.app.nm)
+        self.app.pt.log()
 
     def notifyClusterInformation(self, conn, cluster_state):
         self.app.cluster_state = cluster_state
