@@ -287,9 +287,9 @@ class NeoTestRunner(unittest.TestResult):
         self.time = sum([s.time for s in self.modulesStats.values()])
         args = (self.testsRun, len(self.errors), len(self.failures))
         self.subject = "Neo : %s Tests, %s Errors, %s Failures" % args
-        self.summary = self._buildSummary()
-        self.errors = self._buildErrors()
-        self.warnings = self._buildWarnings()
+        self._summary = self._buildSummary()
+        self._errors = self._buildErrors()
+        self._warnings = self._buildWarnings()
 
     def sendReport(self, smtp_server, sender, recipients):
         """ Send a mail with the report summary """
@@ -312,7 +312,7 @@ class NeoTestRunner(unittest.TestResult):
           msg['X-ERP5-Tests-Status'] = 'OK'
 
         # write the body
-        body = MIMEText(self.summary + self.warnings + self.errors)
+        body = MIMEText(self._summary + self._warnings + self._errors)
         msg.attach(body)
 
         # attach the log file
@@ -363,10 +363,13 @@ if __name__ == "__main__":
 
     # build report
     runner.build()
-    print runner.errors
-    print runner.warnings
-    print runner.summary
+    print runner._errors
+    print runner._warnings
+    print runner._summary
 
     # send a mail
     if options.sender:
         runner.sendReport(mail_server, options.sender, options.recipient)
+    if not runner.wasSuccessful():
+        sys.exit(1)
+    sys.exit(0)
