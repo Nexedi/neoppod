@@ -38,21 +38,22 @@ class IdentificationHandler(MasterHandler):
         node = node_by_uuid or node_by_addr
         if node_by_uuid is not None:
             if node.getAddress() == address:
+                # the node is still alive
                 if node.isBroken():
                     raise protocol.BrokenNodeDisallowedError
-                # the node is still alive
-                node.setRunning()
             if node.getAddress() != address:
+                # this node has changed its address
                 if node.isRunning():
                    # still running, reject this new node
                     raise protocol.ProtocolError('invalid server address')
-                # this node has changed its address
-                node.setAddress(address)
-                node.setRunning()
         if node_by_uuid is None and node_by_addr is not None:
             if node.isRunning():
                 # still running, reject this new node
                 raise protocol.ProtocolError('invalid server address')
+        if node is not None:
+            if node.isConnected():
+                # more than one connection from this node
+                raise protocol.ProtocolError('already connected')
             node.setAddress(address)
             node.setRunning()
 
