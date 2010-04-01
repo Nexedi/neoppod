@@ -227,13 +227,16 @@ class NEOCluster(object):
         self.uuid_set.add(uuid)
         return uuid
 
-    def setupDB(self):
+    def getSqlConnection(self):
         # Cleanup or bootstrap databases
         connect_arg_dict = {'user': self.db_super_user}
         password = self.db_super_password
         if password is not None:
             connect_arg_dict['passwd'] = password
-        sql_connection = MySQLdb.Connect(**connect_arg_dict)
+        return MySQLdb.Connect(**connect_arg_dict)
+
+    def setupDB(self):
+        sql_connection = self.getSqlConnection()
         cursor = sql_connection.cursor()
         for database in self.db_list:
             cursor.execute('DROP DATABASE IF EXISTS `%s`' % (database, ))
@@ -242,6 +245,16 @@ class NEOCluster(object):
                            'IDENTIFIED BY "%s"' % (database, self.db_user,
                            self.db_password))
         cursor.close()
+        sql_connection.commit()
+        sql_connection.close()
+
+    def switchTables(self, database):
+        sql_connection = self.getSqlConnection()
+        cursor = sql_connection.cursor()
+        cursor.execute('use %s' % (database, ))
+        cursor.execute('rename table obj to tmp')
+        cursor.execute('rename table tobj to obj')
+        cursor.execute('rename table tmp to tobj')
         sql_connection.commit()
         sql_connection.close()
 

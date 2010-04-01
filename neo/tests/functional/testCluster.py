@@ -16,6 +16,11 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
+import transaction
+
+from ZODB.tests.StorageTestBase import zodb_pickle
+from Persistence import Persistent
+
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
 
 class ClusterTests(NEOFunctionalTest):
@@ -73,6 +78,26 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.expectClusterRunning()
         self.neo.expectAllMasters(MASTER_COUNT)
         self.neo.expectOudatedCells(0)
+
+    def testVerificationCommitUnfinishedTransactions(self):
+        """ Verification step should commit unfinished transactions """
+        # XXX: this kind of definition should be defined in base test class
+        class PObject(Persistent):
+            pass
+        self.neo = NEOCluster(['test_neo1'], replicas=0,
+            temp_dir=self.getTempDirectory())
+        neoctl = self.neo.getNEOCTL()
+        self.neo.start()
+        db, conn = self.neo.getZODBConnection()
+        conn.root()[0] = 'ok'
+        transaction.commit()
+        self.neo.stop()
+        # XXX: (obj|trans) become t(obj|trans)
+        self.neo.switchTables('test_neo1')
+        self.neo.start()
+        db, conn = self.neo.getZODBConnection()
+        # transaction should be verified and commited
+        self.assertEqual(conn.root()[0], 'ok')
 
 def test_suite():
     return unittest.makeSuite(ClusterTests)
