@@ -108,16 +108,16 @@ class HandlerSwitcher(object):
         klass = request_dict.pop(msg_id, None)
         if klass and isinstance(packet, klass) or packet.isError():
             handler.packetReceived(self._connection, packet)
-            # apply a pending handler if no more answers are pending
-            if len(self._pending) > 1 and not request_dict:
-                del self._pending[0]
-                logging.debug('Apply handler %r', self._pending[0][1])
         else:
             logging.error('Unexpected answer: %r', packet)
             notification = Packets.Notify('Unexpected answer: %r' % packet)
             self._connection.notify(notification)
             self._connection.abort()
             handler.peerBroken(self._connection)
+        # apply a pending handler if no more answers are pending
+        while len(self._pending) > 1 and not self._pending[0][0]:
+            del self._pending[0]
+            logging.debug('Apply handler %r', self._pending[0][1])
 
     def setHandler(self, handler):
         if len(self._pending) == 1 and not self._pending[0][0]:
