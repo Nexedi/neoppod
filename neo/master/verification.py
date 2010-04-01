@@ -118,7 +118,7 @@ class VerificationManager(BaseServiceHandler):
                         node.notify(Packets.DeleteTransaction(tid))
             else:
                 for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
-                    node.ask(Packets.CommitTransaction(tid))
+                    node.notify(Packets.CommitTransaction(tid))
 
             # If possible, send the packets now.
             em.poll(0)
