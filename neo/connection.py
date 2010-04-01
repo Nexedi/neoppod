@@ -117,7 +117,7 @@ class HandlerSwitcher(object):
             notification = Packets.Notify('Unexpected answer: %r' % packet)
             self._connection.notify(notification)
             self._connection.abort()
-            handler.peerBroken()
+            handler.peerBroken(self._connection)
 
     def setHandler(self, handler):
         if len(self._pending) == 1 and not self._pending[0][0]:
