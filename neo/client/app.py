@@ -20,7 +20,7 @@ from cPickle import dumps, loads
 from zlib import compress as real_compress, decompress
 from neo.locking import Queue, Empty
 from random import shuffle
-from time import sleep
+import time
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.ConflictResolution import ResolvedSerial
@@ -310,7 +310,7 @@ class Application(object):
                     try:
                         self.trying_master_node = master_list[index]
                     except IndexError:
-                        sleep(1)
+                        time.sleep(1)
                         index = 0
                         self.trying_master_node = master_list[0]
                     index += 1
@@ -355,7 +355,7 @@ class Application(object):
                     break
                 if conn.getUUID() is None:
                     # Node identification was refused by master.
-                    sleep(1)
+                    time.sleep(1)
             if self.uuid is not None:
                 msg_id = conn.ask(Packets.AskNodeInformation())
                 self._waitMessage(conn, msg_id,
