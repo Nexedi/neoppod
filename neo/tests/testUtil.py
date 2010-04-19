@@ -40,30 +40,6 @@ class UtilTests(NeoTestBase):
         self.assertEqual(buf.read(3), None)
         self.assertEqual(buf.read(2), 'ef')
 
-    def testReadBufferPeek(self):
-        buf = ReadBuffer()
-        self.assertEqual(len(buf), 0)
-        buf.append('abc')
-        self.assertEqual(len(buf), 3)
-        # peek some data
-        self.assertEqual(buf.peek(3), 'abc')
-        self.assertEqual(buf.peek(5), None) # not enough
-        buf.append('def')
-        self.assertEqual(len(buf), 6)
-        self.assertEqual(buf.peek(3), 'abc') # no change
-        self.assertEqual(buf.peek(6), 'abcdef')
-        self.assertEqual(buf.peek(7), None)
-
-    def testReadBufferSkip(self):
-        buf = ReadBuffer()
-        self.assertEqual(len(buf), 0)
-        buf.append('abc')
-        self.assertEqual(len(buf), 3)
-        buf.skip(1)
-        self.assertEqual(len(buf), 2)
-        buf.skip(3) # eat all
-        self.assertEqual(len(buf), 0)
-
 if __name__ == "__main__":
     unittest.main()
 

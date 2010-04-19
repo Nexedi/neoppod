@@ -128,7 +128,7 @@ class ConnectionTests(NeoTestBase):
         self.assertEquals(len(calls), n)
 
     def _checkReadBuf(self, bc, data):
-        content = bc.read_buf.peek(len(bc.read_buf))
+        content = bc.read_buf.read(len(bc.read_buf))
         self.assertEqual(''.join(content), data)
 
     def _appendToReadBuf(self, bc, data):
@@ -464,10 +464,10 @@ class ConnectionTests(NeoTestBase):
         bc = self._makeConnection()
         bc._queue = Mock()
         self._appendToReadBuf(bc, 'datadatadatadata')
-        self.assertEqual(len(bc.read_buf), 16)
         bc.analyse()
-        self.assertEqual(len(bc.read_buf), 16)
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 0)
+        self.assertEquals(
+            len(self.handler.mockGetNamedCalls("_packetMalformed")), 1)
 
     def test_Connection_analyse4(self):
         # give an expected packet
