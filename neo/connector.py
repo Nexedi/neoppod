@@ -55,6 +55,7 @@ class SocketConnector:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         else:
             self.socket = s
+        self.socket_fd = self.socket.fileno()
         # always use non-blocking sockets
         self.socket.setblocking(0)
         # disable Nagle algorithm to reduce latency
@@ -92,7 +93,7 @@ class SocketConnector:
         # this descriptor must only be used by the event manager, where it
         # guarantee unicity only while the connector is opened and registered
         # in epoll
-        return self.socket.fileno()
+        return self.socket_fd
 
     def getNewConnection(self):
         try:
@@ -139,10 +140,10 @@ class SocketConnector:
         return self.socket.close()
 
     def __repr__(self):
-        try:
-            fileno = str(self.socket.fileno())
-        except socket.error:
+        if self.is_closed:
             fileno = '?'
+        else:
+            fileno = self.socket_fd
         result = '<%s at 0x%x fileno %s %s>' % (self.__class__.__name__,
                  id(self), fileno, self.socket.getsockname())
         if self.is_closed is None:
