@@ -1575,6 +1575,21 @@ def register(code, request, answer=None):
         return (request, answer)
     return request
 
+class ParserState(object):
+    """
+    Parser internal state.
+    To be considered opaque datatype outside of PacketRegistry.parse .
+    """
+    payload = None
+
+    def set(self, payload):
+        self.payload = payload
+
+    def get(self):
+        return self.payload
+
+    def clear(self):
+        self.payload = None
 
 class PacketRegistry(dict):
     """
@@ -1586,28 +1601,32 @@ class PacketRegistry(dict):
         # load packet classes
         self.update(StaticRegistry)
 
-    def parse(self, buf):
-        if len(buf) < PACKET_HEADER_SIZE:
-            return None
-        header = buf.peek(PACKET_HEADER_SIZE)
-        assert header is not None
-        msg_id, msg_type, msg_len = unpack(PACKET_HEADER_FORMAT, header)
-        try:
-            packet_klass = self[msg_type]
-        except KeyError:
-            raise PacketMalformedError('Unknown packet type')
-        if msg_len > MAX_PACKET_SIZE:
-            raise PacketMalformedError('message too big (%d)' % msg_len)
-        if msg_len < MIN_PACKET_SIZE:
-            raise PacketMalformedError('message too small (%d)' % msg_len)
-        if len(buf) < msg_len:
-            # Not enough.
-            return None
-        buf.skip(PACKET_HEADER_SIZE)
-        msg_len -= PACKET_HEADER_SIZE
-        packet = packet_klass()
+    def parse(self, buf, state_container):
+        state = state_container.get()
+        if state is None:
+            header = buf.read(PACKET_HEADER_SIZE)
+            if header is None:
+                return None
+            msg_id, msg_type, msg_len = unpack(PACKET_HEADER_FORMAT, header)
+            try:
+                packet_klass = self[msg_type]
+            except KeyError:
+                raise PacketMalformedError('Unknown packet type')
+            if msg_len > MAX_PACKET_SIZE:
+                raise PacketMalformedError('message too big (%d)' % msg_len)
+            if msg_len < MIN_PACKET_SIZE:
+                raise PacketMalformedError('message too small (%d)' % msg_len)
+            msg_len -= PACKET_HEADER_SIZE
+        else:
+            msg_id, packet_klass, msg_len = state
         data = buf.read(msg_len)
-        assert data is not None
+        if data is None:
+            # Not enough.
+            state_container.set((msg_id, packet_klass, msg_len))
+            return None
+        if state:
+            state_container.clear()
+        packet = packet_klass()
         packet.setContent(msg_id, data)
         return packet
 

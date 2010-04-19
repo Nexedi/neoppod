@@ -20,7 +20,7 @@ from time import time
 from neo import logging
 from neo.locking import RLock
 
-from neo.protocol import PacketMalformedError, Packets
+from neo.protocol import PacketMalformedError, Packets, ParserState
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
         ConnectorConnectionClosedException
@@ -293,6 +293,7 @@ class Connection(BaseConnection):
         self.uuid = None
         self._queue = []
         self._on_close = None
+        self._parser_state = ParserState()
         event_manager.addReader(self)
 
     def setOnClose(self, callback):
@@ -359,7 +360,7 @@ class Connection(BaseConnection):
         while True:
             # parse a packet
             try:
-                packet = Packets.parse(self.read_buf)
+                packet = Packets.parse(self.read_buf, self._parser_state)
                 if packet is None:
                     break
             except PacketMalformedError, msg:
