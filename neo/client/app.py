@@ -1015,6 +1015,7 @@ class Application(object):
 
         return history_list
 
+    @profiler_decorator
     def importFrom(self, source, start, stop, tryToResolveConflict):
         serials = {}
         def updateLastSerial(oid, result):

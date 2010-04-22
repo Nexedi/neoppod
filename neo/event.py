@@ -18,6 +18,7 @@
 from time import time
 
 from neo.epoll import Epoll
+from neo.profiling import profiler_decorator
 
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
@@ -173,6 +174,7 @@ class EpollEventManager(object):
             self.reader_set.remove(fd)
             self.epoll.modify(fd, 0, fd in self.writer_set)
 
+    @profiler_decorator
     def addWriter(self, conn):
         connector = conn.getConnector()
         assert connector is not None, conn.whoSetConnector()

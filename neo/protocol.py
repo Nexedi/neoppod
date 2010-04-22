@@ -209,6 +209,7 @@ def _decodeString(buf, name, offset=0):
         raise PacketMalformedError("can't read string <%s>" % name)
     return (string, buf[offset+4+size:])
 
+@profiler_decorator
 def _encodeString(buf):
     return pack('!L', len(buf)) + buf
 
@@ -272,6 +273,7 @@ class Packet(object):
         return (pack(PACKET_HEADER_FORMAT, self._id, self._code, length),
             content)
 
+    @profiler_decorator
     def __len__(self):
         return PACKET_HEADER_SIZE + len(self._body)
 
@@ -881,6 +883,7 @@ class AskStoreObject(Packet):
     """
     _header_format = '!8s8s8sBL'
 
+    @profiler_decorator
     def _encode(self, oid, serial, compression, checksum, data, tid):
         if serial is None:
             serial = INVALID_TID

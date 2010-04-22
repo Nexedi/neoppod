@@ -86,6 +86,7 @@ class HandlerSwitcher(object):
     def getHandler(self):
         return self._pending[0][1]
 
+    @profiler_decorator
     def emit(self, request):
         # register the request in the current handler
         _pending = self._pending
@@ -97,6 +98,7 @@ class HandlerSwitcher(object):
         assert msg_id not in request_dict, "Packet id already expected"
         request_dict[msg_id] = answer_class
 
+    @profiler_decorator
     def handle(self, packet):
         assert len(self._pending) == 1 or self._pending[0][0]
         PACKET_LOGGER.dispatch(self._connection, packet, 'from')
@@ -121,6 +123,7 @@ class HandlerSwitcher(object):
             del self._pending[0]
             logging.debug('Apply handler %r', self._pending[0][1])
 
+    @profiler_decorator
     def setHandler(self, handler):
         if len(self._pending) == 1 and not self._pending[0][0]:
             # nothing is pending, change immediately
@@ -601,6 +604,7 @@ class MTClientConnection(ClientConnection):
         finally:
             self.unlock()
 
+    @profiler_decorator
     def ask(self, packet, timeout=CRITICAL_TIMEOUT):
         self.lock()
         try:
