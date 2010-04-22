@@ -490,6 +490,7 @@ class Connection(BaseConnection):
         msg_id = self._getNextId()
         packet.setId(msg_id)
         self._addPacket(packet)
+        # If there is no pending request, initialise timeout values.
         if not self._handlers.isPending():
             self._timeout.update(time(), timeout=timeout)
         self._handlers.emit(packet)
@@ -610,6 +611,7 @@ class MTClientConnection(ClientConnection):
             packet.setId(msg_id)
             self.dispatcher.register(self, msg_id, self._local_var.queue)
             self._addPacket(packet)
+            # If there is no pending request, initialise timeout values.
             if not self._handlers.isPending():
                 self._timeout.update(time(), timeout=timeout)
             self._handlers.emit(packet)
