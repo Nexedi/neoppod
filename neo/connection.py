@@ -88,12 +88,14 @@ class HandlerSwitcher(object):
 
     def emit(self, request):
         # register the request in the current handler
-        assert len(self._pending) == 1 or self._pending[0][0]
-        (request_dict, _) = self._pending[-1]
+        _pending = self._pending
+        assert len(_pending) == 1 or _pending[0][0]
+        (request_dict, _) = _pending[-1]
         msg_id = request.getId()
-        assert request.getAnswerClass() is not None, "Not a request"
+        answer_class = request.getAnswerClass()
+        assert answer_class is not None, "Not a request"
         assert msg_id not in request_dict, "Packet id already expected"
-        request_dict[msg_id] = request.getAnswerClass()
+        request_dict[msg_id] = answer_class
 
     def handle(self, packet):
         assert len(self._pending) == 1 or self._pending[0][0]
