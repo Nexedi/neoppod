@@ -225,7 +225,6 @@ class Packet(object):
     _answer = None
     _body = None
     _code = None
-    _args = None
     _id = None
 
     def __init__(self, *args, **kw):
@@ -235,7 +234,6 @@ class Packet(object):
         else:
             body = ''
         self._body = body
-        self._args = args
 
     def decode(self):
         assert self._body is not None
