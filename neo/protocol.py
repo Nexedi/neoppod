@@ -1622,7 +1622,8 @@ class PacketRegistry(dict):
         data = buf.read(msg_len)
         if data is None:
             # Not enough.
-            state_container.set((msg_id, packet_klass, msg_len))
+            if state is None:
+                state_container.set((msg_id, packet_klass, msg_len))
             return None
         if state:
             state_container.clear()
