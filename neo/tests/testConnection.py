@@ -19,7 +19,7 @@ from time import time
 from mock import Mock
 from neo.connection import ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, \
-     HandlerSwitcher, Timeout
+     HandlerSwitcher, Timeout, PING_DELAY, PING_TIMEOUT
 from neo.connector import getConnectorHandler, registerConnectorHandler
 from neo.tests import DoNothingConnector
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
@@ -808,7 +808,7 @@ class HandlerSwitcherTests(NeoTestBase):
     def testEmit(self):
         self.assertFalse(self._handlers.isPending())
         request = self._makeRequest(1)
-        self._handlers.emit(request)
+        self._handlers.emit(request, 0)
         self.assertTrue(self._handlers.isPending())
 
     def testHandleNotification(self):
@@ -818,7 +818,7 @@ class HandlerSwitcherTests(NeoTestBase):
         self._checkPacketReceived(self._handler, notif1)
         # emit a request and delay an handler
         request = self._makeRequest(2)
-        self._handlers.emit(request)
+        self._handlers.emit(request, 0)
         handler = self._makeHandler()
         self._handlers.setHandler(handler)
         # next notification fall into the current handler
@@ -835,7 +835,7 @@ class HandlerSwitcherTests(NeoTestBase):
     def testHandleAnswer1(self):
         # handle with current handler
         request = self._makeRequest(1)
-        self._handlers.emit(request)
+        self._handlers.emit(request, 0)
         answer = self._makeAnswer(1)
         self._handlers.handle(answer)
         self._checkPacketReceived(self._handler, answer)
@@ -843,7 +843,7 @@ class HandlerSwitcherTests(NeoTestBase):
     def testHandleAnswer2(self):
         # handle with blocking handler
         request = self._makeRequest(1)
-        self._handlers.emit(request)
+        self._handlers.emit(request, 0)
         handler = self._makeHandler()
         self._handlers.setHandler(handler)
         answer = self._makeAnswer(1)
@@ -863,11 +863,11 @@ class HandlerSwitcherTests(NeoTestBase):
         h2 = self._makeHandler()
         h3 = self._makeHandler()
         # emit all requests and setHandleres
-        self._handlers.emit(r1)
+        self._handlers.emit(r1, 0)
         self._handlers.setHandler(h1)
-        self._handlers.emit(r2)
+        self._handlers.emit(r2, 0)
         self._handlers.setHandler(h2)
-        self._handlers.emit(r3)
+        self._handlers.emit(r3, 0)
         self._handlers.setHandler(h3)
         self._checkCurrentHandler(self._handler)
         self.assertTrue(self._handlers.isPending())
@@ -889,9 +889,9 @@ class HandlerSwitcherTests(NeoTestBase):
         a3 = self._makeAnswer(3)
         h = self._makeHandler()
         # emit all requests
-        self._handlers.emit(r1)
-        self._handlers.emit(r2)
-        self._handlers.emit(r3)
+        self._handlers.emit(r1, 0)
+        self._handlers.emit(r2, 0)
+        self._handlers.emit(r3, 0)
         self._handlers.setHandler(h)
         # process answers
         self._handlers.handle(a1)
@@ -908,59 +908,98 @@ class HandlerSwitcherTests(NeoTestBase):
         a2 = self._makeAnswer(2)
         h = self._makeHandler()
         # emit requests aroung state setHandler
-        self._handlers.emit(r1)
+        self._handlers.emit(r1, 0)
         self._handlers.setHandler(h)
-        self._handlers.emit(r2)
+        self._handlers.emit(r2, 0)
         # process answer for next state
         self._handlers.handle(a2)
         self.checkAborted(self._connection)
 
+    def testTimeout(self):
+        """
+          This timeout happens when a request has not been answered for longer
+          than a duration defined at emit() time.
+        """
+        now = time()
+        # No timeout when no pending request
+        self.assertEqual(self._handlers.checkTimeout(now), None)
+        # Prepare some requests
+        msg_id_1 = 1
+        msg_id_2 = 2
+        msg_id_3 = 3
+        r1 = self._makeRequest(msg_id_1)
+        a1 = self._makeAnswer(msg_id_1)
+        r2 = self._makeRequest(msg_id_2)
+        r3 = self._makeRequest(msg_id_3)
+        msg_1_time = now + 5
+        msg_2_time = msg_1_time + 5
+        msg_3_time = msg_2_time + 5
+        # Emit r3 before all other, to test that it's time parameter value
+        # which is used, not the registration order.
+        self._handlers.emit(r3, msg_3_time)
+        self._handlers.emit(r1, msg_1_time)
+        self._handlers.emit(r2, msg_2_time)
+        # No timeout before msg_1_time
+        self.assertEqual(self._handlers.checkTimeout(now), None)
+        # Timeout for msg_1 after msg_1_time
+        self.assertEqual(self._handlers.checkTimeout(msg_1_time + 0.5),
+            msg_id_1)
+        # If msg_1 met its answer, no timeout after msg_1_time
+        self._handlers.handle(a1)
+        self.assertEqual(self._handlers.checkTimeout(msg_1_time + 0.5), None)
+        # Next timeout is after msg_2_time
+        self.assertEqual(self._handlers.checkTimeout(msg_2_time + 0.5), msg_id_2)
 
 class TestTimeout(NeoTestBase):
-    """ assume PING_DELAY=5 """
-
     def setUp(self):
-        self.initial = time()
-        self.current = self.initial
+        self.current = time()
         self.timeout = Timeout()
+        self.timeout.update(self.current)
 
-    def checkAfter(self, n, soft, hard):
+    def _checkAt(self, n, soft, hard):
         at = self.current + n
         self.assertEqual(soft, self.timeout.softExpired(at))
         self.assertEqual(hard, self.timeout.hardExpired(at))
 
-    def refreshAfter(self, n):
-        self.current += n
-        self.timeout.refresh(self.current)
+    def _refreshAt(self, n):
+        self.timeout.refresh(self.current + n)
 
-    def testNoTimeout(self):
-        self.timeout.update(self.initial, 5)
-        self.checkAfter(1, False, False)
-        self.checkAfter(4, False, False)
-        self.refreshAfter(4) # answer received
-        self.checkAfter(1, False, False)
+    def _pingAt(self, n):
+        self.timeout.ping(self.current + n)
 
     def testSoftTimeout(self):
-        self.timeout.update(self.initial, 5)
-        self.checkAfter(1, False, False)
-        self.checkAfter(4, False, False)
-        self.checkAfter(6, True, True) # ping
-        self.refreshAfter(8) # pong
-        self.checkAfter(1, False, False)
-        self.checkAfter(4, False, True)
+        """
+          Soft timeout is when a ping should be sent to peer to see if it's
+          still responsive, after seing no life sign for PING_DELAY.
+        """
+        # Before PING_DELAY, no timeout.
+        self._checkAt(PING_DELAY - 0.5, False, False)
+        # If nothing came to refresh the timeout, soft timeout will be asserted
+        # after PING_DELAY.
+        self._checkAt(PING_DELAY + 0.5, True, False)
+        # If something refreshes the timeout, soft timeout will not be asserted
+        # after PING_DELAY.
+        answer_time = PING_DELAY - 0.5
+        self._refreshAt(answer_time)
+        self._checkAt(PING_DELAY + 0.5, False, False)
+        # ...but it will happen again after PING_DELAY after that answer
+        self._checkAt(answer_time + PING_DELAY + 0.5, True, False)
 
     def testHardTimeout(self):
-        self.timeout.update(self.initial, 5)
-        self.checkAfter(1, False, False)
-        self.checkAfter(4, False, False)
-        self.checkAfter(6, True, True) # ping
-        self.refreshAfter(6) # pong
-        self.checkAfter(1, False, False)
-        self.checkAfter(4, False, False)
-        self.checkAfter(6, False, True) # ping
-        self.refreshAfter(6) # pong
-        self.checkAfter(1, False, True) # too late
-        self.checkAfter(5, False, True)
+        """
+          Hard timeout is when a ping was sent, and any life sign must come
+          back to us before PING_TIMEOUT.
+        """
+        # A timeout triggered at PING_DELAY, so a ping was sent.
+        self._pingAt(PING_DELAY)
+        # Before PING_DELAY + PING_TIMEOUT, no timeout occurs.
+        self._checkAt(PING_DELAY + PING_TIMEOUT - 0.5, False, False)
+        # After PING_DELAY + PING_TIMEOUT, hard timeout occurs.
+        self._checkAt(PING_DELAY + PING_TIMEOUT + 0.5, False, True)
+        # If anything happened on the connection, there is no hard timeout
+        # anymore after PING_DELAY + PING_TIMEOUT.
+        self._refreshAt(PING_DELAY + PING_TIMEOUT - 0.5)
+        self._checkAt(PING_DELAY + PING_TIMEOUT + 0.5, False, False)
 
 if __name__ == '__main__':
     unittest.main()
