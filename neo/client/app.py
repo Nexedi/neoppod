@@ -576,8 +576,9 @@ class Application(object):
         # Store data on each node
         self.local_var.object_stored_counter_dict[oid] = 0
         self.local_var.object_serial_dict[oid] = (serial, version)
+        getConnForCell = self.cp.getConnForCell
         for cell in cell_list:
-            conn = self.cp.getConnForCell(cell)
+            conn = getConnForCell(cell)
             if conn is None:
                 continue
             try:
