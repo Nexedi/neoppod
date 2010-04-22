@@ -603,6 +603,9 @@ class MTClientConnection(ClientConnection):
     def ask(self, packet, timeout=CRITICAL_TIMEOUT):
         self.lock()
         try:
+            # XXX: Here, we duplicate Connection.ask because we need to call
+            # self.dispatcher.register after setId is called and before
+            # _addPacket is called.
             msg_id = self._getNextId()
             packet.setId(msg_id)
             self.dispatcher.register(self, msg_id, self._local_var.queue)
