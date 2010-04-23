@@ -400,7 +400,17 @@ class ConnectionTests(NeoTestBase):
                 (("127.0.0.1", 2132), self.getNewUUID()))
         p = Packets.AnswerPrimary(self.getNewUUID(), master_list)
         p.setId(1)
-        self._appendPacketToReadBuf(bc, p)
+        p_data = ''.join(p.encode())
+        data_edge = len(p_data) - 1
+        p_data_1, p_data_2 = p_data[:data_edge], p_data[data_edge:]
+        # append an incomplete packet, nothing is done
+        bc.read_buf.append(p_data_1)
+        bc.analyse()
+        self._checkPacketReceived(0)
+        self.assertNotEqual(len(bc.read_buf), 0)
+        self.assertNotEqual(len(bc.read_buf), len(p_data))
+        # append the rest of the packet
+        bc.read_buf.append(p_data_2)
         bc.analyse()
         # check packet decoded
         self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
