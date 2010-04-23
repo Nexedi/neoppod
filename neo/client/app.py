@@ -608,7 +608,7 @@ class Application(object):
                     data)
                 if new_data is not None:
                     # Mark this conflict as resolved
-                    local_var.resolved_conflict_serial_dict = \
+                    local_var.resolved_conflict_serial_dict[oid] = \
                         local_var.conflict_serial_dict.pop(oid)
                     # Try to store again
                     self.store(oid, conflict_serial, new_data, version,
