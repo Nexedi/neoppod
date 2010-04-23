@@ -77,15 +77,16 @@ class StorageAnswersHandler(AnswerBaseHandler):
             if pending_serial not in (None, serial) or \
                     resolved_serial not in (None, serial):
                 raise NEOStorageError, 'Multiple conflicts for a single ' \
-                    'object in a single store: %r, %r, %r' % (pending_serial,
-                        resolved_serial, serial)
+                    'object (%s) in a single store: %s, %s, %s' % (
+                        dump(oid), dump(pending_serial),
+                        dump(resolved_serial), dump(serial))
             # If this conflict is not already resolved, mark it for
             # resolution.
             if resolved_serial is None:
                 if object_stored_counter_dict[oid]:
                     raise NEOStorageError, 'Storage node(s) accepted ' \
-                        'object, but one (%s) reports a conflict.' % (
-                            dump(conn.getUUID()), )
+                        'object %s, but one (%s) reports a conflict.' % (
+                            dump(oid), dump(conn.getUUID()))
                 # Note: we might overwrite an entry, but above test protects
                 # against overwriting a different value.
                 conflict_serial_dict[oid] = serial
