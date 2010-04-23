@@ -20,6 +20,7 @@ from ZODB.TimeStamp import TimeStamp
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.protocol import NodeTypes, ProtocolError
 from neo.util import dump
+from neo.client.exception import NEOStorageError
 
 class StorageEventHandler(BaseHandler):
 
@@ -61,7 +62,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerObject(self, conn, oid, start_serial, end_serial,
             compression, checksum, data, data_serial):
         if data_serial is not None:
-            raise ValueError, 'Storage should never send non-None ' \
+            raise NEOStorageError, 'Storage should never send non-None ' \
                 'data_serial to clients, got %s' % (dump(data_serial), )
         self.app.local_var.asked_object = (oid, start_serial, end_serial,
                 compression, checksum, data)

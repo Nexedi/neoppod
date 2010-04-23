@@ -21,6 +21,7 @@ from neo.tests import NeoTestBase
 from neo.protocol import NodeTypes
 from neo.client.handlers.storage import StorageBootstrapHandler, \
        StorageAnswersHandler
+from neo.client.exception import NEOStorageError
 
 MARKER = []
 
@@ -83,7 +84,8 @@ class StorageAnswerHandlerTests(NeoTestBase):
         # Check handler raises on non-None data_serial.
         the_object = (oid, tid1, tid2, 0, '', 'DATA', self.getNextTID())
         self.app.local_var.asked_object = None
-        self.assertRaises(ValueError, self.handler.answerObject, conn, *the_object)
+        self.assertRaises(NEOStorageError, self.handler.answerObject, conn,
+            *the_object)
 
     def test_answerStoreObject(self):
         conn = self.getConnection()
