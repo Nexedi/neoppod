@@ -103,6 +103,7 @@ class ThreadContext(object):
             'object_serial_dict': {},
             'object_stored_counter_dict': {},
             'conflict_serial_dict': {},
+            'resolved_conflict_serial_dict': {},
             'object_stored': 0,
             'txn_voted': False,
             'txn_finished': False,
@@ -606,8 +607,9 @@ class Application(object):
                 new_data = tryToResolveConflict(oid, conflict_serial, serial,
                     data)
                 if new_data is not None:
-                    # Forget this conflict
-                    del local_var.conflict_serial_dict[oid]
+                    # Mark this conflict as resolved
+                    local_var.resolved_conflict_serial_dict = \
+                        local_var.conflict_serial_dict.pop(oid)
                     # Try to store again
                     self.store(oid, conflict_serial, new_data, version,
                         local_var.txn)

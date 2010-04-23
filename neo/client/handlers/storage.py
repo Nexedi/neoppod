@@ -71,13 +71,24 @@ class StorageAnswersHandler(AnswerBaseHandler):
         local_var = self.app.local_var
         object_stored_counter_dict = local_var.object_stored_counter_dict
         if conflicting:
-            assert object_stored_counter_dict[oid] == 0, \
-                object_stored_counter_dict[oid]
-            previous_conflict_serial = local_var.conflict_serial_dict.get(oid,
-                None)
-            assert previous_conflict_serial in (None, serial), \
-                (previous_conflict_serial, serial)
-            local_var.conflict_serial_dict[oid] = serial
+            conflict_serial_dict = local_var.conflict_serial_dict
+            pending_serial = conflict_serial_dict.get(oid)
+            resolved_serial = local_var.resolved_conflict_serial_dict.get(oid)
+            if pending_serial not in (None, serial) or \
+                    resolved_serial not in (None, serial):
+                raise NEOStorageError, 'Multiple conflicts for a single ' \
+                    'object in a single store: %r, %r, %r' % (pending_serial,
+                        resolved_serial, serial)
+            # If this conflict is not already resolved, mark it for
+            # resolution.
+            if resolved_serial is None:
+                if object_stored_counter_dict[oid]:
+                    raise NEOStorageError, 'Storage node(s) accepted ' \
+                        'object, but one (%s) reports a conflict.' % (
+                            dump(conn.getUUID()), )
+                # Note: we might overwrite an entry, but above test protects
+                # against overwriting a different value.
+                conflict_serial_dict[oid] = serial
         else:
             object_stored_counter_dict[oid] += 1
 
