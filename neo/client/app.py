@@ -598,7 +598,9 @@ class Application(object):
         # Check for conflicts
         data_dict = local_var.data_dict
         object_serial_dict = local_var.object_serial_dict
-        for oid, conflict_serial in local_var.conflict_serial_dict.items():
+        conflict_serial_dict = local_var.conflict_serial_dict
+        resolved_conflict_serial_dict = local_var.resolved_conflict_serial_dict
+        for oid, conflict_serial in conflict_serial_dict.items():
             serial, version = object_serial_dict[oid]
             data = data_dict[oid]
             tid = local_var.tid
@@ -608,8 +610,8 @@ class Application(object):
                     data)
                 if new_data is not None:
                     # Mark this conflict as resolved
-                    local_var.resolved_conflict_serial_dict[oid] = \
-                        local_var.conflict_serial_dict.pop(oid)
+                    resolved_conflict_serial_dict[oid] = \
+                        conflict_serial_dict.pop(oid)
                     # Try to store again
                     self.store(oid, conflict_serial, new_data, version,
                         local_var.txn)
