@@ -477,7 +477,7 @@ class Connection(BaseConnection):
             # should not occurs but it seems it's false
             logging.debug('Connection reset by peer: %r', self.connector)
             self._closure()
-        except ConnectorException:
+        except:
             logging.debug('Unknown connection error: %r', self.connector)
             self._closure()
             # unhandled connector exception
@@ -505,7 +505,7 @@ class Connection(BaseConnection):
             # connection resetted by peer
             logging.debug('Connection reset by peer: %r', self.connector)
             self._closure()
-        except ConnectorException:
+        except:
             logging.debug('Unknown connection error: %r', self.connector)
             # unhandled connector exception
             self._closure()
