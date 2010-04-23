@@ -97,7 +97,7 @@ class StorageAnswerHandlerTests(NeoTestBase):
         local_var.conflict_serial_dict = {}
         self.handler.answerStoreObject(conn, 1, oid, tid)
         self.assertEqual(local_var.conflict_serial_dict[oid], tid)
-        self.assertFalse(local_var.object_stored_counter_dict[oid], 0)
+        self.assertEqual(local_var.object_stored_counter_dict[oid], 0)
         # no conflict
         local_var.object_stored_counter_dict = {oid: 0}
         local_var.conflict_serial_dict = {}
