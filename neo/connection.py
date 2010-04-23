@@ -462,11 +462,6 @@ class Connection(BaseConnection):
         """Receive data from a connector."""
         try:
             data = self.connector.receive()
-            if not data:
-                logging.debug('Connection %r closed in recv', self.connector)
-                self._closure()
-                return
-            self.read_buf.append(data)
         except ConnectorTryAgainException:
             pass
         except ConnectorConnectionRefusedException:
@@ -482,23 +477,21 @@ class Connection(BaseConnection):
             self._closure()
             # unhandled connector exception
             raise
+        else:
+            if not data:
+                logging.debug('Connection %r closed in recv', self.connector)
+                self._closure()
+                return
+            self.read_buf.append(data)
 
     @profiler_decorator
     def _send(self):
         """Send data to a connector."""
         if not self.write_buf:
             return
+        msg = ''.join(self.write_buf)
         try:
-            msg = ''.join(self.write_buf)
             n = self.connector.send(msg)
-            if not n:
-                logging.debug('Connection %r closed in send', self.connector)
-                self._closure()
-                return
-            if n == len(msg):
-                del self.write_buf[:]
-            else:
-                self.write_buf = [msg[n:]]
         except ConnectorTryAgainException:
             pass
         except ConnectorConnectionClosedException:
@@ -510,6 +503,15 @@ class Connection(BaseConnection):
             # unhandled connector exception
             self._closure()
             raise
+        else:
+            if not n:
+                logging.debug('Connection %r closed in send', self.connector)
+                self._closure()
+                return
+            if n == len(msg):
+                del self.write_buf[:]
+            else:
+                self.write_buf = [msg[n:]]
 
     @profiler_decorator
     def _addPacket(self, packet):
