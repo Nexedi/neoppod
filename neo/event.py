@@ -101,11 +101,7 @@ class EpollEventManager(object):
 
     def _poll(self, timeout=1):
         rlist, wlist, elist = self.epoll.poll(timeout)
-        r_done_set = set()
-        for fd in rlist:
-            if fd in r_done_set:
-                continue
-            r_done_set.add(fd)
+        for fd in frozenset(rlist):
             conn = self.connection_dict[fd]
             conn.lock()
             try:
@@ -115,11 +111,7 @@ class EpollEventManager(object):
             if conn.hasPendingMessages():
                 self._addPendingConnection(conn)
 
-        w_done_set = set()
-        for fd in wlist:
-            if fd in w_done_set:
-                continue
-            w_done_set.add(fd)
+        for fd in frozenset(wlist):
             # This can fail, if a connection is closed in readable().
             try:
                 conn = self.connection_dict[fd]
@@ -132,11 +124,7 @@ class EpollEventManager(object):
                 finally:
                     conn.unlock()
 
-        e_done_set = set()
-        for fd in elist:
-            if fd in e_done_set:
-                continue
-            e_done_set.add(fd)
+        for fd in frozenset(elist):
             # This can fail, if a connection is closed in previous calls to
             # readable() or writable().
             try:
