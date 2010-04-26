@@ -290,6 +290,8 @@ class Application(object):
         p = self.event_queue.popleft
         for _ in xrange(l):
             some_callable, msg_id, conn, args, kwargs = p()
+            if conn.isAborted() or conn.isClosed():
+                continue
             conn.setPeerId(msg_id)
             some_callable(conn, *args, **kwargs)
 

@@ -280,6 +280,9 @@ class BaseConnection(object):
     def getUUID(self):
         return None
 
+    def isClosed(self):
+        return self.connector is None
+
     def isAborted(self):
         return False
 
