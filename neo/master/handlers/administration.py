@@ -145,6 +145,7 @@ class AdministrationHandler(MasterHandler):
             node.setRunning()
         app.broadcastNodesInformation(node_list)
         # start nodes
+        # XXX: should start storages only when RUNNING
         for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
             node.notify(Packets.StartOperation())
         # broadcast the new partition table
