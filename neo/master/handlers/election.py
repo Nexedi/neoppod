@@ -66,8 +66,6 @@ class ClientElectionHandler(MasterHandler):
     def _connectionLost(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
-        assert not node.isUnknown(), (dump(self.app.uuid), node.whoSetState(),
-          node.getState())
         node.setTemporarilyDown()
         self.app.negotiating_master_node_set.discard(addr)
         MasterHandler.connectionClosed(self, conn)
