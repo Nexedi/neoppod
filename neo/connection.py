@@ -448,14 +448,14 @@ class Connection(BaseConnection):
     def pending(self):
         return self.connector is not None and self.write_buf
 
-    def _closure(self, was_connected=False):
+    def _closure(self, was_connected=True):
         assert self.connector is not None, self.whoSetConnector()
         handler = self.getHandler()
         self.close()
         if was_connected:
-            handler.connectionFailed(self)
-        else:
             handler.connectionClosed(self)
+        else:
+            handler.connectionFailed(self)
 
     @profiler_decorator
     def _recv(self):
@@ -466,7 +466,7 @@ class Connection(BaseConnection):
             pass
         except ConnectorConnectionRefusedException:
             # should only occur while connecting
-            self._closure(was_connected=True)
+            self._closure(was_connected=False)
         except ConnectorConnectionClosedException:
             # connection resetted by peer, according to the man, this error
             # should not occurs but it seems it's false
@@ -585,10 +585,10 @@ class ClientConnection(Connection):
                 self.connecting = False
                 self.getHandler().connectionCompleted(self)
         except ConnectorConnectionRefusedException:
-            self._closure(was_connected=True)
+            self._closure(was_connected=False)
         except ConnectorException:
             # unhandled connector exception
-            self._closure(was_connected=True)
+            self._closure(was_connected=False)
             raise
 
     def writable(self):
@@ -596,7 +596,7 @@ class ClientConnection(Connection):
         if self.connecting:
             err = self.connector.getError()
             if err:
-                self._closure(was_connected=True)
+                self._closure(was_connected=False)
                 return
             else:
                 self.connecting = False
