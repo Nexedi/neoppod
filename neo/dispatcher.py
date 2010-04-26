@@ -87,5 +87,5 @@ class Dispatcher:
     @giant_lock
     @profiler_decorator
     def pending(self, queue):
-        return not queue.empty() or self.queue_dict[id(queue)] > 0
+        return not queue.empty() or self.queue_dict.get(id(queue), 0) > 0
 
