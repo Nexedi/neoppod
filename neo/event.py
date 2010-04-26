@@ -91,13 +91,17 @@ class EpollEventManager(object):
             # See if there is anything to process
             to_process = self._getPendingConnection()
         if to_process is not None:
+            to_process.lock()
             try:
-                # Process
-                to_process.process()
+                try:
+                    # Process
+                    to_process.process()
+                finally:
+                    # ...and requeue if there are pending messages
+                    if to_process.hasPendingMessages():
+                        self._addPendingConnection(to_process)
             finally:
-                # ...and requeue if there are pending messages
-                if to_process.hasPendingMessages():
-                    self._addPendingConnection(to_process)
+                to_process.unlock()
 
     def _poll(self, timeout=1):
         rlist, wlist, elist = self.epoll.poll(timeout)
