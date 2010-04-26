@@ -647,8 +647,6 @@ class Application(object):
         _handleConflicts = self._handleConflicts
         while True:
             self.waitResponses()
-            if tryToResolveConflict is None:
-                break
             conflicts = _handleConflicts(tryToResolveConflict)
             if conflicts:
                 update(conflicts)
@@ -657,16 +655,15 @@ class Application(object):
                 # requests
                 break
 
-        if tryToResolveConflict is not None:
-            # Check for never-stored objects, and update result for all others
-            for oid, store_count in \
-                local_var.object_stored_counter_dict.iteritems():
-                if store_count == 0:
-                    raise NEOStorageError('tpc_store failed')
-                elif oid in resolved_oid_set:
-                    append((oid, ResolvedSerial))
-                else:
-                    append((oid, tid))
+        # Check for never-stored objects, and update result for all others
+        for oid, store_count in \
+            local_var.object_stored_counter_dict.iteritems():
+            if store_count == 0:
+                raise NEOStorageError('tpc_store failed')
+            elif oid in resolved_oid_set:
+                append((oid, ResolvedSerial))
+            else:
+                append((oid, tid))
         return result
 
     @profiler_decorator
@@ -720,7 +717,7 @@ class Application(object):
 
         # Just wait for response to arrive, don't handle any conflict, and
         # ignore the outcome: we are going to abort anyway.
-        self.waitStoreResponses(None)
+        self.waitResponses()
 
         cell_set = set()
         # select nodes where objects were stored
