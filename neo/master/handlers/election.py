@@ -111,14 +111,6 @@ class ClientElectionHandler(MasterHandler):
         app.negotiating_master_node_set.discard(conn.getAddress())
 
     def answerPrimary(self, conn, primary_uuid, known_master_list):
-        if conn.getConnector() is None:
-            # Connection can be closed by peer after he sent
-            # AnswerPrimary if he finds the primary master before we
-            # give him our UUID.
-            # The connection gets closed before this message gets processed
-            # because this message might have been queued, but connection
-            # interruption takes effect as soon as received.
-            return
         app = self.app
         # Register new master nodes.
         for address, uuid in known_master_list:
@@ -155,13 +147,32 @@ class ClientElectionHandler(MasterHandler):
                 app.unconnected_master_node_set.clear()
                 app.negotiating_master_node_set.clear()
 
-        # Request a node identification.
-        conn.ask(Packets.RequestIdentification(
-            NodeTypes.MASTER,
-            app.uuid,
-            app.server,
-            app.name
-        ))
+        if (primary_uuid is None or conn.getUUID() == primary_uuid) and \
+                not conn.isClosed():
+            # Request a node identification.
+            # There are 3 cases here:
+            # - Peer doesn't know primary node
+            #   We must ask its identification so we exchange our uuids, to
+            #   know which of us is secondary.
+            # - Peer knows primary node
+            #   - He is the primary
+            #     We must ask its identification, as part of the normal
+            #     connection process
+            #   - He is not the primary
+            #     We don't need to ask its identification, as we will close
+            #     this connection anyway (exiting election).
+            # Also, connection can be closed by peer after he sent
+            # AnswerPrimary if he finds the primary master before we
+            # give him our UUID.
+            # The connection gets closed before this message gets processed
+            # because this message might have been queued, but connection
+            # interruption takes effect as soon as received.
+            conn.ask(Packets.RequestIdentification(
+                NodeTypes.MASTER,
+                app.uuid,
+                app.server,
+                app.name
+            ))
 
 
 class ServerElectionHandler(MasterHandler):
