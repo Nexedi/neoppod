@@ -147,7 +147,9 @@ class ClientElectionHandler(MasterHandler):
                 app.unconnected_master_node_set.clear()
                 app.negotiating_master_node_set.clear()
 
-        if (primary_uuid is None or conn.getUUID() == primary_uuid) and \
+        primary_node = app.primary_master_node
+        if (primary_node is None or \
+            conn.getAddress() == primary_node.getAddress()) and \
                 not conn.isClosed():
             # Request a node identification.
             # There are 3 cases here:
