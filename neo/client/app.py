@@ -212,9 +212,11 @@ class Application(object):
             If True (default), will block until at least one packet was
             received.
         """
-        get = self.local_var.queue.get
+        pending = self.dispatcher.pending
+        queue = self.local_var.queue
+        get = queue.get
         _handlePacket = self._handlePacket
-        while True:
+        while pending(queue):
             try:
                 conn, packet = get(block)
             except Empty:
