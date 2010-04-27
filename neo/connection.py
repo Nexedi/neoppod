@@ -165,6 +165,12 @@ class Timeout(object):
     """ Keep track of connection-level timeouts """
 
     def __init__(self):
+        self.clear()
+
+    def clear(self):
+        """
+        There is no pending request, reset ping times.
+        """
         self._ping_time = None
         self._critical_time = None
 
@@ -446,7 +452,11 @@ class Connection(BaseConnection):
         """
         # check out packet and process it with current handler
         packet = self._queue.pop(0)
-        self._handlers.handle(packet)
+        handlers = self._handlers
+        handlers.handle(packet)
+        if not handlers.isPending():
+            # We are not expecting any other response, clear timeout
+            self._timeout.clear()
 
     def pending(self):
         return self.connector is not None and self.write_buf
@@ -694,4 +704,8 @@ class MTClientConnection(ClientConnection):
             super(MTClientConnection, self).close()
         finally:
             self.release()
+
+    @lockCheckWrapper
+    def process(self, *args, **kw):
+        return super(MTClientConnection, self).process(*args, **kw)
 
