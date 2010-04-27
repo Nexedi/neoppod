@@ -965,6 +965,7 @@ class TestTimeout(NeoTestBase):
         self.current = time()
         self.timeout = Timeout()
         self.timeout.update(self.current)
+        self.assertTrue(PING_DELAY > PING_TIMEOUT) # Sanity check
 
     def _checkAt(self, n, soft, hard):
         at = self.current + n
