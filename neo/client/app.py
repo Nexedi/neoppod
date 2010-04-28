@@ -20,6 +20,7 @@ from cPickle import dumps, loads
 from zlib import compress as real_compress, decompress
 from neo.locking import Queue, Empty
 from random import shuffle
+import traceback
 import time
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
@@ -721,9 +722,18 @@ class Application(object):
         if transaction is not self.local_var.txn:
             return
 
-        # Just wait for response to arrive, don't handle any conflict, and
-        # ignore the outcome: we are going to abort anyway.
-        self.waitResponses()
+        # Just wait for responses to arrive. If any leads to an exception,
+        # log it and continue: we *must* eat all answers to not disturb the
+        # next transaction.
+        queue = self.local_var.queue
+        pending = self.dispatcher.pending
+        _waitAnyMessage = self._waitAnyMessage
+        while pending(queue):
+            try:
+                _waitAnyMessage()
+            except:
+                logging.error('Exception in tpc_abort: %s',
+                    traceback.format_exc())
 
         tid = self.local_var.tid
         # select nodes where transaction was stored
