@@ -722,19 +722,6 @@ class Application(object):
         if transaction is not self.local_var.txn:
             return
 
-        # Just wait for responses to arrive. If any leads to an exception,
-        # log it and continue: we *must* eat all answers to not disturb the
-        # next transaction.
-        queue = self.local_var.queue
-        pending = self.dispatcher.pending
-        _waitAnyMessage = self._waitAnyMessage
-        while pending(queue):
-            try:
-                _waitAnyMessage()
-            except:
-                logging.error('Exception in tpc_abort: %s',
-                    traceback.format_exc())
-
         tid = self.local_var.tid
         # select nodes where transaction was stored
         cell_set = set(self._getCellListForTID(tid,
@@ -754,6 +741,20 @@ class Application(object):
         # Abort the transaction in the primary master node.
         conn = self._getMasterConnection()
         conn.notify(p)
+
+        # Just wait for responses to arrive. If any leads to an exception,
+        # log it and continue: we *must* eat all answers to not disturb the
+        # next transaction.
+        queue = self.local_var.queue
+        pending = self.dispatcher.pending
+        _waitAnyMessage = self._waitAnyMessage
+        while pending(queue):
+            try:
+                _waitAnyMessage()
+            except:
+                logging.error('Exception in tpc_abort: %s',
+                    traceback.format_exc())
+
         self.local_var.clear()
 
     @profiler_decorator
