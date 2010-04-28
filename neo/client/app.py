@@ -545,6 +545,8 @@ class Application(object):
         if self.local_var.txn is transaction:
             # We already begin the same transaction
             return
+        if self.local_var.txn is not None:
+            raise NeoException, 'local_var is not clean in tpc_begin'
         # ask the primary master to start a transaction, if no tid is supplied,
         # the master will supply us one. Otherwise the requested tid will be
         # used if possible.
