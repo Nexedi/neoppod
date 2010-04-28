@@ -726,13 +726,12 @@ class Application(object):
         self.waitResponses()
 
         tid = self.local_var.tid
-        cell_set = set()
+        # select nodes where transaction was stored
+        cell_set = set(self._getCellListForTID(tid,
+            writable=True))
         # select nodes where objects were stored
         for oid in self.local_var.data_dict.iterkeys():
             cell_set |= set(self._getCellListForOID(oid, writable=True))
-        # select nodes where transaction was stored
-        cell_set |= set(self._getCellListForTID(self.local_var.tid,
-            writable=True))
 
         p = Packets.AbortTransaction(tid)
         # cancel transaction one all those nodes
