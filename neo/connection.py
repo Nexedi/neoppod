@@ -180,23 +180,17 @@ class Timeout(object):
     """ Keep track of connection-level timeouts """
 
     def __init__(self):
-        self.clear()
-
-    def clear(self):
-        """
-        There is no pending request, reset ping times.
-        """
         self._ping_time = None
         self._critical_time = None
 
-    def update(self, t):
+    def update(self, t, force=False):
         """
         Send occurred:
         - set ping time if earlier than existing one
         """
         ping_time = self._ping_time
         t += PING_DELAY
-        if ping_time is None or t < ping_time:
+        if force or ping_time is None or t < ping_time:
             self._ping_time = t
 
     def refresh(self, t):
@@ -467,11 +461,7 @@ class Connection(BaseConnection):
         """
         # check out packet and process it with current handler
         packet = self._queue.pop(0)
-        handlers = self._handlers
-        handlers.handle(packet)
-        if not handlers.isPending():
-            # We are not expecting any other response, clear timeout
-            self._timeout.clear()
+        self._handlers.handle(packet)
 
     def pending(self):
         return self.connector is not None and self.write_buf
@@ -576,7 +566,7 @@ class Connection(BaseConnection):
         t = time()
         # If there is no pending request, initialise timeout values.
         if not self._handlers.isPending():
-            self._timeout.update(t)
+            self._timeout.update(t, force=True)
         self._handlers.emit(packet, t + timeout)
         return msg_id
 

@@ -1027,8 +1027,8 @@ class TestTimeout(NeoTestBase):
         self.assertEqual(soft, self.timeout.softExpired(at))
         self.assertEqual(hard, self.timeout.hardExpired(at))
 
-    def _updateAt(self, n):
-        self.timeout.update(self.current + n)
+    def _updateAt(self, n, force=False):
+        self.timeout.update(self.current + n, force=force)
 
     def _refreshAt(self, n):
         self.timeout.refresh(self.current + n)
@@ -1055,9 +1055,8 @@ class TestTimeout(NeoTestBase):
         self._checkAt(answer_time + PING_DELAY + 0.5, True, False)
         # if there is no more pending requests, a clear will happen so next
         # send doesn't immediately trigger a ping
-        self.timeout.clear()
         new_request_time = answer_time + PING_DELAY * 2
-        self._updateAt(new_request_time)
+        self._updateAt(new_request_time, force=True)
         self._checkAt(new_request_time + PING_DELAY - 0.5, False, False)
         self._checkAt(new_request_time + PING_DELAY + 0.5, True, False)
 
