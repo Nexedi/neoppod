@@ -77,6 +77,7 @@ class HandlerSwitcher(object):
         self._connection = connection
         # pending handlers and related requests
         self._pending = [[{}, handler]]
+        self._is_handling = False
 
     def clear(self):
         handler = self._pending[0][1]
@@ -92,8 +93,14 @@ class HandlerSwitcher(object):
     def emit(self, request, timeout):
         # register the request in the current handler
         _pending = self._pending
-        assert len(_pending) == 1 or _pending[0][0]
-        (request_dict, _) = _pending[-1]
+        if self._is_handling:
+            # If this is called while handling a packet, the response is to
+            # be excpected for the current handler...
+            (request_dict, _) = _pending[0]
+        else:
+            # ...otherwise, queue for for the latest handler
+            assert len(_pending) == 1 or _pending[0][0]
+            (request_dict, _) = _pending[-1]
         msg_id = request.getId()
         answer_class = request.getAnswerClass()
         assert answer_class is not None, "Not a request"
@@ -112,8 +119,16 @@ class HandlerSwitcher(object):
             result = None
         return result
 
-    @profiler_decorator
     def handle(self, packet):
+        assert not self._is_handling
+        self._is_handling = True
+        try:
+            self._handle(packet)
+        finally:
+            self._is_handling = False
+
+    @profiler_decorator
+    def _handle(self, packet):
         assert len(self._pending) == 1 or self._pending[0][0]
         PACKET_LOGGER.dispatch(self._connection, packet, 'from')
         msg_id = packet.getId()

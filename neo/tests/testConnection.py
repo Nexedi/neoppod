@@ -851,10 +851,30 @@ class HandlerSwitcherTests(NeoTestBase):
         self.assertFalse(self._handlers.isPending())
 
     def testEmit(self):
+        # First case, emit is called outside of a handler
         self.assertFalse(self._handlers.isPending())
         request = self._makeRequest(1)
         self._handlers.emit(request, 0)
         self.assertTrue(self._handlers.isPending())
+        # Second case, emit is called from inside a handler with a pending
+        # handler change.
+        new_handler = self._makeHandler()
+        self._handlers.setHandler(new_handler)
+        self._checkCurrentHandler(self._handler)
+        call_tracker = []
+        def packetReceived(conn, packet):
+            self._handlers.emit(self._makeRequest(2), 0)
+            call_tracker.append(True)
+        self._handler.packetReceived = packetReceived
+        self._handlers.handle(self._makeAnswer(1))
+        self.assertEqual(call_tracker, [True])
+        # Effective handler must not have changed (new request is blocking
+        # it)
+        self._checkCurrentHandler(self._handler)
+        # Handling the next response will cause the handler to change
+        delattr(self._handler, 'packetReceived')
+        self._handlers.handle(self._makeAnswer(2))
+        self._checkCurrentHandler(new_handler)
 
     def testHandleNotification(self):
         # handle with current handler
