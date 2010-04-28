@@ -202,7 +202,11 @@ class Application(object):
                 handler = self.primary_handler
             else:
                 raise ValueError, 'Unknown node type: %r' % (node.__class__, )
-        handler.dispatch(conn, packet)
+        conn.lock()
+        try:
+            handler.dispatch(conn, packet)
+        finally:
+            conn.unlock()
 
     @profiler_decorator
     def _waitAnyMessage(self, block=True):
