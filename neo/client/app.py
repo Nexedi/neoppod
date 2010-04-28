@@ -725,6 +725,7 @@ class Application(object):
         # ignore the outcome: we are going to abort anyway.
         self.waitResponses()
 
+        tid = self.local_var.tid
         cell_set = set()
         # select nodes where objects were stored
         for oid in self.local_var.data_dict.iterkeys():
@@ -733,16 +734,17 @@ class Application(object):
         cell_set |= set(self._getCellListForTID(self.local_var.tid,
             writable=True))
 
+        p = Packets.AbortTransaction(tid)
         # cancel transaction one all those nodes
         for cell in cell_set:
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
-            conn.notify(Packets.AbortTransaction(self.local_var.tid))
+            conn.notify(p)
 
         # Abort the transaction in the primary master node.
         conn = self._getMasterConnection()
-        conn.notify(Packets.AbortTransaction(self.local_var.tid))
+        conn.notify(p)
         self.local_var.clear()
 
     @profiler_decorator
