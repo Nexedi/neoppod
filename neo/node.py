@@ -281,6 +281,7 @@ class NodeManager(object):
         self.__drop(self._uuid_dict, node.getUUID())
         self.__dropSet(self._state_dict, node.getState(), node)
         self.__dropSet(self._type_dict, node.__class__, node)
+        assert not node.isIdentified()
         self._updateIdentified(node)
 
     def __drop(self, index_dict, key):
