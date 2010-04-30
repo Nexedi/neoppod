@@ -63,6 +63,8 @@ class Node(object):
         self._manager._updateState(self, old_state)
 
     def setAddress(self, address):
+        if self._address == address:
+            return
         old_address = self._address
         self._address = address
         self._manager._updateAddress(self, old_address)
@@ -71,6 +73,8 @@ class Node(object):
         return self._address
 
     def setUUID(self, uuid):
+        if self._uuid == uuid:
+            return
         old_uuid = self._uuid
         self._uuid = uuid
         self._manager._updateUUID(self, old_uuid)
