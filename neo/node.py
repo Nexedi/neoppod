@@ -296,6 +296,9 @@ class NodeManager(object):
     def __update(self, index_dict, old_key, new_key, node):
         """ Update an index from old to new key """
         if old_key is not None:
+            assert index_dict[old_key] is node, '%r is stored as %s, ' \
+                'moving %r to %s' % (index_dict[old_key], old_key, node,
+                new_key)
             del index_dict[old_key]
         if new_key is not None:
             index_dict[new_key] = node
@@ -322,7 +325,7 @@ class NodeManager(object):
 
     def __updateSet(self, set_dict, old_key, new_key, node):
         """ Update a set index from old to new key """
-        if old_key in set_dict and node in set_dict[old_key]:
+        if old_key in set_dict:
             set_dict[old_key].remove(node)
         if new_key is not None:
             set_dict.setdefault(new_key, set()).add(node)
