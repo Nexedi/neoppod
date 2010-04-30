@@ -425,6 +425,10 @@ class NodeManager(object):
 
     def update(self, node_list):
         for node_type, addr, uuid, state in node_list:
+            # This should be done here (although klass might not be used in this
+            # iteration), as it raises if type is not valid.
+            klass = self._getClassFromNodeType(node_type)
+
             # lookup in current table
             node_by_uuid = self.getByUUID(uuid)
             node_by_addr = self.getByAddress(addr)
@@ -446,9 +450,6 @@ class NodeManager(object):
                     # exists only by address,
                     self.remove(node)
                 # don't exists, add it
-                klass = NODE_TYPE_MAPPING.get(node_type, None)
-                if klass is None:
-                    raise RuntimeError('Unknown node type')
                 node = klass(self, address=addr, uuid=uuid)
                 node.setState(state)
                 logging.debug('create node %s %s %s %s' % log_args)
