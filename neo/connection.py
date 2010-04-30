@@ -36,8 +36,6 @@ PING_TIMEOUT = 5
 INCOMING_TIMEOUT = 10
 CRITICAL_TIMEOUT = 30
 
-APPLY_HANDLER = object()
-
 def not_closed(func):
     def decorator(self, *args, **kw):
         if self.connector is None:
