@@ -195,6 +195,7 @@ class Application(object):
         (node, conn, uuid, num_partitions, num_replicas) = data
         self.master_node = node
         self.master_conn = conn
+        logging.info('I am %s', dump(uuid))
         self.uuid = uuid
         self.dm.setUUID(uuid)
 
