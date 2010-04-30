@@ -408,11 +408,14 @@ class NodeManager(object):
         """ Create and register a new admin """
         return self._createNode(AdminNode, **kw)
 
-    def createFromNodeType(self, node_type, **kw):
+    def _getClassFromNodeType(self, node_type):
         klass = NODE_TYPE_MAPPING.get(node_type)
         if klass is None:
             raise RuntimeError('Unknown node type : %s' % node_type)
-        return self._createNode(klass, **kw)
+        return klass
+
+    def createFromNodeType(self, node_type, **kw):
+        return self._createNode(self._getClassFromNodeType(node_type), **kw)
 
     def init(self):
         self._node_set.clear()
