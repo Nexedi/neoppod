@@ -128,7 +128,7 @@ class TerminalNeoCTL(object):
         node = self.asNode(params[0])
         state = self.asNodeState(params[1])
         if len(params) == 3:
-            update_partition_table = not(not(int(params[2])))
+            update_partition_table = bool(int(params[2]))
         else:
             update_partition_table = False
         return self.neoctl.setNodeState(node, state,
