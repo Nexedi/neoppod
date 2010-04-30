@@ -49,43 +49,31 @@ class StorageInitializationHandlerTests(NeoTestBase):
     def getLastUUID(self):
         return self.uuid
 
+    def getClientConnection(self):
+        address = ("127.0.0.1", self.client_port)
+        return self.getFakeConnection(uuid=self.getNewUUID(), address=address)
+
     def test_02_timeoutExpired(self):
-        # client connection
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServer" : False})
+        conn = self.getClientConnection()
         self.assertRaises(PrimaryFailure, self.verification.timeoutExpired, conn,)
         # nothing happens
         self.checkNoPacketSent(conn)
 
     def test_03_connectionClosed(self):
-        # client connection
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServer" : False})
+        conn = self.getClientConnection()
         self.assertRaises(PrimaryFailure, self.verification.connectionClosed, conn,)
         # nothing happens
         self.checkNoPacketSent(conn)
 
     def test_04_peerBroken(self):
-        # client connection
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServer" : False})
+        conn = self.getClientConnection()
         self.assertRaises(PrimaryFailure, self.verification.peerBroken, conn,)
         # nothing happens
         self.checkNoPacketSent(conn)
 
     def test_09_sendPartitionTable(self):
-        uuid = self.getNewUUID()
         # send a table
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.client_port),
-                     "isServer" : False})
-
+        conn = self.getClientConnection()
         self.app.pt = PartitionTable(3, 2)
         node_1 = self.getNewUUID()
         node_2 = self.getNewUUID()

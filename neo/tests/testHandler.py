@@ -45,7 +45,7 @@ class HandlerTests(NeoTestBase):
         self.assertEquals(len(calls), 1)
 
     def test_dispatch(self):
-        conn = Mock({'getAddress': ('127.0.0.1', 10000)})
+        conn = self.getFakeConnection()
         packet = self.getFakePacket()
         # all is ok
         self.setFakeMethod(lambda c: None)

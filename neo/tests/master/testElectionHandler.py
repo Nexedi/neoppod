@@ -62,11 +62,8 @@ class MasterClientElectionTests(NeoTestBase):
     def identifyToMasterNode(self):
         node = self.app.nm.getMasterList()[0]
         node.setUUID(self.getNewUUID())
-        conn = Mock({
-            "getUUID": node.getUUID(),
-            "getAddress": node.getAddress(),
-            "getConnector": Mock(),
-        })
+        conn = self.getFakeConnection(uuid=node.getUUID(),
+                address=node.getAddress())
         return (node, conn)
 
     def _checkUnconnected(self, node):

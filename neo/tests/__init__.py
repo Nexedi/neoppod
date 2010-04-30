@@ -149,10 +149,14 @@ class NeoTestBase(unittest.TestCase):
         uuids = self.getNewUUID(), self.getNewUUID()
         return min(uuids), max(uuids)
 
-    def getFakeConnection(self, uuid=None, address=('127.0.0.1', 10000)):
+    def getFakeConnection(self, uuid=None, address=('127.0.0.1', 10000),
+            is_server=False):
         return Mock({
             'getUUID': uuid,
             'getAddress': address,
+            'isServer': is_server,
+            '__repr__': 'FakeConnection',
+            '__nonzero__': 0,
         })
 
     def checkProtocolErrorRaised(self, method, *args, **kwargs):

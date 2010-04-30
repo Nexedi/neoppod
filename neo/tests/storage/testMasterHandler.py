@@ -29,10 +29,7 @@ from neo.protocol import INVALID_TID, INVALID_OID
 class StorageMasterHandlerTests(NeoTestBase):
 
     def checkHandleUnexpectedPacket(self, _call, _msg_type, _listening=True, **kwargs):
-        conn = Mock({
-            "getAddress" : ("127.0.0.1", self.master_port),
-            "isServer": _listening,
-        })
+        conn = self.getMasterConnection(is_server=_listening)
         # hook
         self.operation.peerBroken = lambda c: c.peerBrokendCalled()
         self.checkUnexpectedPacketRaised(_call, conn=conn, **kwargs)
@@ -58,41 +55,32 @@ class StorageMasterHandlerTests(NeoTestBase):
     def tearDown(self):
         NeoTestBase.tearDown(self)
 
+    def getMasterConnection(self):
+        address = ("127.0.0.1", self.master_port)
+        return self.getFakeConnection(uuid=self.master_uuid, address=address)
 
     def test_06_timeoutExpired(self):
         # client connection
-        conn = Mock({
-            "getUUID": self.master_uuid,
-            "getAddress" : ("127.0.0.1", self.master_port),
-        })
+        conn = self.getMasterConnection()
         self.assertRaises(PrimaryFailure, self.operation.timeoutExpired, conn)
         self.checkNoPacketSent(conn)
 
     def test_07_connectionClosed2(self):
         # primary has closed the connection
-        conn = Mock({
-            "getUUID": self.master_uuid,
-            "getAddress" : ("127.0.0.1", self.master_port),
-        })
+        conn = self.getMasterConnection()
         self.assertRaises(PrimaryFailure, self.operation.connectionClosed, conn)
         self.checkNoPacketSent(conn)
 
     def test_08_peerBroken(self):
         # client connection
-        conn = Mock({
-            "getUUID": self.master_uuid,
-            "getAddress" : ("127.0.0.1", self.master_port),
-        })
+        conn = self.getMasterConnection()
         self.assertRaises(PrimaryFailure, self.operation.peerBroken, conn)
         self.checkNoPacketSent(conn)
 
     def test_14_notifyPartitionChanges1(self):
         # old partition change -> do nothing
         app = self.app
-        conn = Mock({
-            "isServer": False,
-            "getAddress" : ("127.0.0.1", self.master_port),
-        })
+        conn = self.getMasterConnection()
         app.replicator = Mock({})
         self.app.pt = Mock({'getID': 1})
         count = len(self.app.nm.getList())
@@ -113,10 +101,7 @@ class StorageMasterHandlerTests(NeoTestBase):
             (2, uuid3, CellStates.OUT_OF_DATE),
         )
         # context
-        conn = Mock({
-            "isServer": False,
-            "getAddress" : ("127.0.0.1", self.master_port),
-        })
+        conn = self.getMasterConnection()
         app = self.app
         # register nodes
         app.nm.createStorage(uuid=uuid1)
