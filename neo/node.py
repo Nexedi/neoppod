@@ -34,6 +34,7 @@ class Node(object):
         self._manager = manager
         self._last_state_change = time()
         self._connection = None
+        manager.add(self)
 
     def notify(self, packet):
         assert self.isConnected(), 'Not connected'
@@ -388,9 +389,7 @@ class NodeManager(object):
         return uuid in self._uuid_dict
 
     def _createNode(self, klass, **kw):
-        node = klass(self, **kw)
-        self.add(node)
-        return node
+        return klass(self, **kw)
 
     def createMaster(self, **kw):
         """ Create and register a new master """
@@ -452,7 +451,6 @@ class NodeManager(object):
                     raise RuntimeError('Unknown node type')
                 node = klass(self, address=addr, uuid=uuid)
                 node.setState(state)
-                self.add(node)
                 logging.debug('create node %s %s %s %s' % log_args)
         self.log()
 

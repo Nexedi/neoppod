@@ -125,11 +125,19 @@ class NodesTests(NeoTestBase):
 class NodeManagerTests(NeoTestBase):
 
     def setUp(self):
-        self.manager = nm = NodeManager()
-        self.storage = StorageNode(nm, ('127.0.0.1', 1000), self.getNewUUID())
-        self.master = MasterNode(nm, ('127.0.0.1', 2000), self.getNewUUID())
-        self.client = ClientNode(nm, None, self.getNewUUID())
-        self.admin = AdminNode(nm, ('127.0.0.1', 4000), self.getNewUUID())
+        self.manager = NodeManager()
+
+    def _addStorage(self):
+        self.storage = StorageNode(self.manager, ('127.0.0.1', 1000), self.getNewUUID())
+
+    def _addMaster(self):
+        self.master = MasterNode(self.manager, ('127.0.0.1', 2000), self.getNewUUID())
+
+    def _addClient(self):
+        self.client = ClientNode(self.manager, None, self.getNewUUID())
+
+    def _addAdmin(self):
+        self.admin = AdminNode(self.manager, ('127.0.0.1', 4000), self.getNewUUID())
 
     def checkNodes(self, node_list):
         manager = self.manager
@@ -178,7 +186,7 @@ class NodeManagerTests(NeoTestBase):
         manager = self.manager
         self.checkNodes([])
         # storage
-        manager.add(self.storage)
+        self._addStorage()
         self.checkNodes([self.storage])
         self.checkStorages([self.storage])
         self.checkMasters([])
@@ -186,7 +194,7 @@ class NodeManagerTests(NeoTestBase):
         self.checkByServer(self.storage)
         self.checkByUUID(self.storage)
         # master
-        manager.add(self.master)
+        self._addMaster()
         self.checkNodes([self.storage, self.master])
         self.checkStorages([self.storage])
         self.checkMasters([self.master])
@@ -194,7 +202,7 @@ class NodeManagerTests(NeoTestBase):
         self.checkByServer(self.master)
         self.checkByUUID(self.master)
         # client
-        manager.add(self.client)
+        self._addClient()
         self.checkNodes([self.storage, self.master, self.client])
         self.checkStorages([self.storage])
         self.checkMasters([self.master])
@@ -203,7 +211,7 @@ class NodeManagerTests(NeoTestBase):
         self.assertEqual(manager.getByAddress(self.client.getAddress()), None)
         self.checkByUUID(self.client)
         # admin
-        manager.add(self.admin)
+        self._addAdmin()
         self.checkNodes([self.storage, self.master, self.client, self.admin])
         self.checkStorages([self.storage])
         self.checkMasters([self.master])
@@ -218,17 +226,17 @@ class NodeManagerTests(NeoTestBase):
         self.checkStorages([])
         self.checkMasters([])
         self.checkClients([])
-        manager.add(self.master)
+        self._addMaster()
         self.checkMasters([self.master])
         manager.init()
         self.checkNodes([])
         self.checkMasters([])
-        manager.add(self.storage)
+        self._addStorage()
         self.checkStorages([self.storage])
         manager.init()
         self.checkNodes([])
         self.checkStorages([])
-        manager.add(self.client)
+        self._addClient()
         self.checkClients([self.client])
         manager.init()
         self.checkNodes([])
@@ -238,10 +246,10 @@ class NodeManagerTests(NeoTestBase):
         """ Check manager content update """
         # set up four nodes
         manager = self.manager
-        manager.add(self.master)
-        manager.add(self.storage)
-        manager.add(self.client)
-        manager.add(self.admin)
+        self._addMaster()
+        self._addStorage()
+        self._addClient()
+        self._addAdmin()
         self.checkNodes([self.master, self.storage, self.client, self.admin])
         self.checkMasters([self.master])
         self.checkStorages([self.storage])
@@ -280,10 +288,10 @@ class NodeManagerTests(NeoTestBase):
     def testIdentified(self):
         # set up four nodes
         manager = self.manager
-        manager.add(self.master)
-        manager.add(self.storage)
-        manager.add(self.client)
-        manager.add(self.admin)
+        self._addMaster()
+        self._addStorage()
+        self._addClient()
+        self._addAdmin()
         # switch node to connected
         self.checkIdentified([])
         self.master.setConnection(Mock())
