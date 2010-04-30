@@ -411,7 +411,7 @@ class NodeManager(object):
     def _getClassFromNodeType(self, node_type):
         klass = NODE_TYPE_MAPPING.get(node_type)
         if klass is None:
-            raise RuntimeError('Unknown node type : %s' % node_type)
+            raise ValueError('Unknown node type : %s' % node_type)
         return klass
 
     def createFromNodeType(self, node_type, **kw):
