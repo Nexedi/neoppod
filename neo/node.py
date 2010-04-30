@@ -439,24 +439,29 @@ class NodeManager(object):
             node = node_by_uuid or node_by_addr
 
             log_args = (node_type, dump(uuid), addr, state)
-            if state == NodeStates.DOWN:
-                # drop down nodes
-                logging.debug('drop node %s %s %s %s' % log_args)
-                self.remove(node)
-            elif node_by_uuid is not None:
-                if node.getAddress() != addr:
-                    # address changed, update it
-                    node.setAddress(addr)
-                logging.debug('update node %s %s %s %s' % log_args)
-                node.setState(state)
+            if node is None:
+                if state == NodeStates.DOWN:
+                    logging.debug('NOT creating node %s %s %s %s', *log_args)
+                else:
+                    logging.debug('creating node %s %s %s %s', *log_args)
+                    self._createNode(klass, address=addr, uuid=uuid, state=state)
             else:
-                if node_by_addr is not None:
-                    # exists only by address,
+                assert isinstance(node, klass), 'node %r is not ' \
+                    'of expected type: %r' % (node, klass)
+                assert None in (node_by_uuid, node_by_addr) or \
+                    node_by_uuid is node_by_addr, \
+                    'Discrepancy between node_by_uuid (%r) and ' \
+                    'node_by_addr (%r)' % (node_by_uuid, node_by_addr)
+                if state == NodeStates.DOWN:
+                    logging.debug('droping node %r, found with %s %s %s %s',
+                        node, *log_args)
                     self.remove(node)
-                # don't exists, add it
-                node = klass(self, address=addr, uuid=uuid)
-                node.setState(state)
-                logging.debug('create node %s %s %s %s' % log_args)
+                else:
+                    logging.debug('updating node %r to %s %s %s %s',
+                        node, *log_args)
+                    node.setUUID(uuid)
+                    node.setAddress(addr)
+                    node.setState(state)
         self.log()
 
     def log(self):

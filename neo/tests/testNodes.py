@@ -257,6 +257,7 @@ class NodeManagerTests(NeoTestBase):
         # build changes
         old_address = self.master.getAddress()
         new_address = ('127.0.0.1', 2001)
+        old_uuid = self.storage.getUUID()
         new_uuid = self.getNewUUID()
         node_list = (
             (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.DOWN),
@@ -276,11 +277,11 @@ class NodeManagerTests(NeoTestBase):
         self.master.setAddress(new_address)
         self.checkByServer(self.master)
         # a new storage replaced the old one
-        self.assertNotEqual(manager.getStorageList(), [self.storage])
-        self.assertTrue(len(manager.getStorageList()), 1)
-        new_storage = manager.getStorageList()[0]
+        storage_list = manager.getStorageList()
+        self.assertTrue(len(storage_list), 1)
+        new_storage = storage_list[0]
+        self.assertNotEqual(new_storage.getUUID(), old_uuid)
         self.assertEqual(new_storage.getState(), NodeStates.RUNNING)
-        self.assertNotEqual(new_storage, self.storage)
         # admin is still here but in UNKNOWN state
         self.checkNodes([self.master, self.admin, new_storage])
         self.assertEqual(self.admin.getState(), NodeStates.UNKNOWN)
