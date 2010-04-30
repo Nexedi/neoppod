@@ -58,7 +58,7 @@ class EventHandler(object):
         except UnexpectedPacketError, e:
             self.__unexpectedPacket(conn, packet, *e.args)
         except PacketMalformedError:
-            logging.error('malformed packet from %s:%d', *(conn.getAddress()))
+            logging.error('malformed packet from %r', conn)
             conn.notify(Packets.Notify('Malformed packet: %r' % (packet, )))
             conn.abort()
             self.peerBroken(conn)
@@ -91,32 +91,32 @@ class EventHandler(object):
 
     def connectionStarted(self, conn):
         """Called when a connection is started."""
-        logging.debug('connection started for %s:%d', *(conn.getAddress()))
+        logging.debug('connection started for %r', conn)
 
     def connectionCompleted(self, conn):
         """Called when a connection is completed."""
-        logging.debug('connection completed for %s:%d', *(conn.getAddress()))
+        logging.debug('connection completed for %r', conn)
 
     def connectionFailed(self, conn):
         """Called when a connection failed."""
-        logging.debug('connection failed for %s:%d', *(conn.getAddress()))
+        logging.debug('connection failed for %r', conn)
 
     def connectionAccepted(self, conn):
         """Called when a connection is accepted."""
 
     def timeoutExpired(self, conn):
         """Called when a timeout event occurs."""
-        logging.debug('timeout expired for %s:%d', *(conn.getAddress()))
+        logging.debug('timeout expired for %r', conn)
         self.connectionLost(conn, NodeStates.TEMPORARILY_DOWN)
 
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
-        logging.debug('connection closed for %s:%d', *(conn.getAddress()))
+        logging.debug('connection closed for %r', conn)
         self.connectionLost(conn, NodeStates.TEMPORARILY_DOWN)
 
     def peerBroken(self, conn):
         """Called when a peer is broken."""
-        logging.error('%s:%d is broken', *(conn.getAddress()))
+        logging.error('%r is broken', conn)
         self.connectionLost(conn, NodeStates.BROKEN)
 
     def connectionLost(self, conn, new_state):
@@ -128,7 +128,7 @@ class EventHandler(object):
     # Packet handlers.
 
     def notify(self, conn, message):
-        logging.info('notification from %s:%d: %s', *(conn.getAddress(), message))
+        logging.info('notification from %r: %s', conn, message)
 
     def requestIdentification(self, conn, node_type,
                                         uuid, address, name):

@@ -350,8 +350,7 @@ class Application(object):
                 return
 
     def playPrimaryRole(self):
-        logging.info('play the primary role with %s (%s:%d)',
-                dump(self.uuid), *(self.server))
+        logging.info('play the primary role with %r', self.listening_conn)
 
         # i'm the primary, send the announcement
         self._announcePrimary()
@@ -388,8 +387,7 @@ class Application(object):
         """
         I play a secondary role, thus only wait for a primary master to fail.
         """
-        logging.info('play the secondary role with %s (%s:%d)',
-                dump(self.uuid), *(self.server))
+        logging.info('play the secondary role with %r', self.listening_conn)
 
         # Wait for an announcement. If this is too long, probably
         # the primary master is down.

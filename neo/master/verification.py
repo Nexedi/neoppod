@@ -190,8 +190,7 @@ class VerificationManager(BaseServiceHandler):
 
     def answerUnfinishedTransactions(self, conn, tid_list):
         uuid = conn.getUUID()
-        logging.info('got unfinished transactions %s from %s:%d',
-                tid_list, *(conn.getAddress()))
+        logging.info('got unfinished transactions %s from %r', tid_list, conn)
         if self._uuid_dict.get(uuid, True):
             # No interest.
             return

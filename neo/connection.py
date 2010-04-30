@@ -238,13 +238,12 @@ class BaseConnection(object):
         if handlers.isPending():
             msg_id = handlers.checkTimeout(t)
             if msg_id is not None:
-                logging.info('timeout for %r with %s:%d', msg_id,
-                    *self.getAddress())
+                logging.info('timeout for %r with %r', msg_id, self)
                 self.close()
                 self.getHandler().timeoutExpired(self)
             elif self._timeout.hardExpired(t):
                 # critical time reach or pong not received, abort
-                logging.info('timeout with %s:%d', *(self.getAddress()))
+                logging.info('timeout with %r', self)
                 self.notify(Packets.Notify('Timeout'))
                 self.abort()
                 self.getHandler().timeoutExpired(self)
@@ -280,6 +279,16 @@ class BaseConnection(object):
             self.connector.shutdown()
             self.connector.close()
             self.connector = None
+
+    def __repr__(self):
+        address = self.addr and '%s:%d' % self.addr or '?'
+        return '<%s(uuid=%s, address=%s, closed=%s) at %x>' % (
+            self.__class__.__name__,
+            dump(self.getUUID()),
+            address,
+            self.isClosed(),
+            id(self),
+        )
 
     __del__ = close
 
@@ -395,8 +404,7 @@ class Connection(BaseConnection):
         return next_id
 
     def close(self):
-        logging.debug('closing a connector for %s (%s:%d)',
-                dump(self.uuid), *(self.addr))
+        logging.debug('closing a connector for %r', self)
         BaseConnection.close(self)
         if self._on_close is not None:
             self._on_close()
@@ -407,8 +415,7 @@ class Connection(BaseConnection):
 
     def abort(self):
         """Abort dealing with this connection."""
-        logging.debug('aborting a connector for %s (%s:%d)',
-                dump(self.uuid), *(self.addr))
+        logging.debug('aborting a connector for %r', self)
         self.aborted = True
 
     def writable(self):

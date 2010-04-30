@@ -90,7 +90,7 @@ class ClientElectionHandler(MasterHandler):
         node = app.nm.getByAddress(conn.getAddress())
         if node_type != NodeTypes.MASTER:
             # The peer is not a master node!
-            logging.error('%s:%d is not a master node', *conn.getAddress())
+            logging.error('%r is not a master node', conn)
             app.nm.remove(node)
             app.negotiating_master_node_set.discard(node.getAddress())
             conn.close()
