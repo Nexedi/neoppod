@@ -263,6 +263,7 @@ class NodeManager(object):
 
     def add(self, node):
         if node in self._node_set:
+            logging.warning('adding a known node %r, ignoring', node)
             return
         self._node_set.add(node)
         self._updateAddress(node, None)
@@ -272,7 +273,8 @@ class NodeManager(object):
         self._updateIdentified(node)
 
     def remove(self, node):
-        if node is None or node not in self._node_set:
+        if node not in self._node_set:
+            logging.warning('removing unknown node %r, ignoring', node)
             return
         self._node_set.remove(node)
         self.__drop(self._address_dict, node.getAddress())
