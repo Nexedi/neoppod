@@ -116,11 +116,12 @@ class Node(object):
         return self._connection is not None and self._uuid is not None
 
     def __repr__(self):
-        return '<%s(uuid=%s, address=%s, state=%s)>' % (
+        return '<%s(uuid=%s, address=%s, state=%s) at %x>' % (
             self.__class__.__name__,
             dump(self._uuid),
             self._address,
             self._state,
+            id(self),
         )
 
     def isMaster(self):
