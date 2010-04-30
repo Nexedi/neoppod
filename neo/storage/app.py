@@ -151,7 +151,7 @@ class Application(object):
             addr=self.server, connector=self.connector_handler())
 
         # Connect to a primary master node, verify data, and
-        # start the operation. This cycle will be executed permentnly,
+        # start the operation. This cycle will be executed permanently,
         # until the user explicitly requests a shutdown.
         while True:
             if self.master_node is None:
