@@ -276,7 +276,7 @@ class NodeManagerTests(NeoTestBase):
         self.assertEqual(manager.getByAddress(old_address), None)
         self.master.setAddress(new_address)
         self.checkByServer(self.master)
-        # a new storage replaced the old one
+        # - storage change it's UUID
         storage_list = manager.getStorageList()
         self.assertTrue(len(storage_list), 1)
         new_storage = storage_list[0]
