@@ -188,7 +188,7 @@ class TransactionManager(object):
             Store an object received from client node
         """
         # check if the object if locked
-        locking_tid = self._store_lock_dict.get(oid, None)
+        locking_tid = self._store_lock_dict.get(oid)
         if locking_tid == tid:
             logging.info('Transaction %s storing %s more than once', dump(tid),
                 dump(oid))
