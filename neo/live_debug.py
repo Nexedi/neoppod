@@ -53,6 +53,7 @@ def decorate(func):
             # "debug" module don't kill process.
             traceback.print_exc()
         errno.value = old_errno
+    return decorator
 
 @decorate
 def debugHandler(sig, frame):
