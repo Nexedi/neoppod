@@ -38,23 +38,24 @@ ENABLED = False
 #     SIGUSR2:
 #       Triggers a pdb prompt on process' controlling TTY.
 
-def debugHandler(sig, frame):
-    try:
-        file, filename, (suffix, mode, type) = imp.find_module('debug',
-            neo.__path__)
-        imp.load_module('neo.debug', file, filename, (suffix, mode, type))
-    except:
-        # Prevent exception from exiting signal handler, so mistakes in
-        # "debug" module don't kill process.
-        traceback.print_exception()
+def decorate(func):
+    def decorator(sig, frame):
+        try:
+            func(sig, frame)
+        except:
+            # Prevent exception from exiting signal handler, so mistakes in
+            # "debug" module don't kill process.
+            traceback.print_exc()
 
+@decorate
+def debugHandler(sig, frame):
+    file, filename, (suffix, mode, type) = imp.find_module('debug',
+        neo.__path__)
+    imp.load_module('neo.debug', file, filename, (suffix, mode, type))
+
+@decorate
 def pdbHandler(sig, frame):
-    try:
-        pdb.set_trace()
-    except:
-        # Prevent exception from exiting signal handler, so mistakes in
-        # pdb don't kill process.
-        traceback.print_exception()
+    pdb.set_trace()
 
 def register():
     if ENABLED:
