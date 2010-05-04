@@ -34,6 +34,8 @@ from neo.pt import PartitionTable
 from neo.util import dump
 from neo.bootstrap import BootstrapManager
 
+from neo.live_debug import register as registerLiveDebugger
+
 class Application(object):
     """The storage node application."""
 
@@ -82,6 +84,8 @@ class Application(object):
         # force node uuid from command line argument, for testing purpose only
         if config.getUUID() is not None:
             self.uuid = config.getUUID()
+
+        registerLiveDebugger()
 
     def loadConfiguration(self):
         """Load persistent configuration data from the database.

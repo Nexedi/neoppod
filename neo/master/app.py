@@ -37,6 +37,8 @@ from neo.master.recovery import RecoveryManager
 from neo.util import dump
 from neo.connector import getConnectorHandler
 
+from neo.live_debug import register as registerLiveDebugger
+
 class Application(object):
     """The master node application."""
 
@@ -90,6 +92,8 @@ class Application(object):
         self.negotiating_master_node_set = set()
 
         self._current_manager = None
+
+        registerLiveDebugger()
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
