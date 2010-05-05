@@ -380,6 +380,9 @@ class NEOCluster(object):
     def getStorageList(self, state=None):
         return self.__getNodeList(NodeTypes.STORAGE, state)
 
+    def getClientlist(self, state=None):
+        return self.__getNodeList(NodeTypes.CLIENT, state)
+
     def __getNodeState(self, node_type, uuid):
         node_list = self.__getNodeList(node_type)
         for node_type, address, node_uuid, state in node_list:

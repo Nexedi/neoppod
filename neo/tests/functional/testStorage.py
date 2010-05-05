@@ -226,11 +226,20 @@ class StorageTests(NEOFunctionalTest):
         (started, _) = self.__setup(replicas=0, storage_number=1)
         self.__expectRunning(started[0])
         self.neo.expectOudatedCells(number=0)
+        # add a client node
+        db, conn = self.neo.getZODBConnection()
+        root = conn.root()['test'] = 'ok'
+        transaction.commit()
+        self.assertEqual(len(self.neo.getClientlist()), 1)
 
         # stop it, the cluster must switch to verification
         started[0].stop()
         self.__expectUnavailable(started[0])
         self.neo.expectClusterVeryfing()
+        # client must have been disconnected
+        self.assertEqual(len(self.neo.getClientlist()), 0)
+        conn.close()
+        db.close()
 
         # restart it, the cluster must come back to running state
         started[0].start()
