@@ -166,6 +166,11 @@ class Application(object):
             node = self.nm.getByUUID(self.uuid)
             if node is not None and node.isHidden():
                 self.wait()
+            # This is a queue of events used to delay operations due to locks.
+            self.event_queue = deque()
+            # drop any client node
+            for node in self.nm.getClientList():
+                node.getConnection().close()
             try:
                 self.verifyData()
                 self.initialize()
@@ -261,9 +266,6 @@ class Application(object):
         # Forget all unfinished data.
         self.dm.dropUnfinishedData()
         self.tm.reset()
-
-        # This is a queue of events used to delay operations due to locks.
-        self.event_queue = deque()
 
         # The replicator.
         self.replicator = Replicator(self)
