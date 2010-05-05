@@ -67,6 +67,7 @@ class StorageClientHandlerTests(NeoTestBase):
 
     def test_connectionLost(self):
         uuid = self.getNewUUID()
+        self.app.nm.createClient(uuid=uuid)
         conn = self._getConnection(uuid=uuid)
         self.operation.connectionClosed(conn)
         self._checkTransactionsAborted(uuid)
