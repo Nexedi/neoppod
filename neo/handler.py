@@ -65,16 +65,19 @@ class EventHandler(object):
         except BrokenNodeDisallowedError:
             conn.answer(Errors.Broken('go away'))
             conn.abort()
+            self.connectionClosed(conn)
         except NotReadyError, message:
             if not message.args:
                 message = 'Retry Later'
             message = str(message)
             conn.answer(Errors.NotReady(message))
             conn.abort()
+            self.connectionClosed(conn)
         except ProtocolError, message:
             message = str(message)
             conn.answer(Errors.ProtocolError(message))
             conn.abort()
+            self.connectionClosed(conn)
 
     def checkClusterName(self, name):
         # raise an exception if the fiven name mismatch the current cluster name
