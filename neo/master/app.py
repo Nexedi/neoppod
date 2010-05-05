@@ -348,7 +348,9 @@ class Application(object):
                     if node.isStorage() or node.isClient():
                         node.notify(Packets.StopOperation())
                         if node.isClient():
-                            node.getConnection().abort()
+                            conn = node.getConnection()
+                            conn.abort()
+                            conn.getHandler().connectionClosed(conn)
 
                 # Then, go back, and restart.
                 return
