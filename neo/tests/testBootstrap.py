@@ -45,15 +45,13 @@ class BootstrapManagerTests(NeoTestBase):
 
     # Tests
     def testConnectionCompleted(self):
-        uuid = self.getNewUUID()
-        conn = Mock({"getUUID" : uuid,
-                     "getAddress" : ("127.0.0.1", self.master_port)})
+        conn = self.getFakeConnection(address=("127.0.0.1", self.master_port))
         self.bootstrap.connectionCompleted(conn)
         self.checkAskPrimary(conn)
 
     def testHandleNotReady(self):
         # the primary is not ready
-        conn = Mock({})
+        conn = self.getFakeConnection()
         self.bootstrap.notReady(conn, '')
         self.checkClosed(conn)
         self.checkNoPacketSent(conn)

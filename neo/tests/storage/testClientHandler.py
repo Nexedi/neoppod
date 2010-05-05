@@ -29,10 +29,8 @@ from neo.protocol import Packets
 class StorageClientHandlerTests(NeoTestBase):
 
     def checkHandleUnexpectedPacket(self, _call, _msg_type, _listening=True, **kwargs):
-        conn = Mock({
-            "getAddress" : ("127.0.0.1", self.master_port),
-            "isServer": _listening,
-        })
+        conn = self.getFakeConnection(address=("127.0.0.1", self.master_port),
+                is_server=_listening)
         # hook
         self.operation.peerBroken = lambda c: c.peerBrokendCalled()
         self.checkUnexpectedPacketRaised(_call, conn=conn, **kwargs)
@@ -60,7 +58,7 @@ class StorageClientHandlerTests(NeoTestBase):
         NeoTestBase.tearDown(self)
 
     def _getConnection(self, uuid=None):
-        return Mock({'getUUID': uuid, 'getAddress': ('127.0.0.1', 1000)})
+        return self.getFakeConnection(uuid=uuid, address=('127.0.0.1', 1000))
 
     def _checkTransactionsAborted(self, uuid):
         calls = self.app.tm.mockGetNamedCalls('abortFor')
@@ -87,13 +85,13 @@ class StorageClientHandlerTests(NeoTestBase):
 
     def test_18_askTransactionInformation1(self):
         # transaction does not exists
-        conn = Mock({ })
+        conn = self._getConnection()
         self.operation.askTransactionInformation(conn, INVALID_TID)
         self.checkErrorPacket(conn)
 
     def test_18_askTransactionInformation2(self):
         # answer
-        conn = Mock({ })
+        conn = self._getConnection()
         dm = Mock({ "getTransaction": (INVALID_TID, 'user', 'desc', '', False), })
         self.app.dm = dm
         self.operation.askTransactionInformation(conn, INVALID_TID)
@@ -101,7 +99,7 @@ class StorageClientHandlerTests(NeoTestBase):
 
     def test_24_askObject1(self):
         # delayed response
-        conn = Mock({})
+        conn = self._getConnection()
         self.app.dm = Mock()
         self.app.tm = Mock({'loadLocked': True})
         self.app.load_lock_dict[INVALID_OID] = object()
@@ -115,7 +113,7 @@ class StorageClientHandlerTests(NeoTestBase):
     def test_24_askObject2(self):
         # invalid serial / tid / packet not found
         self.app.dm = Mock({'getObject': None})
-        conn = Mock({})
+        conn = self._getConnection()
         self.assertEquals(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=INVALID_OID,
             serial=INVALID_SERIAL, tid=INVALID_TID)
@@ -128,7 +126,7 @@ class StorageClientHandlerTests(NeoTestBase):
     def test_24_askObject3(self):
         # object found => answer
         self.app.dm = Mock({'getObject': ('', '', 0, 0, '', None)})
-        conn = Mock({})
+        conn = self._getConnection()
         self.assertEquals(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=INVALID_OID,
             serial=INVALID_SERIAL, tid=INVALID_TID)
@@ -140,14 +138,14 @@ class StorageClientHandlerTests(NeoTestBase):
         app = self.app
         app.pt = Mock()
         app.dm = Mock()
-        conn = Mock({})
+        conn = self._getConnection()
         self.checkProtocolErrorRaised(self.operation.askTIDs, conn, 1, 1, None)
         self.assertEquals(len(app.pt.mockGetNamedCalls('getCellList')), 0)
         self.assertEquals(len(app.dm.mockGetNamedCalls('getTIDList')), 0)
 
     def test_25_askTIDs2(self):
         # well case => answer
-        conn = Mock({})
+        conn = self._getConnection()
         self.app.pt = Mock({'getPartitions': 1})
         self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
         self.operation.askTIDs(conn, 1, 2, 1)
@@ -158,7 +156,7 @@ class StorageClientHandlerTests(NeoTestBase):
 
     def test_25_askTIDs3(self):
         # invalid partition => answer usable partitions
-        conn = Mock({})
+        conn = self._getConnection()
         cell = Mock({'getUUID':self.app.uuid})
         self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
         self.app.pt = Mock({
@@ -177,19 +175,19 @@ class StorageClientHandlerTests(NeoTestBase):
         # invalid offsets => error
         app = self.app
         app.dm = Mock()
-        conn = Mock({})
+        conn = self._getConnection()
         self.checkProtocolErrorRaised(self.operation.askObjectHistory, conn,
             1, 1, None)
         self.assertEquals(len(app.dm.mockGetNamedCalls('getObjectHistory')), 0)
 
     def test_26_askObjectHistory2(self):
         # first case: empty history
-        conn = Mock({})
+        conn = self._getConnection()
         self.app.dm = Mock({'getObjectHistory': None})
         self.operation.askObjectHistory(conn, INVALID_OID, 1, 2)
         self.checkAnswerObjectHistory(conn)
         # second case: not empty history
-        conn = Mock({})
+        conn = self._getConnection()
         self.app.dm = Mock({'getObjectHistory': [('', 0, ), ]})
         self.operation.askObjectHistory(conn, INVALID_OID, 1, 2)
         self.checkAnswerObjectHistory(conn)

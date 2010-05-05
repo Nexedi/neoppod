@@ -33,7 +33,7 @@ class MasterHandlerTests(NeoTestBase):
         pass
 
     def getConnection(self):
-        return Mock({'getAddress': ('fake-conn', 0)})
+        return self.getFakeConnection()
 
 
 class MasterBootstrapHandlerTests(MasterHandlerTests):
@@ -186,16 +186,19 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
             (NodeTypes.STORAGE, addr, self.getNewUUID(), NodeStates.DOWN),
         ]
         # XXX: it might be better to test with real node & node manager
-        conn1, conn2 = Mock({'__repr__': 'conn1'}), Mock({'__repr__': 'conn2'})
+        conn1 = self.getFakeConnection()
+        conn2 = self.getFakeConnection()
         node1 = Mock({
             'getConnection': conn1, 
             '__nonzero__': 1,
             'isConnected': True,
+            '__repr__': 'Fake Node',
         })
         node2 = Mock({
             'getConnection': conn2, 
             '__nonzero__': 1,
             'isConnected': True,
+            '__repr__': 'Fake Node',
         })
         self.app.nm = Mock({'getByUUID': ReturnValues(node1, node2)})
         self.app.cp = Mock()

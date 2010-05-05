@@ -39,8 +39,8 @@ class EventTests(NeoTestBase):
         self.assertTrue(isinstance(em.epoll, Epoll))
         # use a mock object instead of epoll
         em.epoll = Mock()
-        connector = Mock({"getDescriptor" : 1014})
-        conn = Mock({'getConnector': connector})
+        connector = self.getFakeConnector(descriptor=1014)
+        conn = self.getFakeConnection(connector=connector)
         self.assertEqual(len(em.getConnectionList()), 0)
 
         # test register/unregister
@@ -52,8 +52,8 @@ class EventTests(NeoTestBase):
         self.assertEqual(data, 1014)
         self.assertEqual(len(em.getConnectionList()), 1)
         self.assertEqual(em.getConnectionList()[0].getDescriptor(), conn.getDescriptor())
-        connector = Mock({"getDescriptor" : 1014})
-        conn = Mock({'getConnector': connector})
+        connector = self.getFakeConnector(descriptor=1014)
+        conn = self.getFakeConnection(connector=connector)
         em.unregister(conn)
         self.assertEquals(len(connector.mockGetNamedCalls("getDescriptor")), 1)
         self.assertEquals(len(em.epoll.mockGetNamedCalls("unregister")), 1)
@@ -63,8 +63,7 @@ class EventTests(NeoTestBase):
         self.assertEqual(len(em.getConnectionList()), 0)
 
         # add/removeReader
-        connector = Mock({"getDescriptor" : 1515})
-        conn = Mock({'getConnector': connector})
+        conn = self.getFakeConnection()
         self.assertEqual(len(em.reader_set), 0)
         em.addReader(conn)
         self.assertEqual(len(em.reader_set), 1)
@@ -80,8 +79,7 @@ class EventTests(NeoTestBase):
         self.assertEquals(len(em.epoll.mockGetNamedCalls("modify")), 2)
 
         # add/removeWriter
-        connector = Mock({"getDescriptor" : 1515})
-        conn = Mock({'getConnector': connector})
+        conn = self.getFakeConnection()
         self.assertEqual(len(em.writer_set), 0)
         em.addWriter(conn)
         self.assertEqual(len(em.writer_set), 1)
@@ -97,11 +95,11 @@ class EventTests(NeoTestBase):
         self.assertEquals(len(em.epoll.mockGetNamedCalls("modify")), 4)
 
         # poll
-        r_connector = Mock({"getDescriptor" : 14515})
-        r_conn = Mock({'getConnector': r_connector})
+        r_connector = self.getFakeConnector(descriptor=14515)
+        r_conn = self.getFakeConnection(connector=r_connector)
         em.register(r_conn)
-        w_connector = Mock({"getDescriptor" : 351621})
-        w_conn = Mock({'getConnector': w_connector})
+        w_connector = self.getFakeConnector(descriptor=351621)
+        w_conn = self.getFakeConnection(connector=w_connector)
         em.register(w_conn)
         em.epoll = Mock({"poll":(
           (r_connector.getDescriptor(),),

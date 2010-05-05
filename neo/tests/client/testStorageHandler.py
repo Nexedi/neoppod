@@ -32,7 +32,7 @@ class StorageBootstrapHandlerTests(NeoTestBase):
         self.handler = StorageBootstrapHandler(self.app)
 
     def getConnection(self):
-        return Mock({'getAddress': ('fake-conn', 0)})
+        return self.getFakeConnection()
 
     def test_notReady(self):
         conn = self.getConnection()
@@ -70,7 +70,7 @@ class StorageAnswerHandlerTests(NeoTestBase):
         self.handler = StorageAnswersHandler(self.app)
 
     def getConnection(self):
-        return Mock({'getAddress': ('fake-conn', 0)})
+        return self.getFakeConnection()
 
     def test_answerObject(self):
         conn = self.getConnection()
@@ -229,7 +229,7 @@ class StorageAnswerHandlerTests(NeoTestBase):
         tid1 = self.getNextTID()
         tid2 = self.getNextTID(tid1)
         tid_list = [tid1, tid2]
-        conn = Mock({'getUUID': uuid})
+        conn = self.getFakeConnection(uuid=uuid)
         self.app.local_var.node_tids = {}
         self.handler.answerTIDs(conn, tid_list)
         self.assertTrue(uuid in self.app.local_var.node_tids)

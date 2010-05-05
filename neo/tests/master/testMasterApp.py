@@ -56,9 +56,9 @@ class MasterAppTests(NeoTestBase):
         client_uuid = self.getNewUUID()
         client = self.app.nm.createClient(uuid=client_uuid)
         # create conn and patch em
-        master_conn = Mock()
-        storage_conn = Mock()
-        client_conn = Mock()
+        master_conn = self.getFakeConnection()
+        storage_conn = self.getFakeConnection()
+        client_conn = self.getFakeConnection()
         master.setConnection(master_conn)
         storage.setConnection(storage_conn)
         client.setConnection(client_conn)

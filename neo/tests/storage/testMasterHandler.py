@@ -122,7 +122,7 @@ class StorageMasterHandlerTests(NeoTestBase):
 
     def test_16_stopOperation1(self):
         # OperationFailure
-        conn = Mock({ 'isServer': False })
+        conn = self.getFakeConnection(is_server=False)
         self.assertRaises(OperationFailure, self.operation.stopOperation, conn)
 
     def _getConnection(self):
@@ -169,7 +169,7 @@ class StorageMasterHandlerTests(NeoTestBase):
 
     def test_30_answerLastIDs(self):
         # set critical TID on replicator
-        conn = Mock()
+        conn = self.getFakeConnection()
         self.app.replicator = Mock()
         self.operation.answerLastIDs(
             conn=conn,
@@ -183,7 +183,7 @@ class StorageMasterHandlerTests(NeoTestBase):
 
     def test_31_answerUnfinishedTransactions(self):
         # set unfinished TID on replicator
-        conn = Mock()
+        conn = self.getFakeConnection()
         self.app.replicator = Mock()
         self.operation.answerUnfinishedTransactions(
             conn=conn,

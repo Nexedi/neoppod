@@ -222,11 +222,10 @@ class MasterServerElectionTests(NeoTestBase):
         if uuid is True:
             uuid = self.getNewUUID()
         node.setUUID(uuid)
-        conn = Mock({
-            "getUUID": node.getUUID(),
-            "getAddress": node.getAddress(),
-            "getConnector": Mock(),
-        })
+        conn = self.getFakeConnection(
+                uuid=node.getUUID(),
+                address=node.getAddress(),
+        )
         return (node, conn)
 
 
@@ -286,22 +285,14 @@ class MasterServerElectionTests(NeoTestBase):
 
     def __getClient(self):
         uuid = self.getNewUUID()
-        conn = Mock({
-            'getUUID': uuid,
-            'getAddress': self.client_address,
-            'getConnector': Mock(),
-        })
+        conn = self.getFakeConnection(uuid=uuid, address=self.client_address)
         self.app.nm.createClient(uuid=uuid, address=self.client_address)
         return conn
 
     def __getMaster(self, port=1000, register=True):
         uuid = self.getNewUUID()
         address = ('127.0.0.1', port)
-        conn = Mock({
-            'getUUID': uuid,
-            'getAddress': address,
-            'getConnector': Mock(),
-        })
+        conn = self.getFakeConnection(uuid=uuid, address=address)
         if register:
             self.app.nm.createMaster(uuid=uuid, address=address)
         return conn
