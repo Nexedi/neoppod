@@ -65,19 +65,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(uuid)
 
-    def test_connectionClosed(self):
-        uuid = self.getNewUUID()
-        conn = self._getConnection(uuid=uuid)
-        self.operation.connectionClosed(conn)
-        self._checkTransactionsAborted(uuid)
-
-    def test_timeoutExpired(self):
-        uuid = self.getNewUUID()
-        conn = self._getConnection(uuid=uuid)
-        self.operation.connectionClosed(conn)
-        self._checkTransactionsAborted(uuid)
-
-    def test_peerBroken(self):
+    def test_connectionLost(self):
         uuid = self.getNewUUID()
         conn = self._getConnection(uuid=uuid)
         self.operation.connectionClosed(conn)

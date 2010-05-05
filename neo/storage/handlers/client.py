@@ -25,17 +25,8 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
     def _askObject(self, oid, serial, tid):
         return self.app.dm.getObject(oid, serial, tid)
 
-    def timeoutExpired(self, conn):
+    def connectionLost(self, conn, new_state):
         self.app.tm.abortFor(conn.getUUID())
-        BaseClientAndStorageOperationHandler.timeoutExpired(self, conn)
-
-    def connectionClosed(self, conn):
-        self.app.tm.abortFor(conn.getUUID())
-        BaseClientAndStorageOperationHandler.connectionClosed(self, conn)
-
-    def peerBroken(self, conn):
-        self.app.tm.abortFor(conn.getUUID())
-        BaseClientAndStorageOperationHandler.peerBroken(self, conn)
 
     def abortTransaction(self, conn, tid):
         self.app.tm.abort(tid)
