@@ -92,12 +92,13 @@ class BaseServiceHandler(MasterHandler):
         assert node.getState() not in (NodeStates.TEMPORARILY_DOWN,
             NodeStates.DOWN, NodeStates.BROKEN), (dump(self.app.uuid),
             node.whoSetState(), new_state)
-        if new_state != NodeStates.BROKEN and node.isPending():
+        was_pending = node.isPending()
+        node.setState(new_state)
+        if new_state != NodeStates.BROKEN and was_pending:
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
             logging.info('drop a pending node from the node manager')
             self.app.nm.remove(node)
-        node.setState(new_state)
         self.app.broadcastNodesInformation([node])
         # clean node related data in specialized handlers
         self.nodeLost(conn, node)
