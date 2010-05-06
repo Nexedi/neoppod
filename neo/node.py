@@ -307,7 +307,7 @@ class NodeManager(object):
     def _updateIdentified(self, node):
         uuid = node.getUUID()
         identified = node.isIdentified()
-        if uuid in self._identified_dict and not identified:
+        if not identified and uuid in self._identified_dict:
             del self._identified_dict[uuid]
         elif identified:
             self._identified_dict[uuid] = node
