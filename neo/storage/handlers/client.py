@@ -19,6 +19,11 @@ from neo import protocol
 from neo.protocol import Packets
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
 from neo.storage.transactions import ConflictError, DelayedError
+import time
+
+# Log stores taking (incl. lock delays) more than this many seconds.
+# Set to None to disable.
+SLOW_STORE = 2
 
 class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
@@ -42,8 +47,8 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             False)
         conn.answer(Packets.AnswerStoreTransaction(tid))
 
-    def askStoreObject(self, conn, oid, serial,
-                             compression, checksum, data, tid):
+    def _askStoreObject(self, conn, oid, serial, compression, checksum, data,
+            tid, request_time):
         uuid = conn.getUUID()
         try:
             self.app.tm.storeObject(uuid, tid, serial, oid, compression,
@@ -54,10 +59,19 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             conn.answer(Packets.AnswerStoreObject(1, oid, tid_or_serial))
         except DelayedError:
             # locked by a previous transaction, retry later
-            self.app.queueEvent(self.askStoreObject, conn, oid, serial,
-                    compression, checksum, data, tid)
+            self.app.queueEvent(self._askStoreObject, conn, oid, serial,
+                    compression, checksum, data, tid, request_time)
         else:
+            if SLOW_STORE is not None:
+                duration = time.time() - request_time
+                if duration > SLOW_STORE:
+                    logging.info('StoreObject delay: %.02fs', duration)
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
+
+    def askStoreObject(self, conn, oid, serial,
+                             compression, checksum, data, tid):
+        self._askStoreObject(conn, oid, serial, compression, checksum, data,
+            tid, time.time())
 
     def askTIDs(self, conn, first, last, partition):
         # This method is complicated, because I must return TIDs only
