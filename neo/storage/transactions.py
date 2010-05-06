@@ -192,26 +192,30 @@ class TransactionManager(object):
         if locking_tid == tid:
             logging.info('Transaction %s storing %s more than once', dump(tid),
                 dump(oid))
-        else:
-            if locking_tid is not None:
-                if locking_tid < tid:
-                    # a previous transaction lock this object, retry later
-                    raise DelayedError
-                # If a newer transaction already locks this object,
-                # do not try to resolve a conflict, so return immediately.
-                logging.info('unresolvable conflict in %s', dump(oid))
-                raise ConflictError(locking_tid)
-
+        elif locking_tid is None:
             # check if this is generated from the latest revision.
             history_list = self._app.dm.getObjectHistory(oid)
             if history_list and history_list[0][0] != serial:
-                logging.info('resolvable conflict in %s', dump(oid))
+                logging.info('Resolvable conflict on %r:%r', dump(oid),
+                        dump(tid))
                 raise ConflictError(history_list[0][0])
+            logging.info('Transaction %s storing %s', dump(tid), dump(oid))
+            self._store_lock_dict[oid] = tid
+        elif locking_tid < tid:
+            # a previous transaction lock this object, retry later
+            logging.info('Store delayed for %r:%r by %r', dump(oid),
+                    dump(tid), dump(locking_tid))
+            raise DelayedError
+        else:
+            # If a newer transaction already locks this object,
+            # do not try to resolve a conflict, so return immediately.
+            logging.info('Unresolvable conflict on %r:%r with %r', dump(oid),
+                    dump(tid), dump(locking_tid))
+            raise ConflictError(locking_tid)
 
         # store object
         transaction = self._getTransaction(tid, uuid)
         transaction.addObject(oid, compression, checksum, data, value_serial)
-        self._store_lock_dict[oid] = tid
 
         # update loid
         self._loid_seen = oid
