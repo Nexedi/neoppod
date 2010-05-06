@@ -166,11 +166,10 @@ class Application(object):
             node = self.nm.getByUUID(self.uuid)
             if node is not None and node.isHidden():
                 self.wait()
-            # This is a queue of events used to delay operations due to locks.
-            self.event_queue = deque()
-            # drop any client node
+            # drop any client node and clear event queue
             for node in self.nm.getClientList():
                 node.getConnection().close()
+            self.event_queue = deque()
             try:
                 self.verifyData()
                 self.initialize()
