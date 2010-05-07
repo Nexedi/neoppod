@@ -140,7 +140,7 @@ class HandlerSwitcher(object):
         if klass and isinstance(packet, klass) or packet.isError():
             handler.packetReceived(self._connection, packet)
         else:
-            logging.error('Unexpected answer: %r', packet)
+            logging.error('Unexpected answer %r in %r', packet, self._connection)
             notification = Packets.Notify('Unexpected answer: %r' % packet)
             self._connection.notify(notification)
             self._connection.abort()
@@ -148,7 +148,8 @@ class HandlerSwitcher(object):
         # apply a pending handler if no more answers are pending
         while len(self._pending) > 1 and not self._pending[0][0]:
             del self._pending[0]
-            logging.debug('Apply handler %r', self._pending[0][1])
+            logging.debug('Apply handler %r on %r', self._pending[0][1],
+                    self._connection)
         if timeout == self._next_timeout:
             # Find next timeout and its msg_id
             timeout_list = []
@@ -166,11 +167,11 @@ class HandlerSwitcher(object):
     def setHandler(self, handler):
         if len(self._pending) == 1 and not self._pending[0][0]:
             # nothing is pending, change immediately
-            logging.debug('Set handler %r', handler)
+            logging.debug('Set handler %r on %r', handler, self._connection)
             self._pending[0][1] = handler
         else:
             # put the next handler in queue
-            logging.debug('Delay handler %r', handler)
+            logging.debug('Delay handler %r on %r', handler, self._connection)
             self._pending.append([{}, handler])
 
 
