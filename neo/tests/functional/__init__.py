@@ -258,26 +258,32 @@ class NEOCluster(object):
         sql_connection.commit()
         sql_connection.close()
 
-    def start(self, except_storages=()):
-        neoctl = self.neoctl
+    def run(self, except_storages=()):
+        """ Start cluster processes except some storage nodes """
         assert len(self.process_dict)
         for process_list in self.process_dict.itervalues():
             for process in process_list:
                 if process not in except_storages:
                     process.start()
-        # Try to put cluster in running state. This will succeed as soon as
-        # admin node could connect to the primary master node.
+        # wait for the admin node availability
         end_time = time.time() + MAX_START_TIME
         while True:
             if time.time() > end_time:
                 raise AssertionError, 'Timeout when starting cluster'
             try:
-                neoctl.startCluster()
+                self.neoctl.getClusterState()
             except NotReadyException:
                 time.sleep(0.5)
             else:
                 break
+
+    def start(self, except_storages=()):
+        """ Do a complete start of a cluster """
+        self.run(except_storages=except_storages)
+        neoctl = self.neoctl
+        neoctl.startCluster()
         target_count = len(self.db_list) - len(except_storages)
+        end_time = time.time() + MAX_START_TIME
         while True:
             if time.time() > end_time:
                 raise AssertionError, 'Timeout when starting cluster'
