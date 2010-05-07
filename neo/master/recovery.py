@@ -151,4 +151,8 @@ class RecoveryManager(MasterHandler):
             self.app.pt.load(ptid, row_list, self.app.nm)
         except IndexError:
             raise ProtocolError('Invalid offset')
+        else:
+            # notify the admin nodes
+            for node in self.app.nm.getAdminList(only_identified=True):
+                self.app.sendPartitionTable(node.getConnection())
 
