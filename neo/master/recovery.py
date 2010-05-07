@@ -33,7 +33,7 @@ class RecoveryManager(MasterHandler):
     def __init__(self, app):
         super(RecoveryManager, self).__init__(app)
         # The target node's uuid to request next.
-        self.target_uuid = None
+        self.target_ptid = None
 
     def getHandler(self):
         return self
@@ -116,8 +116,6 @@ class RecoveryManager(MasterHandler):
 
     def answerLastIDs(self, conn, loid, ltid, lptid):
         app = self.app
-        pt = app.pt
-
         # Get max values.
         if loid is not None:
             if app.loid is None:
@@ -126,19 +124,17 @@ class RecoveryManager(MasterHandler):
                 app.loid = max(loid, app.loid)
         if ltid is not None:
             self.app.tm.setLastTID(ltid)
-        if lptid > pt.getID():
+        if lptid > self.target_ptid:
             # something newer
-            self.target_uuid = conn.getUUID()
-            app.pt.setID(lptid)
+            self.target_ptid = lptid
             conn.ask(Packets.AskPartitionTable([]))
 
     def answerPartitionTable(self, conn, ptid, row_list):
-        uuid = conn.getUUID()
         app = self.app
-        if uuid != self.target_uuid:
+        if ptid != self.target_ptid:
             # If this is not from a target node, ignore it.
-            logging.warn('got answer partition table from %s while waiting ' \
-                    'for %s', dump(uuid), dump(self.target_uuid))
+            logging.warn('Got %s while waiting %s', dump(ptid),
+                    dump(self.target_ptid))
             return
         # load unknown storage nodes
         new_nodes = []

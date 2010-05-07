@@ -112,7 +112,7 @@ class MasterRecoveryTests(NeoTestBase):
         recovery.answerLastIDs(conn, new_oid, new_tid, new_ptid)
         self.assertEquals(new_oid, self.app.loid)
         self.assertEquals(new_tid, self.app.tm.getLastTID())
-        self.assertEquals(new_ptid, self.app.pt.getID())
+        self.assertEquals(new_ptid, recovery.target_ptid)
 
 
     def test_10_answerPartitionTable(self):
@@ -126,7 +126,8 @@ class MasterRecoveryTests(NeoTestBase):
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, CellStates.OUT_OF_DATE)
-        recovery.answerPartitionTable(conn, None, cell_list)
+        recovery.target_ptid = 2
+        recovery.answerPartitionTable(conn, 1, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEquals(state, CellStates.OUT_OF_DATE)
@@ -148,7 +149,7 @@ class MasterRecoveryTests(NeoTestBase):
         self.assertFalse(self.app.pt.hasOffset(offset))
         cell_list = [(offset, ((uuid, NodeStates.DOWN,),),)]
         self.checkProtocolErrorRaised(recovery.answerPartitionTable, conn,
-            None, cell_list)
+            2, cell_list)
 
 
 if __name__ == '__main__':
