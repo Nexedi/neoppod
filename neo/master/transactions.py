@@ -17,6 +17,7 @@
 
 from time import time, gmtime
 from struct import pack, unpack
+from neo.util import dump
 from neo import logging
 from neo import protocol
 
@@ -32,6 +33,14 @@ class Transaction(object):
         self._msg_id = None
         # uuid dict hold flag to known who has locked the transaction
         self._uuid_dict = {}
+
+    def __repr__(self):
+        return "<%s(node=%r, tid=%r, oids=%r, uuids=%r) at %x>" % (
+                self._node,
+                dump(self._tid),
+                [dump(x) for x in self._oid_list],
+                [dump(x) for x in self._uuid_dict],
+        )
 
     def getNode(self):
         """

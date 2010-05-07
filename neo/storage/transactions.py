@@ -51,6 +51,15 @@ class Transaction(object):
         self._transaction = None
         self._locked = False
 
+    def __repr__(self):
+        return "<%s(tid=%r, uuid=%r, locked=%r)> at %x" % (
+            self.__class__.__name__,
+            dump(self._tid),
+            dump(self._uuid),
+            self.isLocked(),
+            id(self),
+        )
+
     def getTID(self):
         return self._tid
 
