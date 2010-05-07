@@ -448,8 +448,9 @@ class NodeManager(object):
                 if state == NodeStates.DOWN:
                     logging.debug('NOT creating node %s %s %s %s', *log_args)
                 else:
-                    logging.debug('creating node %s %s %s %s', *log_args)
-                    self._createNode(klass, address=addr, uuid=uuid, state=state)
+                    node = self._createNode(klass, address=addr, uuid=uuid,
+                            state=state)
+                    logging.debug('creating node %r', node)
             else:
                 assert isinstance(node, klass), 'node %r is not ' \
                     'of expected type: %r' % (node, klass)
