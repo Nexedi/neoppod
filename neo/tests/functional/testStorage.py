@@ -485,14 +485,48 @@ class StorageTests(NEOFunctionalTest):
         self.__expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)
         self.neo.expectClusterRunning()
+        # XXX: need to sync with storages first
+        self.neo.stop()
 
         # restart it with one storage only
-        self.neo.stop()
         self.neo.start(except_storages=(started[1], ))
         self.__expectRunning(started[0])
         self.__expectUnknown(started[1])
         self.neo.expectClusterRunning()
 
+    def testRecoveryWithMultiplePT(self):
+        # start a cluster with 2 storages and a replica
+        (started, stopped) = self.__setup(storage_number=2, replicas=1,
+                pending_number=0, partitions=10)
+        self.__expectRunning(started[0])
+        self.__expectRunning(started[1])
+        self.neo.expectOudatedCells(number=0)
+        self.neo.expectClusterRunning()
+
+        # drop the first then the second storage
+        started[0].stop()
+        self.__expectUnavailable(started[0])
+        self.__expectRunning(started[1])
+        self.neo.expectOudatedCells(number=10)
+        started[1].stop()
+        self.__expectUnavailable(started[0])
+        self.__expectUnavailable(started[1])
+        self.neo.expectOudatedCells(number=10)
+        self.neo.expectClusterVeryfing()
+        # XXX: need to sync with storages first
+        self.neo.stop()
+
+        # restart the cluster with the first storage killed
+        self.neo.run(except_storages=[started[1]])
+        self.__expectRunning(started[0])
+        self.__expectUnknown(started[1])
+        self.neo.expectClusterRecovering()
+        self.neo.expectOudatedCells(number=0)
+        started[1].start()
+        self.__expectRunning(started[0])
+        self.__expectRunning(started[1])
+        self.neo.expectClusterRecovering()
+        self.neo.expectOudatedCells(number=10)
 
 if __name__ == "__main__":
     unittest.main()
