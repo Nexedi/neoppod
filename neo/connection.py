@@ -281,11 +281,11 @@ class BaseConnection(object):
 
     def __repr__(self):
         address = self.addr and '%s:%d' % self.addr or '?'
-        return '<%s(uuid=%s, address=%s, closed=%s) at %x>' % (
+        return '<%s(uuid=%s, address=%s, connection=%s) at %x>' % (
             self.__class__.__name__,
             dump(self.getUUID()),
             address,
-            self.isClosed(),
+            self._connection,
             id(self),
         )
 
