@@ -126,7 +126,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.assertRaises(OperationFailure, self.operation.stopOperation, conn)
 
     def _getConnection(self):
-        return Mock({})
+        return self.getFakeConnection()
 
     def test_askLockInformation1(self):
         """ Unknown transaction """
