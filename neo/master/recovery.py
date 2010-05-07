@@ -136,22 +136,12 @@ class RecoveryManager(MasterHandler):
             logging.warn('Got %s while waiting %s', dump(ptid),
                     dump(self.target_ptid))
             return
-        # load unknown storage nodes
-        new_nodes = []
-        for _offset, row in row_list:
-            for uuid, _state in row:
-                node = app.nm.getByUUID(uuid)
-                if node is None:
-                    new_nodes.append(app.nm.createStorage(uuid=uuid))
-        # notify about new nodes
-        if new_nodes:
-            self.app.broadcastNodesInformation(new_nodes)
-        # load partition in memory
         try:
-            self.app.pt.load(ptid, row_list, self.app.nm)
+            new_nodes = self.app.pt.load(ptid, row_list, self.app.nm)
         except IndexError:
             raise ProtocolError('Invalid offset')
         else:
+            self.app.broadcastNodesInformation(new_nodes)
             # notify the admin nodes
             for node in self.app.nm.getAdminList(only_identified=True):
                 self.app.sendPartitionTable(node.getConnection())

@@ -104,6 +104,28 @@ class PartitionTable(neo.pt.PartitionTable):
 
         return cell_list
 
+    def load(self, ptid, row_list, nm):
+        """
+        Load a partition table from a storage node during the recovery.
+        Return the new storage nodes registered
+        """
+        # check offsets
+        for offset, _row in row_list:
+            if offset >= self.getPartitions():
+                raise IndexError, offset
+        # store the partition table
+        self.clear()
+        self.id = ptid
+        new_nodes = []
+        for offset, row in row_list:
+            for uuid, state in row:
+                node = nm.getByUUID(uuid)
+                if node is None:
+                    node = nm.createStorage(uuid=uuid)
+                    new_nodes.append(node)
+                self.setCell(offset, node, state)
+        return new_nodes
+
     def addNode(self, node):
         """Add a node. Take it into account that it might not be really a new
         node. The strategy is, if a row does not contain a good number of
