@@ -142,8 +142,8 @@ class RecoveryManager(MasterHandler):
             return
         # load unknown storage nodes
         new_nodes = []
-        for offset, row in row_list:
-            for uuid, state in row:
+        for _offset, row in row_list:
+            for uuid, _state in row:
                 node = app.nm.getByUUID(uuid)
                 if node is None:
                     new_nodes.append(app.nm.createStorage(uuid=uuid))
