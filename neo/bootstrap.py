@@ -52,6 +52,7 @@ class BootstrapManager(EventHandler):
         Now ask who's the primary.
         """
         EventHandler.connectionCompleted(self, conn)
+        self.current.setRunning()
         conn.ask(Packets.AskPrimary())
 
     def connectionFailed(self, conn):
@@ -67,6 +68,7 @@ class BootstrapManager(EventHandler):
         Triggered when an established network connection is lost.
         Restart bootstrap.
         """
+        self.current.setTemporarilyDown()
         self.current = None
 
     def notReady(self, conn, message):

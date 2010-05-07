@@ -45,13 +45,17 @@ class BootstrapManagerTests(NeoTestBase):
 
     # Tests
     def testConnectionCompleted(self):
-        conn = self.getFakeConnection(address=("127.0.0.1", self.master_port))
+        address=("127.0.0.1", self.master_port)
+        conn = self.getFakeConnection(address=address)
+        self.bootstrap.current = self.app.nm.createMaster(address=address)
         self.bootstrap.connectionCompleted(conn)
         self.checkAskPrimary(conn)
 
     def testHandleNotReady(self):
         # the primary is not ready
-        conn = self.getFakeConnection()
+        address=("127.0.0.1", self.master_port)
+        conn = self.getFakeConnection(address=address)
+        self.bootstrap.current = self.app.nm.createMaster(address=address)
         self.bootstrap.notReady(conn, '')
         self.checkClosed(conn)
         self.checkNoPacketSent(conn)
