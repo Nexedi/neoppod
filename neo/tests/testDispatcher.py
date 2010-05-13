@@ -108,6 +108,21 @@ class DispatcherTests(unittest.TestCase):
         self.assertFalse(self.dispatcher.pending(queue1))
         self.assertFalse(self.dispatcher.pending(queue2))
 
+    def testForget(self):
+        conn = object()
+        queue = Queue()
+        MARKER = object()
+        # Register an expectation
+        self.dispatcher.register(conn, 1, queue)
+        # ...and forget about it
+        self.dispatcher.forget(conn, 1)
+        # If forgotten twice, it must raise a KeyError
+        self.assertRaises(KeyError, self.dispatcher.forget, conn, 1)
+        # Event arrives, return value must be True (it was expected)
+        self.assertTrue(self.dispatcher.dispatch(conn, 1, MARKER))
+        # ...but must not have reached the queue
+        self.assertTrue(queue.empty())
+
 if __name__ == '__main__':
     unittest.main()
 

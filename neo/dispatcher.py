@@ -18,6 +18,7 @@
 from neo.locking import Lock
 from neo.profiling import profiler_decorator
 EMPTY = {}
+NOBODY = []
 
 def giant_lock(func):
     def wrapped(self, *args, **kw):
@@ -45,6 +46,8 @@ class Dispatcher:
         queue = self.message_table.get(id(conn), EMPTY).pop(msg_id, None)
         if queue is None:
             return False
+        elif queue is NOBODY:
+            return True
         self.queue_dict[id(queue)] -= 1
         queue.put(data)
         return True
@@ -78,6 +81,20 @@ class Dispatcher:
                 queue.put((conn, None))
                 notified_set.add(queue_id)
             queue_dict[queue_id] -= 1
+
+    @giant_lock
+    @profiler_decorator
+    def forget(self, conn, msg_id):
+        """ Forget about a specific message for a specific connection.
+        Actually makes it "expected by nobody", so we know we can ignore it,
+        and not detect it as an error. """
+        message_table = self.message_table[id(conn)]
+        queue = message_table[msg_id]
+        if queue is NOBODY:
+            raise KeyError, 'Already expected by NOBODY: %r, %r' % (
+                conn, msg_id)
+        self.queue_dict[id(queue)] -= 1
+        message_table[msg_id] = NOBODY
 
     @profiler_decorator
     def registered(self, conn):
