@@ -97,7 +97,7 @@ class StorageAnswerHandlerTests(NeoTestBase):
         local_var.conflict_serial_dict = {}
         local_var.resolved_conflict_serial_dict = {}
         self.handler.answerStoreObject(conn, 1, oid, tid)
-        self.assertEqual(local_var.conflict_serial_dict[oid], tid)
+        self.assertEqual(local_var.conflict_serial_dict[oid], set([tid, ]))
         self.assertEqual(local_var.object_stored_counter_dict[oid], {})
         self.assertFalse(oid in local_var.resolved_conflict_serial_dict)
         # object was already accepted by another storage, raise
@@ -115,24 +115,23 @@ class StorageAnswerHandlerTests(NeoTestBase):
         # resolution-pending conflict
         local_var = self.app.local_var
         local_var.object_stored_counter_dict = {oid: {}}
-        local_var.conflict_serial_dict = {oid: tid}
+        local_var.conflict_serial_dict = {oid: set([tid, ])}
         local_var.resolved_conflict_serial_dict = {}
         self.handler.answerStoreObject(conn, 1, oid, tid)
-        self.assertEqual(local_var.conflict_serial_dict[oid], tid)
+        self.assertEqual(local_var.conflict_serial_dict[oid], set([tid, ]))
         self.assertFalse(oid in local_var.resolved_conflict_serial_dict)
         self.assertEqual(local_var.object_stored_counter_dict[oid], {})
         # object was already accepted by another storage, raise
         local_var.object_stored_counter_dict = {oid: {tid: 1}}
-        local_var.conflict_serial_dict = {oid: tid}
+        local_var.conflict_serial_dict = {oid: set([tid, ])}
         local_var.resolved_conflict_serial_dict = {}
         self.assertRaises(NEOStorageError, self.handler.answerStoreObject,
             conn, 1, oid, tid)
-        # detected conflict is different, raise
+        # detected conflict is different, don't raise
         local_var.object_stored_counter_dict = {oid: {}}
-        local_var.conflict_serial_dict = {oid: tid}
+        local_var.conflict_serial_dict = {oid: set([tid, ])}
         local_var.resolved_conflict_serial_dict = {}
-        self.assertRaises(NEOStorageError, self.handler.answerStoreObject,
-            conn, 1, oid, tid_2)
+        self.handler.answerStoreObject(conn, 1, oid, tid_2)
 
     def test_answerStoreObject_3(self):
         conn = self.getConnection()
@@ -146,17 +145,17 @@ class StorageAnswerHandlerTests(NeoTestBase):
         local_var = self.app.local_var
         local_var.object_stored_counter_dict = {oid: {tid_2: 1}}
         local_var.conflict_serial_dict = {}
-        local_var.resolved_conflict_serial_dict = {oid: tid}
+        local_var.resolved_conflict_serial_dict = {oid: set([tid, ])}
         self.handler.answerStoreObject(conn, 1, oid, tid)
         self.assertFalse(oid in local_var.conflict_serial_dict)
-        self.assertEqual(local_var.resolved_conflict_serial_dict[oid], tid)
+        self.assertEqual(local_var.resolved_conflict_serial_dict[oid],
+            set([tid, ]))
         self.assertEqual(local_var.object_stored_counter_dict[oid], {tid_2: 1})
-        # detected conflict is different, raise
+        # detected conflict is different, don't raise
         local_var.object_stored_counter_dict = {oid: {tid: 1}}
         local_var.conflict_serial_dict = {}
-        local_var.resolved_conflict_serial_dict = {oid: tid}
-        self.assertRaises(NEOStorageError, self.handler.answerStoreObject,
-            conn, 1, oid, tid_2)
+        local_var.resolved_conflict_serial_dict = {oid: set([tid, ])}
+        self.handler.answerStoreObject(conn, 1, oid, tid_2)
 
     def test_answerStoreObject_4(self):
         conn = self.getConnection()
