@@ -443,6 +443,7 @@ class ClientApplicationTests(NeoTestBase):
         conn = Mock({
             'getNextId': 1,
             'getAddress': storage_address,
+            '__repr__': 'connection mock'
         })
         cell = Mock({
             'getAddress': 'FakeServer',
