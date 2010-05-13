@@ -216,10 +216,8 @@ class DatabaseManager(object):
         thrown away."""
         raise NotImplementedError
 
-    def dropForeignPartitions(self, num_partitions, offset):
-        """ Drop objects and transactions assigned to a partition table,
-        this should be called only during storage initialization, to clear
-        existing data that could be stored by a previous cluster life """
+    def dropPartitions(self, num_partitions, offset_list):
+        """ Drop any data of non-assigned partitions for a given UUID """
         raise NotImplementedError('this method must be overriden')
 
     def dropUnfinishedData(self):

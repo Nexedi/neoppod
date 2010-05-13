@@ -394,14 +394,16 @@ class MySQLDatabaseManager(DatabaseManager):
     def setPartitionTable(self, ptid, cell_list):
         self.doSetPartitionTable(ptid, cell_list, True)
 
-    def dropPartition(self, num_partitions, offset):
+    def dropPartitions(self, num_partitions, offset_list):
         q = self.query
+        e = self.escape
+        offset_list = ', '.join((str(i) for i in offset_list))
         self.begin()
         try:
-            q("""DELETE FROM obj WHERE MOD(oid, %d) = %d""" %
-                (num_partitions, offset))
-            q("""DELETE FROM trans WHERE MOD(tid, %d) = %d""" %
-                (num_partitions, offset))
+            q("""DELETE FROM obj WHERE MOD(oid, %d) IN (%s)""" %
+                (num_partitions, offset_list))
+            q("""DELETE FROM trans WHERE MOD(tid, %d) IN (%s)""" %
+                (num_partitions, offset_list))
         except:
             self.rollback()
             raise
