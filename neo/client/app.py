@@ -618,6 +618,8 @@ class Application(object):
                 new_data = tryToResolveConflict(oid, conflict_serial, serial,
                     data)
                 if new_data is not None:
+                    logging.info('Conflict resolution succeed for %r:%r with %r',
+                        dump(oid), dump(serial), dump(conflict_serial))
                     # Mark this conflict as resolved
                     resolved_conflict_serial_dict[oid] = \
                         conflict_serial_dict.pop(oid)
@@ -626,6 +628,12 @@ class Application(object):
                         local_var.txn)
                     append(oid)
                     resolved = True
+                else:
+                    logging.info('Conflict resolution failed for %r:%r with %r',
+                        dump(oid), dump(serial), dump(conflict_serial))
+            else:
+                logging.info('Conflict reported for %r:%r with later ' \
+                    'transaction %r , cannot resolve conflict.')
             if not resolved:
                 # XXX: Is it really required to remove from data_dict ?
                 del data_dict[oid]

@@ -17,6 +17,7 @@
 
 from ZODB.TimeStamp import TimeStamp
 
+from neo import logging
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.protocol import NodeTypes, ProtocolError
 from neo.util import dump
@@ -71,6 +72,8 @@ class StorageAnswersHandler(AnswerBaseHandler):
         local_var = self.app.local_var
         object_stored_counter_dict = local_var.object_stored_counter_dict[oid]
         if conflicting:
+            logging.info('%r report a conflict for %r with %r', conn,
+                        dump(oid), dump(serial))
             conflict_serial_dict = local_var.conflict_serial_dict
             pending_serial = conflict_serial_dict.get(oid)
             resolved_serial = local_var.resolved_conflict_serial_dict.get(oid)
