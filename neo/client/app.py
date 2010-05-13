@@ -584,7 +584,7 @@ class Application(object):
         # Store object in tmp cache
         self.local_var.data_dict[oid] = data
         # Store data on each node
-        self.local_var.object_stored_counter_dict[oid] = 0
+        self.local_var.object_stored_counter_dict[oid] = {}
         self.local_var.object_serial_dict[oid] = (serial, version)
         getConnForCell = self.cp.getConnForCell
         for cell in cell_list:
@@ -663,9 +663,9 @@ class Application(object):
                 break
 
         # Check for never-stored objects, and update result for all others
-        for oid, store_count in \
+        for oid, store_dict in \
             local_var.object_stored_counter_dict.iteritems():
-            if store_count == 0:
+            if not store_dict:
                 raise NEOStorageError('tpc_store failed')
             elif oid in resolved_oid_set:
                 append((oid, ResolvedSerial))

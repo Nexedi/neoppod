@@ -463,7 +463,7 @@ class ClientApplicationTests(NeoTestBase):
             failing_tryToResolveConflict)
         self.assertTrue(oid not in app.local_var.data_dict)
         self.assertEquals(app.local_var.conflict_serial_dict[oid], tid)
-        self.assertEquals(app.local_var.object_stored_counter_dict[oid], 0)
+        self.assertEquals(app.local_var.object_stored_counter_dict[oid], {})
         self.checkAskStoreObject(conn)
 
     def test_store3(self):
@@ -496,7 +496,7 @@ class ClientApplicationTests(NeoTestBase):
         self.checkAskStoreObject(conn)
         app.local_var.queue.put((conn, packet))
         app.waitStoreResponses(resolving_tryToResolveConflict)
-        self.assertEquals(app.local_var.object_stored_counter_dict[oid], 1)
+        self.assertEquals(app.local_var.object_stored_counter_dict[oid], {tid: 1})
         self.assertEquals(app.local_var.data_dict.get(oid, None), 'DATA')
         self.assertFalse(oid in app.local_var.conflict_serial_dict)
 
