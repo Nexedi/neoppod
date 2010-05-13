@@ -167,7 +167,7 @@ class Application(object):
             if node is not None and node.isHidden():
                 self.wait()
             # drop any client node and clear event queue
-            for node in self.nm.getClientList():
+            for node in self.nm.getClientList(only_identified=True):
                 node.getConnection().close()
             self.event_queue = deque()
             try:

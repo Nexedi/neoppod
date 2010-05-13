@@ -73,7 +73,7 @@ class StorageServiceHandler(BaseServiceHandler):
         transaction_node = t.getNode()
         invalidate_objects = Packets.InvalidateObjects(t.getOIDList(), tid)
         answer_transaction_finished = Packets.AnswerTransactionFinished(tid)
-        for client_node in nm.getClientList():
+        for client_node in nm.getClientList(only_identified=True):
             c = client_node.getConnection()
             if client_node is transaction_node:
                 c.answer(answer_transaction_finished, msg_id=t.getMessageId())
