@@ -66,10 +66,23 @@ def lockCheckWrapper(func):
         return func(self, *args, **kw)
     return wrapper
 
+class OnTimeout(object):
+    """
+      Simple helper class for on_timeout parameter used in HandlerSwitcher
+      class.
+    """
+    def __init__(self, func, *args, **kw):
+        self.func = func
+        self.args = args
+        self.kw = kw
+
+    def __call__(self, conn, msg_id):
+        return self.func(conn, msg_id, *self.args, **self.kw)
 
 class HandlerSwitcher(object):
     _next_timeout = None
     _next_timeout_msg_id = None
+    _next_on_timeout = None
 
     def __init__(self, connection, handler):
         self._connection = connection
@@ -88,7 +101,7 @@ class HandlerSwitcher(object):
         return self._pending[0][1]
 
     @profiler_decorator
-    def emit(self, request, timeout):
+    def emit(self, request, timeout, on_timeout):
         # register the request in the current handler
         _pending = self._pending
         if self._is_handling:
@@ -107,12 +120,26 @@ class HandlerSwitcher(object):
         if next_timeout is None or timeout < next_timeout:
             self._next_timeout = timeout
             self._next_timeout_msg_id = msg_id
-        request_dict[msg_id] = (answer_class, timeout)
+            self._next_on_timeout = on_timeout
+        request_dict[msg_id] = (answer_class, timeout, on_timeout)
 
     def checkTimeout(self, t):
         next_timeout = self._next_timeout
         if next_timeout is not None and next_timeout < t:
-            result = self._next_timeout_msg_id
+            msg_id = self._next_timeout_msg_id
+            if self._next_on_timeout is None:
+                result = msg_id
+            else:
+                if self._next_on_timeout(self._connection, msg_id):
+                    # Don't notify that a timeout occured, and forget about
+                    # this answer.
+                    for (request_dict, _) in self._pending:
+                        request_dict.pop(msg_id, None)
+                    self._updateNextTimeout()
+                    result = None
+                else:
+                    # Notify that a timeout occured
+                    result = msg_id
         else:
             result = None
         return result
@@ -136,7 +163,7 @@ class HandlerSwitcher(object):
             handler.packetReceived(self._connection, packet)
             return
         # checkout the expected answer class
-        (klass, timeout) = request_dict.pop(msg_id, (None, None))
+        (klass, timeout, _) = request_dict.pop(msg_id, (None, None, None))
         if klass and isinstance(packet, klass) or packet.isError():
             handler.packetReceived(self._connection, packet)
         else:
@@ -151,17 +178,23 @@ class HandlerSwitcher(object):
             logging.debug('Apply handler %r on %r', self._pending[0][1],
                     self._connection)
         if timeout == self._next_timeout:
-            # Find next timeout and its msg_id
-            timeout_list = []
-            extend = timeout_list.extend
-            for (request_dict, handler) in self._pending:
-                extend(((timeout, msg_id) \
-                    for msg_id, (_, timeout) in request_dict.iteritems()))
-            if timeout_list:
-                timeout_list.sort(key=lambda x: x[0])
-                self._next_timeout, self._next_timeout_msg_id = timeout_list[0]
-            else:
-                self._next_timeout, self._next_timeout_msg_id = None, None
+            self._updateNextTimeout()
+
+    def _updateNextTimeout(self):
+        # Find next timeout and its msg_id
+        timeout_list = []
+        extend = timeout_list.extend
+        for (request_dict, handler) in self._pending:
+            extend(((timeout, msg_id, on_timeout) \
+                for msg_id, (_, timeout, on_timeout) in \
+                request_dict.iteritems()))
+        if timeout_list:
+            timeout_list.sort(key=lambda x: x[0])
+            self._next_timeout, self._next_timeout_msg_id, \
+                self._next_on_timeout = timeout_list[0]
+        else:
+            self._next_timeout, self._next_timeout_msg_id, \
+                self._next_on_timeout = None, None, None
 
     @profiler_decorator
     def setHandler(self, handler):
@@ -562,7 +595,7 @@ class Connection(BaseConnection):
 
     @profiler_decorator
     @not_closed
-    def ask(self, packet, timeout=CRITICAL_TIMEOUT):
+    def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None):
         """
         Send a packet with a new ID and register the expectation of an answer
         """
@@ -573,7 +606,7 @@ class Connection(BaseConnection):
         # If there is no pending request, initialise timeout values.
         if not self._handlers.isPending():
             self._timeout.update(t, force=True)
-        self._handlers.emit(packet, t + timeout)
+        self._handlers.emit(packet, t + timeout, on_timeout)
         return msg_id
 
     @not_closed
@@ -682,7 +715,7 @@ class MTClientConnection(ClientConnection):
             self.unlock()
 
     @profiler_decorator
-    def ask(self, packet, timeout=CRITICAL_TIMEOUT):
+    def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None):
         self.lock()
         try:
             # XXX: Here, we duplicate Connection.ask because we need to call
@@ -696,7 +729,7 @@ class MTClientConnection(ClientConnection):
             # If there is no pending request, initialise timeout values.
             if not self._handlers.isPending():
                 self._timeout.update(t)
-            self._handlers.emit(packet, t + timeout)
+            self._handlers.emit(packet, t + timeout, on_timeout)
             return msg_id
         finally:
             self.unlock()
