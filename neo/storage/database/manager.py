@@ -216,7 +216,7 @@ class DatabaseManager(object):
         thrown away."""
         raise NotImplementedError
 
-    def dropPartition(self, offset):
+    def dropForeignPartitions(self, num_partitions, offset):
         """ Drop objects and transactions assigned to a partition table,
         this should be called only during storage initialization, to clear
         existing data that could be stored by a previous cluster life """
