@@ -197,6 +197,9 @@ class TransactionManager(object):
         transaction = self._getTransaction(tid, uuid)
         transaction.prepare(oid_list, user, desc, ext, packed)
 
+    def getLockingTID(self, oid):
+        return self._store_lock_dict.get(oid)
+
     def storeObject(self, uuid, tid, serial, oid, compression, checksum, data,
             value_serial):
         """

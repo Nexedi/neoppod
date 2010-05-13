@@ -300,5 +300,14 @@ class TransactionManagerTests(NeoTestBase):
         self.assertEqual(self.manager.getObjectFromTransaction(tid1, obj1[0]),
             obj1)
 
+    def test_getLockingTID(self):
+        uuid = self.getNewUUID()
+        serial1, obj1 = self._getObject(1)
+        oid1 = obj1[0]
+        tid1, txn1 = self._getTransaction()
+        self.assertEqual(self.manager.getLockingTID(oid1), None)
+        self.manager.storeObject(uuid, tid1, serial1, *obj1)
+        self.assertEqual(self.manager.getLockingTID(oid1), tid1)
+
 if __name__ == "__main__":
     unittest.main()
