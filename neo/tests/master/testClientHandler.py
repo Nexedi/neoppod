@@ -96,7 +96,8 @@ class MasterClientHandlerTests(NeoTestBase):
         oid_list = []
         upper, lower = unpack('!LL', self.app.tm.getLastTID())
         new_tid = pack('!LL', upper, lower + 10)
-        self.checkProtocolErrorRaised(service.askFinishTransaction, conn, oid_list, new_tid)
+        self.checkProtocolErrorRaised(service.askFinishTransaction, conn,
+                new_tid, oid_list)
         old_node = self.app.nm.getByUUID(uuid)
         self.app.nm.remove(old_node)
         self.app.pt.dropNode(old_node)
@@ -116,7 +117,7 @@ class MasterClientHandlerTests(NeoTestBase):
         tid = self.app.tm.getLastTID()
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
-        service.askFinishTransaction(conn, oid_list, tid)
+        service.askFinishTransaction(conn, tid, oid_list)
         self.checkAskLockInformation(storage_conn)
         self.assertEquals(len(self.app.tm.getPendingList()), 1)
         apptid = self.app.tm.getPendingList()[0]

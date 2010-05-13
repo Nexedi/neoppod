@@ -71,7 +71,7 @@ class StorageServiceHandler(BaseServiceHandler):
         # - Invalidate Objects to the other client nodes
         nm = app.nm
         transaction_node = t.getNode()
-        invalidate_objects = Packets.InvalidateObjects(t.getOIDList(), tid)
+        invalidate_objects = Packets.InvalidateObjects(tid, t.getOIDList())
         answer_transaction_finished = Packets.AnswerTransactionFinished(tid)
         for client_node in nm.getClientList(only_identified=True):
             c = client_node.getConnection()

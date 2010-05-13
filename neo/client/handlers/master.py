@@ -115,7 +115,7 @@ class PrimaryNotificationsHandler(BaseHandler):
     def stopOperation(self, conn):
         logging.critical("master node ask to stop operation")
 
-    def invalidateObjects(self, conn, oid_list, tid):
+    def invalidateObjects(self, conn, tid, oid_list):
         app = self.app
         app._cache_lock_acquire()
         try:

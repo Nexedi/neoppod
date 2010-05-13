@@ -53,7 +53,7 @@ class ClientServiceHandler(MasterHandler):
         oid_list = self.app.getNewOIDList(num_oids)
         conn.answer(Packets.AnswerNewOIDs(oid_list))
 
-    def askFinishTransaction(self, conn, oid_list, tid):
+    def askFinishTransaction(self, conn, tid, oid_list):
         app = self.app
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.

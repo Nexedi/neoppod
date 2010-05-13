@@ -211,7 +211,7 @@ class EventHandler(object):
     def answerNewOIDs(self, conn, num_oids):
         raise UnexpectedPacketError
 
-    def askFinishTransaction(self, conn, oid_list, tid):
+    def askFinishTransaction(self, conn, tid, oid_list):
         raise UnexpectedPacketError
 
     def answerTransactionFinished(self, conn, tid):
@@ -223,7 +223,7 @@ class EventHandler(object):
     def answerInformationLocked(self, conn, tid):
         raise UnexpectedPacketError
 
-    def invalidateObjects(self, conn, oid_list, tid):
+    def invalidateObjects(self, conn, tid, oid_list):
         raise UnexpectedPacketError
 
     def notifyUnlockInformation(self, conn, tid):

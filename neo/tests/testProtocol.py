@@ -278,9 +278,9 @@ class ProtocolTests(NeoTestBase):
         oid4 = self.getNextTID()
         tid = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = Packets.AskFinishTransaction(oid_list, tid)
-        p_oid_list, ptid  = p.decode()
-        self.assertEqual(ptid, tid)
+        p = Packets.AskFinishTransaction(tid, oid_list)
+        p_tid, p_oid_list  = p.decode()
+        self.assertEqual(p_tid, tid)
         self.assertEqual(p_oid_list, oid_list)
 
     def test_37_answerTransactionFinished(self):
@@ -308,9 +308,9 @@ class ProtocolTests(NeoTestBase):
         oid4 = self.getNextTID()
         tid = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = Packets.InvalidateObjects(oid_list, tid)
-        p_oid_list, ptid  = p.decode()
-        self.assertEqual(ptid, tid)
+        p = Packets.InvalidateObjects(tid, oid_list)
+        p_tid, p_oid_list  = p.decode()
+        self.assertEqual(p_tid, tid)
         self.assertEqual(p_oid_list, oid_list)
 
     def test_41_notifyUnlockInformation(self):

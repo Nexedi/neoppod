@@ -750,7 +750,7 @@ class AskFinishTransaction(Packet):
     _list_entry_format = '8s'
     _list_entry_len = calcsize(_list_entry_format)
 
-    def _encode(self, oid_list, tid):
+    def _encode(self, tid, oid_list):
         body = [pack(self._header_format, tid, len(oid_list))]
         body.extend(oid_list)
         return ''.join(body)
@@ -766,7 +766,7 @@ class AskFinishTransaction(Packet):
             oid = unpack(list_entry_format, body[offset:next_offset])[0]
             offset = next_offset
             oid_list.append(oid)
-        return (oid_list, tid)
+        return (tid, oid_list)
 
 class AnswerTransactionFinished(Packet):
     """
@@ -809,7 +809,7 @@ class InvalidateObjects(Packet):
     _list_entry_format = '8s'
     _list_entry_len = calcsize(_list_entry_format)
 
-    def _encode(self, oid_list, tid):
+    def _encode(self, tid, oid_list):
         body = [pack(self._header_format, tid, len(oid_list))]
         body.extend(oid_list)
         return ''.join(body)
@@ -825,7 +825,7 @@ class InvalidateObjects(Packet):
             oid = unpack(list_entry_format, body[offset:next_offset])[0]
             offset = next_offset
             oid_list.append(oid)
-        return (oid_list, tid)
+        return (tid, oid_list)
 
 class NotifyUnlockInformation(Packet):
     """

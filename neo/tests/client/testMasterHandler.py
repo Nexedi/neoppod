@@ -151,7 +151,7 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
             oid1: tid,
             oid2: tid,
         }
-        self.handler.invalidateObjects(conn, [oid1], tid)
+        self.handler.invalidateObjects(conn, tid, [oid1])
         self.assertFalse(oid1 in self.app.mq_cache)
         self.assertTrue(oid2 in self.app.mq_cache)
         invalidation_calls = self.db.mockGetNamedCalls('invalidate')
