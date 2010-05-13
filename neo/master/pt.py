@@ -122,7 +122,7 @@ class PartitionTable(neo.pt.PartitionTable):
                 node = nm.getByUUID(uuid)
                 if node is None:
                     node = nm.createStorage(uuid=uuid)
-                    new_nodes.append(node)
+                    new_nodes.append(node.asTuple())
                 self.setCell(offset, node, state)
         return new_nodes
 

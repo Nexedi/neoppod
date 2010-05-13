@@ -141,7 +141,7 @@ class RecoveryManager(MasterHandler):
         except IndexError:
             raise ProtocolError('Invalid offset')
         else:
-            notification = Packets.SendPartitionTable(ptid, row_list)
+            notification = Packets.NotifyNodeInformation(new_nodes)
             # notify the admin nodes
             for node in self.app.nm.getAdminList(only_identified=True):
                 node.notify(notification)
