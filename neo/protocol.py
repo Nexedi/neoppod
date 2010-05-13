@@ -77,6 +77,12 @@ class CellStates(Enum):
     DISCARDED = Enum.Item(4)
 CellStates = CellStates()
 
+class LockState(Enum):
+    NOT_LOCKED = Enum.Item(1)
+    GRANTED = Enum.Item(2)
+    GRANTED_TO_OTHER = Enum.Item(3)
+LockState = LockState()
+
 # used for logging
 node_state_prefix_dict = {
     NodeStates.RUNNING: 'R',
@@ -158,6 +164,13 @@ def _decodeErrorCode(original_error_code):
         raise PacketMalformedError('invalid error code %d' %
                 original_error_code)
     return error_code
+
+def _decodeLockState(original_lock_state):
+    lock_state = LockState.get(original_lock_state)
+    if lock_state is None:
+        raise PacketMalformedError('invalid lock state %d' % (
+            original_lock_state, ))
+    return lock_state
 
 def _decodeAddress(address):
     if address == '\0' * 6:
@@ -1547,6 +1560,30 @@ class AnswerUndoTransaction(Packet):
                 append(read(OID_LEN))
         return (oid_list, error_oid_list, conflict_oid_list)
 
+class AskHasLock(Packet):
+    """
+    Ask a storage is oid is locked by another transaction.
+    C -> S
+    """
+    def _encode(self, tid, oid):
+        return _encodeTID(tid) + _encodeTID(oid)
+
+    def _decode(self, body):
+        return (_decodeTID(body[:8]), _decodeTID(body[8:]))
+
+class AnswerHasLock(Packet):
+    """
+    Answer whether a transaction holds the write lock for requested object.
+    """
+    _header_format = '!8sH'
+
+    def _encode(self, oid, state):
+        return pack(self._header_format, oid, state)
+
+    def _decode(self, body):
+        oid, state = unpack(self._header_format, body)
+        return (oid, _decodeLockState(state))
+
 class Error(Packet):
     """
     Error is a special type of message, because this can be sent against
@@ -1770,6 +1807,10 @@ class PacketRegistry(dict):
             0x0033,
             AskUndoTransaction,
             AnswerUndoTransaction)
+    AskHasLock, AnswerHasLock = register(
+            0x0034,
+            AskHasLock,
+            AnswerHasLock)
 
 # build a "singleton"
 Packets = PacketRegistry()

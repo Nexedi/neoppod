@@ -18,10 +18,11 @@
 import unittest
 from mock import Mock
 from neo.tests import NeoTestBase
-from neo.protocol import NodeTypes
+from neo.protocol import NodeTypes, LockState
 from neo.client.handlers.storage import StorageBootstrapHandler, \
        StorageAnswersHandler
 from neo.client.exception import NEOStorageError
+from ZODB.POSException import ConflictError
 
 MARKER = []
 
@@ -256,6 +257,17 @@ class StorageAnswerHandlerTests(NeoTestBase):
         self.assertEqual(undo_conflict_oid_list, [oid_3])
         self.assertEqual(undo_error_oid_list, [oid_2])
         self.assertEqual(data_dict, {oid_1: ''})
+
+    def test_answerHasLock(self):
+        uuid = self.getNewUUID()
+        conn = self.getFakeConnection(uuid=uuid)
+        oid = self.getOID(0)
+
+        self.assertRaises(ConflictError, self.handler.answerHasLock, conn, oid,
+            LockState.GRANTED_TO_OTHER)
+        # XXX: Just check that this doesn't raise for the moment.
+        self.handler.answerHasLock(conn, oid, LockState.GRANTED)
+        # TODO: Test LockState.NOT_LOCKED case when implemented.
 
 if __name__ == '__main__':
     unittest.main()

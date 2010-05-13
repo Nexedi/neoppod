@@ -34,7 +34,7 @@ from neo.protocol import NodeTypes, Packets, INVALID_PARTITION
 from neo.event import EventManager
 from neo.util import makeChecksum as real_makeChecksum, dump
 from neo.locking import Lock
-from neo.connection import MTClientConnection
+from neo.connection import MTClientConnection, OnTimeout
 from neo.node import NodeManager
 from neo.connector import getConnectorHandler
 from neo.client.exception import NEOStorageError
@@ -581,6 +581,7 @@ class Application(object):
         checksum = makeChecksum(compressed_data)
         p = Packets.AskStoreObject(oid, serial, compression,
                  checksum, compressed_data, self.local_var.tid)
+        on_timeout = OnTimeout(self.onStoreTimeout, oid)
         # Store object in tmp cache
         self.local_var.data_dict[oid] = data
         # Store data on each node
@@ -592,12 +593,20 @@ class Application(object):
             if conn is None:
                 continue
             try:
-                conn.ask(p)
+                conn.ask(p, on_timeout=on_timeout)
             except ConnectionClosed:
                 continue
 
         self._waitAnyMessage(False)
         return None
+
+    def onStoreTimeout(self, conn, msg_id, oid):
+        # Ask the storage if someone locks the object.
+        # Shorten timeout to react earlier to an unresponding storage.
+        conn.ask(Packets.AskHasLock(oid), timeout=5)
+        # Stop expecting the timed-out store request.
+        self.dispatcher.forget(conn, msg_id)
+        return True
 
     @profiler_decorator
     def _handleConflicts(self, tryToResolveConflict):

@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo import protocol
-from neo.protocol import Packets
+from neo.protocol import Packets, LockState
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
 from neo.storage.transactions import ConflictError, DelayedError
 import time
@@ -123,4 +123,14 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             to_append_list.append(oid)
         conn.answer(Packets.AnswerUndoTransaction(oid_list, error_oid_list,
             conflict_oid_list))
+
+    def askHasLock(self, conn, tid, oid):
+        locking_tid = self.app.tm.getLockingTID(oid)
+        if locking_tid is None:
+            state = LockState.NOT_LOCKED
+        elif locking_tid is tid:
+            state = LockState.GRANTED
+        else:
+            state = LockState.GRANTED_TO_OTHER
+        conn.answer(Packets.AnswerHasLock(oid, state))
 

@@ -17,7 +17,7 @@
 
 import unittest
 from neo.protocol import NodeTypes, NodeStates, CellStates, ClusterStates
-from neo.protocol import ErrorCodes, Packets, Errors
+from neo.protocol import ErrorCodes, Packets, Errors, LockState
 from neo.protocol import INVALID_TID
 from neo.tests import NeoTestBase
 
@@ -589,6 +589,17 @@ class ProtocolTests(NeoTestBase):
         p = Packets.AnswerPartitionList(ptid, row_list)
         self.assertEqual(p.decode(), (ptid, row_list))
 
+    def test_AskHasLock(self):
+        tid = self.getNextTID()
+        oid = self.getNextTID()
+        p = Packets.AskHasLock(tid, oid)
+        self.assertEqual(p.decode(), (tid, oid))
+
+    def test_AnswerHasLock(self):
+        oid = self.getNextTID()
+        for lock_state in LockState.itervalues():
+            p = Packets.AnswerHasLock(oid, lock_state)
+            self.assertEqual(p.decode(), (oid, lock_state))
 
 if __name__ == '__main__':
     unittest.main()

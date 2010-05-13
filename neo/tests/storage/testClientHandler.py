@@ -24,7 +24,7 @@ from neo.storage.transactions import ConflictError, DelayedError
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.protocol import INVALID_PARTITION
 from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
-from neo.protocol import Packets
+from neo.protocol import Packets, LockState
 
 class StorageClientHandlerTests(NeoTestBase):
 
@@ -276,6 +276,25 @@ class StorageClientHandlerTests(NeoTestBase):
         self.assertEqual(set(oid_list_1), set([oid_1, oid_4]))
         self.assertEqual(oid_list_2, [oid_2])
         self.assertEqual(oid_list_3, [oid_3])
+
+    def test_askHasLock(self):
+        tid_1 = self.getNextTID()
+        tid_2 = self.getNextTID()
+        oid = self.getNextTID()
+        def getLockingTID(oid):
+            return locking_tid
+        self.app.tm.getLockingTID = getLockingTID
+        for locking_tid, status in (
+                    (None, LockState.NOT_LOCKED),
+                    (tid_1, LockState.GRANTED),
+                    (tid_2, LockState.GRANTED_TO_OTHER),
+                ):
+            conn = self._getConnection()
+            self.operation.askHasLock(conn, tid_1, oid)
+            p_oid, p_status = self.checkAnswerPacket(conn,
+                Packets.AnswerHasLock, decode=True)
+            self.assertEqual(oid, p_oid)
+            self.assertEqual(status, p_status)
 
 if __name__ == "__main__":
     unittest.main()

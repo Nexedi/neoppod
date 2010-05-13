@@ -16,10 +16,11 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from ZODB.TimeStamp import TimeStamp
+from ZODB.POSException import ConflictError
 
 from neo import logging
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
-from neo.protocol import NodeTypes, ProtocolError
+from neo.protocol import NodeTypes, ProtocolError, LockState
 from neo.util import dump
 from neo.client.exception import NEOStorageError
 
@@ -131,4 +132,21 @@ class StorageAnswersHandler(AnswerBaseHandler):
         data_dict = local_var.data_dict
         for oid in oid_list:
             data_dict[oid] = ''
+
+    def answerHasLock(self, conn, oid, status):
+        if status == LockState.GRANTED_TO_OTHER:
+            # Object is locked by another transaction, and we have waited until
+            # timeout. To avoid a deadlock, abort current transaction (we might
+            # be locking objects the other transaction is waiting for).
+            raise ConflictError, 'Lock wait timeout for oid %s on %r' % (
+                dump(oid), conn.getNode())
+        elif status == LockState.GRANTED:
+            logging.info('Store of oid %s was successful, but after timeout.',
+                dump(oid))
+            # XXX: Not sure what to do in this case yet, for now do nothing.
+        else:
+            # Nobody has the lock, although we asked storage to lock. This
+            # means there is a software bug somewhere.
+            # XXX: Not sure what to do in this case yet
+            raise NotImplementedError
 

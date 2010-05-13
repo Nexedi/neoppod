@@ -332,6 +332,12 @@ class EventHandler(object):
     def answerUndoTransaction(self, conn, oid_list, error_oid_list, conflict_oid_list):
         raise UnexpectedPacketError
 
+    def askHasLock(self, tid, oid):
+        raise UnexpectedPacketError
+
+    def answerHasLock(self, oid, status):
+        raise UnexpectedPacketError
+
     # Error packet handlers.
 
     def error(self, conn, code, message):
@@ -437,6 +443,8 @@ class EventHandler(object):
         d[Packets.NotifyReplicationDone] = self.notifyReplicationDone
         d[Packets.AskUndoTransaction] = self.askUndoTransaction
         d[Packets.AnswerUndoTransaction] = self.answerUndoTransaction
+        d[Packets.AskHasLock] = self.askHasLock
+        d[Packets.AnswerHasLock] = self.answerHasLock
 
         return d
 
