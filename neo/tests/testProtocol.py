@@ -290,10 +290,14 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(ptid, tid)
 
     def test_38_askLockInformation(self):
+        oid1 = self.getNextTID()
+        oid2 = self.getNextTID()
+        oid_list = [oid1, oid2]
         tid = self.getNextTID()
-        p = Packets.AskLockInformation(tid)
-        ptid = p.decode()[0]
+        p = Packets.AskLockInformation(tid, oid_list)
+        ptid, p_oid_list = p.decode()
         self.assertEqual(ptid, tid)
+        self.assertEqual(oid_list, p_oid_list)
 
     def test_39_answerInformationLocked(self):
         tid = self.getNextTID()

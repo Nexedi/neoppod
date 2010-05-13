@@ -78,6 +78,7 @@ class TransactionManagerTests(NeoTestBase):
         self.app = Mock()
         # no history
         self.app.dm = Mock({'getObjectHistory': []})
+        self.app.pt = Mock({'isAssigned': True})
         self.manager = TransactionManager(self.app)
         self.ltid = None
 
@@ -85,6 +86,11 @@ class TransactionManagerTests(NeoTestBase):
         tid = self.getNextTID(self.ltid)
         oid_list = [self.getOID(1), self.getOID(2)]
         return (tid, (oid_list, 'USER', 'DESC', 'EXT', False))
+
+    def _storeTransactionObjects(self, tid, txn):
+        for i, oid in enumerate(txn[0]):
+            self.manager.storeObject(self.getNewUUID(), tid, None,
+                    oid, 1, str(i), '0' + str(i), None)
 
     def _getObject(self, value):
         oid = self.getOID(value)
@@ -115,7 +121,7 @@ class TransactionManagerTests(NeoTestBase):
         self.manager.storeObject(uuid, tid, serial1, *object1)
         self.manager.storeObject(uuid, tid, serial2, *object2)
         self.assertTrue(tid in self.manager)
-        self.manager.lock(tid)
+        self.manager.lock(tid, txn[0])
         self._checkTransactionStored(tid, [object1, object2], txn)
         self.manager.unlock(tid)
         self.assertFalse(tid in self.manager)
@@ -130,8 +136,8 @@ class TransactionManagerTests(NeoTestBase):
         # first transaction lock the object
         self.manager.storeTransaction(uuid, tid1, *txn1)
         self.assertTrue(tid1 in self.manager)
-        self.manager.storeObject(uuid, tid1, serial, *obj)
-        self.manager.lock(tid1)
+        self._storeTransactionObjects(tid1, txn1)
+        self.manager.lock(tid1, txn1[0])
         # the second is delayed
         self.manager.storeTransaction(uuid, tid2, *txn2)
         self.assertTrue(tid2 in self.manager)
@@ -148,7 +154,8 @@ class TransactionManagerTests(NeoTestBase):
         self.manager.storeTransaction(uuid, tid2, *txn2)
         self.manager.storeObject(uuid, tid2, serial, *obj)
         self.assertTrue(tid2 in self.manager)
-        self.manager.lock(tid2)
+        self._storeTransactionObjects(tid2, txn2)
+        self.manager.lock(tid2, txn2[0])
         # the previous it's not using the latest version
         self.manager.storeTransaction(uuid, tid1, *txn1)
         self.assertTrue(tid1 in self.manager)
@@ -167,8 +174,8 @@ class TransactionManagerTests(NeoTestBase):
         self.assertRaises(ConflictError, self.manager.storeObject, 
                 uuid, tid, serial, *obj)
 
-    def testConflictWithTwoNodes(self):
-        """ Ensure conflict/delaytion is working with different nodes"""
+    def testLockDelayed(self):
+        """ Check lock delaytion"""
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         self.assertNotEqual(uuid1, uuid2)
@@ -176,25 +183,41 @@ class TransactionManagerTests(NeoTestBase):
         tid2, txn2 = self._getTransaction()
         serial1, obj1 = self._getObject(1)
         serial2, obj2 = self._getObject(2)
-        # first transaction lock the object
+        # first transaction lock objects
         self.manager.storeTransaction(uuid1, tid1, *txn1)
         self.assertTrue(tid1 in self.manager)
         self.manager.storeObject(uuid1, tid1, serial1, *obj1)
-        self.manager.lock(tid1)
+        self.manager.storeObject(uuid1, tid1, serial1, *obj2)
+        self.manager.lock(tid1, txn1[0])
         # second transaction is delayed
         self.manager.storeTransaction(uuid2, tid2, *txn2)
         self.assertTrue(tid2 in self.manager)
-        self.assertRaises(DelayedError, self.manager.storeObject, 
+        self.assertRaises(DelayedError, self.manager.storeObject,
                 uuid2, tid2, serial1, *obj1)
-        # the second transaction lock another object
+        self.assertRaises(DelayedError, self.manager.storeObject,
+                uuid2, tid2, serial2, *obj2)
+
+    def testLockConflict(self):
+        """ Check lock conflict """
+        uuid1 = self.getNewUUID()
+        uuid2 = self.getNewUUID()
+        self.assertNotEqual(uuid1, uuid2)
+        tid1, txn1 = self._getTransaction()
+        tid2, txn2 = self._getTransaction()
+        serial1, obj1 = self._getObject(1)
+        serial2, obj2 = self._getObject(2)
+        # the second transaction lock objects
         self.manager.storeTransaction(uuid2, tid2, *txn2)
+        self.manager.storeObject(uuid2, tid2, serial1, *obj1)
         self.manager.storeObject(uuid2, tid2, serial2, *obj2)
         self.assertTrue(tid2 in self.manager)
-        self.manager.lock(tid2)
+        self.manager.lock(tid2, txn1[0])
         # the first get a conflict
         self.manager.storeTransaction(uuid1, tid1, *txn1)
         self.assertTrue(tid1 in self.manager)
-        self.assertRaises(ConflictError, self.manager.storeObject, 
+        self.assertRaises(ConflictError, self.manager.storeObject,
+                uuid1, tid1, serial1, *obj1)
+        self.assertRaises(ConflictError, self.manager.storeObject,
                 uuid1, tid1, serial2, *obj2)
 
     def testAbortUnlocked(self):
@@ -215,15 +238,15 @@ class TransactionManagerTests(NeoTestBase):
         """ Try to abort a locked transaction """
         uuid = self.getNewUUID()
         tid, txn = self._getTransaction()
-        serial, obj = self._getObject(1)
         self.manager.storeTransaction(uuid, tid, *txn)
-        self.manager.storeObject(uuid, tid, serial, *obj)
+        self._storeTransactionObjects(tid, txn)
         # lock transaction
-        self.manager.lock(tid)
+        self.manager.lock(tid, txn[0])
         self.assertTrue(tid in self.manager)
         self.manager.abort(tid, even_if_locked=False)
         self.assertTrue(tid in self.manager)
-        self.assertTrue(self.manager.loadLocked(obj[0]))
+        for oid in txn[0]:
+            self.assertTrue(self.manager.loadLocked(oid))
         self._checkQueuedEventExecuted(number=0)
         
     def testAbortForNode(self):
@@ -238,7 +261,8 @@ class TransactionManagerTests(NeoTestBase):
         # node 2 owns tid2 & tid3 and lock tid2 only
         self.manager.storeTransaction(uuid2, tid2, *txn2)
         self.manager.storeTransaction(uuid2, tid3, *txn3)
-        self.manager.lock(tid2)
+        self._storeTransactionObjects(tid2, txn2)
+        self.manager.lock(tid2, txn2[0])
         self.assertTrue(tid1 in self.manager)
         self.assertTrue(tid2 in self.manager)
         self.assertTrue(tid3 in self.manager)
@@ -253,14 +277,14 @@ class TransactionManagerTests(NeoTestBase):
         """ Reset the manager """
         uuid = self.getNewUUID()
         tid, txn = self._getTransaction()
-        serial, obj = self._getObject(1)
         self.manager.storeTransaction(uuid, tid, *txn)
-        self.manager.storeObject(uuid, tid, serial, *obj)
-        self.manager.lock(tid)
+        self._storeTransactionObjects(tid, txn)
+        self.manager.lock(tid, txn[0])
         self.assertTrue(tid in self.manager)
         self.manager.reset()
         self.assertFalse(tid in self.manager)
-        self.assertFalse(self.manager.loadLocked(obj[0]))
+        for oid in txn[0]:
+            self.assertFalse(self.manager.loadLocked(oid))
 
     def test_getObjectFromTransaction(self):
         uuid = self.getNewUUID()

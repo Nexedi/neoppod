@@ -75,7 +75,7 @@ class ClientServiceHandler(MasterHandler):
         # Request locking data.
         # build a new set as we may not send the message to all nodes as some
         # might be not reachable at that time
-        p = Packets.AskLockInformation(tid)
+        p = Packets.AskLockInformation(tid, oid_list)
         used_uuid_set = set()
         for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
             node.ask(p, timeout=60)

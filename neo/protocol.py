@@ -783,12 +783,28 @@ class AskLockInformation(Packet):
     """
     Lock information on a transaction. PM -> S.
     """
-    def _encode(self, tid):
-        return _encodeTID(tid)
+    # XXX: Identical to InvalidateObjects and AskFinishTransaction
+    _header_format = '!8sL'
+    _list_entry_format = '8s'
+    _list_entry_len = calcsize(_list_entry_format)
+
+    def _encode(self, tid, oid_list):
+        body = [pack(self._header_format, tid, len(oid_list))]
+        body.extend(oid_list)
+        return ''.join(body)
 
     def _decode(self, body):
-        (tid, ) = unpack('8s', body)
-        return (_decodeTID(tid), )
+        offset = self._header_len
+        (tid, n) = unpack(self._header_format, body[:offset])
+        oid_list = []
+        list_entry_format = self._list_entry_format
+        list_entry_len = self._list_entry_len
+        for _ in xrange(n):
+            next_offset = offset + list_entry_len
+            oid = unpack(list_entry_format, body[offset:next_offset])[0]
+            offset = next_offset
+            oid_list.append(oid)
+        return (tid, oid_list)
 
 class AnswerInformationLocked(Packet):
     """

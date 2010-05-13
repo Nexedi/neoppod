@@ -217,7 +217,7 @@ class EventHandler(object):
     def answerTransactionFinished(self, conn, tid):
         raise UnexpectedPacketError
 
-    def askLockInformation(self, conn, tid):
+    def askLockInformation(self, conn, tid, oid_list):
         raise UnexpectedPacketError
 
     def answerInformationLocked(self, conn, tid):

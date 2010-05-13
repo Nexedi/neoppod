@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo import logging
-
+from neo.util import dump
 from neo.protocol import CellStates, Packets, ProtocolError
 from neo.storage.handlers import BaseMasterHandler
 
@@ -52,10 +52,10 @@ class MasterOperationHandler(BaseMasterHandler):
                 elif state == CellStates.OUT_OF_DATE:
                     app.replicator.addPartition(offset)
 
-    def askLockInformation(self, conn, tid):
+    def askLockInformation(self, conn, tid, oid_list):
         if not tid in self.app.tm:
             raise ProtocolError('Unknown transaction')
-        self.app.tm.lock(tid)
+        self.app.tm.lock(tid, oid_list)
         conn.answer(Packets.AnswerInformationLocked(tid))
 
     def notifyUnlockInformation(self, conn, tid):

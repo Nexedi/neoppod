@@ -154,7 +154,7 @@ class TransactionManager(object):
         self._load_lock_dict.clear()
         self._uuid_dict.clear()
 
-    def lock(self, tid):
+    def lock(self, tid, oid_list):
         """
             Lock a transaction
         """
@@ -163,6 +163,12 @@ class TransactionManager(object):
         transaction.lock()
         for oid in transaction.getOIDList():
             self._load_lock_dict[oid] = tid
+        # check every object that should be locked
+        uuid = transaction.getUUID()
+        is_assigned = self._app.pt.isAssigned
+        for oid in oid_list:
+            if is_assigned(oid, uuid) and self._load_lock_dict.get(oid) != tid:
+                raise ValueError, 'Some locks are not held'
         object_list = transaction.getObjectList()
         # txn_info is None is the transaction information is not stored on 
         # this storage.

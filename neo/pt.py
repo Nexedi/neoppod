@@ -143,6 +143,13 @@ class PartitionTable(object):
         return self.getCellList(self._getPartitionFromIndex(u64(oid)),
                                 readable, writable)
 
+    def isAssigned(self, oid, uuid):
+        """ Check if the oid is assigned to the given node """
+        for cell in self.partition_list[u64(oid) % self.np]:
+            if cell.getUUID() == uuid:
+                return True
+        return False
+
     def _getPartitionFromIndex(self, index):
         return index % self.np
 
