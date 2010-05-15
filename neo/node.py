@@ -461,7 +461,11 @@ class NodeManager(object):
                 if state == NodeStates.DOWN:
                     logging.debug('droping node %r, found with %s %s %s %s',
                         node, *log_args)
-                    self.remove(node)
+                    if node.isConnected():
+                        # cut this connection, node removed by handler
+                        node.getConnection().close()
+                    else:
+                        self.remove(node)
                 else:
                     logging.debug('updating node %r to %s %s %s %s',
                         node, *log_args)
