@@ -100,6 +100,10 @@ class HandlerSwitcher(object):
     def getHandler(self):
         return self._pending[0][1]
 
+    def getLastHandler(self):
+        """ Return the last (may be unapplied) handler registered """
+        return self._pending[-1][1]
+
     @profiler_decorator
     def emit(self, request, timeout, on_timeout):
         # register the request in the current handler
@@ -507,7 +511,11 @@ class Connection(BaseConnection):
 
     def _closure(self, was_connected=True):
         assert self.connector is not None, self.whoSetConnector()
-        handler = self.getHandler()
+        # process the network events with the last registered handler to
+        # solve issues where a node is lost with pending handlers and
+        # create unexpected side effects.
+        # XXX: This solution is being tested and should be approved or reverted
+        handler = self._handlers.getLastHandler()
         self.close()
         if was_connected:
             handler.connectionClosed(self)
