@@ -21,7 +21,7 @@ from neo.handler import EventHandler
 from neo import protocol
 from neo.util import dump
 from neo.exception import PrimaryFailure, OperationFailure
-from neo.protocol import NodeStates, Packets, Errors
+from neo.protocol import NodeStates, NodeTypes, Packets, Errors
 
 class BaseMasterHandler(EventHandler):
 
@@ -57,6 +57,10 @@ class BaseMasterHandler(EventHandler):
                     self.app.shutdown(erase=erase)
                 elif state == NodeStates.HIDDEN:
                     raise OperationFailure
+            elif node_type == NodeTypes.CLIENT and state != NodeStates.RUNNING:
+                logging.info('Notified of non-running client, abort (%r)',
+                        dump(uuid))
+                self.app.tm.abortFor(uuid)
 
 
 class BaseClientAndStorageOperationHandler(EventHandler):

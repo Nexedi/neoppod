@@ -32,7 +32,6 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
     def connectionLost(self, conn, new_state):
         uuid = conn.getUUID()
-        self.app.tm.abortFor(uuid)
         node = self.app.nm.getByUUID(uuid)
         assert node is not None, conn
         self.app.nm.remove(node)

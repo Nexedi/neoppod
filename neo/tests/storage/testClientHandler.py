@@ -70,7 +70,6 @@ class StorageClientHandlerTests(NeoTestBase):
         self.app.nm.createClient(uuid=uuid)
         conn = self._getConnection(uuid=uuid)
         self.operation.connectionClosed(conn)
-        self._checkTransactionsAborted(uuid)
 
     def test_18_askTransactionInformation1(self):
         # transaction does not exists
