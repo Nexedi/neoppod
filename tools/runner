@@ -157,7 +157,7 @@ class NeoTestRunner(unittest.TestResult):
         stats.time += time.time() - self.lastStart
 
     def startTest(self, test):
-        print ' * %s %s...' % (test.__class__.__module__,
+        print ' * %s %s...' % (test.__class__.__module__[10:],
                 test._TestCase__testMethodName),
         sys.stdout.flush()
         unittest.TestResult.startTest(self, test)
