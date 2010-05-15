@@ -6,12 +6,10 @@ RC = Release Critical (for next release)
         TEMPORARILY_DOWN becomes UNAVAILABLE
         BROKEN is removed ?
     - Clarify the use of each error codes:
-      - NO_ERROR error packet vs ACK special packet
       - NOT_READY removed (connection kept opened until ready)
       - Split PROTOCOL_ERROR (BAD IDENTIFICATION, ...)
 RC  - Clarify cell state signification
     - Add docstrings (think of doctests)
-RC  - Update README (TODOs should be dropped/moved here)
 
   Tests
 RC  - write ZODB-API-level tests
@@ -82,8 +80,6 @@ RC  - Review output of pylint (CODE)
       partition table changes be broadcasted ? (BANDWITH, SPEED)
     - Review PENDING/HIDDEN/SHUTDOWN states, don't use notifyNodeInformation()
       to do a state-switch, use a exception-based mechanism ? (CODE)
-    - Ensure that registered timeout are canceled if the related connection was
-      closed. (CODE)
     - Clarify big packet handling, is it needed to split them at connection
       level, application level, use the ask/send/answer scheme ? Currently it's
       not consistent, essentially with ask/answer/send partition table.
@@ -123,7 +119,6 @@ RC  - Review output of pylint (CODE)
       replication should happen independently of cluster state. (Maybe we still
       need a primary master, to void replicating from an outdated partition
       table setup.)
-    - Flush asynchronously objects from partition cells not served (DISK SPACE)
     - Close connections to other storage nodes (SYSTEM RESOURCE USAGE)
       When a replication finishes, the connection is not closed currently. It
       should be closed (possibly asynchronously, and possibly by detecting that
@@ -243,14 +238,10 @@ RC  - Review output of pylint (CODE)
 
 Old TODO
 
-    - Handling connection timeouts.
     - Handling write timeouts.
-    - IdleEvent for a certain message type as well as a message ID.
     - Flushing write buffers only without reading packets.
     - Garbage collection of unused nodes.
     - Stopping packet processing by returning a boolean value from
       a handler, otherwise too tricky to exchange a handler with another.
-    - History.
-    - Multiple undo.
     - Expiration of temporarily down nodes.
 
