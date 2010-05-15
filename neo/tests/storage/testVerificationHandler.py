@@ -121,19 +121,6 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.assertEqual(ptid, self.app.pt.getID())
 
     def test_08_askPartitionTable(self):
-        # try to get unknown offset
-        self.assertEqual(len(self.app.pt.getNodeList()), 0)
-        self.assertFalse(self.app.pt.hasOffset(1))
-        self.assertEqual(len(self.app.pt.getCellList(1)), 0)
-        conn = self.getClientConnection()
-        self.verification.askPartitionTable(conn, [1])
-        ptid, row_list = self.checkAnswerPartitionTable(conn, decode=True)
-        self.assertEqual(len(row_list), 1)
-        offset, rows = row_list[0]
-        self.assertEqual(offset, 1)
-        self.assertEqual(len(rows), 0)
-
-        # try to get known offset
         node = self.app.nm.createStorage(
             address=("127.7.9.9", 1),
             uuid=self.getNewUUID()
@@ -141,12 +128,9 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.app.pt.setCell(1, node, CellStates.UP_TO_DATE)
         self.assertTrue(self.app.pt.hasOffset(1))
         conn = self.getClientConnection()
-        self.verification.askPartitionTable(conn, [1])
+        self.verification.askPartitionTable(conn)
         ptid, row_list = self.checkAnswerPartitionTable(conn, decode=True)
-        self.assertEqual(len(row_list), 1)
-        offset, rows = row_list[0]
-        self.assertEqual(offset, 1)
-        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(row_list), 1009)
 
     def test_10_notifyPartitionChanges(self):
         # old partition change

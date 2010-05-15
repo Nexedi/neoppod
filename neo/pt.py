@@ -195,19 +195,20 @@ class PartitionTable(object):
     def load(self, ptid, row_list, nm):
         """
         Load the partition table with the specified PTID, discard all previous
-        content and can be done in multiple calls
+        content.
         """
-        if ptid != self.id:
-            self.clear()
-            self.id = ptid
+        self.clear()
+        self.id = ptid
         for offset, row in row_list:
-            if offset >= self.getPartitions() or self.hasOffset(offset):
+            if offset >= self.getPartitions():
                 raise IndexError
             for uuid, state in row:
                 node = nm.getByUUID(uuid)
                 # the node must be known by the node manager
                 assert node is not None
                 self.setCell(offset, node, state)
+        logging.debug('partition table loaded')
+        self.log()
 
     def update(self, ptid, cell_list, nm):
         """
@@ -298,6 +299,10 @@ class PartitionTable(object):
         if row is None:
             return []
         return [(cell.getUUID(), cell.getState()) for cell in row]
+
+    def getRowList(self):
+        getRow = self.getRow
+        return [(x, getRow(x)) for x in xrange(self.np)]
 
 
 def thread_safe(method):

@@ -81,7 +81,8 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
             conn.close()
 
     def answerPartitionTable(self, conn, ptid, row_list):
-        pass
+        assert row_list
+        self.app.pt.load(ptid, row_list, self.app.nm)
 
     def answerNodeInformation(self, conn):
         pass
@@ -137,9 +138,6 @@ class PrimaryNotificationsHandler(BaseHandler):
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         if self.app.pt.filled():
             self.app.pt.update(ptid, cell_list, self.app.nm)
-
-    def sendPartitionTable(self, conn, ptid, row_list):
-        self.app.pt.load(ptid, row_list, self.app.nm)
 
     def notifyNodeInformation(self, conn, node_list):
         app = self.app

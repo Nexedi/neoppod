@@ -134,7 +134,7 @@ class Application(object):
         # passive handler
         self.master_conn.setHandler(self.master_event_handler)
         self.master_conn.ask(Packets.AskNodeInformation())
-        self.master_conn.ask(Packets.AskPartitionTable([]))
+        self.master_conn.ask(Packets.AskPartitionTable())
 
     def sendPartitionTable(self, conn, min_offset, max_offset, uuid):
         # we have a pt

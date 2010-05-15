@@ -144,10 +144,7 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(lptid, ptid)
 
     def test_20_askPartitionTable(self):
-        offset_list = [1, 523, 6, 124]
-        p = Packets.AskPartitionTable(offset_list)
-        p_offset_list  = p.decode()[0]
-        self.assertEqual(offset_list, p_offset_list)
+        self.assertEqual(Packets.AskPartitionTable().decode(), ())
 
     def test_21_answerPartitionTable(self):
         ptid = self.getNextTID()

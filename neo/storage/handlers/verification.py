@@ -37,20 +37,10 @@ class VerificationHandler(BaseMasterHandler):
             tid = None
         conn.answer(Packets.AnswerLastIDs(oid, tid, app.pt.getID()))
 
-    def askPartitionTable(self, conn, offset_list):
-        if not offset_list:
-            # all is requested
-            offset_list = xrange(0, self.app.pt.getPartitions())
-        else:
-            if max(offset_list) >= self.app.pt.getPartitions():
-                raise ProtocolError('invalid partition table offset')
-
-        # build a table with requested partitions
-        row_list = [(offset, [(cell.getUUID(), cell.getState())
-            for cell in self.app.pt.getCellList(offset)])
-            for offset in offset_list]
-
-        conn.answer(Packets.AnswerPartitionTable(self.app.pt.getID(), row_list))
+    def askPartitionTable(self, conn):
+        ptid = self.app.pt.getID()
+        row_list = self.app.pt.getRowList()
+        conn.answer(Packets.AnswerPartitionTable(ptid, row_list))
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         """This is very similar to Send Partition Table, except that

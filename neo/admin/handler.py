@@ -50,8 +50,7 @@ class AdminEventHandler(EventHandler):
             if self.app.master_conn is None:
                 raise protocol.NotReadyError('Not connected to a primary ' \
                         'master.')
-            p = Packets.AskPartitionTable([])
-            msg_id = self.app.master_conn.ask(p)
+            msg_id = self.app.master_conn.ask(Packets.AskPartitionTable())
             app.dispatcher.register(msg_id, conn,
                                     {'min_offset' : min_offset,
                                      'max_offset' : max_offset,
@@ -146,18 +145,14 @@ class MasterEventHandler(EventHandler):
         # implemented for factorize code (as done for bootstrap)
         logging.debug("answerNodeInformation")
 
-    def answerPartitionTable(self, conn, ptid, row_list):
-        # XXX: This will no more exists when the initialization module will be
-        # implemented for factorize code (as done for bootstrap)
-        logging.debug("answerPartitionTable")
-
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         self.app.pt.update(ptid, cell_list, self.app.nm)
 
-    def sendPartitionTable(self, conn, ptid, row_list):
-        self.app.pt.clear()
+    def answerPartitionTable(self, conn, ptid, row_list):
         self.app.pt.load(ptid, row_list, self.app.nm)
-        self.app.pt.log()
+
+    def sendPartitionTable(self, conn, ptid, row_list):
+        self.app.pt.load(ptid, row_list, self.app.nm)
 
     def notifyClusterInformation(self, conn, cluster_state):
         self.app.cluster_state = cluster_state
@@ -169,7 +164,7 @@ class MasterEventHandler(EventHandler):
             # Re-ask partition table, in case node change filled it.
             # XXX: we should only ask it if received states indicates it is
             # possible (ignore TEMPORARILY_DOWN for example)
-            conn.ask(Packets.AskPartitionTable([]))
+            conn.ask(Packets.AskPartitionTable())
 
 class MasterRequestEventHandler(EventHandler):
     """ This class handle all answer from primary master node"""

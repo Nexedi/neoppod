@@ -163,13 +163,10 @@ class EventHandler(object):
     def answerLastIDs(self, conn, loid, ltid, lptid):
         raise UnexpectedPacketError
 
-    def askPartitionTable(self, conn, offset_list):
+    def askPartitionTable(self, conn):
         raise UnexpectedPacketError
 
     def answerPartitionTable(self, conn, ptid, row_list):
-        raise UnexpectedPacketError
-
-    def sendPartitionTable(self, conn, ptid, row_list):
         raise UnexpectedPacketError
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
@@ -388,7 +385,6 @@ class EventHandler(object):
         d[Packets.AnswerLastIDs] = self.answerLastIDs
         d[Packets.AskPartitionTable] = self.askPartitionTable
         d[Packets.AnswerPartitionTable] = self.answerPartitionTable
-        d[Packets.SendPartitionTable] = self.sendPartitionTable
         d[Packets.NotifyPartitionChanges] = self.notifyPartitionChanges
         d[Packets.StartOperation] = self.startOperation
         d[Packets.StopOperation] = self.stopOperation

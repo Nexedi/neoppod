@@ -278,30 +278,18 @@ class Application(object):
         logging.debug('broadcastPartitionChanges')
         if not cell_list:
             return
-        ptid = self.pt.setNextID()
         self.pt.log()
+        ptid = self.pt.setNextID()
+        packet = Packets.NotifyPartitionChanges(ptid, cell_list)
         for node in self.nm.getIdentifiedList():
             if not node.isRunning():
                 continue
             if node.isClient() or node.isStorage() or node.isAdmin():
-                node.notify(Packets.NotifyPartitionChanges(ptid, cell_list))
+                node.notify(packet)
 
     def outdateAndBroadcastPartition(self):
         " Outdate cell of non-working nodes and broadcast changes """
         self.broadcastPartitionChanges(self.pt.outdate())
-
-    def sendPartitionTable(self, conn):
-        """ Send the partition table through the given connection """
-        row_list = []
-        for offset in xrange(self.pt.getPartitions()):
-            row_list.append((offset, self.pt.getRow(offset)))
-            # Split the packet if too huge.
-            if len(row_list) == 1000:
-                conn.notify(Packets.SendPartitionTable(self.pt.getID(),
-                    row_list))
-                del row_list[:]
-        if row_list:
-            conn.notify(Packets.SendPartitionTable(self.pt.getID(), row_list))
 
     def sendNodesInformations(self, conn):
         """ Send informations on all nodes through the given connection """

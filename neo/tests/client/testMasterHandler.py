@@ -124,6 +124,16 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
         self.assertTrue(self.app.primary_master_node is node)
         self.checkClosed(conn)
 
+    def test_answerPartitionTable(self):
+        conn = self.getConnection()
+        self.app.pt = Mock()
+        ptid = 0
+        row_list = ([], [])
+        self.handler.answerPartitionTable(conn, ptid, row_list)
+        load_calls = self.app.pt.mockGetNamedCalls('load')
+        self.assertEqual(len(load_calls), 1)
+        # load_calls[0].checkArgs(ptid, row_list, self.app.nm)
+
 
 class MasterNotificationsHandlerTests(MasterHandlerTests):
 
@@ -168,16 +178,6 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
         self.assertEqual(len(update_calls), 1)
         update_calls[0].checkArgs(ptid, cell_list, self.app.nm)
 
-    def test_sendPartitionTable(self):
-        conn = self.getConnection()
-        self.app.pt = Mock()
-        ptid = 0
-        row_list = (Mock(), Mock())
-        self.handler.sendPartitionTable(conn, ptid, row_list)
-        load_calls = self.app.pt.mockGetNamedCalls('load')
-        self.assertEqual(len(load_calls), 1)
-        load_calls[0].checkArgs(ptid, row_list, self.app.nm)
-        
     def test_notifyNodeInformation(self):
         conn = self.getConnection()
         addr = ('127.0.0.1', 1000)

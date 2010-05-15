@@ -476,33 +476,9 @@ class AnswerLastIDs(Packet):
 
 class AskPartitionTable(Packet):
     """
-    Ask rows in a partition table that a storage node stores. Used to recover
-    information. PM -> S.
+    Ask the full partition table. PM -> S.
     """
-    _header_format = '!L'
-    _list_entry_format = '!L'
-    _list_entry_len = calcsize(_list_entry_format)
-
-    def _encode(self, offset_list):
-        body = [pack(self._header_format, len(offset_list))]
-        list_entry_format = self._list_entry_format
-        for offset in offset_list:
-            body.append(pack(list_entry_format, offset))
-        return ''.join(body)
-
-    def _decode(self, body):
-        packet_offset = self._header_len
-        (n,) = unpack(self._header_format, body[:packet_offset])
-        offset_list = []
-        list_entry_len = self._list_entry_len
-        list_entry_format = self._list_entry_format
-        for _ in xrange(n):
-            next_packet_offset = packet_offset + list_entry_len
-            offset = unpack(list_entry_format,
-                body[packet_offset:next_packet_offset])[0]
-            packet_offset = next_packet_offset
-            offset_list.append(offset)
-        return (offset_list,)
+    pass
 
 class AnswerPartitionTable(Packet):
     """

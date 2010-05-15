@@ -29,15 +29,10 @@ class InitializationHandler(BaseMasterHandler):
         # the whole node list is received here
         BaseMasterHandler.notifyNodeInformation(self, conn, node_list)
 
-    def sendPartitionTable(self, conn, ptid, row_list):
-        """A primary master node sends this packet to synchronize a partition
-        table. Note that the message can be split into multiple packets."""
-        self.app.pt.load(ptid, row_list, self.app.nm)
-
     def answerPartitionTable(self, conn, ptid, row_list):
         app = self.app
         pt = app.pt
-        assert not row_list
+        pt.load(ptid, row_list, self.app.nm)
         if not pt.filled():
             raise protocol.ProtocolError('Partial partition table received')
         logging.debug('Got the partition table :')
@@ -68,9 +63,6 @@ class InitializationHandler(BaseMasterHandler):
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         # XXX: This is safe to ignore those notifications because all of the
         # following applies:
-        # - master is monothreaded (notifyPartitionChanges cannot happen
-        #   between sendPartitionTable/answerPartitionTable packets), so
-        #   receiving the whole partition table is atomic
         # - we first ask for node information, and *then* partition
         #   table content, so it is possible to get notifyPartitionChanges
         #   packets in between (or even before asking for node information).

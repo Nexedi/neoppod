@@ -127,7 +127,7 @@ class RecoveryManager(MasterHandler):
         if lptid > self.target_ptid:
             # something newer
             self.target_ptid = lptid
-            conn.ask(Packets.AskPartitionTable([]))
+            conn.ask(Packets.AskPartitionTable())
 
     def answerPartitionTable(self, conn, ptid, row_list):
         app = self.app
@@ -142,8 +142,11 @@ class RecoveryManager(MasterHandler):
             raise ProtocolError('Invalid offset')
         else:
             notification = Packets.NotifyNodeInformation(new_nodes)
+            ptid = self.app.pt.getID()
+            row_list = self.app.pt.getRowList()
+            partition_table = Packets.SendPartitionTable(ptid, row_list)
             # notify the admin nodes
             for node in self.app.nm.getAdminList(only_identified=True):
                 node.notify(notification)
-                self.app.sendPartitionTable(node.getConnection())
+                node.notify(partition_table)
 

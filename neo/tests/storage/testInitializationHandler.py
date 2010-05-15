@@ -21,7 +21,7 @@ from neo.tests import NeoTestBase
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.initialization import InitializationHandler
-from neo.protocol import CellStates
+from neo.protocol import CellStates, ProtocolError
 from neo.exception import PrimaryFailure
 
 class StorageInitializationHandlerTests(NeoTestBase):
@@ -71,7 +71,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         # nothing happens
         self.checkNoPacketSent(conn)
 
-    def test_09_sendPartitionTable(self):
+    def test_09_answerPartitionTable(self):
         # send a table
         conn = self.getClientConnection()
         self.app.pt = PartitionTable(3, 2)
@@ -87,20 +87,8 @@ class StorageInitializationHandlerTests(NeoTestBase):
                     (1, ((node_3, CellStates.UP_TO_DATE), (node_1, CellStates.UP_TO_DATE))),
                     (2, ((node_2, CellStates.UP_TO_DATE), (node_3, CellStates.UP_TO_DATE)))]
         self.assertFalse(self.app.pt.filled())
-        # send part of the table, won't be filled
-        self.verification.sendPartitionTable(conn, 1, row_list[:1])
-        self.assertFalse(self.app.pt.filled())
-        self.assertEqual(self.app.pt.getID(), 1)
-        self.assertEqual(self.app.dm.getPartitionTable(), [])
-        # send remaining of the table (ack with AnswerPartitionTable)
-        self.verification.sendPartitionTable(conn, 1, row_list[1:])
-        self.verification.answerPartitionTable(conn, 1, [])
-        self.assertTrue(self.app.pt.filled())
-        self.assertEqual(self.app.pt.getID(), 1)
-        self.assertNotEqual(self.app.dm.getPartitionTable(), [])
         # send a complete new table and ack
-        self.verification.sendPartitionTable(conn, 2, row_list)
-        self.verification.answerPartitionTable(conn, 2, [])
+        self.verification.answerPartitionTable(conn, 2, row_list)
         self.assertTrue(self.app.pt.filled())
         self.assertEqual(self.app.pt.getID(), 2)
         self.assertNotEqual(self.app.dm.getPartitionTable(), [])

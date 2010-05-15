@@ -368,7 +368,7 @@ class Application(object):
                 msg_id = conn.ask(Packets.AskNodeInformation())
                 self._waitMessage(conn, msg_id,
                         handler=self.primary_bootstrap_handler)
-                msg_id = conn.ask(Packets.AskPartitionTable([]))
+                msg_id = conn.ask(Packets.AskPartitionTable())
                 self._waitMessage(conn, msg_id,
                         handler=self.primary_bootstrap_handler)
             ready = self.uuid is not None and self.pt is not None \
