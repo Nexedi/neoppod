@@ -581,7 +581,7 @@ class Application(object):
         checksum = makeChecksum(compressed_data)
         p = Packets.AskStoreObject(oid, serial, compression,
                  checksum, compressed_data, self.local_var.tid)
-        on_timeout = OnTimeout(self.onStoreTimeout, oid)
+        on_timeout = OnTimeout(self.onStoreTimeout, self.local_var.tid, oid)
         # Store object in tmp cache
         self.local_var.data_dict[oid] = data
         # Store data on each node
@@ -600,10 +600,10 @@ class Application(object):
         self._waitAnyMessage(False)
         return None
 
-    def onStoreTimeout(self, conn, msg_id, oid):
+    def onStoreTimeout(self, conn, msg_id, tid, oid):
         # Ask the storage if someone locks the object.
         # Shorten timeout to react earlier to an unresponding storage.
-        conn.ask(Packets.AskHasLock(oid), timeout=5)
+        conn.ask(Packets.AskHasLock(tid, oid), timeout=5)
         # Stop expecting the timed-out store request.
         self.dispatcher.forget(conn, msg_id)
         return True
