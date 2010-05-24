@@ -145,6 +145,18 @@ class Application(object):
         self.pt.update(ptid, new_cell_list, self.nm)
 
     def run(self):
+        try:
+            self._run()
+        except:
+            logging.info('\nPre-mortem informations:')
+            self.em.log()
+            self.nm.log()
+            self.pt.log()
+            self.tm.log()
+            self.logQueuedEvents()
+            raise
+
+    def _run(self):
         """Make sure that the status is sane and start a loop."""
         if len(self.name) == 0:
             raise RuntimeError, 'cluster name must be non-empty'
@@ -300,6 +312,15 @@ class Application(object):
                 continue
             conn.setPeerId(msg_id)
             some_callable(conn, *args, **kwargs)
+
+    def logQueuedEvents(self):
+        if self.event_queue is None:
+            return
+        logging.info("Pending events:")
+        for event, _msg_id, _conn, args, _kwargs in self.event_queue:
+            oid, serial, _compression, _checksum, data, tid, time = args
+            logging.info('  %r: %r:%r by %r -> %r (%r)', event.__name__, dump(oid),
+                    dump(serial), dump(tid), data, time)
 
     def shutdown(self, erase=False):
         """Close all connections and exit"""

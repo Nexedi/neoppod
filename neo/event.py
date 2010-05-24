@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from time import time
-
+from neo import logging
 from neo.epoll import Epoll
 from neo.profiling import profiler_decorator
 
@@ -182,6 +182,16 @@ class EpollEventManager(object):
         if fd in self.writer_set:
             self.writer_set.remove(fd)
             self.epoll.modify(fd, fd in self.reader_set, 0)
+
+    def log(self):
+        logging.info('Event Manager:')
+        logging.info('  Readers: %r', [x for x in self.reader_set])
+        logging.info('  Writers: %r', [x for x in self.writer_set])
+        logging.info('  Connections:')
+        pending_set = set(self._pending_processing)
+        for fd, conn in self.connection_dict.items():
+            logging.info('    %r: %r (pending=%r)', fd, conn, conn in pending_set)
+
 
 # Default to EpollEventManager.
 EventManager = EpollEventManager

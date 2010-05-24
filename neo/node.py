@@ -475,12 +475,12 @@ class NodeManager(object):
         self.log()
 
     def log(self):
-        logging.debug('Node manager : %d nodes' % len(self._node_set))
+        logging.info('Node manager : %d nodes' % len(self._node_set))
         for node in sorted(list(self._node_set)):
             uuid = dump(node.getUUID()) or '-' * 32
             address = node.getAddress() or ''
             if address:
                 address = '%s:%d' % address
-            logging.debug(' * %32s | %8s | %22s | %s' % (
+            logging.info(' * %32s | %8s | %22s | %s' % (
                 uuid, node.getType(), address, node.getState()))
 

@@ -280,3 +280,13 @@ class TransactionManager(object):
     def loadLocked(self, oid):
         return oid in self._load_lock_dict
 
+    def log(self):
+        logging.info("Transactions: %r",
+                [dump(x) for x in self._transaction_dict.keys()])
+        logging.info('  Read locks:')
+        for oid, tid in self._load_lock_dict.items():
+            logging.info('    %r by %r', dump(oid), dump(tid))
+        logging.info('  Write locks:')
+        for oid, tid in self._store_lock_dict.items():
+            logging.info('    %r by %r', dump(oid), dump(tid))
+

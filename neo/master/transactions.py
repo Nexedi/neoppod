@@ -241,3 +241,11 @@ class TransactionManager(object):
         # discard node entry
         del self._node_dict[node]
 
+    def log(self):
+        logging.info('Transactions:')
+        for node, tid_dict in self._node_dict.items():
+            if not len(tid_dict):
+                continue
+            logging.info('  %r: %r', dump(node.getUUID()), [dump(x) for x in
+                    tid_dict.keys()])
+
