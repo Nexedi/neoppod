@@ -253,9 +253,6 @@ class Application(object):
         node_dict = {}
         # group modified nodes by destination node type
         for node in node_list:
-            address = node.getAddress()
-            uuid = node.getUUID()
-            state = node.getState()
             node_info = node.asTuple()
             def assign_for_notification(node_type):
                 # helper function
@@ -319,7 +316,6 @@ class Application(object):
         """
         logging.info('provide service')
         em = self.em
-        nm = self.nm
         self.tm.reset()
 
         self.changeClusterState(ClusterStates.RUNNING)
@@ -429,7 +425,6 @@ class Application(object):
         """
         if self.cluster_state == state:
             return
-        nm, em = self.nm, self.em
 
         # select the storage handler
         client_handler = client.ClientServiceHandler(self)
