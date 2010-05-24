@@ -36,10 +36,12 @@ class Transaction(object):
 
     def __repr__(self):
         return "<%s(node=%r, tid=%r, oids=%r, uuids=%r) at %x>" % (
+                self.__class__.__name__,
                 self._node,
                 dump(self._tid),
                 [dump(x) for x in self._oid_list],
                 [dump(x) for x in self._uuid_dict],
+                id(self),
         )
 
     def getNode(self):
