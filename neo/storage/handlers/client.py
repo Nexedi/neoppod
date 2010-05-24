@@ -17,6 +17,7 @@
 
 from neo import logging
 from neo import protocol
+from neo.util import dump
 from neo.protocol import Packets, LockState
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
 from neo.storage.transactions import ConflictError, DelayedError
@@ -126,6 +127,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
     def askHasLock(self, conn, tid, oid):
         locking_tid = self.app.tm.getLockingTID(oid)
+        logging.info('%r check lock of %r:%r', conn, dump(tid), dump(oid))
         if locking_tid is None:
             state = LockState.NOT_LOCKED
         elif locking_tid is tid:
