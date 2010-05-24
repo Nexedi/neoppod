@@ -123,6 +123,15 @@ class DispatcherTests(unittest.TestCase):
         # ...but must not have reached the queue
         self.assertTrue(queue.empty())
 
+        # Register an expectation
+        self.dispatcher.register(conn, 1, queue)
+        # ...and forget about it
+        self.dispatcher.forget(conn, 1)
+        # No exception must happen if connection is lost.
+        self.dispatcher.unregister(conn)
+        # Forgotten message's queue must not have received a "None"
+        self.assertTrue(queue.empty())
+
 if __name__ == '__main__':
     unittest.main()
 

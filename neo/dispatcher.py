@@ -76,6 +76,8 @@ class Dispatcher:
         notified_set = set()
         queue_dict = self.queue_dict
         for queue in message_table.itervalues():
+            if queue is NOBODY:
+                continue
             queue_id = id(queue)
             if queue_id not in notified_set:
                 queue.put((conn, None))
