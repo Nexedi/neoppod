@@ -329,7 +329,7 @@ class EventHandler(object):
     def answerUndoTransaction(self, conn, oid_list, error_oid_list, conflict_oid_list):
         raise UnexpectedPacketError
 
-    def askHasLock(self, tid, oid):
+    def askHasLock(self, conn, tid, oid):
         raise UnexpectedPacketError
 
     def answerHasLock(self, oid, status):
