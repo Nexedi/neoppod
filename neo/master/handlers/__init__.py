@@ -59,7 +59,12 @@ class MasterHandler(EventHandler):
         conn.answer(Packets.AnswerClusterState(state))
 
     def askNodeInformation(self, conn):
-        self.app.sendNodesInformations(conn)
+        nm = self.app.nm
+        node_list = []
+        node_list.extend(n.asTuple() for n in nm.getMasterList())
+        node_list.extend(n.asTuple() for n in nm.getClientList())
+        node_list.extend(n.asTuple() for n in nm.getStorageList())
+        conn.notify(Packets.NotifyNodeInformation(node_list))
         conn.answer(Packets.AnswerNodeInformation())
 
     def askPartitionTable(self, conn):
