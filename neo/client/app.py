@@ -122,7 +122,7 @@ class ThreadContext(object):
 class Application(object):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, connector=None, **kw):
+    def __init__(self, master_nodes, name, connector=None, compress=True, **kw):
         # Start polling thread
         self.em = EventManager()
         self.poll_thread = ThreadedPoll(self.em)
@@ -178,6 +178,7 @@ class Application(object):
         lock = Lock()
         self._nm_acquire = lock.acquire
         self._nm_release = lock.release
+        self.compress = compress
 
     @profiler_decorator
     def _handlePacket(self, conn, packet, handler=None):
@@ -572,12 +573,16 @@ class Application(object):
         if data is None:
             # this is a George Bailey object, stored as an empty string
             data = ''
-        compressed_data = compress(data)
-        if len(compressed_data) > len(data):
+        if self.compress:
+            compressed_data = compress(data)
+            if len(compressed_data) > len(data):
+                compressed_data = data
+                compression = 0
+            else:
+                compression = 1
+        else:
             compressed_data = data
             compression = 0
-        else:
-            compression = 1
         checksum = makeChecksum(compressed_data)
         p = Packets.AskStoreObject(oid, serial, compression,
                  checksum, compressed_data, self.local_var.tid)
