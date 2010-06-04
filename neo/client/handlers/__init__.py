@@ -39,7 +39,8 @@ class BaseHandler(EventHandler):
         """Redirect all received packet to dispatcher thread."""
         if packet.isResponse():
             if not self.dispatcher.dispatch(conn, packet.getId(), (conn, packet)):
-                raise ProtocolError('Unexpected response packet')
+                raise ProtocolError('Unexpected response packet from %r: %r',
+                        conn, packet)
         else:
             self.dispatch(conn, packet)
 
