@@ -31,15 +31,13 @@ parser.add_option('-v', '--verbose', action = 'store_true',
                   help = 'print verbose messages')
 parser.add_option('-s', '--source', help = 'the source database')
 parser.add_option('-d', '--destination', help = 'the destination database')
-parser.add_option('-c', '--connector', help = 'the NEO connector')
-parser.add_option('-n', '--name', help = 'the NEO cluster name')
+parser.add_option('-c', '--cluster', help = 'the NEO cluster name')
 
 # parse options
 (options, args) = parser.parse_args()
 source = options.source or None
 destination = options.destination or None
-name = options.name or None
-connector = options.connector or 'SocketConnector'
+cluster = options.cluster or None
 
 # check options
 if source is None or destination is None:
@@ -54,12 +52,11 @@ setupLog('neomigrate', None, options.verbose or False)
 from ZODB.FileStorage import FileStorage
 #from ZEO.ClientStorage import ClientStorage as ZEOStorage
 from neo.client.Storage import Storage as NEOStorage
-neo_args = { 'connector': connector, 'name': name, }
 if os.path.exists(source):
     src = FileStorage(file_name=source)
-    dst = NEOStorage(master_nodes=destination, **neo_args)
+    dst = NEOStorage(master_nodes=destination, name=cluster)
 else:
-    src = NEOStorage(master_nodes=source, **neo_args)
+    src = NEOStorage(master_nodes=source, name=cluster)
     dst = FileStorage(file_name=destination)
 
 # do the job
