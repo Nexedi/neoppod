@@ -231,6 +231,13 @@ class PartitionTable(object):
         return self.num_filled_rows == self.np
 
     def log(self):
+        for line in self._format():
+            logging.debug(line)
+
+    def format(self):
+        return '\n'.join(self._format())
+
+    def _format(self):
         """Help debugging partition table management.
 
         Output sample:
@@ -249,6 +256,8 @@ class PartitionTable(object):
         partition on the line (here, line length is 9 to keep the docstring
         width under 80 column).
         """
+        result = []
+        append = result.append
         node_list = self.count_dict.keys()
         node_list = [k for k, v in self.count_dict.items() if v != 0]
         node_list.sort()
@@ -256,15 +265,15 @@ class PartitionTable(object):
         for i, node in enumerate(node_list):
             uuid = node.getUUID()
             node_dict[uuid] = i
-            logging.debug('pt: node %d: %s, %s', i, dump(uuid),
-                protocol.node_state_prefix_dict[node.getState()])
+            append('pt: node %d: %s, %s' % (i, dump(uuid),
+                protocol.node_state_prefix_dict[node.getState()]))
         line = []
         max_line_len = 20 # XXX: hardcoded number of partitions per line
         cell_state_dict = protocol.cell_state_prefix_dict
         for offset, row in enumerate(self.partition_list):
             if len(line) == max_line_len:
-                logging.debug('pt: %08d: %s', offset - max_line_len,
-                              '|'.join(line))
+                append('pt: %08d: %s' % (offset - max_line_len,
+                              '|'.join(line)))
                 line = []
             if row is None:
                 line.append('X' * len(node_list))
@@ -279,8 +288,9 @@ class PartitionTable(object):
                         cell.append('.')
                 line.append(''.join(cell))
         if len(line):
-            logging.debug('pt: %08d: %s', offset - len(line) + 1,
-                          '|'.join(line))
+            append('pt: %08d: %s' % (offset - len(line) + 1,
+                          '|'.join(line)))
+        return result
 
     def operational(self):
         if not self.filled():
