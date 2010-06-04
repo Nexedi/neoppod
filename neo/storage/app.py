@@ -151,7 +151,8 @@ class Application(object):
             logging.info('\nPre-mortem informations:')
             self.em.log()
             self.nm.log()
-            self.pt.log()
+            if self.pt is not None:
+                self.pt.log()
             self.tm.log()
             self.logQueuedEvents()
             raise
