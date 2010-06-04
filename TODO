@@ -235,6 +235,7 @@ RC  - Review output of pylint (CODE)
     and storage node that works out of the box
     - Simple import/export solution that generate SQL/data.fs.
     - Consider using out-of-band TCP feature.
+    - IPv6 support (address field, bind, name resolution)
 
 Old TODO
 
