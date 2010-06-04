@@ -144,6 +144,18 @@ class MasterClientHandlerTests(NeoTestBase):
         service.abortTransaction(conn, tid)
         self.assertFalse(self.app.tm.hasPending())
 
+    def test_askNodeInformations(self):
+        # check that only informations about master and storages nodes are
+        # send to a client
+        self.app.nm.createClient()
+        conn = self.getFakeConnection()
+        self.service.askNodeInformation(conn)
+        calls = conn.mockGetNamedCalls('notify')
+        self.assertEqual(len(calls), 1)
+        packet = calls[0].getParam(0)
+        (node_list, ) = packet.decode()
+        self.assertEqual(len(node_list), 2)
+
     def __testWithMethod(self, method, state):
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,

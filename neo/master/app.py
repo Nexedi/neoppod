@@ -299,11 +299,13 @@ class Application(object):
         " Outdate cell of non-working nodes and broadcast changes """
         self.broadcastPartitionChanges(self.pt.outdate())
 
-    def sendNodesInformations(self, conn):
+    def sendNodesInformations(self, conn, selector=None):
         """ Send informations on all nodes through the given connection """
+        if selector is None:
+            selector = lambda node: not node.isAdmin()
         node_list = []
         for n in self.nm.getList():
-            if not n.isAdmin():
+            if selector(n):
                 node_list.append(n.asTuple())
                 # Split the packet if too huge.
                 if len(node_list) == 10000:

@@ -38,6 +38,12 @@ class ClientServiceHandler(MasterHandler):
         app.broadcastNodesInformation([node])
         app.nm.remove(node)
 
+    def askNodeInformation(self, conn):
+        # send informations about master and storages only
+        selector = lambda node: node.isMaster() or node.isStorage()
+        self.app.sendNodesInformations(conn, selector=selector)
+        conn.answer(Packets.AnswerNodeInformation())
+
     def abortTransaction(self, conn, tid):
         if tid in self.app.tm:
             self.app.tm.remove(tid)
