@@ -41,7 +41,7 @@ from neo.client.exception import NEOStorageError
 from neo.client.exception import NEOStorageNotFoundError, ConnectionClosed
 from neo.exception import NeoException
 from neo.client.handlers import storage, master
-from neo.dispatcher import Dispatcher
+from neo.dispatcher import Dispatcher, ForgottenPacket
 from neo.client.poll import ThreadedPoll
 from neo.client.iterator import Iterator
 from neo.client.mq import MQ
@@ -227,8 +227,8 @@ class Application(object):
                 conn, packet = get(block)
             except Empty:
                 break
-            if packet is None:
-                # connection was closed
+            if packet is None or isinstance(packet, ForgottenPacket):
+                # connection was closed or some packet was forgotten
                 continue
             block = False
             try:
@@ -243,14 +243,18 @@ class Application(object):
         _handlePacket = self._handlePacket
         while True:
             conn, packet = get(True)
+            is_forgotten = isinstance(packet, ForgottenPacket)
             if target_conn is conn:
                 # check fake packet
                 if packet is None:
                     raise ConnectionClosed
                 if msg_id == packet.getId():
+                    if is_forgotten:
+                        raise ValueError, 'ForgottenPacket for an ' \
+                            'explicitely expected packet.'
                     self._handlePacket(conn, packet, handler=handler)
                     break
-            elif packet is not None:
+            elif not is_forgotten and packet is not None:
                 self._handlePacket(conn, packet)
 
     @profiler_decorator

@@ -18,7 +18,7 @@
 import unittest
 
 from mock import Mock
-from neo.dispatcher import Dispatcher
+from neo.dispatcher import Dispatcher, ForgottenPacket
 from Queue import Queue
 
 class DispatcherTests(unittest.TestCase):
@@ -116,6 +116,13 @@ class DispatcherTests(unittest.TestCase):
         self.dispatcher.register(conn, 1, queue)
         # ...and forget about it
         self.dispatcher.forget(conn, 1)
+        # A ForgottenPacket must have been put in the queue
+        queue_conn, packet = queue.get(block=False)
+        self.assertTrue(isinstance(packet, ForgottenPacket), packet)
+        # ...with appropriate packet id
+        self.assertEqual(packet.getId(), 1)
+        # ...and appropriate connection
+        self.assertTrue(conn is queue_conn, (conn, queue_conn))
         # If forgotten twice, it must raise a KeyError
         self.assertRaises(KeyError, self.dispatcher.forget, conn, 1)
         # Event arrives, return value must be True (it was expected)
@@ -127,6 +134,7 @@ class DispatcherTests(unittest.TestCase):
         self.dispatcher.register(conn, 1, queue)
         # ...and forget about it
         self.dispatcher.forget(conn, 1)
+        queue.get(block=False)
         # No exception must happen if connection is lost.
         self.dispatcher.unregister(conn)
         # Forgotten message's queue must not have received a "None"

@@ -20,6 +20,18 @@ from neo.profiling import profiler_decorator
 EMPTY = {}
 NOBODY = []
 
+class ForgottenPacket(object):
+    """
+      Instances of this class will be pushed to queue when an expected answer
+      is being forgotten. Its purpose is similar to pushing "None" when
+      connection is closed, but the meaning is different.
+    """
+    def __init__(self, msg_id):
+        self.msg_id = msg_id
+
+    def getId(self):
+        return self.msg_id
+
 def giant_lock(func):
     def wrapped(self, *args, **kw):
         self.lock_acquire()
@@ -95,6 +107,7 @@ class Dispatcher:
         if queue is NOBODY:
             raise KeyError, 'Already expected by NOBODY: %r, %r' % (
                 conn, msg_id)
+        queue.put((conn, ForgottenPacket(msg_id)))
         self.queue_dict[id(queue)] -= 1
         message_table[msg_id] = NOBODY
 
