@@ -119,7 +119,7 @@ class SocketConnector:
         except socket.error, (err, errmsg):
             if err == errno.EAGAIN:
                 raise ConnectorTryAgainException
-            if err == errno.ECONNREFUSED:
+            if err in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
                 raise ConnectorConnectionRefusedException
             if err == errno.ECONNRESET:
                 raise ConnectorConnectionClosedException
