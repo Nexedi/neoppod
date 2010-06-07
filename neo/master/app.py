@@ -493,21 +493,22 @@ class Application(object):
             node.getConnection().setHandler(handler)
 
         # wait for all transaction to be finished
-        while True:
+        while self.tm.hasPending():
             self.em.poll(1)
-            if self.tm.hasPending():
-                continue
-            if self.cluster_state == ClusterStates.RUNNING:
-                sys.exit("Application has been asked to shut down")
+
+        if self.cluster_state != ClusterStates.RUNNING:
             logging.info("asking all nodes to shutdown")
+            # This code sends packets but never polls, so they never reach
+            # network.
             for node in self.nm.getIdentifiedList():
                 notification = Packets.NotifyNodeInformation([node.asTuple()])
                 if node.isClient():
                     node.notify(notification)
                 elif node.isStorage() or node.isMaster():
                     node.notify(notification)
-            # then shutdown
-            sys.exit("Cluster has been asked to shut down")
+
+        # then shutdown
+        sys.exit()
 
     def identifyStorageNode(self, uuid, node):
         state = NodeStates.RUNNING
