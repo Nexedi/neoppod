@@ -139,7 +139,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
             # timeout. To avoid a deadlock, abort current transaction (we might
             # be locking objects the other transaction is waiting for).
             raise ConflictError, 'Lock wait timeout for oid %s on %r' % (
-                dump(oid), conn.getNode())
+                dump(oid), conn)
         elif status == LockState.GRANTED:
             logging.info('Store of oid %s was successful, but after timeout.',
                 dump(oid))
