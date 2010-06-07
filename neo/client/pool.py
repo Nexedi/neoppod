@@ -106,16 +106,9 @@ class ConnectionPool(object):
             # must drop some unused connections
             self._dropConnections()
 
-        self.connection_lock_release()
-        try:
-            conn = self._initNodeConnection(node)
-        finally:
-            self.connection_lock_acquire()
-
-        if conn is None:
-            return None
-
-        self.connection_dict[node.getUUID()] = conn
+        conn = self._initNodeConnection(node)
+        if conn is not None:
+            self.connection_dict[node.getUUID()] = conn
         return conn
 
     @profiler_decorator
