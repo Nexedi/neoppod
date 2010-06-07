@@ -36,6 +36,9 @@ class IdentificationHandler(EventHandler):
             raise protocol.NotReadyError
         app = self.app
         node = app.nm.getByUUID(uuid)
+        # If this node is broken, reject it.
+        if node is not None and node.isBroken():
+            raise protocol.BrokenNodeDisallowedError
         # choose the handler according to the node type
         if node_type == NodeTypes.CLIENT:
             from neo.storage.handlers.client import ClientOperationHandler
@@ -46,14 +49,11 @@ class IdentificationHandler(EventHandler):
         elif node_type == NodeTypes.STORAGE:
             from neo.storage.handlers.storage import StorageOperationHandler
             handler = StorageOperationHandler
+            if node is None:
+                logging.error('reject an unknown storage node %s', dump(uuid))
+                raise protocol.NotReadyError
         else:
             raise protocol.ProtocolError('reject non-client-or-storage node')
-        if node is None:
-            logging.error('reject an unknown node %s', dump(uuid))
-            raise protocol.NotReadyError
-        # If this node is broken, reject it.
-        if node.isBroken():
-            raise protocol.BrokenNodeDisallowedError
         # apply the handler and set up the connection
         handler = handler(self.app)
         conn.setHandler(handler)
