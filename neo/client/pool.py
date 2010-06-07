@@ -58,7 +58,7 @@ class ConnectionPool(object):
             try:
                 if conn.getConnector() is None:
                     # This happens, if a connection could not be established.
-                    logging.error('Connection to storage node %s failed', node)
+                    logging.error('Connection to %r failed', node)
                     return None
 
                 p = Packets.RequestIdentification(NodeTypes.CLIENT,
@@ -71,14 +71,14 @@ class ConnectionPool(object):
                 app._waitMessage(conn, msg_id,
                         handler=app.storage_bootstrap_handler)
             except ConnectionClosed:
-                logging.error('Connection to storage node %s failed', node)
+                logging.error('Connection to %r failed', node)
                 return None
 
             if app.isNodeReady():
-                logging.info('connected to storage node %s', node)
+                logging.info('Connected %r', node)
                 return conn
             else:
-                logging.info('Storage node %s not ready', node)
+                logging.info('%r not ready', node)
                 return None
 
     @profiler_decorator
