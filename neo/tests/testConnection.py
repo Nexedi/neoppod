@@ -27,6 +27,7 @@ from neo.connector import ConnectorException, ConnectorTryAgainException, \
 from neo.protocol import Packets, ParserState
 from neo.tests import NeoTestBase
 from neo.util import ReadBuffer
+from neo.locking import Queue
 
 class ConnectionTests(NeoTestBase):
 
@@ -808,6 +809,30 @@ class ConnectionTests(NeoTestBase):
         self.assertEqual(bc.aborted, True)
         self.assertTrue(bc.isServer())
 
+class MTConnectionTests(ConnectionTests):
+    # XXX: here we test non-client-connection-related things too, which
+    # duplicates test suite work... Should be fragmented into finer-grained
+    # test classes.
+
+    def setUp(self):
+        super(MTConnectionTests, self).setUp()
+        self.dispatcher = Mock({'__repr__': 'Fake Dispatcher'})
+
+    def _makeClientConnection(self):
+        self.connector = DoNothingConnector()
+        return MTClientConnection(event_manager=self.em, handler=self.handler,
+                connector=self.connector, addr=self.address,
+                dispatcher=self.dispatcher)
+
+    def test_MTClientConnectionQueueParameter(self):
+        queue = Queue()
+        ask = self._makeClientConnection().ask
+        packet = Packets.AskPrimary() # Any non-Ping simple "ask" packet
+        # One cannot "ask" anything without a queue
+        self.assertRaises(TypeError, ask, packet)
+        ask(packet, queue=queue)
+        # ... except Ping
+        ask(Packets.Ping())
 
 class HandlerSwitcherTests(NeoTestBase):
 

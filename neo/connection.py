@@ -684,10 +684,9 @@ class ServerConnection(Connection):
 class MTClientConnection(ClientConnection):
     """A Multithread-safe version of ClientConnection."""
 
-    def __init__(self, local_var, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         # _lock is only here for lock debugging purposes. Do not use.
         self._lock = lock = RLock()
-        self._local_var = local_var
         self.acquire = lock.acquire
         self.release = lock.release
         self.dispatcher = kwargs.pop('dispatcher')
@@ -723,7 +722,8 @@ class MTClientConnection(ClientConnection):
             self.unlock()
 
     @profiler_decorator
-    def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None):
+    def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None,
+            queue=None):
         self.lock()
         try:
             # XXX: Here, we duplicate Connection.ask because we need to call
@@ -731,7 +731,12 @@ class MTClientConnection(ClientConnection):
             # _addPacket is called.
             msg_id = self._getNextId()
             packet.setId(msg_id)
-            self.dispatcher.register(self, msg_id, self._local_var.queue)
+            if queue is None:
+                if not isinstance(packet, Packets.Ping):
+                    raise TypeError, 'Only Ping packet can be asked ' \
+                        'without a queue, got a %r.' % (packet, )
+            else:
+                self.dispatcher.register(self, msg_id, queue)
             self._addPacket(packet)
             t = time()
             # If there is no pending request, initialise timeout values.

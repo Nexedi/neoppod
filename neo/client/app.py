@@ -260,14 +260,14 @@ class Application(object):
     @profiler_decorator
     def _askStorage(self, conn, packet):
         """ Send a request to a storage node and process it's answer """
-        msg_id = conn.ask(packet)
+        msg_id = conn.ask(packet, queue=self.local_var.queue)
         self._waitMessage(conn, msg_id, self.storage_handler)
 
     @profiler_decorator
     def _askPrimary(self, packet):
         """ Send a request to the primary master and process it's answer """
         conn = self._getMasterConnection()
-        msg_id = conn.ask(packet)
+        msg_id = conn.ask(packet, queue=self.local_var.queue)
         self._waitMessage(conn, msg_id, self.primary_handler)
 
     @profiler_decorator
@@ -308,6 +308,7 @@ class Application(object):
         logging.debug('connecting to primary master...')
         ready = False
         nm = self.nm
+        queue = self.local_var.queue
         while not ready:
             # Get network connection to primary master
             index = 0
@@ -328,7 +329,7 @@ class Application(object):
                         self.trying_master_node = master_list[0]
                     index += 1
                 # Connect to master
-                conn = MTClientConnection(self.local_var, self.em,
+                conn = MTClientConnection(self.em,
                         self.notifications_handler,
                         addr=self.trying_master_node.getAddress(),
                         connector=self.connector_handler(),
@@ -339,7 +340,7 @@ class Application(object):
                     logging.error('Connection to master node %s failed',
                                   self.trying_master_node)
                     continue
-                msg_id = conn.ask(Packets.AskPrimary())
+                msg_id = conn.ask(Packets.AskPrimary(), queue=queue)
                 try:
                     self._waitMessage(conn, msg_id,
                             handler=self.primary_bootstrap_handler)
@@ -359,7 +360,7 @@ class Application(object):
                     break
                 p = Packets.RequestIdentification(NodeTypes.CLIENT,
                         self.uuid, None, self.name)
-                msg_id = conn.ask(p)
+                msg_id = conn.ask(p, queue=queue)
                 try:
                     self._waitMessage(conn, msg_id,
                             handler=self.primary_bootstrap_handler)
@@ -370,10 +371,10 @@ class Application(object):
                     # Node identification was refused by master.
                     time.sleep(1)
             if self.uuid is not None:
-                msg_id = conn.ask(Packets.AskNodeInformation())
+                msg_id = conn.ask(Packets.AskNodeInformation(), queue=queue)
                 self._waitMessage(conn, msg_id,
                         handler=self.primary_bootstrap_handler)
-                msg_id = conn.ask(Packets.AskPartitionTable())
+                msg_id = conn.ask(Packets.AskPartitionTable(), queue=queue)
                 self._waitMessage(conn, msg_id,
                         handler=self.primary_bootstrap_handler)
             ready = self.uuid is not None and self.pt is not None \
@@ -597,12 +598,13 @@ class Application(object):
         self.local_var.object_stored_counter_dict[oid] = {}
         self.local_var.object_serial_dict[oid] = (serial, version)
         getConnForCell = self.cp.getConnForCell
+        queue = self.local_var.queue
         for cell in cell_list:
             conn = getConnForCell(cell)
             if conn is None:
                 continue
             try:
-                conn.ask(p, on_timeout=on_timeout)
+                conn.ask(p, on_timeout=on_timeout, queue=queue)
             except ConnectionClosed:
                 continue
 
@@ -870,9 +872,10 @@ class Application(object):
         undo_error_oid_list = self.local_var.undo_error_oid_list = []
         ask_undo_transaction = Packets.AskUndoTransaction(tid, undone_tid)
         getConnForNode = self.cp.getConnForNode
+        queue = self.local_var.queue
         for storage_node in self.nm.getStorageList():
             storage_conn = getConnForNode(storage_node)
-            storage_conn.ask(ask_undo_transaction)
+            storage_conn.ask(ask_undo_transaction, queue=queue)
         # Wait for all AnswerUndoTransaction.
         self.waitResponses()
 
@@ -927,11 +930,12 @@ class Application(object):
         storage_node_list = pt.getNodeList()
 
         self.local_var.node_tids = {}
+        queue = self.local_var.queue
         for storage_node in storage_node_list:
             conn = self.cp.getConnForNode(storage_node)
             if conn is None:
                 continue
-            conn.ask(Packets.AskTIDs(first, last, INVALID_PARTITION))
+            conn.ask(Packets.AskTIDs(first, last, INVALID_PARTITION), queue=queue)
 
         # Wait for answers from all storages.
         while len(self.local_var.node_tids) != len(storage_node_list):
