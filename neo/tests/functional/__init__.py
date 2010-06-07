@@ -525,4 +525,11 @@ class NEOFunctionalTest(unittest.TestCase):
             os.makedirs(temp_dir)
         return temp_dir
 
+    def runWithTimeout(self, method, timeout):
+        import threading
+        thread = threading.Thread(None, method)
+        thread.setDaemon(True)
+        thread.start()
+        thread.join(timeout)
+        self.assertFalse(thread.isAlive(), 'Run timeout')
 

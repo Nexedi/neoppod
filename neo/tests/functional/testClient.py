@@ -21,6 +21,7 @@ import transaction
 import ZODB
 from ZODB.FileStorage import FileStorage
 from ZODB.POSException import ConflictError
+from ZODB.tests.StorageTestBase import zodb_pickle
 from Persistence import Persistent
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
@@ -226,6 +227,32 @@ class ClientTests(NEOFunctionalTest):
 
         self.__checkTree(root['trees'])
 
+    def testLockTimeout(self):
+        """ Hold a lock on an object to block a second transaction """
+        def test():
+            class PObject(Persistent):
+                pass
+            self.neo = NEOCluster(['test_neo1'], replicas=0,
+                temp_dir=self.getTempDirectory())
+            neoctl = self.neo.getNEOCTL()
+            self.neo.start()
+            db1, conn1 = self.neo.getZODBConnection()
+            db2, conn2 = self.neo.getZODBConnection()
+            st1, st2 = conn1._storage, conn2._storage
+            t1, t2 = transaction.Transaction(), transaction.Transaction()
+            t1.user = t2.user = 'user'
+            t1.description = t2.description = 'desc'
+            oid = st1.new_oid()
+            rev = '\0' * 8
+            data = zodb_pickle(PObject())
+            st1.tpc_begin(t1)
+            st2.tpc_begin(t2)
+            st1.store(oid, rev, data, '', t1)
+            # this store will be delayed
+            st2.store(oid, rev, data, '', t2)
+            # the vote will timeout as t1 never release the lock
+            self.assertRaises(ConflictError, st2.tpc_vote, t2)
+        self.runWithTimeout(test, 40)
 
 def test_suite():
     return unittest.makeSuite(ClientTests)
