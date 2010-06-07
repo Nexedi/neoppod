@@ -59,6 +59,7 @@ class IdentificationHandler(EventHandler):
         conn.setHandler(handler)
         conn.setUUID(uuid)
         node.setUUID(uuid)
+        node.setConnection(conn)
         args = (NodeTypes.STORAGE, app.uuid, app.pt.getPartitions(),
             app.pt.getReplicas(), uuid)
         # accept the identification and trigger an event
