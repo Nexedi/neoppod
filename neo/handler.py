@@ -332,7 +332,7 @@ class EventHandler(object):
     def askHasLock(self, conn, tid, oid):
         raise UnexpectedPacketError
 
-    def answerHasLock(self, oid, status):
+    def answerHasLock(self, conn, oid, status):
         raise UnexpectedPacketError
 
     # Error packet handlers.
