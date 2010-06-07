@@ -114,8 +114,9 @@ class DispatcherTests(unittest.TestCase):
         MARKER = object()
         # Register an expectation
         self.dispatcher.register(conn, 1, queue)
-        # ...and forget about it
-        self.dispatcher.forget(conn, 1)
+        # ...and forget about it, returning registered queue
+        forgotten_queue = self.dispatcher.forget(conn, 1)
+        self.assertTrue(queue is forgotten_queue, (queue, forgotten_queue))
         # A ForgottenPacket must have been put in the queue
         queue_conn, packet = queue.get(block=False)
         self.assertTrue(isinstance(packet, ForgottenPacket), packet)

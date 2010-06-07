@@ -110,6 +110,7 @@ class Dispatcher:
         queue.put((conn, ForgottenPacket(msg_id)))
         self.queue_dict[id(queue)] -= 1
         message_table[msg_id] = NOBODY
+        return queue
 
     @profiler_decorator
     def registered(self, conn):
