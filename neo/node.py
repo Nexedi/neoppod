@@ -459,8 +459,8 @@ class NodeManager(object):
                     'Discrepancy between node_by_uuid (%r) and ' \
                     'node_by_addr (%r)' % (node_by_uuid, node_by_addr)
                 if state == NodeStates.DOWN:
-                    logging.debug('droping node %r, found with %s %s %s %s',
-                        node, *log_args)
+                    logging.debug('droping node %r (%r), found with %s %s %s %s',
+                        node, node.isConnected(), *log_args)
                     if node.isConnected():
                         # cut this connection, node removed by handler
                         node.getConnection().close()
