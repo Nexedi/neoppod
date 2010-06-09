@@ -204,11 +204,19 @@ class NeoTestBase(unittest.TestCase):
         """ Ensure the connection was not closed """
         self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
 
-    def checkNoPacketSent(self, conn):
+    def _checkNoPacketSend(self, conn, method_id):
+        call_list = conn.mockGetNamedCalls(method_id)
+        self.assertEquals(len(call_list), 0, call_list)
+
+    def checkNoPacketSent(self, conn, check_notify=True, check_answer=True,
+            check_ask=True):
         """ check if no packet were sent """
-        self.assertEquals(len(conn.mockGetNamedCalls('notify')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('answer')), 0)
-        self.assertEquals(len(conn.mockGetNamedCalls('ask')), 0)
+        if check_notify:
+            self._checkNoPacketSend(conn, 'notify')
+        if check_answer:
+            self._checkNoPacketSend(conn, 'answer')
+        if check_ask:
+            self._checkNoPacketSend(conn, 'ask')
 
     def checkNoUUIDSet(self, conn):
         """ ensure no UUID was set on the connection """
