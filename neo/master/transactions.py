@@ -90,6 +90,8 @@ class Transaction(object):
             Define that a node has locked the transaction
             Returns true if all nodes are locked
         """
+        # XXX: Should first check that node is part of transaction, and fail if
+        # it's not.
         self._uuid_dict[uuid] = True
         return self.locked()
 
