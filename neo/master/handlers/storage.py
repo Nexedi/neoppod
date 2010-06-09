@@ -41,6 +41,10 @@ class StorageServiceHandler(BaseServiceHandler):
         # this is intentionaly placed after the raise because the last cell in a
         # partition must not oudated to allows a cluster restart.
         self.app.outdateAndBroadcastPartition()
+        uuid = conn.getUUID()
+        for tid, transaction in self.app.tm.items():
+            if transaction.forget(uuid):
+                self._afterLock(tid)
 
     def askLastIDs(self, conn):
         app = self.app
@@ -65,10 +69,15 @@ class StorageServiceHandler(BaseServiceHandler):
         t = tm[tid]
         if not t.lock(uuid):
             return
+        self._afterLock(tid)
 
+    def _afterLock(self, tid):
         # I have received all the lock answers now:
         # - send a Notify Transaction Finished to the initiated client node
         # - Invalidate Objects to the other client nodes
+        app = self.app
+        tm = app.tm
+        t = tm[tid]
         nm = app.nm
         transaction_node = t.getNode()
         invalidate_objects = Packets.InvalidateObjects(tid, t.getOIDList())

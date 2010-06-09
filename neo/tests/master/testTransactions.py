@@ -119,7 +119,51 @@ class testTransactionManager(NeoTestBase):
         self.assertTrue(tid2 is not None)
         self.assertTrue(tid2 > ntid > tid1)
 
+    def test_forget(self):
+        client1 = Mock({'__hash__': 1})
+        client2 = Mock({'__hash__': 2})
+        client3 = Mock({'__hash__': 3})
+        storage_1_uuid = self.makeUUID(1)
+        storage_2_uuid = self.makeUUID(2)
+        tid1 = self.makeTID(1)
+        tid2 = self.makeTID(2)
+        tid3 = self.makeTID(3)
+        oid_list = [self.makeOID(1), ]
 
+        tm = TransactionManager()
+        # Transaction 1: 2 storage nodes involved, one will die and the other
+        # already answered node lock
+        msg_id_1 = 1
+        tm.begin(client1, tid1)
+        tm.prepare(tid1, oid_list, [storage_1_uuid, storage_2_uuid], msg_id_1)
+        tm.lock(tid1, storage_2_uuid)
+        # Transaction 2: 2 storage nodes involved, one will die
+        msg_id_2 = 2
+        tm.begin(client2, tid2)
+        tm.prepare(tid2, oid_list, [storage_1_uuid, storage_2_uuid], msg_id_2)
+        # Transaction 3: 1 storage node involved, which won't die
+        msg_id_3 = 3
+        tm.begin(client3, tid3)
+        tm.prepare(tid3, oid_list, [storage_2_uuid, ], msg_id_3)
+
+        t1 = tm[tid1]
+        t2 = tm[tid2]
+        t3 = tm[tid3]
+
+        # Assert initial state
+        self.assertFalse(t1.locked())
+        self.assertFalse(t2.locked())
+        self.assertFalse(t3.locked())
+
+        # Storage 1 dies:
+        # t1 is over
+        self.assertTrue(t1.forget(storage_1_uuid))
+        # t2 still waits for storage 2
+        self.assertFalse(t2.forget(storage_1_uuid))
+        self.assertTrue(t2.lock(storage_2_uuid))
+        # t3 doesn't care
+        self.assertFalse(t3.forget(storage_1_uuid))
+        self.assertTrue(t3.lock(storage_2_uuid))
 
 if __name__ == '__main__':
     unittest.main()

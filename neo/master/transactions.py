@@ -85,6 +85,18 @@ class Transaction(object):
         self._uuid_dict = dict.fromkeys(uuid_list, False)
         self._msg_id = msg_id
 
+    def forget(self, uuid):
+        """
+            Given storage was lost while waiting for its lock, stop waiting
+            for it.
+            Does nothing if the node was not part of the transaction.
+        """
+        # XXX: We might loose information that a storage successfully locked
+        # data but was later found to be disconnected. This loss has no impact
+        # on current code, but it might be disturbing to reader or future code.
+        self._uuid_dict.pop(uuid, None)
+        return self.locked()
+
     def lock(self, uuid):
         """
             Define that a node has locked the transaction
@@ -125,6 +137,9 @@ class TransactionManager(object):
             Returns True if this is a pending transaction
         """
         return tid in self._tid_dict
+
+    def items(self):
+        return self._tid_dict.items()
 
     def _nextTID(self):
         """ Compute the next TID based on the current time and check collisions """
