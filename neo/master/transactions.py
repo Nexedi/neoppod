@@ -36,7 +36,7 @@ class Transaction(object):
         self._birth = time()
 
     def __repr__(self):
-        return "<%s(node=%r, tid=%r, oids=%r, uuids=%r, age=%.2fs) at %x>" % (
+        return "<%s(client=%r, tid=%r, oids=%r, storages=%r, age=%.2fs) at %x>" % (
                 self.__class__.__name__,
                 self._node,
                 dump(self._tid),
@@ -262,9 +262,6 @@ class TransactionManager(object):
 
     def log(self):
         logging.info('Transactions:')
-        for node, tid_dict in self._node_dict.items():
-            if not len(tid_dict):
-                continue
-            logging.info('  %r: %r', dump(node.getUUID()), [dump(x) for x in
-                    tid_dict.keys()])
+        for txn in self._tid_dict.itervalues():
+            logging.info('  %r', txn)
 
