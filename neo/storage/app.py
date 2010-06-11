@@ -87,6 +87,14 @@ class Application(object):
 
         registerLiveDebugger()
 
+    def log(self):
+        self.em.log()
+        self.logQueuedEvents()
+        self.nm.log()
+        self.tm.log()
+        if self.pt is not None:
+            self.pt.log()
+
     def loadConfiguration(self):
         """Load persistent configuration data from the database.
         If data is not present, generate it."""
@@ -149,12 +157,7 @@ class Application(object):
             self._run()
         except:
             logging.info('\nPre-mortem informations:')
-            self.em.log()
-            self.nm.log()
-            if self.pt is not None:
-                self.pt.log()
-            self.tm.log()
-            self.logQueuedEvents()
+            self.log()
             raise
 
     def _run(self):

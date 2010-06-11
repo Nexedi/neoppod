@@ -180,6 +180,12 @@ class Application(object):
         self._nm_release = lock.release
         self.compress = compress
 
+    def log(self):
+        self.em.log()
+        self.nm.log()
+        if self.pt is not None:
+            self.pt.log()
+
     @profiler_decorator
     def _handlePacket(self, conn, packet, handler=None):
         """

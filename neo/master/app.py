@@ -95,15 +95,19 @@ class Application(object):
 
         registerLiveDebugger()
 
+    def log(self):
+        self.em.log()
+        self.nm.log()
+        self.tm.log()
+        if self.pt is not None:
+            self.pt.log()
+
     def run(self):
         try:
             self._run()
         except:
             logging.info('\nPre-mortem informations:')
-            self.em.log()
-            self.nm.log()
-            self.pt.log()
-            self.tm.log()
+            self.log()
             raise
 
     def _run(self):
