@@ -34,6 +34,13 @@ class TransactionTests(NeoTestBase):
         self.assertEqual(txn.getObjectList(), [])
         self.assertEqual(txn.getOIDList(), [])
 
+    def testRepr(self):
+        """ Just check if the __repr__ implementation will not raise """
+        uuid = self.getNewUUID()
+        tid = self.getNextTID()
+        txn = Transaction(uuid, tid)
+        repr(txn)
+
     def testLock(self):
         txn = Transaction(self.getNewUUID(), self.getNextTID())
         self.assertFalse(txn.isLocked())

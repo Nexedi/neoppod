@@ -35,7 +35,7 @@ class testTransactionManager(NeoTestBase):
 
     def testTransaction(self):
         # test data
-        node = Mock({})
+        node = Mock({'__repr__': 'Node'})
         tid = self.makeTID(1)
         oid_list = (oid1, oid2) = (self.makeOID(1), self.makeOID(2))
         uuid_list = (uuid1, uuid2) = (self.makeUUID(1), self.makeUUID(2))
@@ -47,6 +47,8 @@ class testTransactionManager(NeoTestBase):
         # lock nodes one by one
         self.assertFalse(txn.lock(uuid1))
         self.assertTrue(txn.lock(uuid2))
+        # check that repr() works
+        repr(txn)
 
     def testManager(self):
         # test data
