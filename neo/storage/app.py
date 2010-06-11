@@ -85,7 +85,7 @@ class Application(object):
         if config.getUUID() is not None:
             self.uuid = config.getUUID()
 
-        registerLiveDebugger()
+        registerLiveDebugger(on_log=self.log)
 
     def log(self):
         self.em.log()

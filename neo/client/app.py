@@ -48,6 +48,7 @@ from neo.client.mq import MQ
 from neo.client.pool import ConnectionPool
 from neo.util import u64, parseMasterList
 from neo.profiling import profiler_decorator, PROFILING_ENABLED
+from neo.live_debug import register as registerLiveDebugger
 
 if PROFILING_ENABLED:
     # Those functions require a "real" python function wrapper before they can
@@ -179,6 +180,7 @@ class Application(object):
         self._nm_acquire = lock.acquire
         self._nm_release = lock.release
         self.compress = compress
+        registerLiveDebugger(on_log=self.log)
 
     def log(self):
         self.em.log()

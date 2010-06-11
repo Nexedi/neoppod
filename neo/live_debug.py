@@ -65,8 +65,14 @@ def debugHandler(sig, frame):
 def pdbHandler(sig, frame):
     pdb.set_trace()
 
-def register():
+def register(on_log=None):
     if ENABLED:
         signal.signal(signal.SIGUSR1, debugHandler)
         signal.signal(signal.SIGUSR2, pdbHandler)
+        if on_log is not None:
+            # use 'kill -RTMIN <pid>
+            @decorate
+            def on_log_signal(signum, signal):
+                on_log()
+            signal.signal(signal.SIGRTMIN, on_log_signal)
 

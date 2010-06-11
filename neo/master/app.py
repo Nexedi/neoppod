@@ -93,7 +93,7 @@ class Application(object):
 
         self._current_manager = None
 
-        registerLiveDebugger()
+        registerLiveDebugger(on_log=self.log)
 
     def log(self):
         self.em.log()
