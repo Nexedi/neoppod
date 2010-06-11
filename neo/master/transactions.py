@@ -33,14 +33,16 @@ class Transaction(object):
         self._msg_id = None
         # uuid dict hold flag to known who has locked the transaction
         self._uuid_dict = {}
+        self._birth = time()
 
     def __repr__(self):
-        return "<%s(node=%r, tid=%r, oids=%r, uuids=%r) at %x>" % (
+        return "<%s(node=%r, tid=%r, oids=%r, uuids=%r, age=%.2fs) at %x>" % (
                 self.__class__.__name__,
                 self._node,
                 dump(self._tid),
                 [dump(x) for x in self._oid_list],
                 [dump(x) for x in self._uuid_dict],
+                time() - self._birth,
                 id(self),
         )
 

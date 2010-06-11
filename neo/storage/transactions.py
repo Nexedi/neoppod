@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from time import time
 from neo import logging
 from neo.util import dump
 
@@ -50,13 +51,15 @@ class Transaction(object):
         self._object_dict = {}
         self._transaction = None
         self._locked = False
+        self._birth = time()
 
     def __repr__(self):
-        return "<%s(tid=%r, uuid=%r, locked=%r)> at %x" % (
+        return "<%s(tid=%r, uuid=%r, locked=%r, age=%.2fs)> at %x" % (
             self.__class__.__name__,
             dump(self._tid),
             dump(self._uuid),
             self.isLocked(),
+            time() - self._birth,
             id(self),
         )
 
