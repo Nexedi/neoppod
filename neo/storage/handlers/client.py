@@ -120,7 +120,8 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                 to_append_list = error_oid_list
             else:
                 try:
-                    storeObject(uuid, tid, current_serial, oid, None,
+                    self.app.tm.register(uuid, tid)
+                    storeObject(tid, current_serial, oid, None,
                         None, None, undone_value_serial)
                 except ConflictError:
                     to_append_list = conflict_oid_list
