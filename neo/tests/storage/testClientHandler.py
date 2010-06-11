@@ -44,7 +44,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.app.store_lock_dict = {}
         self.app.load_lock_dict = {}
         self.app.event_queue = deque()
-        self.app.tm = Mock()
+        self.app.tm = Mock({'__contains__': True})
         # handler
         self.operation = ClientOperationHandler(self.app)
         # set pmn
@@ -211,7 +211,7 @@ class StorageClientHandlerTests(NeoTestBase):
         oid, serial, comp, checksum, data = self._getObject()
         self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
                 data, tid)
-        self._checkStoreObjectCalled(uuid, tid, serial, oid, comp,
+        self._checkStoreObjectCalled(tid, serial, oid, comp,
                 checksum, data, None)
         self.checkAnswerStoreObject(conn)
 

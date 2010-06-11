@@ -43,16 +43,23 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
     def askStoreTransaction(self, conn, tid, user, desc,
                                   ext, oid_list):
-        uuid = conn.getUUID()
-        self.app.tm.storeTransaction(uuid, tid, oid_list, user, desc, ext,
+        self.app.tm.register(conn.getUUID(), tid)
+        self.app.tm.storeTransaction(tid, oid_list, user, desc, ext,
             False)
         conn.answer(Packets.AnswerStoreTransaction(tid))
 
     def _askStoreObject(self, conn, oid, serial, compression, checksum, data,
             tid, request_time):
-        uuid = conn.getUUID()
+        if tid not in self.app.tm:
+            # transaction was aborted, cancel this event
+            logging.info('Forget store of %s:%s by %s delayed by %s',
+                    dump(oid), dump(serial), dump(tid),
+                    dump(self.app.tm.getLockingTID(oid)))
+            # send an answer as the client side is waiting for it
+            conn.answer(Packets.AnswerStoreObject(0, oid, serial))
+            return
         try:
-            self.app.tm.storeObject(uuid, tid, serial, oid, compression,
+            self.app.tm.storeObject(tid, serial, oid, compression,
                     checksum, data, None)
         except ConflictError, err:
             # resolvable or not
@@ -71,6 +78,8 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
     def askStoreObject(self, conn, oid, serial,
                              compression, checksum, data, tid):
+        # register the transaction
+        self.app.tm.register(conn.getUUID(), tid)
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
             tid, time.time())
 

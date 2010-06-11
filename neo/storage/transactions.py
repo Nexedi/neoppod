@@ -123,9 +123,9 @@ class TransactionManager(object):
         """
         return tid in self._transaction_dict
 
-    def _getTransaction(self, tid, uuid):
+    def register(self, uuid, tid):
         """
-            Get or create the transaction object for this tid
+            Register a transaction, it may be already registered
         """
         transaction = self._transaction_dict.get(tid, None)
         if transaction is None:
@@ -193,17 +193,18 @@ class TransactionManager(object):
             self._loid = self._loid_seen
             self._app.dm.setLastOID(self._loid)
 
-    def storeTransaction(self, uuid, tid, oid_list, user, desc, ext, packed):
+    def storeTransaction(self, tid, oid_list, user, desc, ext, packed):
         """
             Store transaction information received from client node
         """
-        transaction = self._getTransaction(tid, uuid)
+        assert tid in self, "Transaction not registered"
+        transaction = self._transaction_dict[tid]
         transaction.prepare(oid_list, user, desc, ext, packed)
 
     def getLockingTID(self, oid):
         return self._store_lock_dict.get(oid)
 
-    def storeObject(self, uuid, tid, serial, oid, compression, checksum, data,
+    def storeObject(self, tid, serial, oid, compression, checksum, data,
             value_serial):
         """
             Store an object received from client node
@@ -235,7 +236,8 @@ class TransactionManager(object):
             raise ConflictError(locking_tid)
 
         # store object
-        transaction = self._getTransaction(tid, uuid)
+        assert tid in self, "Transaction not registered"
+        transaction = self._transaction_dict[tid]
         transaction.addObject(oid, compression, checksum, data, value_serial)
 
         # update loid
