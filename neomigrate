@@ -42,7 +42,7 @@ cluster = options.cluster or None
 # check options
 if source is None or destination is None:
     raise RuntimeError('Source and destination databases must be supplied')
-if name is None:
+if cluster is None:
     raise RuntimeError('The NEO cluster name must be supplied')
 
 # set up logging
