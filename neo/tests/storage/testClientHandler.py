@@ -254,12 +254,12 @@ class StorageClientHandlerTests(NeoTestBase):
             }
         self.app.dm.getTransactionUndoData = getTransactionUndoData
         original_storeObject = self.app.tm.storeObject
-        def storeObject(uuid, tid, serial, oid, *args, **kw):
+        def storeObject(tid, serial, oid, *args, **kw):
             if oid == oid_3:
                 raise ConflictError(0)
             elif oid == oid_4 and delay_store:
                 raise DelayedError
-            return original_storeObject(uuid, tid, serial, oid, *args, **kw)
+            return original_storeObject(tid, serial, oid, *args, **kw)
         self.app.tm.storeObject = storeObject
 
         # Check if delaying a store (of oid_4) is supported
