@@ -768,17 +768,18 @@ class Application(object):
         tid = self.local_var.tid
         getCellListForOID = self._getCellListForOID
         # select nodes where transaction was stored
-        cell_set = set(self._getCellListForTID(tid,
-            writable=True))
+        node_set = set([x.getNode() for x in self._getCellListForTID(tid,
+            writable=True)])
         # select nodes where objects were stored
         for oid in self.local_var.data_dict.iterkeys():
-            cell_set |= set(getCellListForOID(oid, writable=True))
+            node_set |= set([x.getNode() for x in getCellListForOID(oid,
+                writable=True)])
 
         p = Packets.AbortTransaction(tid)
-        getConnForCell = self.cp.getConnForCell
+        getConnForNode = self.cp.getConnForNode
         # cancel transaction one all those nodes
-        for cell in cell_set:
-            conn = getConnForCell(cell)
+        for node in node_set:
+            conn = getConnForNode(node)
             if conn is None:
                 continue
             conn.notify(p)
