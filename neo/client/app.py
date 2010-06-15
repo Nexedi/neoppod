@@ -766,17 +766,19 @@ class Application(object):
             return
 
         tid = self.local_var.tid
+        getCellListForOID = self._getCellListForOID
         # select nodes where transaction was stored
         cell_set = set(self._getCellListForTID(tid,
             writable=True))
         # select nodes where objects were stored
         for oid in self.local_var.data_dict.iterkeys():
-            cell_set |= set(self._getCellListForOID(oid, writable=True))
+            cell_set |= set(getCellListForOID(oid, writable=True))
 
         p = Packets.AbortTransaction(tid)
+        getConnForCell = self.cp.getConnForCell
         # cancel transaction one all those nodes
         for cell in cell_set:
-            conn = self.cp.getConnForCell(cell)
+            conn = getConnForCell(cell)
             if conn is None:
                 continue
             conn.notify(p)
