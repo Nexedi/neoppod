@@ -602,7 +602,7 @@ class ClientApplicationTests(NeoTestBase):
             'getCellListForOID': ReturnValues((cell1, ), (cell1, )),
             'getCellListForTID': (cell1, cell2),
         })
-        app.cp = Mock({ 'getConnForCell': ReturnValues(conn1, conn2), })
+        app.cp = Mock({ 'getConnForNode': ReturnValues(conn1, conn2), })
         # fake data
         app.local_var.data_dict = {oid1: '', oid2: ''}
         app.tpc_abort(txn)
