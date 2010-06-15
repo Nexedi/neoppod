@@ -782,11 +782,19 @@ class Application(object):
             conn = getConnForNode(node)
             if conn is None:
                 continue
-            conn.notify(p)
+            try:
+                conn.notify(p)
+            except:
+                logging.error('Exception in tpc_abort while notifying ' \
+                    'storage node %r of abortion, ignoring.', conn, exc_info=1)
 
         # Abort the transaction in the primary master node.
         conn = self._getMasterConnection()
-        conn.notify(p)
+        try:
+            conn.notify(p)
+        except:
+            logging.error('Exception in tpc_abort while notifying master ' \
+                'node %r of abortion, ignoring.', conn, exc_info=1)
 
         # Just wait for responses to arrive. If any leads to an exception,
         # log it and continue: we *must* eat all answers to not disturb the
@@ -798,7 +806,8 @@ class Application(object):
             try:
                 _waitAnyMessage()
             except:
-                logging.error('Exception in tpc_abort', exc_info=1)
+                logging.error('Exception in tpc_abort while handling ' \
+                    'pending answers, ignoring.', exc_info=1)
 
         self.local_var.clear()
 
