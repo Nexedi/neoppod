@@ -728,8 +728,8 @@ class Application(object):
         tid = local_var.tid
         # Store data on each node
         voted_counter = 0
-        p = Packets.AskStoreTransaction(tid, transaction.user,
-            transaction.description, dumps(transaction._extension),
+        p = Packets.AskStoreTransaction(tid, str(transaction.user),
+            str(transaction.description), dumps(transaction._extension),
             local_var.data_dict.keys())
         for cell in self._getCellListForTID(tid, writable=True):
             logging.debug("voting object %s %s", cell.getAddress(),
