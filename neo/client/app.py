@@ -20,7 +20,6 @@ from cPickle import dumps, loads
 from zlib import compress as real_compress, decompress
 from neo.locking import Queue, Empty
 from random import shuffle
-import traceback
 import time
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
@@ -796,8 +795,7 @@ class Application(object):
             try:
                 _waitAnyMessage()
             except:
-                logging.error('Exception in tpc_abort: %s',
-                    traceback.format_exc())
+                logging.error('Exception in tpc_abort', exc_info=1)
 
         self.local_var.clear()
 
