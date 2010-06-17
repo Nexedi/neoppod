@@ -137,12 +137,5 @@ class ConnectionPool(object):
     @profiler_decorator
     def removeConnection(self, node):
         """Explicitly remove connection when a node is broken."""
-        self.connection_lock_acquire()
-        try:
-            try:
-                del self.connection_dict[node.getUUID()]
-            except KeyError:
-                pass
-        finally:
-            self.connection_lock_release()
+        self.connection_dict.pop(node.getUUID(), None)
 
