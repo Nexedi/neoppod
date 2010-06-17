@@ -447,6 +447,7 @@ class Application(object):
             raise NEOStorageNotFoundError()
 
         shuffle(cell_list)
+        cell_list.sort(key=self.cp.getCellSortKey)
         self.local_var.asked_object = 0
         for cell in cell_list:
             logging.debug('trying to load %s from %s',
@@ -859,6 +860,7 @@ class Application(object):
         assert len(cell_list), 'No cell found for transaction %s' % (
             dump(undone_tid), )
         shuffle(cell_list)
+        cell_list.sort(key=self.cp.getCellSortKey)
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
             if conn is None:
@@ -976,6 +978,7 @@ class Application(object):
         for tid in ordered_tids:
             cell_list = self._getCellListForTID(tid, readable=True)
             shuffle(cell_list)
+            cell_list.sort(key=self.cp.getCellSortKey)
             for cell in cell_list:
                 conn = self.cp.getConnForCell(cell)
                 if conn is not None:
@@ -1021,7 +1024,7 @@ class Application(object):
         # Get history informations for object first
         cell_list = self._getCellListForOID(oid, readable=True)
         shuffle(cell_list)
-
+        cell_list.sort(key=self.cp.getCellSortKey)
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
             if conn is None:
@@ -1060,7 +1063,7 @@ class Application(object):
         for serial, size in self.local_var.history[1]:
             self._getCellListForTID(serial, readable=True)
             shuffle(cell_list)
-
+            cell_list.sort(key=self.cp.getCellSortKey)
             for cell in cell_list:
                 conn = self.cp.getConnForCell(cell)
                 if conn is None:

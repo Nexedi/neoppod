@@ -195,21 +195,21 @@ class ClientApplicationTests(NeoTestBase):
         tid = self.makeTID()
         # cache cleared
         self.assertTrue(oid not in mq)
-        app.pt = Mock({ 'getCellListForOID': (), })
+        app.pt = Mock({ 'getCellListForOID': [], })
         app.local_var.history = (oid, [(tid, 0)])
         # If object len is 0, this object doesn't exist anymore because its
         # creation has been undone.
         self.assertRaises(KeyError, app.getSerial, oid)
         self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForOID')), 1)
         # Otherwise, result from ZODB
-        app.pt = Mock({ 'getCellListForOID': (), })
+        app.pt = Mock({ 'getCellListForOID': [], })
         app.local_var.history = (oid, [(tid, 1)])
         self.assertEquals(app.getSerial(oid), tid)
         self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForOID')), 1)
         # fill the cache -> hit
         mq.store(oid, (tid, ' '))
         self.assertTrue(oid in mq)
-        app.pt = Mock({ 'getCellListForOID': (), })
+        app.pt = Mock({ 'getCellListForOID': [], })
         app.getSerial(oid)
         self.assertEquals(app.getSerial(oid), tid)
         self.assertEquals(len(app.pt.mockGetNamedCalls('getCellListForOID')), 0)
@@ -231,7 +231,7 @@ class ClientApplicationTests(NeoTestBase):
                      'fakeReceived': packet,
                      })
         app.local_var.queue = Mock({'get' : (conn, None)})
-        app.pt = Mock({ 'getCellListForOID': (cell, ), })
+        app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = -1
         Application._waitMessage = self._waitMessage
@@ -247,7 +247,7 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,
         })
-        app.pt = Mock({ 'getCellListForOID': (cell, ), })
+        app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.load, oid)
@@ -289,7 +289,7 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,
         })
-        app.pt = Mock({ 'getCellListForOID': (cell, ), })
+        app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.loadSerial, oid, tid2)
@@ -329,7 +329,7 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': ('127.0.0.1', 0),
             'fakeReceived': packet,
         })
-        app.pt = Mock({ 'getCellListForOID': (cell, ), })
+        app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.loadBefore, oid, tid2)
@@ -772,8 +772,8 @@ class ClientApplicationTests(NeoTestBase):
             'getState': 'FakeState',
         })
         app.pt = Mock({
-            'getCellListForTID': (cell, ),
-            'getCellListForOID': (cell, ),
+            'getCellListForTID': [cell, ],
+            'getCellListForOID': [cell, ],
         })
         app.cp = Mock({'getConnForCell': conn, 'getConnForNode': conn})
         def tryToResolveConflict(oid, conflict_serial, serial, data,

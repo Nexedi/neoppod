@@ -22,6 +22,19 @@ from neo.protocol import NodeTypes, Packets
 from neo.connection import MTClientConnection
 from neo.client.exception import ConnectionClosed
 from neo.profiling import profiler_decorator
+import time
+
+# How long before we might retry a connection to a node to which connection
+# failed in the past.
+MAX_FAILURE_AGE = 600
+
+# Cell list sort keys
+#   We are connected to storage node hosting cell, high priority
+CELL_CONNECTED = -1
+#   normal priority
+CELL_GOOD = 0
+#   Storage node hosting cell failed recently, low priority
+CELL_FAILED = 1
 
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
@@ -36,6 +49,7 @@ class ConnectionPool(object):
         l = RLock()
         self.connection_lock_acquire = l.acquire
         self.connection_lock_release = l.release
+        self.node_failure_dict = {}
 
     @profiler_decorator
     def _initNodeConnection(self, node):
@@ -59,6 +73,7 @@ class ConnectionPool(object):
                 if conn.getConnector() is None:
                     # This happens, if a connection could not be established.
                     logging.error('Connection to %r failed', node)
+                    self.notifyFailure(node)
                     return None
 
                 p = Packets.RequestIdentification(NodeTypes.CLIENT,
@@ -72,6 +87,7 @@ class ConnectionPool(object):
                         handler=app.storage_bootstrap_handler)
             except ConnectionClosed:
                 logging.error('Connection to %r failed', node)
+                self.notifyFailure(node)
                 return None
 
             if app.isNodeReady():
@@ -79,6 +95,7 @@ class ConnectionPool(object):
                 return conn
             else:
                 logging.info('%r not ready', node)
+                self.notifyFailure(node)
                 return None
 
     @profiler_decorator
@@ -110,6 +127,28 @@ class ConnectionPool(object):
         if conn is not None:
             self.connection_dict[node.getUUID()] = conn
         return conn
+
+    @profiler_decorator
+    def notifyFailure(self, node):
+        self._notifyFailure(node.getUUID(), time.time() + MAX_FAILURE_AGE)
+
+    def _notifyFailure(self, uuid, at):
+        self.node_failure_dict[uuid] = at
+
+    @profiler_decorator
+    def getCellSortKey(self, cell):
+        return self._getCellSortKey(cell.getUUID(), time.time())
+
+    def _getCellSortKey(self, uuid, now):
+        if uuid in self.connection_dict:
+            result = CELL_CONNECTED
+        else:
+            failure = self.node_failure_dict.get(uuid)
+            if failure is None or failure < now:
+                result = CELL_GOOD
+            else:
+                result = CELL_FAILED
+        return result
 
     @profiler_decorator
     def getConnForCell(self, cell):

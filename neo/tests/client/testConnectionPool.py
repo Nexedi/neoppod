@@ -48,6 +48,26 @@ class ConnectionPoolTests(NeoTestBase):
 
     # TODO: test getConnForNode (requires splitting complex functionalities)
 
+    def test_CellSortKey(self):
+        pool = ConnectionPool(None)
+        node_uuid_1 = self.getNewUUID()
+        node_uuid_2 = self.getNewUUID()
+        node_uuid_3 = self.getNewUUID()
+        # We are connected to node 1
+        pool.connection_dict[node_uuid_1] = None
+        # A connection to node 3 failed, will be forgotten at 5
+        pool._notifyFailure(node_uuid_3, 5)
+        getCellSortKey = pool._getCellSortKey
+
+        # At 0, key values are not ambiguous
+        self.assertTrue(getCellSortKey(node_uuid_1, 0) < getCellSortKey(
+            node_uuid_2, 0) < getCellSortKey(node_uuid_3, 0))
+        # At 10, nodes 2 and 3 have the same key value
+        self.assertTrue(getCellSortKey(node_uuid_1, 10) < getCellSortKey(
+            node_uuid_2, 10))
+        self.assertEqual(getCellSortKey(node_uuid_2, 10), getCellSortKey(
+            node_uuid_3, 10))
+
 if __name__ == '__main__':
     unittest.main()
 
