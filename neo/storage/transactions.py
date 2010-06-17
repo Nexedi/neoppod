@@ -265,9 +265,14 @@ class TransactionManager(object):
                     'the lock on oid %s, but it was held by %s' % (dump(tid),
                     dump(oid), dump(lock_tid))
             del self._store_lock_dict[oid]
-        # _uuid_dict entry will be deleted at node disconnection
-        self._uuid_dict[transaction.getUUID()].discard(transaction)
+        # remove the transaction
+        uuid = transaction.getUUID()
+        self._uuid_dict[uuid].discard(transaction)
+        # clean node index if there is no more current transactions
+        if not self._uuid_dict[uuid]:
+            del self._uuid_dict[uuid]
         del self._transaction_dict[tid]
+        # some locks were released, some pending locks may now succeed
         self._app.executeQueuedEvents()
 
     def abortFor(self, uuid):
