@@ -48,10 +48,7 @@ class ClientServiceHandler(MasterHandler):
         conn.answer(Packets.AnswerNodeInformation())
 
     def abortTransaction(self, conn, tid):
-        if tid in self.app.tm:
-            self.app.tm.remove(tid)
-        else:
-            logging.warn('aborting transaction %s does not exist', dump(tid))
+        self.app.tm.remove(tid)
 
     def askBeginTransaction(self, conn, tid):
         node = self.app.nm.getByUUID(conn.getUUID())

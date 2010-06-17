@@ -233,6 +233,7 @@ class TransactionManager(object):
             Remove a transaction, commited or aborted
         """
         if tid not in self._tid_dict:
+            logging.warn('aborting transaction %s does not exist', dump(tid))
             return
         node = self._tid_dict[tid].getNode()
         # remove both mappings, node will be removed in abortFor
