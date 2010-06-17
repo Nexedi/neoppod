@@ -25,6 +25,7 @@ import MySQLdb
 import unittest
 import tempfile
 import traceback
+import threading
 
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.protocol import ClusterStates, NodeTypes, CellStates
@@ -526,7 +527,6 @@ class NEOFunctionalTest(unittest.TestCase):
         return temp_dir
 
     def runWithTimeout(self, method, timeout):
-        import threading
         thread = threading.Thread(None, method)
         thread.setDaemon(True)
         thread.start()
