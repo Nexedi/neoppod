@@ -668,7 +668,8 @@ class Application(object):
                         dump(oid), dump(serial), dump(conflict_serial))
             else:
                 logging.info('Conflict reported for %r:%r with later ' \
-                    'transaction %r , cannot resolve conflict.')
+                    'transaction %r , cannot resolve conflict.', dump(oid),
+                    dump(serial), dump(conflict_serial))
             if not resolved:
                 # XXX: Is it really required to remove from data_dict ?
                 del data_dict[oid]
