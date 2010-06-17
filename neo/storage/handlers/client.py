@@ -41,11 +41,9 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
     def abortTransaction(self, conn, tid):
         self.app.tm.abort(tid)
 
-    def askStoreTransaction(self, conn, tid, user, desc,
-                                  ext, oid_list):
+    def askStoreTransaction(self, conn, tid, user, desc, ext, oid_list):
         self.app.tm.register(conn.getUUID(), tid)
-        self.app.tm.storeTransaction(tid, oid_list, user, desc, ext,
-            False)
+        self.app.tm.storeTransaction(tid, oid_list, user, desc, ext, False)
         conn.answer(Packets.AnswerStoreTransaction(tid))
 
     def _askStoreObject(self, conn, oid, serial, compression, checksum, data,
