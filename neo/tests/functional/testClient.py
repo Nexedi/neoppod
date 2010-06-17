@@ -252,7 +252,7 @@ class ClientTests(NEOFunctionalTest):
             st2.store(oid, rev, data, '', t2)
             # the vote will timeout as t1 never release the lock
             self.assertRaises(ConflictError, st2.tpc_vote, t2)
-        self.runWithTimeout(test, 40)
+        self.runWithTimeout(40, test)
 
     def testDelayedLocksCancelled(self):
         """
@@ -298,7 +298,7 @@ class ClientTests(NEOFunctionalTest):
             # the vote should not timeout
             st3.tpc_vote(t3)
             st3.tpc_finish(t3)
-        self.runWithTimeout(test, 10)
+        self.runWithTimeout(10, test)
 
 def test_suite():
     return unittest.makeSuite(ClientTests)
