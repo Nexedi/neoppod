@@ -598,10 +598,6 @@ class ClientApplicationTests(NeoTestBase):
         cell1 = Mock({ 'getNode': 'NODE1', '__hash__': 1 })
         cell2 = Mock({ 'getNode': 'NODE2', '__hash__': 2 })
         conn1, conn2 = Mock({ 'getNextId': 1, }), Mock({ 'getNextId': 2, })
-        app.pt = Mock({
-            'getCellListForOID': ReturnValues((cell1, ), (cell1, )),
-            'getCellListForTID': (cell1, cell2),
-        })
         app.cp = Mock({ 'getConnForNode': ReturnValues(conn1, conn2), })
         # fake data
         app.local_var.data_dict = {oid1: '', oid2: ''}
