@@ -355,12 +355,15 @@ if __name__ == "__main__":
 
     # run requested tests
     runner = NeoTestRunner()
-    if options.unit:
-        runner.run('Unit tests', UNIT_TEST_MODULES)
-    if options.functional:
-        runner.run('Functional tests', FUNC_TEST_MODULES)
-    if options.zodb:
-        runner.run('ZODB tests', ZODB_TEST_MODULES)
+    try:
+        if options.unit:
+            runner.run('Unit tests', UNIT_TEST_MODULES)
+        if options.functional:
+            runner.run('Functional tests', FUNC_TEST_MODULES)
+        if options.zodb:
+            runner.run('ZODB tests', ZODB_TEST_MODULES)
+    except KeyboardInterrupt:
+        options.sender = False
 
     # build report
     runner.build()
