@@ -35,7 +35,7 @@ class DatabaseManager(object):
             Begin a transaction
         """
         if self._under_transaction:
-            raise DatabaseFailure('A transaction as already began')
+            raise DatabaseFailure('A transaction has already begun')
         self._begin()
         self._under_transaction = True
 
@@ -44,7 +44,7 @@ class DatabaseManager(object):
             Commit the current transaction
         """
         if not self._under_transaction:
-            raise DatabaseFailure('The transaction as not began')
+            raise DatabaseFailure('The transaction has not begun')
         self._commit()
         self._under_transaction = False
 
