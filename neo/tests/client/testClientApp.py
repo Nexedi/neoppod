@@ -605,6 +605,7 @@ class ClientApplicationTests(NeoTestBase):
         app.cp = Mock({ 'getConnForNode': ReturnValues(conn1, conn2), })
         # fake data
         app.local_var.data_dict = {oid1: '', oid2: ''}
+        app.local_var.involved_nodes = set([cell1, cell2])
         app.tpc_abort(txn)
         # will check if there was just one call/packet :
         self.checkNotifyPacket(conn1, Packets.AbortTransaction)
@@ -615,6 +616,69 @@ class ClientApplicationTests(NeoTestBase):
         self.assertEquals(app.local_var.data_dict, {})
         self.assertEquals(app.local_var.txn_voted, False)
         self.assertEquals(app.local_var.txn_finished, False)
+
+    def test_tpc_abort3(self):
+        """ check that abort is sent to all nodes involved in the transaction """
+        app = self.getApp()
+        # three partitions/storages: one per object/transaction
+        app.num_partitions = 3
+        app.num_replicas = 0
+        tid = self.makeTID(0)  # on partition 0
+        oid1 = self.makeOID(1) # on partition 1, conflicting
+        oid2 = self.makeOID(2) # on partition 2
+        # storage nodes
+        address1 = ('127.0.0.1', 10000)
+        address2 = ('127.0.0.1', 10001)
+        address3 = ('127.0.0.1', 10002)
+        app.nm.createMaster(address=address1)
+        app.nm.createStorage(address=address2)
+        app.nm.createStorage(address=address3)
+        # answer packets
+        packet1 = Packets.AnswerStoreTransaction(tid=tid)
+        packet2 = Packets.AnswerStoreObject(conflicting=1, oid=oid1, serial=tid)
+        packet3 = Packets.AnswerStoreObject(conflicting=0, oid=oid2, serial=tid)
+        [p.setId(i) for p, i in zip([packet1, packet2, packet3], range(3))]
+        conn1 = Mock({'__repr__': 'conn1', 'getAddress': address1, 'fakeReceived': packet1})
+        conn2 = Mock({'__repr__': 'conn2', 'getAddress': address2, 'fakeReceived': packet2})
+        conn3 = Mock({'__repr__': 'conn3', 'getAddress': address3, 'fakeReceived': packet3})
+        node1 = Mock({'__repr__': 'node1', '__hash__': 1, 'getConnection': conn1})
+        node2 = Mock({'__repr__': 'node2', '__hash__': 2, 'getConnection': conn2})
+        node3 = Mock({'__repr__': 'node3', '__hash__': 3, 'getConnection': conn3})
+        cell1 = Mock({ 'getNode': node1, '__hash__': 1, 'getConnection': conn1})
+        cell2 = Mock({ 'getNode': node2, '__hash__': 2, 'getConnection': conn2})
+        cell3 = Mock({ 'getNode': node3, '__hash__': 3, 'getConnection': conn3})
+        # fake environment
+        app.pt = Mock({
+            'getCellListForTID': [cell1],
+            'getCellListForOID': ReturnValues([cell2], [cell3]),
+        })
+        app.cp = Mock({'getConnForCell': ReturnValues(conn2, conn3, conn1)})
+        app.dispatcher = Mock()
+        app.master_conn = Mock({'__hash__': 0})
+        txn = self.makeTransactionObject()
+        app.local_var.txn, app.local_var.tid = txn, tid
+        class Dispatcher(object):
+            def pending(self, queue):
+                return not queue.empty()
+        app.dispatcher = Dispatcher()
+        # begin a transaction
+        app.tpc_begin(txn, tid)
+        # conflict occurs on storage 2
+        app.store(oid1, tid, 'DATA', None, txn)
+        app.store(oid2, tid, 'DATA', None, txn)
+        app.local_var.queue.put((conn2, packet2))
+        app.local_var.queue.put((conn3, packet3))
+        # vote fails as the conflict is not resolved, nothing is sent to storage 3
+        self.assertRaises(ConflictError, app.tpc_vote, txn, failing_tryToResolveConflict)
+        class ConnectionPool(object):
+            def getConnForNode(self, node):
+                return node.getConnection()
+        app.cp = ConnectionPool()
+        # abort must be sent to storage 1 and 2
+        app.tpc_abort(txn)
+        self.checkAbortTransaction(app.master_conn)
+        self.checkAbortTransaction(conn2)
+        self.checkAbortTransaction(conn3)
 
     def test_tpc_finish1(self):
         # ignore mismatch transaction

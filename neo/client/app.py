@@ -116,6 +116,7 @@ class ThreadContext(object):
             'asked_object': 0,
             'undo_conflict_oid_list': [],
             'undo_error_oid_list': [],
+            'involved_nodes': set(),
         }
 
 
@@ -607,12 +608,14 @@ class Application(object):
         self.local_var.object_serial_dict[oid] = (serial, version)
         getConnForCell = self.cp.getConnForCell
         queue = self.local_var.queue
+        add_involved_nodes = self.local_var.involved_nodes.add
         for cell in cell_list:
             conn = getConnForCell(cell)
             if conn is None:
                 continue
             try:
                 conn.ask(p, on_timeout=on_timeout, queue=queue)
+                add_involved_nodes(cell.getNode())
             except ConnectionClosed:
                 continue
 
@@ -733,6 +736,7 @@ class Application(object):
         p = Packets.AskStoreTransaction(tid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
             local_var.data_dict.keys())
+        add_involved_nodes = self.local_var.involved_nodes.add
         for cell in self._getCellListForTID(tid, writable=True):
             logging.debug("voting object %s %s", cell.getAddress(),
                 cell.getState())
@@ -743,6 +747,7 @@ class Application(object):
             local_var.txn_voted = False
             try:
                 self._askStorage(conn, p)
+                add_involved_nodes(cell.getNode())
             except ConnectionClosed:
                 continue
 
@@ -768,19 +773,10 @@ class Application(object):
             return
 
         tid = self.local_var.tid
-        getCellListForOID = self._getCellListForOID
-        # select nodes where transaction was stored
-        node_set = set([x.getNode() for x in self._getCellListForTID(tid,
-            writable=True)])
-        # select nodes where objects were stored
-        for oid in self.local_var.data_dict.iterkeys():
-            node_set |= set([x.getNode() for x in getCellListForOID(oid,
-                writable=True)])
-
         p = Packets.AbortTransaction(tid)
         getConnForNode = self.cp.getConnForNode
         # cancel transaction one all those nodes
-        for node in node_set:
+        for node in self.local_var.involved_nodes:
             conn = getConnForNode(node)
             if conn is None:
                 continue

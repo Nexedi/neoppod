@@ -292,6 +292,9 @@ class NeoTestBase(unittest.TestCase):
     def checkInvalidateObjects(self, conn, **kw):
         return self.checkNotifyPacket(conn, Packets.InvalidateObjects, **kw)
 
+    def checkAbortTransaction(self, conn, **kw):
+        return self.checkNotifyPacket(conn, Packets.AbortTransaction, **kw)
+
     def checkAnswerTransactionFinished(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerTransactionFinished, **kw)
 
