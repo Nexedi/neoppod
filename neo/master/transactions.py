@@ -25,6 +25,8 @@ class Transaction(object):
         A pending transaction
     """
 
+    _prepared = False
+
     def __init__(self, node, tid):
         self._node = node
         self._tid = tid
@@ -57,6 +59,12 @@ class Transaction(object):
         """
         return self._tid
 
+    def isPrepared(self):
+        """
+
+        """
+        return self._prepared
+
     def getMessageId(self):
         """
             Returns the packet ID to use in the answer
@@ -85,6 +93,7 @@ class Transaction(object):
         self._oid_list = oid_list
         self._uuid_dict = dict.fromkeys(uuid_list, False)
         self._msg_id = msg_id
+        self._prepared = True
 
     def forget(self, uuid):
         """
