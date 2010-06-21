@@ -174,10 +174,11 @@ class Application(object):
         # start the operation. This cycle will be executed permanently,
         # until the user explicitly requests a shutdown.
         while True:
+            self.ready = False
+            self.operational = False
             if self.master_node is None:
                 # look for the primary master
                 self.connectToPrimary()
-            self.operational = False
             # check my state
             node = self.nm.getByUUID(self.uuid)
             if node is not None and node.isHidden():
