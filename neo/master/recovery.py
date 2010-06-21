@@ -59,7 +59,7 @@ class RecoveryManager(MasterHandler):
         self.app.changeClusterState(ClusterStates.RECOVERING)
         em = self.app.em
 
-        self.app.loid = None
+        self.app.tm.setLastOID(None)
         self.app.pt.setID(None)
 
         # collect the last partition table available
@@ -81,7 +81,7 @@ class RecoveryManager(MasterHandler):
         self.app.broadcastNodesInformation(refused_node_set)
 
         logging.debug('cluster starts with loid=%s and this partition table :',
-                dump(self.app.loid))
+                dump(self.app.tm.getLastOID()))
         self.app.pt.log()
 
     def buildFromScratch(self):
@@ -96,7 +96,7 @@ class RecoveryManager(MasterHandler):
             node.setRunning()
         self.app.broadcastNodesInformation(node_list)
         # resert IDs generators
-        self.app.loid = '\0' * 8
+        self.app.tm.setLastOID('\0' * 8)
         # build the partition with this node
         pt.setID(pack('!Q', 1))
         pt.make(node_list)
@@ -115,13 +115,9 @@ class RecoveryManager(MasterHandler):
             conn.ask(Packets.AskLastIDs())
 
     def answerLastIDs(self, conn, loid, ltid, lptid):
-        app = self.app
         # Get max values.
         if loid is not None:
-            if app.loid is None:
-                app.loid = loid
-            else:
-                app.loid = max(loid, app.loid)
+            self.app.tm.setLastOID(max(loid, self.app.tm.getLastOID()))
         if ltid is not None:
             self.app.tm.setLastTID(ltid)
         if lptid > self.target_ptid:
@@ -130,7 +126,6 @@ class RecoveryManager(MasterHandler):
             conn.ask(Packets.AskPartitionTable())
 
     def answerPartitionTable(self, conn, ptid, row_list):
-        app = self.app
         if ptid != self.target_ptid:
             # If this is not from a target node, ignore it.
             logging.warn('Got %s while waiting %s', dump(ptid),

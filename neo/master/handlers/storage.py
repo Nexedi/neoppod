@@ -48,8 +48,9 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def askLastIDs(self, conn):
         app = self.app
-        conn.answer(Packets.AnswerLastIDs(app.loid, app.tm.getLastTID(),
-                    app.pt.getID()))
+        loid = app.tm.getLastOID()
+        ltid = app.tm.getLastTID()
+        conn.answer(Packets.AnswerLastIDs(loid, ltid, app.pt.getID()))
 
     def askUnfinishedTransactions(self, conn):
         p = Packets.AnswerUnfinishedTransactions(self.app.tm.getPendingList())

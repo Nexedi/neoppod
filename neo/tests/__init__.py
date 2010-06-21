@@ -295,6 +295,9 @@ class NeoTestBase(unittest.TestCase):
     def checkAbortTransaction(self, conn, **kw):
         return self.checkNotifyPacket(conn, Packets.AbortTransaction, **kw)
 
+    def checkNotifyLastOID(self, conn, **kw):
+        return self.checkNotifyPacket(conn, Packets.NotifyLastOID, **kw)
+
     def checkAnswerTransactionFinished(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerTransactionFinished, **kw)
 

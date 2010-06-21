@@ -19,7 +19,6 @@ from time import time, gmtime
 from struct import pack, unpack
 from neo.util import dump
 from neo import logging
-from neo import protocol
 
 class Transaction(object):
     """
@@ -127,6 +126,7 @@ class TransactionManager(object):
         # node -> transactions mapping
         self._node_dict = {}
         self._last_tid = None
+        self._last_oid = None
 
     def __getitem__(self, tid):
         """
@@ -142,6 +142,32 @@ class TransactionManager(object):
 
     def items(self):
         return self._tid_dict.items()
+
+    def getNextOIDList(self, num_oids):
+        """ Generate a new OID list """
+        if self._last_oid is None:
+            raise RuntimeError, 'I do not know the last OID'
+        oid = unpack('!Q', self._last_oid)[0] + 1
+        oid_list = [pack('!Q', oid + i) for i in xrange(num_oids)]
+        self._last_oid = oid_list[-1]
+        return oid_list
+
+    def updateLastOID(self, oid_list):
+        """
+            Updates the last oid with the max of those supplied if greater than
+            the current known, returns True if changed
+        """
+        max_oid = oid_list and max(oid_list) or None # oid_list might be empty
+        if max_oid > self._last_oid:
+            self._last_oid = max_oid
+            return True
+        return False
+
+    def setLastOID(self, oid):
+        self._last_oid = oid
+
+    def getLastOID(self):
+        return self._last_oid
 
     def _nextTID(self):
         """ Compute the next TID based on the current time and check collisions """

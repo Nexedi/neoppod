@@ -93,26 +93,24 @@ class MasterRecoveryTests(NeoTestBase):
     def test_09_answerLastIDs(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode()
-        loid = self.app.loid = '\1' * 8
-        self.app.tm.setLastTID('\1' * 8)
-        ltid = self.app.tm.getLastTID()
-        self.app.pt.setID('\1' * 8)
-        lptid = self.app.pt.getID()
+        oid1 = self.getOID(1)
+        oid2 = self.getOID(2)
+        tid1 = self.getNextTID()
+        tid2 = self.getNextTID(tid1)
+        ptid1 = self.getPTID(1)
+        ptid2 = self.getPTID(2)
+        self.app.tm.setLastOID(oid1)
+        self.app.tm.setLastTID(tid1)
+        self.app.pt.setID(ptid1)
         # send information which are later to what PMN knows, this must update target node
         conn = self.getFakeConnection(uuid, self.storage_port)
-        new_ptid = unpack('!Q', lptid)[0]
-        new_ptid = pack('!Q', new_ptid + 1)
-        oid = unpack('!Q', loid)[0]
-        new_oid = pack('!Q', oid + 1)
-        upper, lower = unpack('!LL', ltid)
-        new_tid = pack('!LL', upper, lower + 10)
-        self.assertTrue(new_ptid > self.app.pt.getID())
-        self.assertTrue(new_oid > self.app.loid)
-        self.assertTrue(new_tid > self.app.tm.getLastTID())
-        recovery.answerLastIDs(conn, new_oid, new_tid, new_ptid)
-        self.assertEquals(new_oid, self.app.loid)
-        self.assertEquals(new_tid, self.app.tm.getLastTID())
-        self.assertEquals(new_ptid, recovery.target_ptid)
+        self.assertTrue(ptid2 > self.app.pt.getID())
+        self.assertTrue(oid2 > self.app.tm.getLastOID())
+        self.assertTrue(tid2 > self.app.tm.getLastTID())
+        recovery.answerLastIDs(conn, oid2, tid2, ptid2)
+        self.assertEquals(oid2, self.app.tm.getLastOID())
+        self.assertEquals(tid2, self.app.tm.getLastTID())
+        self.assertEquals(ptid2, recovery.target_ptid)
 
 
     def test_10_answerPartitionTable(self):

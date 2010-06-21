@@ -18,7 +18,6 @@
 from neo import logging
 import os, sys
 from time import time
-from struct import pack, unpack
 
 from neo import protocol
 from neo.protocol import UUID_NAMESPACES
@@ -83,9 +82,6 @@ class Application(object):
         if uuid is None or uuid == '':
             uuid = self.getNewUUID(NodeTypes.MASTER)
         self.uuid = uuid
-
-        # The last OID.
-        self.loid = None
 
         # election related data
         self.unconnected_master_node_set = set()
@@ -303,7 +299,8 @@ class Application(object):
         " Outdate cell of non-working nodes and broadcast changes """
         self.broadcastPartitionChanges(self.pt.outdate())
 
-    def broadcastLastOID(self, oid):
+    def broadcastLastOID(self):
+        oid = self.tm.getLastOID()
         logging.debug('Broadcast last OID to storages : %s' % dump(oid))
         packet = Packets.NotifyLastOID(oid)
         for node in self.nm.getIdentifiedList():
@@ -455,15 +452,6 @@ class Application(object):
             conn.setHandler(handler)
             handler.connectionCompleted(conn)
         self.cluster_state = state
-
-    def getNewOIDList(self, num_oids):
-        if self.loid is None:
-            raise RuntimeError, 'I do not know the last OID'
-        oid = unpack('!Q', self.loid)[0] + 1
-        oid_list = [pack('!Q', oid + i) for i in xrange(num_oids)]
-        self.loid = oid_list[-1]
-        self.broadcastLastOID(self.loid)
-        return oid_list
 
     def getNewUUID(self, node_type):
         # build an UUID

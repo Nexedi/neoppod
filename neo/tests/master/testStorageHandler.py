@@ -126,8 +126,9 @@ class MasterStorageHandlerTests(NeoTestBase):
         # give a uuid
         conn = self.getFakeConnection(node.getUUID(), self.storage_address)
         ptid = self.app.pt.getID()
-        oid = self.app.loid = '\1' * 8
-        tid = '\1' * 8
+        oid = self.getOID(1)
+        tid = self.getNextTID()
+        self.app.tm.setLastOID(oid)
         self.app.tm.setLastTID(tid)
         service.askLastIDs(conn)
         packet = self.checkAnswerLastIDs(conn)
@@ -135,7 +136,6 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.assertEqual(loid, oid)
         self.assertEqual(ltid, tid)
         self.assertEqual(lptid, ptid)
-
 
     def test_13_askUnfinishedTransactions(self):
         service = self.service

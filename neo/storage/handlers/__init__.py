@@ -39,7 +39,6 @@ class BaseMasterHandler(EventHandler):
                 self.__class__.__name__)
 
     def notifyLastOID(self, conn, oid):
-        self.app.tm.setLastOID(oid)
         self.app.dm.setLastOID(oid)
 
     def notifyNodeInformation(self, conn, node_list):

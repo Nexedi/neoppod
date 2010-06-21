@@ -80,12 +80,19 @@ class MasterClientHandlerTests(NeoTestBase):
 
     def test_08_askNewOIDs(self):
         service = self.service
-        loid = self.app.loid
+        oid1, oid2 = self.getOID(1), self.getOID(2)
+        self.app.tm.setLastOID(oid1)
         # client call it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
+        for node in self.app.nm.getStorageList():
+            conn = self.getFakeConnection(node.getUUID(), node.getAddress())
+            node.setConnection(conn)
         service.askNewOIDs(conn, 1)
-        self.assertTrue(loid < self.app.loid)
+        self.assertTrue(self.app.tm.getLastOID() > oid1)
+        for node in self.app.nm.getStorageList():
+            conn = node.getConnection()
+            self.assertEquals(self.checkNotifyLastOID(conn, decode=True), (oid2,))
 
     def test_09_askFinishTransaction(self):
         service = self.service

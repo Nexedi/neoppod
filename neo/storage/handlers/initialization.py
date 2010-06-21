@@ -56,7 +56,6 @@ class InitializationHandler(BaseMasterHandler):
         self.app.has_partition_table = True
 
     def answerLastIDs(self, conn, loid, ltid, lptid):
-        self.app.tm.setLastOID(loid)
         self.app.dm.setLastOID(loid)
         self.app.has_last_ids = True
 

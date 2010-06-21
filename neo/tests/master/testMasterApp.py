@@ -32,21 +32,6 @@ class MasterAppTests(NeoTestBase):
     def tearDown(self):
         NeoTestBase.tearDown(self)
 
-    def test_05_getNewOIDList(self):
-        # must raise as we don"t have one
-        self.assertEqual(self.app.loid, None)
-        self.app.loid = None
-        self.assertRaises(RuntimeError, self.app.getNewOIDList, 1)
-        # ask list
-        self.app.loid = p64(1)
-        oid_list = self.app.getNewOIDList(15)
-        self.assertEqual(len(oid_list), 15)
-        i = 2
-        # begin from 0, so generated oid from 1 to 15
-        for oid in oid_list:
-            self.assertEqual(u64(oid), i)
-            i+=1
-
     def test_06_broadcastNodeInformation(self):
         # defined some nodes to which data will be send
         master_uuid = self.getNewUUID()
