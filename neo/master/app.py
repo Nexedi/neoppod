@@ -303,9 +303,8 @@ class Application(object):
         oid = self.tm.getLastOID()
         logging.debug('Broadcast last OID to storages : %s' % dump(oid))
         packet = Packets.NotifyLastOID(oid)
-        for node in self.nm.getIdentifiedList():
-            if node.isStorage():
-                node.notify(packet)
+        for node in self.nm.getStorageList(only_identified=True):
+            node.notify(packet)
 
     def provideService(self):
         """
