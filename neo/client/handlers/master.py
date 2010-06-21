@@ -163,7 +163,6 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
 
     def answerNewOIDs(self, conn, oid_list):
         self.app.new_oid_list = oid_list
-        self.app.new_oid_list.reverse()
 
     def answerTransactionFinished(self, conn, tid):
         if tid != self.app.getTID():

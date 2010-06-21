@@ -410,7 +410,7 @@ class Application(object):
                 self._askPrimary(Packets.AskNewOIDs(100))
                 if len(self.new_oid_list) <= 0:
                     raise NEOStorageError('new_oid failed')
-            self.last_oid = self.new_oid_list.pop()
+            self.last_oid = self.new_oid_list.pop(0)
             return self.last_oid
         finally:
             self._oid_lock_release()

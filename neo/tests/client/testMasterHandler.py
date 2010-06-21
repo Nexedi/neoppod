@@ -238,7 +238,7 @@ class MasterAnswersHandlerTests(MasterHandlerTests):
         conn = self.getConnection()
         oid1, oid2, oid3 = self.getOID(0), self.getOID(1), self.getOID(2)
         self.handler.answerNewOIDs(conn, [oid1, oid2, oid3])
-        self.assertEqual(self.app.new_oid_list, [oid3, oid2, oid1])
+        self.assertEqual(self.app.new_oid_list, [oid1, oid2, oid3])
 
     def test_answerTransactionFinished(self):
         conn = self.getConnection()
