@@ -65,6 +65,4 @@ start = time.time()
 dst.copyTransactionsFrom(src, verbose=0)
 elapsed = time.time() - start
 print "Migration done in %3.5f" % (elapsed, )
-if isinstance(dst, NEOStorage):
-    print "Don't forget to restart the whole NEO cluster."
 
