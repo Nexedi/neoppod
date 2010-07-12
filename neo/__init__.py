@@ -33,4 +33,3 @@ def setupLog(name='NEO', filename=None, verbose=False):
     logging_std.basicConfig(filename=filename, level=level, format=fmt)
     logging = logging_std.getLogger(name.upper())
 
-from neo import protocol
