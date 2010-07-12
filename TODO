@@ -236,6 +236,8 @@ RC  - Review output of pylint (CODE)
     - Simple import/export solution that generate SQL/data.fs.
     - Consider using out-of-band TCP feature.
     - IPv6 support (address field, bind, name resolution)
+    - Consider switch to 'twisted' framework to take advantages of many
+    features (machine, encryption, streaming...)
 
 Old TODO
 
