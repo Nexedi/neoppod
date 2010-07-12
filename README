@@ -97,3 +97,27 @@ How to use
 
       "name" and "master_nodes" parameters have the same meaning as in
       configuration file.
+
+Deployment:
+
+NEO has no built-in deployment features such as process daemonization. We use
+supervisor with configuration like below:
+
+[group:neo]
+programs=master_01,storage_01,admin
+
+[program:master_01]
+priority=1
+command=neomaster -c neo -s master_01 -f /neo/neo.conf
+user=neo
+
+[program:storage_01]
+priority=2
+command=neostorage -c neo -s storage_01 -f /neo/neo.conf
+user=neo
+
+[program:admin]
+priority=3
+command=neoadmin -c neo -s admin -f /neo/neo.conf
+user=neo
+
