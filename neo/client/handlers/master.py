@@ -42,6 +42,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         if your_uuid is None:
             raise ProtocolError('No UUID supplied')
         app.uuid = your_uuid
+        logging.info('Got an UUID: %s', dump(app.uuid))
 
         node = app.nm.getByAddress(conn.getAddress())
         conn.setUUID(uuid)
