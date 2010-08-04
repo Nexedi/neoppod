@@ -80,8 +80,8 @@ class StorageVerificationHandlerTests(NeoTestBase):
 
     def test_07_askLastIDs(self):
         conn = self.getClientConnection()
-        last_ptid = '\x01' * 8
-        last_oid = '\x02' * 8
+        last_ptid = self.getPTID(1)
+        last_oid = self.getOID(2)
         self.app.pt = Mock({'getID': last_ptid})
         self.verification.askLastIDs(conn)
         oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)

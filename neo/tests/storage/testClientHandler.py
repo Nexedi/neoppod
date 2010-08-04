@@ -80,7 +80,8 @@ class StorageClientHandlerTests(NeoTestBase):
     def test_18_askTransactionInformation2(self):
         # answer
         conn = self._getConnection()
-        dm = Mock({ "getTransaction": (INVALID_TID, 'user', 'desc', '', False), })
+        oid_list = [self.getOID(1), self.getOID(2)]
+        dm = Mock({ "getTransaction": (oid_list, 'user', 'desc', '', False), })
         self.app.dm = dm
         self.operation.askTransactionInformation(conn, INVALID_TID)
         self.checkAnswerTransactionInformation(conn)
@@ -113,11 +114,14 @@ class StorageClientHandlerTests(NeoTestBase):
 
     def test_24_askObject3(self):
         # object found => answer
-        self.app.dm = Mock({'getObject': ('', '', 0, 0, '', None)})
+        serial = self.getNextTID()
+        next_serial = self.getNextTID()
+        oid = self.getOID(1)
+        tid = self.getNextTID()
+        self.app.dm = Mock({'getObject': (serial, next_serial, 0, 0, '', None)})
         conn = self._getConnection()
         self.assertEquals(len(self.app.event_queue), 0)
-        self.operation.askObject(conn, oid=INVALID_OID,
-            serial=INVALID_SERIAL, tid=INVALID_TID)
+        self.operation.askObject(conn, oid=oid, serial=serial, tid=tid)
         self.assertEquals(len(self.app.event_queue), 0)
         self.checkAnswerObject(conn)
 
@@ -169,15 +173,17 @@ class StorageClientHandlerTests(NeoTestBase):
         self.assertEquals(len(app.dm.mockGetNamedCalls('getObjectHistory')), 0)
 
     def test_26_askObjectHistory2(self):
+        oid1, oid2 = self.getOID(1), self.getOID(2)
         # first case: empty history
         conn = self._getConnection()
         self.app.dm = Mock({'getObjectHistory': None})
-        self.operation.askObjectHistory(conn, INVALID_OID, 1, 2)
+        self.operation.askObjectHistory(conn, oid1, 1, 2)
         self.checkAnswerObjectHistory(conn)
         # second case: not empty history
         conn = self._getConnection()
-        self.app.dm = Mock({'getObjectHistory': [('', 0, ), ]})
-        self.operation.askObjectHistory(conn, INVALID_OID, 1, 2)
+        serial = self.getNextTID()
+        self.app.dm = Mock({'getObjectHistory': [(serial, 0, ), ]})
+        self.operation.askObjectHistory(conn, oid2, 1, 2)
         self.checkAnswerObjectHistory(conn)
 
     def test_askStoreTransaction(self):

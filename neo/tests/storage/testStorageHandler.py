@@ -63,20 +63,24 @@ class StorageStorageHandlerTests(NeoTestBase):
     def test_18_askTransactionInformation2(self):
         # answer
         conn = self.getFakeConnection()
-        dm = Mock({"getTransaction": (INVALID_TID, 'user', 'desc', '', False), })
+        tid = self.getNextTID()
+        oid_list = [self.getOID(1), self.getOID(2)]
+        dm = Mock({"getTransaction": (oid_list, 'user', 'desc', '', False), })
         self.app.dm = dm
-        self.operation.askTransactionInformation(conn, INVALID_TID)
+        self.operation.askTransactionInformation(conn, tid)
         self.checkAnswerTransactionInformation(conn)
 
     def test_24_askObject1(self):
         # delayed response
         conn = self.getFakeConnection()
+        oid = self.getOID(1)
+        tid = self.getNextTID()
+        serial = self.getNextTID()
         self.app.dm = Mock()
         self.app.tm = Mock({'loadLocked': True})
-        self.app.load_lock_dict[INVALID_OID] = object()
+        self.app.load_lock_dict[oid] = object()
         self.assertEquals(len(self.app.event_queue), 0)
-        self.operation.askObject(conn, oid=INVALID_OID,
-            serial=INVALID_SERIAL, tid=INVALID_TID)
+        self.operation.askObject(conn, oid=oid, serial=serial, tid=tid)
         self.assertEquals(len(self.app.event_queue), 1)
         self.checkNoPacketSent(conn)
         self.assertEquals(len(self.app.dm.mockGetNamedCalls('getObject')), 0)
@@ -85,23 +89,27 @@ class StorageStorageHandlerTests(NeoTestBase):
         # invalid serial / tid / packet not found
         self.app.dm = Mock({'getObject': None})
         conn = self.getFakeConnection()
+        oid = self.getOID(1)
+        tid = self.getNextTID()
+        serial = self.getNextTID()
         self.assertEquals(len(self.app.event_queue), 0)
-        self.operation.askObject(conn, oid=INVALID_OID,
-            serial=INVALID_SERIAL, tid=INVALID_TID)
+        self.operation.askObject(conn, oid=oid, serial=serial, tid=tid)
         calls = self.app.dm.mockGetNamedCalls('getObject')
         self.assertEquals(len(self.app.event_queue), 0)
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(INVALID_OID, INVALID_TID, INVALID_TID,
-            resolve_data=False)
+        calls[0].checkArgs(oid, serial, tid, resolve_data=False)
         self.checkErrorPacket(conn)
 
     def test_24_askObject3(self):
+        oid = self.getOID(1)
+        tid = self.getNextTID()
+        serial = self.getNextTID()
+        next_serial = self.getNextTID()
         # object found => answer
-        self.app.dm = Mock({'getObject': ('', '', 0, 0, '', None)})
+        self.app.dm = Mock({'getObject': (serial, next_serial, 0, 0, '', None)})
         conn = self.getFakeConnection()
         self.assertEquals(len(self.app.event_queue), 0)
-        self.operation.askObject(conn, oid=INVALID_OID,
-            serial=INVALID_SERIAL, tid=INVALID_TID)
+        self.operation.askObject(conn, oid=oid, serial=serial, tid=tid)
         self.assertEquals(len(self.app.event_queue), 0)
         self.checkAnswerObject(conn)
 
@@ -153,15 +161,18 @@ class StorageStorageHandlerTests(NeoTestBase):
         self.assertEquals(len(app.dm.mockGetNamedCalls('getObjectHistory')), 0)
 
     def test_26_askObjectHistory2(self):
+        oid1 = self.getOID(1)
+        oid2 = self.getOID(2)
+        tid = self.getNextTID()
         # first case: empty history
         conn = self.getFakeConnection()
         self.app.dm = Mock({'getObjectHistory': None})
-        self.operation.askObjectHistory(conn, INVALID_OID, 1, 2)
+        self.operation.askObjectHistory(conn, oid1, 1, 2)
         self.checkAnswerObjectHistory(conn)
         # second case: not empty history
         conn = self.getFakeConnection()
-        self.app.dm = Mock({'getObjectHistory': [('', 0, ), ]})
-        self.operation.askObjectHistory(conn, INVALID_OID, 1, 2)
+        self.app.dm = Mock({'getObjectHistory': [(tid, 0, ), ]})
+        self.operation.askObjectHistory(conn, oid2, 1, 2)
         self.checkAnswerObjectHistory(conn)
 
     def test_25_askOIDs1(self):
