@@ -56,8 +56,8 @@ class IdentificationHandler(EventHandler):
             raise protocol.ProtocolError('reject non-client-or-storage node')
         # apply the handler and set up the connection
         handler = handler(self.app)
-        conn.setHandler(handler)
         conn.setUUID(uuid)
+        conn.setHandler(handler)
         node.setUUID(uuid)
         node.setConnection(conn)
         args = (NodeTypes.STORAGE, app.uuid, app.pt.getPartitions(),
