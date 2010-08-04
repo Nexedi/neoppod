@@ -598,6 +598,10 @@ class ProtocolTests(NeoTestBase):
             p = Packets.AnswerHasLock(oid, lock_state)
             self.assertEqual(p.decode(), (oid, lock_state))
 
+    def test_Notify(self):
+        msg = 'test'
+        self.assertEqual(Packets.Notify(msg).decode(), (msg, ))
+
 if __name__ == '__main__':
     unittest.main()
 
