@@ -90,17 +90,8 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.assertEqual(ptid, last_ptid)
 
         # return value stored in db
-        # insert some oid
         conn = self.getClientConnection()
         self.app.dm.begin()
-        self.app.dm.query("""insert into obj (oid, serial, compression,
-        checksum, value) values (3, 'A', 0, 0, '')""")
-        self.app.dm.query("""insert into obj (oid, serial, compression,
-        checksum, value) values (1, 'A', 0, 0, '')""")
-        self.app.dm.query("""insert into obj (oid, serial, compression,
-        checksum, value) values (2, 'A', 0, 0, '')""")
-        self.app.dm.query("""insert into tobj (oid, serial, compression,
-        checksum, value) values (5, 'A', 0, 0, '')""")
         # insert some tid
         self.app.dm.query("""insert into trans (tid, oids, user,
                 description, ext) values (1, '', '', '', '')""")
