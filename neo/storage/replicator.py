@@ -101,6 +101,7 @@ class Replicator(object):
         self.waiting_for_unfinished_tids = False
         self.unfinished_tid_list = None
         self.replication_done = True
+        self.partition_dict = {}
 
     def _getOutdatedPartitionList(self):
         app = self.app
