@@ -17,8 +17,8 @@
 
 from neo import logging
 
-from neo import protocol
 from neo.protocol import NodeTypes, Packets
+from neo.protocol import BrokenNodeDisallowedError, ProtocolError
 from neo.master.handlers import MasterHandler
 
 class IdentificationHandler(MasterHandler):
@@ -40,20 +40,20 @@ class IdentificationHandler(MasterHandler):
             if node.getAddress() == address:
                 # the node is still alive
                 if node.isBroken():
-                    raise protocol.BrokenNodeDisallowedError
+                    raise BrokenNodeDisallowedError
             if node.getAddress() != address:
                 # this node has changed its address
                 if node.isRunning():
                    # still running, reject this new node
-                    raise protocol.ProtocolError('invalid server address')
+                    raise ProtocolError('invalid server address')
         if node_by_uuid is None and node_by_addr is not None:
             if node.isRunning():
                 # still running, reject this new node
-                raise protocol.ProtocolError('invalid server address')
+                raise ProtocolError('invalid server address')
         if node is not None:
             if node.isConnected():
                 # more than one connection from this node
-                raise protocol.ProtocolError('already connected')
+                raise ProtocolError('already connected')
             node.setAddress(address)
             node.setRunning()
 

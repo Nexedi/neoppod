@@ -17,8 +17,9 @@
 
 from neo import logging
 
-from neo import protocol
 from neo.protocol import NodeTypes, Packets
+from neo.protocol import NotReadyError, ProtocolError, UnexpectedPacketError
+from neo.protocol import BrokenNodeDisallowedError
 from neo.master.handlers import MasterHandler
 from neo.exception import ElectionFailure
 from neo.util import dump
@@ -28,7 +29,6 @@ class ClientElectionHandler(MasterHandler):
     # FIXME: this packet is not allowed here, but handled in MasterHandler
     # a global handler review is required.
     def askPrimary(self, conn):
-        from neo.protocol import UnexpectedPacketError
         raise UnexpectedPacketError, "askPrimary on server connection"
 
     def packetReceived(self, conn, packet):
@@ -204,15 +204,15 @@ class ServerElectionHandler(MasterHandler):
         app = self.app
         if node_type != NodeTypes.MASTER:
             logging.info('reject a connection from a non-master')
-            raise protocol.NotReadyError
+            raise NotReadyError
         node = app.nm.getByAddress(address)
         if node is None:
             logging.error('unknown master node: %s' % (address, ))
-            raise protocol.ProtocolError('unknown master node')
+            raise ProtocolError('unknown master node')
         # If this node is broken, reject it.
         if node.getUUID() == uuid:
             if node.isBroken():
-                raise protocol.BrokenNodeDisallowedError
+                raise BrokenNodeDisallowedError
 
         # supplied another uuid in case of conflict
         while not app.isValidUUID(uuid, address):
@@ -233,7 +233,7 @@ class ServerElectionHandler(MasterHandler):
     def announcePrimary(self, conn):
         uuid = conn.getUUID()
         if uuid is None:
-            raise protocol.ProtocolError('Not identified')
+            raise ProtocolError('Not identified')
         app = self.app
         if app.primary:
             # I am also the primary... So restart the election.
