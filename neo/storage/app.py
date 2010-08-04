@@ -176,6 +176,9 @@ class Application(object):
         while True:
             self.ready = False
             self.operational = False
+            if self.replicator is not None:
+              # stop the replicator
+              self.replicator.reset()
             if self.master_node is None:
                 # look for the primary master
                 self.connectToPrimary()
