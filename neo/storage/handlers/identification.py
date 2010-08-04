@@ -45,6 +45,10 @@ class IdentificationHandler(EventHandler):
             handler = ClientOperationHandler
             if node is None:
                 node = app.nm.createClient()
+            elif node.isConnected():
+                # cut previous connection
+                node.getConnection().close()
+                node.onConnectionClosed()
             node.setRunning()
         elif node_type == NodeTypes.STORAGE:
             from neo.storage.handlers.storage import StorageOperationHandler
