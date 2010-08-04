@@ -450,6 +450,7 @@ class Application(object):
         shuffle(cell_list)
         cell_list.sort(key=self.cp.getCellSortKey)
         self.local_var.asked_object = 0
+        packet = Packets.AskObject(oid, serial, tid)
         for cell in cell_list:
             logging.debug('trying to load %s from %s',
                           dump(oid), dump(cell.getUUID()))
@@ -458,7 +459,7 @@ class Application(object):
                 continue
 
             try:
-                self._askStorage(conn, Packets.AskObject(oid, serial, tid))
+                self._askStorage(conn, packet)
             except ConnectionClosed:
                 continue
 
