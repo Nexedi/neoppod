@@ -82,7 +82,6 @@ class Replicator(object):
         self.new_partition_dict = self._getOutdatedPartitionList()
         self.critical_tid_dict = {}
         self.tid_offset = 0
-        self.primary_master_connection = app.master_conn
         self.reset()
 
     def reset(self):
@@ -121,7 +120,7 @@ class Replicator(object):
                     (dump(uuid), ))
 
     def _askCriticalTID(self):
-        conn = self.primary_master_connection
+        conn = self.app.master_conn
         conn.ask(Packets.AskLastIDs())
         uuid = conn.getUUID()
         self.critical_tid_dict[uuid] = self.new_partition_dict.values()
@@ -136,7 +135,7 @@ class Replicator(object):
         self.unfinished_tid_list = tid_list
 
     def _askUnfinishedTIDs(self):
-        conn = self.primary_master_connection
+        conn = self.app.master_conn
         conn.ask(Packets.AskUnfinishedTransactions())
         self.waiting_for_unfinished_tids = True
 
@@ -185,7 +184,7 @@ class Replicator(object):
         try:
             self.partition_dict.pop(self.current_partition.getRID())
             # Notify to a primary master node that my cell is now up-to-date.
-            conn = self.primary_master_connection
+            conn = self.app.master_conn
             offset = self.current_partition.getRID()
             conn.notify(Packets.NotifyReplicationDone(offset))
         except KeyError:
