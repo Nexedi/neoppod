@@ -90,6 +90,15 @@ class StorageTests(NEOFunctionalTest):
         query = 'select count(*) from (select * from obj group by oid) as t'
         objects = self.queryCount(db, query)
         self.assertEqual(objects, OBJECT_NUMBER + 1)
+        # Check object content
+        db, conn = self.neo.getZODBConnection()
+        root = conn.root()
+        for i in xrange(OBJECT_NUMBER):
+            obj = root[i]
+            self.assertEqual(obj.value, i)
+        transaction.abort()
+        conn.close()
+        db.close()
 
     def __checkReplicationDone(self):
         # wait for replication to finish
