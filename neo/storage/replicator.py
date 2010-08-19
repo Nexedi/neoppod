@@ -112,7 +112,7 @@ class Replicator(object):
         return len(self.partition_dict) or len(self.new_partition_dict)
 
     def setCriticalTID(self, uuid, tid):
-        """This is a callback from OperationEventHandler."""
+        """This is a callback from MasterOperationHandler."""
         try:
             partition_list = self.critical_tid_dict[uuid]
             logging.debug('setting critical TID %s to %s', dump(tid),
@@ -133,7 +133,7 @@ class Replicator(object):
         self.new_partition_dict = {}
 
     def setUnfinishedTIDList(self, tid_list):
-        """This is a callback from OperationEventHandler."""
+        """This is a callback from MasterOperationHandler."""
         logging.debug('setting unfinished TIDs %s',
                       ','.join([dump(tid) for tid in tid_list]))
         self.waiting_for_unfinished_tids = False
@@ -236,7 +236,7 @@ class Replicator(object):
         self._startReplication()
 
     def removePartition(self, rid):
-        """This is a callback from OperationEventHandler."""
+        """This is a callback from MasterOperationHandler."""
         # TODO: remove try..except: pass
         try:
             self.partition_dict.pop(rid)
@@ -249,7 +249,7 @@ class Replicator(object):
             pass
 
     def addPartition(self, rid):
-        """This is a callback from OperationEventHandler."""
+        """This is a callback from MasterOperationHandler."""
         if not self.partition_dict.has_key(rid) \
                 and not self.new_partition_dict.has_key(rid):
             self.new_partition_dict[rid] = Partition(rid)
