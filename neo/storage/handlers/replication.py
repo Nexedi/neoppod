@@ -21,6 +21,16 @@ from neo import logging
 from neo.handler import EventHandler
 from neo.protocol import Packets
 
+def checkConnectionIsReplicatorConnection(func):
+    def decorator(self, conn, *args, **kw):
+        if self.app.replicator.current_connection is conn:
+            result = func(self, conn, *args, **kw)
+        else:
+            # Should probably raise & close connection...
+            result = None
+        return result
+    return decorator
+
 class ReplicationHandler(EventHandler):
     """This class handles events for replications."""
 
@@ -41,11 +51,9 @@ class ReplicationHandler(EventHandler):
         # set the UUID on the connection
         conn.setUUID(uuid)
 
+    @checkConnectionIsReplicatorConnection
     def answerTIDs(self, conn, tid_list):
         app = self.app
-        if app.replicator.current_connection is not conn:
-            return
-
         if tid_list:
             # If I have pending TIDs, check which TIDs I don't have, and
             # request the data.
@@ -68,21 +76,17 @@ class ReplicationHandler(EventHandler):
             conn.ask(p, timeout=300)
             app.replicator.oid_offset = 0
 
+    @checkConnectionIsReplicatorConnection
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, packed, oid_list):
         app = self.app
-        if app.replicator.current_connection is not conn:
-            return
-
         # Directly store the transaction.
         app.dm.storeTransaction(tid, (), (oid_list, user, desc, ext, packed),
             False)
 
+    @checkConnectionIsReplicatorConnection
     def answerOIDs(self, conn, oid_list):
         app = self.app
-        if app.replicator.current_connection is not conn:
-            return
-
         if oid_list:
             # Pick one up, and ask the history.
             oid = oid_list.pop()
@@ -94,11 +98,9 @@ class ReplicationHandler(EventHandler):
             # finished.
             app.replicator.replication_done = True
 
+    @checkConnectionIsReplicatorConnection
     def answerObjectHistory(self, conn, oid, history_list):
         app = self.app
-        if app.replicator.current_connection is not conn:
-            return
-
         if history_list:
             # Check if I have objects, request those which I don't have.
             serial_list = [t[0] for t in history_list]
@@ -128,12 +130,10 @@ class ReplicationHandler(EventHandler):
                           app.replicator.current_partition.getRID())
                 conn.ask(p, timeout=300)
 
+    @checkConnectionIsReplicatorConnection
     def answerObject(self, conn, oid, serial_start,
             serial_end, compression, checksum, data, data_serial):
         app = self.app
-        if app.replicator.current_connection is not conn:
-            return
-
         # Directly store the transaction.
         obj = (oid, compression, checksum, data, data_serial)
         app.dm.storeTransaction(serial_start, [obj], None, False)
