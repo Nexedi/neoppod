@@ -44,13 +44,14 @@ class MasterOperationHandler(BaseMasterHandler):
         app.dm.changePartitionTable(ptid, cell_list)
 
         # Check changes for replications
-        for offset, uuid, state in cell_list:
-            if uuid == app.uuid and app.replicator is not None:
-                # If this is for myself, this can affect replications.
-                if state == CellStates.DISCARDED:
-                    app.replicator.removePartition(offset)
-                elif state == CellStates.OUT_OF_DATE:
-                    app.replicator.addPartition(offset)
+        if app.replicator is not None:
+            for offset, uuid, state in cell_list:
+                if uuid == app.uuid:
+                    # If this is for myself, this can affect replications.
+                    if state == CellStates.DISCARDED:
+                        app.replicator.removePartition(offset)
+                    elif state == CellStates.OUT_OF_DATE:
+                        app.replicator.addPartition(offset)
 
     def askLockInformation(self, conn, tid, oid_list):
         if not tid in self.app.tm:
