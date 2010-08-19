@@ -130,16 +130,6 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectStorageState(process.getUUID(),
                 NodeStates.TEMPORARILY_DOWN)
 
-    def __expectNotKnown(self, process):
-        # /!\ Not Known != Unknown
-        def expected_storage_not_known(last_try):
-            storage_list = self.neo.getStorageList()
-            for storage in storage_list:
-                if storage[2] == process.getUUID():
-                    return False, storage
-            return True, None
-        self.neo.expectCondition(expected_storage_not_known)
-
     def testReplicationWithoutBreak(self):
         """ Start a cluster with two storage, one replicas, the two databasqes
         must have the same content """
@@ -355,7 +345,7 @@ class StorageTests(NEOFunctionalTest):
 
         # ask neoctl to drop it
         self.neo.neoctl.dropNode(started[0].getUUID())
-        self.__expectNotKnown(started[0])
+        self.neo.expectStorageNotKnown(started[0])
         self.neo.expectAssignedCells(started[0], 0)
         self.neo.expectAssignedCells(started[1], 10)
 
@@ -367,7 +357,7 @@ class StorageTests(NEOFunctionalTest):
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 pending_number=1, partitions=10)
         self.__expectRunning(started[0])
-        self.__expectNotKnown(stopped[0])
+        self.neo.expectStorageNotKnown(stopped[0])
         self.neo.expectOudatedCells(number=0)
 
         # populate the cluster with some data
@@ -402,7 +392,7 @@ class StorageTests(NEOFunctionalTest):
 
         # drop it from partition table
         self.neo.neoctl.dropNode(started[0].getUUID())
-        self.__expectNotKnown(started[0])
+        self.neo.expectStorageNotKnown(started[0])
         self.__expectRunning(stopped[0])
         self.neo.expectAssignedCells(started[0], 0)
         self.neo.expectAssignedCells(stopped[0], 10)
@@ -429,7 +419,7 @@ class StorageTests(NEOFunctionalTest):
 
         # drop one
         self.neo.neoctl.dropNode(started[0].getUUID())
-        self.__expectNotKnown(started[0])
+        self.neo.expectStorageNotKnown(started[0])
         self.__expectRunning(started[1])
 
         # wait for running storage to store new partition table
@@ -438,7 +428,7 @@ class StorageTests(NEOFunctionalTest):
         # restart all nodes except the dropped, it must not be known
         self.neo.stop()
         self.neo.start(except_storages=[started[0]])
-        self.__expectNotKnown(started[0])
+        self.neo.expectStorageNotKnown(started[0])
         self.__expectRunning(started[1])
 
         # then restart it, it must be in pending state
@@ -453,7 +443,7 @@ class StorageTests(NEOFunctionalTest):
                 pending_number=1, partitions=10)
         # start without storage
         self.neo.expectClusterRecovering()
-        self.__expectNotKnown(stopped[0])
+        self.neo.expectStorageNotKnown(stopped[0])
         # start the empty storage, it must be accepted
         stopped[0].start(with_uuid=False)
         self.neo.expectClusterRunning()
@@ -466,7 +456,7 @@ class StorageTests(NEOFunctionalTest):
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 pending_number=1, partitions=10)
         self.__expectRunning(started[0])
-        self.__expectNotKnown(stopped[0])
+        self.neo.expectStorageNotKnown(stopped[0])
         self.neo.expectOudatedCells(number=0)
         self.neo.expectClusterRunning()
 
@@ -474,7 +464,7 @@ class StorageTests(NEOFunctionalTest):
         stopped[0].start()
         self.__expectPending(stopped[0])
         self.neo.neoctl.dropNode(started[0].getUUID())
-        self.__expectNotKnown(started[0])
+        self.neo.expectStorageNotKnown(started[0])
         self.__expectPending(stopped[0])
 
     def testRestartWithMissingStorage(self):

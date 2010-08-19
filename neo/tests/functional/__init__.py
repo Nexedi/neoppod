@@ -503,6 +503,16 @@ class NEOCluster(object):
             return current_try, current_try
         self.expectCondition(callback, timeout, delay)
 
+    def expectStorageNotKnown(self, process, timeout=0, delay=1):
+        # /!\ Not Known != Unknown
+        process_uuid = process.getUUID()
+        def expected_storage_not_known(last_try):
+            for storage in self.getStorageList():
+                if storage[2] == process_uuid:
+                    return False, storage
+            return True, None
+        self.expectCondition(expected_storage_not_known, timeout, delay)
+
     def __del__(self):
         if self.cleanup_on_delete:
             os.removedirs(self.temp_dir)
