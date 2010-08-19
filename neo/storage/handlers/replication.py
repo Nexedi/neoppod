@@ -34,10 +34,6 @@ def checkConnectionIsReplicatorConnection(func):
 class ReplicationHandler(EventHandler):
     """This class handles events for replications."""
 
-    def connectionCompleted(self, conn):
-        # Nothing to do.
-        pass
-
     def connectionLost(self, conn, new_state):
         logging.error('replication is stopped due to a connection lost')
         self.app.replicator.reset()
