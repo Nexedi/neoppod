@@ -41,14 +41,10 @@ class Partition(object):
             tid = '\x00' * 8
         self.tid = tid
 
-    def safe(self, pending_tid_list):
-        if self.tid is None:
-            return False
-        for tid in pending_tid_list:
-            if self.tid >= tid:
-                return False
-        return True
-
+    def safe(self, min_pending_tid):
+        tid = self.tid
+        return tid is not None and (
+            min_pending_tid is None or tid < min_pending_tid)
 
 class Replicator(object):
     """This class handles replications of objects and transactions.
@@ -222,15 +218,18 @@ class Replicator(object):
             return
 
         # Try to select something.
+        if len(self.unfinished_tid_list):
+            min_unfinished_tid = min(self.unfinished_tid_list)
+        else:
+            min_unfinished_tid = None
+        self.unfinished_tid_list = None
         for partition in self.partition_dict.values():
-            if partition.safe(self.unfinished_tid_list):
+            if partition.safe(min_unfinished_tid):
                 self.current_partition = partition
-                self.unfinished_tid_list = None
                 break
         else:
             # Not yet.
             logging.debug('not ready yet')
-            self.unfinished_tid_list = None
             return
 
         self._startReplication()
