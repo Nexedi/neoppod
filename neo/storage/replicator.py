@@ -84,15 +84,10 @@ class Replicator(object):
     def __init__(self, app):
         self.app = app
         self.new_partition_dict = self._getOutdatedPartitionList()
-        self.partition_dict = {}
-        self.current_partition = None
-        self.current_connection = None
         self.critical_tid_dict = {}
-        self.waiting_for_unfinished_tids = False
-        self.unfinished_tid_list = None
-        self.replication_done = True
         self.tid_offset = 0
         self.primary_master_connection = app.master_conn
+        self.reset()
 
     def reset(self):
         """Reset attributes to restart replicating."""
