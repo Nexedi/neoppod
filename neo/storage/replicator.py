@@ -235,16 +235,8 @@ class Replicator(object):
 
     def removePartition(self, rid):
         """This is a callback from MasterOperationHandler."""
-        # TODO: remove try..except: pass
-        try:
-            self.partition_dict.pop(rid)
-        except KeyError:
-            pass
-        # TODO: remove try..except: pass
-        try:
-            self.new_partition_dict.pop(rid)
-        except KeyError:
-            pass
+        self.partition_dict.pop(rid, None)
+        self.new_partition_dict.pop(rid, None)
 
     def addPartition(self, rid):
         """This is a callback from MasterOperationHandler."""
