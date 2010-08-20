@@ -48,7 +48,7 @@ class IdentificationHandler(EventHandler):
             elif node.isConnected():
                 # cut previous connection
                 node.getConnection().close()
-                node.onConnectionClosed()
+                assert not node.isConnected()
             node.setRunning()
         elif node_type == NodeTypes.STORAGE:
             from neo.storage.handlers.storage import StorageOperationHandler
