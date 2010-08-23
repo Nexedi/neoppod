@@ -152,6 +152,8 @@ RC  - Review output of pylint (CODE)
         S1 < S2 : Answer object data for latter state of each object
         Or something like that, the idea is to say what we have instead or check
         what we don't have.
+    - Make listening address and port optionnal, and if they are not provided
+      listen on all interfaces on any available port.
 
     Master
     - Master node data redundancy (HIGH AVAILABILITY)
