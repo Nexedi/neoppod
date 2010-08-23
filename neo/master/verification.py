@@ -41,23 +41,39 @@ class VerificationManager(BaseServiceHandler):
         BaseServiceHandler.__init__(self, app)
         self._oid_set = set()
         self._tid_set = set()
-        self._uuid_dict = {}
+        self._uuid_set = set()
         self._object_present = False
 
     def _askStorageNodesAndWait(self, packet, node_list):
         poll = self.app.em.poll
         operational = self.app.pt.operational
-        uuid_dict = self._uuid_dict
-        uuid_dict.clear()
+        uuid_set = self._uuid_set
+        uuid_set.clear()
         for node in node_list:
-            uuid_dict[node.getUUID()] = False
+            uuid_set.add(node.getUUID())
             node.ask(packet)
         while True:
             poll(1)
             if not operational():
                 raise VerificationFailure
-            if False not in uuid_dict.values():
+            if not uuid_set:
                 break
+
+    def _gotAnswerFrom(self, uuid):
+        """
+        Returns True if answer from given uuid is waited upon by
+        _askStorageNodesAndWait, False otherwise.
+
+        Also, mark this uuid as having answered, so it stops being waited upon
+        by _askStorageNodesAndWait.
+        """
+        try:
+            self._uuid_set.remove(uuid)
+        except KeyError:
+            result = False
+        else:
+            result = True
+        return result
 
     def getHandler(self):
         return self
@@ -179,18 +195,15 @@ class VerificationManager(BaseServiceHandler):
     def answerUnfinishedTransactions(self, conn, tid_list):
         uuid = conn.getUUID()
         logging.info('got unfinished transactions %s from %r', tid_list, conn)
-        if self._uuid_dict.get(uuid, True):
-            # No interest.
+        if not self._gotAnswerFrom(uuid):
             return
         self._tid_set.update(tid_list)
-        self._uuid_dict[uuid] = True
 
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, packed, oid_list):
         uuid = conn.getUUID()
         app = self.app
-        if self._uuid_dict.get(uuid, True):
-            # No interest.
+        if not self._gotAnswerFrom(uuid):
             return
         oid_set = set(oid_list)
         if self._oid_set is None:
@@ -201,34 +214,26 @@ class VerificationManager(BaseServiceHandler):
             self._oid_set.update(oid_set)
         elif self._oid_set != oid_set:
             self._oid_set = None
-        self._uuid_dict[uuid] = True
 
     def tidNotFound(self, conn, message):
         uuid = conn.getUUID()
         logging.info('TID not found: %s', message)
-        if self._uuid_dict.get(uuid, True):
-            # No interest.
+        if not self._gotAnswerFrom(uuid):
             return
         self._oid_set = None
-        self._uuid_dict[uuid] = True
 
     def answerObjectPresent(self, conn, oid, tid):
         uuid = conn.getUUID()
         logging.info('object %s:%s found', dump(oid), dump(tid))
-        if self._uuid_dict.get(uuid, True):
-            # No interest.
-            return
-        self._uuid_dict[uuid] = True
+        self._gotAnswerFrom(uuid)
 
     def oidNotFound(self, conn, message):
         uuid = conn.getUUID()
         logging.info('OID not found: %s', message)
         app = self.app
-        if self._uuid_dict.get(uuid, True):
-            # No interest.
+        if not self._gotAnswerFrom(uuid):
             return
         app.object_present = False
-        self._uuid_dict[uuid] = True
 
     def connectionCompleted(self, conn):
         pass
