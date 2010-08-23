@@ -44,6 +44,21 @@ class VerificationManager(BaseServiceHandler):
         self._uuid_dict = {}
         self._object_present = False
 
+    def _askStorageNodesAndWait(self, packet, node_list):
+        poll = self.app.em.poll
+        operational = self.app.pt.operational
+        uuid_dict = self._uuid_dict
+        uuid_dict.clear()
+        for node in node_list:
+            uuid_dict[node.getUUID()] = False
+            node.ask(packet)
+        while True:
+            poll(1)
+            if not operational():
+                raise VerificationFailure
+            if False not in uuid_dict.values():
+                break
+
     def getHandler(self):
         return self
 
@@ -93,17 +108,8 @@ class VerificationManager(BaseServiceHandler):
         logging.info('start to verify data')
 
         # Gather all unfinished transactions.
-        for node in self.app.nm.getIdentifiedList():
-            if node.isStorage():
-                self._uuid_dict[node.getUUID()] = False
-                node.ask(Packets.AskUnfinishedTransactions())
-
-        while True:
-            em.poll(1)
-            if not self.app.pt.operational():
-                raise VerificationFailure
-            if False not in self._uuid_dict.values():
-                break
+        self._askStorageNodesAndWait(Packets.AskUnfinishedTransactions(),
+            [x for x in self.app.nm.getIdentifiedList() if x.isStorage()])
 
         # Gather OIDs for each unfinished TID, and verify whether the
         # transaction can be finished or must be aborted. This could be
@@ -137,26 +143,17 @@ class VerificationManager(BaseServiceHandler):
         uuid_set.update(uuid_list)
 
         # Gather OIDs.
-        self._uuid_dict = {}
-        for node in self.app.nm.getIdentifiedList(pool_set=uuid_list):
-            self._uuid_dict[node.getUUID()] = False
-            node.ask(Packets.AskTransactionInformation(tid))
-        if len(self._uuid_dict) == 0:
+        node_list = self.app.nm.getIdentifiedList(pool_set=uuid_list)
+        if len(node_list) == 0:
             raise VerificationFailure
-
-        while True:
-            em.poll(1)
-            if not self.app.pt.operational():
-                raise VerificationFailure
-            if False not in self._uuid_dict.values():
-                break
+        self._askStorageNodesAndWait(Packets.AskTransactionInformation(tid),
+            node_list)
 
         if self._oid_set is None or len(self._oid_set) == 0:
             # Not commitable.
             return None
         # Verify that all objects are present.
         for oid in self._oid_set:
-            self._uuid_dict.clear()
             partition = self.app.pt.getPartition(oid)
             object_uuid_list = [cell.getUUID() for cell \
                         in self.app.pt.getCellList(partition, readable=True)]
@@ -165,17 +162,8 @@ class VerificationManager(BaseServiceHandler):
             uuid_set.update(object_uuid_list)
 
             self._object_present = True
-            for node in nm.getIdentifiedList(pool_set=object_uuid_list):
-                self._uuid_dict[node.getUUID()] = False
-                node.ask(Packets.AskObjectPresent(oid, tid))
-
-            while True:
-                em.poll(1)
-                if not self.app.pt.operational():
-                    raise VerificationFailure
-                if False not in self._uuid_dict.values():
-                    break
-
+            self._askStorageNodesAndWait(Packets.AskObjectPresent(oid, tid),
+                nm.getIdentifiedList(pool_set=object_uuid_list))
             if not self._object_present:
                 # Not commitable.
                 return None
