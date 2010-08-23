@@ -134,13 +134,15 @@ class VerificationManager(BaseServiceHandler):
         for tid in self._tid_set:
             uuid_set = self.verifyTransaction(tid)
             if uuid_set is None:
+                packet = Packets.DeleteTransaction(tid)
                 # Make sure that no node has this transaction.
                 for node in self.app.nm.getIdentifiedList():
                     if node.isStorage():
-                        node.notify(Packets.DeleteTransaction(tid))
+                        node.notify(packet)
             else:
+                packet = Packets.CommitTransaction(tid)
                 for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
-                    node.notify(Packets.CommitTransaction(tid))
+                    node.notify(packet)
 
             # If possible, send the packets now.
             em.poll(0)
