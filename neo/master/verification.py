@@ -235,7 +235,7 @@ class VerificationManager(BaseServiceHandler):
         app = self.app
         if not self._gotAnswerFrom(uuid):
             return
-        app.object_present = False
+        app._object_present = False
 
     def connectionCompleted(self, conn):
         pass
