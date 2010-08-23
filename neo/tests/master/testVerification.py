@@ -125,7 +125,6 @@ class MasterVerificationTests(NeoTestBase):
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.verification._uuid_dict), 0)
         self.verification._uuid_dict[uuid]  = True
-        self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         self.assertEquals(len(self.verification._tid_set), 0)
         new_tid = self.getNextTID()
         verification.answerUnfinishedTransactions(conn, [new_tid])
@@ -133,7 +132,6 @@ class MasterVerificationTests(NeoTestBase):
         # update dict
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.verification._uuid_dict[uuid]  = False
-        self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         self.assertEquals(len(self.verification._tid_set), 0)
         new_tid = self.getNextTID(new_tid)
         verification.answerUnfinishedTransactions(conn, [new_tid,])
@@ -149,7 +147,6 @@ class MasterVerificationTests(NeoTestBase):
         self.assertEquals(len(self.verification._uuid_dict), 0)
         self.verification._uuid_dict[uuid]  = False
         self.verification._oid_set  = None
-        self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         new_tid = self.getNextTID()
         new_oid = self.getOID(1)
         verification.answerTransactionInformation(conn, new_tid,
@@ -160,7 +157,6 @@ class MasterVerificationTests(NeoTestBase):
         self.assertEquals(len(self.verification._uuid_dict), 1)
         self.verification._uuid_dict[uuid]  = True
         self.verification._oid_set  = set()
-        self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         self.assertEquals(len(self.verification._oid_set), 0)
         verification.answerTransactionInformation(conn, new_tid,
                 "user", "desc", "ext", False, [new_oid,])
@@ -169,7 +165,6 @@ class MasterVerificationTests(NeoTestBase):
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.verification._uuid_dict), 1)
         self.verification._uuid_dict[uuid]  = False
-        self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         self.assertEquals(len(self.verification._oid_set), 0)
         verification.answerTransactionInformation(conn, new_tid,
                 "user", "desc", "ext", False, [new_oid,])
@@ -179,7 +174,6 @@ class MasterVerificationTests(NeoTestBase):
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.verification._uuid_dict), 1)
         self.verification._uuid_dict[uuid]  = False
-        self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         self.assertEquals(len(self.verification._oid_set), 1)
         new_oid = self.getOID(2)
         verification.answerTransactionInformation(conn, new_tid,
@@ -194,7 +188,6 @@ class MasterVerificationTests(NeoTestBase):
         self.assertEquals(len(self.verification._uuid_dict), 0)
         self.verification._uuid_dict[uuid]  = True
         self.verification._oid_set  = []
-        self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         verification.tidNotFound(conn, "msg")
         self.assertNotEqual(self.verification._oid_set, None)
         # do work as asking_uuid_dict is False
@@ -202,7 +195,6 @@ class MasterVerificationTests(NeoTestBase):
         self.assertEquals(len(self.verification._uuid_dict), 1)
         self.verification._uuid_dict[uuid]  = False
         self.verification._oid_set  = []
-        self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         verification.tidNotFound(conn, "msg")
         self.assertEqual(self.verification._oid_set, None)
 
@@ -215,13 +207,11 @@ class MasterVerificationTests(NeoTestBase):
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.verification._uuid_dict), 0)
         self.verification._uuid_dict[uuid]  = True
-        self.assertTrue(self.verification._uuid_dict.has_key(uuid))
         verification.answerObjectPresent(conn, new_oid, new_tid)
         # do work
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.verification._uuid_dict), 1)
         self.verification._uuid_dict[uuid]  = False
-        self.assertFalse(self.verification._uuid_dict[uuid])
         verification.answerObjectPresent(conn, new_oid, new_tid)
         self.assertTrue(self.verification._uuid_dict[uuid])
 
@@ -240,7 +230,6 @@ class MasterVerificationTests(NeoTestBase):
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.assertEquals(len(self.verification._uuid_dict), 1)
         self.verification._uuid_dict[uuid]  = False
-        self.assertFalse(self.verification._uuid_dict[uuid ])
         self.assertTrue(self.app.object_present)
         verification.oidNotFound(conn, "msg")
         self.assertFalse(self.app.object_present)
