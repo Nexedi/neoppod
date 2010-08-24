@@ -840,11 +840,11 @@ class HandlerSwitcherTests(NeoTestBase):
         self._handler = handler = Mock({
             '__repr__': 'initial handler',
         })
-        self._connection = connection = Mock({
+        self._connection = Mock({
             '__repr__': 'connection',
             'getAddress': ('127.0.0.1', 10000),
         })
-        self._handlers = HandlerSwitcher(connection, handler)
+        self._handlers = HandlerSwitcher(handler)
 
     def _makeNotification(self, msg_id):
         packet = Packets.StartOperation()
@@ -884,42 +884,44 @@ class HandlerSwitcherTests(NeoTestBase):
         # Second case, emit is called from inside a handler with a pending
         # handler change.
         new_handler = self._makeHandler()
-        self._handlers.setHandler(new_handler)
+        applied = self._handlers.setHandler(new_handler)
+        self.assertFalse(applied)
         self._checkCurrentHandler(self._handler)
         call_tracker = []
         def packetReceived(conn, packet):
             self._handlers.emit(self._makeRequest(2), 0, None)
             call_tracker.append(True)
         self._handler.packetReceived = packetReceived
-        self._handlers.handle(self._makeAnswer(1))
+        self._handlers.handle(self._connection, self._makeAnswer(1))
         self.assertEqual(call_tracker, [True])
         # Effective handler must not have changed (new request is blocking
         # it)
         self._checkCurrentHandler(self._handler)
         # Handling the next response will cause the handler to change
         delattr(self._handler, 'packetReceived')
-        self._handlers.handle(self._makeAnswer(2))
+        self._handlers.handle(self._connection, self._makeAnswer(2))
         self._checkCurrentHandler(new_handler)
 
     def testHandleNotification(self):
         # handle with current handler
         notif1 = self._makeNotification(1)
-        self._handlers.handle(notif1)
+        self._handlers.handle(self._connection, notif1)
         self._checkPacketReceived(self._handler, notif1)
         # emit a request and delay an handler
         request = self._makeRequest(2)
         self._handlers.emit(request, 0, None)
         handler = self._makeHandler()
-        self._handlers.setHandler(handler)
+        applied = self._handlers.setHandler(handler)
+        self.assertFalse(applied)
         # next notification fall into the current handler
         notif2 = self._makeNotification(3)
-        self._handlers.handle(notif2)
+        self._handlers.handle(self._connection, notif2)
         self._checkPacketReceived(self._handler, notif2, index=1)
         # handle with new handler
         answer = self._makeAnswer(2)
-        self._handlers.handle(answer)
+        self._handlers.handle(self._connection, answer)
         notif3 = self._makeNotification(4)
-        self._handlers.handle(notif3)
+        self._handlers.handle(self._connection, notif3)
         self._checkPacketReceived(handler, notif2)
 
     def testHandleAnswer1(self):
@@ -927,7 +929,7 @@ class HandlerSwitcherTests(NeoTestBase):
         request = self._makeRequest(1)
         self._handlers.emit(request, 0, None)
         answer = self._makeAnswer(1)
-        self._handlers.handle(answer)
+        self._handlers.handle(self._connection, answer)
         self._checkPacketReceived(self._handler, answer)
 
     def testHandleAnswer2(self):
@@ -935,9 +937,10 @@ class HandlerSwitcherTests(NeoTestBase):
         request = self._makeRequest(1)
         self._handlers.emit(request, 0, None)
         handler = self._makeHandler()
-        self._handlers.setHandler(handler)
+        applied = self._handlers.setHandler(handler)
+        self.assertFalse(applied)
         answer = self._makeAnswer(1)
-        self._handlers.handle(answer)
+        self._handlers.handle(self._connection, answer)
         self._checkPacketReceived(self._handler, answer)
         self._checkCurrentHandler(handler)
 
@@ -954,19 +957,22 @@ class HandlerSwitcherTests(NeoTestBase):
         h3 = self._makeHandler()
         # emit all requests and setHandleres
         self._handlers.emit(r1, 0, None)
-        self._handlers.setHandler(h1)
+        applied = self._handlers.setHandler(h1)
+        self.assertFalse(applied)
         self._handlers.emit(r2, 0, None)
-        self._handlers.setHandler(h2)
+        applied = self._handlers.setHandler(h2)
+        self.assertFalse(applied)
         self._handlers.emit(r3, 0, None)
-        self._handlers.setHandler(h3)
+        applied = self._handlers.setHandler(h3)
+        self.assertFalse(applied)
         self._checkCurrentHandler(self._handler)
         self.assertTrue(self._handlers.isPending())
         # process answers
-        self._handlers.handle(a1)
+        self._handlers.handle(self._connection, a1)
         self._checkCurrentHandler(h1)
-        self._handlers.handle(a2)
+        self._handlers.handle(self._connection, a2)
         self._checkCurrentHandler(h2)
-        self._handlers.handle(a3)
+        self._handlers.handle(self._connection, a3)
         self._checkCurrentHandler(h3)
 
     def testHandleAnswer4(self):
@@ -982,13 +988,14 @@ class HandlerSwitcherTests(NeoTestBase):
         self._handlers.emit(r1, 0, None)
         self._handlers.emit(r2, 0, None)
         self._handlers.emit(r3, 0, None)
-        self._handlers.setHandler(h)
+        applied = self._handlers.setHandler(h)
+        self.assertFalse(applied)
         # process answers
-        self._handlers.handle(a1)
+        self._handlers.handle(self._connection, a1)
         self._checkCurrentHandler(self._handler)
-        self._handlers.handle(a2)
+        self._handlers.handle(self._connection, a2)
         self._checkCurrentHandler(self._handler)
-        self._handlers.handle(a3)
+        self._handlers.handle(self._connection, a3)
         self._checkCurrentHandler(h)
 
     def testHandleUnexpected(self):
@@ -999,10 +1006,11 @@ class HandlerSwitcherTests(NeoTestBase):
         h = self._makeHandler()
         # emit requests aroung state setHandler
         self._handlers.emit(r1, 0, None)
-        self._handlers.setHandler(h)
+        applied = self._handlers.setHandler(h)
+        self.assertFalse(applied)
         self._handlers.emit(r2, 0, None)
         # process answer for next state
-        self._handlers.handle(a2)
+        self._handlers.handle(self._connection, a2)
         self.checkAborted(self._connection)
 
     def testTimeout(self):
@@ -1012,7 +1020,8 @@ class HandlerSwitcherTests(NeoTestBase):
         """
         now = time()
         # No timeout when no pending request
-        self.assertEqual(self._handlers.checkTimeout(now), None)
+        self.assertEqual(self._handlers.checkTimeout(self._connection, now),
+            None)
         # Prepare some requests
         msg_id_1 = 1
         msg_id_2 = 2
@@ -1041,21 +1050,26 @@ class HandlerSwitcherTests(NeoTestBase):
         self._handlers.emit(r1, msg_1_time, None)
         self._handlers.emit(r2, msg_2_time, None)
         # No timeout before msg_1_time
-        self.assertEqual(self._handlers.checkTimeout(now), None)
+        self.assertEqual(self._handlers.checkTimeout(self._connection, now),
+            None)
         # Timeout for msg_1 after msg_1_time
-        self.assertEqual(self._handlers.checkTimeout(msg_1_time + 0.5),
-            msg_id_1)
+        self.assertEqual(self._handlers.checkTimeout(self._connection,
+            msg_1_time + 0.5), msg_id_1)
         # If msg_1 met its answer, no timeout after msg_1_time
-        self._handlers.handle(a1)
-        self.assertEqual(self._handlers.checkTimeout(msg_1_time + 0.5), None)
+        self._handlers.handle(self._connection, a1)
+        self.assertEqual(self._handlers.checkTimeout(self._connection,
+            msg_1_time + 0.5), None)
         # Next timeout is after msg_2_time
-        self.assertEqual(self._handlers.checkTimeout(msg_2_time + 0.5), msg_id_2)
-        self._handlers.handle(a2)
+        self.assertEqual(self._handlers.checkTimeout(self._connection,
+            msg_2_time + 0.5), msg_id_2)
+        self._handlers.handle(self._connection, a2)
         # Sanity check
-        self.assertEqual(self._handlers.checkTimeout(msg_2_time + 0.5), None)
+        self.assertEqual(self._handlers.checkTimeout(self._connection,
+            msg_2_time + 0.5), None)
         # msg_3 timeout will fire msg_3_on_timeout callback, which causes the
         # timeout to be ignored (it returns True)
-        self.assertEqual(self._handlers.checkTimeout(msg_3_time + 0.5), None)
+        self.assertEqual(self._handlers.checkTimeout(self._connection,
+            msg_3_time + 0.5), None)
         # ...check that callback actually fired
         self.assertEqual(len(markers), 1)
         # ...with expected parameters
@@ -1067,7 +1081,8 @@ class HandlerSwitcherTests(NeoTestBase):
         self._handlers.emit(r4, msg_4_time, OnTimeout(msg_4_on_timeout))
         # msg_4 timeout will fire msg_4_on_timeout callback, which lets the
         # timeout be detected (it returns False)
-        self.assertEqual(self._handlers.checkTimeout(msg_4_time + 0.5), msg_id_4)
+        self.assertEqual(self._handlers.checkTimeout(self._connection,
+            msg_4_time + 0.5), msg_id_4)
         # ...check that callback actually fired
         self.assertEqual(len(markers), 1)
         # ...with expected parameters

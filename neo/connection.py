@@ -84,8 +84,7 @@ class HandlerSwitcher(object):
     _next_timeout_msg_id = None
     _next_on_timeout = None
 
-    def __init__(self, connection, handler):
-        self._connection = connection
+    def __init__(self, handler):
         # pending handlers and related requests
         self._pending = [[{}, handler]]
         self._is_handling = False
@@ -127,14 +126,14 @@ class HandlerSwitcher(object):
             self._next_on_timeout = on_timeout
         request_dict[msg_id] = (answer_class, timeout, on_timeout)
 
-    def checkTimeout(self, t):
+    def checkTimeout(self, connection, t):
         next_timeout = self._next_timeout
         if next_timeout is not None and next_timeout < t:
             msg_id = self._next_timeout_msg_id
             if self._next_on_timeout is None:
                 result = msg_id
             else:
-                if self._next_on_timeout(self._connection, msg_id):
+                if self._next_on_timeout(connection, msg_id):
                     # Don't notify that a timeout occured, and forget about
                     # this answer.
                     for (request_dict, _) in self._pending:
@@ -148,39 +147,39 @@ class HandlerSwitcher(object):
             result = None
         return result
 
-    def handle(self, packet):
+    def handle(self, connection, packet):
         assert not self._is_handling
         self._is_handling = True
         try:
-            self._handle(packet)
+            self._handle(connection, packet)
         finally:
             self._is_handling = False
 
     @profiler_decorator
-    def _handle(self, packet):
+    def _handle(self, connection, packet):
         assert len(self._pending) == 1 or self._pending[0][0]
-        PACKET_LOGGER.dispatch(self._connection, packet, 'from')
+        PACKET_LOGGER.dispatch(connection, packet, 'from')
         msg_id = packet.getId()
         (request_dict, handler) = self._pending[0]
         # notifications are not expected
         if not packet.isResponse():
-            handler.packetReceived(self._connection, packet)
+            handler.packetReceived(connection, packet)
             return
         # checkout the expected answer class
         (klass, timeout, _) = request_dict.pop(msg_id, (None, None, None))
         if klass and isinstance(packet, klass) or packet.isError():
-            handler.packetReceived(self._connection, packet)
+            handler.packetReceived(connection, packet)
         else:
-            logging.error('Unexpected answer %r in %r', packet, self._connection)
+            logging.error('Unexpected answer %r in %r', packet, connection)
             notification = Packets.Notify('Unexpected answer: %r' % packet)
-            self._connection.notify(notification)
-            self._connection.abort()
-            handler.peerBroken(self._connection)
+            connection.notify(notification)
+            connection.abort()
+            handler.peerBroken(connection)
         # apply a pending handler if no more answers are pending
         while len(self._pending) > 1 and not self._pending[0][0]:
             del self._pending[0]
             logging.debug('Apply handler %r on %r', self._pending[0][1],
-                    self._connection)
+                    connection)
         if timeout == self._next_timeout:
             self._updateNextTimeout()
 
@@ -202,14 +201,14 @@ class HandlerSwitcher(object):
 
     @profiler_decorator
     def setHandler(self, handler):
-        if len(self._pending) == 1 and not self._pending[0][0]:
+        can_apply = len(self._pending) == 1 and not self._pending[0][0]
+        if can_apply:
             # nothing is pending, change immediately
-            logging.debug('Set handler %r on %r', handler, self._connection)
             self._pending[0][1] = handler
         else:
             # put the next handler in queue
-            logging.debug('Delay handler %r on %r', handler, self._connection)
             self._pending.append([{}, handler])
+        return can_apply
 
 
 class Timeout(object):
@@ -265,14 +264,14 @@ class BaseConnection(object):
         self.em = event_manager
         self.connector = connector
         self.addr = addr
-        self._handlers = HandlerSwitcher(self, handler)
+        self._handlers = HandlerSwitcher(handler)
         self._timeout = Timeout()
         event_manager.register(self)
 
     def checkTimeout(self, t):
         handlers = self._handlers
         if handlers.isPending():
-            msg_id = handlers.checkTimeout(t)
+            msg_id = handlers.checkTimeout(self, t)
             if msg_id is not None:
                 logging.info('timeout for %r with %r', msg_id, self)
                 self.close()
@@ -332,7 +331,10 @@ class BaseConnection(object):
         return self._handlers.getHandler()
 
     def setHandler(self, handler):
-        self._handlers.setHandler(handler)
+        if self._handlers.setHandler(handler):
+            logging.debug('Set handler %r on %r', handler, self)
+        else:
+            logging.debug('Delay handler %r on %r', handler, self)
 
     def getEventManager(self):
         return self.em
@@ -504,7 +506,7 @@ class Connection(BaseConnection):
         """
         # check out packet and process it with current handler
         packet = self._queue.pop(0)
-        self._handlers.handle(packet)
+        self._handlers.handle(self, packet)
 
     def pending(self):
         return self.connector is not None and self.write_buf
