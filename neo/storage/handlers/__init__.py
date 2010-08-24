@@ -65,16 +65,6 @@ class BaseMasterHandler(EventHandler):
 class BaseClientAndStorageOperationHandler(EventHandler):
     """ Accept requests common to client and storage nodes """
 
-    def askObjectHistory(self, conn, oid, first, last):
-        if first >= last:
-            raise protocol.ProtocolError( 'invalid offsets')
-
-        app = self.app
-        history_list = app.dm.getObjectHistory(oid, first, last - first)
-        if history_list is None:
-            history_list = []
-        conn.answer(Packets.AnswerObjectHistory(oid, history_list))
-
     def askTransactionInformation(self, conn, tid):
         app = self.app
         t = app.dm.getTransaction(tid)

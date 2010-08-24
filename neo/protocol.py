@@ -109,6 +109,8 @@ INVALID_OID = '\xff' * 8
 INVALID_PTID = '\0' * 8
 INVALID_SERIAL = INVALID_TID
 INVALID_PARTITION = 0xffffffff
+ZERO_TID = '\0' * 8
+ZERO_OID = '\0' * 8
 OID_LEN = len(INVALID_OID)
 
 UUID_NAMESPACES = {
@@ -1024,7 +1026,7 @@ class AnswerObject(Packet):
 class AskTIDs(Packet):
     """
     Ask for TIDs between a range of offsets. The order of TIDs is descending,
-    and the range is [first, last). C, S -> S.
+    and the range is [first, last). C -> S.
     """
     _header_format = '!QQL'
 
@@ -1036,7 +1038,7 @@ class AskTIDs(Packet):
 
 class AnswerTIDs(Packet):
     """
-    Answer the requested TIDs. S -> C, S.
+    Answer the requested TIDs. S -> C.
     """
     _header_format = '!L'
     _list_entry_format = '8s'
@@ -1059,6 +1061,25 @@ class AnswerTIDs(Packet):
             offset = next_offset
             tid_list.append(tid)
         return (tid_list,)
+
+class AskTIDsFrom(Packet):
+    """
+    Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
+    S -> S.
+    """
+    _header_format = '!8sLL'
+
+    def _encode(self, min_tid, length, partition):
+        return pack(self._header_format, min_tid, length, partition)
+
+    def _decode(self, body):
+        return unpack(self._header_format, body) # min_tid, length, partition
+
+class AnswerTIDsFrom(AnswerTIDs):
+    """
+    Answer the requested TIDs. S -> S
+    """
+    pass
 
 class AskTransactionInformation(Packet):
     """
@@ -1105,7 +1126,7 @@ class AnswerTransactionInformation(Packet):
 class AskObjectHistory(Packet):
     """
     Ask history information for a given object. The order of serials is
-    descending, and the range is [first, last]. C, S -> S.
+    descending, and the range is [first, last]. C -> S.
     """
     _header_format = '!8sQQ'
 
@@ -1118,7 +1139,7 @@ class AskObjectHistory(Packet):
 
 class AnswerObjectHistory(Packet):
     """
-    Answer history information (serial, size) for an object. S -> C, S.
+    Answer history information (serial, size) for an object. S -> C.
     """
     _header_format = '!8sL'
     _list_entry_format = '!8sL'
@@ -1144,18 +1165,40 @@ class AnswerObjectHistory(Packet):
             history_list.append((serial, size))
         return (oid, history_list)
 
-class AskOIDs(Packet):
+class AskObjectHistoryFrom(Packet):
     """
-    Ask for OIDs between a range of offsets. The order of OIDs is descending,
-    and the range is [first, last). S -> S.
+    Ask history information for a given object. The order of serials is
+    ascending, and starts at (or above) min_serial. S -> S.
     """
-    _header_format = '!QQL'
+    _header_format = '!8s8sL'
 
-    def _encode(self, first, last, partition):
-        return pack(self._header_format, first, last, partition)
+    def _encode(self, oid, min_serial, length):
+        return pack(self._header_format, oid, min_serial, length)
 
     def _decode(self, body):
-        return unpack(self._header_format, body) # first, last, partition
+        return unpack(self._header_format, body) # oid, min_serial, length
+
+class AnswerObjectHistoryFrom(AskFinishTransaction):
+    """
+    Answer the requested serials. S -> S.
+    """
+    # This is similar to AskFinishTransaction as TID size is identical to OID
+    # size:
+    # - we have a single OID (TID in AskFinishTransaction)
+    # - we have a list of TIDs (OIDs in AskFinishTransaction)
+    pass
+
+class AskOIDs(Packet):
+    """
+    Ask for length OIDs starting at min_oid. S -> S.
+    """
+    _header_format = '!8sLL'
+
+    def _encode(self, min_oid, length, partition):
+        return pack(self._header_format, min_oid, length, partition)
+
+    def _decode(self, body):
+        return unpack(self._header_format, body) # min_oid, length, partition
 
 class AnswerOIDs(Packet):
     """
@@ -1787,6 +1830,14 @@ class PacketRegistry(dict):
             0x0034,
             AskHasLock,
             AnswerHasLock)
+    AskTIDsFrom, AnswerTIDsFrom = register(
+            0x0035,
+            AskTIDsFrom,
+            AnswerTIDsFrom)
+    AskObjectHistoryFrom, AnswerObjectHistoryFrom = register(
+            0x0036,
+            AskObjectHistoryFrom,
+            AnswerObjectHistoryFrom)
 
 # build a "singleton"
 Packets = PacketRegistry()

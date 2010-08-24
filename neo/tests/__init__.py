@@ -364,8 +364,14 @@ class NeoTestBase(unittest.TestCase):
     def checkAnswerTids(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerTIDs, **kw)
 
+    def checkAnswerTidsFrom(self, conn, **kw):
+        return self.checkAnswerPacket(conn, Packets.AnswerTIDsFrom, **kw)
+
     def checkAnswerObjectHistory(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerObjectHistory, **kw)
+
+    def checkAnswerObjectHistoryFrom(self, conn, **kw):
+        return self.checkAnswerPacket(conn, Packets.AnswerObjectHistoryFrom, **kw)
 
     def checkAnswerStoreTransaction(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerStoreTransaction, **kw)

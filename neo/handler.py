@@ -256,6 +256,12 @@ class EventHandler(object):
     def answerTIDs(self, conn, tid_list):
         raise UnexpectedPacketError
 
+    def askTIDsFrom(self, conn, min_tid, length, partition):
+        raise UnexpectedPacketError
+
+    def answerTIDsFrom(self, conn, tid_list):
+        raise UnexpectedPacketError
+
     def askTransactionInformation(self, conn, tid):
         raise UnexpectedPacketError
 
@@ -269,7 +275,13 @@ class EventHandler(object):
     def answerObjectHistory(self, conn, oid, history_list):
         raise UnexpectedPacketError
 
-    def askOIDs(self, conn, first, last, partition):
+    def askObjectHistoryFrom(self, conn, oid, min_serial, length):
+        raise UnexpectedPacketError
+
+    def answerObjectHistoryFrom(self, conn, oid, history_list):
+        raise UnexpectedPacketError
+
+    def askOIDs(self, conn, min_oid, length, partition):
         raise UnexpectedPacketError
 
     def answerOIDs(self, conn, oid_list):
@@ -414,11 +426,15 @@ class EventHandler(object):
         d[Packets.AnswerObject] = self.answerObject
         d[Packets.AskTIDs] = self.askTIDs
         d[Packets.AnswerTIDs] = self.answerTIDs
+        d[Packets.AskTIDsFrom] = self.askTIDsFrom
+        d[Packets.AnswerTIDsFrom] = self.answerTIDsFrom
         d[Packets.AskTransactionInformation] = self.askTransactionInformation
         d[Packets.AnswerTransactionInformation] = \
             self.answerTransactionInformation
         d[Packets.AskObjectHistory] = self.askObjectHistory
         d[Packets.AnswerObjectHistory] = self.answerObjectHistory
+        d[Packets.AskObjectHistoryFrom] = self.askObjectHistoryFrom
+        d[Packets.AnswerObjectHistoryFrom] = self.answerObjectHistoryFrom
         d[Packets.AskOIDs] = self.askOIDs
         d[Packets.AnswerOIDs] = self.answerOIDs
         d[Packets.AskPartitionList] = self.askPartitionList

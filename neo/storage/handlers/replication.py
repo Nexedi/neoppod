@@ -19,7 +19,8 @@
 from neo import logging
 
 from neo.handler import EventHandler
-from neo.protocol import Packets
+from neo.protocol import Packets, ZERO_TID, ZERO_OID
+from neo import util
 
 def checkConnectionIsReplicatorConnection(func):
     def decorator(self, conn, *args, **kw):
@@ -30,6 +31,10 @@ def checkConnectionIsReplicatorConnection(func):
             result = None
         return result
     return decorator
+
+def add64(packed, offset):
+    """Add a python number to a 64-bits packed value"""
+    return util.p64(util.u64(packed) + offset)
 
 class ReplicationHandler(EventHandler):
     """This class handles events for replications."""
@@ -48,7 +53,7 @@ class ReplicationHandler(EventHandler):
         conn.setUUID(uuid)
 
     @checkConnectionIsReplicatorConnection
-    def answerTIDs(self, conn, tid_list):
+    def answerTIDsFrom(self, conn, tid_list):
         app = self.app
         if tid_list:
             # If I have pending TIDs, check which TIDs I don't have, and
@@ -59,18 +64,15 @@ class ReplicationHandler(EventHandler):
                 conn.ask(Packets.AskTransactionInformation(tid), timeout=300)
 
             # And, ask more TIDs.
-            app.replicator.tid_offset += 1000
-            offset = app.replicator.tid_offset
-            p = Packets.AskTIDs(offset, offset + 1000,
+            p = Packets.AskTIDsFrom(add64(tid_list[-1], 1), 1000,
                       app.replicator.current_partition.getRID())
             conn.ask(p, timeout=300)
         else:
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
-            p = Packets.AskOIDs(0, 1000,
+            p = Packets.AskOIDs(ZERO_OID, 1000,
                       app.replicator.current_partition.getRID())
             conn.ask(p, timeout=300)
-            app.replicator.oid_offset = 0
 
     @checkConnectionIsReplicatorConnection
     def answerTransactionInformation(self, conn, tid,
@@ -84,10 +86,11 @@ class ReplicationHandler(EventHandler):
     def answerOIDs(self, conn, oid_list):
         app = self.app
         if oid_list:
+            app.replicator.next_oid = add64(oid_list[-1], 1)
             # Pick one up, and ask the history.
             oid = oid_list.pop()
-            conn.ask(Packets.AskObjectHistory(oid, 0, 1000), timeout=300)
-            app.replicator.serial_offset = 0
+            conn.ask(Packets.AskObjectHistoryFrom(oid, ZERO_TID, 1000),
+                timeout=300)
             app.replicator.oid_list = oid_list
         else:
             # Nothing remains, so the replication for this partition is
@@ -95,34 +98,29 @@ class ReplicationHandler(EventHandler):
             app.replicator.replication_done = True
 
     @checkConnectionIsReplicatorConnection
-    def answerObjectHistory(self, conn, oid, history_list):
+    def answerObjectHistoryFrom(self, conn, oid, serial_list):
         app = self.app
-        if history_list:
+        if serial_list:
             # Check if I have objects, request those which I don't have.
-            serial_list = [t[0] for t in history_list]
             present_serial_list = app.dm.getSerialListPresent(oid, serial_list)
             serial_set = set(serial_list) - set(present_serial_list)
             for serial in serial_set:
                 conn.ask(Packets.AskObject(oid, serial, None), timeout=300)
 
             # And, ask more serials.
-            app.replicator.serial_offset += 1000
-            offset = app.replicator.serial_offset
-            p = Packets.AskObjectHistory(oid, offset, offset + 1000)
-            conn.ask(p, timeout=300)
+            conn.ask(Packets.AskObjectHistoryFrom(oid,
+                add64(serial_list[-1], 1), 1000), timeout=300)
         else:
             # This OID is finished. So advance to next.
             oid_list = app.replicator.oid_list
             if oid_list:
                 # If I have more pending OIDs, pick one up.
                 oid = oid_list.pop()
-                conn.ask(Packets.AskObjectHistory(oid, 0, 1000), timeout=300)
-                app.replicator.serial_offset = 0
+                conn.ask(Packets.AskObjectHistoryFrom(oid, ZERO_TID, 1000),
+                    timeout=300)
             else:
                 # Otherwise, acquire more OIDs.
-                app.replicator.oid_offset += 1000
-                offset = app.replicator.oid_offset
-                p = Packets.AskOIDs(offset, offset + 1000,
+                p = Packets.AskOIDs(app.replicator.next_oid, 1000,
                           app.replicator.current_partition.getRID())
                 conn.ask(p, timeout=300)
 

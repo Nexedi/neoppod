@@ -263,8 +263,8 @@ class DatabaseManager(object):
         area as well."""
         raise NotImplementedError
 
-    def getOIDList(self, offset, length, num_partitions, partition_list):
-        """Return a list of OIDs in descending order from an offset,
+    def getOIDList(self, min_oid, length, num_partitions, partition_list):
+        """Return a list of OIDs in ascending order from a minimal oid,
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""
         raise NotImplementedError
@@ -276,15 +276,20 @@ class DatabaseManager(object):
         If there is no such object ID in a database, return None."""
         raise NotImplementedError
 
+    def getObjectHistoryFrom(self, oid, min_serial, length):
+        """Return a list of length serials for a given object ID at (or above)
+        min_serial, sorted in ascending order."""
+        raise NotImplementedError
+
     def getTIDList(self, offset, length, num_partitions, partition_list):
         """Return a list of TIDs in ascending order from an offset,
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""
         raise NotImplementedError
 
-    def getReplicationTIDList(self, offset, length, num_partitions,
+    def getReplicationTIDList(self, min_tid, length, num_partitions,
         partition_list):
-        """Return a list of TIDs in descending order from an offset,
+        """Return a list of TIDs in ascending order from an initial tid value,
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""
         raise NotImplementedError

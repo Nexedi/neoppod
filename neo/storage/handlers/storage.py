@@ -30,36 +30,34 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
         tid = app.dm.getLastTID()
         conn.answer(Packets.AnswerLastIDs(oid, tid, app.pt.getID()))
 
-    def askOIDs(self, conn, first, last, partition):
+    def askOIDs(self, conn, min_oid, length, partition):
         # This method is complicated, because I must return OIDs only
         # about usable partitions assigned to me.
-        if first >= last:
-            raise protocol.ProtocolError('invalid offsets')
-
         app = self.app
-
         if partition == protocol.INVALID_PARTITION:
             partition_list = app.pt.getAssignedPartitionList(app.uuid)
         else:
             partition_list = [partition]
 
-        oid_list = app.dm.getOIDList(first, last - first,
+        oid_list = app.dm.getOIDList(min_oid, length,
                                      app.pt.getPartitions(), partition_list)
         conn.answer(Packets.AnswerOIDs(oid_list))
 
-    def askTIDs(self, conn, first, last, partition):
+    def askTIDsFrom(self, conn, min_tid, length, partition):
         # This method is complicated, because I must return TIDs only
         # about usable partitions assigned to me.
-        if first >= last:
-            raise protocol.ProtocolError('invalid offsets')
-
         app = self.app
         if partition == protocol.INVALID_PARTITION:
             partition_list = app.pt.getAssignedPartitionList(app.uuid)
         else:
             partition_list = [partition]
 
-        tid_list = app.dm.getReplicationTIDList(first, last - first,
+        tid_list = app.dm.getReplicationTIDList(min_tid, length,
                              app.pt.getPartitions(), partition_list)
-        conn.answer(Packets.AnswerTIDs(tid_list))
+        conn.answer(Packets.AnswerTIDsFrom(tid_list))
+
+    def askObjectHistoryFrom(self, conn, oid, min_serial, length):
+        app = self.app
+        history_list = app.dm.getObjectHistoryFrom(oid, min_serial, length)
+        conn.answer(Packets.AnswerObjectHistoryFrom(oid, history_list))
 

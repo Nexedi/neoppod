@@ -269,13 +269,16 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(p_oid_list, oid_list)
 
     def test_36_askFinishTransaction(self):
+        self._testXIDAndYIDList(Packets.AskFinishTransaction)
+
+    def _testXIDAndYIDList(self, packet):
         oid1 = self.getNextTID()
         oid2 = self.getNextTID()
         oid3 = self.getNextTID()
         oid4 = self.getNextTID()
         tid = self.getNextTID()
         oid_list = [oid1, oid2, oid3, oid4]
-        p = Packets.AskFinishTransaction(tid, oid_list)
+        p = packet(tid, oid_list)
         p_tid, p_oid_list  = p.decode()
         self.assertEqual(p_tid, tid)
         self.assertEqual(p_oid_list, oid_list)
@@ -404,12 +407,15 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(partition, 5)
 
     def test_50_answerTIDs(self):
+        self._test_AnswerTIDs(Packets.AnswerTIDs)
+
+    def _test_AnswerTIDs(self, packet):
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()
         tid4 = self.getNextTID()
         tid_list = [tid1, tid2, tid3, tid4]
-        p = Packets.AnswerTIDs(tid_list)
+        p = packet(tid_list)
         p_tid_list  = p.decode()[0]
         self.assertEqual(p_tid_list, tid_list)
 
@@ -457,10 +463,11 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(oid, poid)
 
     def test_55_askOIDs(self):
-        p = Packets.AskOIDs(1, 10, 5)
-        first, last, partition = p.decode()
-        self.assertEqual(first, 1)
-        self.assertEqual(last, 10)
+        oid = self.getOID(1)
+        p = Packets.AskOIDs(oid, 1000, 5)
+        min_oid, length, partition = p.decode()
+        self.assertEqual(min_oid, oid)
+        self.assertEqual(length, 1000)
         self.assertEqual(partition, 5)
 
     def test_56_answerOIDs(self):
@@ -601,6 +608,30 @@ class ProtocolTests(NeoTestBase):
     def test_Notify(self):
         msg = 'test'
         self.assertEqual(Packets.Notify(msg).decode(), (msg, ))
+
+    def test_AskTIDsFrom(self):
+        tid = self.getNextTID()
+        p = Packets.AskTIDsFrom(tid, 1000, 5)
+        min_tid, length, partition = p.decode()
+        self.assertEqual(min_tid, tid)
+        self.assertEqual(length, 1000)
+        self.assertEqual(partition, 5)
+
+    def test_AnswerTIDsFrom(self):
+        self._test_AnswerTIDs(Packets.AnswerTIDsFrom)
+
+    def test_AskObjectHistoryFrom(self):
+        oid = self.getOID(1)
+        min_serial = self.getNextTID()
+        length = 5
+        p = Packets.AskObjectHistoryFrom(oid, min_serial, length)
+        p_oid, p_min_serial, p_length = p.decode()
+        self.assertEqual(p_oid, oid)
+        self.assertEqual(p_min_serial, min_serial)
+        self.assertEqual(p_length, length)
+
+    def test_AnswerObjectHistoryFrom(self):
+        self._testXIDAndYIDList(Packets.AnswerObjectHistoryFrom)
 
 if __name__ == '__main__':
     unittest.main()

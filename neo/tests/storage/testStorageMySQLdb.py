@@ -457,20 +457,20 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.db.storeTransaction(tid, objs, txn)
         self.db.finishTransaction(tid)
         # get oids
-        result = self.db.getOIDList(0, 4, 1, [0])
+        result = self.db.getOIDList(oid1, 4, 1, [0])
         self.checkSet(result, [oid1, oid2, oid3, oid4])
-        result = self.db.getOIDList(0, 4, 2, [0])
+        result = self.db.getOIDList(oid1, 4, 2, [0])
         self.checkSet(result, [oid1, oid3])
-        result = self.db.getOIDList(0, 4, 2, [0, 1])
+        result = self.db.getOIDList(oid1, 4, 2, [0, 1])
         self.checkSet(result, [oid1, oid2, oid3, oid4])
-        result = self.db.getOIDList(0, 4, 3, [0])
+        result = self.db.getOIDList(oid1, 4, 3, [0])
         self.checkSet(result, [oid1, oid4])
         # get a subset of oids
-        result = self.db.getOIDList(2, 4, 1, [0])
+        result = self.db.getOIDList(oid1, 2, 1, [0])
         self.checkSet(result, [oid1, oid2])
-        result = self.db.getOIDList(0, 2, 1, [0])
+        result = self.db.getOIDList(oid3, 2, 1, [0])
         self.checkSet(result, [oid3, oid4])
-        result = self.db.getOIDList(0, 1, 3, [0])
+        result = self.db.getOIDList(oid2, 1, 3, [0])
         self.checkSet(result, [oid4])
 
     def test_getObjectHistory(self):
@@ -496,23 +496,18 @@ class StorageMySQSLdbTests(NeoTestBase):
         result = self.db.getObjectHistory(oid, 2, 3)
         self.assertEqual(result, None)
 
-    def test_getTIDList(self):
+    def _storeTransactions(self, count):
         # use OID generator to know result of tid % N
-        tid1, tid2, tid3, tid4 = self.getOIDs(4)
+        tid_list = self.getOIDs(count)
         oid = self.getOID(1)
-        txn1, objs1 = self.getTransaction([oid])
-        txn2, objs2 = self.getTransaction([oid])
-        txn3, objs3 = self.getTransaction([oid])
-        txn4, objs4 = self.getTransaction([oid])
-        # store four transaction
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.storeTransaction(tid2, objs2, txn2)
-        self.db.storeTransaction(tid3, objs3, txn3)
-        self.db.storeTransaction(tid4, objs4, txn4)
-        self.db.finishTransaction(tid1)
-        self.db.finishTransaction(tid2)
-        self.db.finishTransaction(tid3)
-        self.db.finishTransaction(tid4)
+        for tid in tid_list:
+            txn, objs = self.getTransaction([oid])
+            self.db.storeTransaction(tid, objs, txn)
+            self.db.finishTransaction(tid)
+        return tid_list
+
+    def test_getTIDList(self):
+        tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # get tids
         result = self.db.getTIDList(0, 4, 1, [0])
         self.checkSet(result, [tid1, tid2, tid3, tid4])
@@ -529,6 +524,25 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.checkSet(result, [tid3, tid4])
         result = self.db.getTIDList(0, 1, 3, [0])
         self.checkSet(result, [tid4])
+
+    def test_getReplicationTIDList(self):
+        tid1, tid2, tid3, tid4 = self._storeTransactions(4)
+        # get tids
+        result = self.db.getReplicationTIDList(tid1, 4, 1, [0])
+        self.checkSet(result, [tid1, tid2, tid3, tid4])
+        result = self.db.getReplicationTIDList(tid1, 4, 2, [0])
+        self.checkSet(result, [tid1, tid3])
+        result = self.db.getReplicationTIDList(tid1, 4, 2, [0, 1])
+        self.checkSet(result, [tid1, tid2, tid3, tid4])
+        result = self.db.getReplicationTIDList(tid1, 4, 3, [0])
+        self.checkSet(result, [tid1, tid4])
+        # get a subset of tids
+        result = self.db.getReplicationTIDList(tid3, 4, 1, [0])
+        self.checkSet(result, [tid3, tid4])
+        result = self.db.getReplicationTIDList(tid1, 2, 1, [0])
+        self.checkSet(result, [tid1, tid2])
+        result = self.db.getReplicationTIDList(tid1, 1, 3, [1])
+        self.checkSet(result, [tid2])
 
     def test_getTIDListPresent(self):
         oid = self.getOID(1)

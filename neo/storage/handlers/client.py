@@ -144,3 +144,13 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             state = LockState.GRANTED_TO_OTHER
         conn.answer(Packets.AnswerHasLock(oid, state))
 
+    def askObjectHistory(self, conn, oid, first, last):
+        if first >= last:
+            raise protocol.ProtocolError( 'invalid offsets')
+
+        app = self.app
+        history_list = app.dm.getObjectHistory(oid, first, last - first)
+        if history_list is None:
+            history_list = []
+        conn.answer(Packets.AnswerObjectHistory(oid, history_list))
+

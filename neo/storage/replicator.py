@@ -19,7 +19,7 @@ from neo import logging
 from random import choice
 
 from neo.storage.handlers import replication
-from neo.protocol import NodeTypes, NodeStates, CellStates, Packets
+from neo.protocol import NodeTypes, NodeStates, CellStates, Packets, ZERO_TID
 from neo.connection import ClientConnection
 from neo.util import dump
 
@@ -38,7 +38,7 @@ class Partition(object):
 
     def setCriticalTID(self, tid):
         if tid is None:
-            tid = '\x00' * 8
+            tid = ZERO_TID
         self.tid = tid
 
     def safe(self, min_pending_tid):
@@ -81,7 +81,6 @@ class Replicator(object):
         self.app = app
         self.new_partition_dict = self._getOutdatedPartitionList()
         self.critical_tid_dict = {}
-        self.tid_offset = 0
         self.reset()
 
     def reset(self):
@@ -172,8 +171,8 @@ class Replicator(object):
                     app.uuid, app.server, app.name)
             self.current_connection.ask(p)
 
-        self.tid_offset = 0
-        p = Packets.AskTIDs(0, 1000, self.current_partition.getRID())
+        p = Packets.AskTIDsFrom(ZERO_TID, 1000,
+            self.current_partition.getRID())
         self.current_connection.ask(p, timeout=300)
 
         self.replication_done = False

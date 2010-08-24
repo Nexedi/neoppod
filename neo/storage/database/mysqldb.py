@@ -618,12 +618,18 @@ class MySQLDatabaseManager(DatabaseManager):
             return oid_list, user, desc, ext, bool(packed)
         return None
 
-    def getOIDList(self, offset, length, num_partitions, partition_list):
+    def getOIDList(self, min_oid, length, num_partitions,
+            partition_list):
         q = self.query
-        r = q("""SELECT DISTINCT oid FROM obj WHERE MOD(oid, %d) in (%s)
-                    ORDER BY oid DESC LIMIT %d,%d""" \
-                % (num_partitions, ','.join([str(p) for p in partition_list]),
-                   offset, length))
+        r = q("""SELECT DISTINCT oid FROM obj WHERE
+                    MOD(oid, %(num_partitions)d) in (%(partitions)s)
+                    AND oid >= %(min_oid)d
+                    ORDER BY oid ASC LIMIT %(length)d""" % {
+            'num_partitions': num_partitions,
+            'partitions': ','.join([str(p) for p in partition_list]),
+            'min_oid': util.u64(min_oid),
+            'length': length,
+        })
         return [util.p64(t[0]) for t in r]
 
     def _getObjectLength(self, oid, value_serial):
@@ -662,6 +668,19 @@ class MySQLDatabaseManager(DatabaseManager):
             return result
         return None
 
+    def getObjectHistoryFrom(self, oid, min_serial, length):
+        q = self.query
+        oid = util.u64(oid)
+        p64 = util.p64
+        r = q("""SELECT serial FROM obj
+                    WHERE oid = %(oid)d AND serial >= %(min_serial)d
+                    ORDER BY serial ASC LIMIT %(length)d""" % {
+            'oid': oid,
+            'min_serial': util.u64(min_serial),
+            'length': length,
+        })
+        return [p64(t[0]) for t in r]
+
     def getTIDList(self, offset, length, num_partitions, partition_list):
         q = self.query
         r = q("""SELECT tid FROM trans WHERE MOD(tid, %d) in (%s)
@@ -671,13 +690,18 @@ class MySQLDatabaseManager(DatabaseManager):
                    offset, length))
         return [util.p64(t[0]) for t in r]
 
-    def getReplicationTIDList(self, offset, length, num_partitions, partition_list):
+    def getReplicationTIDList(self, min_tid, length, num_partitions,
+            partition_list):
         q = self.query
-        r = q("""SELECT tid FROM trans WHERE MOD(tid, %d) in (%s)
-                    ORDER BY tid ASC LIMIT %d,%d""" \
-                % (num_partitions,
-                   ','.join([str(p) for p in partition_list]),
-                   offset, length))
+        r = q("""SELECT tid FROM trans WHERE
+                    MOD(tid, %(num_partitions)d) in (%(partitions)s)
+                    AND tid >= %(min_tid)d
+                    ORDER BY tid ASC LIMIT %(length)d""" % {
+            'num_partitions': num_partitions,
+            'partitions': ','.join([str(p) for p in partition_list]),
+            'min_tid': util.u64(min_tid),
+            'length': length,
+        })
         return [util.p64(t[0]) for t in r]
 
     def getTIDListPresent(self, tid_list):

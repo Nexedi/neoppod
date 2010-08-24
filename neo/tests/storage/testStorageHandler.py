@@ -113,28 +113,19 @@ class StorageStorageHandlerTests(NeoTestBase):
         self.assertEquals(len(self.app.event_queue), 0)
         self.checkAnswerObject(conn)
 
-    def test_25_askTIDs1(self):
-        # invalid offsets => error
-        app = self.app
-        app.pt = Mock()
-        app.dm = Mock()
-        conn = self.getFakeConnection()
-        self.checkProtocolErrorRaised(self.operation.askTIDs, conn, 1, 1, None)
-        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellList')), 0)
-        self.assertEquals(len(app.dm.mockGetNamedCalls('getReplicationTIDList')), 0)
-
-    def test_25_askTIDs2(self):
+    def test_25_askTIDsFrom1(self):
         # well case => answer
         conn = self.getFakeConnection()
         self.app.dm = Mock({'getReplicationTIDList': (INVALID_TID, )})
         self.app.pt = Mock({'getPartitions': 1})
-        self.operation.askTIDs(conn, 1, 2, 1)
+        tid = self.getNextTID()
+        self.operation.askTIDsFrom(conn, tid, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getReplicationTIDList')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(1, 1, 1, [1, ])
-        self.checkAnswerTids(conn)
+        calls[0].checkArgs(tid, 2, 1, [1, ])
+        self.checkAnswerTidsFrom(conn)
 
-    def test_25_askTIDs3(self):
+    def test_25_askTIDsFrom2(self):
         # invalid partition => answer usable partitions
         conn = self.getFakeConnection()
         cell = Mock({'getUUID':self.app.uuid})
@@ -144,59 +135,39 @@ class StorageStorageHandlerTests(NeoTestBase):
             'getPartitions': 1,
             'getAssignedPartitionList': [0],
         })
-        self.operation.askTIDs(conn, 1, 2, INVALID_PARTITION)
+        tid = self.getNextTID()
+        self.operation.askTIDsFrom(conn, tid, 2, INVALID_PARTITION)
         self.assertEquals(len(self.app.pt.mockGetNamedCalls('getAssignedPartitionList')), 1)
         calls = self.app.dm.mockGetNamedCalls('getReplicationTIDList')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(1, 1, 1, [0, ])
-        self.checkAnswerTids(conn)
+        calls[0].checkArgs(tid, 2, 1, [0, ])
+        self.checkAnswerTidsFrom(conn)
 
-    def test_26_askObjectHistory1(self):
-        # invalid offsets => error
-        app = self.app
-        app.dm = Mock()
-        conn = self.getFakeConnection()
-        self.checkProtocolErrorRaised(self.operation.askObjectHistory, conn, 
-            1, 1, None)
-        self.assertEquals(len(app.dm.mockGetNamedCalls('getObjectHistory')), 0)
-
-    def test_26_askObjectHistory2(self):
-        oid1 = self.getOID(1)
-        oid2 = self.getOID(2)
+    def test_26_askObjectHistoryFrom(self):
+        oid = self.getOID(2)
+        min_tid = self.getNextTID()
         tid = self.getNextTID()
-        # first case: empty history
         conn = self.getFakeConnection()
-        self.app.dm = Mock({'getObjectHistory': None})
-        self.operation.askObjectHistory(conn, oid1, 1, 2)
-        self.checkAnswerObjectHistory(conn)
-        # second case: not empty history
-        conn = self.getFakeConnection()
-        self.app.dm = Mock({'getObjectHistory': [(tid, 0, ), ]})
-        self.operation.askObjectHistory(conn, oid2, 1, 2)
-        self.checkAnswerObjectHistory(conn)
+        self.app.dm = Mock({'getObjectHistoryFrom': [tid]})
+        self.operation.askObjectHistoryFrom(conn, oid, min_tid, 2)
+        self.checkAnswerObjectHistoryFrom(conn)
+        calls = self.app.dm.mockGetNamedCalls('getObjectHistoryFrom')
+        self.assertEquals(len(calls), 1)
+        calls[0].checkArgs(oid, min_tid, 2)
 
     def test_25_askOIDs1(self):
-        # invalid offsets => error
-        app = self.app
-        app.pt = Mock()
-        app.dm = Mock()
-        conn = self.getFakeConnection()
-        self.checkProtocolErrorRaised(self.operation.askOIDs, conn, 1, 1, None)
-        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellList')), 0)
-        self.assertEquals(len(app.dm.mockGetNamedCalls('getOIDList')), 0)
-
-    def test_25_askOIDs2(self):
         # well case > answer OIDs
         conn = self.getFakeConnection()
         self.app.pt = Mock({'getPartitions': 1})
         self.app.dm = Mock({'getOIDList': (INVALID_OID, )})
-        self.operation.askOIDs(conn, 1, 2, 1)
+        oid = self.getOID(1)
+        self.operation.askOIDs(conn, oid, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getOIDList')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(1, 1, 1, [1, ])
+        calls[0].checkArgs(oid, 2, 1, [1, ])
         self.checkAnswerOids(conn)
 
-    def test_25_askOIDs3(self):
+    def test_25_askOIDs2(self):
         # invalid partition => answer usable partitions
         conn = self.getFakeConnection()
         cell = Mock({'getUUID':self.app.uuid})
@@ -206,11 +177,12 @@ class StorageStorageHandlerTests(NeoTestBase):
             'getPartitions': 1,
             'getAssignedPartitionList': [0],
         })
-        self.operation.askOIDs(conn, 1, 2, INVALID_PARTITION)
+        oid = self.getOID(1)
+        self.operation.askOIDs(conn, oid, 2, INVALID_PARTITION)
         self.assertEquals(len(self.app.pt.mockGetNamedCalls('getAssignedPartitionList')), 1)
         calls = self.app.dm.mockGetNamedCalls('getOIDList')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(1, 1, 1, [0])
+        calls[0].checkArgs(oid, 2, 1, [0])
         self.checkAnswerOids(conn)
 
 
