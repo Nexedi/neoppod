@@ -42,7 +42,7 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
         self.neo.killStorage()
-        self.neo.expectClusterVeryfing()
+        self.neo.expectClusterVerifying()
 
     def testClusterBreaksWithTwoNodes(self):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
@@ -54,7 +54,7 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
         self.neo.killStorage()
-        self.neo.expectClusterVeryfing()
+        self.neo.expectClusterVerifying()
 
     def testClusterDoesntBreakWithTwoNodesOneReplica(self):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,

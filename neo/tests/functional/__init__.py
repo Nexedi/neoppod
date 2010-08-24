@@ -491,7 +491,7 @@ class NEOCluster(object):
     def expectClusterRecovering(self, timeout=0, delay=1):
         self.expectClusterState(ClusterStates.RECOVERING)
 
-    def expectClusterVeryfing(self, timeout=0, delay=1):
+    def expectClusterVerifying(self, timeout=0, delay=1):
         self.expectClusterState(ClusterStates.VERIFYING)
 
     def expectClusterRunning(self, timeout=0, delay=1):
