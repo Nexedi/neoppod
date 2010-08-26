@@ -77,6 +77,42 @@ class Replicator(object):
           namely, a list of serials. This is also done part by part, and
           I ask only non-existing data. """
 
+    # new_partition_dict
+    #   outdated partitions for which no critical tid was asked to primary
+    #   master yet
+    # critical_tid_dict
+    #   outdated partitions for which a critical tid was asked to primary
+    #   master, but not answered so far
+    #   XXX: could probably be made a list/set rather than a dict
+    # partition_dict
+    #   outdated partitions (with or without a critical tid - if without, it
+    #   was asked to primary master)
+    # current_partition
+    #   partition being currently synchronised
+    #   XXX: accessed (r) directly by ReplicationHandler
+    # current_connection
+    #   connection to a storage node we are replicating from
+    #   XXX: accessed (r) directory by ReplicationHandler
+    # waiting_for_unfinished_tids
+    #   unfinished_tid_list has been asked to primary master node, but it
+    #   didn't answer yet.
+    # unfinished_tid_list
+    #   The list of unfinished TIDs known by master node.
+    # oid_list
+    #   List of OIDs to replicate. Doesn't contains currently-replicated
+    #   object.
+    #   XXX: not defined here
+    #   XXX: accessed (r/w) directly by ReplicationHandler
+    # next_oid
+    #   Next OID to ask when oid_list is empty.
+    #   XXX: not defined here
+    #   XXX: accessed (r/w) directly by ReplicationHandler
+    # replication_done
+    #   False if we know there is something to replicate.
+    #   True when current_partition is replicated, or we don't know yet if
+    #   there is something to replicate
+    #   XXX: accessed (w) directly by ReplicationHandler
+
     def __init__(self, app):
         self.app = app
 
