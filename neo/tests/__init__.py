@@ -26,10 +26,10 @@ from neo.protocol import Packets
 from time import time, gmtime
 from struct import pack, unpack
 
-DB_PREFIX = 'test_neo_'
-DB_ADMIN = 'root'
-DB_PASSWD = None
-DB_USER = 'test'
+DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo_')
+DB_ADMIN = os.getenv('NEO_DB_ADMIN', 'root')
+DB_PASSWD = os.getenv('NEO_DB_PASSWD', None)
+DB_USER = os.getenv('NEO_DB_USER', 'test')
 
 class NeoTestBase(unittest.TestCase):
     """ Base class for neo tests, implements common checks """

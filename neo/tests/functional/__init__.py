@@ -30,6 +30,7 @@ import threading
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.protocol import ClusterStates, NodeTypes, CellStates
 from neo.util import dump
+from neo.tests import DB_ADMIN, DB_PASSWD
 
 import neo
 # Replace neo.setupLog by a no-op function.
@@ -148,7 +149,7 @@ class NEOCluster(object):
     def __init__(self, db_list, master_node_count=1,
                  partitions=1, replicas=0, port_base=10000,
                  db_user='neo', db_password='neo',
-                 db_super_user='root', db_super_password=None,
+                 db_super_user=DB_ADMIN, db_super_password=DB_PASSWD,
                  cleanup_on_delete=False, temp_dir=None,
                  clear_databases=True, adapter='MySQL',
                  verbose=True):
