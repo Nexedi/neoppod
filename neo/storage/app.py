@@ -64,7 +64,7 @@ class Application(object):
         # partitions.
         self.pt = None
 
-        self.replicator = None
+        self.replicator = Replicator(self)
         self.listening_conn = None
         self.master_conn = None
         self.master_node = None
@@ -176,9 +176,6 @@ class Application(object):
         while True:
             self.ready = False
             self.operational = False
-            if self.replicator is not None:
-              # stop the replicator
-              self.replicator.reset()
             if self.master_node is None:
                 # look for the primary master
                 self.connectToPrimary()
@@ -286,8 +283,7 @@ class Application(object):
         self.dm.dropUnfinishedData()
         self.tm.reset()
 
-        # The replicator.
-        self.replicator = Replicator(self)
+        self.replicator.populate()
 
         while True:
             em.poll(1)

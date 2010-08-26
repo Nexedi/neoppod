@@ -79,6 +79,13 @@ class Replicator(object):
 
     def __init__(self, app):
         self.app = app
+
+    def populate(self):
+        """
+        Populate partitions to replicate. Must be called when partition
+        table is the one accepted by primary master.
+        Implies a reset.
+        """
         self.new_partition_dict = self._getOutdatedPartitionList()
         self.critical_tid_dict = {}
         self.reset()
