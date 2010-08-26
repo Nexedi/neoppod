@@ -17,7 +17,7 @@
 
 import unittest
 import transaction
-from Persistence import Persistent
+from persistent import Persistent
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo.protocol import ClusterStates, NodeStates

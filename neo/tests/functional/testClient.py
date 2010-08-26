@@ -23,7 +23,7 @@ from struct import pack, unpack
 from ZODB.FileStorage import FileStorage
 from ZODB.POSException import ConflictError
 from ZODB.tests.StorageTestBase import zodb_pickle
-from Persistence import Persistent
+from persistent import Persistent
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
 
