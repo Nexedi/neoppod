@@ -348,8 +348,8 @@ if __name__ == "__main__":
     # check arguments
     if bool(options.sender) ^ bool(options.recipient):
         sys.exit('Need a sender and recipients to mail report')
-    if not (options.unit or options.functional or options.zodb):
-        sys.exit('Nothing to run, please set -f and/or -u flag')
+    if not (options.unit or options.functional or options.zodb or args):
+        sys.exit('Nothing to run, please give one of -f, -u, -z')
     mail_server = options.server or '127.0.0.1:25'
     mail_server = mail_server.split(':')
 
