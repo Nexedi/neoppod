@@ -17,6 +17,7 @@
 
 from time import time, gmtime
 from struct import pack, unpack
+from datetime import timedelta, datetime
 from neo.util import dump
 from neo import logging
 
@@ -190,7 +191,6 @@ class TransactionManager(object):
             upper, lower = unpack('!LL', self._last_tid)
             if lower == 0xffffffff:
                 # This should not happen usually.
-                from datetime import timedelta, datetime
                 d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday,
                              gmt.tm_hour, gmt.tm_min) + timedelta(0, 60)
                              gmt.tm_hour, gmt.tm_min) \
