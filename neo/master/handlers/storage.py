@@ -68,10 +68,8 @@ class StorageServiceHandler(BaseServiceHandler):
             raise ProtocolError('TID too big')
 
         # transaction locked on this storage node
-        t = tm[tid]
-        if not t.lock(uuid):
-            return
-        self._afterLock(tid)
+        if tm.lock(tid, uuid):
+            self._afterLock(tid)
 
     def _afterLock(self, tid):
         # I have received all the lock answers now:
