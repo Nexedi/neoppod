@@ -192,8 +192,8 @@ class TransactionManager(object):
                 # This should not happen usually.
                 from datetime import timedelta, datetime
                 d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday,
+                             gmt.tm_hour, gmt.tm_min) + timedelta(0, 60)
                              gmt.tm_hour, gmt.tm_min) \
-                        + timedelta(0, 60)
                 upper = ((((d.year - 1900) * 12 + d.month - 1) * 31 \
                           + d.day - 1) * 24 + d.hour) * 60 + d.minute
                 lower = 0
