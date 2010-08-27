@@ -118,24 +118,6 @@ class MasterClientHandlerTests(NeoTestBase):
         self.assertEquals(len(txn.getOIDList()), 0)
         self.assertEquals(len(txn.getUUIDList()), 1)
 
-
-    def test_11_abortTransaction(self):
-        service = self.service
-        # give a bad tid, must not failed, just ignored it
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        self.assertFalse(self.app.tm.hasPending())
-        service.abortTransaction(conn, None)
-        self.assertFalse(self.app.tm.hasPending())
-        # give a known tid
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        tid = self.app.tm.getLastTID()
-        self.app.tm.remove(tid)
-        self.app.tm.begin(Mock({'__hash__': 1}), tid)
-        self.assertTrue(self.app.tm.hasPending())
-        service.abortTransaction(conn, tid)
-        self.assertFalse(self.app.tm.hasPending())
-
     def test_askNodeInformations(self):
         # check that only informations about master and storages nodes are
         # send to a client

@@ -785,14 +785,6 @@ class Application(object):
                 logging.error('Exception in tpc_abort while notifying ' \
                     'storage node %r of abortion, ignoring.', conn, exc_info=1)
 
-        # Abort the transaction in the primary master node.
-        conn = self._getMasterConnection()
-        try:
-            conn.notify(p)
-        except:
-            logging.error('Exception in tpc_abort while notifying master ' \
-                'node %r of abortion, ignoring.', conn, exc_info=1)
-
         # Just wait for responses to arrive. If any leads to an exception,
         # log it and continue: we *must* eat all answers to not disturb the
         # next transaction.

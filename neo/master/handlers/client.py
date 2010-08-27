@@ -47,10 +47,6 @@ class ClientServiceHandler(MasterHandler):
         conn.notify(Packets.NotifyNodeInformation(node_list))
         conn.answer(Packets.AnswerNodeInformation())
 
-    def abortTransaction(self, conn, tid):
-        # nothing to remove.
-        pass
-
     def askBeginTransaction(self, conn):
         """
             A client request a TID, nothing is kept about it until the finish.
