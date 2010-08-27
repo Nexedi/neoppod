@@ -114,6 +114,7 @@ class MasterEventHandler(EventHandler):
     def _connectionLost(self, conn):
         app = self.app
         assert app.master_conn in (conn, None)
+        app.dispatcher.clear()
         app.master_conn = None
         app.master_node = None
         app.uuid = None

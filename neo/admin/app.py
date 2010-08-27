@@ -46,6 +46,11 @@ class Dispatcher:
     def registered(self, msg_id):
         return self.message_table.has_key(msg_id)
 
+    def clear(self):
+        """
+            Unregister packet expected for a given connection
+        """
+        del self.message_table
 
 class Application(object):
     """The storage node application."""
