@@ -83,7 +83,7 @@ class Storage(BaseStorage.BaseStorage,
         try:
             return self.app.loadSerial(oid=oid, serial=serial)
         except NEOStorageNotFoundError:
-            raise POSException.POSKeyError (oid, serial)
+            raise POSException.POSKeyError(oid)
 
     def loadBefore(self, oid, tid):
         try:
