@@ -27,6 +27,7 @@ from neo.connector import getConnectorHandler
 from neo.bootstrap import BootstrapManager
 from neo.pt import PartitionTable
 from neo.protocol import NodeTypes, NodeStates, Packets, Errors
+from neo.live_debug import register as registerLiveDebugger
 
 class Dispatcher:
     """Dispatcher use to redirect master request to handler"""
@@ -75,6 +76,13 @@ class Application(object):
         self.cluster_state = None
         self.master_conn = None
         self.master_node = None
+        registerLiveDebugger(on_log=self.log)
+
+    def log(self):
+        self.em.log()
+        self.nm.log()
+        if self.pt is not None:
+            self.pt.log()
 
     def run(self):
         """Make sure that the status is sane and start a loop."""
