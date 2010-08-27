@@ -82,18 +82,24 @@ class NEOProcess(object):
         if self.pid == 0:
             # Child
             try:
-                os.execlp(command, command, *args)
+                sys.argv = [command] + args
+                execfile(command, {})
+            except (SystemExit, KeyboardInterrupt):
+                self._exit()
             except:
                 print traceback.format_exc()
             # If we reach this line, exec call failed (is it possible to reach
             # it without going through above "except" branch ?).
             print 'Error executing %r.' % (command + ' ' + ' '.join(args), )
-            # KeyboardInterrupt is not intercepted by test runner (it is still
-            # above us in the stack), and we do want to exit.
-            # To avoid polluting test foreground output with induced
-            # traceback, replace stdout & stderr.
-            sys.stdout = sys.stderr = open('/dev/null', 'w')
-            raise KeyboardInterrupt
+            self._exit()
+
+    def _exit(self):
+	# KeyboardInterrupt is not intercepted by test runner (it is still
+	# above us in the stack), and we do want to exit.
+	# To avoid polluting test foreground output with induced
+	# traceback, replace stdout & stderr.
+	sys.stdout = sys.stderr = open('/dev/null', 'w')
+	raise KeyboardInterrupt
 
     def kill(self, sig=signal.SIGTERM):
         if self.pid:
