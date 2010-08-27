@@ -238,14 +238,8 @@ class ProtocolTests(NeoTestBase):
 
 
     def test_32_askBeginTransaction(self):
-        # try with an invalid TID, None must be returned
-        tid = INVALID_TID
-        p = Packets.AskBeginTransaction(tid)
-        self.assertEqual(p.decode(), (None, ))
-        # and with another TID
-        tid = '\1' * 8
-        p = Packets.AskBeginTransaction(tid)
-        self.assertEqual(p.decode(), (tid, ))
+        p = Packets.AskBeginTransaction()
+        self.assertEqual(p.decode(), ())
 
     def test_33_answerBeginTransaction(self):
         tid = self.getNextTID()

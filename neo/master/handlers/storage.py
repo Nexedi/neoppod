@@ -43,11 +43,8 @@ class StorageServiceHandler(BaseServiceHandler):
         self.app.outdateAndBroadcastPartition()
         uuid = conn.getUUID()
         for tid, transaction in self.app.tm.items():
-            # If this transaction was not "prepared" (see askFinishTransaction)
-            # there is nothing to cleanup on it (it doesn't have the list of
-            # involved storage nodes yet). As such transaction would be detected
-            # as locked, we must also prevent _afterLock from being called.
-            if transaction.isPrepared() and transaction.forget(uuid):
+            # if a transaction is known, this means that it's being committed
+            if transaction.forget(uuid):
                 self._afterLock(tid)
 
     def askLastIDs(self, conn):

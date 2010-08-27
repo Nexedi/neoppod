@@ -48,12 +48,14 @@ class ClientServiceHandler(MasterHandler):
         conn.answer(Packets.AnswerNodeInformation())
 
     def abortTransaction(self, conn, tid):
-        self.app.tm.remove(tid)
+        # nothing to remove.
+        pass
 
-    def askBeginTransaction(self, conn, tid):
-        node = self.app.nm.getByUUID(conn.getUUID())
-        tid = self.app.tm.begin(node, tid)
-        conn.answer(Packets.AnswerBeginTransaction(tid))
+    def askBeginTransaction(self, conn):
+        """
+            A client request a TID, nothing is kept about it until the finish.
+        """
+        conn.answer(Packets.AnswerBeginTransaction(self.app.tm.begin()))
 
     def askNewOIDs(self, conn, num_oids):
         conn.answer(Packets.AnswerNewOIDs(self.app.tm.getNextOIDList(num_oids)))
@@ -61,10 +63,6 @@ class ClientServiceHandler(MasterHandler):
 
     def askFinishTransaction(self, conn, tid, oid_list):
         app = self.app
-        # If the given transaction ID is later than the last TID, the peer
-        # is crazy.
-        if tid > self.app.tm.getLastTID():
-            raise ProtocolError('TID too big')
 
         # Collect partitions related to this transaction.
         getPartition = app.pt.getPartition
@@ -91,5 +89,6 @@ class ClientServiceHandler(MasterHandler):
             node.ask(p, timeout=60)
             used_uuid_set.add(node.getUUID())
 
-        app.tm.prepare(tid, oid_list, used_uuid_set, conn.getPeerId())
+        node = self.app.nm.getByUUID(conn.getUUID())
+        app.tm.prepare(node, tid, oid_list, used_uuid_set, conn.getPeerId())
 

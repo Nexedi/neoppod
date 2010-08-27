@@ -606,7 +606,6 @@ class ClientApplicationTests(NeoTestBase):
         # will check if there was just one call/packet :
         self.checkNotifyPacket(conn1, Packets.AbortTransaction)
         self.checkNotifyPacket(conn2, Packets.AbortTransaction)
-        self.checkNotifyPacket(app.master_conn, Packets.AbortTransaction)
         self.assertEquals(app.local_var.tid, None)
         self.assertEquals(app.local_var.txn, None)
         self.assertEquals(app.local_var.data_dict, {})
@@ -672,7 +671,6 @@ class ClientApplicationTests(NeoTestBase):
         app.cp = ConnectionPool()
         # abort must be sent to storage 1 and 2
         app.tpc_abort(txn)
-        self.checkAbortTransaction(app.master_conn)
         self.checkAbortTransaction(conn2)
         self.checkAbortTransaction(conn3)
 
@@ -1040,7 +1038,7 @@ class ClientApplicationTests(NeoTestBase):
         def _waitMessage_hook(app, conn, msg_id, handler=None):
             self.test_ok = True
         _waitMessage_old = Application._waitMessage
-        packet = Packets.AskBeginTransaction(None)
+        packet = Packets.AskBeginTransaction()
         packet.setId(0)
         Application._waitMessage = _waitMessage_hook
         try:
@@ -1066,7 +1064,7 @@ class ClientApplicationTests(NeoTestBase):
             self.test_ok = True
         _waitMessage_old = Application._waitMessage
         Application._waitMessage = _waitMessage_hook
-        packet = Packets.AskBeginTransaction(None)
+        packet = Packets.AskBeginTransaction()
         packet.setId(0)
         try:
             app._askPrimary(packet)

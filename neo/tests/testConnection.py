@@ -852,7 +852,7 @@ class HandlerSwitcherTests(NeoTestBase):
         return packet
 
     def _makeRequest(self, msg_id):
-        packet = Packets.AskBeginTransaction(self.getNextTID())
+        packet = Packets.AskBeginTransaction()
         packet.setId(msg_id)
         return packet
 

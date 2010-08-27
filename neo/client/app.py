@@ -564,15 +564,13 @@ class Application(object):
             return
         if self.local_var.txn is not None:
             raise NeoException, 'local_var is not clean in tpc_begin'
-        # ask the primary master to start a transaction, if no tid is supplied,
-        # the master will supply us one. Otherwise the requested tid will be
-        # used if possible.
-        self.local_var.tid = None
-        self._askPrimary(Packets.AskBeginTransaction(tid))
-        if self.local_var.tid is None:
-            raise NEOStorageError('tpc_begin failed')
+        # use the given TID or request a new one to the master
+        self.local_var.tid = tid
+        if tid is None:
+            self._askPrimary(Packets.AskBeginTransaction())
+            if self.local_var.tid is None:
+                raise NEOStorageError('tpc_begin failed')
         self.local_var.txn = transaction
-
 
     @profiler_decorator
     def store(self, oid, serial, data, version, transaction):

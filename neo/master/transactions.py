@@ -26,15 +26,16 @@ class Transaction(object):
         A pending transaction
     """
 
-    _prepared = False
-
-    def __init__(self, node, tid):
+    def __init__(self, node, tid, oid_list, uuid_list, msg_id):
+        """
+            Prepare the transaction, set OIDs and UUIDs related to it
+        """
         self._node = node
         self._tid = tid
-        self._oid_list = []
-        self._msg_id = None
+        self._oid_list = oid_list
+        self._msg_id = msg_id
         # uuid dict hold flag to known who has locked the transaction
-        self._uuid_dict = {}
+        self._uuid_dict = dict.fromkeys(uuid_list, False)
         self._birth = time()
 
     def __repr__(self):
@@ -60,12 +61,6 @@ class Transaction(object):
         """
         return self._tid
 
-    def isPrepared(self):
-        """
-
-        """
-        return self._prepared
-
     def getMessageId(self):
         """
             Returns the packet ID to use in the answer
@@ -84,17 +79,6 @@ class Transaction(object):
         """
 
         return list(self._oid_list)
-
-    def prepare(self, oid_list, uuid_list, msg_id):
-        """
-            Prepare the transaction, set OIDs and UUIDs related to it
-        """
-        assert not self._oid_list
-        assert not self._uuid_dict
-        self._oid_list = oid_list
-        self._uuid_dict = dict.fromkeys(uuid_list, False)
-        self._msg_id = msg_id
-        self._prepared = True
 
     def forget(self, uuid):
         """
@@ -239,38 +223,25 @@ class TransactionManager(object):
         """
         return self._tid_dict.keys()
 
-    def begin(self, node, tid):
+    def begin(self):
         """
-            Begin a new transaction
+            Generate a new TID
         """
-        assert node is not None
-        if tid is not None and tid < self._last_tid:
-            logging.warn('Transaction began with a decreased TID: %s, ' \
-                'expected at least %s', tid, self._last_tid)
-        if tid is None:
-            # give a TID
-            tid = self._nextTID()
-        txn = Transaction(node, tid)
-        self._tid_dict[tid] = txn
-        self._node_dict.setdefault(node, {})[tid] = txn
-        self.setLastTID(tid)
-        return tid
+        return self._nextTID()
 
-    def prepare(self, tid, oid_list, uuid_list, msg_id):
+    def prepare(self, node, tid, oid_list, uuid_list, msg_id):
         """
             Prepare a transaction to be finished
         """
-        assert tid in self._tid_dict, "Transaction not started"
-        txn = self._tid_dict[tid]
-        txn.prepare(oid_list, uuid_list, msg_id)
+        self.setLastTID(tid)
+        txn = Transaction(node, tid, oid_list, uuid_list, msg_id)
+        self._tid_dict[tid] = txn
+        self._node_dict.setdefault(node, {})[tid] = txn
 
     def remove(self, tid):
         """
             Remove a transaction, commited or aborted
         """
-        if tid not in self._tid_dict:
-            logging.warn('aborting transaction %s does not exist', dump(tid))
-            return
         node = self._tid_dict[tid].getNode()
         # remove both mappings, node will be removed in abortFor
         del self._tid_dict[tid]

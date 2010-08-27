@@ -72,11 +72,8 @@ class MasterClientHandlerTests(NeoTestBase):
         # client call it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        service.askBeginTransaction(conn, None)
+        service.askBeginTransaction(conn)
         self.assertTrue(ltid < self.app.tm.getLastTID())
-        self.assertEqual(len(self.app.tm.getPendingList()), 1)
-        tid = self.app.tm.getPendingList()[0]
-        self.assertEquals(tid, self.app.tm.getLastTID())
 
     def test_08_askNewOIDs(self):
         service = self.service
@@ -97,18 +94,6 @@ class MasterClientHandlerTests(NeoTestBase):
     def test_09_askFinishTransaction(self):
         service = self.service
         uuid = self.identifyToMasterNode()
-        # give an older tid than the PMN known, must abort
-        client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
-        conn = self.getFakeConnection(client_uuid, self.client_address)
-        oid_list = []
-        upper, lower = unpack('!LL', self.app.tm.getLastTID())
-        new_tid = pack('!LL', upper, lower + 10)
-        self.checkProtocolErrorRaised(service.askFinishTransaction, conn,
-                new_tid, oid_list)
-        old_node = self.app.nm.getByUUID(uuid)
-        self.app.nm.remove(old_node)
-        self.app.pt.dropNode(old_node)
-
         # do the right job
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         storage_uuid = self.identifyToMasterNode()
@@ -119,7 +104,7 @@ class MasterClientHandlerTests(NeoTestBase):
             'getPartition': 0,
             'getCellList': [Mock({'getUUID': storage_uuid})],
         })
-        service.askBeginTransaction(conn, None)
+        service.askBeginTransaction(conn)
         oid_list = []
         tid = self.app.tm.getLastTID()
         conn = self.getFakeConnection(client_uuid, self.client_address)
@@ -169,17 +154,12 @@ class MasterClientHandlerTests(NeoTestBase):
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()
-        self.service.askBeginTransaction(conn, None)
-        self.service.askBeginTransaction(conn, None)
-        self.service.askBeginTransaction(conn, None)
         self.assertEquals(self.app.nm.getByUUID(client_uuid).getState(),
                 NodeStates.RUNNING)
-        self.assertEquals(len(self.app.tm.getPendingList()), 3)
         method(conn)
         # node must be have been remove, and no more transaction must remains
         self.assertEquals(self.app.nm.getByUUID(client_uuid), None)
         self.assertEquals(lptid, self.app.pt.getID())
-        self.assertFalse(self.app.tm.hasPending())
 
     def test_15_peerBroken(self):
         self.__testWithMethod(self.service.peerBroken, NodeStates.BROKEN)

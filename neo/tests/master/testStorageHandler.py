@@ -104,8 +104,8 @@ class MasterStorageHandlerTests(NeoTestBase):
         oid_list = self.getOID(), self.getOID()
         msg_id = 1
         # register a transaction
-        tid = self.app.tm.begin(client_1, None)
-        self.app.tm.prepare(tid, oid_list, uuid_list, msg_id)
+        tid = self.app.tm.begin()
+        self.app.tm.prepare(client_1, tid, oid_list, uuid_list, msg_id)
         self.assertTrue(tid in self.app.tm)
         # the first storage acknowledge the lock
         self.service.answerInformationLocked(storage_conn_1, tid)
@@ -148,9 +148,13 @@ class MasterStorageHandlerTests(NeoTestBase):
         # create some transaction
         node, conn = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port=self.client_port)
-        self.client_handler.askBeginTransaction(conn, None)
-        self.client_handler.askBeginTransaction(conn, None)
-        self.client_handler.askBeginTransaction(conn, None)
+        def create_transaction(index):
+            tid = self.getNextTID()
+            oid_list = [self.getOID(index)]
+            self.app.tm.prepare(node, tid, oid_list, [node.getUUID()], index)
+        create_transaction(1)
+        create_transaction(2)
+        create_transaction(3)
         conn = self.getFakeConnection(node.getUUID(), self.storage_address)
         service.askUnfinishedTransactions(conn)
         packet = self.checkAnswerUnfinishedTransactions(conn)
@@ -214,17 +218,14 @@ class MasterStorageHandlerTests(NeoTestBase):
         # Transaction 1: 2 storage nodes involved, one will die and the other
         # already answered node lock
         msg_id_1 = 1
-        tm.begin(client1, tid1)
-        tm.prepare(tid1, oid_list, [node1.getUUID(), node2.getUUID()], msg_id_1)
+        tm.prepare(client1, tid1, oid_list, [node1.getUUID(), node2.getUUID()], msg_id_1)
         tm.lock(tid1, node2.getUUID())
         # Transaction 2: 2 storage nodes involved, one will die
         msg_id_2 = 2
-        tm.begin(client2, tid2)
-        tm.prepare(tid2, oid_list, [node1.getUUID(), node2.getUUID()], msg_id_2)
+        tm.prepare(client2, tid2, oid_list, [node1.getUUID(), node2.getUUID()], msg_id_2)
         # Transaction 3: 1 storage node involved, which won't die
         msg_id_3 = 3
-        tm.begin(client3, tid3)
-        tm.prepare(tid3, oid_list, [node2.getUUID(), ], msg_id_3)
+        tm.prepare(client3, tid3, oid_list, [node2.getUUID(), ], msg_id_3)
 
         # Assert initial state
         self.checkNoPacketSent(cconn1)
