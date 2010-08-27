@@ -253,13 +253,13 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertTrue(self.db.objectPresent(oid, tid, all=False))
 
     def test_getObject(self):
-        oid1, oid2 = self.getOIDs(2)
+        oid1, = self.getOIDs(1)
         tid1, tid2 = self.getTIDs(2)
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid1])
         # non-present
         self.assertEqual(self.db.getObject(oid1, tid1), None)
-        self.assertEqual(self.db.getObject(oid2, tid2), None)
+        self.assertEqual(self.db.getObject(oid1, before_tid=tid1), None)
         # one non-commited version
         self.db.storeTransaction(tid1, objs1, txn1)
         self.assertEqual(self.db.getObject(oid1, tid1), None)
