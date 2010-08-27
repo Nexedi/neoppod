@@ -547,12 +547,7 @@ class Application(object):
         """Load an object for a given oid before tid committed."""
         # Do not try in cache as it manages only up-to-date object
         logging.debug('loading %s before %s', dump(oid), dump(tid))
-        data, start, end = self._load(oid, tid=tid)
-        if end is None:
-            # No previous version
-            return None
-        else:
-            return data, start, end
+        return self._load(oid, tid=tid)
 
 
     @profiler_decorator
