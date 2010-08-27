@@ -181,10 +181,13 @@ class TransactionManager(object):
 
     def _nextTID(self):
         """ Compute the next TID based on the current time and check collisions """
+        def make_upper(year, month, day, hour, minute):
+            return ((((year - 1900) * 12 + month - 1) * 31 \
+                  + day - 1) * 24 + hour) * 60 + minute
         tm = time()
         gmt = gmtime(tm)
-        upper = ((((gmt.tm_year - 1900) * 12 + gmt.tm_mon - 1) * 31 \
-                  + gmt.tm_mday - 1) * 24 + gmt.tm_hour) * 60 + gmt.tm_min
+        upper = make_upper(gmt.tm_year, gmt.tm_mon, gmt.tm_mday, gmt.tm_hour,
+            gmt.tm_min)
         lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / (60.0 / 65536.0 / 65536.0))
         tid = pack('!LL', upper, lower)
         if self._last_tid is not None and tid <= self._last_tid:
@@ -193,9 +196,7 @@ class TransactionManager(object):
                 # This should not happen usually.
                 d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday,
                              gmt.tm_hour, gmt.tm_min) + timedelta(0, 60)
-                             gmt.tm_hour, gmt.tm_min) \
-                upper = ((((d.year - 1900) * 12 + d.month - 1) * 31 \
-                          + d.day - 1) * 24 + d.hour) * 60 + d.minute
+                upper = make_upper(d.year, d.month, d.day, d.hour, d.minute)
                 lower = 0
             else:
                 lower += 1
