@@ -222,7 +222,7 @@ class ClientTests(NEOFunctionalTest):
         # copy neo to data fs
         dfs_db, dfs_storage  = self.__getDataFS(reset=True)
         neo_storage = self.neo.getZODBStorage()
-        dfs_storage.copyTransactionsFrom(neo_storage, verbose=0)
+        dfs_storage.copyTransactionsFrom(neo_storage)
 
         # check data fs content
         conn = dfs_db.open()
