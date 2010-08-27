@@ -50,7 +50,7 @@ class Dispatcher:
         """
             Unregister packet expected for a given connection
         """
-        del self.message_table
+        self.message_table.clear()
 
 class Application(object):
     """The storage node application."""
