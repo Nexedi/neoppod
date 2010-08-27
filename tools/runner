@@ -158,12 +158,11 @@ class NeoTestRunner(unittest.TestResult):
         stats.time += time.time() - self.lastStart
 
     def startTest(self, test):
-        print ' * %s %s...' % (test.__class__.__module__[10:],
-                test._TestCase__testMethodName),
+        module = test.__class__.__name__
+        method = test.id()
+        sys.stdout.write(' * %s ' % (method, ))
         sys.stdout.flush()
         unittest.TestResult.startTest(self, test)
-        module = test.__class__.__name__
-        method = test._TestCase__testMethodName
         logging.info(" * TEST %s" % test)
         stats = self._getModuleStats(test)
         stats.run += 1
@@ -252,11 +251,7 @@ class NeoTestRunner(unittest.TestResult):
 
     def _buildErrors(self):
         s = '\n'
-        test_formatter = lambda t: '%s.py %s.%s' % (
-            t.__class__.__module__.replace('.', '/'),
-            t.__class__.__name__,
-            t._TestCase__testMethodName,
-        )
+        test_formatter = lambda t: t.id()
         if len(self.errors):
             s += '\nERRORS:\n'
             for test, trace in self.errors:

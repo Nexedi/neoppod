@@ -534,10 +534,7 @@ class NEOFunctionalTest(unittest.TestCase):
             temp_dir = tempfile.mkdtemp(prefix='neo_')
             print 'Using temp directory %r.' % (temp_dir, )
         # build the full path based on test case and current test method
-        test_case_name = self.__class__.__name__
-        test_method_name = self._TestCase__testMethodName
-        temp_dir = os.path.join(temp_dir, test_case_name)
-        temp_dir = os.path.join(temp_dir, test_method_name)
+        temp_dir = os.path.join(temp_dir, self.id())
         # build the path if needed
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
