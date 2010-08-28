@@ -83,6 +83,11 @@ class StorageVerificationHandlerTests(NeoTestBase):
         last_ptid = self.getPTID(1)
         last_oid = self.getOID(2)
         self.app.pt = Mock({'getID': last_ptid})
+        class DummyDM(object):
+            def getLastOID(self):
+                raise KeyError
+            getLastTID = getLastOID
+        self.app.dm = DummyDM()
         self.verification.askLastIDs(conn)
         oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
         self.assertEqual(oid, None)
@@ -91,25 +96,22 @@ class StorageVerificationHandlerTests(NeoTestBase):
 
         # return value stored in db
         conn = self.getClientConnection()
-        self.app.dm.begin()
-        # insert some tid
-        self.app.dm.query("""insert into trans (tid, oids, user,
-                description, ext) values (1, '', '', '', '')""")
-        self.app.dm.query("""insert into trans (tid, oids, user,
-                description, ext) values (2, '', '', '', '')""")
-        self.app.dm.query("""insert into ttrans (tid, oids, user,
-                description, ext) values (3, '', '', '', '')""")
-        # max tid is in tobj (serial)
-        self.app.dm.query("""insert into tobj (oid, serial, compression,
-                checksum, value) values (0, 4, 0, 0, '')""")
-        self.app.dm.commit()
-        self.app.dm.setLastOID(last_oid)
+        self.app.dm = Mock({
+            'getLastOID': last_oid,
+            'getLastTID': p64(4),
+        })
         self.verification.askLastIDs(conn)
         self.checkAnswerLastIDs(conn)
         oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
         self.assertEqual(oid, last_oid)
         self.assertEqual(u64(tid), 4)
         self.assertEqual(ptid, self.app.pt.getID())
+        call_list = self.app.dm.mockGetNamedCalls('getLastOID')
+        self.assertEqual(len(call_list), 1)
+        call_list[0].checkArgs()
+        call_list = self.app.dm.mockGetNamedCalls('getLastTID')
+        self.assertEqual(len(call_list), 1)
+        call_list[0].checkArgs()
 
     def test_08_askPartitionTable(self):
         node = self.app.nm.createStorage(
@@ -158,16 +160,21 @@ class StorageVerificationHandlerTests(NeoTestBase):
 
     def test_13_askUnfinishedTransactions(self):
         # client connection with no data
+        self.app.dm = Mock({
+            'getUnfinishedTIDList': [],
+        })
         conn = self.getMasterConnection()
         self.verification.askUnfinishedTransactions(conn)
         (tid_list, ) = self.checkAnswerUnfinishedTransactions(conn, decode=True)
         self.assertEqual(len(tid_list), 0)
+        call_list = self.app.dm.mockGetNamedCalls('getUnfinishedTIDList')
+        self.assertEqual(len(call_list), 1)
+        call_list[0].checkArgs()
 
         # client connection with some data
-        self.app.dm.begin()
-        self.app.dm.query("""insert into tobj (oid, serial, compression,
-                checksum, value) values (0, 4, 0, 0, '')""")
-        self.app.dm.commit()
+        self.app.dm = Mock({
+            'getUnfinishedTIDList': [p64(4)],
+        })
         conn = self.getMasterConnection()
         self.verification.askUnfinishedTransactions(conn)
         (tid_list, ) = self.checkAnswerUnfinishedTransactions(conn, decode=True)
@@ -176,19 +183,22 @@ class StorageVerificationHandlerTests(NeoTestBase):
 
     def test_14_askTransactionInformation(self):
         # ask from client conn with no data
+        self.app.dm = Mock({
+            'getTransaction': None,
+        })
         conn = self.getMasterConnection()
-        self.verification.askTransactionInformation(conn, p64(1))
+        tid = p64(1)
+        self.verification.askTransactionInformation(conn, tid)
         code, message = self.checkErrorPacket(conn, decode=True)
         self.assertEqual(code, ErrorCodes.TID_NOT_FOUND)
+        call_list = self.app.dm.mockGetNamedCalls('getTransaction')
+        self.assertEqual(len(call_list), 1)
+        call_list[0].checkArgs(tid, all=True)
 
         # input some tmp data and ask from client, must find both transaction
-        self.app.dm.begin()
-        self.app.dm.query("""insert into ttrans (tid, oids, user,
-        description, ext) values (3, '%s', 'u1', 'd1', 'e1')""" %(p64(4),))
-        self.app.dm.query("""insert into trans (tid, oids, user,
-        description, ext) values (1,'%s', 'u2', 'd2', 'e2')""" %(p64(2),))
-        self.app.dm.commit()
-        # object from trans
+        self.app.dm = Mock({
+            'getTransaction': ([p64(2)], 'u2', 'd2', 'e2', False),
+        })
         conn = self.getClientConnection()
         self.verification.askTransactionInformation(conn, p64(1))
         tid, user, desc, ext, packed, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
@@ -196,66 +206,45 @@ class StorageVerificationHandlerTests(NeoTestBase):
         self.assertEqual(user, 'u2')
         self.assertEqual(desc, 'd2')
         self.assertEqual(ext, 'e2')
+        self.assertEqual(packed, False)
         self.assertEqual(len(oid_list), 1)
         self.assertEqual(u64(oid_list[0]), 2)
-        # object from ttrans
-        conn = self.getMasterConnection()
-        self.verification.askTransactionInformation(conn, p64(3))
-        tid, user, desc, ext, packed, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
-        self.assertEqual(u64(tid), 3)
-        self.assertEqual(user, 'u1')
-        self.assertEqual(desc, 'd1')
-        self.assertEqual(ext, 'e1')
-        self.assertEqual(len(oid_list), 1)
-        self.assertEqual(u64(oid_list[0]), 4)
-
-        # input some tmp data and ask from server, must find one transaction
-        conn = self.getMasterConnection()
-        # find the one in trans
-        self.verification.askTransactionInformation(conn, p64(1))
-        tid, user, desc, ext, packed, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
-        self.assertEqual(u64(tid), 1)
-        self.assertEqual(user, 'u2')
-        self.assertEqual(desc, 'd2')
-        self.assertEqual(ext, 'e2')
-        self.assertEqual(len(oid_list), 1)
-        self.assertEqual(u64(oid_list[0]), 2)
-        # do not find the one in ttrans
-        conn = self.getMasterConnection()
-        self.verification.askTransactionInformation(conn, p64(2))
-        code, message = self.checkErrorPacket(conn, decode=True)
-        self.assertEqual(code, ErrorCodes.TID_NOT_FOUND)
 
     def test_15_askObjectPresent(self):
         # client connection with no data
+        self.app.dm = Mock({
+            'objectPresent': False,
+        })
         conn = self.getMasterConnection()
-        self.verification.askObjectPresent(conn, p64(1), p64(2))
+        oid, tid = p64(1), p64(2)
+        self.verification.askObjectPresent(conn, oid, tid)
         code, message = self.checkErrorPacket(conn, decode=True)
         self.assertEqual(code, ErrorCodes.OID_NOT_FOUND)
+        call_list = self.app.dm.mockGetNamedCalls('objectPresent')
+        self.assertEqual(len(call_list), 1)
+        call_list[0].checkArgs(oid, tid)
 
         # client connection with some data
-        self.app.dm.begin()
-        self.app.dm.query("""insert into tobj (oid, serial, compression,
-                checksum, value) values (1, 2, 0, 0, '')""")
-        self.app.dm.commit()
+        self.app.dm = Mock({
+            'objectPresent': True,
+        })
         conn = self.getMasterConnection()
-        self.verification.askObjectPresent(conn, p64(1), p64(2))
+        self.verification.askObjectPresent(conn, oid, tid)
         oid, tid = self.checkAnswerObjectPresent(conn, decode=True)
         self.assertEqual(u64(tid), 2)
         self.assertEqual(u64(oid), 1)
 
     def test_16_deleteTransaction(self):
         # client connection with no data
+        self.app.dm = Mock({
+            'deleteTransaction': None,
+        })
         conn = self.getMasterConnection()
-        self.verification.deleteTransaction(conn, p64(1))
-        # client connection with data
-        self.app.dm.begin()
-        self.app.dm.query("""insert into tobj (oid, serial, compression,
-                checksum, value) values (1, 2, 0, 0, '')""")
-        self.app.dm.commit()
-        self.verification.deleteTransaction(conn, p64(2))
-        result = self.app.dm.query('select * from tobj')
-        self.assertEquals(len(result), 0)
+        tid = p64(1)
+        self.verification.deleteTransaction(conn, tid)
+        call_list = self.app.dm.mockGetNamedCalls('deleteTransaction')
+        self.assertEqual(len(call_list), 1)
+        call_list[0].checkArgs(tid, all=True)
 
     def test_17_commitTransaction(self):
         # commit a transaction
