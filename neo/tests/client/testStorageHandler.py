@@ -220,8 +220,8 @@ class StorageAnswerHandlerTests(NeoTestBase):
         
     def test_tidNotFound(self):
         conn = self.getConnection()
-        self.handler.tidNotFound(conn, 'message')
-        self.assertEqual(self.app.local_var.txn_info, -1)
+        self.assertRaises(NEOStorageNotFoundError, self.handler.tidNotFound,
+            conn, 'message')
 
     def test_answerTIDs(self):
         uuid = self.getNewUUID()

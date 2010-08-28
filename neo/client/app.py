@@ -1053,8 +1053,7 @@ class Application(object):
                             Packets.AskTransactionInformation(serial))
                 except ConnectionClosed:
                     continue
-
-                if self.local_var.txn_info == -1:
+                except NEOStorageNotFoundError:
                     # TID not found
                     continue
                 if isinstance(self.local_var.txn_info, dict):

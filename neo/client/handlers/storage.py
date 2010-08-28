@@ -118,7 +118,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     def tidNotFound(self, conn, message):
         # This can happen when requiring txn informations
-        self.app.local_var.txn_info = -1
+        raise NEOStorageNotFoundError(message)
 
     def answerTIDs(self, conn, tid_list):
         self.app.local_var.node_tids[conn.getUUID()] = tid_list
