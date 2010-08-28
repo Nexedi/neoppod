@@ -37,7 +37,9 @@ class StorageAppTests(NeoTestBase):
         NeoTestBase.tearDown(self)
 
     def test_01_loadPartitionTable(self):
-        self.assertEqual(len(self.app.dm.getPartitionTable()), 0)
+        self.app.dm = Mock({
+            'getPartitionTable': [],
+        })
         self.assertEqual(self.app.pt, None)
         num_partitions = 3
         num_replicas = 2
@@ -71,7 +73,6 @@ class StorageAppTests(NeoTestBase):
             else:
                 self.assertFalse(self.app.pt.hasOffset(x))
         # load an empty table, everything removed
-        self.assertEqual(len(self.app.dm.getPartitionTable()), 0)
         self.app.loadPartitionTable()
         self.assertEqual(self.app.pt.getNodeList(), [])
         self.assertFalse(self.app.pt.filled())
@@ -89,19 +90,16 @@ class StorageAppTests(NeoTestBase):
             else:
                 self.assertFalse(self.app.pt.hasOffset(x))
         # fill partition table
-        self.app.dm.setPTID(1)
-        self.app.dm.query('delete from pt;')
-        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
-                          (0, dump(client_uuid), CellStates.UP_TO_DATE))
-        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
-                          (1, dump(client_uuid), CellStates.UP_TO_DATE))
-        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
-                          (1, dump(storage_uuid), CellStates.UP_TO_DATE))
-        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
-                          (2, dump(storage_uuid), CellStates.UP_TO_DATE))
-        self.app.dm.query("insert into pt (rid, uuid, state) values ('%s', '%s', %d)" %
-                          (2, dump(master_uuid), CellStates.UP_TO_DATE))
-        self.assertEqual(len(self.app.dm.getPartitionTable()), 5)
+        self.app.dm = Mock({
+            'getPartitionTable': [
+                (0, client_uuid, CellStates.UP_TO_DATE),
+                (1, client_uuid, CellStates.UP_TO_DATE),
+                (1, storage_uuid, CellStates.UP_TO_DATE),
+                (2, storage_uuid, CellStates.UP_TO_DATE),
+                (2, master_uuid, CellStates.UP_TO_DATE),
+            ],
+            'getPTID': 1,
+        })
         self.app.pt.clear()
         self.app.loadPartitionTable()
         self.assertTrue(self.app.pt.filled())
