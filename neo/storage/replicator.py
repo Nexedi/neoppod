@@ -263,13 +263,13 @@ class Replicator(object):
             min_unfinished_tid = min(self.unfinished_tid_list)
         else:
             min_unfinished_tid = None
-        self.unfinished_tid_list = None
         for partition in self.partition_dict.values():
             if partition.safe(min_unfinished_tid):
                 self.current_partition = partition
                 break
         else:
             # Not yet.
+            self.unfinished_tid_list = None
             logging.debug('not ready yet')
             return
 
