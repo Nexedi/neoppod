@@ -443,17 +443,16 @@ class Application(object):
         cell_list = self._getCellListForOID(oid, readable=True)
         if len(cell_list) == 0:
             # No cells available, so why are we running ?
-            logging.error('oid %s not found because no storage is ' \
-                    'available for it', dump(oid))
-            raise NEOStorageNotFoundError()
+            raise NEOStorageError('No storage available for oid %s' % (
+                dump(oid), ))
 
         shuffle(cell_list)
         cell_list.sort(key=self.cp.getCellSortKey)
         self.local_var.asked_object = 0
         packet = Packets.AskObject(oid, serial, tid)
         for cell in cell_list:
-            logging.debug('trying to load %s from %s',
-                          dump(oid), dump(cell.getUUID()))
+            logging.debug('trying to load %s at %s before %s from %s',
+                dump(oid), dump(serial), dump(tid), dump(cell.getUUID()))
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
@@ -489,14 +488,11 @@ class Application(object):
         if self.local_var.asked_object == 0:
             # We didn't got any object from all storage node because of
             # connection error
-            logging.warning('oid %s not found because of connection failure',
-                    dump(oid))
-            raise NEOStorageNotFoundError()
+            raise NEOStorageError('connection failure')
 
         if self.local_var.asked_object == -1:
             # We didn't got any object from all storage node
-            logging.info('oid %s not found', dump(oid))
-            raise NEOStorageNotFoundError()
+            raise NEOStorageNotFoundError('oid %s not found' % (dump(oid), ))
 
         # Uncompress data
         if compression:
