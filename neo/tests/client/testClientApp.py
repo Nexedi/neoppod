@@ -384,7 +384,8 @@ class ClientApplicationTests(NeoTestBase):
         self.assertTrue(app.local_var.txn is txn)
         self.assertEquals(app.local_var.tid, tid)
         # next, the transaction already begin -> do nothing
-        app.tpc_begin(transaction=txn, tid=None)
+        self.assertRaises(StorageTransactionError, app.tpc_begin,
+            transaction=txn, tid=None)
         self.assertTrue(app.local_var.txn is txn)
         self.assertEquals(app.local_var.tid, tid)
         # cancel and start a transaction without tid
@@ -534,7 +535,6 @@ class ClientApplicationTests(NeoTestBase):
         app.pt = Mock({ 'getCellListForTID': (cell, cell, ) })
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
         app.dispatcher = Mock()
-        app.tpc_begin(txn, tid)
         self.assertRaises(NEOStorageError, app.tpc_vote, txn,
             resolving_tryToResolveConflict)
         self.checkAskPacket(conn, Packets.AskStoreTransaction)
@@ -559,7 +559,6 @@ class ClientApplicationTests(NeoTestBase):
         app.pt = Mock({ 'getCellListForTID': (cell, cell, ) })
         app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
         app.dispatcher = Mock()
-        app.tpc_begin(txn, tid)
         app.tpc_vote(txn, resolving_tryToResolveConflict)
         self.checkAskStoreTransaction(conn)
         self.checkDispatcherRegisterCalled(app, conn)
@@ -656,8 +655,6 @@ class ClientApplicationTests(NeoTestBase):
             def pending(self, queue):
                 return not queue.empty()
         app.dispatcher = Dispatcher()
-        # begin a transaction
-        app.tpc_begin(txn, tid)
         # conflict occurs on storage 2
         app.store(oid1, tid, 'DATA', None, txn)
         app.store(oid2, tid, 'DATA', None, txn)

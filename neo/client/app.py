@@ -556,7 +556,7 @@ class Application(object):
         # First get a transaction, only one is allowed at a time
         if self.local_var.txn is transaction:
             # We already begin the same transaction
-            return
+            raise StorageTransactionError('Duplicate tpc_begin calls')
         if self.local_var.txn is not None:
             raise NeoException, 'local_var is not clean in tpc_begin'
         # use the given TID or request a new one to the master
