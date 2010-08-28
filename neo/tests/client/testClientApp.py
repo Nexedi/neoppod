@@ -233,9 +233,8 @@ class ClientApplicationTests(NeoTestBase):
         app.local_var.queue = Mock({'get' : (conn, None)})
         app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
-        app.local_var.asked_object = -1
         Application._waitMessage = self._waitMessage
-        self.assertRaises(NEOStorageNotFoundError, app.load, oid)
+        self.assertRaises(NEOStorageError, app.load, oid)
         self.checkAskObject(conn)
         Application._waitMessage = _waitMessage
         # object not found in NEO -> NEOStorageNotFoundError
@@ -249,7 +248,6 @@ class ClientApplicationTests(NeoTestBase):
         })
         app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
-        app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.load, oid)
         self.checkAskObject(conn)
         # object found on storage nodes and put in cache
@@ -291,7 +289,6 @@ class ClientApplicationTests(NeoTestBase):
         })
         app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
-        app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.loadSerial, oid, tid2)
         self.checkAskObject(conn)
         # object should not have been cached
@@ -331,12 +328,10 @@ class ClientApplicationTests(NeoTestBase):
         })
         app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
-        app.local_var.asked_object = -1
         self.assertRaises(NEOStorageNotFoundError, app.loadBefore, oid, tid2)
         self.checkAskObject(conn)
-        # no previous versions -> return None
-        an_object = (1, oid, tid2, INVALID_SERIAL, 0, makeChecksum(''), '',
-            None)
+        # no visible version -> NEOStorageNotFoundError
+        an_object = (1, oid, INVALID_SERIAL, None, 0, 0, '', None)
         packet = Packets.AnswerObject(*an_object[1:])
         packet.setId(0)
         conn = Mock({
@@ -345,8 +340,7 @@ class ClientApplicationTests(NeoTestBase):
         })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = an_object[:-1]
-        result = app.loadBefore(oid, tid1)
-        self.assertEquals(result, None)
+        self.assertRaises(NEOStorageError, app.loadBefore, oid, tid1)
         # object should not have been cached
         self.assertFalse(oid in mq)
         # as for loadSerial, the object is cached but should be loaded from db
