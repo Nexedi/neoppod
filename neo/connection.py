@@ -94,7 +94,7 @@ class HandlerSwitcher(object):
         self._pending = [[{}, handler]]
 
     def isPending(self):
-        return self._pending[0][0]
+        return bool(self._pending[0][0])
 
     def getHandler(self):
         return self._pending[0][1]
@@ -267,6 +267,9 @@ class BaseConnection(object):
         self._handlers = HandlerSwitcher(handler)
         self._timeout = Timeout()
         event_manager.register(self)
+
+    def isPending(self):
+        return self._handlers.isPending()
 
     def checkTimeout(self, t):
         handlers = self._handlers
