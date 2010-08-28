@@ -1003,6 +1003,8 @@ class Application(object):
         shuffle(cell_list)
         cell_list.sort(key=self.cp.getCellSortKey)
         for cell in cell_list:
+            # FIXME: we keep overwriting self.local_var.history here, we
+            # should aggregate it instead.
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
