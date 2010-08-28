@@ -1013,9 +1013,6 @@ class Application(object):
             except ConnectionClosed:
                 continue
 
-            if self.local_var.history == -1:
-                # Not found, go on with next node
-                continue
             if self.local_var.history[0] != oid:
                 # Got history for wrong oid
                 raise NEOStorageError('inconsistency in storage: asked oid ' \
