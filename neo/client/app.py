@@ -903,8 +903,11 @@ class Application(object):
             # Load the version we were undoing to
             undo_data, _ = loadBefore(oid, undone_tid)
             # Resolve conflict
-            new_data = tryToResolveConflict(oid, data_tid, undone_tid, undo_data,
-                data)
+            try:
+                new_data = tryToResolveConflict(oid, data_tid, undone_tid,
+                    undo_data, data)
+            except ConflictError:
+                new_data = None
             if new_data is None:
                 raise UndoError('Some data were modified by a later ' \
                     'transaction', oid)
