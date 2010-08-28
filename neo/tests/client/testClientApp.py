@@ -383,7 +383,7 @@ class ClientApplicationTests(NeoTestBase):
         app.tpc_begin(transaction=txn, tid=tid)
         self.assertTrue(app.local_var.txn is txn)
         self.assertEquals(app.local_var.tid, tid)
-        # next, the transaction already begin -> do nothing
+        # next, the transaction already begin -> raise
         self.assertRaises(StorageTransactionError, app.tpc_begin,
             transaction=txn, tid=None)
         self.assertTrue(app.local_var.txn is txn)
