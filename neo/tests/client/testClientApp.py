@@ -672,7 +672,7 @@ class ClientApplicationTests(NeoTestBase):
         self.checkAbortTransaction(conn3)
 
     def test_tpc_finish1(self):
-        # ignore mismatch transaction
+        # transaction mismatch: raise
         app = self.getApp()
         tid = self.makeTID()
         txn = self.makeTransactionObject()
@@ -683,7 +683,7 @@ class ClientApplicationTests(NeoTestBase):
         cell = Mock()
         app.pt = Mock({'getCellListForTID': (cell, cell)})
         app.cp = Mock({'getConnForCell': ReturnValues(None, cell)})
-        app.tpc_finish(txn)
+        self.assertRaises(StorageTransactionError, app.tpc_finish, txn)
         # no packet sent
         self.checkNoPacketSent(conn)
         self.checkNoPacketSent(app.master_conn)
