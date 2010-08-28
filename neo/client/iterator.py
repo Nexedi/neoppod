@@ -39,7 +39,8 @@ class Record(BaseStorage.DataRecord):
 class Transaction(BaseStorage.TransactionRecord):
     """ Transaction object yielded by the NEO iterator """
 
-    def __init__(self, app, tid, status, user, desc, ext, oid_list):
+    def __init__(self, app, tid, status, user, desc, ext, oid_list,
+            prev_serial_dict):
         self.app = app
         self.tid = tid
         self.status = status
@@ -48,6 +49,7 @@ class Transaction(BaseStorage.TransactionRecord):
         self._extension = ext
         self.oid_list = oid_list
         self.history = []
+        self.prev_serial_dict = prev_serial_dict
 
     def __iter__(self):
         return self
@@ -60,9 +62,13 @@ class Transaction(BaseStorage.TransactionRecord):
             raise StopIteration
         oid = self.oid_list.pop()
         # load an object
-        result = app._load(oid, serial=self.tid)
-        data, start_serial, end_serial = result
-        record = Record(oid, self.tid, '', data, end_serial)
+        data, _, next_tid = app._load(oid, serial=self.tid)
+        record = Record(oid, self.tid, '', data,
+            self.prev_serial_dict.get(oid))
+        if next_tid is None:
+            self.prev_serial_dict.pop(oid, None)
+        else:
+            self.prev_serial_dict[oid] = self.tid
         return record
 
     def __str__(self):
@@ -84,6 +90,9 @@ class Iterator(object):
         # index of current iteration
         self._index = 0
         self._closed = False
+        # OID -> previous TID mapping
+        # TODO: prune old entries while walking ?
+        self._prev_serial_dict = {}
 
     def __iter__(self):
         return self
@@ -113,7 +122,8 @@ class Iterator(object):
         desc = txn['description']
         oid_list = txn['oids']
         extension = {} # as expected by the ZODB
-        txn = Transaction(self.app, tid, ' ', user, desc, extension, oid_list)
+        txn = Transaction(self.app, tid, ' ', user, desc, extension, oid_list,
+            self._prev_serial_dict)
         return txn
 
     def __str__(self):
