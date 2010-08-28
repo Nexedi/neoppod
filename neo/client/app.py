@@ -439,7 +439,35 @@ class Application(object):
 
     @profiler_decorator
     def _load(self, oid, serial=None, tid=None, cache=0):
-        """Internal method which manage load ,loadSerial and loadBefore."""
+        """
+        Internal method which manage load, loadSerial and loadBefore.
+        OID and TID (serial) parameters are expected packed.
+        oid
+            OID of object to get.
+        serial
+            If given, the exact serial at which OID is desired.
+            tid should be None.
+        tid
+            If given, the excluded upper bound serial at which OID is desired.
+            serial should be None.
+        cache
+            Store data in cache for future lookups.
+
+        Return value: (3-tuple)
+        - Object data (None if object creation was undone).
+        - Serial of given data.
+        - Next serial at which object exists, or None. Only set when tid
+          parameter is not None.
+
+        Exceptions:
+            NEOStorageError
+                technical problem
+            NEOStorageNotFoundError
+                object exists but no data satisfies given parameters
+                object doesn't exist
+        """
+        # TODO:
+        # - rename parameters (here and in handlers & packet definitions)
         cell_list = self._getCellListForOID(oid, readable=True)
         if len(cell_list) == 0:
             # No cells available, so why are we running ?
