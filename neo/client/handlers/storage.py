@@ -22,7 +22,7 @@ from neo import logging
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.protocol import NodeTypes, ProtocolError, LockState
 from neo.util import dump
-from neo.client.exception import NEOStorageError
+from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 
 class StorageEventHandler(BaseHandler):
 
@@ -114,8 +114,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
         # This can happen either when :
         # - loading an object
         # - asking for history
-        self.app.local_var.asked_object = -1
-        self.app.local_var.history = -1
+        raise NEOStorageNotFoundError(message)
 
     def tidNotFound(self, conn, message):
         # This can happen when requiring txn informations

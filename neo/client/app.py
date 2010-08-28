@@ -462,10 +462,6 @@ class Application(object):
             except ConnectionClosed:
                 continue
 
-            if self.local_var.asked_object == -1:
-                # OID not found
-                break
-
             # Check data
             noid, start_serial, end_serial, compression, checksum, data \
                 = self.local_var.asked_object
@@ -491,8 +487,7 @@ class Application(object):
             raise NEOStorageError('connection failure')
 
         if self.local_var.asked_object == -1:
-            # We didn't got any object from all storage node
-            raise NEOStorageNotFoundError('oid %s not found' % (dump(oid), ))
+            raise NEOStorageError('inconsistent data')
 
         # Uncompress data
         if compression:
@@ -852,13 +847,13 @@ class Application(object):
                     undone_tid))
             except ConnectionClosed:
                 continue
-
-            if self.local_var.txn_info == -1:
+            except NEOStorageNotFoundError:
                 # Tid not found, try with next node
                 logging.warning('Transaction %s was not found on node %s',
                     dump(undone_tid), self.nm.getByAddress(conn.getAddress()))
                 continue
-            elif isinstance(self.local_var.txn_info, dict):
+
+            if isinstance(self.local_var.txn_info, dict):
                 break
             else:
                 raise NEOStorageError('undo failed')
