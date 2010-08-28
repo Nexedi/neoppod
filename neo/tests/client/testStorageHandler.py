@@ -22,6 +22,7 @@ from neo.protocol import NodeTypes, LockState
 from neo.client.handlers.storage import StorageBootstrapHandler, \
        StorageAnswersHandler
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
+from neo.client.exception import NEOStorageDoesNotExistError
 from ZODB.POSException import ConflictError
 
 MARKER = []
@@ -217,6 +218,11 @@ class StorageAnswerHandlerTests(NeoTestBase):
         conn = self.getConnection()
         self.assertRaises(NEOStorageNotFoundError, self.handler.oidNotFound,
             conn, 'message')
+
+    def test_oidDoesNotExist(self):
+        conn = self.getConnection()
+        self.assertRaises(NEOStorageDoesNotExistError,
+            self.handler.oidDoesNotExist, conn, 'message')
         
     def test_tidNotFound(self):
         conn = self.getConnection()

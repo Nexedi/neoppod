@@ -85,14 +85,17 @@ class BaseClientAndStorageOperationHandler(EventHandler):
             app.queueEvent(self.askObject, conn, oid, serial, tid)
             return
         o = self._askObject(oid, serial, tid)
-        if o is not None:
+        if o is None:
+            logging.debug('oid = %s does not exist', dump(oid))
+            p = Errors.OidDoesNotExist(dump(oid))
+        elif o is False:
+            logging.debug('oid = %s not found', dump(oid))
+            p = Errors.OidNotFound(dump(oid))
+        else:
             serial, next_serial, compression, checksum, data, data_serial = o
             logging.debug('oid = %s, serial = %s, next_serial = %s',
                           dump(oid), dump(serial), dump(next_serial))
             p = Packets.AnswerObject(oid, serial, next_serial,
                 compression, checksum, data, data_serial)
-        else:
-            logging.debug('oid = %s not found', dump(oid))
-            p = Errors.OidNotFound('%s does not exist' % dump(oid))
         conn.answer(p)
 

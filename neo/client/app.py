@@ -464,6 +464,7 @@ class Application(object):
                 technical problem
             NEOStorageNotFoundError
                 object exists but no data satisfies given parameters
+            NEOStorageDoesNotExistError
                 object doesn't exist
         """
         # TODO:

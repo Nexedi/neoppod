@@ -339,7 +339,13 @@ class MySQLDatabaseManager(DatabaseManager):
         if before_tid is not None:
             before_tid = u64(before_tid)
         result = self._getObject(oid, tid, before_tid)
-        if result is not None:
+        if result is None:
+            # See if object exists at all
+            result = self._getObject(oid)
+            if result is not None:
+                # Object exists
+                result = False
+        else:
             serial, next_serial, compression, checksum, data, data_serial = \
                 result
             if data is None and resolve_data:

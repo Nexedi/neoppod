@@ -25,3 +25,11 @@ class NEOStorageError(POSException.StorageError):
 
 class NEOStorageNotFoundError(NEOStorageError):
     pass
+
+class NEOStorageDoesNotExistError(NEOStorageNotFoundError):
+    """
+    This error is a refinement of NEOStorageNotFoundError: this means
+    that some object was not found, but also that it does not exist at all.
+    """
+    pass
+

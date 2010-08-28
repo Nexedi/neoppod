@@ -362,6 +362,9 @@ class EventHandler(object):
     def oidNotFound(self, conn, message):
         raise UnexpectedPacketError
 
+    def oidDoesNotExist(self, conn, message):
+        raise UnexpectedPacketError
+
     def tidNotFound(self, conn, message):
         raise UnexpectedPacketError
 
@@ -466,6 +469,7 @@ class EventHandler(object):
         d[ErrorCodes.ACK] = self.ack
         d[ErrorCodes.NOT_READY] = self.notReady
         d[ErrorCodes.OID_NOT_FOUND] = self.oidNotFound
+        d[ErrorCodes.OID_DOES_NOT_EXIST] = self.oidDoesNotExist
         d[ErrorCodes.TID_NOT_FOUND] = self.tidNotFound
         d[ErrorCodes.PROTOCOL_ERROR] = self.protocolError
         d[ErrorCodes.BROKEN_NODE] = self.brokenNodeDisallowedError

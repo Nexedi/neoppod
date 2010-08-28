@@ -19,6 +19,7 @@ from ZODB import BaseStorage, ConflictResolution, POSException
 
 from neo.client.app import Application
 from neo.client.exception import NEOStorageNotFoundError
+from neo.client.exception import NEOStorageDoesNotExistError
 
 def check_read_only(func):
     def wrapped(self, *args, **kw):
@@ -88,6 +89,8 @@ class Storage(BaseStorage.BaseStorage,
     def loadBefore(self, oid, tid):
         try:
             return self.app.loadBefore(oid=oid, tid=tid)
+        except NEOStorageDoesNotExistError:
+            raise POSException.POSKeyError(oid)
         except NEOStorageNotFoundError:
             return None
 

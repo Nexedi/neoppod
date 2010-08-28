@@ -41,6 +41,7 @@ class ErrorCodes(Enum):
     ACK = Enum.Item(0)
     NOT_READY = Enum.Item(1)
     OID_NOT_FOUND = Enum.Item(2)
+    OID_DOES_NOT_EXIST = Enum.Item(6)
     TID_NOT_FOUND = Enum.Item(3)
     PROTOCOL_ERROR = Enum.Item(4)
     BROKEN_NODE = Enum.Item(5)
@@ -1853,6 +1854,7 @@ class ErrorRegistry(dict):
     ProtocolError = register_error(ErrorCodes.PROTOCOL_ERROR)
     TidNotFound = register_error(ErrorCodes.TID_NOT_FOUND)
     OidNotFound = register_error(ErrorCodes.OID_NOT_FOUND)
+    OidDoesNotExist = register_error(ErrorCodes.OID_DOES_NOT_EXIST)
     NotReady = register_error(ErrorCodes.NOT_READY)
     Broken = register_error(ErrorCodes.BROKEN_NODE)
 

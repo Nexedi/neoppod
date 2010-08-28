@@ -22,6 +22,7 @@ from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
 from neo.tests import NeoTestBase
 from neo.client.app import Application
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
+from neo.client.exception import NEOStorageDoesNotExistError
 from neo.protocol import Packet, Packets, Errors, INVALID_TID, INVALID_SERIAL
 from neo.util import makeChecksum
 
@@ -317,9 +318,9 @@ class ClientApplicationTests(NeoTestBase):
         oid = self.makeOID()
         tid1 = self.makeTID(1)
         tid2 = self.makeTID(2)
-        # object not found in NEO -> NEOStorageNotFoundError
+        # object not found in NEO -> NEOStorageDoesNotExistError
         self.assertTrue(oid not in mq)
-        packet = Errors.OidNotFound('')
+        packet = Errors.OidDoesNotExist('')
         packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
         conn = Mock({
@@ -328,7 +329,7 @@ class ClientApplicationTests(NeoTestBase):
         })
         app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
-        self.assertRaises(NEOStorageNotFoundError, app.loadBefore, oid, tid2)
+        self.assertRaises(NEOStorageDoesNotExistError, app.loadBefore, oid, tid2)
         self.checkAskObject(conn)
         # no visible version -> NEOStorageNotFoundError
         an_object = (1, oid, INVALID_SERIAL, None, 0, 0, '', None)

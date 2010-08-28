@@ -255,35 +255,45 @@ class StorageMySQSLdbTests(NeoTestBase):
     def test_getObject(self):
         oid1, = self.getOIDs(1)
         tid1, tid2 = self.getTIDs(2)
+        FOUND_BUT_NOT_VISIBLE = False
+        OBJECT_T1_NO_NEXT = (tid1, None, 1, 0, '', None)
+        OBJECT_T1_NEXT = (tid1, tid2, 1, 0, '', None)
+        OBJECT_T2 = (tid2, None, 1, 0, '', None)
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid1])
         # non-present
+        self.assertEqual(self.db.getObject(oid1), None)
         self.assertEqual(self.db.getObject(oid1, tid1), None)
         self.assertEqual(self.db.getObject(oid1, before_tid=tid1), None)
         # one non-commited version
         self.db.storeTransaction(tid1, objs1, txn1)
+        self.assertEqual(self.db.getObject(oid1), None)
         self.assertEqual(self.db.getObject(oid1, tid1), None)
+        self.assertEqual(self.db.getObject(oid1, before_tid=tid1), None)
         # one commited version
         self.db.finishTransaction(tid1)
-        result = self.db.getObject(oid1, tid1)
-        self.assertEqual(result, (tid1, None, 1, 0, '', None))
-        self.assertEqual(self.db.getObject(oid1, before_tid=tid1), None)
+        self.assertEqual(self.db.getObject(oid1), OBJECT_T1_NO_NEXT)
+        self.assertEqual(self.db.getObject(oid1, tid1), OBJECT_T1_NO_NEXT)
+        self.assertEqual(self.db.getObject(oid1, before_tid=tid1),
+            FOUND_BUT_NOT_VISIBLE)
         # two version available, one non-commited
         self.db.storeTransaction(tid2, objs2, txn2)
-        result = self.db.getObject(oid1, tid1)
-        self.assertEqual(result, (tid1, None, 1, 0, '', None))
-        self.assertEqual(self.db.getObject(oid1, before_tid=tid1), None)
+        self.assertEqual(self.db.getObject(oid1), OBJECT_T1_NO_NEXT)
+        self.assertEqual(self.db.getObject(oid1, tid1), OBJECT_T1_NO_NEXT)
+        self.assertEqual(self.db.getObject(oid1, before_tid=tid1),
+            FOUND_BUT_NOT_VISIBLE)
+        self.assertEqual(self.db.getObject(oid1, tid2), FOUND_BUT_NOT_VISIBLE)
+        self.assertEqual(self.db.getObject(oid1, before_tid=tid2),
+            OBJECT_T1_NO_NEXT)
         # two commited versions
         self.db.finishTransaction(tid2)
-        result = self.db.getObject(oid1, tid1)
-        self.assertEqual(result, (tid1, None, 1, 0, '', None))
-        result = self.db.getObject(oid1, tid2)
-        self.assertEqual(result, (tid2, None, 1, 0, '', None))
-        result = self.db.getObject(oid1, before_tid=tid2)
-        self.assertEqual(result, (tid1, tid2, 1, 0, '', None))
-        # no tid specified, return the last version
-        result = self.db.getObject(oid1)
-        self.assertEqual(result, (tid2, None, 1, 0, '', None))
+        self.assertEqual(self.db.getObject(oid1), OBJECT_T2)
+        self.assertEqual(self.db.getObject(oid1, tid1), OBJECT_T1_NO_NEXT)
+        self.assertEqual(self.db.getObject(oid1, before_tid=tid1),
+            FOUND_BUT_NOT_VISIBLE)
+        self.assertEqual(self.db.getObject(oid1, tid2), OBJECT_T2)
+        self.assertEqual(self.db.getObject(oid1, before_tid=tid2),
+            OBJECT_T1_NEXT)
 
     def test_setPartitionTable(self):
         ptid = self.getPTID(1)
