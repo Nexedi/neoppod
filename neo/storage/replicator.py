@@ -232,6 +232,9 @@ class Replicator(object):
         except KeyError:
             pass
         self.current_partition = None
+        if not self.pending():
+            self.current_connection.close()
+            self.current_connection = None
 
     def act(self):
         # If the new partition list is not empty, I must ask a critical
