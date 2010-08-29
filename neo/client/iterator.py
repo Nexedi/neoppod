@@ -58,12 +58,13 @@ class Transaction(BaseStorage.TransactionRecord):
     def next(self):
         """ Iterate over the transaction records """
         app = self.app
-        if not self.oid_list:
+        oid_list = self.oid_list
+        oid_index = self.oid_index
+        if self.oid_index >= len(oid_list):
             # no more records for this transaction
             self.oid_index = 0
             raise StopIteration
-        oid_index = self.oid_index
-        oid = self.oid_list[oid_index]
+        oid = oid_list[oid_index]
         self.oid_index = oid_index + 1
         # load an object
         data, _, next_tid = app._load(oid, serial=self.tid)
