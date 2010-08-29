@@ -48,6 +48,7 @@ class Transaction(BaseStorage.TransactionRecord):
         self.description = desc
         self._extension = ext
         self.oid_list = oid_list
+        self.oid_index = 0
         self.history = []
         self.prev_serial_dict = prev_serial_dict
 
@@ -59,8 +60,11 @@ class Transaction(BaseStorage.TransactionRecord):
         app = self.app
         if not self.oid_list:
             # no more records for this transaction
+            self.oid_index = 0
             raise StopIteration
-        oid = self.oid_list.pop()
+        oid_index = self.oid_index
+        oid = self.oid_list[oid_index]
+        self.oid_index = oid_index + 1
         # load an object
         data, _, next_tid = app._load(oid, serial=self.tid)
         record = Record(oid, self.tid, '', data,
