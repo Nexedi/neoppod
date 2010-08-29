@@ -35,7 +35,8 @@ class Transaction(object):
         self._oid_list = oid_list
         self._msg_id = msg_id
         # uuid dict hold flag to known who has locked the transaction
-        self._uuid_dict = dict.fromkeys(uuid_list, False)
+        self._uuid_list = list(uuid_list)
+        self._lock_wait_uuid_set = set(uuid_list)
         self._birth = time()
 
     def __repr__(self):
@@ -44,7 +45,7 @@ class Transaction(object):
                 self._node,
                 dump(self._tid),
                 [dump(x) for x in self._oid_list],
-                [dump(x) for x in self._uuid_dict],
+                [dump(x) for x in self._uuid_list],
                 time() - self._birth,
                 id(self),
         )
@@ -71,7 +72,7 @@ class Transaction(object):
         """
             Returns the list of node's UUID that lock the transaction
         """
-        return self._uuid_dict.keys()
+        return self._uuid_list
 
     def getOIDList(self):
         """
@@ -89,7 +90,7 @@ class Transaction(object):
         # XXX: We might loose information that a storage successfully locked
         # data but was later found to be disconnected. This loss has no impact
         # on current code, but it might be disturbing to reader or future code.
-        self._uuid_dict.pop(uuid, None)
+        self._lock_wait_uuid_set.discard(uuid)
         return self.locked()
 
     def lock(self, uuid):
@@ -97,16 +98,14 @@ class Transaction(object):
             Define that a node has locked the transaction
             Returns true if all nodes are locked
         """
-        # XXX: Should first check that node is part of transaction, and fail if
-        # it's not.
-        self._uuid_dict[uuid] = True
+        self._lock_wait_uuid_set.remove(uuid)
         return self.locked()
 
     def locked(self):
         """
             Returns true if all nodes are locked
         """
-        return False not in self._uuid_dict.values()
+        return not self._lock_wait_uuid_set
 
 
 class TransactionManager(object):
