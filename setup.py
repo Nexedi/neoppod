@@ -25,6 +25,11 @@ setup(name='neo',
             'neostorage=neo.scripts.neostorage:main',
         ],
     },
+    package_data = {
+        'neo': [
+            'component.xml',
+        ],
+    },
     zip_safe=False,
 )
 
