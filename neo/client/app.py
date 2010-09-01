@@ -898,9 +898,6 @@ class Application(object):
         else:
             raise NEOStorageError('undo failed')
 
-        if self.local_var.txn_info['packed']:
-            UndoError('non-undoable transaction')
-
         tid = self.local_var.tid
 
         undo_conflict_oid_list = self.local_var.undo_conflict_oid_list = []
