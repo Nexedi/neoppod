@@ -864,6 +864,7 @@ class Application(object):
             dump(undone_tid), )
         shuffle(cell_list)
         cell_list.sort(key=self.cp.getCellSortKey)
+        packet = Packets.AskTransactionInformation(undone_tid)
         for cell in cell_list:
             conn = self.cp.getConnForCell(cell)
             if conn is None:
@@ -872,8 +873,7 @@ class Application(object):
             self.local_var.txn_info = 0
             self.local_var.txn_ext = 0
             try:
-                self._askStorage(conn, Packets.AskTransactionInformation(
-                    undone_tid))
+                self._askStorage(conn, packet)
             except ConnectionClosed:
                 continue
             except NEOStorageNotFoundError:
