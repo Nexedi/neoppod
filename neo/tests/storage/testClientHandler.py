@@ -219,7 +219,11 @@ class StorageClientHandlerTests(NeoTestBase):
                 data, tid)
         self._checkStoreObjectCalled(tid, serial, oid, comp,
                 checksum, data, None)
-        self.checkAnswerStoreObject(conn)
+        pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
+            decode=True)
+        self.assertEqual(pconflicting, 0)
+        self.assertEqual(poid, oid)
+        self.assertEqual(pserial, serial)
 
     def test_askStoreObject2(self):
         # conflict error
@@ -229,11 +233,15 @@ class StorageClientHandlerTests(NeoTestBase):
         locking_tid = self.getNextTID(tid)
         def fakeStoreObject(*args):
             raise ConflictError(locking_tid)
-        self.app.tm.storeObject = lambda *kw: fakeStoreObject
+        self.app.tm.storeObject = fakeStoreObject
         oid, serial, comp, checksum, data = self._getObject()
         self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
                 data, tid)
-        self.checkAnswerStoreObject(conn)
+        pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
+            decode=True)
+        self.assertEqual(pconflicting, 1)
+        self.assertEqual(poid, oid)
+        self.assertEqual(pserial, locking_tid)
 
     def test_abortTransaction(self):
         conn = self._getConnection()
