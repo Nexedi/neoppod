@@ -76,7 +76,6 @@ How to use
           <NEOStorage>
                 master_nodes 127.0.0.1:10000
                 name main
-                connector SocketConnector
           </NEOStorage>
           mount-point /
       </zodb_db>

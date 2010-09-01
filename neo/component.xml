@@ -14,7 +14,7 @@
        Give the name of the cluster
       </description>
      </key>
-     <key name="connector" required="yes">
+     <key name="connector" required="no">
       <description>
        Give the name of the connector used at low-level
       </description>
