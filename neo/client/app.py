@@ -855,6 +855,15 @@ class Application(object):
             self._load_lock_release()
 
     def undo(self, undone_tid, txn, tryToResolveConflict):
+        # FIXME: undo must be refactored to work with replication:
+        # - load oid list from a readable storage
+        #   (excludes replicating nodes)
+        # - get each object's data backpointer from readable storage nodes
+        #   (excludes replicating nodes)
+        # - optionally, resolve conflicts
+        # - store object's backpointers in all writable storage nodes, or
+        #   store conflict resolution data
+        #   (includes replicating nodes)
         if txn is not self.local_var.txn:
             raise StorageTransactionError(self, undone_tid)
 
