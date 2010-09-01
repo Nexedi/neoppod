@@ -594,32 +594,37 @@ class Application(object):
             raise StorageTransactionError(self, transaction)
         logging.debug('storing oid %s serial %s',
                      dump(oid), dump(serial))
+        self._store(oid, serial, data)
+        return None
+
+    def _store(self, oid, serial, data, data_serial=None):
         # Find which storage node to use
         cell_list = self._getCellListForOID(oid, writable=True)
         if len(cell_list) == 0:
             raise NEOStorageError
-        if data is None:
+        if data is None or data_serial is not None:
+            assert data is None or data_serial is None, data_serial
             # this is a George Bailey object, stored as an empty string
-            data = ''
-        if self.compress:
-            compressed_data = compress(data)
-            if len(compressed_data) > len(data):
-                compressed_data = data
-                compression = 0
-            else:
-                compression = 1
-        else:
-            compressed_data = data
+            compressed_data = ''
             compression = 0
+        else:
+            assert data_serial is None
+            if self.compress:
+                compressed_data = compress(data)
+                if len(compressed_data) > len(data):
+                    compressed_data = data
+                    compression = 0
+                else:
+                    compression = 1
         checksum = makeChecksum(compressed_data)
         p = Packets.AskStoreObject(oid, serial, compression,
-                 checksum, compressed_data, self.local_var.tid)
+                 checksum, compressed_data, data_serial, self.local_var.tid)
         on_timeout = OnTimeout(self.onStoreTimeout, self.local_var.tid, oid)
         # Store object in tmp cache
         self.local_var.data_dict[oid] = data
         # Store data on each node
         self.local_var.object_stored_counter_dict[oid] = {}
-        self.local_var.object_serial_dict[oid] = (serial, version)
+        self.local_var.object_serial_dict[oid] = serial
         getConnForCell = self.cp.getConnForCell
         queue = self.local_var.queue
         add_involved_nodes = self.local_var.involved_nodes.add
@@ -634,7 +639,6 @@ class Application(object):
                 continue
 
         self._waitAnyMessage(False)
-        return None
 
     def onStoreTimeout(self, conn, msg_id, tid, oid):
         # NOTE: this method is called from poll thread, don't use
@@ -664,7 +668,7 @@ class Application(object):
                 # A later serial has already been resolved, skip.
                 resolved_serial_set.update(conflict_serial_dict.pop(oid))
                 continue
-            serial, version = object_serial_dict[oid]
+            serial = object_serial_dict[oid]
             data = data_dict[oid]
             tid = local_var.tid
             resolved = False
@@ -677,8 +681,7 @@ class Application(object):
                     # Mark this conflict as resolved
                     resolved_serial_set.update(conflict_serial_dict.pop(oid))
                     # Try to store again
-                    self.store(oid, conflict_serial, new_data, version,
-                        local_var.txn)
+                    self._store(oid, conflict_serial, new_data)
                     append(oid)
                     resolved = True
                 else:
@@ -939,7 +942,7 @@ class Application(object):
                 raise UndoError('Some data were modified by a later ' \
                     'transaction', oid)
             else:
-                self.store(oid, data_tid, new_data, '', self.local_var.txn)
+                self._store(oid, data_tid, new_data)
 
         oid_list = self.local_var.txn_info['oids']
         # Consistency checking: all oids of the transaction must have been

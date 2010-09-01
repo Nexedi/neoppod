@@ -883,22 +883,26 @@ class AskStoreObject(Packet):
     Ask to store an object. Send an OID, an original serial, a current
     transaction ID, and data. C -> S.
     """
-    _header_format = '!8s8s8sBL'
+    _header_format = '!8s8s8sBL8s'
 
     @profiler_decorator
-    def _encode(self, oid, serial, compression, checksum, data, tid):
+    def _encode(self, oid, serial, compression, checksum, data, data_serial,
+            tid):
         if serial is None:
             serial = INVALID_TID
+        if data_serial is None:
+            data_serial = INVALID_TID
         return pack(self._header_format, oid, serial, tid, compression,
-                          checksum) + _encodeString(data)
+                          checksum, data_serial) + _encodeString(data)
 
     def _decode(self, body):
         header_len = self._header_len
         r = unpack(self._header_format, body[:header_len])
-        oid, serial, tid, compression, checksum = r
+        oid, serial, tid, compression, checksum, data_serial = r
         serial = _decodeTID(serial)
+        data_serial = _decodeTID(data_serial)
         (data, _) = _decodeString(body, 'data', offset=header_len)
-        return (oid, serial, compression, checksum, data, tid)
+        return (oid, serial, compression, checksum, data, data_serial, tid)
 
 class AnswerStoreObject(Packet):
     """

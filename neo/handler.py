@@ -227,7 +227,7 @@ class EventHandler(object):
         raise UnexpectedPacketError
 
     def askStoreObject(self, conn, oid, serial,
-                             compression, checksum, data, tid):
+                             compression, checksum, data, data_serial, tid):
         raise UnexpectedPacketError
 
     def answerStoreObject(self, conn, conflicting, oid, serial):

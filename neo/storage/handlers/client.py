@@ -47,7 +47,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         conn.answer(Packets.AnswerStoreTransaction(tid))
 
     def _askStoreObject(self, conn, oid, serial, compression, checksum, data,
-            tid, request_time):
+            data_serial, tid, request_time):
         if tid not in self.app.tm:
             # transaction was aborted, cancel this event
             logging.info('Forget store of %s:%s by %s delayed by %s',
@@ -58,7 +58,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             return
         try:
             self.app.tm.storeObject(tid, serial, oid, compression,
-                    checksum, data, None)
+                    checksum, data, data_serial)
         except ConflictError, err:
             # resolvable or not
             tid_or_serial = err.getTID()
@@ -75,11 +75,11 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
 
     def askStoreObject(self, conn, oid, serial,
-                             compression, checksum, data, tid):
+                             compression, checksum, data, data_serial, tid):
         # register the transaction
         self.app.tm.register(conn.getUUID(), tid)
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
-            tid, time.time())
+            data_serial, tid, time.time())
 
     def askTIDs(self, conn, first, last, partition):
         # This method is complicated, because I must return TIDs only

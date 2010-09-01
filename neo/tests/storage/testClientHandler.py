@@ -215,10 +215,11 @@ class StorageClientHandlerTests(NeoTestBase):
         conn = self._getConnection(uuid=uuid)
         tid = self.getNextTID()
         oid, serial, comp, checksum, data = self._getObject()
+        data_tid = self.getNextTID()
         self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
-                data, tid)
+                data, data_tid, tid)
         self._checkStoreObjectCalled(tid, serial, oid, comp,
-                checksum, data, None)
+                checksum, data, data_tid)
         pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
             decode=True)
         self.assertEqual(pconflicting, 0)
@@ -235,8 +236,9 @@ class StorageClientHandlerTests(NeoTestBase):
             raise ConflictError(locking_tid)
         self.app.tm.storeObject = fakeStoreObject
         oid, serial, comp, checksum, data = self._getObject()
+        data_tid = self.getNextTID()
         self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
-                data, tid)
+                data, data_tid, tid)
         pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
             decode=True)
         self.assertEqual(pconflicting, 1)
