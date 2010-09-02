@@ -33,3 +33,9 @@ class NEOStorageDoesNotExistError(NEOStorageNotFoundError):
     """
     pass
 
+class NEOStorageCreationUndoneError(NEOStorageDoesNotExistError):
+    """
+    This error is a refinement of NEOStorageDoesNotExistError: this means that
+    some object existed at some point, but its creation was undone.
+    """
+

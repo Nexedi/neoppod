@@ -17,7 +17,7 @@
 
 from ZODB import BaseStorage
 from neo import util
-
+from neo.client.exception import NEOStorageCreationUndoneError
 
 class Record(BaseStorage.DataRecord):
     """ TBaseStorageransaction record yielded by the Transaction object """
@@ -67,7 +67,10 @@ class Transaction(BaseStorage.TransactionRecord):
         oid = oid_list[oid_index]
         self.oid_index = oid_index + 1
         # load an object
-        data, _, next_tid = app._load(oid, serial=self.tid)
+        try:
+            data, _, next_tid = app._load(oid, serial=self.tid)
+        except NEOStorageCreationUndoneError:
+            data = next_tid = None
         record = Record(oid, self.tid, '', data,
             self.prev_serial_dict.get(oid))
         if next_tid is None:

@@ -36,7 +36,7 @@ from neo.locking import Lock
 from neo.connection import MTClientConnection, OnTimeout
 from neo.node import NodeManager
 from neo.connector import getConnectorHandler
-from neo.client.exception import NEOStorageError
+from neo.client.exception import NEOStorageError, NEOStorageCreationUndoneError
 from neo.client.exception import NEOStorageNotFoundError, ConnectionClosed
 from neo.exception import NeoException
 from neo.client.handlers import storage, master
@@ -466,6 +466,8 @@ class Application(object):
                 object exists but no data satisfies given parameters
             NEOStorageDoesNotExistError
                 object doesn't exist
+            NEOStorageCreationUndoneError
+                object existed, but its creation was undone
         """
         # TODO:
         # - rename parameters (here and in handlers & packet definitions)
@@ -530,7 +532,7 @@ class Application(object):
             finally:
                 self._cache_lock_release()
         if data == '':
-            data = None
+            raise NEOStorageCreationUndoneError(dump(oid))
         return data, start_serial, end_serial
 
 
