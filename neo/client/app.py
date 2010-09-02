@@ -819,11 +819,13 @@ class Application(object):
         self.local_var.clear()
 
     @profiler_decorator
-    def tpc_finish(self, transaction, f=None):
+    def tpc_finish(self, transaction, tryToResolveConflict, f=None):
         """Finish current transaction."""
         if self.local_var.txn is not transaction:
             raise StorageTransactionError('tpc_finish called for wrong '
                 'transaction')
+        if not self.local_var.txn_voted:
+            self.tpc_vote(transaction, tryToResolveConflict)
         self._load_lock_acquire()
         try:
             tid = self.local_var.tid
@@ -1130,7 +1132,7 @@ class Application(object):
                 updateLastSerial(r.oid, result)
             updateLastSerial(None, self.tpc_vote(transaction,
                         tryToResolveConflict))
-            self.tpc_finish(transaction)
+            self.tpc_finish(transaction, tryToResolveConflict)
         transaction_iter.close()
 
     def iterator(self, start=None, stop=None):

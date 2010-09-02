@@ -66,7 +66,8 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.tpc_abort(transaction=transaction)
 
     def tpc_finish(self, transaction, f=None):
-        return self.app.tpc_finish(transaction=transaction, f=f)
+        return self.app.tpc_finish(transaction=transaction,
+            tryToResolveConflict=self.tryToResolveConflict, f=f)
 
     @check_read_only
     def store(self, oid, serial, data, version, transaction):

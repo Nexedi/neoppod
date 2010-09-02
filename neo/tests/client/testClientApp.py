@@ -149,7 +149,8 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': ('127.0.0.1', 10010),
             'fakeReceived': packet,
         })
-        app.tpc_finish(txn)
+        app.local_var.txn_voted = True
+        app.tpc_finish(txn, None)
 
     # common checks
 
@@ -678,7 +679,7 @@ class ClientApplicationTests(NeoTestBase):
         cell = Mock()
         app.pt = Mock({'getCellListForTID': (cell, cell)})
         app.cp = Mock({'getConnForCell': ReturnValues(None, cell)})
-        self.assertRaises(StorageTransactionError, app.tpc_finish, txn)
+        self.assertRaises(StorageTransactionError, app.tpc_finish, txn, None)
         # no packet sent
         self.checkNoPacketSent(conn)
         self.checkNoPacketSent(app.master_conn)
@@ -703,13 +704,32 @@ class ClientApplicationTests(NeoTestBase):
             'getAddress': ('127.0.0.1', 10000),
             'fakeReceived': packet,
         })
+        self.vote_params = None
+        tpc_vote = app.tpc_vote
+        def voteDetector(transaction, tryToResolveConflict):
+            self.vote_params = (transaction, tryToResolveConflict)
+        dummy_tryToResolveConflict = []
+        app.tpc_vote = voteDetector
         app.dispatcher = Mock({})
+        app.local_var.txn_voted = True
         app.local_var.txn_finished = False
-        self.assertRaises(NEOStorageError, app.tpc_finish, txn, hook)
+        self.assertRaises(NEOStorageError, app.tpc_finish, txn,
+            dummy_tryToResolveConflict, hook)
         self.assertTrue(self.f_called)
         self.assertEquals(self.f_called_with_tid, tid)
+        self.assertEqual(self.vote_params, None)
         self.checkAskFinishTransaction(app.master_conn)
         self.checkDispatcherRegisterCalled(app, app.master_conn)
+        # Call again, but this time transaction is not voted yet
+        app.local_var.txn_voted = False
+        app.local_var.txn_finished = False
+        self.f_called = False
+        self.assertRaises(NEOStorageError, app.tpc_finish, txn,
+            dummy_tryToResolveConflict, hook)
+        self.assertTrue(self.f_called)
+        self.assertTrue(self.vote_params[0] is txn)
+        self.assertTrue(self.vote_params[1] is dummy_tryToResolveConflict)
+        app.tpc_vote = tpc_vote
 
     def test_tpc_finish3(self):
         # transaction is finished
@@ -730,8 +750,9 @@ class ClientApplicationTests(NeoTestBase):
             'fakeReceived': packet,
         })
         app.dispatcher = Mock({})
+        app.local_var.txn_voted = True
         app.local_var.txn_finished = True
-        app.tpc_finish(txn, hook)
+        app.tpc_finish(txn, None, hook)
         self.assertTrue(self.f_called)
         self.assertEquals(self.f_called_with_tid, tid)
         self.checkAskFinishTransaction(app.master_conn)
