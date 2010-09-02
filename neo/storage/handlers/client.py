@@ -18,7 +18,7 @@
 from neo import logging
 from neo import protocol
 from neo.util import dump
-from neo.protocol import Packets, LockState
+from neo.protocol import Packets, LockState, Errors
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
 from neo.storage.transactions import ConflictError, DelayedError
 import time
@@ -78,6 +78,11 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                              compression, checksum, data, data_serial, tid):
         # register the transaction
         self.app.tm.register(conn.getUUID(), tid)
+        if data_serial is not None:
+            assert data == '', repr(data)
+            # Change data to None here, to do it only once, even if store gets
+            # delayed.
+            data = None
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
             data_serial, tid, time.time())
 
@@ -97,41 +102,21 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                              app.pt.getPartitions(), partition_list)
         conn.answer(Packets.AnswerTIDs(tid_list))
 
-    def askUndoTransaction(self, conn, tid, undone_tid):
+    def askObjectUndoSerial(self, conn, tid, undone_tid, oid_list):
         app = self.app
-        tm = app.tm
-        storeObject = tm.storeObject
-        uuid = conn.getUUID()
-        oid_list = []
-        error_oid_list = []
-        conflict_oid_list = []
-
-        undo_tid_dict = app.dm.getTransactionUndoData(tid, undone_tid,
-            tm.getObjectFromTransaction)
-        for oid, (current_serial, undone_value_serial) in \
-                undo_tid_dict.iteritems():
-            if undone_value_serial == -1:
-                # Some data were modified by a later transaction
-                # This must be propagated to client, who will
-                # attempt a conflict resolution, and store resolved
-                # data.
-                to_append_list = error_oid_list
-            else:
-                try:
-                    self.app.tm.register(uuid, tid)
-                    storeObject(tid, current_serial, oid, None,
-                        None, None, undone_value_serial)
-                except ConflictError:
-                    to_append_list = conflict_oid_list
-                except DelayedError:
-                    app.queueEvent(self.askUndoTransaction, conn, tid,
-                        undone_tid)
-                    return
-                else:
-                    to_append_list = oid_list
-            to_append_list.append(oid)
-        conn.answer(Packets.AnswerUndoTransaction(oid_list, error_oid_list,
-            conflict_oid_list))
+        findUndoTID = app.dm.findUndoTID
+        getObjectFromTransaction = app.tm.getObjectFromTransaction
+        object_tid_dict = {}
+        for oid in oid_list:
+            current_serial, undo_serial, is_current = findUndoTID(oid, tid,
+                undone_tid, getObjectFromTransaction(tid, oid))
+            if current_serial is None:
+                p = Errors.OidNotFound(dump(oid))
+                break
+            object_tid_dict[oid] = (current_serial, undo_serial, is_current)
+        else:
+            p = Packets.AnswerObjectUndoSerial(object_tid_dict)
+        conn.answer(p)
 
     def askHasLock(self, conn, tid, oid):
         locking_tid = self.app.tm.getLockingTID(oid)

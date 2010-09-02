@@ -127,14 +127,8 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerTIDs(self, conn, tid_list):
         self.app.local_var.node_tids[conn.getUUID()] = tid_list
 
-    def answerUndoTransaction(self, conn, oid_list, error_oid_list,
-            conflict_oid_list):
-        local_var = self.app.local_var
-        local_var.undo_conflict_oid_list.extend(conflict_oid_list)
-        local_var.undo_error_oid_list.extend(error_oid_list)
-        data_dict = local_var.data_dict
-        for oid in oid_list:
-            data_dict[oid] = ''
+    def answerObjectUndoSerial(self, conn, object_tid_dict):
+        self.app.local_var.undo_object_tid_dict.update(object_tid_dict)
 
     def answerHasLock(self, conn, oid, status):
         if status == LockState.GRANTED_TO_OTHER:

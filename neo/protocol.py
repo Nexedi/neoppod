@@ -1528,55 +1528,76 @@ class NotifyLastOID(Packet):
         (loid, ) = unpack('8s', body)
         return (loid, )
 
-class AskUndoTransaction(Packet):
+class AskObjectUndoSerial(Packet):
     """
-    Ask storage to undo given transaction
+    Ask storage the serial where object data is when undoing given transaction,
+    for a list of OIDs.
     C -> S
     """
-    def _encode(self, tid, undone_tid):
-        return _encodeTID(tid) + _encodeTID(undone_tid)
+    _header_format = '!8s8sL'
 
-    def _decode(self, body):
-        tid = _decodeTID(body[:8])
-        undone_tid = _decodeTID(body[8:])
-        return (tid, undone_tid)
-
-class AnswerUndoTransaction(Packet):
-    """
-    Answer an undo request, telling if undo could be done, with an oid list.
-    If undo failed, the list contains oid(s) causing problems.
-    If undo succeeded; the list contains all undone oids for given storage.
-    S -> C
-    """
-    _header_format = '!LLL'
-
-    def _encode(self, oid_list, error_oid_list, conflict_oid_list):
+    def _encode(self, tid, undone_tid, oid_list):
         body = StringIO()
         write = body.write
-        oid_list_list = [oid_list, error_oid_list, conflict_oid_list]
-        write(pack(self._header_format, *[len(x) for x in oid_list_list]))
-        for oid_list in oid_list_list:
-            for oid in oid_list:
-                write(oid)
+        write(pack(self._header_format, tid, undone_tid, len(oid_list)))
+        for oid in oid_list:
+            write(oid)
         return body.getvalue()
 
     def _decode(self, body):
         body = StringIO(body)
         read = body.read
-        oid_list_len, error_oid_list_len, conflict_oid_list_len = unpack(
-            self._header_format, read(self._header_len))
-        oid_list = []
-        error_oid_list = []
-        conflict_oid_list = []
-        for some_list, some_list_len in (
-                    (oid_list, oid_list_len),
-                    (error_oid_list, error_oid_list_len),
-                    (conflict_oid_list, conflict_oid_list_len),
-                ):
-            append = some_list.append
-            for _ in xrange(some_list_len):
-                append(read(OID_LEN))
-        return (oid_list, error_oid_list, conflict_oid_list)
+        tid, undone_tid, oid_list_len = unpack(self._header_format,
+            read(self._header_len))
+        oid_list = [read(8) for _ in xrange(oid_list_len)]
+        return tid, undone_tid, oid_list
+
+class AnswerObjectUndoSerial(Packet):
+    """
+    Answer serials at which object data is when undoing a given transaction.
+    object_tid_dict has the following format:
+        key: oid
+        value: 3-tuple
+            current_serial (TID)
+                The latest serial visible to the undoing transaction.
+            undo_serial (TID)
+                Where undone data is (tid at which data is before given undo).
+            is_current (bool)
+                If current_serial's data is current on storage.
+    S -> C
+    """
+    _header_format = '!L'
+    _list_entry_format = '!8s8s8sB'
+    _list_entry_len = calcsize(_list_entry_format)
+
+    def _encode(self, object_tid_dict):
+        body = StringIO()
+        write = body.write
+        write(pack(self._header_format, len(object_tid_dict)))
+        list_entry_format = self._list_entry_format
+        for oid, (current_serial, undo_serial, is_current) in \
+                object_tid_dict.iteritems():
+            if undo_serial is None:
+                undo_serial = ZERO_TID
+            write(pack(list_entry_format, oid, current_serial, undo_serial,
+                is_current))
+        return body.getvalue()
+
+    def _decode(self, body):
+        body = StringIO(body)
+        read = body.read
+        object_tid_dict = {}
+        list_entry_format = self._list_entry_format
+        list_entry_len = self._list_entry_len
+        object_tid_len = unpack(self._header_format, read(self._header_len))[0]
+        for _ in xrange(object_tid_len):
+            oid, current_serial, undo_serial, is_current = unpack(
+                list_entry_format, read(list_entry_len))
+            if undo_serial == ZERO_TID:
+                undo_serial = None
+            object_tid_dict[oid] = (current_serial, undo_serial,
+                bool(is_current))
+        return (object_tid_dict, )
 
 class AskHasLock(Packet):
     """
@@ -1821,10 +1842,10 @@ class PacketRegistry(dict):
             AnswerClusterState)
     NotifyLastOID = register(0x0030, NotifyLastOID)
     NotifyReplicationDone = register(0x0031, NotifyReplicationDone)
-    AskUndoTransaction, AnswerUndoTransaction = register(
+    AskObjectUndoSerial, AnswerObjectUndoSerial = register(
             0x0033,
-            AskUndoTransaction,
-            AnswerUndoTransaction)
+            AskObjectUndoSerial,
+            AnswerObjectUndoSerial)
     AskHasLock, AnswerHasLock = register(
             0x0034,
             AskHasLock,

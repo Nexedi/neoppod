@@ -335,10 +335,10 @@ class EventHandler(object):
     def notifyReplicationDone(self, conn, offset):
         raise UnexpectedPacketError
 
-    def askUndoTransaction(self, conn, tid, undone_tid):
+    def askObjectUndoSerial(self, conn, tid, undone_tid, oid_list):
         raise UnexpectedPacketError
 
-    def answerUndoTransaction(self, conn, oid_list, error_oid_list, conflict_oid_list):
+    def answerObjectUndoSerial(self, conn, object_tid_dict):
         raise UnexpectedPacketError
 
     def askHasLock(self, conn, tid, oid):
@@ -456,8 +456,8 @@ class EventHandler(object):
         d[Packets.NotifyClusterInformation] = self.notifyClusterInformation
         d[Packets.NotifyLastOID] = self.notifyLastOID
         d[Packets.NotifyReplicationDone] = self.notifyReplicationDone
-        d[Packets.AskUndoTransaction] = self.askUndoTransaction
-        d[Packets.AnswerUndoTransaction] = self.answerUndoTransaction
+        d[Packets.AskObjectUndoSerial] = self.askObjectUndoSerial
+        d[Packets.AnswerObjectUndoSerial] = self.answerObjectUndoSerial
         d[Packets.AskHasLock] = self.askHasLock
         d[Packets.AnswerHasLock] = self.answerHasLock
 

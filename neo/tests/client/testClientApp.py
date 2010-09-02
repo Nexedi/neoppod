@@ -785,59 +785,8 @@ class ClientApplicationTests(NeoTestBase):
         self.assertEquals(marker, [])
         self.assertEquals(app.local_var.txn, old_txn)
 
-    def test_undo2(self):
-        # Three tests here :
-        # undo txn2 where obj2 was modified in tid3 -> fail
-        # undo txn3 where obj2 was altered from tid2 -> ok
-        # txn4 is the transaction where the undo occurs
+    def _getAppForUndoTests(self, oid0, tid0, tid1, tid2):
         app = self.getApp()
-        app.num_partitions = 2
-        oid1, oid2 = self.makeOID(1), self.makeOID(2)
-        oid3 = self.makeOID(3)
-        tid1, tid2 = self.makeTID(1), self.makeTID(2)
-        tid3, tid4 = self.makeTID(3), self.makeTID(4)
-        # commit version 1 of object 2
-        txn2 = self.beginTransaction(app, tid=tid2)
-        self.storeObject(app, oid=oid2, data='O1V2')
-        self.voteTransaction(app)
-        self.askFinishTransaction(app)
-        # commit version 2 of object 2
-        txn3 = self.beginTransaction(app, tid=tid3)
-        self.storeObject(app, oid=oid2, data='O2V2')
-        self.voteTransaction(app)
-        self.askFinishTransaction(app)
-        # undo 1 -> undoing non-last TID, and conflict resolution succeeded
-        u1p1 = Packets.AnswerTransactionInformation(tid1, '', '', '',
-                False, (oid2, ))
-        u1p2 = Packets.AnswerUndoTransaction([], [oid2], [])
-        # undo 2 -> undoing non-last TID, and conflict resolution failed
-        u2p1 = Packets.AnswerTransactionInformation(tid2, '', '', '',
-                False, (oid2, ))
-        u2p2 = Packets.AnswerUndoTransaction([], [oid2], [])
-        # undo 3 -> "live" conflict (another transaction modifying the object
-        # we want to undo)
-        u3p1 = Packets.AnswerTransactionInformation(tid3, '', '', '',
-                False, (oid3, ))
-        u3p2 = Packets.AnswerUndoTransaction([], [], [oid3])
-        # undo 4 -> undoing last tid
-        u4p1 = Packets.AnswerTransactionInformation(tid3, '', '', '',
-                False, (oid1, ))
-        u4p2 = Packets.AnswerUndoTransaction([oid1], [], [])
-        # test logic
-        packets = (u1p1, u1p2, u2p1, u2p2, u3p1, u3p2, u4p1, u4p2)
-        for i, p in enumerate(packets):
-            p.setId(i)
-        storage_address = ('127.0.0.1', 10010)
-        conn = Mock({
-            'getNextId': 1,
-            'fakeReceived': ReturnValues(
-                u1p1,
-                u2p1,
-                u4p1,
-                u3p1,
-            ),
-            'getAddress': storage_address,
-        })
         cell = Mock({
             'getAddress': 'FakeServer',
             'getState': 'FakeState',
@@ -845,59 +794,161 @@ class ClientApplicationTests(NeoTestBase):
         app.pt = Mock({
             'getCellListForTID': [cell, ],
             'getCellListForOID': [cell, ],
+            'getCellList': [cell, ],
         })
+        transaction_info = Packets.AnswerTransactionInformation(tid1, '', '',
+            '', False, (oid0, ))
+        transaction_info.setId(1)
+        conn = Mock({
+            'getNextId': 1,
+            'fakeReceived': transaction_info,
+            'getAddress': ('127.0.0.1', 10010),
+        })
+        app.nm.createStorage(address=conn.getAddress())
         app.cp = Mock({'getConnForCell': conn, 'getConnForNode': conn})
-        def tryToResolveConflict(oid, conflict_serial, serial, data,
-                committedData=''):
-            marker.append(1)
-            return resolution_result
         class Dispatcher(object):
             def pending(self, queue): 
                 return not queue.empty()
         app.dispatcher = Dispatcher()
-        def _load(oid, tid=None, serial=None):
-            assert tid is not None
-            assert serial is None, serial
-            return ('dummy', oid, tid)
-        app._load = _load
-        app.nm.createStorage(address=storage_address)
-        # all start here
+        def loadSerial(oid, tid):
+            self.assertEqual(oid, oid0)
+            return {tid0: 'dummy', tid2: 'cdummy'}[tid]
+        app.loadSerial = loadSerial
+        store_marker = []
+        def _store(oid, serial, data, data_serial=None):
+            store_marker.append((oid, serial, data, data_serial))
+        app._store = _store
         app.local_var.clear()
-        txn4 = self.beginTransaction(app, tid=tid4)
-        marker = []
-        resolution_result = 'solved'
-        app.local_var.queue.put((conn, u1p2))
-        app.undo(tid1, txn4, tryToResolveConflict)
-        self.assertEquals(marker, [1])
+        return app, conn, store_marker
 
-        app.local_var.clear()
-        txn4 = self.beginTransaction(app, tid=tid4)
-        marker = []
-        resolution_result = None
-        app.local_var.queue.put((conn, u2p2))
-        self.assertRaises(UndoError, app.undo, tid2, txn4,
-            tryToResolveConflict)
-        self.assertEquals(marker, [1])
+    def test_undoWithResolutionSuccess(self):
+        """
+        Try undoing transaction tid1, which contains object oid.
+        Object oid previous revision before tid1 is tid0.
+        Transaction tid2 modified oid (and contains its data).
 
-        app.local_var.clear()
-        txn4 = self.beginTransaction(app, tid=tid4)
+        Undo is accepted, because conflict resolution succeeds.
+        """
+        oid0 = self.makeOID(1)
+        tid0 = self.getNextTID()
+        tid1 = self.getNextTID()
+        tid2 = self.getNextTID()
+        tid3 = self.getNextTID()
+        app, conn, store_marker = self._getAppForUndoTests(oid0, tid0, tid1,
+            tid2)
+        undo_serial = Packets.AnswerObjectUndoSerial({
+            oid0: (tid2, tid0, False)})
+        undo_serial.setId(2)
+        app.local_var.queue.put((conn, undo_serial))
         marker = []
-        resolution_result = None
-        app.local_var.queue.put((conn, u4p2))
-        self.assertEquals(app.undo(tid3, txn4, tryToResolveConflict),
-            (tid4, [oid1, ]))
-        self.assertEquals(marker, [])
+        def tryToResolveConflict(oid, conflict_serial, serial, data,
+                committedData=''):
+            marker.append((oid, conflict_serial, serial, data, committedData))
+            return 'solved'
+        # The undo
+        txn = self.beginTransaction(app, tid=tid3)
+        app.undo(tid1, txn, tryToResolveConflict)
+        # Checking what happened
+        moid, mconflict_serial, mserial, mdata, mcommittedData = marker[0]
+        self.assertEqual(moid, oid0)
+        self.assertEqual(mconflict_serial, tid2)
+        self.assertEqual(mserial, tid1)
+        self.assertEqual(mdata, 'dummy')
+        self.assertEqual(mcommittedData, 'cdummy')
+        moid, mserial, mdata, mdata_serial = store_marker[0]
+        self.assertEqual(moid, oid0)
+        self.assertEqual(mserial, tid2)
+        self.assertEqual(mdata, 'solved')
+        self.assertEqual(mdata_serial, None)
 
-        app.local_var.clear()
-        txn4 = self.beginTransaction(app, tid=tid4)
+    def test_undoWithResolutionFailure(self):
+        """
+        Try undoing transaction tid1, which contains object oid.
+        Object oid previous revision before tid1 is tid0.
+        Transaction tid2 modified oid (and contains its data).
+
+        Undo is rejeced with a raise, because conflict resolution fails.
+        """
+        oid0 = self.makeOID(1)
+        tid0 = self.getNextTID()
+        tid1 = self.getNextTID()
+        tid2 = self.getNextTID()
+        tid3 = self.getNextTID()
+        undo_serial = Packets.AnswerObjectUndoSerial({
+            oid0: (tid2, tid0, False)})
+        undo_serial.setId(2)
+        app, conn, store_marker = self._getAppForUndoTests(oid0, tid0, tid1,
+            tid2)
+        app.local_var.queue.put((conn, undo_serial))
         marker = []
-        resolution_result = None
-        app.local_var.queue.put((conn, u3p2))
-        self.assertRaises(ConflictError, app.undo, tid3, txn4,
-            tryToResolveConflict)
-        self.assertEquals(marker, [])
+        def tryToResolveConflict(oid, conflict_serial, serial, data,
+                committedData=''):
+            marker.append((oid, conflict_serial, serial, data, committedData))
+            return None
+        # The undo
+        txn = self.beginTransaction(app, tid=tid3)
+        self.assertRaises(UndoError, app.undo, tid1, txn, tryToResolveConflict)
+        # Checking what happened
+        moid, mconflict_serial, mserial, mdata, mcommittedData = marker[0]
+        self.assertEqual(moid, oid0)
+        self.assertEqual(mconflict_serial, tid2)
+        self.assertEqual(mserial, tid1)
+        self.assertEqual(mdata, 'dummy')
+        self.assertEqual(mcommittedData, 'cdummy')
+        self.assertEqual(len(store_marker), 0)
+        # Likewise, but conflict resolver raises a ConflictError.
+        # Still, exception raised by undo() must be UndoError.
+        marker = []
+        def tryToResolveConflict(oid, conflict_serial, serial, data,
+                committedData=''):
+            marker.append((oid, conflict_serial, serial, data, committedData))
+            raise ConflictError
+        # The undo
+        app.local_var.queue.put((conn, undo_serial))
+        self.assertRaises(UndoError, app.undo, tid1, txn, tryToResolveConflict)
+        # Checking what happened
+        moid, mconflict_serial, mserial, mdata, mcommittedData = marker[0]
+        self.assertEqual(moid, oid0)
+        self.assertEqual(mconflict_serial, tid2)
+        self.assertEqual(mserial, tid1)
+        self.assertEqual(mdata, 'dummy')
+        self.assertEqual(mcommittedData, 'cdummy')
+        self.assertEqual(len(store_marker), 0)
 
-        self.askFinishTransaction(app)
+    def test_undo(self):
+        """
+        Try undoing transaction tid1, which contains object oid.
+        Object oid previous revision before tid1 is tid0.
+
+        Undo is accepted, because tid1 is object's current revision.
+        """
+        oid0 = self.makeOID(1)
+        tid0 = self.getNextTID()
+        tid1 = self.getNextTID()
+        tid2 = self.getNextTID()
+        tid3 = self.getNextTID()
+        transaction_info = Packets.AnswerTransactionInformation(tid1, '', '',
+            '', False, (oid0, ))
+        transaction_info.setId(1)
+        undo_serial = Packets.AnswerObjectUndoSerial({
+            oid0: (tid1, tid0, True)})
+        undo_serial.setId(2)
+        app, conn, store_marker = self._getAppForUndoTests(oid0, tid0, tid1,
+            tid2)
+        app.local_var.queue.put((conn, undo_serial))
+        def tryToResolveConflict(oid, conflict_serial, serial, data,
+                committedData=''):
+            raise Exception, 'Test called conflict resolution, but there ' \
+                'is no conflict in this test !'
+        # The undo
+        txn = self.beginTransaction(app, tid=tid3)
+        app.undo(tid1, txn, tryToResolveConflict)
+        # Checking what happened
+        moid, mserial, mdata, mdata_serial = store_marker[0]
+        self.assertEqual(moid, oid0)
+        self.assertEqual(mserial, tid1)
+        self.assertEqual(mdata, None)
+        self.assertEqual(mdata_serial, tid0)
 
     def test_undoLog(self):
         app = self.getApp()

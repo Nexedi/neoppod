@@ -240,28 +240,25 @@ class StorageAnswerHandlerTests(NeoTestBase):
         self.assertTrue(uuid in self.app.local_var.node_tids)
         self.assertEqual(self.app.local_var.node_tids[uuid], tid_list)
 
-    def test_answerUndoTransaction(self):
-        local_var = self.app.local_var
-        undo_conflict_oid_list = local_var.undo_conflict_oid_list = []
-        undo_error_oid_list = local_var.undo_error_oid_list = []
-        data_dict = local_var.data_dict = {}
-        conn = None # Nothing is done on connection in this handler
-        
-        # Nothing undone, check nothing changed
-        self.handler.answerUndoTransaction(conn, [], [], [])
-        self.assertEqual(undo_conflict_oid_list, [])
-        self.assertEqual(undo_error_oid_list, [])
-        self.assertEqual(data_dict, {})
-
-        # One OID for each case, check they are inserted in expected local_var
-        # entries.
-        oid_1 = self.getOID(0)
-        oid_2 = self.getOID(1)
-        oid_3 = self.getOID(2)
-        self.handler.answerUndoTransaction(conn, [oid_1], [oid_2], [oid_3])
-        self.assertEqual(undo_conflict_oid_list, [oid_3])
-        self.assertEqual(undo_error_oid_list, [oid_2])
-        self.assertEqual(data_dict, {oid_1: ''})
+    def test_answerObjectUndoSerial(self):
+        uuid = self.getNewUUID()
+        conn = self.getFakeConnection(uuid=uuid)
+        oid1 = self.getOID(1)
+        oid2 = self.getOID(2)
+        tid0 = self.getNextTID()
+        tid1 = self.getNextTID()
+        tid2 = self.getNextTID()
+        tid3 = self.getNextTID()
+        self.app.local_var.undo_object_tid_dict = undo_dict = {
+            oid1: [tid0, tid1],
+        }
+        self.handler.answerObjectUndoSerial(conn, {
+            oid2: [tid2, tid3],
+        })
+        self.assertEqual(undo_dict, {
+            oid1: [tid0, tid1],
+            oid2: [tid2, tid3],
+        })
 
     def test_answerHasLock(self):
         uuid = self.getNewUUID()

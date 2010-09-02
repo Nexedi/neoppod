@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from mock import Mock
+from mock import Mock, ReturnValues
 from collections import deque
 from neo.tests import NeoTestBase
 from neo.storage.app import Application
@@ -215,11 +215,27 @@ class StorageClientHandlerTests(NeoTestBase):
         conn = self._getConnection(uuid=uuid)
         tid = self.getNextTID()
         oid, serial, comp, checksum, data = self._getObject()
+        self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
+                data, None, tid)
+        self._checkStoreObjectCalled(tid, serial, oid, comp,
+                checksum, data, None)
+        pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
+            decode=True)
+        self.assertEqual(pconflicting, 0)
+        self.assertEqual(poid, oid)
+        self.assertEqual(pserial, serial)
+
+    def test_askStoreObjectWithDataTID(self):
+        # same as test_askStoreObject1, but with a non-None data_tid value
+        uuid = self.getNewUUID()
+        conn = self._getConnection(uuid=uuid)
+        tid = self.getNextTID()
+        oid, serial, comp, checksum, data = self._getObject()
         data_tid = self.getNextTID()
         self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
-                data, data_tid, tid)
+                '', data_tid, tid)
         self._checkStoreObjectCalled(tid, serial, oid, comp,
-                checksum, data, data_tid)
+                checksum, None, data_tid)
         pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
             decode=True)
         self.assertEqual(pconflicting, 0)
@@ -236,9 +252,8 @@ class StorageClientHandlerTests(NeoTestBase):
             raise ConflictError(locking_tid)
         self.app.tm.storeObject = fakeStoreObject
         oid, serial, comp, checksum, data = self._getObject()
-        data_tid = self.getNextTID()
         self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
-                data, data_tid, tid)
+                data, None, tid)
         pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
             decode=True)
         self.assertEqual(pconflicting, 1)
@@ -253,44 +268,22 @@ class StorageClientHandlerTests(NeoTestBase):
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(tid)
 
-    def test_askUndoTransaction(self):
-        conn = self._getConnection()
+    def test_askObjectUndoSerial(self):
+        uuid = self.getNewUUID()
+        conn = self._getConnection(uuid=uuid)
         tid = self.getNextTID()
         undone_tid = self.getNextTID()
-        oid_1 = self.getNextTID()
-        oid_2 = self.getNextTID()
-        oid_3 = self.getNextTID()
-        oid_4 = self.getNextTID()
-        def getTransactionUndoData(tid, undone_tid, getObjectFromTransaction):
-            return {
-                oid_1: (1, 1),
-                oid_2: (1, -1),
-                oid_3: (1, 2),
-                oid_4: (1, 3),
-            }
-        self.app.dm.getTransactionUndoData = getTransactionUndoData
-        original_storeObject = self.app.tm.storeObject
-        def storeObject(tid, serial, oid, *args, **kw):
-            if oid == oid_3:
-                raise ConflictError(0)
-            elif oid == oid_4 and delay_store:
-                raise DelayedError
-            return original_storeObject(tid, serial, oid, *args, **kw)
-        self.app.tm.storeObject = storeObject
-
-        # Check if delaying a store (of oid_4) is supported
-        delay_store = True
-        self.operation.askUndoTransaction(conn, tid, undone_tid)
-        self.checkNoPacketSent(conn)
-
-        delay_store = False
-        self.operation.askUndoTransaction(conn, tid, undone_tid)
-        oid_list_1, oid_list_2, oid_list_3 = self.checkAnswerPacket(conn,
-            Packets.AnswerUndoTransaction, decode=True)
-        # Compare sets as order doens't matter here.
-        self.assertEqual(set(oid_list_1), set([oid_1, oid_4]))
-        self.assertEqual(oid_list_2, [oid_2])
-        self.assertEqual(oid_list_3, [oid_3])
+        # Keep 2 entries here, so we check findUndoTID is called only once.
+        oid_list = [self.getOID(1), self.getOID(2)]
+        obj2_data = [] # Marker
+        self.app.tm = Mock({
+            'getObjectFromTransaction': None,
+        })
+        self.app.dm = Mock({
+            'findUndoTID': ReturnValues((None, None, False), )
+        })
+        self.operation.askObjectUndoSerial(conn, tid, undone_tid, oid_list)
+        self.checkErrorPacket(conn)
 
     def test_askHasLock(self):
         tid_1 = self.getNextTID()

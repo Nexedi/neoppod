@@ -114,8 +114,7 @@ class ThreadContext(object):
             'node_tids': {},
             'node_ready': False,
             'asked_object': 0,
-            'undo_conflict_oid_list': [],
-            'undo_error_oid_list': [],
+            'undo_object_tid_dict': {},
             'involved_nodes': set(),
         }
 
@@ -905,55 +904,77 @@ class Application(object):
             raise NEOStorageError('undo failed')
 
         tid = self.local_var.tid
-
-        undo_conflict_oid_list = self.local_var.undo_conflict_oid_list = []
-        undo_error_oid_list = self.local_var.undo_error_oid_list = []
-        ask_undo_transaction = Packets.AskUndoTransaction(tid, undone_tid)
-        getConnForNode = self.cp.getConnForNode
-        queue = self.local_var.queue
-        for storage_node in self.nm.getStorageList():
-            storage_conn = getConnForNode(storage_node)
-            storage_conn.ask(ask_undo_transaction, queue=queue)
-        # Wait for all AnswerUndoTransaction.
-        self.waitResponses()
-
-        # Don't do any handling for "live" conflicts, raise
-        if undo_conflict_oid_list:
-            raise ConflictError(oid=undo_conflict_oid_list[0], serials=(tid,
-                undone_tid), data=None)
-
-        # Try to resolve undo conflicts
-        for oid in undo_error_oid_list:
-            def loadBefore(oid, tid):
-                try:
-                    result = self._load(oid, tid=tid)
-                except NEOStorageNotFoundError:
-                    raise UndoError("Object not found while resolving undo " \
-                        "conflict")
-                return result[:2]
-            # Load the latest version we are supposed to see
-            data, data_tid = loadBefore(oid, tid)
-            # Load the version we were undoing to
-            undo_data, _ = loadBefore(oid, undone_tid)
-            # Resolve conflict
-            try:
-                new_data = tryToResolveConflict(oid, data_tid, undone_tid,
-                    undo_data, data)
-            except ConflictError:
-                new_data = None
-            if new_data is None:
-                raise UndoError('Some data were modified by a later ' \
-                    'transaction', oid)
-            else:
-                self._store(oid, data_tid, new_data)
-
         oid_list = self.local_var.txn_info['oids']
-        # Consistency checking: all oids of the transaction must have been
-        # reported as undone
-        data_dict = self.local_var.data_dict
+
+        # Regroup objects per partition, to ask a minimum set of storage.
+        partition_oid_dict = {}
+        pt = self._getPartitionTable()
+        getPartitionFromIndex = pt.getPartitionFromIndex
         for oid in oid_list:
-            assert oid in data_dict, repr(oid)
-        return self.local_var.tid, oid_list
+            partition = pt.getPartitionFromIndex(oid)
+            try:
+                oid_list = partition_oid_dict[partition]
+            except KeyError:
+                oid_list = partition_oid_dict[partition] = []
+            oid_list.append(oid)
+
+        # Ask storage the undo serial (serial at which object's previous data
+        # is)
+        getCellList = pt.getCellList
+        getCellSortKey = self.cp.getCellSortKey
+        queue = self.local_var.queue
+        undo_object_tid_dict = self.local_var.undo_object_tid_dict = {}
+        for partition, oid_list in partition_oid_dict.iteritems():
+            cell_list = getCellList(partition, readable=True)
+            shuffle(cell_list)
+            cell_list.sort(key=getCellSortKey)
+            storage_conn = getConnForCell(cell_list[0])
+            storage_conn.ask(Packets.AskObjectUndoSerial(tid, undone_tid,
+                oid_list), queue=queue)
+
+        # Wait for all AnswerObjectUndoSerial. We might get OidNotFoundError,
+        # meaning that objects in transaction's oid_list do not exist any
+        # longer. This is the symptom of a pack, so forbid undoing transaction
+        # when it happens, but sill keep waiting for answers.
+        failed = False
+        while True:
+            try:
+                self.waitResponses()
+            except NEOStorageNotFoundError:
+                failed = True
+            else:
+                break
+        if failed:
+            raise UndoError('non-undoable transaction')
+
+        # Send undo data to all storage nodes.
+        for oid in oid_list:
+            current_serial, undo_serial, is_current = undo_object_tid_dict[oid]
+            if is_current:
+                data = None
+            else:
+                # Serial being undone is not the latest version for this
+                # object. This is an undo conflict, try to resolve it.
+                try:
+                    # Load the latest version we are supposed to see
+                    data = self.loadSerial(oid, current_serial)
+                    # Load the version we were undoing to
+                    undo_data = self.loadSerial(oid, undo_serial)
+                except NEOStorageNotFoundError:
+                    raise UndoError('Object not found while resolving undo '
+                        'conflict')
+                # Resolve conflict
+                try:
+                    data = tryToResolveConflict(oid, current_serial,
+                        undone_tid, undo_data, data)
+                except ConflictError:
+                    data = None
+                if data is None:
+                    raise UndoError('Some data were modified by a later ' \
+                        'transaction', oid)
+                undo_serial = None
+            self._store(oid, current_serial, data, undo_serial)
+        return tid, oid_list
 
     def _insertMetadata(self, txn_info, extension):
         for k, v in loads(extension).items():

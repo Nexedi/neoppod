@@ -234,13 +234,32 @@ class DatabaseManager(object):
         pack state (True for packed)."""
         raise NotImplementedError
 
-    def getTransactionUndoData(self, tid, undone_tid,
-            getObjectFromTransaction):
-        """Undo transaction with "undone_tid" tid. "tid" is the tid of the
-        transaction in which the undo happens.
-        getObjectFromTransaction is a callback allowing to find object data
-        stored to this storage in the same transaction (it is useful for
-        example when undoing twice in the same transaction).
+    def findUndoTID(self, oid, tid, undone_tid, transaction_object):
+        """
+        oid
+            Object OID
+        tid
+            Transation doing the undo
+        undone_tid
+            Transaction to undo
+        transaction_object
+            Object data from memory, if it was modified by running
+            transaction.
+            None if is was not modified by running transaction.
+
+        Returns a 3-tuple:
+        current_tid (p64)
+            TID of most recent version of the object client's transaction can
+            see. This is used later to detect current conflicts (eg, another
+            client modifying the same object in parallel)
+        data_tid (int)
+            TID containing (without indirection) the data prior to undone
+            transaction.
+            None if object doesn't exist prior to transaction being undone
+              (its creation is being undone).
+        is_current (bool)
+            False if object was modified by later transaction (ie, data_tid is
+            not current), True otherwise.
         """
         raise NotImplementedError
 

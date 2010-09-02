@@ -605,13 +605,13 @@ class StorageMySQSLdbTests(NeoTestBase):
         db.storeTransaction(
             tid1, (
                 (oid1, 0, 0, 'foo', None),
-                (oid2, None, None, None, u64(tid0)),
-                (oid3, None, None, None, u64(tid2)),
+                (oid2, None, None, None, tid0),
+                (oid3, None, None, None, tid2),
             ), None, temporary=False)
         db.storeTransaction(
             tid2, (
-                (oid1, None, None, None, u64(tid1)),
-                (oid2, None, None, None, u64(tid1)),
+                (oid1, None, None, None, tid1),
+                (oid2, None, None, None, tid1),
                 (oid3, 0, 0, 'bar', None),
             ), None, temporary=False)
 
@@ -689,7 +689,7 @@ class StorageMySQSLdbTests(NeoTestBase):
             ), None, temporary=False)
         db.storeTransaction(
             tid2, (
-                (oid1, None, None, None, u64(tid1)),
+                (oid1, None, None, None, tid1),
             ), None, temporary=False)
 
         self.assertEqual(
@@ -713,7 +713,7 @@ class StorageMySQSLdbTests(NeoTestBase):
             ), None, temporary=False)
         db.storeTransaction(
             tid2, (
-                (oid1, None, None, None, u64(tid1)),
+                (oid1, None, None, None, tid1),
             ), None, temporary=False)
 
         self.assertEqual(
@@ -723,7 +723,7 @@ class StorageMySQSLdbTests(NeoTestBase):
             db._getDataTID(u64(oid1), tid=u64(tid2)),
             (u64(tid2), u64(tid1)))
 
-    def test__findUndoTID(self):
+    def test_findUndoTID(self):
         db = self.db
         db.setup(reset=True)
         tid1 = self.getNextTID()
@@ -740,8 +740,8 @@ class StorageMySQSLdbTests(NeoTestBase):
         # Result: current tid is tid1, data_tid is None (undoing object
         # creation)
         self.assertEqual(
-            db._findUndoTID(u64(oid1), u64(tid4), u64(tid1), None),
-            (tid1, None))
+            db.findUndoTID(oid1, tid4, tid1, None),
+            (tid1, None, True))
 
         # Store a new transaction
         db.storeTransaction(
@@ -752,14 +752,14 @@ class StorageMySQSLdbTests(NeoTestBase):
         # Undoing oid1 tid2, OK: tid2 is latest
         # Result: current tid is tid2, data_tid is tid1
         self.assertEqual(
-            db._findUndoTID(u64(oid1), u64(tid4), u64(tid2), None),
-            (tid2, u64(tid1)))
+            db.findUndoTID(oid1, tid4, tid2, None),
+            (tid2, tid1, True))
 
         # Undoing oid1 tid1, Error: tid2 is latest
         # Result: current tid is tid2, data_tid is -1
         self.assertEqual(
-            db._findUndoTID(u64(oid1), u64(tid4), u64(tid1), None),
-            (tid2, -1))
+            db.findUndoTID(oid1, tid4, tid1, None),
+            (tid2, None, False))
 
         # Undoing oid1 tid1 with tid2 being undone in same transaction,
         # OK: tid1 is latest
@@ -768,71 +768,22 @@ class StorageMySQSLdbTests(NeoTestBase):
         # Explanation of transaction_object: oid1, no data but a data serial
         # to tid1
         self.assertEqual(
-            db._findUndoTID(u64(oid1), u64(tid4), u64(tid1),
-                (u64(oid1), None, None, None, u64(tid1))),
-            (tid4, None))
+            db.findUndoTID(oid1, tid4, tid1,
+                (u64(oid1), None, None, None, tid1)),
+            (tid4, None, True))
 
         # Store a new transaction
         db.storeTransaction(
             tid3, (
-                (oid1, None, None, None, u64(tid1)),
+                (oid1, None, None, None, tid1),
             ), None, temporary=False)
 
         # Undoing oid1 tid1, OK: tid3 is latest with tid1 data
         # Result: current tid is tid2, data_tid is None (undoing object
         # creation)
         self.assertEqual(
-            db._findUndoTID(u64(oid1), u64(tid4), u64(tid1), None),
-            (tid3, None))
-
-    def test_getTransactionUndoData(self):
-        db = self.db
-        db.setup(reset=True)
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID()
-        tid3 = self.getNextTID()
-        tid4 = self.getNextTID()
-        tid5 = self.getNextTID()
-        assert tid1 < tid2 < tid3 < tid4 < tid5
-        oid1 = self.getOID(1)
-        oid2 = self.getOID(2)
-        oid3 = self.getOID(3)
-        oid4 = self.getOID(4)
-        oid5 = self.getOID(5)
-        db.storeTransaction(
-            tid1, (
-                (oid1, 0, 0, 'foo1', None),
-                (oid2, 0, 0, 'foo2', None),
-                (oid3, 0, 0, 'foo3', None),
-                (oid4, 0, 0, 'foo5', None),
-            ), None, temporary=False)
-        db.storeTransaction(
-            tid2, (
-                (oid1, 0, 0, 'bar1', None),
-                (oid2, None, None, None, None),
-                (oid3, 0, 0, 'bar3', None),
-            ), None, temporary=False)
-        db.storeTransaction(
-            tid3, (
-                (oid3, 0, 0, 'baz3', None),
-                (oid5, 0, 0, 'foo6', None),
-            ), None, temporary=False)
-
-        def getObjectFromTransaction(tid, oid):
-            return None
-
-        self.assertEqual(
-            db.getTransactionUndoData(tid4, tid2, getObjectFromTransaction),
-            {
-                oid1: (tid2, u64(tid1)), # can be undone
-                oid2: (tid2, u64(tid1)), # can be undone (creation redo)
-                oid3: (tid3, -1),        # cannot be undone
-                # oid4 & oid5: not present because not ins undone transaction
-            })
-
-        # Cannot undo future transaction
-        self.assertRaises(ValueError, db.getTransactionUndoData, tid4, tid5,
-            getObjectFromTransaction)
+            db.findUndoTID(oid1, tid4, tid1, None),
+            (tid3, None, True))
 
 if __name__ == "__main__":
     unittest.main()

@@ -453,7 +453,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 if value_serial is None:
                     value_serial = 'NULL'
                 else:
-                    value_serial = '%d' % (value_serial, )
+                    value_serial = '%d' % (u64(value_serial), )
                 q("""REPLACE INTO %s VALUES (%d, %d, %s, %s, %s, %s)""" \
                         % (obj_table, oid, tid, compression, checksum, data,
                             value_serial))
@@ -506,71 +506,33 @@ class MySQLDatabaseManager(DatabaseManager):
             result = self._getDataTIDFromData(oid, result)
         return result
 
-    def _findUndoTID(self, oid, tid, undone_tid, transaction_object):
-        """
-        oid, undone_tid (ints)
-            Object to undo for given transaction
-        tid (int)
-            Client's transaction (he can't see objects past this value).
-
-        Return a 2-tuple:
-        current_tid (p64)
-            TID of most recent version of the object client's transaction can
-            see. This is used later to detect current conflicts (eg, another
-            client modifying the same object in parallel)
-        data_tid (int)
-            TID containing (without indirection) the data prior to undone
-            transaction.
-            -1 if object was modified by later transaction.
-            None if object doesn't exist prior to transaction being undone
-              (its creation is being undone).
-        """
-        _getDataTID = self._getDataTID
-        if transaction_object is not None:
-            # transaction_object:
-            #   oid,                      compression, ...
-            # Expected value:
-            #        serial, next_serial, compression, ...
-            current_tid, current_data_tid = self._getDataTIDFromData(oid,
-                (tid, None) + transaction_object[1:])
-        else:
-            current_tid, current_data_tid = _getDataTID(oid, before_tid=tid)
-        assert current_tid is not None, (oid, tid, transaction_object)
-        found_undone_tid, undone_data_tid = _getDataTID(oid, tid=undone_tid)
-        assert found_undone_tid is not None, (oid, undone_tid)
-        if undone_data_tid not in (current_data_tid, tid):
-            # data from the transaction we want to undo is modified by a later
-            # transaction. It is up to the client node to decide what to do
-            # (undo error of conflict resolution).
-            data_tid = -1
-        else:
-            # Load object data as it was before given transaction.
-            # It can be None, in which case it means we are undoing object
-            # creation.
-            _, data_tid = _getDataTID(oid, before_tid=undone_tid)
-        return util.p64(current_tid), data_tid
-
-    def getTransactionUndoData(self, tid, undone_tid,
-            getObjectFromTransaction):
-        q = self.query
-        p64 = util.p64
+    def findUndoTID(self, oid, tid, undone_tid, transaction_object):
         u64 = util.u64
-        _findUndoTID = self._findUndoTID
-
-        p_tid = tid
+        p64 = util.p64
+        oid = u64(oid)
         tid = u64(tid)
         undone_tid = u64(undone_tid)
-        if undone_tid > tid:
-            # Replace with an exception reaching client (TIDNotFound)
-            raise ValueError, 'Can\'t undo in future: %d > %d' % (
-                undone_tid, tid)
-        result = {}
-        for (oid, ) in q("""SELECT oid FROM obj WHERE serial = %d""" % (
-                undone_tid, )):
-            p_oid = p64(oid)
-            result[p_oid] = _findUndoTID(oid, tid, undone_tid,
-                getObjectFromTransaction(p_tid, p_oid))
-        return result
+        _getDataTID = self._getDataTID
+        if transaction_object is not None:
+            toid, tcompression, tchecksum, tdata, tvalue_serial = \
+                transaction_object
+            current_tid, current_data_tid = self._getDataTIDFromData(oid,
+                (tid, None, tcompression, tchecksum, tdata,
+                u64(tvalue_serial)))
+        else:
+            current_tid, current_data_tid = _getDataTID(oid, before_tid=tid)
+        if current_tid is None:
+            return (None, None, False)
+        found_undone_tid, undone_data_tid = _getDataTID(oid, tid=undone_tid)
+        assert found_undone_tid is not None, (oid, undone_tid)
+        is_current = undone_data_tid in (current_data_tid, tid)
+        # Load object data as it was before given transaction.
+        # It can be None, in which case it means we are undoing object
+        # creation.
+        _, data_tid = _getDataTID(oid, before_tid=undone_tid)
+        if data_tid is not None:
+            data_tid = p64(data_tid)
+        return p64(current_tid), data_tid, is_current
 
     def finishTransaction(self, tid):
         q = self.query
