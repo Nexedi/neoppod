@@ -261,6 +261,12 @@ class ClientApplicationTests(NeoTestBase):
         })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = an_object[:-1]
+        answer_barrier = Packets.AnswerBarrier()
+        answer_barrier.setId(1)
+        app.master_conn = Mock({
+            'getNextId': 1,
+            'fakeReceived': answer_barrier,
+        })
         result = app.load(oid)
         self.assertEquals(result, ('OBJ', tid1))
         self.checkAskObject(conn)

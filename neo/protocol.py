@@ -1623,6 +1623,17 @@ class AnswerHasLock(Packet):
         oid, state = unpack(self._header_format, body)
         return (oid, _decodeLockState(state))
 
+class AskBarrier(Packet):
+    """
+    Initates a "network barrier", allowing the node sending this packet to know
+    when all packets sent previously on the same connection have been handled
+    by its peer.
+    """
+    pass
+
+class AnswerBarrier(Packet):
+    pass
+
 class Error(Packet):
     """
     Error is a special type of message, because this can be sent against
@@ -1858,6 +1869,10 @@ class PacketRegistry(dict):
             0x0036,
             AskObjectHistoryFrom,
             AnswerObjectHistoryFrom)
+    AskBarrier, AnswerBarrier = register(
+            0x037,
+            AskBarrier,
+            AnswerBarrier)
 
 # build a "singleton"
 Packets = PacketRegistry()

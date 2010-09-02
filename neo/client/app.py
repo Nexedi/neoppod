@@ -550,7 +550,15 @@ class Application(object):
             finally:
                 self._cache_lock_release()
             # Otherwise get it from storage node
-            return self._load(oid, cache=1)[:2]
+            result = self._load(oid, cache=1)[:2]
+            # Start a network barrier, so we get all invalidations *after* we
+            # received data. This ensures we get any invalidation message that
+            # would have been about the version we loaded.
+            # Those invalidations are checked at ZODB level, so it decides if
+            # loaded data can be handed to current transaction or if a separate
+            # loadBefore call is required.
+            self._askPrimary(Packets.AskBarrier())
+            return result
         finally:
             self._load_lock_release()
 

@@ -347,6 +347,12 @@ class EventHandler(object):
     def answerHasLock(self, conn, oid, status):
         raise UnexpectedPacketError
 
+    def askBarrier(self, conn):
+        conn.answer(Packets.AnswerBarrier())
+
+    def answerBarrier(self, conn):
+        pass
+
     # Error packet handlers.
 
     def error(self, conn, code, message):
@@ -460,6 +466,8 @@ class EventHandler(object):
         d[Packets.AnswerObjectUndoSerial] = self.answerObjectUndoSerial
         d[Packets.AskHasLock] = self.askHasLock
         d[Packets.AnswerHasLock] = self.answerHasLock
+        d[Packets.AskBarrier] = self.askBarrier
+        d[Packets.AnswerBarrier] = self.answerBarrier
 
         return d
 
