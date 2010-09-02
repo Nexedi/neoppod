@@ -429,7 +429,8 @@ class MySQLDatabaseManager(DatabaseManager):
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
         q = self.query
         e = self.escape
-        tid = util.u64(tid)
+        u64 = util.u64
+        tid = u64(tid)
 
         if temporary:
             obj_table = 'tobj'
@@ -441,7 +442,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.begin()
         try:
             for oid, compression, checksum, data, value_serial in object_list:
-                oid = util.u64(oid)
+                oid = u64(oid)
                 if data is None:
                     compression = checksum = data = 'NULL'
                 else:
