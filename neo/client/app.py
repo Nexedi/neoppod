@@ -877,8 +877,9 @@ class Application(object):
         shuffle(cell_list)
         cell_list.sort(key=self.cp.getCellSortKey)
         packet = Packets.AskTransactionInformation(undone_tid)
+        getConnForCell = self.cp.getConnForCell
         for cell in cell_list:
-            conn = self.cp.getConnForCell(cell)
+            conn = getConnForCell(cell)
             if conn is None:
                 continue
 
