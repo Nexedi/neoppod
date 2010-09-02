@@ -872,8 +872,6 @@ class Application(object):
 
         # First get transaction information from a storage node.
         cell_list = self._getCellListForTID(undone_tid, readable=True)
-        assert len(cell_list), 'No cell found for transaction %s' % (
-            dump(undone_tid), )
         shuffle(cell_list)
         cell_list.sort(key=self.cp.getCellSortKey)
         packet = Packets.AskTransactionInformation(undone_tid)
