@@ -66,7 +66,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         except DelayedError:
             # locked by a previous transaction, retry later
             self.app.queueEvent(self._askStoreObject, conn, oid, serial,
-                    compression, checksum, data, tid, request_time)
+                compression, checksum, data, data_serial, tid, request_time)
         else:
             if SLOW_STORE is not None:
                 duration = time.time() - request_time
