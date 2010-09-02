@@ -605,7 +605,7 @@ class Application(object):
         if data is None or data_serial is not None:
             assert data is None or data_serial is None, data_serial
             # this is a George Bailey object, stored as an empty string
-            compressed_data = ''
+            data = compressed_data = ''
             compression = 0
         else:
             assert data_serial is None
