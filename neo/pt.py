@@ -136,11 +136,11 @@ class PartitionTable(object):
             return []
 
     def getCellListForTID(self, tid, readable=False, writable=False):
-        return self.getCellList(self._getPartitionFromIndex(u64(tid)),
+        return self.getCellList(self.getPartitionFromIndex(tid),
                                 readable, writable)
 
     def getCellListForOID(self, oid, readable=False, writable=False):
-        return self.getCellList(self._getPartitionFromIndex(u64(oid)),
+        return self.getCellList(self.getPartitionFromIndex(oid),
                                 readable, writable)
 
     def isAssigned(self, oid, uuid):
@@ -149,6 +149,9 @@ class PartitionTable(object):
             if cell.getUUID() == uuid:
                 return True
         return False
+
+    def getPartitionFromIndex(self, index):
+        return self._getPartitionFromIndex(u64(index))
 
     def _getPartitionFromIndex(self, index):
         return index % self.np
