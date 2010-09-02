@@ -353,9 +353,6 @@ class MySQLDatabaseManager(DatabaseManager):
                     _, compression, checksum, data = self._getObjectData(oid,
                         data_serial, serial)
                 except CreationUndone:
-                    # XXX: why is a special case needed here ?
-                    if tid is None:
-                        return None
                     compression = 0
                     # XXX: this is the valid checksum for empty string
                     checksum = 1
