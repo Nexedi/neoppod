@@ -822,7 +822,7 @@ class Application(object):
     def tpc_finish(self, transaction, f=None):
         """Finish current transaction."""
         if self.local_var.txn is not transaction:
-            raise StorageTransactionError('tpc_finish called for wrong'
+            raise StorageTransactionError('tpc_finish called for wrong '
                 'transaction')
         self._load_lock_acquire()
         try:
