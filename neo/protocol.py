@@ -1896,7 +1896,7 @@ class PacketRegistry(dict):
             AskObjectHistoryFrom,
             AnswerObjectHistoryFrom)
     AskBarrier, AnswerBarrier = register(
-            0x037,
+            0x0037,
             AskBarrier,
             AnswerBarrier)
     AskPack, AnswerPack = register(
