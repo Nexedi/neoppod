@@ -162,8 +162,8 @@ class NeoTestBase(unittest.TestCase):
         return Mock({
             'getUUID': uuid,
             'getAddress': address,
-             'isServer': is_server,
-             '__repr__': 'FakeConnection',
+            'isServer': is_server,
+            '__repr__': 'FakeConnection',
             '__nonzero__': 0,
             'getConnector': connector,
             'getPeerId': peer_id,
