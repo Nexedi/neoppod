@@ -17,14 +17,18 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from ZODB.tests.PackableStorage import PackableStorage
+try:
+    from ZODB.tests.PackableStorage import PackableStorageWithOptionalGC
+except ImportError:
+    from ZODB.tests.PackableStorage import PackableStorage as \
+        PackableStorageWithOptionalGC
 from ZODB.tests.PackableStorage import PackableUndoStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
 from neo.tests.zodb import ZODBTestCase
 
-class PackableTests(ZODBTestCase, StorageTestBase, PackableStorage,
-        PackableUndoStorage):
+class PackableTests(ZODBTestCase, StorageTestBase,
+        PackableStorageWithOptionalGC, PackableUndoStorage):
     pass
 
 if __name__ == "__main__":

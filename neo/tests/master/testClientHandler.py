@@ -19,7 +19,7 @@ import unittest
 from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoTestBase
-from neo.protocol import NodeTypes, NodeStates
+from neo.protocol import NodeTypes, NodeStates, Packets
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
 
@@ -154,6 +154,34 @@ class MasterClientHandlerTests(NeoTestBase):
         self.__testWithMethod(self.service.connectionClosed,
             NodeStates.TEMPORARILY_DOWN)
 
+    def test_askPack(self):
+        self.assertEqual(self.app.packing, None)
+        self.app.nm.createClient()
+        tid = self.getNextTID()
+        peer_id = 42
+        conn = self.getFakeConnection(peer_id=peer_id)
+        storage_uuid = self.identifyToMasterNode()
+        storage_conn = self.getFakeConnection(storage_uuid,
+            self.storage_address)
+        self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
+        self.service.askPack(conn, tid)
+        self.checkNoPacketSent(conn)
+        ptid = self.checkAskPacket(storage_conn, Packets.AskPack,
+            decode=True)[0]
+        self.assertEqual(ptid, tid)
+        self.assertTrue(self.app.packing[0] is conn)
+        self.assertEqual(self.app.packing[1], peer_id)
+        self.assertEqual(self.app.packing[2], set([storage_uuid, ]))
+        # Asking again to pack will cause an immediate error
+        storage_uuid = self.identifyToMasterNode()
+        storage_conn = self.getFakeConnection(storage_uuid,
+            self.storage_address)
+        self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
+        self.service.askPack(conn, tid)
+        self.checkNoPacketSent(storage_conn)
+        status = self.checkAnswerPacket(conn, Packets.AnswerPack,
+            decode=True)[0]
+        self.assertFalse(status)
 
 if __name__ == '__main__':
     unittest.main()

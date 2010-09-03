@@ -88,3 +88,15 @@ class ClientServiceHandler(MasterHandler):
         node = self.app.nm.getByUUID(conn.getUUID())
         app.tm.prepare(node, tid, oid_list, used_uuid_set, conn.getPeerId())
 
+    def askPack(self, conn, tid):
+        app = self.app
+        if app.packing is None:
+            storage_list = self.app.nm.getStorageList(only_identified=True)
+            app.packing = (conn, conn.getPeerId(),
+                set(x.getUUID() for x in storage_list))
+            p = Packets.AskPack(tid)
+            for storage in storage_list:
+                storage.getConnection().ask(p)
+        else:
+            conn.answer(Packets.AnswerPack(False))
+

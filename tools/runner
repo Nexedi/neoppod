@@ -76,7 +76,7 @@ ZODB_TEST_MODULES = [
     ('neo.tests.zodb.testHistory', 'check'),
     ('neo.tests.zodb.testIterator', 'check'),
     ('neo.tests.zodb.testMT', 'check'),
-    # ('neo.tests.zodb.testPack', 'check'),
+    ('neo.tests.zodb.testPack', 'check'),
     ('neo.tests.zodb.testPersistent', 'check'),
     ('neo.tests.zodb.testReadOnly', 'check'),
     ('neo.tests.zodb.testRevision', 'check'),

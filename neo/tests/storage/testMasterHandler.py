@@ -23,7 +23,7 @@ from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.pt import PartitionTable
-from neo.protocol import CellStates, ProtocolError
+from neo.protocol import CellStates, ProtocolError, Packets
 from neo.protocol import INVALID_TID, INVALID_OID
 
 class StorageMasterHandlerTests(NeoTestBase):
@@ -195,6 +195,17 @@ class StorageMasterHandlerTests(NeoTestBase):
         calls = self.app.replicator.mockGetNamedCalls('setUnfinishedTIDList')
         self.assertEquals(len(calls), 1)
         calls[0].checkArgs((INVALID_TID, ))
+
+    def test_askPack(self):
+        self.app.dm = Mock({'pack': None})
+        conn = self.getFakeConnection()
+        tid = self.getNextTID()
+        self.operation.askPack(conn, tid)
+        calls = self.app.dm.mockGetNamedCalls('pack')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(tid, self.app.tm.updateObjectDataForPack)
+        # Content has no meaning here, don't check.
+        self.checkAnswerPacket(conn, Packets.AnswerPack)
 
 if __name__ == "__main__":
     unittest.main()

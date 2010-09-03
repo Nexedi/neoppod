@@ -24,12 +24,13 @@ import time
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.ConflictResolution import ResolvedSerial
+from persistent.TimeStamp import TimeStamp
 
 from neo import setupLog
 setupLog('CLIENT', verbose=True)
 
 from neo import logging
-from neo.protocol import NodeTypes, Packets, INVALID_PARTITION
+from neo.protocol import NodeTypes, Packets, INVALID_PARTITION, ZERO_TID
 from neo.event import EventManager
 from neo.util import makeChecksum as real_makeChecksum, dump
 from neo.locking import Lock
@@ -1228,4 +1229,10 @@ class Application(object):
 
     def isTransactionVoted(self):
         return self.local_var.txn_voted
+
+    def pack(self, t):
+        tid = repr(TimeStamp(*time.gmtime(t)[:5] + (t % 60, )))
+        if tid == ZERO_TID:
+            raise NEOStorageError('Invalid pack time')
+        self._askPrimary(Packets.AskPack(tid))
 

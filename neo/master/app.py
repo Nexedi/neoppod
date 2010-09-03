@@ -40,6 +40,7 @@ from neo.live_debug import register as registerLiveDebugger
 
 class Application(object):
     """The master node application."""
+    packing = None
 
     def __init__(self, config):
 

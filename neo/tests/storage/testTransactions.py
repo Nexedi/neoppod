@@ -334,5 +334,57 @@ class TransactionManagerTests(NeoTestBase):
         self.manager.storeObject(tid1, serial1, *obj1)
         self.assertEqual(self.manager.getLockingTID(oid1), tid1)
 
+    def test_updateObjectDataForPack(self):
+        ram_serial = self.getNextTID()
+        oid = self.getOID(1)
+        orig_serial = self.getNextTID()
+        uuid = self.getNewUUID()
+        locking_serial = self.getNextTID()
+        other_serial = self.getNextTID()
+        new_serial = self.getNextTID()
+        compression = 1
+        checksum = 42
+        value = 'foo'
+        self.manager.register(uuid, locking_serial)
+        def getObjectData():
+            return (compression, checksum, value)
+        # Object not known, nothing happens
+        self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
+            oid), None)
+        self.manager.updateObjectDataForPack(oid, orig_serial, None, None)
+        self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
+            oid), None)
+        # Object known, but doesn't point at orig_serial, it is not updated
+        self.manager.storeObject(locking_serial, ram_serial, oid, 0, 512,
+            'bar', None)
+        orig_object = self.manager.getObjectFromTransaction(locking_serial,
+            oid)
+        self.manager.updateObjectDataForPack(oid, orig_serial, None, None)
+        self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
+            oid), orig_object)
+
+        self.manager.storeObject(locking_serial, ram_serial, oid, None, None,
+            None, other_serial)
+        orig_object = self.manager.getObjectFromTransaction(locking_serial,
+            oid)
+        self.manager.updateObjectDataForPack(oid, orig_serial, None, None)
+        self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
+            oid), orig_object)
+        # Object known and points at undone data it gets updated
+        # ...with data_serial: getObjectData must not be called
+        self.manager.storeObject(locking_serial, ram_serial, oid, None, None,
+            None, orig_serial)
+        self.manager.updateObjectDataForPack(oid, orig_serial, new_serial,
+            None)
+        self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
+            oid), (oid, None, None, None, new_serial))
+        # with data
+        self.manager.storeObject(locking_serial, ram_serial, oid, None, None,
+            None, orig_serial)
+        self.manager.updateObjectDataForPack(oid, orig_serial, None,
+            getObjectData)
+        self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
+            oid), (oid, compression, checksum, value, None))
+
 if __name__ == "__main__":
     unittest.main()

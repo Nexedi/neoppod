@@ -206,6 +206,16 @@ class MySQLDatabaseManager(DatabaseManager):
             value = "'%s'" % (e(str(value)), )
         q("""REPLACE INTO config VALUES ('%s', %s)""" % (key, value))
 
+    def _setPackTID(self, tid):
+        self._setConfiguration('_pack_tid', tid)
+
+    def _getPackTID(self):
+        try:
+            result = int(self.getConfiguration('_pack_tid'))
+        except KeyError:
+            result = -1
+        return result
+
     def getPartitionTable(self):
         q = self.query
         cell_list = q("""SELECT rid, uuid, state FROM pt""")
@@ -618,9 +628,11 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         oid = util.u64(oid)
         p64 = util.p64
+        pack_tid = self._getPackTID()
         r = q("""SELECT serial, LENGTH(value), value_serial FROM obj
-                    WHERE oid = %d ORDER BY serial DESC LIMIT %d, %d""" \
-                % (oid, offset, length))
+                    WHERE oid = %d AND serial >= %d
+                    ORDER BY serial DESC LIMIT %d, %d""" \
+                % (oid, pack_tid, offset, length))
         if r:
             result = []
             append = result.append
@@ -682,4 +694,93 @@ class MySQLDatabaseManager(DatabaseManager):
         r = q("""SELECT serial FROM obj WHERE oid = %d AND serial in (%s)""" \
                 % (oid, ','.join([str(util.u64(serial)) for serial in serial_list])))
         return [util.p64(t[0]) for t in r]
+
+    def _updatePackFuture(self, oid, orig_serial, max_serial,
+            updateObjectDataForPack):
+        q = self.query
+        p64 = util.p64
+        # Before deleting this objects revision, see if there is any
+        # transaction referencing its value at max_serial or above.
+        # If there is, copy value to the first future transaction. Any further
+        # reference is just updated to point to the new data location.
+        value_serial = None
+        for table in ('obj', 'tobj'):
+            for (serial, ) in q('SELECT serial FROM %(table)s WHERE '
+                    'oid = %(oid)d AND serial >= %(max_serial)d AND '
+                    'value_serial = %(orig_serial)d ORDER BY serial ASC' % {
+                        'table': table,
+                        'oid': oid,
+                        'orig_serial': orig_serial,
+                        'max_serial': max_serial,
+                    }):
+                if value_serial is None:
+                    # First found, copy data to it and mark its serial for
+                    # future reference.
+                    value_serial = serial
+                    q('REPLACE INTO %(table)s (oid, serial, compression, '
+                        'checksum, value, value_serial) SELECT oid, '
+                        '%(serial)d, compression, checksum, value, NULL FROM '
+                        'obj WHERE oid = %(oid)d AND serial = %(orig_serial)d' \
+                        % {
+                            'table': table,
+                            'oid': oid,
+                            'serial': serial,
+                            'orig_serial': orig_serial,
+                    })
+                else:
+                    q('REPLACE INTO %(table)s (oid, serial, value_serial) '
+                        'VALUES (%(oid)d, %(serial)d, %(value_serial)d)' % {
+                            'table': table,
+                            'oid': oid,
+                            'serial': serial,
+                            'value_serial': value_serial,
+                    })
+        def getObjectData():
+            assert value_serial is None
+            return q('SELECT compression, checksum, value FROM obj WHERE '
+                'oid = %(oid)d AND serial = %(orig_serial)d' % {
+                    'oid': oid,
+                    'orig_serial': orig_serial,
+                })[0]
+        if value_serial:
+            value_serial = p64(value_serial)
+        updateObjectDataForPack(p64(oid), p64(orig_serial), value_serial,
+            getObjectData)
+
+    def pack(self, tid, updateObjectDataForPack):
+        # TODO: unit test (along with updatePackFuture)
+        q = self.query
+        tid = util.u64(tid)
+        updatePackFuture = self._updatePackFuture
+        self.begin()
+        try:
+            self._setPackTID(tid)
+            for count, oid, max_serial in q('SELECT COUNT(*) - 1, oid, '
+                    'MAX(serial) FROM obj WHERE serial <= %(tid)d '
+                    'GROUP BY oid' % {'tid': tid}):
+                if q('SELECT LENGTH(value) FROM obj WHERE oid = %(oid)d AND '
+                        'serial = %(max_serial)d' % {
+                            'oid': oid,
+                            'max_serial': max_serial,
+                        })[0][0] == 0:
+                    count += 1
+                    max_serial += 1
+                if count:
+                    # There are things to delete for this object
+                    for (serial, ) in q('SELECT serial FROM obj WHERE '
+                            'oid=%(oid)d AND serial < %(max_serial)d' % {
+                                'oid': oid,
+                                'max_serial': max_serial,
+                            }):
+                        updatePackFuture(oid, serial, max_serial,
+                            updateObjectDataForPack)
+                        q('DELETE FROM obj WHERE oid=%(oid)d AND '
+                            'serial=%(serial)d' % {
+                                'oid': oid,
+                                'serial': serial
+                        })
+        except:
+            self.rollback()
+            raise
+        self.commit()
 

@@ -635,6 +635,18 @@ class ProtocolTests(NeoTestBase):
     def test_AnswerObjectHistoryFrom(self):
         self._testXIDAndYIDList(Packets.AnswerObjectHistoryFrom)
 
+    def test_AskPack(self):
+        tid = self.getNextTID()
+        p = Packets.AskPack(tid)
+        ptid = p.decode()[0]
+        self.assertEqual(ptid, tid)
+
+    def test_AnswerPack(self):
+        status = True
+        p = Packets.AnswerPack(status)
+        pstatus = p.decode()[0]
+        self.assertEqual(pstatus, status)
+
 if __name__ == '__main__':
     unittest.main()
 

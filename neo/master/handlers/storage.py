@@ -22,6 +22,7 @@ from neo.protocol import CellStates, Packets
 from neo.master.handlers import BaseServiceHandler
 from neo.exception import OperationFailure
 from neo.util import dump
+from neo.connector import ConnectorConnectionClosedException
 
 
 class StorageServiceHandler(BaseServiceHandler):
@@ -46,6 +47,9 @@ class StorageServiceHandler(BaseServiceHandler):
             # if a transaction is known, this means that it's being committed
             if transaction.forget(uuid):
                 self._afterLock(tid)
+        packing = self.app.packing
+        if packing is not None:
+            self.answerPack(conn, False)
 
     def askLastIDs(self, conn):
         app = self.app
@@ -124,4 +128,15 @@ class StorageServiceHandler(BaseServiceHandler):
                 break
         self.app.broadcastPartitionChanges(cell_list)
 
+    def answerPack(self, conn, status):
+        app = self.app
+        if app.packing is not None:
+            client, msg_id, uid_set = app.packing
+            uid_set.remove(conn.getUUID())
+            if not uid_set:
+                app.packing = None
+                try:
+                    client.answer(Packets.AnswerPack(True), msg_id=msg_id)
+                except ConnectorConnectionClosedException:
+                    pass
 

@@ -285,3 +285,19 @@ class TransactionManager(object):
         for oid, tid in self._store_lock_dict.items():
             logging.info('    %r by %r', dump(oid), dump(tid))
 
+    def updateObjectDataForPack(self, oid, orig_serial, new_serial,
+            getObjectData):
+        lock_tid = self.getLockingTID(oid)
+        if lock_tid is not None:
+            transaction = self._transaction_dict[lock_tid]
+            oid, compression, checksum, data, value_serial = \
+                transaction.getObject(oid)
+            if value_serial == orig_serial:
+                if new_serial:
+                    value_serial = new_serial
+                else:
+                    compression, checksum, data = getObjectData()
+                    value_serial = None
+                transaction.addObject(oid, compression, checksum, data,
+                    value_serial)
+

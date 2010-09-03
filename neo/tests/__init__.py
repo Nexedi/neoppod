@@ -156,7 +156,7 @@ class NeoTestBase(unittest.TestCase):
         })
 
     def getFakeConnection(self, uuid=None, address=('127.0.0.1', 10000),
-            is_server=False, connector=None):
+            is_server=False, connector=None, peer_id=None):
         if connector is None:
             connector = self.getFakeConnector()
         return Mock({
@@ -166,6 +166,7 @@ class NeoTestBase(unittest.TestCase):
              '__repr__': 'FakeConnection',
             '__nonzero__': 0,
             'getConnector': connector,
+            'getPeerId': peer_id,
         })
 
     def checkProtocolErrorRaised(self, method, *args, **kwargs):

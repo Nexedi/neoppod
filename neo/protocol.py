@@ -1634,6 +1634,32 @@ class AskBarrier(Packet):
 class AnswerBarrier(Packet):
     pass
 
+class AskPack(Packet):
+    """
+    Request a pack at given TID.
+    C -> M
+    M -> S
+    """
+    def _encode(self, tid):
+        return _encodeTID(tid)
+
+    def _decode(self, body):
+        return (_decodeTID(body), )
+
+class AnswerPack(Packet):
+    """
+    Inform that packing it over.
+    S -> M
+    M -> C
+    """
+    _header_format = '!H'
+
+    def _encode(self, status):
+        return pack(self._header_format, int(status))
+
+    def _decode(self, body):
+        return (bool(unpack(self._header_format, body)[0]), )
+
 class Error(Packet):
     """
     Error is a special type of message, because this can be sent against
@@ -1873,6 +1899,10 @@ class PacketRegistry(dict):
             0x037,
             AskBarrier,
             AnswerBarrier)
+    AskPack, AnswerPack = register(
+            0x0038,
+            AskPack,
+            AnswerPack)
 
 # build a "singleton"
 Packets = PacketRegistry()

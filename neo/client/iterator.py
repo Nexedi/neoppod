@@ -18,6 +18,7 @@
 from ZODB import BaseStorage
 from neo import util
 from neo.client.exception import NEOStorageCreationUndoneError
+from neo.client.exception import NEOStorageNotFoundError
 
 class Record(BaseStorage.DataRecord):
     """ TBaseStorageransaction record yielded by the Transaction object """
@@ -60,17 +61,27 @@ class Transaction(BaseStorage.TransactionRecord):
         app = self.app
         oid_list = self.oid_list
         oid_index = self.oid_index
-        if self.oid_index >= len(oid_list):
+        oid_len = len(oid_list)
+        # load an object
+        while oid_index < oid_len:
+            oid = oid_list[oid_index]
+            try:
+                data, _, next_tid = app._load(oid, serial=self.tid)
+            except NEOStorageCreationUndoneError:
+                data = next_tid = None
+            except NEOStorageNotFoundError:
+                # Transactions are not updated after a pack, so their object
+                # will not be found in the database. Skip them.
+                oid_list.pop(oid_index)
+                oid_len -= 1
+                continue
+            oid_index += 1
+            break
+        else:
             # no more records for this transaction
             self.oid_index = 0
             raise StopIteration
-        oid = oid_list[oid_index]
-        self.oid_index = oid_index + 1
-        # load an object
-        try:
-            data, _, next_tid = app._load(oid, serial=self.tid)
-        except NEOStorageCreationUndoneError:
-            data = next_tid = None
+        self.oid_index = oid_index
         record = Record(oid, self.tid, '', data,
             self.prev_serial_dict.get(oid))
         if next_tid is None:

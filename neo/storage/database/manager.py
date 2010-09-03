@@ -323,3 +323,19 @@ class DatabaseManager(object):
         the given list."""
         raise NotImplementedError
 
+    def pack(self, tid, updateObjectDataForPack):
+        """Prune all non-current object revisions at given tid.
+        updateObjectDataForPack is a function called for each deleted object
+        and revision with:
+        - OID
+        - packed TID
+        - new value_serial
+            If object data was moved to an after-pack-tid revision, this
+            parameter contains the TID of that revision, allowing to backlink
+            to it.
+        - getObjectData function
+            To call if value_serial is None and an object needs to be updated.
+            Takes no parameter, returns a 3-tuple: compression, checksum,
+            value
+        """
+

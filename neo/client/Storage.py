@@ -74,6 +74,11 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.store(oid=oid, serial=serial,
             data=data, version=version, transaction=transaction)
 
+    @check_read_only
+    def deleteObject(oid, serial, transaction):
+        self.app.store(oid=oid, serial=serial, data='', version=None,
+            transaction=transaction)
+
     def getSerial(self, oid):
         try:
             return self.app.getSerial(oid = oid)
@@ -154,8 +159,11 @@ class Storage(BaseStorage.BaseStorage,
     def restore(self, oid, serial, data, version, prev_txn, transaction):
         raise NotImplementedError
 
-    def pack(self, t, referencesf):
-        raise NotImplementedError
+    def pack(self, t, referencesf, gc=False):
+        if gc:
+            logging.warning('Garbage Collection is not available in NEO, '
+                'please use an external tool. Packing without GC.')
+        self.app.pack(t)
 
     def lastSerial(self):
         # seems unused

@@ -25,6 +25,7 @@ from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
 from neo.protocol import Packet, Packets, Errors, INVALID_TID, INVALID_SERIAL
 from neo.util import makeChecksum
+import time
 
 def _getMasterConnection(self):
     if self.master_conn is None:
@@ -1163,6 +1164,21 @@ class ClientApplicationTests(NeoTestBase):
         setattr(app1_local, property_id, 'value')
         self.assertTrue(hasattr(app1_local, property_id))
         self.assertFalse(hasattr(app2_local, property_id))
+
+    def test_pack(self):
+        app = self.getApp()
+        marker = []
+        def askPrimary(packet):
+            marker.append(packet)
+        app._askPrimary = askPrimary
+        # XXX: could not identify a value causing TimeStamp to return ZERO_TID
+        #self.assertRaises(NEOStorageError, app.pack, )
+        self.assertEqual(len(marker), 0)
+        now = time.time()
+        app.pack(now)
+        self.assertEqual(len(marker), 1)
+        self.assertEqual(marker[0].getType(), Packets.AskPack)
+        # XXX: how to validate packet content ?
 
 if __name__ == '__main__':
     unittest.main()

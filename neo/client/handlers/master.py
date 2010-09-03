@@ -21,6 +21,7 @@ from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.pt import MTPartitionTable as PartitionTable
 from neo.protocol import NodeTypes, NodeStates, ProtocolError
 from neo.util import dump
+from neo.client.exception import NEOStorageError
 
 class PrimaryBootstrapHandler(AnswerBaseHandler):
     """ Bootstrap handler used when looking for the primary master """
@@ -169,4 +170,8 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
         if tid != self.app.getTID():
             raise ProtocolError('Wrong TID, transaction not started')
         self.app.setTransactionFinished()
+
+    def answerPack(self, conn, status):
+        if not status:
+            raise NEOStorageError('Already packing')
 

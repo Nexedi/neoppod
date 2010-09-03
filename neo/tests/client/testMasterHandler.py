@@ -23,6 +23,7 @@ from neo.protocol import NodeTypes, NodeStates
 from neo.client.handlers.master import PrimaryBootstrapHandler
 from neo.client.handlers.master import PrimaryNotificationsHandler, \
        PrimaryAnswersHandler
+from neo.client.exception import NEOStorageError
 
 MARKER = []
 
@@ -255,6 +256,10 @@ class MasterAnswersHandlerTests(MasterHandlerTests):
         calls = app.mockGetNamedCalls('setTransactionFinished')
         self.assertEqual(len(calls), 1)
         
+    def test_answerPack(self):
+        self.assertRaises(NEOStorageError, self.handler.answerPack, None, False)
+        # Check it doesn't raise
+        self.handler.answerPack(None, True)
 
 if __name__ == '__main__':
     unittest.main()

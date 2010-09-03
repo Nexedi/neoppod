@@ -19,7 +19,7 @@ import unittest
 from mock import Mock
 from struct import pack
 from neo.tests import NeoTestBase
-from neo.protocol import NodeTypes, NodeStates
+from neo.protocol import NodeTypes, NodeStates, Packets
 from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
@@ -246,6 +246,30 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.checkNoPacketSent(cconn2, check_notify=False)
         # T3: action not significant to this transacion, so no response
         self.checkNoPacketSent(cconn3, check_notify=False)
+
+    def test_answerPack(self):
+        # Note: incomming status has no meaning here, so it's left to False.
+        node1, conn1 = self._getStorage()
+        node2, conn2 = self._getStorage()
+        self.app.packing = None
+        # Does nothing
+        self.service.answerPack(None, False)
+
+        client_conn = Mock({
+            'getPeerId': 512,
+        })
+        client_peer_id = 42
+        self.app.packing = (client_conn, client_peer_id, set([conn1.getUUID(),
+            conn2.getUUID()]))
+        self.service.answerPack(conn1, False)
+        self.checkNoPacketSent(client_conn)
+        self.assertEqual(self.app.packing[2], set([conn2.getUUID(), ]))
+        self.service.answerPack(conn2, False)
+        status = self.checkAnswerPacket(client_conn, Packets.AnswerPack,
+            decode=True)[0]
+        # TODO: verify packet peer id
+        self.assertTrue(status)
+        self.assertEqual(self.app.packing, None)
 
 if __name__ == '__main__':
     unittest.main()

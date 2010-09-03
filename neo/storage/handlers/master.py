@@ -64,3 +64,11 @@ class MasterOperationHandler(BaseMasterHandler):
             raise ProtocolError('Unknown transaction')
         # TODO: send an answer
         self.app.tm.unlock(tid)
+
+    def askPack(self, conn, tid):
+        app = self.app
+        logging.info('Pack started, up to %s...', dump(tid))
+        app.dm.pack(tid, app.tm.updateObjectDataForPack)
+        logging.info('Pack finished.')
+        conn.answer(Packets.AnswerPack(True))
+
