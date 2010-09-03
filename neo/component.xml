@@ -19,5 +19,11 @@
        Give the name of the connector used at low-level
       </description>
      </key>
+     <key name="compress" required="no" default="true" datatype="boolean">
+      <description>
+      true: enable automatic data compression (compression is only used when compressed size is smaller).
+      false: disable data compression.
+      </description>
+     </key>
   </sectiontype>
 </component>
