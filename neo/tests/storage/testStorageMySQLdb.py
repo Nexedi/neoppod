@@ -19,7 +19,7 @@ import unittest
 import MySQLdb
 from mock import Mock
 from neo.util import dump, p64, u64
-from neo.protocol import CellStates, INVALID_PTID, ZERO_OID, ZERO_TID
+from neo.protocol import CellStates, INVALID_PTID, ZERO_OID, ZERO_TID, MAX_TID
 from neo.tests import NeoTestBase
 from neo.exception import DatabaseFailure
 from neo.storage.database.mysqldb import MySQLDatabaseManager
@@ -516,29 +516,40 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.db.finishTransaction(tid3)
         self.db.finishTransaction(tid4)
         # Check full result
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, 10, 1, 0)
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 10,
+            1, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2, tid4],
         })
         # Lower bound is inclusive
-        result = self.db.getObjectHistoryFrom(oid1, tid1, 10, 1, 0)
+        result = self.db.getObjectHistoryFrom(oid1, tid1, MAX_TID, 10, 1, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2, tid4],
         })
+        # Upper bound is inclusive
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, tid3, 10,
+            1, 0)
+        self.assertEqual(result, {
+            oid1: [tid1, tid3],
+            oid2: [tid2],
+        })
         # Length is total number of serials
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, 3, 1, 0)
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 3,
+            1, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2],
         })
         # Partition constraints are honored
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, 10, 2, 0)
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 10,
+            2, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
         })
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, 10, 2, 1)
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 10,
+            2, 1)
         self.assertEqual(result, {
             oid2: [tid2, tid4],
         })
@@ -575,19 +586,21 @@ class StorageMySQSLdbTests(NeoTestBase):
     def test_getReplicationTIDList(self):
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # get tids
-        result = self.db.getReplicationTIDList(tid1, 4, 1, 0)
+        # - all
+        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 1, 0)
         self.checkSet(result, [tid1, tid2, tid3, tid4])
-        result = self.db.getReplicationTIDList(tid1, 4, 2, 0)
+        # - one partition
+        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 2, 0)
         self.checkSet(result, [tid1, tid3])
-        result = self.db.getReplicationTIDList(tid1, 4, 3, 0)
-        self.checkSet(result, [tid1, tid4])
-        # get a subset of tids
-        result = self.db.getReplicationTIDList(tid3, 4, 1, 0)
+        # - min_tid is inclusive
+        result = self.db.getReplicationTIDList(tid3, MAX_TID, 10, 1, 0)
         self.checkSet(result, [tid3, tid4])
-        result = self.db.getReplicationTIDList(tid1, 2, 1, 0)
+        # - max tid is inclusive
+        result = self.db.getReplicationTIDList(ZERO_TID, tid2, 10, 1, 0)
         self.checkSet(result, [tid1, tid2])
-        result = self.db.getReplicationTIDList(tid1, 1, 3, 1)
-        self.checkSet(result, [tid2])
+        # - limit
+        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 2, 1, 0)
+        self.checkSet(result, [tid1, tid2])
 
     def test__getObjectData(self):
         db = self.db

@@ -294,11 +294,11 @@ class DatabaseManager(object):
         If there is no such object ID in a database, return None."""
         raise NotImplementedError
 
-    def getObjectHistoryFrom(self, oid, min_serial, length, num_partitions,
-            partition):
+    def getObjectHistoryFrom(self, oid, min_serial, max_serial, length,
+            num_partitions, partition):
         """Return a dict of length serials grouped by oid at (or above)
-        min_oid and min_serial, for given partition, sorted in ascending
-        order."""
+        min_oid and min_serial and below max_serial, for given partition,
+        sorted in ascending order."""
         raise NotImplementedError
 
     def getTIDList(self, offset, length, num_partitions, partition_list):
@@ -307,11 +307,11 @@ class DatabaseManager(object):
         to filter out non-applicable TIDs."""
         raise NotImplementedError
 
-    def getReplicationTIDList(self, min_tid, length, num_partitions,
+    def getReplicationTIDList(self, min_tid, max_tid, length, num_partitions,
         partition):
         """Return a list of TIDs in ascending order from an initial tid value,
-        at most the specified length. The partition number is passed to filter
-        out non-applicable TIDs."""
+        at most the specified length up to max_tid. The partition number is
+        passed to filter out non-applicable TIDs."""
         raise NotImplementedError
 
     def pack(self, tid, updateObjectDataForPack):

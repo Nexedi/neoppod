@@ -114,6 +114,7 @@ ZERO_TID = '\0' * 8
 ZERO_OID = '\0' * 8
 OID_LEN = len(INVALID_OID)
 TID_LEN = len(INVALID_TID)
+MAX_TID = '\xff' * 8
 
 UUID_NAMESPACES = {
     NodeTypes.STORAGE: 'S',
@@ -1067,10 +1068,10 @@ class AskTIDsFrom(Packet):
     Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
     S -> S.
     """
-    _header_format = '!8sLL'
+    _header_format = '!8s8sLL'
 
-    def _encode(self, min_tid, length, partition):
-        return pack(self._header_format, min_tid, length, partition)
+    def _encode(self, min_tid, max_tid, length, partition):
+        return pack(self._header_format, min_tid, max_tid, length, partition)
 
     def _decode(self, body):
         return unpack(self._header_format, body) # min_tid, length, partition
@@ -1170,11 +1171,11 @@ class AskObjectHistoryFrom(Packet):
     Ask history information for a given object. The order of serials is
     ascending, and starts at (or above) min_serial for min_oid. S -> S.
     """
-    _header_format = '!8s8sLL'
+    _header_format = '!8s8s8sLL'
 
-    def _encode(self, min_oid, min_serial, length, partition):
-        return pack(self._header_format, min_oid, min_serial, length,
-            partition)
+    def _encode(self, min_oid, min_serial, max_serial, length, partition):
+        return pack(self._header_format, min_oid, min_serial, max_serial,
+            length, partition)
 
     def _decode(self, body):
         # min_oid, min_serial, length, partition

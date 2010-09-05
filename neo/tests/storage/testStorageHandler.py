@@ -119,15 +119,17 @@ class StorageStorageHandlerTests(NeoTestBase):
         self.app.dm = Mock({'getReplicationTIDList': (INVALID_TID, )})
         self.app.pt = Mock({'getPartitions': 1})
         tid = self.getNextTID()
-        self.operation.askTIDsFrom(conn, tid, 2, 1)
+        tid2 = self.getNextTID()
+        self.operation.askTIDsFrom(conn, tid, tid2, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getReplicationTIDList')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(tid, 2, 1, 1)
+        calls[0].checkArgs(tid, tid2, 2, 1, 1)
         self.checkAnswerTidsFrom(conn)
 
     def test_26_askObjectHistoryFrom(self):
         min_oid = self.getOID(2)
         min_serial = self.getNextTID()
+        max_serial = self.getNextTID()
         length = 4
         partition = 8
         num_partitions = 16
@@ -137,13 +139,13 @@ class StorageStorageHandlerTests(NeoTestBase):
         self.app.pt = Mock({
             'getPartitions': num_partitions,
         })
-        self.operation.askObjectHistoryFrom(conn, min_oid, min_serial, length,
-            partition)
+        self.operation.askObjectHistoryFrom(conn, min_oid, min_serial,
+            max_serial, length, partition)
         self.checkAnswerObjectHistoryFrom(conn)
         calls = self.app.dm.mockGetNamedCalls('getObjectHistoryFrom')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(min_oid, min_serial, length, num_partitions,
-            partition)
+        calls[0].checkArgs(min_oid, min_serial, max_serial, length,
+            num_partitions, partition)
 
     def test_askCheckTIDRange(self):
         count = 1

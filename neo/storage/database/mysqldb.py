@@ -649,20 +649,23 @@ class MySQLDatabaseManager(DatabaseManager):
             return result
         return None
 
-    def getObjectHistoryFrom(self, min_oid, min_serial, length, num_partitions,
-            partition):
+    def getObjectHistoryFrom(self, min_oid, min_serial, max_serial, length,
+            num_partitions, partition):
         q = self.query
         u64 = util.u64
         p64 = util.p64
         min_oid = u64(min_oid)
         min_serial = u64(min_serial)
+        max_serial = u64(max_serial)
         r = q('SELECT oid, serial FROM obj '
                 'WHERE ((oid = %(min_oid)d AND serial >= %(min_serial)d) OR '
                 'oid > %(min_oid)d) AND '
-                'MOD(oid, %(num_partitions)d) = %(partition)s '
+                'MOD(oid, %(num_partitions)d) = %(partition)s AND '
+                'serial <= %(max_serial)d '
                 'ORDER BY oid ASC, serial ASC LIMIT %(length)d' % {
             'min_oid': min_oid,
             'min_serial': min_serial,
+            'max_serial': max_serial,
             'length': length,
             'num_partitions': num_partitions,
             'partition': partition,
@@ -685,19 +688,24 @@ class MySQLDatabaseManager(DatabaseManager):
                    offset, length))
         return [util.p64(t[0]) for t in r]
 
-    def getReplicationTIDList(self, min_tid, length, num_partitions,
+    def getReplicationTIDList(self, min_tid, max_tid, length, num_partitions,
             partition):
         q = self.query
+        u64 = util.u64
+        p64 = util.p64
+        min_tid = u64(min_tid)
+        max_tid = u64(max_tid)
         r = q("""SELECT tid FROM trans WHERE
                     MOD(tid, %(num_partitions)d) = %(partition)d
-                    AND tid >= %(min_tid)d
+                    AND tid >= %(min_tid)d AND tid <= %(max_tid)d
                     ORDER BY tid ASC LIMIT %(length)d""" % {
             'num_partitions': num_partitions,
             'partition': partition,
-            'min_tid': util.u64(min_tid),
+            'min_tid': min_tid,
+            'max_tid': max_tid,
             'length': length,
         })
-        return [util.p64(t[0]) for t in r]
+        return [p64(t[0]) for t in r]
 
     def _updatePackFuture(self, oid, orig_serial, max_serial,
             updateObjectDataForPack):

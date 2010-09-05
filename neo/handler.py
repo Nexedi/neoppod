@@ -256,7 +256,7 @@ class EventHandler(object):
     def answerTIDs(self, conn, tid_list):
         raise UnexpectedPacketError
 
-    def askTIDsFrom(self, conn, min_tid, length, partition):
+    def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         raise UnexpectedPacketError
 
     def answerTIDsFrom(self, conn, tid_list):
@@ -275,7 +275,8 @@ class EventHandler(object):
     def answerObjectHistory(self, conn, oid, history_list):
         raise UnexpectedPacketError
 
-    def askObjectHistoryFrom(self, conn, oid, min_serial, length, partition):
+    def askObjectHistoryFrom(self, conn, oid, min_serial, max_serial, length,
+            partition):
         raise UnexpectedPacketError
 
     def answerObjectHistoryFrom(self, conn, object_dict):

@@ -595,9 +595,11 @@ class ProtocolTests(NeoTestBase):
 
     def test_AskTIDsFrom(self):
         tid = self.getNextTID()
-        p = Packets.AskTIDsFrom(tid, 1000, 5)
-        min_tid, length, partition = p.decode()
+        tid2 = self.getNextTID()
+        p = Packets.AskTIDsFrom(tid, tid2, 1000, 5)
+        min_tid, max_tid, length, partition = p.decode()
         self.assertEqual(min_tid, tid)
+        self.assertEqual(max_tid, tid2)
         self.assertEqual(length, 1000)
         self.assertEqual(partition, 5)
 
@@ -607,12 +609,15 @@ class ProtocolTests(NeoTestBase):
     def test_AskObjectHistoryFrom(self):
         oid = self.getOID(1)
         min_serial = self.getNextTID()
+        max_serial = self.getNextTID()
         length = 5
         partition = 4
-        p = Packets.AskObjectHistoryFrom(oid, min_serial, length, partition)
-        p_oid, p_min_serial, p_length, p_partition = p.decode()
+        p = Packets.AskObjectHistoryFrom(oid, min_serial, max_serial, length,
+            partition)
+        p_oid, p_min_serial, p_max_serial, p_length, p_partition = p.decode()
         self.assertEqual(p_oid, oid)
         self.assertEqual(p_min_serial, min_serial)
+        self.assertEqual(p_max_serial, max_serial)
         self.assertEqual(p_length, length)
         self.assertEqual(p_partition, partition)
 

@@ -165,16 +165,21 @@ class ReplicationHandler(EventHandler):
 
     def _doAskTIDsFrom(self, min_tid, length):
         replicator = self.app.replicator
-        partition = replicator.current_partition.getRID()
-        replicator.getTIDsFrom(min_tid, length, partition)
-        return Packets.AskTIDsFrom(min_tid, length, partition)
+        partition = replicator.current_partition
+        partition_id = partition.getRID()
+        max_tid = partition.getCriticalTID()
+        replicator.getTIDsFrom(min_tid, max_tid, length, partition_id)
+        return Packets.AskTIDsFrom(min_tid, max_tid, length, partition_id)
 
     def _doAskObjectHistoryFrom(self, min_oid, min_serial, length):
         replicator = self.app.replicator
-        partition = replicator.current_partition.getRID()
-        replicator.getObjectHistoryFrom(min_oid, min_serial, length, partition)
-        return Packets.AskObjectHistoryFrom(min_oid, min_serial, length,
-            partition)
+        partition = replicator.current_partition
+        partition_id = partition.getRID()
+        max_serial = partition.getCriticalTID()
+        replicator.getObjectHistoryFrom(min_oid, min_serial, max_serial,
+            length, partition_id)
+        return Packets.AskObjectHistoryFrom(min_oid, min_serial, max_serial,
+            length, partition_id)
 
     @checkConnectionIsReplicatorConnection
     def answerCheckTIDRange(self, conn, min_tid, length, count, tid_checksum,
@@ -200,7 +205,8 @@ class ReplicationHandler(EventHandler):
                 p = self._doAskCheckTIDRange(min_tid, min(length / 2,
                     count + 1))
         if p is None:
-            if count == length:
+            if count == length and \
+                    max_tid < replicator.current_partition.getCriticalTID():
                 # Go on with next chunk
                 p = self._doAskCheckTIDRange(add64(max_tid, 1))
             else:

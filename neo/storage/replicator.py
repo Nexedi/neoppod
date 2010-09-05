@@ -361,17 +361,18 @@ class Replicator(object):
             app.dm.checkSerialRange, (min_oid, min_serial, length,
             app.pt.getPartitions(), partition))
 
-    def getTIDsFrom(self, min_tid, length, partition):
+    def getTIDsFrom(self, min_tid, max_tid, length, partition):
         app = self.app
         self._addTask('TIDsFrom',
-            app.dm.getReplicationTIDList, (min_tid, length,
+            app.dm.getReplicationTIDList, (min_tid, max_tid, length,
             app.pt.getPartitions(), partition))
 
-    def getObjectHistoryFrom(self, min_oid, min_serial, length, partition):
+    def getObjectHistoryFrom(self, min_oid, min_serial, max_serial, length,
+            partition):
         app = self.app
         self._addTask('ObjectHistoryFrom',
-            app.dm.getObjectHistoryFrom, (min_oid, min_serial, length,
-            app.pt.getPartitions(), partition))
+            app.dm.getObjectHistoryFrom, (min_oid, min_serial, max_serial,
+            length, app.pt.getPartitions(), partition))
 
     def _getCheckResult(self, key):
         return self.task_dict.pop(key).getResult()

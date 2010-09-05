@@ -30,17 +30,17 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
         tid = app.dm.getLastTID()
         conn.answer(Packets.AnswerLastIDs(oid, tid, app.pt.getID()))
 
-    def askTIDsFrom(self, conn, min_tid, length, partition):
+    def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
         app = self.app
-        tid_list = app.dm.getReplicationTIDList(min_tid, length,
+        tid_list = app.dm.getReplicationTIDList(min_tid, max_tid, length,
             app.pt.getPartitions(), partition)
         conn.answer(Packets.AnswerTIDsFrom(tid_list))
 
-    def askObjectHistoryFrom(self, conn, min_oid, min_serial, length,
-            partition):
+    def askObjectHistoryFrom(self, conn, min_oid, min_serial, max_serial,
+            length, partition):
         app = self.app
-        object_dict = app.dm.getObjectHistoryFrom(min_oid, min_serial, length,
-            app.pt.getPartitions(), partition)
+        object_dict = app.dm.getObjectHistoryFrom(min_oid, min_serial, max_serial,
+            length, app.pt.getPartitions(), partition)
         conn.answer(Packets.AnswerObjectHistoryFrom(object_dict))
 
     def askCheckTIDRange(self, conn, min_tid, length, partition):

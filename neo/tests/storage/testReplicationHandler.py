@@ -240,11 +240,13 @@ class StorageReplicationHandlerTests(NeoTestBase):
     def test_answerCheckTIDRangeIdenticalChunkWithNext(self):
         min_tid = self.getNextTID()
         max_tid = self.getNextTID()
+        critical_tid = self.getNextTID()
+        assert max_tid < critical_tid
         length = RANGE_LENGTH / 2
         rid = 12
         conn = self.getFakeConnection()
         app = self.getApp(tid_check_result=(length, 0, max_tid), rid=rid,
-            conn=conn)
+            conn=conn, critical_tid=critical_tid)
         handler = ReplicationHandler(app)
         # Peer has the same data as we have: length, checksum and max_tid
         # match.
@@ -258,6 +260,31 @@ class StorageReplicationHandlerTests(NeoTestBase):
         calls = app.replicator.mockGetNamedCalls('checkTIDRange')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(pmin_tid, plength, ppartition)
+
+    def test_answerCheckTIDRangeIdenticalChunkAboveCriticalTID(self):
+        critical_tid = self.getNextTID()
+        min_tid = self.getNextTID()
+        max_tid = self.getNextTID()
+        assert critical_tid < max_tid
+        length = RANGE_LENGTH / 2
+        rid = 12
+        conn = self.getFakeConnection()
+        app = self.getApp(tid_check_result=(length, 0, max_tid), rid=rid,
+            conn=conn, critical_tid=critical_tid)
+        handler = ReplicationHandler(app)
+        # Peer has the same data as we have: length, checksum and max_tid
+        # match.
+        handler.answerCheckTIDRange(conn, min_tid, length, length, 0, max_tid)
+        # Result: go on with object range checks
+        pmin_oid, pmin_serial, plength, ppartition = self.checkAskPacket(conn,
+            Packets.AskCheckSerialRange, decode=True)
+        self.assertEqual(pmin_oid, ZERO_OID)
+        self.assertEqual(pmin_serial, ZERO_TID)
+        self.assertEqual(plength, RANGE_LENGTH)
+        self.assertEqual(ppartition, rid)
+        calls = app.replicator.mockGetNamedCalls('checkSerialRange')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
 
     def test_answerCheckTIDRangeIdenticalChunkWithoutNext(self):
         min_tid = self.getNextTID()
@@ -307,11 +334,12 @@ class StorageReplicationHandlerTests(NeoTestBase):
     def test_answerCheckTIDRangeDifferentSmallChunkWithNext(self):
         min_tid = self.getNextTID()
         max_tid = self.getNextTID()
+        critical_tid = self.getNextTID()
         length = MIN_RANGE_LENGTH - 1
         rid = 12
         conn = self.getFakeConnection()
         app = self.getApp(tid_check_result=(length - 5, 0, max_tid), rid=rid,
-            conn=conn)
+            conn=conn, critical_tid=critical_tid)
         handler = ReplicationHandler(app)
         # Peer has different data
         handler.answerCheckTIDRange(conn, min_tid, length, length, 0, max_tid)
@@ -322,13 +350,14 @@ class StorageReplicationHandlerTests(NeoTestBase):
         tid_packet = tid_call.getParam(0)
         next_packet = next_call.getParam(0)
         self.assertEqual(tid_packet.getType(), Packets.AskTIDsFrom)
-        pmin_tid, plength, ppartition = tid_packet.decode()
+        pmin_tid, pmax_tid, plength, ppartition = tid_packet.decode()
         self.assertEqual(pmin_tid, min_tid)
+        self.assertEqual(pmax_tid, critical_tid)
         self.assertEqual(plength, length)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('getTIDsFrom')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_tid, plength, ppartition)
+        calls[0].checkArgs(pmin_tid, pmax_tid, plength, ppartition)
         self.assertEqual(next_packet.getType(), Packets.AskCheckTIDRange)
         pmin_tid, plength, ppartition = next_packet.decode()
         self.assertEqual(pmin_tid, add64(max_tid, 1))
@@ -341,11 +370,12 @@ class StorageReplicationHandlerTests(NeoTestBase):
     def test_answerCheckTIDRangeDifferentSmallChunkWithoutNext(self):
         min_tid = self.getNextTID()
         max_tid = self.getNextTID()
+        critical_tid = self.getNextTID()
         length = MIN_RANGE_LENGTH - 1
         rid = 12
         conn = self.getFakeConnection()
         app = self.getApp(tid_check_result=(length - 5, 0, max_tid), rid=rid,
-            conn=conn)
+            conn=conn, critical_tid=critical_tid)
         handler = ReplicationHandler(app)
         # Peer has different data, and less than length
         handler.answerCheckTIDRange(conn, min_tid, length, length - 1, 0,
@@ -357,13 +387,14 @@ class StorageReplicationHandlerTests(NeoTestBase):
         tid_packet = tid_call.getParam(0)
         next_packet = next_call.getParam(0)
         self.assertEqual(tid_packet.getType(), Packets.AskTIDsFrom)
-        pmin_tid, plength, ppartition = tid_packet.decode()
+        pmin_tid, pmax_tid, plength, ppartition = tid_packet.decode()
         self.assertEqual(pmin_tid, min_tid)
+        self.assertEqual(pmax_tid, critical_tid)
         self.assertEqual(plength, length - 1)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('getTIDsFrom')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_tid, plength, ppartition)
+        calls[0].checkArgs(pmin_tid, pmax_tid, plength, ppartition)
         self.assertEqual(next_packet.getType(), Packets.AskCheckSerialRange)
         pmin_oid, pmin_serial, plength, ppartition = next_packet.decode()
         self.assertEqual(pmin_oid, ZERO_OID)
@@ -448,11 +479,12 @@ class StorageReplicationHandlerTests(NeoTestBase):
         max_oid = self.getOID(10)
         min_serial = self.getNextTID()
         max_serial = self.getNextTID()
+        critical_tid = self.getNextTID()
         length = MIN_RANGE_LENGTH - 1
         rid = 12
         conn = self.getFakeConnection()
         app = self.getApp(tid_check_result=(length - 5, 0, max_oid, 1,
-            max_serial), rid=rid, conn=conn)
+            max_serial), rid=rid, conn=conn, critical_tid=critical_tid)
         handler = ReplicationHandler(app)
         # Peer has different data
         handler.answerCheckSerialRange(conn, min_oid, min_serial, length,
@@ -464,14 +496,17 @@ class StorageReplicationHandlerTests(NeoTestBase):
         serial_packet = serial_call.getParam(0)
         next_packet = next_call.getParam(0)
         self.assertEqual(serial_packet.getType(), Packets.AskObjectHistoryFrom)
-        pmin_oid, pmin_serial, plength, ppartition = serial_packet.decode()
+        pmin_oid, pmin_serial, pmax_serial, plength, ppartition = \
+            serial_packet.decode()
         self.assertEqual(pmin_oid, min_oid)
         self.assertEqual(pmin_serial, min_serial)
+        self.assertEqual(pmax_serial, critical_tid)
         self.assertEqual(plength, length)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('getObjectHistoryFrom')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
+        calls[0].checkArgs(pmin_oid, pmin_serial, pmax_serial, plength,
+            ppartition)
         self.assertEqual(next_packet.getType(), Packets.AskCheckSerialRange)
         pmin_oid, pmin_serial, plength, ppartition = next_packet.decode()
         self.assertEqual(pmin_oid, max_oid)
@@ -487,25 +522,29 @@ class StorageReplicationHandlerTests(NeoTestBase):
         max_oid = self.getOID(10)
         min_serial = self.getNextTID()
         max_serial = self.getNextTID()
+        critical_tid = self.getNextTID()
         length = MIN_RANGE_LENGTH - 1
         rid = 12
         conn = self.getFakeConnection()
         app = self.getApp(tid_check_result=(length - 5, 0, max_oid,
-            1, max_serial), rid=rid, conn=conn)
+            1, max_serial), rid=rid, conn=conn, critical_tid=critical_tid)
         handler = ReplicationHandler(app)
         # Peer has different data, and less than length
         handler.answerCheckSerialRange(conn, min_oid, min_serial, length,
             length - 1, 0, max_oid, 1, max_serial)
         # Result: ask tid list, and mark replication as done
-        pmin_oid, pmin_serial, plength, ppartition = self.checkAskPacket(conn,
-            Packets.AskObjectHistoryFrom, decode=True)
+        pmin_oid, pmin_serial, pmax_serial, plength, ppartition = \
+            self.checkAskPacket(conn, Packets.AskObjectHistoryFrom,
+            decode=True)
         self.assertEqual(pmin_oid, min_oid)
         self.assertEqual(pmin_serial, min_serial)
+        self.assertEqual(pmax_serial, critical_tid)
         self.assertEqual(plength, length - 1)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('getObjectHistoryFrom')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
+        calls[0].checkArgs(pmin_oid, pmin_serial, pmax_serial, plength,
+            ppartition)
         self.assertTrue(app.replicator.replication_done)
 
 if __name__ == "__main__":
