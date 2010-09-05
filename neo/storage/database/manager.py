@@ -416,4 +416,5 @@ class DatabaseManager(object):
             Takes no parameter, returns a 3-tuple: compression, checksum,
             value
         """
+        raise NotImplementedError
 
