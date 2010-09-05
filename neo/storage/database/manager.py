@@ -296,6 +296,25 @@ class DatabaseManager(object):
         pack state (True for packed)."""
         raise NotImplementedError
 
+    def _getDataTID(self, oid, tid=None, before_tid=None):
+        """
+        Return a 2-tuple:
+        tid (int)
+            tid corresponding to received parameters
+        serial
+            tid at which actual object data is located
+
+        If 'tid is None', requested object and transaction could
+        not be found.
+        If 'serial is None', requested object exist but has no data (its creation
+        has been undone).
+        If 'tid == serial', it means that requested transaction
+        contains object data.
+        Otherwise, it's an undo transaction which did not involve conflict
+        resolution.
+        """
+        raise NotImplementedError
+
     def findUndoTID(self, oid, tid, undone_tid, transaction_object):
         """
         oid
