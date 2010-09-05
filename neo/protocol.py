@@ -113,6 +113,7 @@ INVALID_PARTITION = 0xffffffff
 ZERO_TID = '\0' * 8
 ZERO_OID = '\0' * 8
 OID_LEN = len(INVALID_OID)
+TID_LEN = len(INVALID_TID)
 
 UUID_NAMESPACES = {
     NodeTypes.STORAGE: 'S',
@@ -1167,63 +1168,47 @@ class AnswerObjectHistory(Packet):
 class AskObjectHistoryFrom(Packet):
     """
     Ask history information for a given object. The order of serials is
-    ascending, and starts at (or above) min_serial. S -> S.
+    ascending, and starts at (or above) min_serial for min_oid. S -> S.
     """
-    _header_format = '!8s8sL'
+    _header_format = '!8s8sLL'
 
-    def _encode(self, oid, min_serial, length):
-        return pack(self._header_format, oid, min_serial, length)
+    def _encode(self, min_oid, min_serial, length, partition):
+        return pack(self._header_format, min_oid, min_serial, length,
+            partition)
 
     def _decode(self, body):
-        return unpack(self._header_format, body) # oid, min_serial, length
+        # min_oid, min_serial, length, partition
+        return unpack(self._header_format, body)
 
-class AnswerObjectHistoryFrom(AskFinishTransaction):
+class AnswerObjectHistoryFrom(Packet):
     """
     Answer the requested serials. S -> S.
     """
-    # This is similar to AskFinishTransaction as TID size is identical to OID
-    # size:
-    # - we have a single OID (TID in AskFinishTransaction)
-    # - we have a list of TIDs (OIDs in AskFinishTransaction)
-    pass
-
-class AskOIDs(Packet):
-    """
-    Ask for length OIDs starting at min_oid. S -> S.
-    """
-    _header_format = '!8sLL'
-
-    def _encode(self, min_oid, length, partition):
-        return pack(self._header_format, min_oid, length, partition)
-
-    def _decode(self, body):
-        return unpack(self._header_format, body) # min_oid, length, partition
-
-class AnswerOIDs(Packet):
-    """
-    Answer the requested OIDs. S -> S.
-    """
     _header_format = '!L'
-    _list_entry_format = '8s'
+    _list_entry_format = '!8sL'
     _list_entry_len = calcsize(_list_entry_format)
 
-    def _encode(self, oid_list):
-        body = [pack(self._header_format, len(oid_list))]
-        body.extend(oid_list)
+    def _encode(self, object_dict):
+        body = [pack(self._header_format, len(object_dict))]
+        append = body.append
+        extend = body.extend
+        list_entry_format = self._list_entry_format
+        for oid, serial_list in object_dict.iteritems():
+            append(pack(list_entry_format, oid, len(serial_list)))
+            extend(serial_list)
         return ''.join(body)
 
     def _decode(self, body):
-        offset = self._header_len
-        (n,) = unpack(self._header_format, body[:offset])
-        oid_list = []
+        body = StringIO(body)
+        read = body.read
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
-        for _ in xrange(n):
-            next_offset = offset + list_entry_len
-            oid = unpack(list_entry_format, body[offset:next_offset])[0]
-            offset = next_offset
-            oid_list.append(oid)
-        return (oid_list,)
+        object_dict = {}
+        dict_len = unpack(self._header_format, read(self._header_len))[0]
+        for _ in xrange(dict_len):
+            oid, serial_len = unpack(list_entry_format, read(list_entry_len))
+            object_dict[oid] = [read(TID_LEN) for _ in xrange(serial_len)]
+        return (object_dict, )
 
 class AskPartitionList(Packet):
     """
@@ -1660,6 +1645,73 @@ class AnswerPack(Packet):
     def _decode(self, body):
         return (bool(unpack(self._header_format, body)[0]), )
 
+class AskCheckTIDRange(Packet):
+    """
+    Ask some stats about a range of transactions.
+    Used to know if there are differences between a replicating node and
+    reference node.
+    S -> S
+    """
+    _header_format = '!8sLL'
+
+    def _encode(self, min_tid, length, partition):
+        return pack(self._header_format, min_tid, length, partition)
+
+    def _decode(self, body):
+        return unpack(self._header_format, body) # min_tid, length, partition
+
+class AnswerCheckTIDRange(Packet):
+    """
+    Stats about a range of transactions.
+    Used to know if there are differences between a replicating node and
+    reference node.
+    S -> S
+    """
+    _header_format = '!8sLLQ8s'
+    def _encode(self, min_tid, length, count, tid_checksum, max_tid):
+        return pack(self._header_format, min_tid, length, count, tid_checksum,
+            max_tid)
+
+    def _decode(self, body):
+        # min_tid, length, partition, count, tid_checksum, max_tid
+        return unpack(self._header_format, body)
+
+class AskCheckSerialRange(Packet):
+    """
+    Ask some stats about a range of object history.
+    Used to know if there are differences between a replicating node and
+    reference node.
+    S -> S
+    """
+    _header_format = '!8s8sLL'
+
+    def _encode(self, min_oid, min_serial, length, partition):
+        return pack(self._header_format, min_oid, min_serial, length,
+            partition)
+
+    def _decode(self, body):
+        # min_oid, min_serial, length, partition
+        return unpack(self._header_format, body)
+
+class AnswerCheckSerialRange(Packet):
+    """
+    Stats about a range of object history.
+    Used to know if there are differences between a replicating node and
+    reference node.
+    S -> S
+    """
+    _header_format = '!8s8sLLQ8sQ8s'
+
+    def _encode(self, min_oid, min_serial, length, count, oid_checksum,
+            max_oid, serial_checksum, max_serial):
+        return pack(self._header_format, min_oid, min_serial, length, count,
+            oid_checksum, max_oid, serial_checksum, max_serial)
+
+    def _decode(self, body):
+        # min_oid, min_serial, length, count, oid_checksum, max_oid,
+        # serial_checksum, max_serial
+        return unpack(self._header_format, body)
+
 class Error(Packet):
     """
     Error is a special type of message, because this can be sent against
@@ -1844,10 +1896,6 @@ class PacketRegistry(dict):
             0x001F,
             AskObjectHistory,
             AnswerObjectHistory)
-    AskOIDs, AnswerOIDs = register(
-            0x0020,
-            AskOIDs,
-            AnswerOIDs)
     AskPartitionList, AnswerPartitionList = register(
             0x0021,
             AskPartitionList,
@@ -1903,6 +1951,16 @@ class PacketRegistry(dict):
             0x0038,
             AskPack,
             AnswerPack)
+    AskCheckTIDRange, AnswerCheckTIDRange = register(
+            0x0039,
+            AskCheckTIDRange,
+            AnswerCheckTIDRange,
+            )
+    AskCheckSerialRange, AnswerCheckSerialRange = register(
+            0x003A,
+            AskCheckSerialRange,
+            AnswerCheckSerialRange,
+            )
 
 # build a "singleton"
 Packets = PacketRegistry()

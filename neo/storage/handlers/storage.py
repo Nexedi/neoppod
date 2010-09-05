@@ -30,34 +30,32 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
         tid = app.dm.getLastTID()
         conn.answer(Packets.AnswerLastIDs(oid, tid, app.pt.getID()))
 
-    def askOIDs(self, conn, min_oid, length, partition):
-        # This method is complicated, because I must return OIDs only
-        # about usable partitions assigned to me.
-        app = self.app
-        if partition == protocol.INVALID_PARTITION:
-            partition_list = app.pt.getAssignedPartitionList(app.uuid)
-        else:
-            partition_list = [partition]
-
-        oid_list = app.dm.getOIDList(min_oid, length,
-                                     app.pt.getPartitions(), partition_list)
-        conn.answer(Packets.AnswerOIDs(oid_list))
-
     def askTIDsFrom(self, conn, min_tid, length, partition):
-        # This method is complicated, because I must return TIDs only
-        # about usable partitions assigned to me.
         app = self.app
-        if partition == protocol.INVALID_PARTITION:
-            partition_list = app.pt.getAssignedPartitionList(app.uuid)
-        else:
-            partition_list = [partition]
-
         tid_list = app.dm.getReplicationTIDList(min_tid, length,
-                             app.pt.getPartitions(), partition_list)
+            app.pt.getPartitions(), partition)
         conn.answer(Packets.AnswerTIDsFrom(tid_list))
 
-    def askObjectHistoryFrom(self, conn, oid, min_serial, length):
+    def askObjectHistoryFrom(self, conn, min_oid, min_serial, length,
+            partition):
         app = self.app
-        history_list = app.dm.getObjectHistoryFrom(oid, min_serial, length)
-        conn.answer(Packets.AnswerObjectHistoryFrom(oid, history_list))
+        object_dict = app.dm.getObjectHistoryFrom(min_oid, min_serial, length,
+            app.pt.getPartitions(), partition)
+        conn.answer(Packets.AnswerObjectHistoryFrom(object_dict))
+
+    def askCheckTIDRange(self, conn, min_tid, length, partition):
+        app = self.app
+        count, tid_checksum, max_tid = app.dm.checkTIDRange(min_tid, length,
+            app.pt.getPartitions(), partition)
+        conn.answer(Packets.AnswerCheckTIDRange(min_tid, length, count,
+            tid_checksum, max_tid))
+
+    def askCheckSerialRange(self, conn, min_oid, min_serial, length,
+            partition):
+        app = self.app
+        count, oid_checksum, max_oid, serial_checksum, max_serial = \
+            app.dm.checkSerialRange(min_oid, min_serial, length,
+                app.pt.getPartitions(), partition)
+        conn.answer(Packets.AnswerCheckSerialRange(min_oid, min_serial, length,
+            count, oid_checksum, max_oid, serial_checksum, max_serial))
 

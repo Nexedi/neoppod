@@ -46,6 +46,46 @@ class Partition(object):
         return tid is not None and (
             min_pending_tid is None or tid < min_pending_tid)
 
+class Task(object):
+    """
+    A Task is a callable to execute at another time, with given parameters.
+    Execution result is kept and can be retrieved later.
+    """
+
+    _func = None
+    _args = None
+    _kw = None
+    _result = None
+    _processed = False
+
+    def __init__(self, func, args=(), kw=None):
+        self._func = func
+        self._args = args
+        if kw is None:
+            kw = {}
+        self._kw = kw
+
+    def process(self):
+        if self._processed:
+            raise ValueError, 'You cannot process a single Task twice'
+        self._processed = True
+        self._result = self._func(*self._args, **self._kw)
+
+    def getResult(self):
+        # Should we instead execute immediately rather than raising ?
+        if not self._processed:
+            raise ValueError, 'You cannot get a result until task is executed'
+        return self._result
+
+    def __repr__(self):
+        fmt = '<%s at %x %r(*%r, **%r)%%s>' % (self.__class__.__name__,
+            id(self), self._func, self._args, self._kw)
+        if self._processed:
+            extra = ' => %r' % (self._result, )
+        else:
+            extra = ''
+        return fmt % (extra, )
+
 class Replicator(object):
     """This class handles replications of objects and transactions.
 
@@ -98,20 +138,22 @@ class Replicator(object):
     #   didn't answer yet.
     # unfinished_tid_list
     #   The list of unfinished TIDs known by master node.
-    # oid_list
-    #   List of OIDs to replicate. Doesn't contains currently-replicated
-    #   object.
-    #   XXX: not defined here
-    #   XXX: accessed (r/w) directly by ReplicationHandler
-    # next_oid
-    #   Next OID to ask when oid_list is empty.
-    #   XXX: not defined here
-    #   XXX: accessed (r/w) directly by ReplicationHandler
     # replication_done
     #   False if we know there is something to replicate.
     #   True when current_partition is replicated, or we don't know yet if
     #   there is something to replicate
     #   XXX: accessed (w) directly by ReplicationHandler
+
+    new_partition_dict = None
+    critical_tid_dict = None
+    partition_dict = None
+    task_list = None
+    task_dict = None
+    current_partition = None
+    current_connection = None
+    waiting_for_unfinished_tids = None
+    unfinished_tid_list = None
+    replication_done = None
 
     def __init__(self, app):
         self.app = app
@@ -129,6 +171,8 @@ class Replicator(object):
 
     def reset(self):
         """Reset attributes to restart replicating."""
+        self.task_list = []
+        self.task_dict = {}
         self.current_partition = None
         self.current_connection = None
         self.waiting_for_unfinished_tids = False
@@ -213,15 +257,12 @@ class Replicator(object):
             p = Packets.RequestIdentification(NodeTypes.STORAGE,
                     app.uuid, app.server, app.name)
             self.current_connection.ask(p)
-
-        p = Packets.AskTIDsFrom(ZERO_TID, 1000,
-            self.current_partition.getRID())
-        self.current_connection.ask(p, timeout=300)
-
+        else:
+            self.current_connection.getHandler().startReplication(
+                self.current_connection)
         self.replication_done = False
 
     def _finishReplication(self):
-        app = self.app
         # TODO: remove try..except: pass
         try:
             self.partition_dict.pop(self.current_partition.getRID())
@@ -243,7 +284,11 @@ class Replicator(object):
             self._askCriticalTID()
 
         if self.current_partition is not None:
-            if self.replication_done:
+            # Don't end replication until we have received all expected
+            # answers, as we might have asked object data just before the last
+            # AnswerCheckSerialRange.
+            if self.replication_done and \
+                    not self.current_connection.isPending():
                 # finish a replication
                 logging.info('replication is done for %s' %
                         (self.current_partition.getRID(), ))
@@ -288,4 +333,58 @@ class Replicator(object):
         if not self.partition_dict.has_key(rid) \
                 and not self.new_partition_dict.has_key(rid):
             self.new_partition_dict[rid] = Partition(rid)
+
+    def _addTask(self, key, func, args=(), kw=None):
+        task = Task(func, args, kw)
+        task_dict = self.task_dict
+        if key in task_dict:
+            raise ValueError, 'Task with key %r already exists (%r), cannot ' \
+                'add %r' % (key, task_dict[key], task)
+        task_dict[key] = task
+        self.task_list.append(task)
+
+    def processDelayedTasks(self):
+        task_list = self.task_list
+        if task_list:
+            for task in task_list:
+                task.process()
+            self.task_list = []
+
+    def checkTIDRange(self, min_tid, length, partition):
+        app = self.app
+        self._addTask(('TID', min_tid, length), app.dm.checkTIDRange,
+            (min_tid, length, app.pt.getPartitions(), partition))
+
+    def checkSerialRange(self, min_oid, min_serial, length, partition):
+        app = self.app
+        self._addTask(('Serial', min_oid, min_serial, length),
+            app.dm.checkSerialRange, (min_oid, min_serial, length,
+            app.pt.getPartitions(), partition))
+
+    def getTIDsFrom(self, min_tid, length, partition):
+        app = self.app
+        self._addTask('TIDsFrom',
+            app.dm.getReplicationTIDList, (min_tid, length,
+            app.pt.getPartitions(), partition))
+
+    def getObjectHistoryFrom(self, min_oid, min_serial, length, partition):
+        app = self.app
+        self._addTask('ObjectHistoryFrom',
+            app.dm.getObjectHistoryFrom, (min_oid, min_serial, length,
+            app.pt.getPartitions(), partition))
+
+    def _getCheckResult(self, key):
+        return self.task_dict.pop(key).getResult()
+
+    def getTIDCheckResult(self, min_tid, length):
+        return self._getCheckResult(('TID', min_tid, length))
+
+    def getSerialCheckResult(self, min_oid, min_serial, length):
+        return self._getCheckResult(('Serial', min_oid, min_serial, length))
+
+    def getTIDsFromResult(self):
+        return self._getCheckResult('TIDsFrom')
+
+    def getObjectHistoryFromResult(self):
+        return self._getCheckResult('ObjectHistoryFrom')
 

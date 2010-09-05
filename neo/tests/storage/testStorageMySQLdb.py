@@ -19,7 +19,7 @@ import unittest
 import MySQLdb
 from mock import Mock
 from neo.util import dump, p64, u64
-from neo.protocol import CellStates, INVALID_PTID
+from neo.protocol import CellStates, INVALID_PTID, ZERO_OID, ZERO_TID
 from neo.tests import NeoTestBase
 from neo.exception import DatabaseFailure
 from neo.storage.database.mysqldb import MySQLDatabaseManager
@@ -441,6 +441,23 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertEqual(self.db.getTransaction(tid1, True), None)
         self.assertEqual(self.db.getTransaction(tid2, True), None)
 
+    def test_deleteObject(self):
+        oid1, oid2 = self.getOIDs(2)
+        tid1, tid2 = self.getTIDs(2)
+        txn1, objs1 = self.getTransaction([oid1, oid2])
+        txn2, objs2 = self.getTransaction([oid1, oid2])
+        self.db.storeTransaction(tid1, objs1, txn1)
+        self.db.storeTransaction(tid2, objs2, txn2)
+        self.db.finishTransaction(tid1)
+        self.db.finishTransaction(tid2)
+        self.db.deleteObject(oid1)
+        self.assertEqual(self.db.getObject(oid1, tid=tid1), None)
+        self.assertEqual(self.db.getObject(oid1, tid=tid2), None)
+        self.db.deleteObject(oid2, serial=tid1)
+        self.assertEqual(self.db.getObject(oid2, tid=tid1), False)
+        self.assertEqual(self.db.getObject(oid2, tid=tid2), (tid2, None) + \
+            objs2[1][1:])
+
     def test_getTransaction(self):
         oid1, oid2 = self.getOIDs(2)
         tid1, tid2 = self.getTIDs(2)
@@ -458,30 +475,6 @@ class StorageMySQSLdbTests(NeoTestBase):
         result = self.db.getTransaction(tid1, False)
         self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False))
         self.assertEqual(self.db.getTransaction(tid2, False), None)
-
-    def test_getOIDList(self):
-        # store four objects
-        oid1, oid2, oid3, oid4 = self.getOIDs(4)
-        tid = self.getNextTID()
-        txn, objs = self.getTransaction([oid1, oid2, oid3, oid4])
-        self.db.storeTransaction(tid, objs, txn)
-        self.db.finishTransaction(tid)
-        # get oids
-        result = self.db.getOIDList(oid1, 4, 1, [0])
-        self.checkSet(result, [oid1, oid2, oid3, oid4])
-        result = self.db.getOIDList(oid1, 4, 2, [0])
-        self.checkSet(result, [oid1, oid3])
-        result = self.db.getOIDList(oid1, 4, 2, [0, 1])
-        self.checkSet(result, [oid1, oid2, oid3, oid4])
-        result = self.db.getOIDList(oid1, 4, 3, [0])
-        self.checkSet(result, [oid1, oid4])
-        # get a subset of oids
-        result = self.db.getOIDList(oid1, 2, 1, [0])
-        self.checkSet(result, [oid1, oid2])
-        result = self.db.getOIDList(oid3, 2, 1, [0])
-        self.checkSet(result, [oid3, oid4])
-        result = self.db.getOIDList(oid2, 1, 3, [0])
-        self.checkSet(result, [oid4])
 
     def test_getObjectHistory(self):
         oid = self.getOID(1)
@@ -505,6 +498,50 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertEqual(result, [(tid1, 0)])
         result = self.db.getObjectHistory(oid, 2, 3)
         self.assertEqual(result, None)
+
+    def test_getObjectHistoryFrom(self):
+        oid1 = self.getOID(0)
+        oid2 = self.getOID(1)
+        tid1, tid2, tid3, tid4 = self.getTIDs(4)
+        txn1, objs1 = self.getTransaction([oid1])
+        txn2, objs2 = self.getTransaction([oid2])
+        txn3, objs3 = self.getTransaction([oid1])
+        txn4, objs4 = self.getTransaction([oid2])
+        self.db.storeTransaction(tid1, objs1, txn1)
+        self.db.storeTransaction(tid2, objs2, txn2)    
+        self.db.storeTransaction(tid3, objs3, txn3)
+        self.db.storeTransaction(tid4, objs4, txn4)
+        self.db.finishTransaction(tid1)
+        self.db.finishTransaction(tid2)
+        self.db.finishTransaction(tid3)
+        self.db.finishTransaction(tid4)
+        # Check full result
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, 10, 1, 0)
+        self.assertEqual(result, {
+            oid1: [tid1, tid3],
+            oid2: [tid2, tid4],
+        })
+        # Lower bound is inclusive
+        result = self.db.getObjectHistoryFrom(oid1, tid1, 10, 1, 0)
+        self.assertEqual(result, {
+            oid1: [tid1, tid3],
+            oid2: [tid2, tid4],
+        })
+        # Length is total number of serials
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, 3, 1, 0)
+        self.assertEqual(result, {
+            oid1: [tid1, tid3],
+            oid2: [tid2],
+        })
+        # Partition constraints are honored
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, 10, 2, 0)
+        self.assertEqual(result, {
+            oid1: [tid1, tid3],
+        })
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, 10, 2, 1)
+        self.assertEqual(result, {
+            oid2: [tid2, tid4],
+        })
 
     def _storeTransactions(self, count):
         # use OID generator to know result of tid % N
@@ -538,58 +575,19 @@ class StorageMySQSLdbTests(NeoTestBase):
     def test_getReplicationTIDList(self):
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # get tids
-        result = self.db.getReplicationTIDList(tid1, 4, 1, [0])
+        result = self.db.getReplicationTIDList(tid1, 4, 1, 0)
         self.checkSet(result, [tid1, tid2, tid3, tid4])
-        result = self.db.getReplicationTIDList(tid1, 4, 2, [0])
+        result = self.db.getReplicationTIDList(tid1, 4, 2, 0)
         self.checkSet(result, [tid1, tid3])
-        result = self.db.getReplicationTIDList(tid1, 4, 2, [0, 1])
-        self.checkSet(result, [tid1, tid2, tid3, tid4])
-        result = self.db.getReplicationTIDList(tid1, 4, 3, [0])
+        result = self.db.getReplicationTIDList(tid1, 4, 3, 0)
         self.checkSet(result, [tid1, tid4])
         # get a subset of tids
-        result = self.db.getReplicationTIDList(tid3, 4, 1, [0])
+        result = self.db.getReplicationTIDList(tid3, 4, 1, 0)
         self.checkSet(result, [tid3, tid4])
-        result = self.db.getReplicationTIDList(tid1, 2, 1, [0])
+        result = self.db.getReplicationTIDList(tid1, 2, 1, 0)
         self.checkSet(result, [tid1, tid2])
-        result = self.db.getReplicationTIDList(tid1, 1, 3, [1])
+        result = self.db.getReplicationTIDList(tid1, 1, 3, 1)
         self.checkSet(result, [tid2])
-
-    def test_getTIDListPresent(self):
-        oid = self.getOID(1)
-        tid1, tid2, tid3, tid4 = self.getTIDs(4)
-        txn1, objs1 = self.getTransaction([oid])
-        txn4, objs4 = self.getTransaction([oid])
-        # four tids, two missing
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.finishTransaction(tid1)
-        self.db.storeTransaction(tid4, objs4, txn4)
-        self.db.finishTransaction(tid4)
-        result = self.db.getTIDListPresent([tid1, tid2, tid3, tid4])
-        self.checkSet(result, [tid1, tid4])
-        result = self.db.getTIDListPresent([tid1, tid2])
-        self.checkSet(result, [tid1])
-        self.assertEqual(self.db.getTIDListPresent([tid2, tid3]), [])
-
-    def test_getSerialListPresent(self):
-        oid1, oid2 = self.getOIDs(2)
-        tid1, tid2, tid3, tid4 = self.getTIDs(4)
-        txn1, objs1 = self.getTransaction([oid1])
-        txn2, objs2 = self.getTransaction([oid1])
-        txn3, objs3 = self.getTransaction([oid2])
-        txn4, objs4 = self.getTransaction([oid2])
-        # four object, one revision each
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.finishTransaction(tid1)
-        self.db.storeTransaction(tid4, objs4, txn4)
-        self.db.finishTransaction(tid4)
-        result = self.db.getSerialListPresent(oid1, [tid1, tid2])
-        self.checkSet(result, [tid1])
-        result = self.db.getSerialListPresent(oid2, [tid3, tid4])
-        self.checkSet(result, [tid4])
-        result = self.db.getSerialListPresent(oid1, [tid2])
-        self.assertEqual(result, [])
-        result = self.db.getSerialListPresent(oid2, [tid3])
-        self.assertEqual(result, [])
 
     def test__getObjectData(self):
         db = self.db

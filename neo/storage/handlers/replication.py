@@ -22,6 +22,48 @@ from neo.handler import EventHandler
 from neo.protocol import Packets, ZERO_TID, ZERO_OID
 from neo import util
 
+# TODO: benchmark how different values behave
+RANGE_LENGTH = 4000
+MIN_RANGE_LENGTH = 1000
+
+"""
+Replication algorythm
+
+Purpose: replicate the content of a reference node into a replicating node,
+bringing it up-to-date.
+This happens both when a new storage is added to en existing cluster, as well
+as when a nde was separated from cluster and rejoins it.
+
+Replication happens per partition. Reference node can change between
+partitions.
+
+2 parts, done sequentially:
+- Transaction (metadata) replication
+- Object (data) replication
+
+Both part follow the same mechanism:
+- On both sides (replicating and reference), compute a checksum of a chunk
+  (RANGE_LENGTH number of entries). If there is a mismatch, chunk size is
+  reduced, and scan restarts from same row, until it reaches a minimal length
+  (MIN_RANGE_LENGTH). Then, it replicates all rows in that chunk. If the
+  content of chunks match, it moves on to the next chunk.
+- Replicating a chunk starts with asking for a list of all entries (only their
+  identifier) and skipping those both side have, deleting those which reference
+  has and replicating doesn't, and asking individually all entries missing in
+  replicating.
+"""
+
+# TODO: Make object replication get ordered by serial first and oid second, so
+# changes are in a big segment at the end, rather than in many segments (one
+# per object).
+
+# TODO: To improve performance when a pack happened, the following algorithm
+# should be used:
+# - If reference node packed, find non-existant oids in reference node (their
+#   creation was undone, and pack pruned them), and delete them.
+# - Run current algorithm, starting at our last pack TID.
+# - Pack partition at reference's TID.
+
 def checkConnectionIsReplicatorConnection(func):
     def decorator(self, conn, *args, **kw):
         if self.app.replicator.current_connection is conn:
@@ -51,28 +93,26 @@ class ReplicationHandler(EventHandler):
                        uuid, num_partitions, num_replicas, your_uuid):
         # set the UUID on the connection
         conn.setUUID(uuid)
+        self.startReplication(conn)
+
+    def startReplication(self, conn):
+        conn.ask(self._doAskCheckTIDRange(ZERO_TID), timeout=300)
 
     @checkConnectionIsReplicatorConnection
     def answerTIDsFrom(self, conn, tid_list):
         app = self.app
-        if tid_list:
-            # If I have pending TIDs, check which TIDs I don't have, and
-            # request the data.
-            present_tid_list = app.dm.getTIDListPresent(tid_list)
-            tid_set = set(tid_list) - set(present_tid_list)
-            for tid in tid_set:
-                conn.ask(Packets.AskTransactionInformation(tid), timeout=300)
-
-            # And, ask more TIDs.
-            p = Packets.AskTIDsFrom(add64(tid_list[-1], 1), 1000,
-                      app.replicator.current_partition.getRID())
-            conn.ask(p, timeout=300)
-        else:
-            # If no more TID, a replication of transactions is finished.
-            # So start to replicate objects now.
-            p = Packets.AskOIDs(ZERO_OID, 1000,
-                      app.replicator.current_partition.getRID())
-            conn.ask(p, timeout=300)
+        # If I have pending TIDs, check which TIDs I don't have, and
+        # request the data.
+        tid_set = frozenset(tid_list)
+        my_tid_set = frozenset(app.replicator.getTIDsFromResult())
+        extra_tid_set = my_tid_set - tid_set
+        if extra_tid_set:
+            deleteTransaction = app.dm.deleteTransaction
+            for tid in extra_tid_set:
+                deleteTransaction(tid)
+        missing_tid_set = tid_set - my_tid_set
+        for tid in missing_tid_set:
+            conn.ask(Packets.AskTransactionInformation(tid), timeout=300)
 
     @checkConnectionIsReplicatorConnection
     def answerTransactionInformation(self, conn, tid,
@@ -83,46 +123,23 @@ class ReplicationHandler(EventHandler):
             False)
 
     @checkConnectionIsReplicatorConnection
-    def answerOIDs(self, conn, oid_list):
+    def answerObjectHistoryFrom(self, conn, object_dict):
         app = self.app
-        if oid_list:
-            app.replicator.next_oid = add64(oid_list[-1], 1)
-            # Pick one up, and ask the history.
-            oid = oid_list.pop()
-            conn.ask(Packets.AskObjectHistoryFrom(oid, ZERO_TID, 1000),
-                timeout=300)
-            app.replicator.oid_list = oid_list
-        else:
-            # Nothing remains, so the replication for this partition is
-            # finished.
-            app.replicator.replication_done = True
-
-    @checkConnectionIsReplicatorConnection
-    def answerObjectHistoryFrom(self, conn, oid, serial_list):
-        app = self.app
-        if serial_list:
+        my_object_dict = app.replicator.getObjectHistoryFromResult()
+        deleteObject = app.dm.deleteObject
+        for oid, serial_list in object_dict.iteritems():
             # Check if I have objects, request those which I don't have.
-            present_serial_list = app.dm.getSerialListPresent(oid, serial_list)
-            serial_set = set(serial_list) - set(present_serial_list)
-            for serial in serial_set:
-                conn.ask(Packets.AskObject(oid, serial, None), timeout=300)
-
-            # And, ask more serials.
-            conn.ask(Packets.AskObjectHistoryFrom(oid,
-                add64(serial_list[-1], 1), 1000), timeout=300)
-        else:
-            # This OID is finished. So advance to next.
-            oid_list = app.replicator.oid_list
-            if oid_list:
-                # If I have more pending OIDs, pick one up.
-                oid = oid_list.pop()
-                conn.ask(Packets.AskObjectHistoryFrom(oid, ZERO_TID, 1000),
-                    timeout=300)
+            if oid in my_object_dict:
+                my_serial_set = frozenset(my_object_dict[oid])
+                serial_set = frozenset(serial_list)
+                extra_serial_set = my_serial_set - serial_set
+                for serial in extra_serial_set:
+                    deleteObject(oid, serial)
+                missing_serial_set = serial_set - my_serial_set
             else:
-                # Otherwise, acquire more OIDs.
-                p = Packets.AskOIDs(app.replicator.next_oid, 1000,
-                          app.replicator.current_partition.getRID())
-                conn.ask(p, timeout=300)
+                missing_serial_set = serial_list
+            for serial in missing_serial_set:
+                conn.ask(Packets.AskObject(oid, serial, None), timeout=300)
 
     @checkConnectionIsReplicatorConnection
     def answerObject(self, conn, oid, serial_start,
@@ -133,4 +150,98 @@ class ReplicationHandler(EventHandler):
         app.dm.storeTransaction(serial_start, [obj], None, False)
         del obj
         del data
+
+    def _doAskCheckSerialRange(self, min_oid, min_tid, length=RANGE_LENGTH):
+        replicator = self.app.replicator
+        partition = replicator.current_partition.getRID()
+        replicator.checkSerialRange(min_oid, min_tid, length, partition)
+        return Packets.AskCheckSerialRange(min_oid, min_tid, length, partition)
+
+    def _doAskCheckTIDRange(self, min_tid, length=RANGE_LENGTH):
+        replicator = self.app.replicator
+        partition = replicator.current_partition.getRID()
+        replicator.checkTIDRange(min_tid, length, partition)
+        return Packets.AskCheckTIDRange(min_tid, length, partition)
+
+    def _doAskTIDsFrom(self, min_tid, length):
+        replicator = self.app.replicator
+        partition = replicator.current_partition.getRID()
+        replicator.getTIDsFrom(min_tid, length, partition)
+        return Packets.AskTIDsFrom(min_tid, length, partition)
+
+    def _doAskObjectHistoryFrom(self, min_oid, min_serial, length):
+        replicator = self.app.replicator
+        partition = replicator.current_partition.getRID()
+        replicator.getObjectHistoryFrom(min_oid, min_serial, length, partition)
+        return Packets.AskObjectHistoryFrom(min_oid, min_serial, length,
+            partition)
+
+    @checkConnectionIsReplicatorConnection
+    def answerCheckTIDRange(self, conn, min_tid, length, count, tid_checksum,
+            max_tid):
+        app = self.app
+        replicator = app.replicator
+        our = replicator.getTIDCheckResult(min_tid, length)
+        his = (count, tid_checksum, max_tid)
+        our_count = our[0]
+        our_max_tid = our[2]
+        p = None
+        if our != his:
+            # Something is different...
+            if length <= MIN_RANGE_LENGTH:
+                # We are already at minimum chunk length, replicate.
+                conn.ask(self._doAskTIDsFrom(min_tid, count))
+            else:
+                # Check a smaller chunk.
+                # Note: this could be made into a real binary search, but is
+                # it really worth the work ?
+                # Note: +1, so we can detect we reached the end when answer
+                # comes back.
+                p = self._doAskCheckTIDRange(min_tid, min(length / 2,
+                    count + 1))
+        if p is None:
+            if count == length:
+                # Go on with next chunk
+                p = self._doAskCheckTIDRange(add64(max_tid, 1))
+            else:
+                # If no more TID, a replication of transactions is finished.
+                # So start to replicate objects now.
+                p = self._doAskCheckSerialRange(ZERO_OID, ZERO_TID)
+        conn.ask(p)
+
+    @checkConnectionIsReplicatorConnection
+    def answerCheckSerialRange(self, conn, min_oid, min_serial, length, count,
+            oid_checksum, max_oid, serial_checksum, max_serial):
+        app = self.app
+        replicator = app.replicator
+        our = replicator.getSerialCheckResult(min_oid, min_serial, length)
+        his = (count, oid_checksum, max_oid, serial_checksum, max_serial)
+        our_count = our[0]
+        our_max_oid = our[2]
+        our_max_serial = our[4]
+        p = None
+        if our != his:
+            # Something is different...
+            if length <= MIN_RANGE_LENGTH:
+                # We are already at minimum chunk length, replicate.
+                conn.ask(self._doAskObjectHistoryFrom(min_oid, min_serial,
+                  count))
+            else:
+                # Check a smaller chunk.
+                # Note: this could be made into a real binary search, but is
+                # it really worth the work ?
+                # Note: +1, so we can detect we reached the end when answer
+                # comes back.
+                p = self._doAskCheckSerialRange(min_oid, min_serial,
+                    min(length / 2, count + 1))
+        if p is None:
+            if count == length:
+                # Go on with next chunk
+                p = self._doAskCheckSerialRange(max_oid, add64(max_serial, 1))
+            else:
+                # Nothing remains, so the replication for this partition is
+                # finished.
+                replicator.replication_done = True
+        if p is not None:
+            conn.ask(p)
 

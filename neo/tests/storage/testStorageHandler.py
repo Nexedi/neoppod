@@ -21,7 +21,7 @@ from collections import deque
 from neo.tests import NeoTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.storage import StorageOperationHandler
-from neo.protocol import INVALID_PARTITION
+from neo.protocol import INVALID_PARTITION, Packets
 from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
 
 class StorageStorageHandlerTests(NeoTestBase):
@@ -113,7 +113,7 @@ class StorageStorageHandlerTests(NeoTestBase):
         self.assertEquals(len(self.app.event_queue), 0)
         self.checkAnswerObject(conn)
 
-    def test_25_askTIDsFrom1(self):
+    def test_25_askTIDsFrom(self):
         # well case => answer
         conn = self.getFakeConnection()
         self.app.dm = Mock({'getReplicationTIDList': (INVALID_TID, )})
@@ -122,69 +122,85 @@ class StorageStorageHandlerTests(NeoTestBase):
         self.operation.askTIDsFrom(conn, tid, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getReplicationTIDList')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(tid, 2, 1, [1, ])
-        self.checkAnswerTidsFrom(conn)
-
-    def test_25_askTIDsFrom2(self):
-        # invalid partition => answer usable partitions
-        conn = self.getFakeConnection()
-        cell = Mock({'getUUID':self.app.uuid})
-        self.app.dm = Mock({'getReplicationTIDList': (INVALID_TID, )})
-        self.app.pt = Mock({
-            'getCellList': (cell, ), 
-            'getPartitions': 1,
-            'getAssignedPartitionList': [0],
-        })
-        tid = self.getNextTID()
-        self.operation.askTIDsFrom(conn, tid, 2, INVALID_PARTITION)
-        self.assertEquals(len(self.app.pt.mockGetNamedCalls('getAssignedPartitionList')), 1)
-        calls = self.app.dm.mockGetNamedCalls('getReplicationTIDList')
-        self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(tid, 2, 1, [0, ])
+        calls[0].checkArgs(tid, 2, 1, 1)
         self.checkAnswerTidsFrom(conn)
 
     def test_26_askObjectHistoryFrom(self):
-        oid = self.getOID(2)
-        min_tid = self.getNextTID()
+        min_oid = self.getOID(2)
+        min_serial = self.getNextTID()
+        length = 4
+        partition = 8
+        num_partitions = 16
         tid = self.getNextTID()
         conn = self.getFakeConnection()
-        self.app.dm = Mock({'getObjectHistoryFrom': [tid]})
-        self.operation.askObjectHistoryFrom(conn, oid, min_tid, 2)
+        self.app.dm = Mock({'getObjectHistoryFrom': {min_oid: [tid]},})
+        self.app.pt = Mock({
+            'getPartitions': num_partitions,
+        })
+        self.operation.askObjectHistoryFrom(conn, min_oid, min_serial, length,
+            partition)
         self.checkAnswerObjectHistoryFrom(conn)
         calls = self.app.dm.mockGetNamedCalls('getObjectHistoryFrom')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(oid, min_tid, 2)
+        calls[0].checkArgs(min_oid, min_serial, length, num_partitions,
+            partition)
 
-    def test_25_askOIDs1(self):
-        # well case > answer OIDs
+    def test_askCheckTIDRange(self):
+        count = 1
+        tid_checksum = 2
+        min_tid = self.getNextTID()
+        num_partitions = 4
+        length = 5
+        partition = 6
+        max_tid = self.getNextTID()
+        self.app.dm = Mock({'checkTIDRange': (count, tid_checksum, max_tid)})
+        self.app.pt = Mock({'getPartitions': num_partitions})
         conn = self.getFakeConnection()
-        self.app.pt = Mock({'getPartitions': 1})
-        self.app.dm = Mock({'getOIDList': (INVALID_OID, )})
-        oid = self.getOID(1)
-        self.operation.askOIDs(conn, oid, 2, 1)
-        calls = self.app.dm.mockGetNamedCalls('getOIDList')
-        self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(oid, 2, 1, [1, ])
-        self.checkAnswerOids(conn)
+        self.operation.askCheckTIDRange(conn, min_tid, length, partition)
+        calls = self.app.dm.mockGetNamedCalls('checkTIDRange')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(min_tid, length, num_partitions, partition)
+        pmin_tid, plength, pcount, ptid_checksum, pmax_tid = \
+            self.checkAnswerPacket(conn, Packets.AnswerCheckTIDRange,
+            decode=True)
+        self.assertEqual(min_tid, pmin_tid)
+        self.assertEqual(length, plength)
+        self.assertEqual(count, pcount)
+        self.assertEqual(tid_checksum, ptid_checksum)
+        self.assertEqual(max_tid, pmax_tid)
 
-    def test_25_askOIDs2(self):
-        # invalid partition => answer usable partitions
+    def test_askCheckSerialRange(self):
+        count = 1
+        oid_checksum = 2
+        min_oid = self.getOID(1)
+        num_partitions = 4
+        length = 5
+        partition = 6
+        serial_checksum = 7
+        min_serial = self.getNextTID()
+        max_serial = self.getNextTID()
+        max_oid = self.getOID(2)
+        self.app.dm = Mock({'checkSerialRange': (count, oid_checksum, max_oid,
+            serial_checksum, max_serial)})
+        self.app.pt = Mock({'getPartitions': num_partitions})
         conn = self.getFakeConnection()
-        cell = Mock({'getUUID':self.app.uuid})
-        self.app.dm = Mock({'getOIDList': (INVALID_OID, )})
-        self.app.pt = Mock({
-            'getCellList': (cell, ), 
-            'getPartitions': 1,
-            'getAssignedPartitionList': [0],
-        })
-        oid = self.getOID(1)
-        self.operation.askOIDs(conn, oid, 2, INVALID_PARTITION)
-        self.assertEquals(len(self.app.pt.mockGetNamedCalls('getAssignedPartitionList')), 1)
-        calls = self.app.dm.mockGetNamedCalls('getOIDList')
-        self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(oid, 2, 1, [0])
-        self.checkAnswerOids(conn)
-
+        self.operation.askCheckSerialRange(conn, min_oid, min_serial, length,
+            partition)
+        calls = self.app.dm.mockGetNamedCalls('checkSerialRange')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(min_oid, min_serial, length, num_partitions,
+            partition)
+        pmin_oid, pmin_serial, plength, pcount, poid_checksum, pmax_oid, \
+            pserial_checksum, pmax_serial = self.checkAnswerPacket(conn,
+            Packets.AnswerCheckSerialRange, decode=True)
+        self.assertEqual(min_oid, pmin_oid)
+        self.assertEqual(min_serial, pmin_serial)
+        self.assertEqual(length, plength)
+        self.assertEqual(count, pcount)
+        self.assertEqual(oid_checksum, poid_checksum)
+        self.assertEqual(max_oid, pmax_oid)
+        self.assertEqual(serial_checksum, pserial_checksum)
+        self.assertEqual(max_serial, pmax_serial)
 
 if __name__ == "__main__":
     unittest.main()

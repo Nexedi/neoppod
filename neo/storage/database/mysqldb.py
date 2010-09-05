@@ -24,7 +24,7 @@ import string
 
 from neo.storage.database import DatabaseManager
 from neo.exception import DatabaseFailure
-from neo.protocol import CellStates
+from neo.protocol import CellStates, ZERO_OID, ZERO_TID
 from neo import util
 
 LOG_QUERIES = False
@@ -576,6 +576,23 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
+    def deleteObject(self, oid, serial=None):
+        u64 = util.u64
+        query_param_dict = {
+            'oid': u64(oid),
+        }
+        query_fmt = 'DELETE FROM obj WHERE oid = %(oid)d'
+        if serial is not None:
+            query_param_dict['serial'] = u64(serial)
+            query_fmt = query_fmt + ' AND serial = %(serial)d'
+        self.begin()
+        try:
+            self.query(query_fmt % query_param_dict)
+        except:
+            self.rollback()
+            raise
+        self.commit()
+
     def getTransaction(self, tid, all = False):
         q = self.query
         tid = util.u64(tid)
@@ -593,20 +610,6 @@ class MySQLDatabaseManager(DatabaseManager):
             oid_list = splitOIDField(tid, oids)
             return oid_list, user, desc, ext, bool(packed)
         return None
-
-    def getOIDList(self, min_oid, length, num_partitions,
-            partition_list):
-        q = self.query
-        r = q("""SELECT DISTINCT oid FROM obj WHERE
-                    MOD(oid, %(num_partitions)d) in (%(partitions)s)
-                    AND oid >= %(min_oid)d
-                    ORDER BY oid ASC LIMIT %(length)d""" % {
-            'num_partitions': num_partitions,
-            'partitions': ','.join([str(p) for p in partition_list]),
-            'min_oid': util.u64(min_oid),
-            'length': length,
-        })
-        return [util.p64(t[0]) for t in r]
 
     def _getObjectLength(self, oid, value_serial):
         if value_serial is None:
@@ -646,18 +649,32 @@ class MySQLDatabaseManager(DatabaseManager):
             return result
         return None
 
-    def getObjectHistoryFrom(self, oid, min_serial, length):
+    def getObjectHistoryFrom(self, min_oid, min_serial, length, num_partitions,
+            partition):
         q = self.query
-        oid = util.u64(oid)
+        u64 = util.u64
         p64 = util.p64
-        r = q("""SELECT serial FROM obj
-                    WHERE oid = %(oid)d AND serial >= %(min_serial)d
-                    ORDER BY serial ASC LIMIT %(length)d""" % {
-            'oid': oid,
-            'min_serial': util.u64(min_serial),
+        min_oid = u64(min_oid)
+        min_serial = u64(min_serial)
+        r = q('SELECT oid, serial FROM obj '
+                'WHERE ((oid = %(min_oid)d AND serial >= %(min_serial)d) OR '
+                'oid > %(min_oid)d) AND '
+                'MOD(oid, %(num_partitions)d) = %(partition)s '
+                'ORDER BY oid ASC, serial ASC LIMIT %(length)d' % {
+            'min_oid': min_oid,
+            'min_serial': min_serial,
             'length': length,
+            'num_partitions': num_partitions,
+            'partition': partition,
         })
-        return [p64(t[0]) for t in r]
+        result = {}
+        for oid, serial in r:
+            try:
+                serial_list = result[oid]
+            except KeyError:
+                serial_list = result[oid] = []
+            serial_list.append(p64(serial))
+        return dict((p64(x), y) for x, y in result.iteritems())
 
     def getTIDList(self, offset, length, num_partitions, partition_list):
         q = self.query
@@ -669,30 +686,17 @@ class MySQLDatabaseManager(DatabaseManager):
         return [util.p64(t[0]) for t in r]
 
     def getReplicationTIDList(self, min_tid, length, num_partitions,
-            partition_list):
+            partition):
         q = self.query
         r = q("""SELECT tid FROM trans WHERE
-                    MOD(tid, %(num_partitions)d) in (%(partitions)s)
+                    MOD(tid, %(num_partitions)d) = %(partition)d
                     AND tid >= %(min_tid)d
                     ORDER BY tid ASC LIMIT %(length)d""" % {
             'num_partitions': num_partitions,
-            'partitions': ','.join([str(p) for p in partition_list]),
+            'partition': partition,
             'min_tid': util.u64(min_tid),
             'length': length,
         })
-        return [util.p64(t[0]) for t in r]
-
-    def getTIDListPresent(self, tid_list):
-        q = self.query
-        r = q("""SELECT tid FROM trans WHERE tid in (%s)""" \
-                % ','.join([str(util.u64(tid)) for tid in tid_list]))
-        return [util.p64(t[0]) for t in r]
-
-    def getSerialListPresent(self, oid, serial_list):
-        q = self.query
-        oid = util.u64(oid)
-        r = q("""SELECT serial FROM obj WHERE oid = %d AND serial in (%s)""" \
-                % (oid, ','.join([str(util.u64(serial)) for serial in serial_list])))
         return [util.p64(t[0]) for t in r]
 
     def _updatePackFuture(self, oid, orig_serial, max_serial,
@@ -783,4 +787,54 @@ class MySQLDatabaseManager(DatabaseManager):
             self.rollback()
             raise
         self.commit()
+  
+    def checkTIDRange(self, min_tid, length, num_partitions, partition):
+        # XXX: XOR is a lame checksum
+        count, tid_checksum, max_tid = self.query('SELECT COUNT(*), '
+            'BIT_XOR(tid), MAX(tid) FROM ('
+              'SELECT tid FROM trans '
+              'WHERE MOD(tid, %(num_partitions)d) = %(partition)s '
+              'AND tid >= %(min_tid)d '
+              'ORDER BY tid ASC LIMIT %(length)d'
+            ') AS foo' % {
+                'num_partitions': num_partitions,
+                'partition': partition,
+                'min_tid': util.u64(min_tid),
+                'length': length,
+        })[0]
+        if count == 0:
+            tid_checksum = 0
+            max_tid = ZERO_TID
+        else:
+            max_tid = util.p64(max_tid)
+        return count, tid_checksum, max_tid
+
+    def checkSerialRange(self, min_oid, min_serial, length, num_partitions,
+            partition):
+        # XXX: XOR is a lame checksum
+        u64 = util.u64
+        p64 = util.p64
+        r = self.query('SELECT oid, serial FROM obj WHERE '
+            '(oid > %(min_oid)d OR '
+            '(oid = %(min_oid)d AND serial >= %(min_serial)d)) '
+            'AND MOD(oid, %(num_partitions)d) = %(partition)s '
+            'ORDER BY oid ASC, serial ASC LIMIT %(length)d' % {
+                'min_oid': u64(min_oid),
+                'min_serial': u64(min_serial),
+                'length': length,
+                'num_partitions': num_partitions,
+                'partition': partition,
+        })
+        count = len(r)
+        oid_checksum = serial_checksum = 0
+        if count == 0:
+            max_oid = ZERO_OID
+            max_serial = ZERO_TID
+        else:
+            for max_oid, max_serial in r:
+                oid_checksum ^= max_oid
+                serial_checksum ^= max_serial
+            max_oid = p64(max_oid)
+            max_serial = p64(max_serial)
+        return count, oid_checksum, max_oid, serial_checksum, max_serial
 

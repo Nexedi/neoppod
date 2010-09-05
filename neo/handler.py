@@ -275,16 +275,10 @@ class EventHandler(object):
     def answerObjectHistory(self, conn, oid, history_list):
         raise UnexpectedPacketError
 
-    def askObjectHistoryFrom(self, conn, oid, min_serial, length):
+    def askObjectHistoryFrom(self, conn, oid, min_serial, length, partition):
         raise UnexpectedPacketError
 
-    def answerObjectHistoryFrom(self, conn, oid, history_list):
-        raise UnexpectedPacketError
-
-    def askOIDs(self, conn, min_oid, length, partition):
-        raise UnexpectedPacketError
-
-    def answerOIDs(self, conn, oid_list):
+    def answerObjectHistoryFrom(self, conn, object_dict):
         raise UnexpectedPacketError
 
     def askPartitionList(self, conn, min_offset, max_offset, uuid):
@@ -357,6 +351,21 @@ class EventHandler(object):
         raise UnexpectedPacketError
 
     def answerPack(self, conn, status):
+        raise UnexpectedPacketError
+  
+    def askCheckTIDRange(self, conn, min_tid, length, partition):
+        raise UnexpectedPacketError
+
+    def answerCheckTIDRange(self, conn, min_tid, length, count, tid_checksum,
+            max_tid):
+        raise UnexpectedPacketError
+
+    def askCheckSerialRange(self, conn, min_oid, min_serial, length,
+            partition):
+        raise UnexpectedPacketError
+
+    def answerCheckSerialRange(self, conn, min_oid, min_serial, length, count,
+            oid_checksum, max_oid, serial_checksum, max_serial):
         raise UnexpectedPacketError
 
     # Error packet handlers.
@@ -450,8 +459,6 @@ class EventHandler(object):
         d[Packets.AnswerObjectHistory] = self.answerObjectHistory
         d[Packets.AskObjectHistoryFrom] = self.askObjectHistoryFrom
         d[Packets.AnswerObjectHistoryFrom] = self.answerObjectHistoryFrom
-        d[Packets.AskOIDs] = self.askOIDs
-        d[Packets.AnswerOIDs] = self.answerOIDs
         d[Packets.AskPartitionList] = self.askPartitionList
         d[Packets.AnswerPartitionList] = self.answerPartitionList
         d[Packets.AskNodeList] = self.askNodeList
@@ -476,6 +483,10 @@ class EventHandler(object):
         d[Packets.AnswerBarrier] = self.answerBarrier
         d[Packets.AskPack] = self.askPack
         d[Packets.AnswerPack] = self.answerPack
+        d[Packets.AskCheckTIDRange] = self.askCheckTIDRange
+        d[Packets.AnswerCheckTIDRange] = self.answerCheckTIDRange
+        d[Packets.AskCheckSerialRange] = self.askCheckSerialRange
+        d[Packets.AnswerCheckSerialRange] = self.answerCheckSerialRange
 
         return d
 

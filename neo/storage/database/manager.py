@@ -274,18 +274,17 @@ class DatabaseManager(object):
         area."""
         raise NotImplementedError
 
+    def deleteObject(self, oid, serial=None):
+        """Delete given object. If serial is given, only delete that serial for
+        given oid."""
+        raise NotImplementedError
+
     def getTransaction(self, tid, all = False):
         """Return a tuple of the list of OIDs, user information,
         a description, and extension information, for a given transaction
         ID. If there is no such transaction ID in a database, return None.
         If all is true, the transaction must be searched from a temporary
         area as well."""
-        raise NotImplementedError
-
-    def getOIDList(self, min_oid, length, num_partitions, partition_list):
-        """Return a list of OIDs in ascending order from a minimal oid,
-        at most the specified length. The list of partitions are passed
-        to filter out non-applicable TIDs."""
         raise NotImplementedError
 
     def getObjectHistory(self, oid, offset = 0, length = 1):
@@ -295,9 +294,11 @@ class DatabaseManager(object):
         If there is no such object ID in a database, return None."""
         raise NotImplementedError
 
-    def getObjectHistoryFrom(self, oid, min_serial, length):
-        """Return a list of length serials for a given object ID at (or above)
-        min_serial, sorted in ascending order."""
+    def getObjectHistoryFrom(self, oid, min_serial, length, num_partitions,
+            partition):
+        """Return a dict of length serials grouped by oid at (or above)
+        min_oid and min_serial, for given partition, sorted in ascending
+        order."""
         raise NotImplementedError
 
     def getTIDList(self, offset, length, num_partitions, partition_list):
@@ -307,20 +308,10 @@ class DatabaseManager(object):
         raise NotImplementedError
 
     def getReplicationTIDList(self, min_tid, length, num_partitions,
-        partition_list):
+        partition):
         """Return a list of TIDs in ascending order from an initial tid value,
-        at most the specified length. The list of partitions are passed
-        to filter out non-applicable TIDs."""
-        raise NotImplementedError
-
-    def getTIDListPresent(self, tid_list):
-        """Return a list of TIDs which are present in a database among
-        the given list."""
-        raise NotImplementedError
-
-    def getSerialListPresent(self, oid, serial_list):
-        """Return a list of serials which are present in a database among
-        the given list."""
+        at most the specified length. The partition number is passed to filter
+        out non-applicable TIDs."""
         raise NotImplementedError
 
     def pack(self, tid, updateObjectDataForPack):

@@ -288,6 +288,12 @@ class Application(object):
         while True:
             em.poll(1)
             if self.replicator.pending():
+                # Call processDelayedTasks before act, so tasks added in the
+                # act call are executed after one poll call, so that sent
+                # packets are already on the network and delayed task
+                # processing happens in parallel with the same task on the
+                # other storage node.
+                self.replicator.processDelayedTasks()
                 self.replicator.act()
 
     def wait(self):

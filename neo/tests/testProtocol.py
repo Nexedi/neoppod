@@ -458,24 +458,6 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(p_hist_list, hist_list)
         self.assertEqual(oid, poid)
 
-    def test_55_askOIDs(self):
-        oid = self.getOID(1)
-        p = Packets.AskOIDs(oid, 1000, 5)
-        min_oid, length, partition = p.decode()
-        self.assertEqual(min_oid, oid)
-        self.assertEqual(length, 1000)
-        self.assertEqual(partition, 5)
-
-    def test_56_answerOIDs(self):
-        oid1 = self.getNextTID()
-        oid2 = self.getNextTID()
-        oid3 = self.getNextTID()
-        oid4 = self.getNextTID()
-        oid_list = [oid1, oid2, oid3, oid4]
-        p = Packets.AnswerOIDs(oid_list)
-        p_oid_list  = p.decode()[0]
-        self.assertEqual(p_oid_list, oid_list)
-
     def test_57_notifyReplicationDone(self):
         offset = 10
         p = Packets.NotifyReplicationDone(offset)
@@ -626,14 +608,82 @@ class ProtocolTests(NeoTestBase):
         oid = self.getOID(1)
         min_serial = self.getNextTID()
         length = 5
-        p = Packets.AskObjectHistoryFrom(oid, min_serial, length)
-        p_oid, p_min_serial, p_length = p.decode()
+        partition = 4
+        p = Packets.AskObjectHistoryFrom(oid, min_serial, length, partition)
+        p_oid, p_min_serial, p_length, p_partition = p.decode()
         self.assertEqual(p_oid, oid)
         self.assertEqual(p_min_serial, min_serial)
         self.assertEqual(p_length, length)
+        self.assertEqual(p_partition, partition)
 
     def test_AnswerObjectHistoryFrom(self):
-        self._testXIDAndYIDList(Packets.AnswerObjectHistoryFrom)
+        object_dict = {}
+        for int_oid in xrange(4):
+            object_dict[self.getOID(int_oid)] = [self.getNextTID() \
+                for _ in xrange(5)]
+        p = Packets.AnswerObjectHistoryFrom(object_dict)
+        p_object_dict = p.decode()[0]
+        self.assertEqual(object_dict, p_object_dict)
+
+    def test_AskCheckTIDRange(self):
+        min_tid = self.getNextTID()
+        length = 2
+        partition = 4
+        p = Packets.AskCheckTIDRange(min_tid, length, partition)
+        p_min_tid, p_length, p_partition = p.decode()
+        self.assertEqual(p_min_tid, min_tid)
+        self.assertEqual(p_length, length)
+        self.assertEqual(p_partition, partition)
+
+    def test_AnswerCheckTIDRange(self):
+        min_tid = self.getNextTID()
+        length = 2
+        count = 1
+        tid_checksum = 42
+        max_tid = self.getNextTID()
+        p = Packets.AnswerCheckTIDRange(min_tid, length, count, tid_checksum,
+            max_tid)
+        p_min_tid, p_length, p_count, p_tid_checksum, p_max_tid = p.decode()
+        self.assertEqual(p_min_tid, min_tid)
+        self.assertEqual(p_length, length)
+        self.assertEqual(p_count, count)
+        self.assertEqual(p_tid_checksum, tid_checksum)
+        self.assertEqual(p_max_tid, max_tid)
+
+    def test_AskCheckSerialRange(self):
+        min_oid = self.getOID(1)
+        min_serial = self.getNextTID()
+        length = 2
+        partition = 4
+        p = Packets.AskCheckSerialRange(min_oid, min_serial, length, partition)
+        p_min_oid, p_min_serial, p_length, p_partition = p.decode()
+        self.assertEqual(p_min_oid, min_oid)
+        self.assertEqual(p_min_serial, min_serial)
+        self.assertEqual(p_length, length)
+        self.assertEqual(p_partition, partition)
+
+    def test_AnswerCheckSerialRange(self):
+        min_oid = self.getOID(1)
+        min_serial = self.getNextTID()
+        length = 2
+        count = 1
+        oid_checksum = 24
+        max_oid = self.getOID(5)
+        tid_checksum = 42
+        max_serial = self.getNextTID()
+        p = Packets.AnswerCheckSerialRange(min_oid, min_serial, length, count,
+            oid_checksum, max_oid, tid_checksum, max_serial)
+        p_min_oid, p_min_serial, p_length, p_count, p_oid_checksum, \
+            p_max_oid, p_tid_checksum, p_max_serial = p.decode()
+        self.assertEqual(p_min_oid, min_oid)
+        self.assertEqual(p_min_serial, min_serial)
+        self.assertEqual(p_length, length)
+        self.assertEqual(p_count, count)
+        self.assertEqual(p_oid_checksum, oid_checksum)
+        self.assertEqual(p_max_oid, max_oid)
+        self.assertEqual(p_tid_checksum, tid_checksum)
+        self.assertEqual(p_max_serial, max_serial)
+
 
     def test_AskPack(self):
         tid = self.getNextTID()
