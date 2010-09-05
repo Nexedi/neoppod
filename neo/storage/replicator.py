@@ -152,13 +152,14 @@ class Replicator(object):
         """This is a callback from MasterOperationHandler."""
         try:
             partition_list = self.critical_tid_dict.pop(uuid)
+        except KeyError:
+            logging.debug("setCriticalTID raised KeyError for %s" %
+                    (dump(uuid), ))
+        else:
             logging.debug('setting critical TID %s to %s', dump(tid),
                          ', '.join([str(p.getRID()) for p in partition_list]))
             for partition in partition_list:
                 partition.setCriticalTID(tid)
-        except KeyError:
-            logging.debug("setCriticalTID raised KeyError for %s" %
-                    (dump(uuid), ))
 
     def _askCriticalTID(self):
         conn = self.app.master_conn
