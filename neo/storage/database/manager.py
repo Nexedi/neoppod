@@ -418,3 +418,49 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
+    def checkTIDRange(self, min_tid, length, num_partitions, partition):
+        """
+        Generate a diggest from transaction list.
+        min_tid (packed)
+            TID at which verification starts.
+        length (int)
+            Maximum number of records to include in result.
+        num_partitions, partition (int, int)
+            Specifies concerned partition.
+
+        Returns a 3-tuple:
+            - number of records actually found
+            - a XOR computed from record's TID
+              0 if no record found
+            - biggest TID found (ie, TID of last record read)
+              ZERO_TID if not record found
+        """
+        raise NotImplementedError
+
+    def checkSerialRange(self, min_oid, min_serial, length, num_partitions,
+            partition):
+        """
+        Generate a diggest from object list.
+        min_oid (packed)
+            OID at which verification starts.
+        min_serial (packed)
+            Serial of min_oid object at which search should start.
+        length
+            Maximum number of records to include in result.
+        num_partitions, partition (int, int)
+            Specifies concerned partition.
+
+        Returns a 5-tuple:
+            - number of records actually found
+            - a XOR computed from record's OID
+              0 if no record found
+            - biggest OID found (ie, OID of last record read)
+              ZERO_OID if no record found
+            - a XOR computed from record's serial
+              0 if no record found
+            - biggest serial found for biggest OID found (ie, serial of last
+              record read)
+              ZERO_TID if no record found
+        """
+        raise NotImplementedError
+
