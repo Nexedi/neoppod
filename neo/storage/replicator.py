@@ -184,11 +184,11 @@ class Replicator(object):
     def _startReplication(self):
         # Choose a storage node for the source.
         app = self.app
+        cell_list = app.pt.getCellList(self.current_partition.getRID(),
+                                       readable=True)
+        node_list = [cell.getNode() for cell in cell_list
+                        if cell.getNodeState() == NodeStates.RUNNING]
         try:
-            cell_list = app.pt.getCellList(self.current_partition.getRID(),
-                                           readable=True)
-            node_list = [cell.getNode() for cell in cell_list
-                            if cell.getNodeState() == NodeStates.RUNNING]
             node = choice(node_list)
         except IndexError:
             # Not operational.
