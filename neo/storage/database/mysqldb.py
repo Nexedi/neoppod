@@ -339,44 +339,6 @@ class MySQLDatabaseManager(DatabaseManager):
 
         return serial, next_serial, compression, checksum, data, value_serial
 
-    def getObject(self, oid, tid=None, before_tid=None, resolve_data=True):
-        # TODO: resolve_data must be unit-tested
-        u64 = util.u64
-        p64 = util.p64
-        oid = u64(oid)
-        if tid is not None:
-            tid = u64(tid)
-        if before_tid is not None:
-            before_tid = u64(before_tid)
-        result = self._getObject(oid, tid, before_tid)
-        if result is None:
-            # See if object exists at all
-            result = self._getObject(oid)
-            if result is not None:
-                # Object exists
-                result = False
-        else:
-            serial, next_serial, compression, checksum, data, data_serial = \
-                result
-            if data is None and resolve_data:
-                try:
-                    _, compression, checksum, data = self._getObjectData(oid,
-                        data_serial, serial)
-                except CreationUndone:
-                    compression = 0
-                    # XXX: this is the valid checksum for empty string
-                    checksum = 1
-                    data = ''
-                data_serial = None
-            if serial is not None:
-                serial = p64(serial)
-            if next_serial is not None:
-                next_serial = p64(next_serial)
-            if data_serial is not None:
-                data_serial = p64(data_serial)
-            result = serial, next_serial, compression, checksum, data, data_serial
-        return result
-
     def doSetPartitionTable(self, ptid, cell_list, reset):
         q = self.query
         e = self.escape
@@ -515,34 +477,6 @@ class MySQLDatabaseManager(DatabaseManager):
         else:
             result = self._getDataTIDFromData(oid, result)
         return result
-
-    def findUndoTID(self, oid, tid, undone_tid, transaction_object):
-        u64 = util.u64
-        p64 = util.p64
-        oid = u64(oid)
-        tid = u64(tid)
-        undone_tid = u64(undone_tid)
-        _getDataTID = self._getDataTID
-        if transaction_object is not None:
-            toid, tcompression, tchecksum, tdata, tvalue_serial = \
-                transaction_object
-            current_tid, current_data_tid = self._getDataTIDFromData(oid,
-                (tid, None, tcompression, tchecksum, tdata,
-                u64(tvalue_serial)))
-        else:
-            current_tid, current_data_tid = _getDataTID(oid, before_tid=tid)
-        if current_tid is None:
-            return (None, None, False)
-        found_undone_tid, undone_data_tid = _getDataTID(oid, tid=undone_tid)
-        assert found_undone_tid is not None, (oid, undone_tid)
-        is_current = undone_data_tid in (current_data_tid, tid)
-        # Load object data as it was before given transaction.
-        # It can be None, in which case it means we are undoing object
-        # creation.
-        _, data_tid = _getDataTID(oid, before_tid=undone_tid)
-        if data_tid is not None:
-            data_tid = p64(data_tid)
-        return p64(current_tid), data_tid, is_current
 
     def finishTransaction(self, tid):
         q = self.query

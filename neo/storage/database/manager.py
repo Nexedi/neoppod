@@ -192,16 +192,78 @@ class DatabaseManager(object):
         searched from unfinished transactions as well."""
         raise NotImplementedError
 
-    def getObject(self, oid, tid = None, before_tid = None):
-        """Return a tuple of a serial, next serial, a compression
-        specification, a checksum, and object data, if a given object
-        ID is present. Otherwise, return None. If tid is None and
-        before_tid is None, the latest revision is taken. If tid is
-        specified, the given revision is taken. If tid is not specified,
-        but before_tid is specified, the latest revision before the
-        given revision is taken. The next serial is a serial right after
-        before_tid, if specified. Otherwise, it is None."""
+    def _getObject(self, oid, tid=None, before_tid=None):
+        """
+        oid (int)
+            Identifier of object to retrieve.
+        tid (int, None)
+            Exact serial to retrieve.
+        before_tid (packed, None)
+            Serial to retrieve is the highest existing one strictly below this
+            value.
+        """
         raise NotImplementedError
+
+    def getObject(self, oid, tid=None, before_tid=None, resolve_data=True):
+        """
+        oid (packed)
+            Identifier of object to retrieve.
+        tid (packed, None)
+            Exact serial to retrieve.
+        before_tid (packed, None)
+            Serial to retrieve is the highest existing one strictly below this
+            value.
+        resolve_data (bool, True)
+            If actual object data is desired, or raw record content.
+            This is different in case retrieved line undoes a transaction.
+
+        Return value:
+            None: Given oid doesn't exist in database.
+            False: No record found, but another one exists for given oid.
+            6-tuple: Record content.
+                - record serial (packed)
+                - serial or next record modifying object (packed, None)
+                - compression (boolean-ish, None)
+                - checksum (integer, None)
+                - data (binary string, None)
+                - data_serial (packed, None)
+        """
+        # TODO: resolve_data must be unit-tested
+        u64 = util.u64
+        p64 = util.p64
+        oid = u64(oid)
+        if tid is not None:
+            tid = u64(tid)
+        if before_tid is not None:
+            before_tid = u64(before_tid)
+        result = self._getObject(oid, tid, before_tid)
+        if result is None:
+            # See if object exists at all
+            result = self._getObject(oid)
+            if result is not None:
+                # Object exists
+                result = False
+        else:
+            serial, next_serial, compression, checksum, data, data_serial = \
+                result
+            if data is None and resolve_data:
+                try:
+                    _, compression, checksum, data = self._getObjectData(oid,
+                        data_serial, serial)
+                except CreationUndone:
+                    compression = 0
+                    # XXX: this is the valid checksum for empty string
+                    checksum = 1
+                    data = ''
+                data_serial = None
+            if serial is not None:
+                serial = p64(serial)
+            if next_serial is not None:
+                next_serial = p64(next_serial)
+            if data_serial is not None:
+                data_serial = p64(data_serial)
+            result = serial, next_serial, compression, checksum, data, data_serial
+        return result
 
     def changePartitionTable(self, ptid, cell_list):
         """Change a part of a partition table. The list of cells is
@@ -261,7 +323,32 @@ class DatabaseManager(object):
             False if object was modified by later transaction (ie, data_tid is
             not current), True otherwise.
         """
-        raise NotImplementedError
+        u64 = util.u64
+        p64 = util.p64
+        oid = u64(oid)
+        tid = u64(tid)
+        undone_tid = u64(undone_tid)
+        _getDataTID = self._getDataTID
+        if transaction_object is not None:
+            toid, tcompression, tchecksum, tdata, tvalue_serial = \
+                transaction_object
+            current_tid, current_data_tid = self._getDataTIDFromData(oid,
+                (tid, None, tcompression, tchecksum, tdata,
+                u64(tvalue_serial)))
+        else:
+            current_tid, current_data_tid = _getDataTID(oid, before_tid=tid)
+        if current_tid is None:
+            return (None, None, False)
+        found_undone_tid, undone_data_tid = _getDataTID(oid, tid=undone_tid)
+        assert found_undone_tid is not None, (oid, undone_tid)
+        is_current = undone_data_tid in (current_data_tid, tid)
+        # Load object data as it was before given transaction.
+        # It can be None, in which case it means we are undoing object
+        # creation.
+        _, data_tid = _getDataTID(oid, before_tid=undone_tid)
+        if data_tid is not None:
+            data_tid = p64(data_tid)
+        return p64(current_tid), data_tid, is_current
 
     def finishTransaction(self, tid):
         """Finish a transaction specified by a given ID, by moving
