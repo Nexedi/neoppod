@@ -178,7 +178,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         cell2 = (1, uuid1, CellStates.UP_TO_DATE)
         self.db.setPartitionTable(ptid, [cell1, cell2])
         result = self.db.getPartitionTable()
-        self.assertEqual(result, [cell1, cell2])
+        self.assertEqual(set(result), set([cell1, cell2]))
 
     def test_getLastOID(self):
         oid1 = self.getOID(1)
@@ -331,7 +331,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         # add more entries
         self.db.changePartitionTable(ptid, [cell2])
         result = self.db.getPartitionTable()
-        self.assertEqual(result, [cell1, cell2])
+        self.assertEqual(set(result), set([cell1, cell2]))
         # drop discarded cells
         self.db.changePartitionTable(ptid, [cell2, cell3])
         result = self.db.getPartitionTable()
