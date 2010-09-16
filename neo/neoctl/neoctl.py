@@ -44,7 +44,7 @@ class NeoCTL(object):
                 # XXX: this burn the CPU
                 self.em.poll(0)
             if self.connection is None:
-                raise NotReadyException
+                raise NotReadyException('not connected')
         return self.connection
 
     def __ask(self, packet):
