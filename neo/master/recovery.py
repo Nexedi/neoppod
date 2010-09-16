@@ -20,7 +20,7 @@ from struct import pack
 from neo import logging
 from neo.util import dump
 from neo.protocol import Packets, ProtocolError, ClusterStates, NodeStates
-from neo.protocol import NotReadyError
+from neo.protocol import NotReadyError, ZERO_OID, ZERO_TID
 from neo.master.handlers import MasterHandler
 
 REQUIRED_NODE_NUMBER = 1
@@ -96,9 +96,9 @@ class RecoveryManager(MasterHandler):
             node.setRunning()
         self.app.broadcastNodesInformation(node_list)
         # resert IDs generators
-        self.app.tm.setLastOID('\0' * 8)
+        self.app.tm.setLastOID(ZERO_OID)
         # build the partition with this node
-        pt.setID(pack('!Q', 1))
+        pt.setID(ZERO_TID)
         pt.make(node_list)
 
     def connectionLost(self, conn, new_state):
