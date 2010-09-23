@@ -49,6 +49,7 @@ class MySQLDatabaseManager(DatabaseManager):
         super(MySQLDatabaseManager, self).__init__()
         self.user, self.passwd, self.db = self._parse(database)
         self.conn = None
+        self._config = {}
         self._connect()
 
     def getPartition(self, oid_or_tid):
@@ -129,6 +130,7 @@ class MySQLDatabaseManager(DatabaseManager):
         return self.conn.escape_string(s)
 
     def setup(self, reset = 0):
+        self._config.clear()
         q = self.query
 
         if reset:
@@ -196,17 +198,22 @@ class MySQLDatabaseManager(DatabaseManager):
              ) ENGINE = InnoDB""")
 
     def getConfiguration(self, key):
+        if key in self._config:
+            return self._config[key]
         q = self.query
         e = self.escape
-        key = e(str(key))
+        sql_key = e(str(key))
         try:
-            return q("SELECT value FROM config WHERE name = '%s'" % key)[0][0]
+            r = q("SELECT value FROM config WHERE name = '%s'" % sql_key)[0][0]
         except IndexError:
             raise KeyError, key
+        self._config[key] = r
+        return r
 
     def _setConfiguration(self, key, value):
         q = self.query
         e = self.escape
+        self._config[key] = value
         key = e(str(key))
         if value is None:
             value = 'NULL'
