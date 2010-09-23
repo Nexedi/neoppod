@@ -74,6 +74,7 @@ class StorageClientHandlerTests(NeoTestBase):
     def test_18_askTransactionInformation1(self):
         # transaction does not exists
         conn = self._getConnection()
+        self.app.dm = Mock({'getNumPartitions': 1})
         self.operation.askTransactionInformation(conn, INVALID_TID)
         self.checkErrorPacket(conn)
 

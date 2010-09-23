@@ -35,6 +35,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         database = '%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE)
         self.db = MySQLDatabaseManager(database)
         self.db.setup()
+        self.db.setNumPartitions(1)
 
     def tearDown(self):
         self.db.close()
@@ -159,6 +160,7 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.checkConfigEntry(self.db.getUUID, self.db.setUUID, 'TEST_VALUE')
 
     def test_NumPartitions(self):
+        self.db.setup(reset=True)
         self.checkConfigEntry(self.db.getNumPartitions,
                 self.db.setNumPartitions, 10)
 
@@ -613,6 +615,7 @@ class StorageMySQSLdbTests(NeoTestBase):
     def test__getObjectData(self):
         db = self.db
         db.setup(reset=True)
+        self.db.setNumPartitions(4)
         tid0 = self.getNextTID()
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
@@ -699,6 +702,7 @@ class StorageMySQSLdbTests(NeoTestBase):
     def test__getDataTIDFromData(self):
         db = self.db
         db.setup(reset=True)
+        self.db.setNumPartitions(4)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         oid1 = self.getOID(1)
@@ -723,6 +727,7 @@ class StorageMySQSLdbTests(NeoTestBase):
     def test__getDataTID(self):
         db = self.db
         db.setup(reset=True)
+        self.db.setNumPartitions(4)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         oid1 = self.getOID(1)
@@ -745,6 +750,7 @@ class StorageMySQSLdbTests(NeoTestBase):
     def test_findUndoTID(self):
         db = self.db
         db.setup(reset=True)
+        self.db.setNumPartitions(4)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()
