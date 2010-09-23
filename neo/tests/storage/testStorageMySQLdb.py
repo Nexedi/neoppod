@@ -500,58 +500,59 @@ class StorageMySQSLdbTests(NeoTestBase):
         self.assertEqual(result, None)
 
     def test_getObjectHistoryFrom(self):
+        self.db.setup()
+        self.db.setNumPartitions(2)
         oid1 = self.getOID(0)
-        oid2 = self.getOID(1)
-        tid1, tid2, tid3, tid4 = self.getTIDs(4)
+        oid2 = self.getOID(2)
+        oid3 = self.getOID(1)
+        tid1, tid2, tid3, tid4, tid5 = self.getTIDs(5)
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid2])
         txn3, objs3 = self.getTransaction([oid1])
         txn4, objs4 = self.getTransaction([oid2])
+        txn5, objs5 = self.getTransaction([oid3])
         self.db.storeTransaction(tid1, objs1, txn1)
         self.db.storeTransaction(tid2, objs2, txn2)    
         self.db.storeTransaction(tid3, objs3, txn3)
         self.db.storeTransaction(tid4, objs4, txn4)
+        self.db.storeTransaction(tid5, objs5, txn5)
         self.db.finishTransaction(tid1)
         self.db.finishTransaction(tid2)
         self.db.finishTransaction(tid3)
         self.db.finishTransaction(tid4)
+        self.db.finishTransaction(tid5)
         # Check full result
         result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 10,
-            1, 0)
+            2, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2, tid4],
         })
         # Lower bound is inclusive
-        result = self.db.getObjectHistoryFrom(oid1, tid1, MAX_TID, 10, 1, 0)
+        result = self.db.getObjectHistoryFrom(oid1, tid1, MAX_TID, 10, 2, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2, tid4],
         })
         # Upper bound is inclusive
         result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, tid3, 10,
-            1, 0)
+            2, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2],
         })
         # Length is total number of serials
         result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 3,
-            1, 0)
+            2, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2],
         })
         # Partition constraints are honored
         result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 10,
-            2, 0)
-        self.assertEqual(result, {
-            oid1: [tid1, tid3],
-        })
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 10,
             2, 1)
         self.assertEqual(result, {
-            oid2: [tid2, tid4],
+            oid3: [tid5],
         })
 
     def _storeTransactions(self, count):
@@ -565,42 +566,49 @@ class StorageMySQSLdbTests(NeoTestBase):
         return tid_list
 
     def test_getTIDList(self):
+        self.db.setup(True)
+        self.db.setNumPartitions(2)
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # get tids
-        result = self.db.getTIDList(0, 4, 1, [0])
-        self.checkSet(result, [tid1, tid2, tid3, tid4])
-        result = self.db.getTIDList(0, 4, 2, [0])
-        self.checkSet(result, [tid1, tid3])
+        # - all partitions
         result = self.db.getTIDList(0, 4, 2, [0, 1])
         self.checkSet(result, [tid1, tid2, tid3, tid4])
-        result = self.db.getTIDList(0, 4, 3, [0])
-        self.checkSet(result, [tid1, tid4])
+        # - one partition
+        result = self.db.getTIDList(0, 4, 2, [0])
+        self.checkSet(result, [tid1, tid3])
+        result = self.db.getTIDList(0, 4, 2, [1])
+        self.checkSet(result, [tid2, tid4])
         # get a subset of tids
-        result = self.db.getTIDList(2, 4, 1, [0])
-        self.checkSet(result, [tid1, tid2])
-        result = self.db.getTIDList(0, 2, 1, [0])
-        self.checkSet(result, [tid3, tid4])
-        result = self.db.getTIDList(0, 1, 3, [0])
-        self.checkSet(result, [tid4])
+        result = self.db.getTIDList(0, 1, 2, [0])
+        self.checkSet(result, [tid3]) # desc order
+        result = self.db.getTIDList(1, 1, 2, [1])
+        self.checkSet(result, [tid2]) 
+        result = self.db.getTIDList(2, 2, 2, [0])
+        self.checkSet(result, [])
 
     def test_getReplicationTIDList(self):
+        self.db.setup(True)
+        self.db.setNumPartitions(2)
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # get tids
         # - all
-        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 1, 0)
-        self.checkSet(result, [tid1, tid2, tid3, tid4])
+        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 2, 0)
+        self.checkSet(result, [tid1, tid3])
         # - one partition
         result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 2, 0)
         self.checkSet(result, [tid1, tid3])
+        # - another partition
+        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 2, 1)
+        self.checkSet(result, [tid2, tid4])
         # - min_tid is inclusive
-        result = self.db.getReplicationTIDList(tid3, MAX_TID, 10, 1, 0)
-        self.checkSet(result, [tid3, tid4])
+        result = self.db.getReplicationTIDList(tid3, MAX_TID, 10, 2, 0)
+        self.checkSet(result, [tid3])
         # - max tid is inclusive
-        result = self.db.getReplicationTIDList(ZERO_TID, tid2, 10, 1, 0)
-        self.checkSet(result, [tid1, tid2])
+        result = self.db.getReplicationTIDList(ZERO_TID, tid2, 10, 2, 0)
+        self.checkSet(result, [tid1])
         # - limit
-        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 2, 1, 0)
-        self.checkSet(result, [tid1, tid2])
+        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 1, 2, 0)
+        self.checkSet(result, [tid1])
 
     def test__getObjectData(self):
         db = self.db
