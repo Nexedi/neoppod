@@ -98,7 +98,6 @@ class RecoveryManager(MasterHandler):
         # resert IDs generators
         self.app.tm.setLastOID(ZERO_OID)
         # build the partition with this node
-        pt.setID(ZERO_TID)
         pt.make(node_list)
 
     def connectionLost(self, conn, new_state):
