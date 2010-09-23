@@ -136,7 +136,7 @@ class ProtocolTests(NeoTestBase):
     def test_19_answerLastIDs(self):
         oid = self.getNextTID()
         tid = self.getNextTID()
-        ptid = self.getNextTID()
+        ptid = self.getPTID()
         p = Packets.AnswerLastIDs(oid, tid, ptid)
         loid, ltid, lptid = p.decode()
         self.assertEqual(loid, oid)
@@ -147,7 +147,7 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(Packets.AskPartitionTable().decode(), ())
 
     def test_21_answerPartitionTable(self):
-        ptid = self.getNextTID()
+        ptid = self.getPTID()
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
@@ -160,7 +160,7 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(p_cell_list, cell_list)
 
     def test_22_sendPartitionTable(self):
-        ptid = self.getNextTID()
+        ptid = self.getPTID()
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
@@ -173,7 +173,7 @@ class ProtocolTests(NeoTestBase):
         self.assertEqual(p_cell_list, cell_list)
 
     def test_23_notifyPartitionChanges(self):
-        ptid = self.getNextTID()
+        ptid = self.getPTID()
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         cell_list = [(0, uuid1, CellStates.UP_TO_DATE),
