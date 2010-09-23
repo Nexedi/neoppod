@@ -149,13 +149,16 @@ class DatabaseManager(object):
         """
             Load a Partition Table ID from a database.
         """
-        return util.bin(self.getConfiguration('ptid'))
+        return long(self.getConfiguration('ptid'))
 
     def setPTID(self, ptid):
         """
             Store a Partition Table ID into a database.
         """
-        self.setConfiguration('ptid', util.dump(ptid))
+        if ptid is not None:
+            assert isinstance(ptid, (int, long)), ptid
+            ptid = str(ptid)
+        self.setConfiguration('ptid', ptid)
 
     def getLastOID(self):
         """

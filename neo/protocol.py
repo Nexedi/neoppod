@@ -202,12 +202,13 @@ def _encodeUUID(uuid):
 def _decodePTID(ptid):
     if ptid == INVALID_PTID:
         return None
-    return ptid
+    return unpack('!Q', ptid)[0]
 
 def _encodePTID(ptid):
     if ptid is None:
         return INVALID_PTID
-    return ptid
+    assert isinstance(ptid, (int, long)), ptid
+    return pack('!Q', ptid)
 
 def _decodeTID(tid):
     if tid == INVALID_TID:

@@ -70,7 +70,7 @@ class PartitionTable(object):
     """This class manages a partition table."""
 
     def __init__(self, num_partitions, num_replicas):
-        self.id = None
+        self._id = None
         self.np = num_partitions
         self.nr = num_replicas
         self.num_filled_rows = 0
@@ -81,7 +81,7 @@ class PartitionTable(object):
         self.count_dict = {}
 
     def getID(self):
-        return self.id
+        return self._id
 
     def getPartitions(self):
         return self.np
@@ -91,7 +91,7 @@ class PartitionTable(object):
 
     def clear(self):
         """Forget an existing partition table."""
-        self.id = None
+        self._id = None
         self.num_filled_rows = 0
         # Note: don't use [[]] * self.np construct, as it duplicates
         # instance *references*, so the outer list contains really just one
@@ -201,7 +201,7 @@ class PartitionTable(object):
         content.
         """
         self.clear()
-        self.id = ptid
+        self._id = ptid
         for offset, row in row_list:
             if offset >= self.getPartitions():
                 raise IndexError
@@ -219,10 +219,10 @@ class PartitionTable(object):
         if the partition table ID is not greater than the current one. If a node
         is not known, it is created in the node manager and set as unavailable
         """
-        if ptid <= self.id:
+        if ptid <= self._id:
             logging.warning('ignoring older partition changes')
             return
-        self.id = ptid
+        self._id = ptid
         for offset, uuid, state in cell_list:
             node = nm.getByUUID(uuid)
             assert node is not None, 'No node found for uuid %r' % (dump(uuid), )

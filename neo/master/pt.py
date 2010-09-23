@@ -23,14 +23,14 @@ class PartitionTable(neo.pt.PartitionTable):
     """This class manages a partition table for the primary master node"""
 
     def setID(self, id):
-        self.id = id
+        assert isinstance(id, (int, long)) or id is None, id
+        self._id = id
 
     def setNextID(self):
-        if self.id is None:
+        if self._id is None:
             raise RuntimeError, 'I do not know the last Partition Table ID'
-        last_id = unpack('!Q', self.id)[0]
-        self.id = pack('!Q', last_id + 1)
-        return self.id
+        self._id += 1
+        return self._id
 
     def getPartition(self, oid_or_tid):
         return unpack('!Q', oid_or_tid)[0] % self.getPartitions()
@@ -38,7 +38,7 @@ class PartitionTable(neo.pt.PartitionTable):
     def make(self, node_list):
         """Make a new partition table from scratch."""
         # start with the first PTID
-        self.id = pack('!Q', 1)
+        self._id = 1
         # First, filter the list of nodes.
         node_list = [n for n in node_list if n.isRunning() \
                 and n.getUUID() is not None]
@@ -115,7 +115,7 @@ class PartitionTable(neo.pt.PartitionTable):
                 raise IndexError, offset
         # store the partition table
         self.clear()
-        self.id = ptid
+        self._id = ptid
         new_nodes = []
         for offset, row in row_list:
             for uuid, state in row:
