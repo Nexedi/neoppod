@@ -19,7 +19,7 @@ import unittest
 import MySQLdb
 from mock import Mock
 from neo.util import dump, p64, u64
-from neo.protocol import CellStates, INVALID_PTID, ZERO_OID, ZERO_TID, MAX_TID
+from neo.protocol import CellStates, ZERO_OID, ZERO_TID, MAX_TID
 from neo.tests import NeoTestBase
 from neo.exception import DatabaseFailure
 from neo.storage.database.mysqldb import MySQLDatabaseManager

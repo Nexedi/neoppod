@@ -107,7 +107,6 @@ cell_state_prefix_dict = {
 INVALID_UUID = '\0' * 16
 INVALID_TID = '\xff' * 8
 INVALID_OID = '\xff' * 8
-INVALID_PTID = '\0' * 8
 INVALID_SERIAL = INVALID_TID
 INVALID_PARTITION = 0xffffffff
 ZERO_TID = '\0' * 8
@@ -200,13 +199,14 @@ def _encodeUUID(uuid):
     return uuid
 
 def _decodePTID(ptid):
-    if ptid == INVALID_PTID:
+    ptid = unpack('!Q', ptid)[0]
+    if ptid == 0:
         return None
-    return unpack('!Q', ptid)[0]
+    return ptid
 
 def _encodePTID(ptid):
     if ptid is None:
-        return INVALID_PTID
+        ptid = 0
     assert isinstance(ptid, (int, long)), ptid
     return pack('!Q', ptid)
 
