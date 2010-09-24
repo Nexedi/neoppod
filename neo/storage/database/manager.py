@@ -18,6 +18,9 @@
 from neo import util
 from neo.exception import DatabaseFailure
 
+class CreationUndone(Exception):
+    pass
+
 class DatabaseManager(object):
     """This class only describes an interface for database managers."""
 

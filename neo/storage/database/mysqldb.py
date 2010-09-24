@@ -23,14 +23,12 @@ from array import array
 import string
 
 from neo.storage.database import DatabaseManager
+from neo.storage.database.manager import CreationUndone
 from neo.exception import DatabaseFailure
 from neo.protocol import CellStates, ZERO_OID, ZERO_TID
 from neo import util
 
 LOG_QUERIES = False
-
-class CreationUndone(Exception):
-    pass
 
 def splitOIDField(tid, oids):
     if (len(oids) % 8) != 0 or len(oids) == 0:
