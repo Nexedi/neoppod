@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import os
+import random
 import unittest
 import tempfile
 import MySQLdb
@@ -134,7 +135,7 @@ class NeoTestBase(unittest.TestCase):
     def getPTID(self, i=None):
         """ Return an integer PTID """
         if i is None:
-            return os.unpack('!Q', os.urandom(8))[0]
+            return random.randint(1, 2**64)
         return i
 
     def getOID(self, i=None):
