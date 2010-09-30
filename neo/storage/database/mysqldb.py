@@ -603,7 +603,7 @@ class MySQLDatabaseManager(DatabaseManager):
         min_serial = u64(min_serial)
         max_serial = u64(max_serial)
         r = q('SELECT oid, serial FROM obj '
-                'WHERE (partition = %(partition)s '
+                'WHERE partition = %(partition)s '
                 'AND serial <= %(max_serial)d '
                 'AND ((oid = %(min_oid)d AND serial >= %(min_serial)d) '
                 'OR oid > %(min_oid)d) '
