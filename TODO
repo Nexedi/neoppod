@@ -137,21 +137,6 @@ RC  - Review output of pylint (CODE)
     - fix __undoLog when there is out of date cells, there is a busy loop
       because the client expected more answer than the available number of
       storage nodes.
-    - Improve replication process (BANDWITH)
-      Current implementation do this way to replicate objects (for a given TID):
-        S1 > S2 : Ask for a range of OIDs
-        S1 < S2 : Answer the range fo OIDs
-        For each OID :
-          S1 > S2 : Ask a range of the object history
-          S1 < S2 : Answer the object history
-          For each missing version of the object :
-            S1 > S2 : Ask object data
-            S1 < S2 : Answer object data
-      Proposal (just to keep the basics in mind):
-        S1 > S2 : Send its object state list, with last serial for each oid
-        S1 < S2 : Answer object data for latter state of each object
-        Or something like that, the idea is to say what we have instead or check
-        what we don't have.
     - Make listening address and port optionnal, and if they are not provided
       listen on all interfaces on any available port.
 
