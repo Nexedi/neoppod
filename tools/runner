@@ -194,21 +194,28 @@ class NeoTestRunner(unittest.TestResult):
     def _buildSystemInfo(self):
         import platform
         import datetime
+        try:
+            from ZODB import __version__ as zodb_version
+        except ImportError:
+            zodb_version = 'unknown'
         success = self.testsRun - len(self.errors) - len(self.failures)
         s = """
     Date        : %s
     Node        : %s
-    Processor   : %s (%s)
+    Machine     : %s
     System      : %s (%s)
+    Python      : %s
+    ZODB        : %s
     Directory   : %s
     Status      : %7.3f%%
         """ % (
             datetime.date.today().isoformat(),
             platform.node(),
-            platform.processor(),
-            platform.architecture()[0],
+            platform.machine(),
             platform.system(),
             platform.release(),
+            platform.python_version(),
+            zodb_version,
             self.temp_directory,
             success * 100.0 / self.testsRun,
         )
