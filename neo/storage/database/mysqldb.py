@@ -603,11 +603,10 @@ class MySQLDatabaseManager(DatabaseManager):
         min_serial = u64(min_serial)
         max_serial = u64(max_serial)
         r = q('SELECT oid, serial FROM obj '
-                'WHERE (partition=%(partition)s AND (oid = %(min_oid)d '
-                'AND serial >= %(min_serial)d) OR '
-                'oid > %(min_oid)d) AND '
-                'partition = %(partition)d AND '
-                'serial <= %(max_serial)d '
+                'WHERE (partition = %(partition)s '
+                'AND serial <= %(max_serial)d '
+                'AND ((oid = %(min_oid)d AND serial >= %(min_serial)d) '
+                'OR oid > %(min_oid)d) '
                 'ORDER BY oid ASC, serial ASC LIMIT %(length)d' % {
             'min_oid': min_oid,
             'min_serial': min_serial,
