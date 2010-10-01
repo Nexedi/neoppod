@@ -295,8 +295,12 @@ class MySQLDatabaseManager(DatabaseManager):
             raise ValueError, "Incorrect value reference found for " \
                 "oid %d at tid %d: reference = %d" % (oid, value_serial, tid)
         r = self.query("""SELECT compression, checksum, value, """ \
-            """value_serial FROM obj WHERE oid = %d AND serial = %d""" % (
-            oid, value_serial))
+            """value_serial FROM obj WHERE partition = %(partition)d """
+            """AND oid = %(oid)d AND serial = %(serial)d""" % {
+                'partition': self._getPartition(oid),
+                'oid': oid,
+                'serial': value_serial,
+            })
         compression, checksum, value, next_value_serial = r[0]
         if value is None:
             logging.info("Multiple levels of indirection when " \
