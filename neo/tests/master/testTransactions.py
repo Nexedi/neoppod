@@ -178,11 +178,14 @@ class testTransactionManager(NeoTestBase):
         # Storage 1 dies:
         # t1 is over
         self.assertTrue(t1.forget(storage_1_uuid))
+        self.assertEqual(t1.getUUIDList(), [storage_2_uuid])
         # t2 still waits for storage 2
         self.assertFalse(t2.forget(storage_1_uuid))
+        self.assertEqual(t2.getUUIDList(), [storage_2_uuid])
         self.assertTrue(t2.lock(storage_2_uuid))
         # t3 doesn't care
         self.assertFalse(t3.forget(storage_1_uuid))
+        self.assertEqual(t3.getUUIDList(), [storage_2_uuid])
         self.assertTrue(t3.lock(storage_2_uuid))
 
 if __name__ == '__main__':

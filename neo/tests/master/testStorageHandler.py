@@ -238,6 +238,8 @@ class MasterStorageHandlerTests(NeoTestBase):
         # Check state after node lost
         # T1: last locking node lost, client receives AnswerTransactionFinished
         self.checkAnswerTransactionFinished(cconn1)
+        self.checkNotifyUnlockInformation(conn2)
+        self.checkNoPacketSent(conn1)
         # ...and notifications are sent to other clients
         self.checkInvalidateObjects(cconn2)
         self.checkInvalidateObjects(cconn3)
