@@ -98,8 +98,6 @@ RC  - Review output of pylint (CODE)
     - Consider process writable events in event.poll() method to ensure that
       pending outgoing data are sent if the network is ready to avoid wait for
       an incoming packet that trigger the poll() system call.
-    - Allow daemonize NEO processes, re-use code from TIDStorage and support
-      start/stop/restart/status commands.
 
 
     Storage
