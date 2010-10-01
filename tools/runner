@@ -111,8 +111,9 @@ if CONSOLE_LOG:
 class NeoTestRunner(unittest.TestResult):
     """ Custom result class to build report with statistics per module """
 
-    def __init__(self):
+    def __init__(self, title):
         unittest.TestResult.__init__(self)
+        self._title = title
         self.modulesStats = {}
         self.failedImports = {}
         self.lastStart = None
@@ -196,6 +197,7 @@ class NeoTestRunner(unittest.TestResult):
         import datetime
         success = self.testsRun - len(self.errors) - len(self.failures)
         s = """
+    Title       : %s
     Date        : %s
     Node        : %s
     Machine     : %s
@@ -204,6 +206,7 @@ class NeoTestRunner(unittest.TestResult):
     Directory   : %s
     Status      : %7.3f%%
         """ % (
+            self._title,
             datetime.date.today().isoformat(),
             platform.node(),
             platform.machine(),
@@ -284,8 +287,8 @@ class NeoTestRunner(unittest.TestResult):
 
     def build(self):
         self.time = sum([s.time for s in self.modulesStats.values()])
-        args = (self.testsRun, len(self.errors), len(self.failures))
-        self.subject = "Neo : %s Tests, %s Errors, %s Failures" % args
+        self.subject = "%s: %s Tests, %s Errors, %s Failures" % (self._title,
+            self.testsRun, len(self.errors), len(self.failures))
         self._summary = self._buildSummary()
         self._errors = self._buildErrors()
         self._warnings = self._buildWarnings()
@@ -341,6 +344,7 @@ if __name__ == "__main__":
     parser.add_option('', '--recipient', action='append')
     parser.add_option('', '--sender')
     parser.add_option('', '--server')
+    parser.add_option('', '--title')
     (options, args) = parser.parse_args()
 
     # check arguments
@@ -352,7 +356,7 @@ if __name__ == "__main__":
     mail_server = mail_server.split(':')
 
     # run requested tests
-    runner = NeoTestRunner()
+    runner = NeoTestRunner(title=options.title or 'Neo')
     try:
         if options.unit:
             runner.run('Unit tests', UNIT_TEST_MODULES)
