@@ -162,8 +162,6 @@ RC  - Review output of pylint (CODE)
       frequently and rarely used nodes (SCALABILITY)
 
     Client
-    - Client should prefer storage nodes it's already connected to when
-      retrieving objects (LOAD LATENCY)
     - Implement C version of mq.py (LOAD LATENCY)
     - Move object data replication task to storage nodes (COMMIT LATENCY)
       Currently the client node must send a single object data to all storage
