@@ -101,8 +101,7 @@ RC  - Review output of pylint (CODE)
 
 
     Storage
-    - Use embeded MySQL database instead of a stand-alone MySQL server.
-      (LATENCY)(to be discussed)
+    - Use Kyoto Cabinet instead of a stand-alone MySQL server.
     - Make replication work even in non-operational cluster state
       (HIGH AVAILABILITY)
       When a master decided a partition change triggering replication,
