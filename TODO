@@ -101,13 +101,6 @@ RC  - Review output of pylint (CODE)
 
 
     Storage
-    - Implement incremental storage verification (BANDWITH)
-      When a partition cell is in out-of-date state, the entire transition
-      history is checked.
-      This is because there might be gaps in cell tid history, as an out-of-date
-      node is writable (although non-readable).
-      It should use an incremental mechanism to only check transaction past a
-      certain TID known to have no gap.
     - Use embeded MySQL database instead of a stand-alone MySQL server.
       (LATENCY)(to be discussed)
     - Make replication work even in non-operational cluster state
