@@ -181,12 +181,6 @@ RC  - Review output of pylint (CODE)
     - Cache for loadSerial/loadBefore
     - Implement restore() ZODB API method to bypass consistency checks during
       imports.
-    - Implement and use an iterator on connection pool, to minimize the amount
-      of reconnections:
-      - first iterate over nodes with established connections, then on other
-        nodes
-      - allow caller to specify the node it wants to find (ex, which partitions
-        it is interested in, etc)
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might
