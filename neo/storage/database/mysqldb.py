@@ -250,7 +250,8 @@ class MySQLDatabaseManager(DatabaseManager):
         # is worth.
         q = self.query
         self.begin()
-        ltid = q("""SELECT MAX(tid) FROM trans""")[0][0]
+        ltid = q("SELECT MAX(value) FROM (SELECT MAX(tid) AS value FROM trans "
+                    "GROUP BY partition) AS foo")[0][0]
         if all:
             tmp_ltid = q("""SELECT MAX(tid) FROM ttrans""")[0][0]
             if ltid is None or (tmp_ltid is not None and ltid < tmp_ltid):
