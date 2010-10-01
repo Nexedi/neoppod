@@ -662,6 +662,7 @@ class MySQLDatabaseManager(DatabaseManager):
             updateObjectDataForPack):
         q = self.query
         p64 = util.p64
+        getPartition = self.getPartition
         # Before deleting this objects revision, see if there is any
         # transaction referencing its value at max_serial or above.
         # If there is, copy value to the first future transaction. Any further
@@ -673,7 +674,7 @@ class MySQLDatabaseManager(DatabaseManager):
                     'AND serial >= %(max_serial)d AND '
                     'value_serial = %(orig_serial)d ORDER BY serial ASC' % {
                         'table': table,
-                        'partition': self.getPartition(oid),
+                        'partition': getPartition(oid),
                         'oid': oid,
                         'orig_serial': orig_serial,
                         'max_serial': max_serial,
@@ -689,7 +690,7 @@ class MySQLDatabaseManager(DatabaseManager):
                         'AND serial = %(orig_serial)d' \
                         % {
                             'table': table,
-                            'partition': self.getPartition(oid),
+                            'partition': getPartition(oid),
                             'oid': oid,
                             'serial': serial,
                             'orig_serial': orig_serial,
@@ -699,7 +700,7 @@ class MySQLDatabaseManager(DatabaseManager):
                         'VALUES (%(partition)d, %(oid)d, %(serial)d, '
                         '%(value_serial)d)' % {
                             'table': table,
-                            'partition': self.getPartition(oid),
+                            'partition': getPartition(oid),
                             'oid': oid,
                             'serial': serial,
                             'value_serial': value_serial,
@@ -709,7 +710,7 @@ class MySQLDatabaseManager(DatabaseManager):
             return q('SELECT compression, checksum, value FROM obj WHERE '
                 'partition = %(partition)d AND oid = %(oid)d '
                 'AND serial = %(orig_serial)d' % {
-                    'partition': self.getPartition(oid),
+                    'partition': getPartition(oid),
                     'oid': oid,
                     'orig_serial': orig_serial,
                 })[0]
@@ -723,6 +724,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         tid = util.u64(tid)
         updatePackFuture = self._updatePackFuture
+        getPartition = self.getPartition
         self.begin()
         try:
             self._setPackTID(tid)
@@ -733,7 +735,7 @@ class MySQLDatabaseManager(DatabaseManager):
                         '%(partition)s AND oid = %(oid)d AND '
                         'serial = %(max_serial)d' % {
                             'oid': oid,
-                            'partition': self.getPartition(oid),
+                            'partition': getPartition(oid),
                             'max_serial': max_serial,
                         })[0][0] == 0:
                     count += 1
@@ -744,14 +746,14 @@ class MySQLDatabaseManager(DatabaseManager):
                             'partition=%(partition)d AND oid=%(oid)d AND '
                             'serial < %(max_serial)d' % {
                                 'oid': oid,
-                                'partition': self.getPartition(oid),
+                                'partition': getPartition(oid),
                                 'max_serial': max_serial,
                             }):
                         updatePackFuture(oid, serial, max_serial,
                             updateObjectDataForPack)
                         q('DELETE FROM obj WHERE partition=%(partition)d '
                             'AND oid=%(oid)d AND serial=%(serial)d' % {
-                                'partition': self.getPartition(oid),
+                                'partition': getPartition(oid),
                                 'oid': oid,
                                 'serial': serial
                         })
