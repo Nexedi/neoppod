@@ -216,7 +216,8 @@ class VerificationManager(BaseServiceHandler):
             # This is the first answer.
             self._oid_set.update(oid_set)
         elif self._oid_set != oid_set:
-            self._oid_set = None
+            raise ValueError, "Inconsistent transaction %s" % \
+                (dump(tid, ))
 
     def tidNotFound(self, conn, message):
         uuid = conn.getUUID()

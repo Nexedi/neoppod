@@ -174,9 +174,8 @@ class MasterVerificationTests(NeoTestBase):
         self.verification._uuid_set.add(uuid)
         self.assertEquals(len(self.verification._oid_set), 1)
         new_oid = self.getOID(2)
-        verification.answerTransactionInformation(conn, new_tid,
-                "user", "desc", "ext", False, [new_oid,])
-        self.assertEquals(self.verification._oid_set, None)
+        self.assertRaises(ValueError, verification.answerTransactionInformation,
+                conn, new_tid, "user", "desc", "ext", False, [new_oid,])
 
     def test_13_tidNotFound(self):
         verification = self.verification
