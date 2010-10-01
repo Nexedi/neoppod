@@ -134,7 +134,7 @@ class VerificationManager(BaseServiceHandler):
         for tid in self._tid_set:
             uuid_set = self.verifyTransaction(tid)
             if uuid_set is None:
-                packet = Packets.DeleteTransaction(tid)
+                packet = Packets.DeleteTransaction(tid, self._oid_set or [])
                 # Make sure that no node has this transaction.
                 for node in self.app.nm.getIdentifiedList():
                     if node.isStorage():

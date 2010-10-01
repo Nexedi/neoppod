@@ -240,11 +240,12 @@ class StorageVerificationHandlerTests(NeoTestBase):
             'deleteTransaction': None,
         })
         conn = self.getMasterConnection()
+        oid_list = [self.getOID(1), self.getOID(2)]
         tid = p64(1)
-        self.verification.deleteTransaction(conn, tid)
+        self.verification.deleteTransaction(conn, tid, oid_list)
         call_list = self.app.dm.mockGetNamedCalls('deleteTransaction')
         self.assertEqual(len(call_list), 1)
-        call_list[0].checkArgs(tid, all=True)
+        call_list[0].checkArgs(tid, oid_list)
 
     def test_17_commitTransaction(self):
         # commit a transaction

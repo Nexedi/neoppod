@@ -190,7 +190,7 @@ class EventHandler(object):
     def answerObjectPresent(self, conn, oid, tid):
         raise UnexpectedPacketError
 
-    def deleteTransaction(self, conn, tid):
+    def deleteTransaction(self, conn, tid, oid_list):
         raise UnexpectedPacketError
 
     def commitTransaction(self, conn, tid):

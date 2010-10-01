@@ -225,10 +225,10 @@ class ProtocolTests(NeoTestBase):
 
     def test_30_deleteTransaction(self):
         tid = self.getNextTID()
-        p = Packets.DeleteTransaction(tid)
+        oid_list = [self.getOID(1), self.getOID(2)]
+        p = Packets.DeleteTransaction(tid, oid_list)
         self.assertEqual(p.getType(), Packets.DeleteTransaction)
-        ptid = p.decode()[0]
-        self.assertEqual(ptid, tid)
+        self.assertEqual(p.decode(), (tid, oid_list))
 
     def test_31_commitTransaction(self):
         tid = self.getNextTID()

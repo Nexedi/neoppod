@@ -429,17 +429,11 @@ class StorageMySQSLdbTests(NeoTestBase):
         tid1, tid2 = self.getTIDs(2)
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid2])
-        # delete only from temporary tables
         self.db.storeTransaction(tid1, objs1, txn1)
         self.db.storeTransaction(tid2, objs2, txn2)
         self.db.finishTransaction(tid1)
-        self.db.deleteTransaction(tid1)
-        self.db.deleteTransaction(tid2)
-        result = self.db.getTransaction(tid1, True)
-        self.assertEqual(result, ([oid1], 'user', 'desc', 'ext', False))
-        self.assertEqual(self.db.getTransaction(tid2, True), None)
-        # delete from all
-        self.db.deleteTransaction(tid1, True)
+        self.db.deleteTransaction(tid1, [oid1])
+        self.db.deleteTransaction(tid2, [oid2])
         self.assertEqual(self.db.getTransaction(tid1, True), None)
         self.assertEqual(self.db.getTransaction(tid2, True), None)
 

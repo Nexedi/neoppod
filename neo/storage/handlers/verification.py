@@ -82,8 +82,8 @@ class VerificationHandler(BaseMasterHandler):
                           '%s:%s do not exist' % (dump(oid), dump(tid)))
         conn.answer(p)
 
-    def deleteTransaction(self, conn, tid):
-        self.app.dm.deleteTransaction(tid, all = True)
+    def deleteTransaction(self, conn, tid, oid_list):
+        self.app.dm.deleteTransaction(tid, oid_list)
 
     def commitTransaction(self, conn, tid):
         self.app.dm.finishTransaction(tid)

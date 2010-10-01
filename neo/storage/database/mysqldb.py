@@ -500,18 +500,27 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def deleteTransaction(self, tid, all = False):
+    def deleteTransaction(self, tid, oid_list):
         q = self.query
-        tid = util.u64(tid)
+        u64 = util.u64
+        tid = u64(tid)
+        getPartition = self.getPartition
         self.begin()
         try:
             q("""DELETE FROM tobj WHERE serial = %d""" % tid)
             q("""DELETE FROM ttrans WHERE tid = %d""" % tid)
-            if all:
-                # Note that this can be very slow.
-                q("""DELETE FROM obj WHERE serial = %d""" % tid)
-                q("""DELETE FROM trans WHERE partition = %d AND tid = %d""" %
-                        (self.getPartition(tid), tid))
+            q("""DELETE FROM trans WHERE partition = %d AND tid = %d""" %
+                (self.getPartition(tid), tid))
+            # delete from obj using indexes
+            for oid in oid_list:
+                oid = u64(oid)
+                partition = getPartition(oid)
+                q("DELETE FROM obj WHERE partition=%(partition)d "
+                        "AND oid = %(oid)d AND serial = %(serial)d" % {
+                    'partition': partition,
+                    'oid': oid,
+                    'serial': tid,
+                })
         except:
             self.rollback()
             raise

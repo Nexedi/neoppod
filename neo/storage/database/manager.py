@@ -380,10 +380,9 @@ class DatabaseManager(object):
         temporarily data to a finished area."""
         raise NotImplementedError
 
-    def deleteTransaction(self, tid, all = False):
-        """Delete a transaction specified by a given ID from a temporarily
-        area. If all is true, it must be deleted even from a finished
-        area."""
+    def deleteTransaction(self, tid, oid_list):
+        """Delete a transaction and its content specified by a given ID and
+        an oid list"""
         raise NotImplementedError
 
     def deleteObject(self, oid, serial=None):
