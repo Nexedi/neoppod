@@ -196,7 +196,8 @@ class VerificationManager(BaseServiceHandler):
 
     def answerUnfinishedTransactions(self, conn, tid_list):
         uuid = conn.getUUID()
-        logging.info('got unfinished transactions %s from %r', tid_list, conn)
+        logging.info('got unfinished transactions %s from %r',
+            [dump(tid) for tid in tid_list], conn)
         if not self._gotAnswerFrom(uuid):
             return
         self._tid_set.update(tid_list)
