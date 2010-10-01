@@ -134,6 +134,10 @@ RC  - Review output of pylint (CODE)
       storage nodes.
     - Make listening address and port optionnal, and if they are not provided
       listen on all interfaces on any available port.
+    - Replication throttling (HIGH AVAILABILITY)
+      In its current implementation, replication runs at full speed, which
+      degrades performance for client nodes. Replication should allow
+      throttling, and that throttling should be configurable.
 
     Master
     - Master node data redundancy (HIGH AVAILABILITY)
