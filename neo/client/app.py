@@ -1000,8 +1000,7 @@ class Application(object):
             conn.ask(Packets.AskTIDs(first, last, INVALID_PARTITION), queue=queue)
 
         # Wait for answers from all storages.
-        while len(self.local_var.node_tids) != len(storage_node_list):
-            self._waitAnyMessage()
+        self.waitResponses()
 
         # Reorder tids
         ordered_tids = set()

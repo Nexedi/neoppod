@@ -119,9 +119,6 @@ RC  - Review output of pylint (CODE)
     - Prevent from SQL injection, escape() from MySQLdb api is not sufficient,
       consider using query(request, args) instead of query(request % args)
     - Create database adapter for other RDBMS (sqlite, postgres)
-    - fix __undoLog when there is out of date cells, there is a busy loop
-      because the client expected more answer than the available number of
-      storage nodes.
     - Make listening address and port optionnal, and if they are not provided
       listen on all interfaces on any available port.
     - Replication throttling (HIGH AVAILABILITY)
