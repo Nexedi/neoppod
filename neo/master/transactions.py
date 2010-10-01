@@ -35,7 +35,7 @@ class Transaction(object):
         self._oid_list = oid_list
         self._msg_id = msg_id
         # uuid dict hold flag to known who has locked the transaction
-        self._uuid_list = list(uuid_list)
+        self._uuid_set = set(uuid_list)
         self._lock_wait_uuid_set = set(uuid_list)
         self._birth = time()
 
@@ -45,7 +45,7 @@ class Transaction(object):
                 self._node,
                 dump(self._tid),
                 [dump(x) for x in self._oid_list],
-                [dump(x) for x in self._uuid_list],
+                [dump(x) for x in self._uuid_set],
                 time() - self._birth,
                 id(self),
         )
@@ -72,7 +72,7 @@ class Transaction(object):
         """
             Returns the list of node's UUID that lock the transaction
         """
-        return self._uuid_list
+        return list(self._uuid_set)
 
     def getOIDList(self):
         """
