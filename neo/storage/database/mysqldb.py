@@ -50,9 +50,6 @@ class MySQLDatabaseManager(DatabaseManager):
         self._config = {}
         self._connect()
 
-    def getPartition(self, oid_or_tid):
-        return oid_or_tid % self.getNumPartitions()
-
     def _parse(self, database):
         """ Get the database credentials (username, password, database) """
         # expected pattern : [user[:password]@]database
@@ -279,7 +276,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         oid = util.u64(oid)
         tid = util.u64(tid)
-        partition = self.getPartition(oid)
+        partition = self._getPartition(oid)
         self.begin()
         r = q("SELECT oid FROM obj WHERE partition=%d AND oid=%d AND serial=%d"
                 % (partition, oid, tid))
@@ -311,7 +308,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
-        partition = self.getPartition(oid)
+        partition = self._getPartition(oid)
         if tid is not None:
             r = q("""SELECT serial, compression, checksum, value, value_serial
                         FROM obj
@@ -445,7 +442,7 @@ class MySQLDatabaseManager(DatabaseManager):
                     value_serial = 'NULL'
                 else:
                     value_serial = '%d' % (u64(value_serial), )
-                partition = self.getPartition(oid)
+                partition = self._getPartition(oid)
                 q("""REPLACE INTO %s VALUES (%d, %d, %d, %s, %s, %s, %s)""" \
                     % (obj_table, partition, oid, tid, compression, checksum,
                         data, value_serial))
@@ -457,7 +454,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 user = e(user)
                 desc = e(desc)
                 ext = e(ext)
-                partition = self.getPartition(tid)
+                partition = self._getPartition(tid)
                 q("REPLACE INTO %s VALUES (%d, %d, %i, '%s', '%s', '%s', '%s')"
                     % (trans_table, partition, tid, packed, oids, user, desc,
                         ext))
@@ -505,13 +502,13 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         u64 = util.u64
         tid = u64(tid)
-        getPartition = self.getPartition
+        getPartition = self._getPartition
         self.begin()
         try:
             q("""DELETE FROM tobj WHERE serial = %d""" % tid)
             q("""DELETE FROM ttrans WHERE tid = %d""" % tid)
             q("""DELETE FROM trans WHERE partition = %d AND tid = %d""" %
-                (self.getPartition(tid), tid))
+                (getPartition(tid), tid))
             # delete from obj using indexes
             for oid in oid_list:
                 oid = u64(oid)
@@ -531,7 +528,7 @@ class MySQLDatabaseManager(DatabaseManager):
         u64 = util.u64
         oid = u64(oid)
         query_param_dict = {
-            'partition': self.getPartition(oid),
+            'partition': self._getPartition(oid),
             'oid': oid,
         }
         query_fmt = """DELETE FROM obj WHERE partition = %(partition)d
@@ -553,7 +550,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.begin()
         r = q("""SELECT oids, user, description, ext, packed FROM trans
                     WHERE partition = %d AND tid = %d""" \
-                % (self.getPartition(tid), tid))
+                % (self._getPartition(tid), tid))
         if not r and all:
             r = q("""SELECT oids, user, description, ext, packed FROM ttrans
                         WHERE tid = %d""" \
@@ -570,7 +567,7 @@ class MySQLDatabaseManager(DatabaseManager):
             raise CreationUndone
         r = self.query("""SELECT LENGTH(value), value_serial FROM obj """ \
             """WHERE partition = %d AND oid = %d AND serial = %d""" %
-            (self.getPartition(oid), oid, value_serial))
+            (self._getPartition(oid), oid, value_serial))
         length, value_serial = r[0]
         if length is None:
             logging.info("Multiple levels of indirection when " \
@@ -590,7 +587,7 @@ class MySQLDatabaseManager(DatabaseManager):
         r = q("""SELECT serial, LENGTH(value), value_serial FROM obj
                     WHERE partition = %d AND oid = %d AND serial >= %d
                     ORDER BY serial DESC LIMIT %d, %d""" \
-                % (self.getPartition(oid), oid, pack_tid, offset, length))
+                % (self._getPartition(oid), oid, pack_tid, offset, length))
         if r:
             result = []
             append = result.append
@@ -662,7 +659,7 @@ class MySQLDatabaseManager(DatabaseManager):
             updateObjectDataForPack):
         q = self.query
         p64 = util.p64
-        getPartition = self.getPartition
+        getPartition = self._getPartition
         # Before deleting this objects revision, see if there is any
         # transaction referencing its value at max_serial or above.
         # If there is, copy value to the first future transaction. Any further
@@ -724,7 +721,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         tid = util.u64(tid)
         updatePackFuture = self._updatePackFuture
-        getPartition = self.getPartition
+        getPartition = self._getPartition
         self.begin()
         try:
             self._setPackTID(tid)

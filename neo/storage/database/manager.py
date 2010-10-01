@@ -72,6 +72,9 @@ class DatabaseManager(object):
     def _rollback(self):
         raise NotImplementedError
 
+    def _getPartition(self, oid_or_tid):
+        return oid_or_tid % self.getNumPartitions()
+
     def getConfiguration(self, key):
         """
             Return a configuration value, returns None if not found or not set
