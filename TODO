@@ -62,7 +62,11 @@ RC  - Review output of pylint (CODE)
       connection is thread-safe (MT version of connection classes).
       Also, the code to detect wether a response is expected or not must be
       genericised and moved out of handlers.
-    - Pack (FEATURE)
+    - Implement transaction garbage collection API (FEATURE)
+      NEO packing implementation does not update transaction metadata when
+      deleting object revisions. This inconsistency must be made possible to
+      clean up from a client application, much in the same way garbage
+      collection part of packing is done.
     - Factorise node initialisation for admin, client and storage (CODE)
       The same code to ask/receive node list and partition table exists in too
       many places.
@@ -138,6 +142,12 @@ RC  - Review output of pylint (CODE)
       In its current implementation, replication runs at full speed, which
       degrades performance for client nodes. Replication should allow
       throttling, and that throttling should be configurable.
+    - Pack segmentation & throttling (HIGH AVAILABILITY)
+      In its current implementation, pack runs in one call on all storage nodes
+      at the same time, which lcoks down the whole cluster. This task should
+      be split in chunks and processed in "background" on storage nodes.
+      Packing throttling should probably be at the lowest possible priority
+      (below interactive use and below replication).
 
     Master
     - Master node data redundancy (HIGH AVAILABILITY)
