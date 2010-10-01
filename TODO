@@ -63,11 +63,6 @@ RC  - Review output of pylint (CODE)
       Also, the code to detect wether a response is expected or not must be
       genericised and moved out of handlers.
     - Pack (FEATURE)
-    - Control that client processed all invalidations before starting a
-      transaction (CONSISTENCY)
-      If a client starts a transaction before it received an invalidation
-      message caused by a transaction commited, it will use outdated data.
-      This is a bug known in Zeo.
     - Factorise node initialisation for admin, client and storage (CODE)
       The same code to ask/receive node list and partition table exists in too
       many places.

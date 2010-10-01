@@ -558,7 +558,7 @@ class Application(object):
             # Those invalidations are checked at ZODB level, so it decides if
             # loaded data can be handed to current transaction or if a separate
             # loadBefore call is required.
-            self._askPrimary(Packets.AskBarrier())
+            self.invalidationBarrier()
             return result
         finally:
             self._load_lock_release()
@@ -1190,6 +1190,9 @@ class Application(object):
         # Stop polling thread
         self.poll_thread.stop()
     close = __del__
+
+    def invalidationBarrier(self):
+        self._askPrimary(Packets.AskBarrier())
 
     def sync(self):
         self._waitAnyMessage(False)
