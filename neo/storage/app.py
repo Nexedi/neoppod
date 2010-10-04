@@ -184,8 +184,9 @@ class Application(object):
             if node is not None and node.isHidden():
                 self.wait()
             # drop any client node
-            for node in self.nm.getClientList(only_identified=True):
-                node.getConnection().close()
+            for conn in self.em.getConnectionList():
+                if conn not in (self.listening_conn, self.master_conn):
+                    conn.close()
             # create/clear event queue
             self.event_queue = deque()
             try:
