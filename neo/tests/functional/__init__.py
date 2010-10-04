@@ -147,8 +147,16 @@ class NEOProcess(object):
         self.arg_dict['--uuid'] = dump(uuid)
 
     def isAlive(self):
-        return os.path.exists('/proc/%d' % self.pid)
-
+        try:
+            os.kill(self.pid, 0)
+        except OSError, (errno, msg):
+            if errno == 3: # No such process
+                result = False
+            else:
+                raise
+        else:
+            result = True
+        return result
 
 class NEOCluster(object):
 
