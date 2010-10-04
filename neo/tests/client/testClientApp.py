@@ -989,9 +989,7 @@ class ClientApplicationTests(NeoTestBase):
         app.cp = Mock({ 'getConnForCell': conn})
         def _waitAnyMessage(self):
             self.local_var.node_tids = {uuid1: (tid1, ), uuid2: (tid2, )}
-            Application._waitAnyMessage = _waitAnyMessage_old
-        _waitAnyMessage_old = Application._waitAnyMessage
-        Application._waitAnyMessage = _waitAnyMessage
+        app._waitAnyMessage = _waitAnyMessage
         def txn_filter(info):
             return info['id'] > '\x00' * 8
         result = app.undoLog(0, 4, filter=txn_filter)
@@ -1054,51 +1052,47 @@ class ClientApplicationTests(NeoTestBase):
         # Sixth packet : askPartitionTable succeeded
         def _waitMessage7(self, conn, msg_id, handler=None):
             app.pt = Mock({'operational': True})
-            Application._waitMessage = _waitMessage8
+            app._waitMessage = _waitMessage8
         # fifth packet : request node identification succeeded
         def _waitMessage6(self, conn, msg_id, handler=None):
             conn.setUUID('D' * 16)
             app.uuid = 'C' * 16
-            Application._waitMessage = _waitMessage7
+            app._waitMessage = _waitMessage7
         # fourth iteration : connection to primary master succeeded
         def _waitMessage5(self, conn, msg_id, handler=None):
             app.trying_master_node = app.primary_master_node = Mock({
                 'getAddress': ('192.168.1.1', 10000),
                 '__str__': 'Fake master node',
             })
-            Application._waitMessage = _waitMessage6
+            app._waitMessage = _waitMessage6
         # third iteration : node not ready
         def _waitMessage4(app, conn, msg_id, handler=None):
             app.setNodeNotReady()
             app.trying_master_node = None
-            Application._waitMessage = _waitMessage5
+            app._waitMessage = _waitMessage5
         # second iteration : master node changed
         def _waitMessage3(app, conn, msg_id, handler=None):
             app.primary_master_node = Mock({
                 'getAddress': ('192.168.1.1', 10000),
                 '__str__': 'Fake master node',
             })
-            Application._waitMessage = _waitMessage4
+            app._waitMessage = _waitMessage4
         # first iteration : connection failed
         def _waitMessage2(app, conn, msg_id, handler=None):
             app.trying_master_node = None
-            Application._waitMessage = _waitMessage3
+            app._waitMessage = _waitMessage3
         # do nothing for the first call
         def _waitMessage1(app, conn, msg_id, handler=None):
-            Application._waitMessage = _waitMessage2
-        _waitMessage_old = Application._waitMessage
-        Application._waitMessage = _waitMessage1
+            app._waitMessage = _waitMessage2
+        app._waitMessage = _waitMessage1
         # faked environnement
         app.connector_handler = DoNothingConnector
         app.em = Mock({})
         app.pt = Mock({ 'operational': False})
-        try:
-            app.master_conn = app._connectToPrimaryNode()
-            self.assertEqual(len(all_passed), 1)
-            self.assertTrue(app.master_conn is not None)
-            self.assertTrue(app.pt.operational())
-        finally:
-            Application._waitMessage = _waitMessage_old
+        app.master_conn = app._connectToPrimaryNode()
+        self.assertEqual(len(all_passed), 1)
+        self.assertTrue(app.master_conn is not None)
+        self.assertTrue(app.pt.operational())
 
     def test_askStorage(self):
         """ _askStorage is private but test it anyway """
@@ -1108,14 +1102,10 @@ class ClientApplicationTests(NeoTestBase):
         self.test_ok = False
         def _waitMessage_hook(app, conn, msg_id, handler=None):
             self.test_ok = True
-        _waitMessage_old = Application._waitMessage
         packet = Packets.AskBeginTransaction()
         packet.setId(0)
-        Application._waitMessage = _waitMessage_hook
-        try:
-            app._askStorage(conn, packet)
-        finally:
-            Application._waitMessage = _waitMessage_old
+        app._waitMessage = _waitMessage_hook
+        app._askStorage(conn, packet)
         # check packet sent, connection unlocked and dispatcher updated
         self.checkAskNewTid(conn)
         self.checkDispatcherRegisterCalled(app, conn)
