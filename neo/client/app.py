@@ -974,7 +974,7 @@ class Application(object):
                         'transaction', oid)
                 undo_serial = None
             self._store(oid, current_serial, data, undo_serial)
-        return tid, []
+        return tid, oid_list
 
     def _insertMetadata(self, txn_info, extension):
         for k, v in loads(extension).items():
