@@ -183,9 +183,10 @@ class Application(object):
             node = self.nm.getByUUID(self.uuid)
             if node is not None and node.isHidden():
                 self.wait()
-            # drop any client node and clear event queue
+            # drop any client node
             for node in self.nm.getClientList(only_identified=True):
                 node.getConnection().close()
+            # create/clear event queue
             self.event_queue = deque()
             try:
                 self.verifyData()
