@@ -406,6 +406,9 @@ class DoNothingConnector(Mock):
     def makeClientConnection(self, addr):
         self.addr = addr
 
+    def makeListeningConnection(self, addr):
+        self.addr = addr
+
     def getDescriptor(self):
         return self.desc
 

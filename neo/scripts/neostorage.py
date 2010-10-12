@@ -43,7 +43,7 @@ parser.add_option('-d', '--database', help = 'database connections string')
 
 defaults = dict(
     name = 'storage',
-    bind = '127.0.0.1:20000',
+    bind = '127.0.0.1',
     masters = '127.0.0.1:10000',
     adapter = 'MySQL',
 )

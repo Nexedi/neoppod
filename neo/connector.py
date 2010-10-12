@@ -89,6 +89,9 @@ class SocketConnector:
     def getError(self):
         return self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
 
+    def getAddress(self):
+        return self.socket.getsockname()
+
     def getDescriptor(self):
         # this descriptor must only be used by the event manager, where it
         # guarantee unicity only while the connector is opened and registered

@@ -169,6 +169,7 @@ class Application(object):
         handler = identification.IdentificationHandler(self)
         self.listening_conn = ListeningConnection(self.em, handler,
             addr=self.server, connector=self.connector_handler())
+        self.server = self.listening_conn.getAddress()
 
         # Connect to a primary master node, verify data, and
         # start the operation. This cycle will be executed permanently,

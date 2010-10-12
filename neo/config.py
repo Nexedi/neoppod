@@ -59,9 +59,7 @@ class ConfigurationManager(object):
         if ':' in bind:
             (ip, port) = bind.split(':')
         else:
-            ip = bind
-            # took port from default bind address
-            port = self.defaults['bind'].split(':')[1]
+            (ip, port) = (bind, 0)
         ip = util.resolve(ip)
         return (ip, int(port))
 

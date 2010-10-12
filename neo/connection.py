@@ -395,6 +395,9 @@ class ListeningConnection(BaseConnection):
         except ConnectorTryAgainException:
             pass
 
+    def getAddress(self):
+        return self.connector.getAddress()
+
     def writable(self):
         return False
 
