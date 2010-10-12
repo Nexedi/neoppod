@@ -49,7 +49,7 @@ class StorageTests(NEOFunctionalTest):
             partitions=10, master_node_count=2):
         # create a neo cluster
         self.neo = NEOCluster(['test_neo%d' % i for i in xrange(storage_number)],
-            port_base=20000, master_node_count=master_node_count,
+            master_node_count=master_node_count,
             partitions=partitions, replicas=replicas,
             temp_dir=self.getTempDirectory(),
             clear_databases=True,

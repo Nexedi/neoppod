@@ -23,8 +23,7 @@ class ZODBTestCase(NEOFunctionalTest):
 
     def setUp(self):
         NEOFunctionalTest.setUp(self)
-        self.neo = NEOCluster(['test_neo1'],
-                partitions=1, replicas=0, port_base=20000,
+        self.neo = NEOCluster(['test_neo1'], partitions=1, replicas=0,
                 master_node_count=1, temp_dir=self.getTempDirectory())
         self.neo.stop()
         self.neo.setupDB()

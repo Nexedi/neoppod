@@ -32,7 +32,7 @@ class ClusterTests(NEOFunctionalTest):
             self.neo.stop()
 
     def testClusterBreaks(self):
-        self.neo = NEOCluster(['test_neo1'], port_base=20000,
+        self.neo = NEOCluster(['test_neo1'],
                 master_node_count=1, temp_dir=self.getTempDirectory())
         neoctl = self.neo.getNEOCTL()
         self.neo.setupDB()
@@ -43,7 +43,7 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.expectClusterVerifying()
 
     def testClusterBreaksWithTwoNodes(self):
-        self.neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
+        self.neo = NEOCluster(['test_neo1', 'test_neo2'],
                  partitions=2, master_node_count=1, replicas=0,
                  temp_dir=self.getTempDirectory())
         neoctl = self.neo.getNEOCTL()
@@ -55,7 +55,7 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.expectClusterVerifying()
 
     def testClusterDoesntBreakWithTwoNodesOneReplica(self):
-        self.neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
+        self.neo = NEOCluster(['test_neo1', 'test_neo2'],
                          partitions=2, replicas=1, master_node_count=1,
                          temp_dir=self.getTempDirectory())
         neoctl = self.neo.getNEOCTL()
@@ -68,7 +68,7 @@ class ClusterTests(NEOFunctionalTest):
 
     def testElectionWithManyMasters(self):
         MASTER_COUNT = 20
-        self.neo = NEOCluster(['test_neo1', 'test_neo2'], port_base=20000,
+        self.neo = NEOCluster(['test_neo1', 'test_neo2'],
             partitions=10, replicas=0, master_node_count=MASTER_COUNT,
             temp_dir=self.getTempDirectory())
         neoctl = self.neo.getNEOCTL()

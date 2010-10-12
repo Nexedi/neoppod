@@ -19,6 +19,7 @@ import os
 import sys
 import time
 import ZODB
+import socket
 import signal
 import random
 import MySQLdb
@@ -160,8 +161,7 @@ class NEOProcess(object):
 
 class NEOCluster(object):
 
-    def __init__(self, db_list, master_node_count=1,
-                 partitions=1, replicas=0, port_base=10000,
+    def __init__(self, db_list, master_node_count=1, partitions=1, replicas=0,
                  db_user='neo', db_password='neo',
                  db_super_user=DB_ADMIN, db_super_password=DB_PASSWD,
                  cleanup_on_delete=False, temp_dir=None,
@@ -178,7 +178,7 @@ class NEOCluster(object):
         if clear_databases:
             self.setupDB()
         self.process_dict = {}
-        self.last_port = port_base
+        self.port_set = set()
         if temp_dir is None:
             temp_dir = tempfile.mkdtemp(prefix='neo_')
             print 'Using temp directory %r.' % (temp_dir, )
@@ -234,9 +234,21 @@ class NEOCluster(object):
             NEOProcess(command, uuid, arguments))
 
     def __allocatePort(self):
-        port = self.last_port
-        self.last_port += 1
-        return port
+        for i in range(10):
+            port = random.randrange(30000, 40000)
+            if port in self.port_set:
+                continue
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                try:
+                    s.connect(('localhost', port))
+                except socket.error:
+                    # Perhaps we should check value of error too.
+                    self.port_set.add(port)
+                    return port
+            finally:
+                s.close()
+        raise RuntimeError, "Can't find port"
 
     def __allocateUUID(self):
         uuid = os.urandom(16)
