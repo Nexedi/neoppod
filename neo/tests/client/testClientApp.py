@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+import new
 import unittest
 from cPickle import dumps
 from mock import Mock, ReturnValues
@@ -987,9 +988,9 @@ class ClientApplicationTests(NeoTestBase):
             'getCellListForTID': ReturnValues([cell1], [cell2]),
         })
         app.cp = Mock({ 'getConnForCell': conn})
-        def _waitAnyMessage(self):
+        def waitResponses(self):
             self.local_var.node_tids = {uuid1: (tid1, ), uuid2: (tid2, )}
-        app._waitAnyMessage = _waitAnyMessage
+        app.waitResponses = new.instancemethod(waitResponses, app, Application)
         def txn_filter(info):
             return info['id'] > '\x00' * 8
         result = app.undoLog(0, 4, filter=txn_filter)
