@@ -558,6 +558,7 @@ class Application(object):
             # Those invalidations are checked at ZODB level, so it decides if
             # loaded data can be handed to current transaction or if a separate
             # loadBefore call is required.
+            # XXX: A better implementation is required to improve performances
             self.invalidationBarrier()
             return result
         finally:
