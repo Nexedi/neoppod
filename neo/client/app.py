@@ -1009,7 +1009,7 @@ class Application(object):
             update(tid_list)
         ordered_tids = list(ordered_tids)
         ordered_tids.sort(reverse=True)
-        logging.debug("UndoLog, tids %s", ordered_tids)
+        logging.debug("UndoLog tids %s", [dump(x) for x in ordered_tids])
         # For each transaction, get info
         undo_info = []
         append = undo_info.append
