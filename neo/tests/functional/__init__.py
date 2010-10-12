@@ -209,11 +209,10 @@ class NEOCluster(object):
             })
         # create storage nodes
         for index, db in enumerate(db_list):
-            port = self.__allocatePort()
             self.__newProcess(NEO_STORAGE, {
                 '--cluster': self.cluster_name,
                 '--name': 'storage_%d' % index,
-                '--bind': '127.0.0.1:%d' % (port, ),
+                '--bind': '127.0.0.1',
                 '--masters': self.master_nodes,
                 '--database': '%s:%s@%s' % (db_user, db_password, db),
                 '--adapter': adapter,
