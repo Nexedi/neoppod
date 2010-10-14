@@ -97,6 +97,35 @@ class ClusterTests(NEOFunctionalTest):
         # transaction should be verified and commited
         self.assertEqual(conn.root()[0], 'ok')
 
+    def testLeavingOperationalStateDropClientNodes(self):
+        """
+            Check that client nodes are dropped where the cluster leaves the
+            operational state.
+        """
+        # start a cluster
+        self.neo = NEOCluster(['test_neo1'], replicas=0,
+            temp_dir=self.getTempDirectory())
+        neoctl = self.neo.getNEOCTL()
+        self.neo.start()
+        self.neo.expectClusterRunning()
+        self.neo.expectOudatedCells(0)
+        # connect a client a check it's known
+        db, conn = self.neo.getZODBConnection()
+        self.assertEqual(len(self.neo.getClientlist()), 1)
+        # drop the storage, the cluster is no more operational...
+        self.neo.getStorageProcessList()[0].stop()
+        self.neo.expectClusterVerifying()
+        # ...and the client gets disconnected
+        self.assertEqual(len(self.neo.getClientlist()), 0)
+        # restart storage so that the cluster is operational again
+        self.neo.getStorageProcessList()[0].start()
+        self.neo.expectClusterRunning()
+        self.neo.expectOudatedCells(0)
+        # and reconnect the client, there must be only one known by the admin
+        conn.root()['plop'] = 1
+        transaction.commit()
+        self.assertEqual(len(self.neo.getClientlist()), 1)
+
 def test_suite():
     return unittest.makeSuite(ClusterTests)
 
