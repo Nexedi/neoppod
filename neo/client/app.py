@@ -910,9 +910,8 @@ class Application(object):
         # Regroup objects per partition, to ask a minimum set of storage.
         partition_oid_dict = {}
         pt = self._getPartitionTable()
-        getPartitionFromIndex = pt.getPartitionFromIndex
         for oid in oid_list:
-            partition = pt.getPartitionFromIndex(oid)
+            partition = pt.getPartition(oid)
             try:
                 oid_list = partition_oid_dict[partition]
             except KeyError:

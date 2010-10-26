@@ -136,12 +136,13 @@ class PartitionTable(object):
             return []
 
     def getCellListForTID(self, tid, readable=False, writable=False):
-        return self.getCellList(self.getPartitionFromIndex(tid),
-                                readable, writable)
+        return self.getCellList(self.getPartition(tid), readable, writable)
 
     def getCellListForOID(self, oid, readable=False, writable=False):
-        return self.getCellList(self.getPartitionFromIndex(oid),
-                                readable, writable)
+        return self.getCellList(self.getPartition(oid), readable, writable)
+
+    def getPartition(self, oid_or_tid):
+        return u64(oid_or_tid) % self.getPartitions()
 
     def isAssigned(self, oid, uuid):
         """ Check if the oid is assigned to the given node """
@@ -149,12 +150,6 @@ class PartitionTable(object):
             if cell.getUUID() == uuid:
                 return True
         return False
-
-    def getPartitionFromIndex(self, index):
-        return self._getPartitionFromIndex(u64(index))
-
-    def _getPartitionFromIndex(self, index):
-        return index % self.np
 
     def setCell(self, offset, node, state):
         if state == CellStates.DISCARDED:
