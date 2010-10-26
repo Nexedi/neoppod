@@ -463,6 +463,7 @@ class ClientApplicationTests(NeoTestBase):
         app.nm.createStorage(address=storage_address)
         app.local_var.object_stored = (oid, tid)
         app.local_var.data_dict[oid] = 'BEFORE'
+        app.local_var.data_list.append(oid)
         app.store(oid, tid, '', None, txn)
         app.local_var.queue.put((conn, packet))
         self.assertRaises(ConflictError, app.waitStoreResponses,

@@ -102,6 +102,7 @@ class ThreadContext(object):
             'tid': None,
             'txn': None,
             'data_dict': {},
+            'data_list': [],
             'object_serial_dict': {},
             'object_stored_counter_dict': {},
             'conflict_serial_dict': {},
@@ -632,7 +633,11 @@ class Application(object):
                  checksum, compressed_data, data_serial, self.local_var.tid)
         on_timeout = OnTimeout(self.onStoreTimeout, self.local_var.tid, oid)
         # Store object in tmp cache
-        self.local_var.data_dict[oid] = data
+        local_var = self.local_var
+        data_dict = local_var.data_dict
+        if oid not in data_dict:
+            local_var.data_list.append(oid)
+        data_dict[oid] = data
         # Store data on each node
         self.local_var.object_stored_counter_dict[oid] = {}
         self.local_var.object_serial_dict[oid] = serial
@@ -705,6 +710,7 @@ class Application(object):
             if not resolved:
                 # XXX: Is it really required to remove from data_dict ?
                 del data_dict[oid]
+                local_var.data_list.remove(oid)
                 raise ConflictError(oid=oid,
                     serials=(tid, serial), data=data)
         return result
@@ -763,7 +769,7 @@ class Application(object):
         voted_counter = 0
         p = Packets.AskStoreTransaction(tid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
-            local_var.data_dict.keys())
+            local_var.data_list)
         add_involved_nodes = self.local_var.involved_nodes.add
         for cell in self._getCellListForTID(tid, writable=True):
             logging.debug("voting object %s %s", cell.getAddress(),
@@ -845,7 +851,7 @@ class Application(object):
                 f(tid)
 
             # Call finish on master
-            oid_list = self.local_var.data_dict.keys()
+            oid_list = self.local_var.data_list
             p = Packets.AskFinishTransaction(tid, oid_list)
             self._askPrimary(p)
 
