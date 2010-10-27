@@ -17,9 +17,6 @@
 
 from ZODB import POSException
 
-class ConnectionClosed(Exception):
-    pass
-
 class NEOStorageError(POSException.StorageError):
     pass
 

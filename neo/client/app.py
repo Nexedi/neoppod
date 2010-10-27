@@ -34,11 +34,11 @@ from neo.protocol import NodeTypes, Packets, INVALID_PARTITION, ZERO_TID
 from neo.event import EventManager
 from neo.util import makeChecksum as real_makeChecksum, dump
 from neo.locking import Lock
-from neo.connection import MTClientConnection, OnTimeout
+from neo.connection import MTClientConnection, OnTimeout, ConnectionClosed
 from neo.node import NodeManager
 from neo.connector import getConnectorHandler
 from neo.client.exception import NEOStorageError, NEOStorageCreationUndoneError
-from neo.client.exception import NEOStorageNotFoundError, ConnectionClosed
+from neo.client.exception import NEOStorageNotFoundError
 from neo.exception import NeoException
 from neo.client.handlers import storage, master
 from neo.dispatcher import Dispatcher, ForgottenPacket
@@ -314,6 +314,9 @@ class Application(object):
 
     @profiler_decorator
     def _connectToPrimaryNode(self):
+        """
+            Lookup for the current primary master node
+        """
         logging.debug('connecting to primary master...')
         ready = False
         nm = self.nm
@@ -349,8 +352,8 @@ class Application(object):
                     logging.error('Connection to master node %s failed',
                                   self.trying_master_node)
                     continue
-                msg_id = conn.ask(Packets.AskPrimary(), queue=queue)
                 try:
+                    msg_id = conn.ask(Packets.AskPrimary(), queue=queue)
                     self._waitMessage(conn, msg_id,
                             handler=self.primary_bootstrap_handler)
                 except ConnectionClosed:
@@ -358,39 +361,43 @@ class Application(object):
                 # If we reached the primary master node, mark as connected
                 connected = self.primary_master_node is not None and \
                         self.primary_master_node is self.trying_master_node
-
-            logging.info('connected to a primary master node')
-            # Identify to primary master and request initial data
-            while conn.getUUID() is None:
-                if conn.getConnector() is None:
-                    logging.error('Connection to master node %s lost',
-                                  self.trying_master_node)
-                    self.primary_master_node = None
-                    break
-                p = Packets.RequestIdentification(NodeTypes.CLIENT,
-                        self.uuid, None, self.name)
-                msg_id = conn.ask(p, queue=queue)
-                try:
-                    self._waitMessage(conn, msg_id,
-                            handler=self.primary_bootstrap_handler)
-                except ConnectionClosed:
-                    self.primary_master_node = None
-                    break
-                if conn.getUUID() is None:
-                    # Node identification was refused by master.
-                    time.sleep(1)
-            if self.uuid is not None:
-                msg_id = conn.ask(Packets.AskNodeInformation(), queue=queue)
-                self._waitMessage(conn, msg_id,
-                        handler=self.primary_bootstrap_handler)
-                msg_id = conn.ask(Packets.AskPartitionTable(), queue=queue)
-                self._waitMessage(conn, msg_id,
-                        handler=self.primary_bootstrap_handler)
-            ready = self.uuid is not None and self.pt is not None \
-                                 and self.pt.operational()
-        logging.info("connected to primary master node %s" %
-                self.primary_master_node)
+            logging.info('Connected to %s' % (self.primary_master_node, ))
+            try:
+                ready = self.identifyToPrimaryNode(conn)
+            except ConnectionClosed:
+                logging.error('Connection to %s lost', self.trying_master_node)
+                self.primary_master_node = None
+                continue
+        logging.info("Connected and ready")
         return conn
+
+    def identifyToPrimaryNode(self, conn):
+        """
+            Request identification and required informations to be operational.
+            Might raise ConnectionClosed so that the new primary can be
+            looked-up again.
+        """
+        logging.info('Initializing from master')
+        queue = self.local_var.queue
+        # Identify to primary master and request initial data
+        while conn.getUUID() is None:
+            p = Packets.RequestIdentification(NodeTypes.CLIENT, self.uuid,
+                    None, self.name)
+            self._waitMessage(conn, conn.ask(p, queue=queue),
+                    handler=self.primary_bootstrap_handler)
+            if conn.getUUID() is None:
+                # Node identification was refused by master, it is considered
+                # as the primary as long as we are connected to it.
+                time.sleep(1)
+        if self.uuid is not None:
+            msg_id = conn.ask(Packets.AskNodeInformation(), queue=queue)
+            self._waitMessage(conn, msg_id,
+                    handler=self.primary_bootstrap_handler)
+            msg_id = conn.ask(Packets.AskPartitionTable(), queue=queue)
+            self._waitMessage(conn, msg_id,
+                    handler=self.primary_bootstrap_handler)
+        return self.uuid is not None and self.pt is not None \
+                             and self.pt.operational()
 
     def registerDB(self, db, limit):
         self._db = db

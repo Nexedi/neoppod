@@ -36,6 +36,9 @@ PING_TIMEOUT = 5
 INCOMING_TIMEOUT = 10
 CRITICAL_TIMEOUT = 30
 
+class ConnectionClosed(Exception):
+    pass
+
 def not_closed(func):
     def decorator(self, *args, **kw):
         if self.connector is None:
@@ -734,6 +737,8 @@ class MTClientConnection(ClientConnection):
             queue=None):
         self.lock()
         try:
+            if self.isClosed():
+                raise ConnectionClosed
             # XXX: Here, we duplicate Connection.ask because we need to call
             # self.dispatcher.register after setId is called and before
             # _addPacket is called.

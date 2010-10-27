@@ -19,8 +19,7 @@
 from neo import logging
 from neo.locking import RLock
 from neo.protocol import NodeTypes, Packets
-from neo.connection import MTClientConnection
-from neo.client.exception import ConnectionClosed
+from neo.connection import MTClientConnection, ConnectionClosed
 from neo.profiling import profiler_decorator
 import time
 
