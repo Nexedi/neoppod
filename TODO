@@ -98,7 +98,8 @@ RC  - Review output of pylint (CODE)
     - Consider process writable events in event.poll() method to ensure that
       pending outgoing data are sent if the network is ready to avoid wait for
       an incoming packet that trigger the poll() system call.
-
+    - Review node notfications. Eg. A storage don't have to be notified of new
+      clients but only when one is lost.
 
     Storage
     - Use Kyoto Cabinet instead of a stand-alone MySQL server.
