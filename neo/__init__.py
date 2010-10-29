@@ -30,6 +30,14 @@ def setupLog(name='NEO', filename=None, verbose=False):
     else:
         level = logging_std.INFO
     fmt = PREFIX + SUFFIX
-    logging_std.basicConfig(filename=filename, level=level, format=fmt)
     logging = logging_std.getLogger(name.upper())
+    for handler in logging.handlers:
+        logging.removeHandler(handler)
+    if filename is None:
+        handler = logging_std.StreamHandler()
+    else:
+        handler = logging_std.FileHandler(filename)
+    handler.setFormatter(logging_std.Formatter(fmt))
+    handler.setLevel(level)
+    logging.addHandler(handler)
 
