@@ -55,6 +55,8 @@ class Application(object):
         self.name = config.getCluster()
         self.server = config.getBind()
 
+        self.storage_readiness = set()
+
         for address in config.getMasters():
             self.nm.createMaster(address=address)
 
@@ -552,4 +554,13 @@ class Application(object):
                 (uuid, state, handler) = self.identifyStorageNode(uuid, node)
             logging.info('Accept a storage %s (%s)' % (dump(uuid), state))
         return (uuid, node, state, handler, node_ctor)
+
+    def setStorageNotReady(self, uuid):
+        self.storage_readiness.discard(uuid)
+
+    def setStorageReady(self, uuid):
+        self.storage_readiness.add(uuid)
+
+    def isStorageReady(self, uuid):
+        return uuid in self.storage_readiness
 

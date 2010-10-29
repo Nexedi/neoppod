@@ -68,9 +68,12 @@ class ClientServiceHandler(MasterHandler):
 
         # Collect the UUIDs of nodes related to this transaction.
         uuid_set = set()
+        isStorageReady = app.isStorageReady
         for part in partition_set:
-            uuid_set.update((cell.getUUID() for cell in app.pt.getCellList(part)
-                             if cell.getNodeState() != NodeStates.HIDDEN))
+            uuid_set.update((uuid for uuid in (
+                    cell.getUUID() for cell in app.pt.getCellList(part)
+                    if cell.getNodeState() != NodeStates.HIDDEN)
+                if isStorageReady(uuid)))
 
         # check if greater and foreign OID was stored
         if self.app.tm.updateLastOID(oid_list):

@@ -1729,6 +1729,13 @@ class AnswerCheckSerialRange(Packet):
         # serial_checksum, max_serial
         return unpack(self._header_format, body)
 
+class NotifyReady(Packet):
+    """
+    Notify that node is ready to serve requests.
+    S -> M
+    """
+    pass
+
 class Error(Packet):
     """
     Error is a special type of message, because this can be sent against
@@ -1978,6 +1985,7 @@ class PacketRegistry(dict):
             AskCheckSerialRange,
             AnswerCheckSerialRange,
             )
+    NotifyReady = register(0x003B, NotifyReady)
 
 # build a "singleton"
 Packets = PacketRegistry()

@@ -30,8 +30,12 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def connectionCompleted(self, conn):
         # TODO: unit test
-        node = self.app.nm.getByUUID(conn.getUUID())
+        app = self.app
+        uuid = conn.getUUID()
+        node = app.nm.getByUUID(uuid)
+        # XXX: what other values could happen ?
         if node.isRunning():
+            app.setStorageNotReady(uuid)
             conn.notify(Packets.StartOperation())
 
     def nodeLost(self, conn, node):
@@ -140,4 +144,7 @@ class StorageServiceHandler(BaseServiceHandler):
                     client.answer(Packets.AnswerPack(True), msg_id=msg_id)
                 except ConnectorConnectionClosedException:
                     pass
+
+    def notifyReady(self, conn):
+        self.app.setStorageReady(conn.getUUID())
 

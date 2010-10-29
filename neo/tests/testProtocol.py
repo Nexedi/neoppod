@@ -702,6 +702,10 @@ class ProtocolTests(NeoTestBase):
         pstatus = p.decode()[0]
         self.assertEqual(pstatus, status)
 
+    def test_notifyReady(self):
+        p = Packets.NotifyReady()
+        self.assertEqual(tuple(), p.decode())
+
 if __name__ == '__main__':
     unittest.main()
 

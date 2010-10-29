@@ -272,6 +272,13 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.assertTrue(status)
         self.assertEqual(self.app.packing, None)
 
+    def test_notifyReady(self):
+        node, conn = self._getStorage()
+        uuid = node.getUUID()
+        self.assertFalse(self.app.isStorageReady(uuid))
+        self.service.notifyReady(conn)
+        self.assertTrue(self.app.isStorageReady(uuid))
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -272,6 +272,7 @@ class Application(object):
                 or not self.has_last_ids:
             self.em.poll(1)
         self.ready = True
+        self.master_conn.notify(Packets.NotifyReady())
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""

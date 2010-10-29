@@ -369,6 +369,9 @@ class EventHandler(object):
             oid_checksum, max_oid, serial_checksum, max_serial):
         raise UnexpectedPacketError
 
+    def notifyReady(self, conn):
+        raise UnexpectedPacketError
+
     # Error packet handlers.
 
     def error(self, conn, code, message):
@@ -488,6 +491,7 @@ class EventHandler(object):
         d[Packets.AnswerCheckTIDRange] = self.answerCheckTIDRange
         d[Packets.AskCheckSerialRange] = self.askCheckSerialRange
         d[Packets.AnswerCheckSerialRange] = self.answerCheckSerialRange
+        d[Packets.NotifyReady] = self.notifyReady
 
         return d
 

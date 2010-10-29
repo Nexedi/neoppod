@@ -109,6 +109,13 @@ class MasterClientHandlerTests(NeoTestBase):
         tid = self.app.tm.getLastTID()
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
+        # No packet sent if storage node is not ready
+        self.assertFalse(self.app.isStorageReady(storage_uuid))
+        service.askFinishTransaction(conn, tid, oid_list)
+        self.checkNoPacketSent(storage_conn)
+        # ...but AskLockInformation is sent if it is ready
+        self.app.setStorageReady(storage_uuid)
+        self.assertTrue(self.app.isStorageReady(storage_uuid))
         service.askFinishTransaction(conn, tid, oid_list)
         self.checkAskLockInformation(storage_conn)
         self.assertEquals(len(self.app.tm.getPendingList()), 1)
