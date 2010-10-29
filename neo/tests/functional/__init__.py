@@ -224,21 +224,17 @@ class NEOCluster(object):
             NEOProcess(command, uuid, arguments))
 
     def __allocatePort(self):
-        for i in range(10):
-            port = random.randrange(30000, 40000)
-            if port in self.port_set:
-                continue
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            try:
-                try:
-                    s.connect(('localhost', port))
-                except socket.error:
-                    # Perhaps we should check value of error too.
-                    self.port_set.add(port)
-                    return port
-            finally:
-                s.close()
-        raise RuntimeError, "Can't find port"
+        port_set = self.port_set
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        while True:
+            s.bind(('127.0.0.1', 0))
+            port = s.getsockname()[1]
+            if port not in port_set:
+                break
+        s.close()
+        port_set.add(port)
+        return port
 
     def __allocateUUID(self):
         uuid = os.urandom(16)
