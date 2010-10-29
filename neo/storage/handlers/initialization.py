@@ -40,14 +40,13 @@ class InitializationHandler(BaseMasterHandler):
         # Install the partition table into the database for persistency.
         cell_list = []
         num_partitions = app.pt.getPartitions()
-        assigned_set = set()
+        unassigned_set = set(xrange(num_partitions))
         for offset in xrange(num_partitions):
             for cell in pt.getCellList(offset):
                 cell_list.append((offset, cell.getUUID(), cell.getState()))
                 if cell.getUUID() == app.uuid:
-                    assigned_set.add(offset)
+                    assigned_set.remove(offset)
         # delete objects database
-        unassigned_set = list(set(xrange(num_partitions)) - assigned_set)
         if unassigned_set:
             logging.debug('drop data for partitions %r' % unassigned_set)
             app.dm.dropPartitions(num_partitions, unassigned_set)
