@@ -29,6 +29,7 @@ class StorageServiceHandler(BaseServiceHandler):
     """ Handler dedicated to storages during service state """
 
     def connectionCompleted(self, conn):
+        # TODO: unit test
         node = self.app.nm.getByUUID(conn.getUUID())
         if node.isRunning():
             conn.notify(Packets.StartOperation())
