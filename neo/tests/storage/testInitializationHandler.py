@@ -78,6 +78,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         node_1 = self.getNewUUID()
         node_2 = self.getNewUUID()
         node_3 = self.getNewUUID()
+        self.app.uuid = node_1
         # SN already know all nodes
         self.app.nm.createStorage(uuid=node_1)
         self.app.nm.createStorage(uuid=node_2)

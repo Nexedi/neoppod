@@ -45,7 +45,7 @@ class InitializationHandler(BaseMasterHandler):
             for cell in pt.getCellList(offset):
                 cell_list.append((offset, cell.getUUID(), cell.getState()))
                 if cell.getUUID() == app.uuid:
-                    assigned_set.remove(offset)
+                    unassigned_set.remove(offset)
         # delete objects database
         if unassigned_set:
             logging.debug('drop data for partitions %r' % unassigned_set)
