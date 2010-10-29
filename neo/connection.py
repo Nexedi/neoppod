@@ -599,12 +599,12 @@ class Connection(BaseConnection):
 
         was_empty = not bool(self.write_buf)
 
-        PACKET_LOGGER.dispatch(self, packet, ' to ')
         self.write_buf.extend(packet.encode())
 
         if was_empty:
             # enable polling for writing.
             self.em.addWriter(self)
+        PACKET_LOGGER.dispatch(self, packet, ' to ')
 
     @not_closed
     def notify(self, packet):
