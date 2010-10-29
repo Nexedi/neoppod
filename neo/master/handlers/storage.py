@@ -33,9 +33,9 @@ class StorageServiceHandler(BaseServiceHandler):
         app = self.app
         uuid = conn.getUUID()
         node = app.nm.getByUUID(uuid)
+        app.setStorageNotReady(uuid)
         # XXX: what other values could happen ?
         if node.isRunning():
-            app.setStorageNotReady(uuid)
             conn.notify(Packets.StartOperation())
 
     def nodeLost(self, conn, node):
