@@ -143,11 +143,8 @@ class AdministrationHandler(MasterHandler):
             new_cells = pt.addNode(node)
             cell_list.extend(new_cells)
             node.setRunning()
+            node.getConnection().notify(Packets.StartOperation())
         app.broadcastNodesInformation(node_list)
-        # start nodes
-        # XXX: should start storages only when RUNNING
-        for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
-            node.notify(Packets.StartOperation())
         # broadcast the new partition table
         app.broadcastPartitionChanges(cell_list)
         conn.answer(Errors.Ack('Nodes added: %s' % (uuids, )))
