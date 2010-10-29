@@ -37,6 +37,6 @@ def setupLog(name='NEO', filename=None, verbose=False):
     else:
         handler = logging_std.FileHandler(filename)
     handler.setFormatter(logging_std.Formatter(fmt))
-    handler.setLevel(level)
+    logging.setLevel(level)
     logging.addHandler(handler)
 
