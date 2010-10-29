@@ -1036,7 +1036,7 @@ class ClientApplicationTests(NeoTestBase):
         self.assertEquals(result[0]['size'], 42)
         self.assertEquals(result[1]['size'], 42)
 
-    def _test_connectToPrimaryNode(self):
+    def test_connectToPrimaryNode(self):
         # here we have three master nodes :
         # the connection to the first will fail
         # the second will have changed
@@ -1049,42 +1049,42 @@ class ClientApplicationTests(NeoTestBase):
         # TODO: test more connection failure cases
         # Seventh packet : askNodeInformation succeeded
         all_passed = []
-        def _waitMessage8(self, conn, msg_id, handler=None):
+        def _waitMessage8(conn, msg_id, handler=None):
             all_passed.append(1)
         # Sixth packet : askPartitionTable succeeded
-        def _waitMessage7(self, conn, msg_id, handler=None):
+        def _waitMessage7(conn, msg_id, handler=None):
             app.pt = Mock({'operational': True})
             app._waitMessage = _waitMessage8
         # fifth packet : request node identification succeeded
-        def _waitMessage6(self, conn, msg_id, handler=None):
+        def _waitMessage6(conn, msg_id, handler=None):
             conn.setUUID('D' * 16)
             app.uuid = 'C' * 16
             app._waitMessage = _waitMessage7
         # fourth iteration : connection to primary master succeeded
-        def _waitMessage5(self, conn, msg_id, handler=None):
+        def _waitMessage5(conn, msg_id, handler=None):
             app.trying_master_node = app.primary_master_node = Mock({
                 'getAddress': ('192.168.1.1', 10000),
                 '__str__': 'Fake master node',
             })
             app._waitMessage = _waitMessage6
         # third iteration : node not ready
-        def _waitMessage4(app, conn, msg_id, handler=None):
+        def _waitMessage4(conn, msg_id, handler=None):
             app.setNodeNotReady()
             app.trying_master_node = None
             app._waitMessage = _waitMessage5
         # second iteration : master node changed
-        def _waitMessage3(app, conn, msg_id, handler=None):
+        def _waitMessage3(conn, msg_id, handler=None):
             app.primary_master_node = Mock({
                 'getAddress': ('192.168.1.1', 10000),
                 '__str__': 'Fake master node',
             })
             app._waitMessage = _waitMessage4
         # first iteration : connection failed
-        def _waitMessage2(app, conn, msg_id, handler=None):
+        def _waitMessage2(conn, msg_id, handler=None):
             app.trying_master_node = None
             app._waitMessage = _waitMessage3
         # do nothing for the first call
-        def _waitMessage1(app, conn, msg_id, handler=None):
+        def _waitMessage1(conn, msg_id, handler=None):
             app._waitMessage = _waitMessage2
         app._waitMessage = _waitMessage1
         # faked environnement
