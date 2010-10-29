@@ -86,12 +86,12 @@ class StorageReplicationHandlerTests(NeoTestBase):
             'checkTIDRange': None,
             'getTIDsFrom': None,
             'getObjectHistoryFrom': None,
+            'getCurrentRID': rid,
+            'getCurrentCriticalTID': critical_tid,
         })
-        replicator.current_partition = Mock({
-            'getRID': rid,
-            'getCriticalTID': critical_tid,
-        })
-        replicator.current_connection = conn
+        def isCurrentConnection(other_conn):
+            return other_conn is conn
+        replicator.isCurrentConnection = isCurrentConnection
         real_replicator = replicator
         class FakeApp(object):
             replicator = real_replicator
