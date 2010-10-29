@@ -498,9 +498,11 @@ class Connection(BaseConnection):
             if packet_type == Packets.Ping:
                 # Send a pong notification
                 self.answer(Packets.Pong(), packet.getId())
-            elif packet_type != Packets.Pong:
+            elif packet_type == Packets.Pong:
                 # Skip PONG packets, its only purpose is refresh the timeout
-                # generated upong ping.
+                # generated upong ping. But still log them.
+                PACKET_LOGGER.dispatch(self, packet, 'from')
+            else:
                 self._queue.append(packet)
 
     def hasPendingMessages(self):
