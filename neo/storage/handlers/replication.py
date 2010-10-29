@@ -66,7 +66,7 @@ Both part follow the same mechanism:
 
 def checkConnectionIsReplicatorConnection(func):
     def decorator(self, conn, *args, **kw):
-        if self.app.replicator.current_connection is conn:
+        if self.app.replicator.isCurrentConnection(conn):
             result = func(self, conn, *args, **kw)
         else:
             # Should probably raise & close connection...
@@ -152,30 +152,24 @@ class ReplicationHandler(EventHandler):
         del data
 
     def _doAskCheckSerialRange(self, min_oid, min_tid, length=RANGE_LENGTH):
-        replicator = self.app.replicator
-        partition = replicator.current_partition.getRID()
+        partition = self.replicator.getCurrentRID()
         replicator.checkSerialRange(min_oid, min_tid, length, partition)
         return Packets.AskCheckSerialRange(min_oid, min_tid, length, partition)
 
     def _doAskCheckTIDRange(self, min_tid, length=RANGE_LENGTH):
-        replicator = self.app.replicator
-        partition = replicator.current_partition.getRID()
+        partition = self.replicator.getCurrentRID()
         replicator.checkTIDRange(min_tid, length, partition)
         return Packets.AskCheckTIDRange(min_tid, length, partition)
 
     def _doAskTIDsFrom(self, min_tid, length):
-        replicator = self.app.replicator
-        partition = replicator.current_partition
-        partition_id = partition.getRID()
-        max_tid = partition.getCriticalTID()
+        partition_id = self.replicator.getCurrentRID()
+        max_tid = self.replicator.getCurrentCriticalTID()
         replicator.getTIDsFrom(min_tid, max_tid, length, partition_id)
         return Packets.AskTIDsFrom(min_tid, max_tid, length, partition_id)
 
     def _doAskObjectHistoryFrom(self, min_oid, min_serial, length):
-        replicator = self.app.replicator
-        partition = replicator.current_partition
-        partition_id = partition.getRID()
-        max_serial = partition.getCriticalTID()
+        partition_id = self.replicator.getCurrentRID()
+        max_serial = self.replicator.getCurrentCriticalTID()
         replicator.getObjectHistoryFrom(min_oid, min_serial, max_serial,
             length, partition_id)
         return Packets.AskObjectHistoryFrom(min_oid, min_serial, max_serial,
@@ -206,7 +200,7 @@ class ReplicationHandler(EventHandler):
                     count + 1))
         if p is None:
             if count == length and \
-                    max_tid < replicator.current_partition.getCriticalTID():
+                    max_tid < self.replicator.getCurrentCriticalTID():
                 # Go on with next chunk
                 p = self._doAskCheckTIDRange(add64(max_tid, 1))
             else:
@@ -247,7 +241,7 @@ class ReplicationHandler(EventHandler):
             else:
                 # Nothing remains, so the replication for this partition is
                 # finished.
-                replicator.replication_done = True
+                replicator.setReplicationDone()
         if p is not None:
             conn.ask(p)
 

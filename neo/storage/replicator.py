@@ -123,13 +123,11 @@ class Replicator(object):
     # critical_tid_dict
     #   outdated partitions for which a critical tid was asked to primary
     #   master, but not answered so far
-    #   XXX: could probably be made a list/set rather than a dict
     # partition_dict
     #   outdated partitions (with or without a critical tid - if without, it
     #   was asked to primary master)
     # current_partition
     #   partition being currently synchronised
-    #   XXX: accessed (r) directly by ReplicationHandler
     # current_connection
     #   connection to a storage node we are replicating from
     #   XXX: accessed (r) directory by ReplicationHandler
@@ -142,7 +140,6 @@ class Replicator(object):
     #   False if we know there is something to replicate.
     #   True when current_partition is replicated, or we don't know yet if
     #   there is something to replicate
-    #   XXX: accessed (w) directly by ReplicationHandler
 
     new_partition_dict = None
     critical_tid_dict = None
@@ -191,6 +188,21 @@ class Replicator(object):
     def pending(self):
         """Return whether there is any pending partition."""
         return len(self.partition_dict) or len(self.new_partition_dict)
+
+    def getCurrentRID(self):
+        assert self.current_partition is not None
+        return self.current_partition.getRID()
+
+    def getCurrentCriticalTID(self):
+        assert self.current_partition is not None
+        return self.current_partition.getCriticalTID()
+
+    def setReplicationDone(self):
+        """ Callback from ReplicationHandler """
+        self.replication_done = True
+
+    def isCurrentConnection(self, conn):
+        return self.current_connection is conn
 
     def setCriticalTID(self, uuid, tid):
         """This is a callback from MasterOperationHandler."""
