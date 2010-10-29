@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo.storage.handlers import BaseMasterHandler
 from neo.protocol import CellStates
@@ -29,7 +29,7 @@ class HiddenHandler(BaseMasterHandler):
         app = self.app
         if ptid <= app.pt.getID():
             # Ignore this packet.
-            logging.debug('ignoring older partition changes')
+            neo.logging.debug('ignoring older partition changes')
             return
 
         # update partition table in memory and the database

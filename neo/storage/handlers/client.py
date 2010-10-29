@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 from neo import protocol
 from neo.util import dump
 from neo.protocol import Packets, LockState, Errors
@@ -50,7 +50,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             data_serial, tid, request_time):
         if tid not in self.app.tm:
             # transaction was aborted, cancel this event
-            logging.info('Forget store of %s:%s by %s delayed by %s',
+            neo.logging.info('Forget store of %s:%s by %s delayed by %s',
                     dump(oid), dump(serial), dump(tid),
                     dump(self.app.tm.getLockingTID(oid)))
             # send an answer as the client side is waiting for it
@@ -71,7 +71,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             if SLOW_STORE is not None:
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
-                    logging.info('StoreObject delay: %.02fs', duration)
+                    neo.logging.info('StoreObject delay: %.02fs', duration)
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
 
     def askStoreObject(self, conn, oid, serial,
@@ -120,7 +120,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
     def askHasLock(self, conn, tid, oid):
         locking_tid = self.app.tm.getLockingTID(oid)
-        logging.info('%r check lock of %r:%r', conn, dump(tid), dump(oid))
+        neo.logging.info('%r check lock of %r:%r', conn, dump(tid), dump(oid))
         if locking_tid is None:
             state = LockState.NOT_LOCKED
         elif locking_tid is tid:

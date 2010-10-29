@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo.protocol import NodeTypes, Packets
 from neo.protocol import BrokenNodeDisallowedError, ProtocolError
@@ -25,7 +25,7 @@ class IdentificationHandler(MasterHandler):
     """This class deals with messages from the admin node only"""
 
     def nodeLost(self, conn, node):
-        logging.warning('lost a node in IdentificationHandler : %s' % node)
+        neo.logging.warning('lost a node in IdentificationHandler : %s' % node)
 
     def requestIdentification(self, conn, node_type, uuid, address, name):
 

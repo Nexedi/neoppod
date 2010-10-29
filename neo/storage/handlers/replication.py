@@ -16,7 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo.handler import EventHandler
 from neo.protocol import Packets, ZERO_TID, ZERO_OID
@@ -82,11 +82,11 @@ class ReplicationHandler(EventHandler):
     """This class handles events for replications."""
 
     def connectionLost(self, conn, new_state):
-        logging.error('replication is stopped due to a connection lost')
+        neo.logging.error('replication is stopped due to a connection lost')
         self.app.replicator.reset()
 
     def connectionFailed(self, conn):
-        logging.error('replication is stopped due to connection failure')
+        neo.logging.error('replication is stopped due to connection failure')
         self.app.replicator.reset()
 
     def acceptIdentification(self, conn, node_type,

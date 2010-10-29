@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 from neo.util import dump
 from neo.protocol import ClusterStates, Packets, NodeStates
 from neo.master.handlers import BaseServiceHandler
@@ -117,11 +117,11 @@ class VerificationManager(BaseServiceHandler):
         em, nm = self.app.em, self.app.nm
 
         # wait for any missing node
-        logging.debug('waiting for the cluster to be operational')
+        neo.logging.debug('waiting for the cluster to be operational')
         while not self.app.pt.operational():
             em.poll(1)
 
-        logging.info('start to verify data')
+        neo.logging.info('start to verify data')
 
         # Gather all unfinished transactions.
         self._askStorageNodesAndWait(Packets.AskUnfinishedTransactions(),
@@ -196,7 +196,7 @@ class VerificationManager(BaseServiceHandler):
 
     def answerUnfinishedTransactions(self, conn, tid_list):
         uuid = conn.getUUID()
-        logging.info('got unfinished transactions %s from %r',
+        neo.logging.info('got unfinished transactions %s from %r',
             [dump(tid) for tid in tid_list], conn)
         if not self._gotAnswerFrom(uuid):
             return
@@ -221,19 +221,19 @@ class VerificationManager(BaseServiceHandler):
 
     def tidNotFound(self, conn, message):
         uuid = conn.getUUID()
-        logging.info('TID not found: %s', message)
+        neo.logging.info('TID not found: %s', message)
         if not self._gotAnswerFrom(uuid):
             return
         self._oid_set = None
 
     def answerObjectPresent(self, conn, oid, tid):
         uuid = conn.getUUID()
-        logging.info('object %s:%s found', dump(oid), dump(tid))
+        neo.logging.info('object %s:%s found', dump(oid), dump(tid))
         self._gotAnswerFrom(uuid)
 
     def oidNotFound(self, conn, message):
         uuid = conn.getUUID()
-        logging.info('OID not found: %s', message)
+        neo.logging.info('OID not found: %s', message)
         app = self.app
         if not self._gotAnswerFrom(uuid):
             return

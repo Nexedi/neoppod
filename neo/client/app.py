@@ -29,7 +29,7 @@ from persistent.TimeStamp import TimeStamp
 from neo import setupLog
 setupLog('CLIENT', verbose=True)
 
-from neo import logging
+import neo
 from neo.protocol import NodeTypes, Packets, INVALID_PARTITION, ZERO_TID
 from neo.event import EventManager
 from neo.util import makeChecksum as real_makeChecksum, dump
@@ -317,7 +317,7 @@ class Application(object):
         """
             Lookup for the current primary master node
         """
-        logging.debug('connecting to primary master...')
+        neo.logging.debug('connecting to primary master...')
         ready = False
         nm = self.nm
         queue = self.local_var.queue
@@ -349,7 +349,7 @@ class Application(object):
                 # Query for primary master node
                 if conn.getConnector() is None:
                     # This happens if a connection could not be established.
-                    logging.error('Connection to master node %s failed',
+                    neo.logging.error('Connection to master node %s failed',
                                   self.trying_master_node)
                     continue
                 try:
@@ -361,14 +361,15 @@ class Application(object):
                 # If we reached the primary master node, mark as connected
                 connected = self.primary_master_node is not None and \
                         self.primary_master_node is self.trying_master_node
-            logging.info('Connected to %s' % (self.primary_master_node, ))
+            neo.logging.info('Connected to %s' % (self.primary_master_node, ))
             try:
                 ready = self.identifyToPrimaryNode(conn)
             except ConnectionClosed:
-                logging.error('Connection to %s lost', self.trying_master_node)
+                neo.logging.error('Connection to %s lost',
+                    self.trying_master_node)
                 self.primary_master_node = None
                 continue
-        logging.info("Connected and ready")
+        neo.logging.info("Connected and ready")
         return conn
 
     def identifyToPrimaryNode(self, conn):
@@ -377,7 +378,7 @@ class Application(object):
             Might raise ConnectionClosed so that the new primary can be
             looked-up again.
         """
-        logging.info('Initializing from master')
+        neo.logging.info('Initializing from master')
         queue = self.local_var.queue
         # Identify to primary master and request initial data
         while conn.getUUID() is None:
@@ -490,7 +491,7 @@ class Application(object):
         self.local_var.asked_object = 0
         packet = Packets.AskObject(oid, serial, tid)
         for cell in cell_list:
-            logging.debug('trying to load %s at %s before %s from %s',
+            neo.logging.debug('trying to load %s at %s before %s from %s',
                 dump(oid), dump(serial), dump(tid), dump(cell.getUUID()))
             conn = self.cp.getConnForCell(cell)
             if conn is None:
@@ -506,13 +507,13 @@ class Application(object):
                 = self.local_var.asked_object
             if noid != oid:
                 # Oops, try with next node
-                logging.error('got wrong oid %s instead of %s from node %s',
-                              noid, dump(oid), cell.getAddress())
+                neo.logging.error('got wrong oid %s instead of %s from node ' \
+                    '%s', noid, dump(oid), cell.getAddress())
                 self.local_var.asked_object = -1
                 continue
             elif checksum != makeChecksum(data):
                 # Check checksum.
-                logging.error('wrong checksum from node %s for oid %s',
+                neo.logging.error('wrong checksum from node %s for oid %s',
                               cell.getAddress(), dump(oid))
                 self.local_var.asked_object = -1
                 continue
@@ -553,7 +554,7 @@ class Application(object):
             self._cache_lock_acquire()
             try:
                 if oid in self.mq_cache:
-                    logging.debug('load oid %s is cached', dump(oid))
+                    neo.logging.debug('load oid %s is cached', dump(oid))
                     serial, data = self.mq_cache[oid]
                     return data, serial
             finally:
@@ -577,7 +578,7 @@ class Application(object):
     def loadSerial(self, oid, serial):
         """Load an object for a given oid and serial."""
         # Do not try in cache as it manages only up-to-date object
-        logging.debug('loading %s at %s', dump(oid), dump(serial))
+        neo.logging.debug('loading %s at %s', dump(oid), dump(serial))
         return self._load(oid, serial=serial)[0]
 
 
@@ -585,7 +586,7 @@ class Application(object):
     def loadBefore(self, oid, tid):
         """Load an object for a given oid before tid committed."""
         # Do not try in cache as it manages only up-to-date object
-        logging.debug('loading %s before %s', dump(oid), dump(tid))
+        neo.logging.debug('loading %s before %s', dump(oid), dump(tid))
         return self._load(oid, tid=tid)
 
 
@@ -611,7 +612,7 @@ class Application(object):
         """Store object."""
         if transaction is not self.local_var.txn:
             raise StorageTransactionError(self, transaction)
-        logging.debug('storing oid %s serial %s',
+        neo.logging.debug('storing oid %s serial %s',
                      dump(oid), dump(serial))
         self._store(oid, serial, data)
         return None
@@ -699,8 +700,9 @@ class Application(object):
                 new_data = tryToResolveConflict(oid, conflict_serial, serial,
                     data)
                 if new_data is not None:
-                    logging.info('Conflict resolution succeed for %r:%r with %r',
-                        dump(oid), dump(serial), dump(conflict_serial))
+                    neo.logging.info('Conflict resolution succeed for ' \
+                        '%r:%r with %r', dump(oid), dump(serial),
+                        dump(conflict_serial))
                     # Mark this conflict as resolved
                     resolved_serial_set.update(conflict_serial_dict.pop(oid))
                     # Try to store again
@@ -708,10 +710,11 @@ class Application(object):
                     append(oid)
                     resolved = True
                 else:
-                    logging.info('Conflict resolution failed for %r:%r with %r',
-                        dump(oid), dump(serial), dump(conflict_serial))
+                    neo.logging.info('Conflict resolution failed for ' \
+                        '%r:%r with %r', dump(oid), dump(serial),
+                        dump(conflict_serial))
             else:
-                logging.info('Conflict reported for %r:%r with later ' \
+                neo.logging.info('Conflict reported for %r:%r with later ' \
                     'transaction %r , cannot resolve conflict.', dump(oid),
                     dump(serial), dump(conflict_serial))
             if not resolved:
@@ -779,7 +782,7 @@ class Application(object):
             local_var.data_list)
         add_involved_nodes = self.local_var.involved_nodes.add
         for cell in self._getCellListForTID(tid, writable=True):
-            logging.debug("voting object %s %s", cell.getAddress(),
+            neo.logging.debug("voting object %s %s", cell.getAddress(),
                 cell.getState())
             conn = self.cp.getConnForCell(cell)
             if conn is None:
@@ -824,7 +827,7 @@ class Application(object):
             try:
                 conn.notify(p)
             except:
-                logging.error('Exception in tpc_abort while notifying ' \
+                neo.logging.error('Exception in tpc_abort while notifying ' \
                     'storage node %r of abortion, ignoring.', conn, exc_info=1)
 
         # Just wait for responses to arrive. If any leads to an exception,
@@ -837,7 +840,7 @@ class Application(object):
             try:
                 _waitAnyMessage()
             except:
-                logging.error('Exception in tpc_abort while handling ' \
+                neo.logging.error('Exception in tpc_abort while handling ' \
                     'pending answers, ignoring.', exc_info=1)
 
         self.local_var.clear()
@@ -906,7 +909,7 @@ class Application(object):
                 continue
             except NEOStorageNotFoundError:
                 # Tid not found, try with next node
-                logging.warning('Transaction %s was not found on node %s',
+                neo.logging.warning('Transaction %s was not found on node %s',
                     dump(undone_tid), self.nm.getByAddress(conn.getAddress()))
                 continue
 
@@ -1022,7 +1025,7 @@ class Application(object):
             update(tid_list)
         ordered_tids = list(ordered_tids)
         ordered_tids.sort(reverse=True)
-        logging.debug("UndoLog tids %s", [dump(x) for x in ordered_tids])
+        neo.logging.debug("UndoLog tids %s", [dump(x) for x in ordered_tids])
         # For each transaction, get info
         undo_info = []
         append = undo_info.append

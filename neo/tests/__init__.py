@@ -20,7 +20,7 @@ import random
 import unittest
 import tempfile
 import MySQLdb
-from neo import logging
+import neo
 from mock import Mock
 from neo import protocol
 from neo.protocol import Packets
@@ -394,7 +394,7 @@ connector_cpt = 0
 
 class DoNothingConnector(Mock):
     def __init__(self, s=None):
-        logging.info("initializing connector")
+        neo.logging.info("initializing connector")
         self.desc = globals()['connector_cpt']
         globals()['connector_cpt'] = globals()['connector_cpt']+ 1
         self.packet_cpt = 0

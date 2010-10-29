@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.pt import MTPartitionTable as PartitionTable
@@ -43,7 +43,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         if your_uuid is None:
             raise ProtocolError('No UUID supplied')
         app.uuid = your_uuid
-        logging.info('Got an UUID: %s', dump(app.uuid))
+        neo.logging.info('Got an UUID: %s', dump(app.uuid))
 
         node = app.nm.getByAddress(conn.getAddress())
         conn.setUUID(uuid)
@@ -66,7 +66,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
-                logging.warning('Unknown primary master UUID: %s. ' \
+                neo.logging.warning('Unknown primary master UUID: %s. ' \
                                 'Ignoring.' % dump(primary_uuid))
             else:
                 app.primary_master_node = primary_node
@@ -94,7 +94,7 @@ class PrimaryNotificationsHandler(BaseHandler):
 
     def connectionClosed(self, conn):
         app = self.app
-        logging.critical("connection to primary master node closed")
+        neo.logging.critical("connection to primary master node closed")
         conn.close()
         app.master_conn = None
         app.primary_master_node = None
@@ -104,7 +104,7 @@ class PrimaryNotificationsHandler(BaseHandler):
         app = self.app
         if app.master_conn is not None:
             assert conn is app.master_conn
-            logging.critical("connection timeout to primary master node " \
+            neo.logging.critical("connection timeout to primary master node " \
                     "expired")
         BaseHandler.timeoutExpired(self, conn)
 
@@ -112,11 +112,11 @@ class PrimaryNotificationsHandler(BaseHandler):
         app = self.app
         if app.master_conn is not None:
             assert conn is app.master_conn
-            logging.critical("primary master node is broken")
+            neo.logging.critical("primary master node is broken")
         BaseHandler.peerBroken(self, conn)
 
     def stopOperation(self, conn):
-        logging.critical("master node ask to stop operation")
+        neo.logging.critical("master node ask to stop operation")
 
     def invalidateObjects(self, conn, tid, oid_list):
         app = self.app

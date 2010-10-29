@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo.node import NodeManager
 from neo.event import EventManager
@@ -68,7 +68,7 @@ class Application(object):
         self.server = config.getBind()
         self.master_addresses = config.getMasters()
 
-        logging.debug('IP address is %s, port is %d', *(self.server))
+        neo.logging.debug('IP address is %s, port is %d', *(self.server))
 
         # The partition table is initialized after getting the number of
         # partitions.
@@ -105,7 +105,7 @@ class Application(object):
                 while True:
                     self.em.poll(1)
             except PrimaryFailure:
-                logging.error('primary master is down')
+                neo.logging.error('primary master is down')
 
 
     def connectToPrimary(self):

@@ -18,7 +18,7 @@
 from ZODB.TimeStamp import TimeStamp
 from ZODB.POSException import ConflictError
 
-from neo import logging
+import neo
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.protocol import NodeTypes, ProtocolError, LockState
 from neo.util import dump
@@ -74,7 +74,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
         local_var = self.app.local_var
         object_stored_counter_dict = local_var.object_stored_counter_dict[oid]
         if conflicting:
-            logging.info('%r report a conflict for %r with %r', conn,
+            neo.logging.info('%r report a conflict for %r with %r', conn,
                         dump(oid), dump(serial))
             conflict_serial_dict = local_var.conflict_serial_dict
             if serial in object_stored_counter_dict:
@@ -138,8 +138,8 @@ class StorageAnswersHandler(AnswerBaseHandler):
             raise ConflictError, 'Lock wait timeout for oid %s on %r' % (
                 dump(oid), conn)
         elif status == LockState.GRANTED:
-            logging.info('Store of oid %s was successful, but after timeout.',
-                dump(oid))
+            neo.logging.info('Store of oid %s was successful, but after ' \
+                'timeout.', dump(oid))
             # XXX: Not sure what to do in this case yet, for now do nothing.
         else:
             # Nobody has the lock, although we asked storage to lock. This

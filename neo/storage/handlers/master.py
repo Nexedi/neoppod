@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 from neo.util import dump
 from neo.protocol import CellStates, Packets, ProtocolError
 from neo.storage.handlers import BaseMasterHandler
@@ -36,7 +36,7 @@ class MasterOperationHandler(BaseMasterHandler):
         app = self.app
         if ptid <= app.pt.getID():
             # Ignore this packet.
-            logging.debug('ignoring older partition changes')
+            neo.logging.debug('ignoring older partition changes')
             return
 
         # update partition table in memory and the database
@@ -67,8 +67,8 @@ class MasterOperationHandler(BaseMasterHandler):
 
     def askPack(self, conn, tid):
         app = self.app
-        logging.info('Pack started, up to %s...', dump(tid))
+        neo.logging.info('Pack started, up to %s...', dump(tid))
         app.dm.pack(tid, app.tm.updateObjectDataForPack)
-        logging.info('Pack finished.')
+        neo.logging.info('Pack finished.')
         conn.answer(Packets.AnswerPack(True))
 

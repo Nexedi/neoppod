@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 from neo import protocol
 from neo.master.handlers import BaseServiceHandler
 
@@ -24,15 +24,15 @@ class ShutdownHandler(BaseServiceHandler):
 
     def requestIdentification(self, conn, node_type,
                                         uuid, address, name):
-        logging.error('reject any new connection')
+        neo.logging.error('reject any new connection')
         raise protocol.ProtocolError('cluster is shutting down')
 
 
     def askPrimary(self, conn):
-        logging.error('reject any new demand for primary master')
+        neo.logging.error('reject any new demand for primary master')
         raise protocol.ProtocolError('cluster is shutting down')
 
     def askBeginTransaction(self, conn, tid):
-        logging.error('reject any new demand for new tid')
+        neo.logging.error('reject any new demand for new tid')
         raise protocol.ProtocolError('cluster is shutting down')
 

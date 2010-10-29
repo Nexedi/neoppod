@@ -17,7 +17,7 @@
 
 from struct import pack
 
-from neo import logging
+import neo
 from neo.util import dump
 from neo.protocol import Packets, ProtocolError, ClusterStates, NodeStates
 from neo.protocol import NotReadyError, ZERO_OID, ZERO_TID
@@ -43,7 +43,7 @@ class RecoveryManager(MasterHandler):
             Returns the handler for storage nodes
         """
         if uuid is None and not self.app._startup_allowed:
-            logging.info('reject empty storage node')
+            neo.logging.info('reject empty storage node')
             raise NotReadyError
         return (uuid, NodeStates.RUNNING, self)
 
@@ -54,7 +54,7 @@ class RecoveryManager(MasterHandler):
         back the latest partition table or make a new table from scratch,
         if this is the first time.
         """
-        logging.info('begin the recovery of the status')
+        neo.logging.info('begin the recovery of the status')
 
         self.app.changeClusterState(ClusterStates.RECOVERING)
         em = self.app.em
@@ -66,7 +66,7 @@ class RecoveryManager(MasterHandler):
         while not self.app._startup_allowed:
             em.poll(1)
 
-        logging.info('startup allowed')
+        neo.logging.info('startup allowed')
 
         # build a new partition table
         if self.app.pt.getID() is None:
@@ -80,13 +80,14 @@ class RecoveryManager(MasterHandler):
             node.setPending()
         self.app.broadcastNodesInformation(refused_node_set)
 
-        logging.debug('cluster starts with loid=%s and this partition table :',
-                dump(self.app.tm.getLastOID()))
+        neo.logging.debug('cluster starts with loid=%s and this partition ' \
+            'table :', dump(self.app.tm.getLastOID()))
         self.app.pt.log()
 
     def buildFromScratch(self):
         nm, em, pt = self.app.nm, self.app.em, self.app.pt
-        logging.debug('creating a new partition table, wait for a storage node')
+        neo.logging.debug('creating a new partition table, wait for a ' \
+            'storage node')
         # wait for some empty storage nodes, their are accepted
         while len(nm.getStorageList()) < REQUIRED_NODE_NUMBER:
             em.poll(1)
@@ -127,7 +128,7 @@ class RecoveryManager(MasterHandler):
     def answerPartitionTable(self, conn, ptid, row_list):
         if ptid != self.target_ptid:
             # If this is not from a target node, ignore it.
-            logging.warn('Got %s while waiting %s', dump(ptid),
+            neo.logging.warn('Got %s while waiting %s', dump(ptid),
                     dump(self.target_ptid))
             return
         try:

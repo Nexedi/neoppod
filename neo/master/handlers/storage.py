@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo.protocol import ProtocolError
 from neo.protocol import CellStates, Packets
@@ -39,7 +39,7 @@ class StorageServiceHandler(BaseServiceHandler):
             conn.notify(Packets.StartOperation())
 
     def nodeLost(self, conn, node):
-        logging.info('storage node lost')
+        neo.logging.info('storage node lost')
         assert not node.isRunning(), node.getState()
 
         if not self.app.pt.operational():
@@ -109,7 +109,7 @@ class StorageServiceHandler(BaseServiceHandler):
     def notifyReplicationDone(self, conn, offset):
         uuid = conn.getUUID()
         node = self.app.nm.getByUUID(uuid)
-        logging.debug("node %s is up for offset %s" % (dump(uuid), offset))
+        neo.logging.debug("node %s is up for offset %s" % (dump(uuid), offset))
 
         # check the partition is assigned and known as outdated
         for cell in self.app.pt.getCellList(offset):

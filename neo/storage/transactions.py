@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from time import time
-from neo import logging
+import neo
 from neo.util import dump
 
 
@@ -199,27 +199,27 @@ class TransactionManager(object):
         # check if the object if locked
         locking_tid = self._store_lock_dict.get(oid)
         if locking_tid == tid:
-            logging.info('Transaction %s storing %s more than once', dump(tid),
-                dump(oid))
+            neo.logging.info('Transaction %s storing %s more than once',
+                dump(tid), dump(oid))
         elif locking_tid is None:
             # check if this is generated from the latest revision.
             history_list = self._app.dm.getObjectHistory(oid)
             if history_list and history_list[0][0] != serial:
-                logging.info('Resolvable conflict on %r:%r', dump(oid),
+                neo.logging.info('Resolvable conflict on %r:%r', dump(oid),
                         dump(tid))
                 raise ConflictError(history_list[0][0])
-            logging.info('Transaction %s storing %s', dump(tid), dump(oid))
+            neo.logging.info('Transaction %s storing %s', dump(tid), dump(oid))
             self._store_lock_dict[oid] = tid
         elif locking_tid < tid:
             # a previous transaction lock this object, retry later
-            logging.info('Store delayed for %r:%r by %r', dump(oid),
+            neo.logging.info('Store delayed for %r:%r by %r', dump(oid),
                     dump(tid), dump(locking_tid))
             raise DelayedError
         else:
             # If a newer transaction already locks this object,
             # do not try to resolve a conflict, so return immediately.
-            logging.info('Unresolvable conflict on %r:%r with %r', dump(oid),
-                    dump(tid), dump(locking_tid))
+            neo.logging.info('Unresolvable conflict on %r:%r with %r',
+                dump(oid), dump(tid), dump(locking_tid))
             raise ConflictError(locking_tid)
 
         # store object
@@ -275,15 +275,15 @@ class TransactionManager(object):
         return oid in self._load_lock_dict
 
     def log(self):
-        logging.info("Transactions:")
+        neo.logging.info("Transactions:")
         for txn in self._transaction_dict.values():
-            logging.info('    %r', txn)
-        logging.info('  Read locks:')
+            neo.logging.info('    %r', txn)
+        neo.logging.info('  Read locks:')
         for oid, tid in self._load_lock_dict.items():
-            logging.info('    %r by %r', dump(oid), dump(tid))
-        logging.info('  Write locks:')
+            neo.logging.info('    %r by %r', dump(oid), dump(tid))
+        neo.logging.info('  Write locks:')
         for oid, tid in self._store_lock_dict.items():
-            logging.info('    %r by %r', dump(oid), dump(tid))
+            neo.logging.info('    %r by %r', dump(oid), dump(tid))
 
     def updateObjectDataForPack(self, oid, orig_serial, new_serial,
             getObjectData):

@@ -17,8 +17,7 @@
 
 import logging as logging_std
 
-# default logger
-logging = logging_std.getLogger('NEO')
+# "logging" is available here only once setupLog has been called.
 
 PREFIX = '%(asctime)s %(levelname)-9s %(name)-10s'
 SUFFIX = ' [%(module)14s:%(lineno)3d] %(message)s'

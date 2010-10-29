@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 import sys
 from collections import deque
 
@@ -58,7 +58,7 @@ class Application(object):
 
         # set the bind address
         self.server = config.getBind()
-        logging.debug('IP address is %s, port is %d', *(self.server))
+        neo.logging.debug('IP address is %s, port is %d', *(self.server))
 
         # The partition table is initialized after getting the number of
         # partitions.
@@ -126,12 +126,12 @@ class Application(object):
             # create a partition table
             self.pt = PartitionTable(num_partitions, num_replicas)
 
-        logging.info('Configuration loaded:')
-        logging.info('UUID      : %s', dump(self.uuid))
-        logging.info('PTID      : %s', dump(ptid))
-        logging.info('Name      : %s', self.name)
-        logging.info('Partitions: %s', num_partitions)
-        logging.info('Replicas  : %s', num_replicas)
+        neo.logging.info('Configuration loaded:')
+        neo.logging.info('UUID      : %s', dump(self.uuid))
+        neo.logging.info('PTID      : %s', dump(ptid))
+        neo.logging.info('Name      : %s', self.name)
+        neo.logging.info('Partitions: %s', num_partitions)
+        neo.logging.info('Replicas  : %s', num_replicas)
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
@@ -156,7 +156,7 @@ class Application(object):
         try:
             self._run()
         except:
-            logging.info('\nPre-mortem informations:')
+            neo.logging.info('\nPre-mortem informations:')
             self.log()
             raise
 
@@ -196,9 +196,9 @@ class Application(object):
                 self.doOperation()
                 raise RuntimeError, 'should not reach here'
             except OperationFailure, msg:
-                logging.error('operation stopped: %s', msg)
+                neo.logging.error('operation stopped: %s', msg)
             except PrimaryFailure, msg:
-                logging.error('primary master is down: %s', msg)
+                neo.logging.error('primary master is down: %s', msg)
                 self.master_node = None
 
     def connectToPrimary(self):
@@ -223,7 +223,7 @@ class Application(object):
         (node, conn, uuid, num_partitions, num_replicas) = data
         self.master_node = node
         self.master_conn = conn
-        logging.info('I am %s', dump(uuid))
+        neo.logging.info('I am %s', dump(uuid))
         self.uuid = uuid
         self.dm.setUUID(uuid)
 
@@ -245,7 +245,7 @@ class Application(object):
     def verifyData(self):
         """Verify data under the control by a primary master node.
         Connections from client nodes may not be accepted at this stage."""
-        logging.info('verifying data')
+        neo.logging.info('verifying data')
 
         handler = verification.VerificationHandler(self)
         self.master_conn.setHandler(handler)
@@ -256,7 +256,7 @@ class Application(object):
 
     def initialize(self):
         """ Retreive partition table and node informations from the primary """
-        logging.debug('initializing...')
+        neo.logging.debug('initializing...')
         handler = initialization.InitializationHandler(self)
         self.master_conn.setHandler(handler)
 
@@ -276,7 +276,7 @@ class Application(object):
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""
-        logging.info('doing operation')
+        neo.logging.info('doing operation')
 
         em = self.em
 
@@ -302,7 +302,7 @@ class Application(object):
 
     def wait(self):
         # change handler
-        logging.info("waiting in hidden state")
+        neo.logging.info("waiting in hidden state")
         handler = hidden.HiddenHandler(self)
         for conn in self.em.getConnectionList():
             conn.setHandler(handler)
@@ -330,11 +330,11 @@ class Application(object):
     def logQueuedEvents(self):
         if self.event_queue is None:
             return
-        logging.info("Pending events:")
+        neo.logging.info("Pending events:")
         for event, _msg_id, _conn, args, _kwargs in self.event_queue:
             oid, serial, _compression, _checksum, data, tid, time = args
-            logging.info('  %r: %r:%r by %r -> %r (%r)', event.__name__, dump(oid),
-                    dump(serial), dump(tid), data, time)
+            neo.logging.info('  %r: %r:%r by %r -> %r (%r)', event.__name__,
+                dump(oid), dump(serial), dump(tid), data, time)
 
     def shutdown(self, erase=False):
         """Close all connections and exit"""

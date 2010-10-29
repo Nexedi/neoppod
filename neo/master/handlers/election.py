@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo.protocol import NodeTypes, Packets
 from neo.protocol import NotReadyError, ProtocolError, UnexpectedPacketError
@@ -90,7 +90,7 @@ class ClientElectionHandler(MasterHandler):
         node = app.nm.getByAddress(conn.getAddress())
         if node_type != NodeTypes.MASTER:
             # The peer is not a master node!
-            logging.error('%r is not a master node', conn)
+            neo.logging.error('%r is not a master node', conn)
             app.nm.remove(node)
             app.negotiating_master_node_set.discard(node.getAddress())
             conn.close()
@@ -137,7 +137,7 @@ class ClientElectionHandler(MasterHandler):
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
-                logging.warning('received an unknown primary node UUID')
+                neo.logging.warning('received an unknown primary node UUID')
             else:
                 # Whatever the situation is, I trust this master.
                 app.primary = False
@@ -203,11 +203,11 @@ class ServerElectionHandler(MasterHandler):
         self.checkClusterName(name)
         app = self.app
         if node_type != NodeTypes.MASTER:
-            logging.info('reject a connection from a non-master')
+            neo.logging.info('reject a connection from a non-master')
             raise NotReadyError
         node = app.nm.getByAddress(address)
         if node is None:
-            logging.error('unknown master node: %s' % (address, ))
+            neo.logging.error('unknown master node: %s' % (address, ))
             raise ProtocolError('unknown master node')
         # If this node is broken, reject it.
         if node.getUUID() == uuid:
@@ -243,5 +243,5 @@ class ServerElectionHandler(MasterHandler):
         app.primary_master_node = node
         app.unconnected_master_node_set.clear()
         app.negotiating_master_node_set.clear()
-        logging.info('%s is the primary', node)
+        neo.logging.info('%s is the primary', node)
 

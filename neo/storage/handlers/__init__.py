@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo.handler import EventHandler
 from neo import protocol
@@ -35,7 +35,7 @@ class BaseMasterHandler(EventHandler):
         raise PrimaryFailure('re-election occurs')
 
     def notifyClusterInformation(self, conn, state):
-        logging.warning('ignoring notify cluster information in %s' %
+        neo.logging.warning('ignoring notify cluster information in %s' %
                 self.__class__.__name__)
 
     def notifyLastOID(self, conn, oid):
@@ -48,7 +48,7 @@ class BaseMasterHandler(EventHandler):
         for node_type, addr, uuid, state in node_list:
             if uuid == self.app.uuid:
                 # This is me, do what the master tell me
-                logging.info("I was told I'm %s" %(state))
+                neo.logging.info("I was told I'm %s" %(state))
                 if state in (NodeStates.DOWN, NodeStates.TEMPORARILY_DOWN,
                         NodeStates.BROKEN):
                     conn.close()
@@ -57,7 +57,7 @@ class BaseMasterHandler(EventHandler):
                 elif state == NodeStates.HIDDEN:
                     raise OperationFailure
             elif node_type == NodeTypes.CLIENT and state != NodeStates.RUNNING:
-                logging.info('Notified of non-running client, abort (%r)',
+                neo.logging.info('Notified of non-running client, abort (%r)',
                         dump(uuid))
                 self.app.tm.abortFor(uuid)
 
@@ -86,14 +86,14 @@ class BaseClientAndStorageOperationHandler(EventHandler):
             return
         o = self._askObject(oid, serial, tid)
         if o is None:
-            logging.debug('oid = %s does not exist', dump(oid))
+            neo.logging.debug('oid = %s does not exist', dump(oid))
             p = Errors.OidDoesNotExist(dump(oid))
         elif o is False:
-            logging.debug('oid = %s not found', dump(oid))
+            neo.logging.debug('oid = %s not found', dump(oid))
             p = Errors.OidNotFound(dump(oid))
         else:
             serial, next_serial, compression, checksum, data, data_serial = o
-            logging.debug('oid = %s, serial = %s, next_serial = %s',
+            neo.logging.debug('oid = %s, serial = %s, next_serial = %s',
                           dump(oid), dump(serial), dump(next_serial))
             p = Packets.AnswerObject(oid, serial, next_serial,
                 compression, checksum, data, data_serial)

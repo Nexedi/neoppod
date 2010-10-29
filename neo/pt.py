@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo import protocol
 from neo.protocol import CellStates
@@ -205,7 +205,7 @@ class PartitionTable(object):
                 # the node must be known by the node manager
                 assert node is not None
                 self.setCell(offset, node, state)
-        logging.debug('partition table loaded')
+        neo.logging.debug('partition table loaded')
         self.log()
 
     def update(self, ptid, cell_list, nm):
@@ -215,14 +215,14 @@ class PartitionTable(object):
         is not known, it is created in the node manager and set as unavailable
         """
         if ptid <= self._id:
-            logging.warning('ignoring older partition changes')
+            neo.logging.warning('ignoring older partition changes')
             return
         self._id = ptid
         for offset, uuid, state in cell_list:
             node = nm.getByUUID(uuid)
             assert node is not None, 'No node found for uuid %r' % (dump(uuid), )
             self.setCell(offset, node, state)
-        logging.debug('partition table updated')
+        neo.logging.debug('partition table updated')
         self.log()
 
     def filled(self):
@@ -230,7 +230,7 @@ class PartitionTable(object):
 
     def log(self):
         for line in self._format():
-            logging.debug(line)
+            neo.logging.debug(line)
 
     def format(self):
         return '\n'.join(self._format())

@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo.handler import EventHandler
 from neo import protocol
@@ -42,7 +42,7 @@ class AdminEventHandler(EventHandler):
     """This class deals with events for administrating cluster."""
 
     def askPartitionList(self, conn, min_offset, max_offset, uuid):
-        logging.info("ask partition list from %s to %s for %s" %
+        neo.logging.info("ask partition list from %s to %s for %s" %
                 (min_offset, max_offset, dump(uuid)))
         app = self.app
         # check we have one pt otherwise ask it to PMN
@@ -61,7 +61,7 @@ class AdminEventHandler(EventHandler):
 
 
     def askNodeList(self, conn, node_type):
-        logging.info("ask node list for %s" %(node_type))
+        neo.logging.info("ask node list for %s" %(node_type))
         def node_filter(n):
             return n.getType() is node_type
         node_list = self.app.nm.getList(node_filter)
@@ -70,7 +70,7 @@ class AdminEventHandler(EventHandler):
         conn.answer(p)
 
     def setNodeState(self, conn, uuid, state, modify_partition_table):
-        logging.info("set node state for %s-%s" %(dump(uuid), state))
+        neo.logging.info("set node state for %s-%s" %(dump(uuid), state))
         node = self.app.nm.getByUUID(uuid)
         if node is None:
             raise protocol.ProtocolError('invalid uuid')
@@ -144,7 +144,7 @@ class MasterEventHandler(EventHandler):
     def answerNodeInformation(self, conn):
         # XXX: This will no more exists when the initialization module will be
         # implemented for factorize code (as done for bootstrap)
-        logging.debug("answerNodeInformation")
+        neo.logging.debug("answerNodeInformation")
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         self.app.pt.update(ptid, cell_list, self.app.nm)
@@ -176,12 +176,12 @@ class MasterRequestEventHandler(EventHandler):
         client_conn.answer(packet)
 
     def answerClusterState(self, conn, state):
-        logging.info("answerClusterState for a conn")
+        neo.logging.info("answerClusterState for a conn")
         self.app.cluster_state = state
         self._answerNeoCTL(conn, Packets.AnswerClusterState(state))
 
     def answerPartitionTable(self, conn, ptid, row_list):
-        logging.info("answerPartitionTable for a conn")
+        neo.logging.info("answerPartitionTable for a conn")
         client_conn, kw = self.app.dispatcher.pop(conn.getPeerId())
         # sent client the partition table
         self.app.sendPartitionTable(client_conn)

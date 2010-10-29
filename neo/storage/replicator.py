@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 from random import choice
 
 from neo.storage.handlers import replication
@@ -209,10 +209,10 @@ class Replicator(object):
         try:
             partition_list = self.critical_tid_dict.pop(uuid)
         except KeyError:
-            logging.debug("setCriticalTID raised KeyError for %s" %
+            neo.logging.debug("setCriticalTID raised KeyError for %s" %
                     (dump(uuid), ))
         else:
-            logging.debug('setting critical TID %s to %s', dump(tid),
+            neo.logging.debug('setting critical TID %s to %s', dump(tid),
                          ', '.join([str(p.getRID()) for p in partition_list]))
             for partition in partition_list:
                 partition.setCriticalTID(tid)
@@ -227,7 +227,7 @@ class Replicator(object):
 
     def setUnfinishedTIDList(self, tid_list):
         """This is a callback from MasterOperationHandler."""
-        logging.debug('setting unfinished TIDs %s',
+        neo.logging.debug('setting unfinished TIDs %s',
                       ','.join([dump(tid) for tid in tid_list]))
         self.waiting_for_unfinished_tids = False
         self.unfinished_tid_list = tid_list
@@ -248,13 +248,13 @@ class Replicator(object):
             node = choice(node_list)
         except IndexError:
             # Not operational.
-            logging.error('not operational', exc_info = 1)
+            neo.logging.error('not operational', exc_info = 1)
             self.current_partition = None
             return
 
         addr = node.getAddress()
         if addr is None:
-            logging.error("no address known for the selected node %s" %
+            neo.logging.error("no address known for the selected node %s" %
                     (dump(node.getUUID()), ))
             return
         if self.current_connection is not None:
@@ -302,19 +302,19 @@ class Replicator(object):
             if self.replication_done and \
                     not self.current_connection.isPending():
                 # finish a replication
-                logging.info('replication is done for %s' %
+                neo.logging.info('replication is done for %s' %
                         (self.current_partition.getRID(), ))
                 self._finishReplication()
             return
 
         if self.waiting_for_unfinished_tids:
             # Still waiting.
-            logging.debug('waiting for unfinished tids')
+            neo.logging.debug('waiting for unfinished tids')
             return
 
         if self.unfinished_tid_list is None:
             # Ask pending transactions.
-            logging.debug('asking unfinished tids')
+            neo.logging.debug('asking unfinished tids')
             self._askUnfinishedTIDs()
             return
 
@@ -330,7 +330,7 @@ class Replicator(object):
         else:
             # Not yet.
             self.unfinished_tid_list = None
-            logging.debug('not ready yet')
+            neo.logging.debug('not ready yet')
             return
 
         self._startReplication()

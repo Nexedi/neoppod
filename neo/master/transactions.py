@@ -19,7 +19,7 @@ from time import time, gmtime
 from struct import pack, unpack
 from datetime import timedelta, datetime
 from neo.util import dump
-from neo import logging
+import neo
 
 class Transaction(object):
     """
@@ -269,7 +269,7 @@ class TransactionManager(object):
         del self._node_dict[node]
 
     def log(self):
-        logging.info('Transactions:')
+        neo.logging.info('Transactions:')
         for txn in self._tid_dict.itervalues():
-            logging.info('  %r', txn)
+            neo.logging.info('  %r', txn)
 

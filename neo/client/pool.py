@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 
-from neo import logging
+import neo
 from neo.locking import RLock
 from neo.protocol import NodeTypes, Packets
 from neo.connection import MTClientConnection, ConnectionClosed
@@ -61,7 +61,8 @@ class ConnectionPool(object):
 
         # Loop until a connection is obtained.
         while True:
-            logging.debug('trying to connect to %s - %s', node, node.getState())
+            neo.logging.debug('trying to connect to %s - %s', node,
+                node.getState())
             app.setNodeReady()
             conn = MTClientConnection(app.em,
                 app.storage_event_handler, addr,
@@ -71,7 +72,7 @@ class ConnectionPool(object):
             try:
                 if conn.getConnector() is None:
                     # This happens, if a connection could not be established.
-                    logging.error('Connection to %r failed', node)
+                    neo.logging.error('Connection to %r failed', node)
                     self.notifyFailure(node)
                     return None
 
@@ -85,15 +86,15 @@ class ConnectionPool(object):
                 app._waitMessage(conn, msg_id,
                         handler=app.storage_bootstrap_handler)
             except ConnectionClosed:
-                logging.error('Connection to %r failed', node)
+                neo.logging.error('Connection to %r failed', node)
                 self.notifyFailure(node)
                 return None
 
             if app.isNodeReady():
-                logging.info('Connected %r', node)
+                neo.logging.info('Connected %r', node)
                 return conn
             else:
-                logging.info('%r not ready', node)
+                neo.logging.info('%r not ready', node)
                 self.notifyFailure(node)
                 return None
 
@@ -108,8 +109,8 @@ class ConnectionPool(object):
                         not self.app.dispatcher.registered(conn):
                     del self.connection_dict[conn.getUUID()]
                     conn.close()
-                    logging.debug('_dropConnections : connection to storage ' \
-                            'node %s:%d closed', *(conn.getAddress()))
+                    neo.logging.debug('_dropConnections : connection to ' \
+                        'storage node %s:%d closed', *(conn.getAddress()))
                     if len(self.connection_dict) <= self.max_pool_size:
                         break
             finally:

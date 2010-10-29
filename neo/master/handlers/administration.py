@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import logging
+import neo
 
 from neo.master.handlers import MasterHandler
 from neo.protocol import ClusterStates, NodeStates, Packets, ProtocolError
@@ -63,7 +63,7 @@ class AdministrationHandler(MasterHandler):
             self.app.shutdown()
 
     def setNodeState(self, conn, uuid, state, modify_partition_table):
-        logging.info("set node state for %s-%s : %s" %
+        neo.logging.info("set node state for %s-%s : %s" %
                 (dump(uuid), state, modify_partition_table))
         app = self.app
         node = app.nm.getByUUID(uuid)
@@ -119,7 +119,7 @@ class AdministrationHandler(MasterHandler):
 
     def addPendingNodes(self, conn, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
-        logging.debug('Add nodes %s' % uuids)
+        neo.logging.debug('Add nodes %s' % uuids)
         app, nm, em, pt = self.app, self.app.nm, self.app.em, self.app.pt
         cell_list = []
         uuid_set = set()
@@ -132,11 +132,11 @@ class AdministrationHandler(MasterHandler):
             uuid_set = uuid_set.intersection(set(uuid_list))
         # nothing to do
         if not uuid_set:
-            logging.warning('No nodes added')
+            neo.logging.warning('No nodes added')
             conn.answer(Errors.Ack('No nodes added'))
             return
         uuids = ', '.join([dump(uuid) for uuid in uuid_set])
-        logging.info('Adding nodes %s' % uuids)
+        neo.logging.info('Adding nodes %s' % uuids)
         # switch nodes to running state
         node_list = [nm.getByUUID(uuid) for uuid in uuid_set]
         for node in node_list:

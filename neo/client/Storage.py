@@ -163,7 +163,7 @@ class Storage(BaseStorage.BaseStorage,
 
     def pack(self, t, referencesf, gc=False):
         if gc:
-            logging.warning('Garbage Collection is not available in NEO, '
+            neo.logging.warning('Garbage Collection is not available in NEO, '
                 'please use an external tool. Packing without GC.')
         self.app.pack(t)
 
