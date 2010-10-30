@@ -28,7 +28,7 @@ def setupLog(name='NEO', filename=None, verbose=False):
         level = logging_std.INFO
     fmt = PREFIX + SUFFIX
     logging = logging_std.getLogger(name.upper())
-    for handler in logging.handlers:
+    for handler in logging.handlers[:]:
         logging.removeHandler(handler)
     if filename is None:
         handler = logging_std.StreamHandler()
