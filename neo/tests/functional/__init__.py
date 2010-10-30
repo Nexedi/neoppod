@@ -29,7 +29,7 @@ import traceback
 import threading
 
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
-from neo.protocol import ClusterStates, NodeTypes, CellStates
+from neo.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
 from neo.util import dump
 from neo.tests import DB_ADMIN, DB_PASSWD
 from neo.client.Storage import Storage
@@ -304,7 +304,9 @@ class NEOCluster(object):
             time.sleep(0.5)
             if time.time() > end_time:
                 raise AssertionError, 'Timeout when starting cluster'
-        neoctl.enableStorageList([x[2] for x in storage_node_list])
+        if storage_node_list:
+            self.expectClusterRunning()
+            neoctl.enableStorageList([x[2] for x in storage_node_list])
 
     def stop(self):
         for process_list in self.process_dict.itervalues():
