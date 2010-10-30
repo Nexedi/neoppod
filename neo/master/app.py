@@ -85,6 +85,7 @@ class Application(object):
         if uuid is None or uuid == '':
             uuid = self.getNewUUID(NodeTypes.MASTER)
         self.uuid = uuid
+        neo.logging.info('UUID      : %s', dump(uuid))
 
         # election related data
         self.unconnected_master_node_set = set()

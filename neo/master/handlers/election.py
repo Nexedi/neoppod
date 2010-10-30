@@ -99,6 +99,7 @@ class ClientElectionHandler(MasterHandler):
         if your_uuid != app.uuid:
             # uuid conflict happened, accept the new one and restart election
             app.uuid = your_uuid
+            neo.logging.info('UUID conflict, new UUID: %s', dump(your_uuid))
             raise ElectionFailure, 'new uuid supplied'
 
         conn.setUUID(uuid)
