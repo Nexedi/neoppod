@@ -17,8 +17,6 @@
 
 import logging as logging_std
 
-# "logging" is available here only once setupLog has been called.
-
 PREFIX = '%(asctime)s %(levelname)-9s %(name)-10s'
 SUFFIX = ' [%(module)14s:%(lineno)3d] %(message)s'
 
@@ -39,4 +37,8 @@ def setupLog(name='NEO', filename=None, verbose=False):
     handler.setFormatter(logging_std.Formatter(fmt))
     logging.setLevel(level)
     logging.addHandler(handler)
+    logging.propagate = 0
+
+# Create default logger
+setupLog()
 
