@@ -500,13 +500,13 @@ class NEOCluster(object):
         self.expectCondition(callback, timeout, delay)
 
     def expectClusterRecovering(self, timeout=0, delay=1):
-        self.expectClusterState(ClusterStates.RECOVERING)
+        self.expectClusterState(ClusterStates.RECOVERING, timeout, delay)
 
     def expectClusterVerifying(self, timeout=0, delay=1):
-        self.expectClusterState(ClusterStates.VERIFYING)
+        self.expectClusterState(ClusterStates.VERIFYING, timeout, delay)
 
     def expectClusterRunning(self, timeout=0, delay=1):
-        self.expectClusterState(ClusterStates.RUNNING)
+        self.expectClusterState(ClusterStates.RUNNING, timeout, delay)
 
     def expectAlive(self, process, timeout=0, delay=1):
         def callback(last_try):
