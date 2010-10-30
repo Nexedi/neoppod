@@ -16,6 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import traceback
 import optparse
 import unittest
 import tempfile
@@ -355,6 +356,7 @@ if __name__ == "__main__":
         if options.zodb:
             runner.run('ZODB tests', ZODB_TEST_MODULES)
     except KeyboardInterrupt:
+        traceback.print_exc()
         options.sender = False
 
     # build report
