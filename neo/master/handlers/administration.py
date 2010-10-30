@@ -126,13 +126,14 @@ class AdministrationHandler(MasterHandler):
         pt = app.pt
         cell_list = []
         uuid_set = set()
-        # take all pending nodes
-        for node in nm.getStorageList():
-            if node.isPending():
-                uuid_set.add(node.getUUID())
-        # keep only selected nodes
-        if uuid_list:
-            uuid_set = uuid_set.intersection(set(uuid_list))
+        if app.getClusterState() == ClusterStates.RUNNING:
+            # take all pending nodes
+            for node in nm.getStorageList():
+                if node.isPending():
+                    uuid_set.add(node.getUUID())
+            # keep only selected nodes
+            if uuid_list:
+                uuid_set = uuid_set.intersection(set(uuid_list))
         # nothing to do
         if not uuid_set:
             neo.logging.warning('No nodes added')
