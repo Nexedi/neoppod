@@ -39,7 +39,7 @@ from neo.client.exception import NEOStorageNotFoundError
 from neo.exception import NeoException
 from neo.client.handlers import storage, master
 from neo.dispatcher import Dispatcher, ForgottenPacket
-from neo.client.poll import ThreadedPoll
+from neo.client.poll import ThreadedPoll, psThreadedPoll
 from neo.client.iterator import Iterator
 from neo.client.mq import MQ
 from neo.client.pool import ConnectionPool
@@ -124,7 +124,9 @@ class Application(object):
     def __init__(self, master_nodes, name, connector=None, compress=True, **kw):
         # Start polling thread
         self.em = EventManager()
-        self.poll_thread = ThreadedPoll(self.em)
+        self.poll_thread = ThreadedPoll(self.em, name=name)
+        neo.logging.info('Started %s', self.poll_thread)
+        psThreadedPoll()
         # Internal Attributes common to all thread
         self._db = None
         self.name = name
@@ -1200,7 +1202,9 @@ class Application(object):
         for conn in self.em.getConnectionList():
             conn.close()
         # Stop polling thread
+        neo.logging.info('Stopping %s', self.poll_thread)
         self.poll_thread.stop()
+        psThreadedPoll()
     close = __del__
 
     def invalidationBarrier(self):

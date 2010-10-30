@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from threading import Thread, Event
+from threading import Thread, Event, enumerate as thread_enum
 import neo
 
 class ThreadedPoll(Thread):
@@ -44,3 +44,16 @@ class ThreadedPoll(Thread):
 
     def stop(self):
         self._stop.set()
+
+def psThreadedPoll(log=None):
+    """
+    Logs alive ThreadedPoll threads.
+    """
+    if log is None:
+        log = neo.logging.info
+    for thread in thread_enum():
+        if not isinstance(thread, ThreadedPoll):
+            continue
+        log('Thread %s at 0x%x, %s', thread.getName(), id(thread),
+            thread._stop.isSet() and 'stopping' or 'running')
+
