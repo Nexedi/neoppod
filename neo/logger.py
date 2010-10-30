@@ -21,7 +21,7 @@ from neo.util import dump
 from neo.handler import EventHandler
 from neo.profiling import profiler_decorator
 
-LOGGER_ENABLED = True
+LOGGER_ENABLED = False
 
 class PacketLogger(object):
     """ Logger at packet level (for debugging purpose) """
