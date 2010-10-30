@@ -190,10 +190,7 @@ class Storage(BaseStorage.BaseStorage,
         pass
 
     def close(self):
-        # The purpose of this method is unclear, the NEO implementation may
-        # stop the client node or ask the primary master to shutdown/freeze the
-        # cluster. For now make this a no-op.
-        pass
+        self.app.close()
 
     def invalidationBarrier(self):
         self.app.invalidationBarrier()
