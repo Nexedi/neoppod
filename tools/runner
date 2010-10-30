@@ -22,6 +22,7 @@ import tempfile
 import logging
 import time
 import sys
+import neo
 import os
 
 # list of test modules
@@ -90,23 +91,12 @@ ZODB_TEST_MODULES = [
 ]
 
 # configuration 
-CONSOLE_LOG = False
 ATTACH_LOG = False # for ZODB test, only the client side is logged
 LOG_FILE = 'neo.log' 
 
 # override logging configuration to send all messages to a file
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler(LOG_FILE, 'w+')
-format='[%(module)12s:%(levelname)s:%(lineno)3d] %(message)s'
-formatter = logging.Formatter(format)
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-# enabled console logging if desired
-if CONSOLE_LOG:
-    handler = logging.StreamHandler()
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+for logger_name in ('NEO', 'CLIENT'):
+    neo.setupLog(logger_name, filename=LOG_FILE)
 
 class NeoTestRunner(unittest.TestResult):
     """ Custom result class to build report with statistics per module """

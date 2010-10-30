@@ -17,6 +17,7 @@
 
 from ZODB import BaseStorage, ConflictResolution, POSException
 
+from neo import setupLog
 from neo.client.app import Application
 from neo.client.exception import NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
@@ -35,9 +36,10 @@ class Storage(BaseStorage.BaseStorage,
     __name__ = 'NEOStorage'
 
     def __init__(self, master_nodes, name, connector=None, read_only=False,
-                 compress=None, **kw):
+                 compress=None, logfile=None, verbose=False, **kw):
         if compress is None:
             compress = True
+        setupLog('CLIENT', filename=logfile, verbose=verbose)
         BaseStorage.BaseStorage.__init__(self, name)
         self._is_read_only = read_only
         self.app = Application(master_nodes, name, connector,

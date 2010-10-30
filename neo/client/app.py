@@ -26,9 +26,6 @@ from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.ConflictResolution import ResolvedSerial
 from persistent.TimeStamp import TimeStamp
 
-from neo import setupLog
-setupLog('CLIENT', verbose=True)
-
 import neo
 from neo.protocol import NodeTypes, Packets, INVALID_PARTITION, ZERO_TID
 from neo.event import EventManager

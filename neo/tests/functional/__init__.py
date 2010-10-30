@@ -32,8 +32,6 @@ from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.protocol import ClusterStates, NodeTypes, CellStates
 from neo.util import dump
 from neo.tests import DB_ADMIN, DB_PASSWD
-
-import neo
 from neo.client.Storage import Storage
 
 NEO_MASTER = 'neomaster'
@@ -175,9 +173,6 @@ class NEOCluster(object):
             temp_dir = tempfile.mkdtemp(prefix='neo_')
             print 'Using temp directory %r.' % (temp_dir, )
         self.temp_dir = temp_dir
-        # Setup client logger
-        neo.setupLog(name='CLIENT', filename=os.path.join(self.temp_dir,
-            'client.log'), verbose=self.verbose)
         admin_port = self.__allocatePort()
         self.cluster_name = 'neo_%s' % (random.randint(0, 100), )
         master_node_list = [self.__allocatePort() for i in xrange(master_node_count)]
@@ -329,7 +324,10 @@ class NEOCluster(object):
         return Storage(
             master_nodes=master_nodes,
             name=self.cluster_name,
-            connector='SocketConnector')
+            connector='SocketConnector',
+            logfile=os.path.join(self.temp_dir, 'client.log'),
+            verbose=self.verbose,
+        )
 
     def getZODBConnection(self):
         """ Return a tuple with the database and a connection """
