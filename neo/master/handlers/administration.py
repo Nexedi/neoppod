@@ -120,7 +120,10 @@ class AdministrationHandler(MasterHandler):
     def addPendingNodes(self, conn, uuid_list):
         uuids = ', '.join([dump(uuid) for uuid in uuid_list])
         neo.logging.debug('Add nodes %s' % uuids)
-        app, nm, em, pt = self.app, self.app.nm, self.app.em, self.app.pt
+        app = self.app
+        nm = app.nm
+        em = app.em
+        pt = app.pt
         cell_list = []
         uuid_set = set()
         # take all pending nodes
