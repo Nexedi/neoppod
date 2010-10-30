@@ -89,7 +89,7 @@ class ClusterTests(NEOFunctionalTest):
         db, conn = self.neo.getZODBConnection()
         conn.root()[0] = 'ok'
         transaction.commit()
-        self.neo.stop()
+        self.neo.stop(clients=False)
         # XXX: (obj|trans) become t(obj|trans)
         self.neo.switchTables('test_neo1')
         self.neo.start()

@@ -157,6 +157,7 @@ class NEOCluster(object):
                  cleanup_on_delete=False, temp_dir=None,
                  clear_databases=True, adapter='MySQL',
                  verbose=True):
+        self.zodb_storage_list = []
         self.cleanup_on_delete = cleanup_on_delete
         self.verbose = verbose
         self.uuid_set = set()
@@ -308,7 +309,7 @@ class NEOCluster(object):
             self.expectClusterRunning()
             neoctl.enableStorageList([x[2] for x in storage_node_list])
 
-    def stop(self):
+    def stop(self, clients=True):
         for process_list in self.process_dict.itervalues():
             for process in process_list:
                 try:
@@ -316,6 +317,10 @@ class NEOCluster(object):
                     process.wait()
                 except AlreadyStopped:
                     pass
+        if clients:
+            for zodb_storage in self.zodb_storage_list:
+                zodb_storage.close()
+            self.zodb_storage_list = []
         time.sleep(0.5)
 
     def getNEOCTL(self):
@@ -323,13 +328,15 @@ class NEOCluster(object):
 
     def getZODBStorage(self):
         master_nodes = self.master_nodes.replace('/', ' ')
-        return Storage(
+        result = Storage(
             master_nodes=master_nodes,
             name=self.cluster_name,
             connector='SocketConnector',
             logfile=os.path.join(self.temp_dir, 'client.log'),
             verbose=self.verbose,
         )
+        self.zodb_storage_list.append(result)
+        return result
 
     def getZODBConnection(self):
         """ Return a tuple with the database and a connection """
