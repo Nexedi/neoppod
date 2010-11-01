@@ -53,11 +53,12 @@ class NeoCTL(object):
         connection.ask(packet)
         response_queue = self.response_queue
         assert len(response_queue) == 0
-        while len(response_queue) == 0:
-            # XXX: this burn the CPU
-            self.em.poll(0)
-            if not self.connected:
-                raise NotReadyException, 'Connection closed'
+        while self.connected:
+            self.em.poll(1)
+            if response_queue:
+                break
+        else:
+            raise NotReadyException, 'Connection closed'
         response = response_queue.pop()
         if response[0] == Packets.Error and \
            response[1] == ErrorCodes.NOT_READY:
