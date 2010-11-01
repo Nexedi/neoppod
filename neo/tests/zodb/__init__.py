@@ -18,6 +18,7 @@
 import unittest
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
+import neo
 
 class ZODBTestCase(NEOFunctionalTest):
 
@@ -31,6 +32,8 @@ class ZODBTestCase(NEOFunctionalTest):
     def tearDown(self):
         self._storage.cleanup()
         self.neo.stop()
+        # Deconfigure client logger
+        neo.setupLog('CLIENT')
         NEOFunctionalTest.tearDown(self)
 
     def open(self, read_only=False):
