@@ -31,6 +31,7 @@ class ZODBTestCase(NEOFunctionalTest):
     def tearDown(self):
         self._storage.cleanup()
         self.neo.stop()
+        NEOFunctionalTest.tearDown(self)
 
     def open(self, read_only=False):
         # required for some tests (see PersitentTests), no-op for NEO ?
