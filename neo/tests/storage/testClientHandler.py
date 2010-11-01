@@ -18,7 +18,7 @@
 import unittest
 from mock import Mock, ReturnValues
 from collections import deque
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.transactions import ConflictError, DelayedError
 from neo.storage.handlers.client import ClientOperationHandler
@@ -26,7 +26,7 @@ from neo.protocol import INVALID_PARTITION
 from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
 from neo.protocol import Packets, LockState
 
-class StorageClientHandlerTests(NeoTestBase):
+class StorageClientHandlerTests(NeoUnitTestBase):
 
     def checkHandleUnexpectedPacket(self, _call, _msg_type, _listening=True, **kwargs):
         conn = self.getFakeConnection(address=("127.0.0.1", self.master_port),
@@ -55,7 +55,7 @@ class StorageClientHandlerTests(NeoTestBase):
         self.master_port = 10010
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     def _getConnection(self, uuid=None):
         return self.getFakeConnection(uuid=uuid, address=('127.0.0.1', 1000))

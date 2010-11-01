@@ -17,12 +17,12 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.handler import EventHandler
 from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
         BrokenNodeDisallowedError, NotReadyError, ProtocolError
 
-class HandlerTests(NeoTestBase):
+class HandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         app = Mock()

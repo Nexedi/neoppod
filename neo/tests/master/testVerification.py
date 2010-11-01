@@ -17,13 +17,13 @@
 
 import unittest
 from struct import pack, unpack
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.protocol import NodeTypes, NodeStates
 from neo.master.verification import VerificationManager, VerificationFailure
 from neo.master.app import Application
 
 
-class MasterVerificationTests(NeoTestBase):
+class MasterVerificationTests(NeoUnitTestBase):
 
     def setUp(self):
         # create an application object
@@ -45,7 +45,7 @@ class MasterVerificationTests(NeoTestBase):
         self.storage_address = ('127.0.0.1', self.storage_port)
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     # Common methods
     def getLastUUID(self):

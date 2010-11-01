@@ -18,14 +18,14 @@
 import unittest
 from mock import Mock
 from struct import pack
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.protocol import NodeTypes, NodeStates, Packets
 from neo.master.handlers.storage import StorageServiceHandler
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
 from neo.exception import OperationFailure
 
-class MasterStorageHandlerTests(NeoTestBase):
+class MasterStorageHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         # create an application object
@@ -44,7 +44,7 @@ class MasterStorageHandlerTests(NeoTestBase):
         self.storage_address = ('127.0.0.1', self.storage_port)
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     def _allocatePort(self):
         self.port = getattr(self, 'port', 1000) + 1

@@ -18,12 +18,12 @@
 import unittest
 from mock import Mock
 from struct import pack, unpack
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.protocol import NodeTypes, NodeStates, Packets
 from neo.master.handlers.client import ClientServiceHandler
 from neo.master.app import Application
 
-class MasterClientHandlerTests(NeoTestBase):
+class MasterClientHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         # create an application object
@@ -47,7 +47,7 @@ class MasterClientHandlerTests(NeoTestBase):
         self.app.nm.createStorage(**kw)
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     def getLastUUID(self):
         return self.uuid

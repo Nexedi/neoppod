@@ -17,12 +17,12 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.bootstrap import BootstrapManager
 from neo.protocol import NodeTypes
 
-class BootstrapManagerTests(NeoTestBase):
+class BootstrapManagerTests(NeoUnitTestBase):
 
     def setUp(self):
         self.prepareDatabase(number=1)
@@ -37,7 +37,7 @@ class BootstrapManagerTests(NeoTestBase):
         self.num_replicas = 2
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     # Common methods
     def getLastUUID(self):

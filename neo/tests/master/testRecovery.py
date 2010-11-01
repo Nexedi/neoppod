@@ -17,12 +17,12 @@
 
 import unittest
 from struct import pack, unpack
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.protocol import NodeTypes, NodeStates, CellStates
 from neo.master.recovery import RecoveryManager
 from neo.master.app import Application
 
-class MasterRecoveryTests(NeoTestBase):
+class MasterRecoveryTests(NeoUnitTestBase):
 
     def setUp(self):
         # create an application object
@@ -44,7 +44,7 @@ class MasterRecoveryTests(NeoTestBase):
         self.storage_address = ('127.0.0.1', self.storage_port)
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     # Common methods
     def getLastUUID(self):

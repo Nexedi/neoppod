@@ -18,13 +18,13 @@
 import unittest
 from mock import Mock
 from collections import deque
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.storage import StorageOperationHandler
 from neo.protocol import INVALID_PARTITION, Packets
 from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
 
-class StorageStorageHandlerTests(NeoTestBase):
+class StorageStorageHandlerTests(NeoUnitTestBase):
 
     def checkHandleUnexpectedPacket(self, _call, _msg_type, _listening=True, **kwargs):
         conn = self.getFakeConnection(address=("127.0.0.1", self.master_port),
@@ -52,7 +52,7 @@ class StorageStorageHandlerTests(NeoTestBase):
         self.master_port = 10010
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     def test_18_askTransactionInformation1(self):
         # transaction does not exists

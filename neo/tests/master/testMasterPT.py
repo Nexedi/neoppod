@@ -17,12 +17,12 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.protocol import NodeStates, CellStates
 from neo.master.pt import PartitionTable
 from neo.node import StorageNode
 
-class MasterPartitionTableTests(NeoTestBase):
+class MasterPartitionTableTests(NeoUnitTestBase):
 
     def test_02_PartitionTable_creation(self):
         num_partitions = 5

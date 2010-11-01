@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import os
+import sys
 import random
 import unittest
 import tempfile
@@ -33,6 +34,17 @@ DB_PASSWD = os.getenv('NEO_DB_PASSWD', None)
 DB_USER = os.getenv('NEO_DB_USER', 'test')
 
 class NeoTestBase(unittest.TestCase):
+    def setUp(self):
+        sys.stdout.write(' * %s ' % (self.id(), ))
+        sys.stdout.flush()
+        unittest.TestCase.setUp(self)
+
+    def tearDown(self):
+        unittest.TestCase.tearDown(self)
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+class NeoUnitTestBase(NeoTestBase):
     """ Base class for neo tests, implements common checks """
 
     def prepareDatabase(self, number, admin=DB_ADMIN, password=DB_PASSWD,

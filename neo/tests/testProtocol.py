@@ -19,9 +19,9 @@ import unittest
 from neo.protocol import NodeTypes, NodeStates, CellStates, ClusterStates
 from neo.protocol import ErrorCodes, Packets, Errors, LockState
 from neo.protocol import INVALID_TID
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 
-class ProtocolTests(NeoTestBase):
+class ProtocolTests(NeoUnitTestBase):
 
     def setUp(self):
         self.ltid = None

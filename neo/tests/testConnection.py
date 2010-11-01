@@ -25,11 +25,11 @@ from neo.tests import DoNothingConnector
 from neo.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
 from neo.protocol import Packets, ParserState
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.util import ReadBuffer
 from neo.locking import Queue
 
-class ConnectionTests(NeoTestBase):
+class ConnectionTests(NeoUnitTestBase):
 
     def setUp(self):
         self.app = Mock({'__repr__': 'Fake App'})
@@ -834,7 +834,7 @@ class MTConnectionTests(ConnectionTests):
         # ... except Ping
         ask(Packets.Ping())
 
-class HandlerSwitcherTests(NeoTestBase):
+class HandlerSwitcherTests(NeoUnitTestBase):
 
     def setUp(self):
         self._handler = handler = Mock({
@@ -1088,7 +1088,7 @@ class HandlerSwitcherTests(NeoTestBase):
         # ...with expected parameters
         self.assertEqual(markers[0], (4, self._connection, msg_id_4))
 
-class TestTimeout(NeoTestBase):
+class TestTimeout(NeoUnitTestBase):
     def setUp(self):
         self.current = time()
         self.timeout = Timeout()

@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.verification import VerificationHandler
@@ -26,7 +26,7 @@ from neo.protocol import INVALID_OID, INVALID_TID
 from neo.exception import PrimaryFailure, OperationFailure
 from neo.util import p64, u64
 
-class StorageVerificationHandlerTests(NeoTestBase):
+class StorageVerificationHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         self.prepareDatabase(number=1)
@@ -46,7 +46,7 @@ class StorageVerificationHandlerTests(NeoTestBase):
 
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     # Common methods
     def getLastUUID(self):

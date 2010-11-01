@@ -18,7 +18,7 @@
 import unittest
 from mock import Mock
 from neo import protocol
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.protocol import Packet, NodeTypes, NodeStates
 from neo.master.handlers.election import ClientElectionHandler, ServerElectionHandler
 from neo.master.app import Application
@@ -31,7 +31,7 @@ def _addPacket(self, packet):
     if self.connector is not None:
         self.connector._addPacket(packet)
 
-class MasterClientElectionTests(NeoTestBase):
+class MasterClientElectionTests(NeoUnitTestBase):
 
     def setUp(self):
         # create an application object
@@ -57,7 +57,7 @@ class MasterClientElectionTests(NeoTestBase):
     def tearDown(self):
         # restore patched methods
         ClientConnection._addPacket = self._addPacket
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     def identifyToMasterNode(self):
         node = self.app.nm.getMasterList()[0]
@@ -189,7 +189,7 @@ class MasterClientElectionTests(NeoTestBase):
         self.checkRequestIdentification(conn)
 
 
-class MasterServerElectionTests(NeoTestBase):
+class MasterServerElectionTests(NeoUnitTestBase):
 
     def setUp(self):
         # create an application object
@@ -213,7 +213,7 @@ class MasterServerElectionTests(NeoTestBase):
         ClientConnection._addPacket = _addPacket
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
         # restore environnement
         ClientConnection._addPacket = self._addPacket
 

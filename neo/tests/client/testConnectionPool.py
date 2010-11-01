@@ -18,10 +18,10 @@
 import unittest
 from mock import Mock
 
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.client.app import ConnectionPool
 
-class ConnectionPoolTests(NeoTestBase):
+class ConnectionPoolTests(NeoUnitTestBase):
 
     def test_removeConnection(self):
         app = None

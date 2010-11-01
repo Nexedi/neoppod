@@ -17,14 +17,14 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.initialization import InitializationHandler
 from neo.protocol import CellStates, ProtocolError
 from neo.exception import PrimaryFailure
 
-class StorageInitializationHandlerTests(NeoTestBase):
+class StorageInitializationHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         self.prepareDatabase(number=1)
@@ -43,7 +43,7 @@ class StorageInitializationHandlerTests(NeoTestBase):
         self.app.pt = PartitionTable(self.num_partitions, self.num_replicas)
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     # Common methods
     def getLastUUID(self):

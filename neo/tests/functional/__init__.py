@@ -31,7 +31,7 @@ import threading
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
 from neo.util import dump
-from neo.tests import DB_ADMIN, DB_PASSWD
+from neo.tests import DB_ADMIN, DB_PASSWD, NeoTestBase
 from neo.client.Storage import Storage
 
 NEO_MASTER = 'neomaster'
@@ -538,13 +538,14 @@ class NEOCluster(object):
             os.removedirs(self.temp_dir)
 
 
-class NEOFunctionalTest(unittest.TestCase):
+class NEOFunctionalTest(NeoTestBase):
 
     def getTempDirectory(self):
         # get the current temp directory or a new one
         temp_dir = os.environ.get('TEMP', None)
         if temp_dir is None:
             temp_dir = tempfile.mkdtemp(prefix='neo_')
+            os.environ['TEMP'] = temp_dir
             print 'Using temp directory %r.' % (temp_dir, )
         # build the full path based on test case and current test method
         temp_dir = os.path.join(temp_dir, self.id())

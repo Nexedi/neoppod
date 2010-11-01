@@ -17,10 +17,10 @@
 
 import unittest
 
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.util import ReadBuffer
 
-class UtilTests(NeoTestBase):
+class UtilTests(NeoUnitTestBase):
 
     def testReadBufferRead(self):
         """ Append some chunk then consume the data """

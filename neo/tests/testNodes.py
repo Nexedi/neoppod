@@ -21,10 +21,10 @@ from neo import protocol
 from neo.protocol import NodeTypes, NodeStates
 from neo.node import Node, MasterNode, StorageNode, ClientNode, AdminNode, \
         NodeManager
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from time import time
 
-class NodesTests(NeoTestBase):
+class NodesTests(NeoUnitTestBase):
 
     def setUp(self):
         self.manager = Mock()
@@ -122,7 +122,7 @@ class NodesTests(NeoTestBase):
         self.assertFalse(node.isClient())
 
 
-class NodeManagerTests(NeoTestBase):
+class NodeManagerTests(NeoUnitTestBase):
 
     def setUp(self):
         self.manager = NodeManager()

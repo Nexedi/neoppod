@@ -20,14 +20,14 @@ import MySQLdb
 from mock import Mock
 from neo.util import dump, p64, u64
 from neo.protocol import CellStates, ZERO_OID, ZERO_TID, MAX_TID
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.exception import DatabaseFailure
 from neo.storage.database.mysqldb import MySQLDatabaseManager
 
 NEO_SQL_DATABASE = 'test_mysqldb0'
 NEO_SQL_USER = 'test'
 
-class StorageMySQSLdbTests(NeoTestBase):
+class StorageMySQSLdbTests(NeoUnitTestBase):
 
     def setUp(self):
         self.prepareDatabase(number=1, prefix=NEO_SQL_DATABASE[:-1])

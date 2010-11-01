@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.protocol import Packets, ZERO_OID, ZERO_TID
 from neo.storage.handlers.replication import ReplicationHandler, add64
 from neo.storage.handlers.replication import RANGE_LENGTH, MIN_RANGE_LENGTH
@@ -58,7 +58,7 @@ class FakeDict(object):
     def __len__(self):
         return len(self._dict)
 
-class StorageReplicationHandlerTests(NeoTestBase):
+class StorageReplicationHandlerTests(NeoUnitTestBase):
 
     def setup(self):
         pass

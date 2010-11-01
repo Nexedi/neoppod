@@ -20,9 +20,9 @@ from mock import Mock
 from neo.protocol import NodeStates, CellStates
 from neo.pt import Cell, PartitionTable
 from neo.node import StorageNode
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 
-class PartitionTableTests(NeoTestBase):
+class PartitionTableTests(NeoUnitTestBase):
 
     def test_01_Cell(self):
         uuid = self.getNewUUID()

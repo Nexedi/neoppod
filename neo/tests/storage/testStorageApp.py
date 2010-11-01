@@ -17,14 +17,14 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.protocol import CellStates
 from collections import deque
 from neo.pt import PartitionTable
 from neo.util import dump
 
-class StorageAppTests(NeoTestBase):
+class StorageAppTests(NeoUnitTestBase):
 
     def setUp(self):
         self.prepareDatabase(number=1)
@@ -34,7 +34,7 @@ class StorageAppTests(NeoTestBase):
         self.app.event_queue = deque()
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     def test_01_loadPartitionTable(self):
         self.app.dm = Mock({

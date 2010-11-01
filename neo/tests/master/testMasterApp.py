@@ -17,11 +17,11 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.master.app import Application
 from neo.util import p64, u64
 
-class MasterAppTests(NeoTestBase):
+class MasterAppTests(NeoUnitTestBase):
 
     def setUp(self):
         # create an application object
@@ -30,7 +30,7 @@ class MasterAppTests(NeoTestBase):
         self.app.pt.clear()
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     def test_06_broadcastNodeInformation(self):
         # defined some nodes to which data will be send

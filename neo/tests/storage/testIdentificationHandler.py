@@ -17,13 +17,13 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.protocol import NodeTypes, NotReadyError, BrokenNodeDisallowedError
 from neo.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.identification import IdentificationHandler
 
-class StorageIdentificationHandlerTests(NeoTestBase):
+class StorageIdentificationHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         config = self.getStorageConfiguration(master_number=1)

@@ -17,11 +17,11 @@
 import unittest
 from mock import Mock
 from time import time
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.epoll import Epoll
 from neo.event import EpollEventManager
 
-class EventTests(NeoTestBase):
+class EventTests(NeoUnitTestBase):
 
     def setUp(self):
         pass

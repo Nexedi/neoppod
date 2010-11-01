@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock, ReturnValues
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.pt import PartitionTable
 from neo.protocol import NodeTypes, NodeStates
 from neo.client.handlers.master import PrimaryBootstrapHandler
@@ -28,7 +28,7 @@ from neo.client.exception import NEOStorageError
 MARKER = []
 
 
-class MasterHandlerTests(NeoTestBase):
+class MasterHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         pass

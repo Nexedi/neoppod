@@ -20,7 +20,7 @@ import unittest
 from cPickle import dumps
 from mock import Mock, ReturnValues
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.client.app import Application
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
@@ -57,7 +57,7 @@ def resolving_tryToResolveConflict(oid, conflict_serial, serial, data):
 def failing_tryToResolveConflict(oid, conflict_serial, serial, data):
     return None
 
-class ClientApplicationTests(NeoTestBase):
+class ClientApplicationTests(NeoUnitTestBase):
 
     def setUp(self):
         # apply monkey patches

@@ -18,12 +18,12 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.storage.transactions import Transaction, TransactionManager
 from neo.storage.transactions import ConflictError, DelayedError
 
 
-class TransactionTests(NeoTestBase):
+class TransactionTests(NeoUnitTestBase):
 
     def testInit(self):
         uuid = self.getNewUUID()
@@ -79,7 +79,7 @@ class TransactionTests(NeoTestBase):
         self.assertEqual(txn.getObject(oid_2), None)
         self.assertEqual(txn.getObject(oid_1), object_info)
 
-class TransactionManagerTests(NeoTestBase):
+class TransactionManagerTests(NeoUnitTestBase):
 
     def setUp(self):
         self.app = Mock()

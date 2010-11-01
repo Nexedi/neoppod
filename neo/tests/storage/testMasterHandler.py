@@ -18,7 +18,7 @@
 import unittest
 from mock import Mock
 from collections import deque
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
 from neo.exception import PrimaryFailure, OperationFailure
@@ -26,7 +26,7 @@ from neo.pt import PartitionTable
 from neo.protocol import CellStates, ProtocolError, Packets
 from neo.protocol import INVALID_TID, INVALID_OID
 
-class StorageMasterHandlerTests(NeoTestBase):
+class StorageMasterHandlerTests(NeoUnitTestBase):
 
     def checkHandleUnexpectedPacket(self, _call, _msg_type, _listening=True, **kwargs):
         conn = self.getMasterConnection(is_server=_listening)
@@ -53,7 +53,7 @@ class StorageMasterHandlerTests(NeoTestBase):
         self.master_port = 10010
 
     def tearDown(self):
-        NeoTestBase.tearDown(self)
+        NeoUnitTestBase.tearDown(self)
 
     def getMasterConnection(self):
         address = ("127.0.0.1", self.master_port)

@@ -18,11 +18,11 @@
 import unittest
 from mock import Mock
 from struct import pack, unpack
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 
 from neo.master.transactions import Transaction, TransactionManager
 
-class testTransactionManager(NeoTestBase):
+class testTransactionManager(NeoUnitTestBase):
 
     def makeTID(self, i):
         return pack('!Q', i)

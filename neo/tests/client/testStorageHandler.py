@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoTestBase
+from neo.tests import NeoUnitTestBase
 from neo.protocol import NodeTypes, LockState
 from neo.client.handlers.storage import StorageBootstrapHandler, \
        StorageAnswersHandler
@@ -27,7 +27,7 @@ from ZODB.POSException import ConflictError
 
 MARKER = []
 
-class StorageBootstrapHandlerTests(NeoTestBase):
+class StorageBootstrapHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         self.app = Mock()
@@ -64,7 +64,7 @@ class StorageBootstrapHandlerTests(NeoTestBase):
         self.checkUUIDSet(conn, uuid)
 
 
-class StorageAnswerHandlerTests(NeoTestBase):
+class StorageAnswerHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
         self.app = Mock()
