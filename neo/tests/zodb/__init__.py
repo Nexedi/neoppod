@@ -25,7 +25,6 @@ class ZODBTestCase(NEOFunctionalTest):
         NEOFunctionalTest.setUp(self)
         self.neo = NEOCluster(['test_neo1'], partitions=1, replicas=0,
                 master_node_count=1, temp_dir=self.getTempDirectory())
-        self.neo.stop()
         self.neo.setupDB()
         self.neo.start()
         self._storage = self.neo.getZODBStorage()
