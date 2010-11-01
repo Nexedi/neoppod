@@ -40,10 +40,11 @@ class NeoCTL(object):
         if not self.connected:
             self.connection = ClientConnection(self.em, self.handler, 
                     addr=self.server, connector=self.connector_handler())
-            while not self.connected and self.connection is not None:
-                # XXX: this burn the CPU
-                self.em.poll(0)
-            if self.connection is None:
+            while self.connection is not None:
+                if self.connected:
+                    break
+                self.em.poll(1)
+            else:
                 raise NotReadyException('not connected')
         return self.connection
 
