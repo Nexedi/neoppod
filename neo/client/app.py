@@ -115,6 +115,7 @@ class ThreadContext(object):
             'asked_object': 0,
             'undo_object_tid_dict': {},
             'involved_nodes': set(),
+            'barrier_done': False,
         }
 
 
@@ -479,6 +480,13 @@ class Application(object):
         """
         # TODO:
         # - rename parameters (here and in handlers & packet definitions)
+
+        # Once per transaction, upon first load, trigger a barrier so we
+        # handle all pending invalidations, so the snapshot of the database is
+        # as up-to-date as possible.
+        if not self.local_var.barrier_done:
+            self.invalidationBarrier()
+            self.local_var.barrier_done = True
         cell_list = self._getCellListForOID(oid, readable=True)
         if len(cell_list) == 0:
             # No cells available, so why are we running ?

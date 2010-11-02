@@ -192,19 +192,3 @@ class Storage(BaseStorage.BaseStorage,
     def close(self):
         self.app.close()
 
-    def invalidationBarrier(self):
-        self.app.invalidationBarrier()
-
-# Monkey-patch ZODB.Connection to fetch all invalidations before starting a
-# transaction.
-from ZODB.Connection import Connection
-# XXX: a better detection should be done if this patch enters ZODB
-INVALIDATION_MARKER = '__INVALIDATION_BARRIER_PATCH_IS_HERE__'
-if not hasattr(Connection, INVALIDATION_MARKER):
-    orig_newTransaction = Connection.newTransaction
-    def newTransaction(self, *ignored):
-        getattr(self._storage, 'invalidationBarrier', lambda: None)()
-        orig_newTransaction(self, *ignored)
-    Connection.newTransaction = newTransaction
-    setattr(Connection, INVALIDATION_MARKER, True)
-

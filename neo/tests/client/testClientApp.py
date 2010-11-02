@@ -227,6 +227,7 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def test_load(self):
         app = self.getApp()
+        app.local_var.barrier_done = True
         mq = app.mq_cache
         oid = self.makeOID()
         tid1 = self.makeTID(1)
@@ -291,6 +292,7 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def test_loadSerial(self):
         app = self.getApp()
+        app.local_var.barrier_done = True
         mq = app.mq_cache
         oid = self.makeOID()
         tid1 = self.makeTID(1)
@@ -330,6 +332,7 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def test_loadBefore(self):
         app = self.getApp()
+        app.local_var.barrier_done = True
         mq = app.mq_cache
         oid = self.makeOID()
         tid1 = self.makeTID(1)
