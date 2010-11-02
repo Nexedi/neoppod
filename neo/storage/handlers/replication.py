@@ -182,12 +182,9 @@ class ReplicationHandler(EventHandler):
     @checkConnectionIsReplicatorConnection
     def answerCheckTIDRange(self, conn, min_tid, length, count, tid_checksum,
             max_tid):
-        app = self.app
-        replicator = app.replicator
+        replicator = self.app.replicator
         our = replicator.getTIDCheckResult(min_tid, length)
         his = (count, tid_checksum, max_tid)
-        our_count = our[0]
-        our_max_tid = our[2]
         p = None
         if our != his:
             # Something is different...
@@ -204,7 +201,7 @@ class ReplicationHandler(EventHandler):
                     count + 1))
         if p is None:
             if count == length and \
-                    max_tid < app.replicator.getCurrentCriticalTID():
+                    max_tid < replicator.getCurrentCriticalTID():
                 # Go on with next chunk
                 p = self._doAskCheckTIDRange(add64(max_tid, 1))
             else:
@@ -216,13 +213,9 @@ class ReplicationHandler(EventHandler):
     @checkConnectionIsReplicatorConnection
     def answerCheckSerialRange(self, conn, min_oid, min_serial, length, count,
             oid_checksum, max_oid, serial_checksum, max_serial):
-        app = self.app
-        replicator = app.replicator
+        replicator = self.app.replicator
         our = replicator.getSerialCheckResult(min_oid, min_serial, length)
         his = (count, oid_checksum, max_oid, serial_checksum, max_serial)
-        our_count = our[0]
-        our_max_oid = our[2]
-        our_max_serial = our[4]
         p = None
         if our != his:
             # Something is different...
