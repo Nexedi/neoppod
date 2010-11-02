@@ -15,15 +15,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import unittest
-
 from mock import Mock
+from neo.tests import NeoTestBase
 from neo.dispatcher import Dispatcher, ForgottenPacket
 from Queue import Queue
 
-class DispatcherTests(unittest.TestCase):
+class DispatcherTests(NeoTestBase):
 
     def setUp(self):
+        NeoTestBase.setUp(self)
         self.dispatcher = Dispatcher()
 
     def testRegister(self):
