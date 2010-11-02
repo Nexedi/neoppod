@@ -68,8 +68,12 @@ class ClientApplicationTests(NeoUnitTestBase):
         Application._getMasterConnection = _getMasterConnection
         Application._waitMessage = _waitMessage
         Application._getPartitionTable = _getPartitionTable
+        self._to_stop_list = []
 
     def tearDown(self):
+        # stop threads
+        for app in self._to_stop_list:
+            app.close()
         # restore environnement
         Application._getMasterConnection = self._getMasterConnection
         Application._waitMessage = self._waitMessage
@@ -92,6 +96,7 @@ class ClientApplicationTests(NeoUnitTestBase):
     def getApp(self, master_nodes='127.0.0.1:10010', name='test',
                connector='SocketConnector', **kw):
         app = Application(master_nodes, name, connector, **kw)
+        self._to_stop_list.append(app)
         app.dispatcher = Mock({ })
         return app
 
@@ -1091,7 +1096,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         app._waitMessage = _waitMessage1
         # faked environnement
         app.connector_handler = DoNothingConnector
-        app.em = Mock({})
+        app.em = Mock({'getConnectionList': []})
         app.pt = Mock({ 'operational': False})
         app.master_conn = app._connectToPrimaryNode()
         self.assertEqual(len(all_passed), 1)
