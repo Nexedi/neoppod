@@ -50,7 +50,7 @@ def psThreadedPoll(log=None):
     Logs alive ThreadedPoll threads.
     """
     if log is None:
-        log = neo.logging.info
+        log = neo.logging.debug
     for thread in thread_enum():
         if not isinstance(thread, ThreadedPoll):
             continue
