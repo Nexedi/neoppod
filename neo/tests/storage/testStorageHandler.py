@@ -51,9 +51,6 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         self.app.primary_master_node = pmn
         self.master_port = 10010
 
-    def tearDown(self):
-        NeoUnitTestBase.tearDown(self)
-
     def test_18_askTransactionInformation1(self):
         # transaction does not exists
         conn = self.getFakeConnection()

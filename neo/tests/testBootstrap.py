@@ -36,9 +36,6 @@ class BootstrapManagerTests(NeoUnitTestBase):
         self.num_partitions = 1009
         self.num_replicas = 2
 
-    def tearDown(self):
-        NeoUnitTestBase.tearDown(self)
-
     # Common methods
     def getLastUUID(self):
         return self.uuid

@@ -44,9 +44,6 @@ class MasterVerificationTests(NeoUnitTestBase):
         self.master_address = ('127.0.0.1', self.master_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
 
-    def tearDown(self):
-        NeoUnitTestBase.tearDown(self)
-
     # Common methods
     def getLastUUID(self):
         return self.uuid

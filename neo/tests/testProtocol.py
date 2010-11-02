@@ -26,9 +26,6 @@ class ProtocolTests(NeoUnitTestBase):
     def setUp(self):
         self.ltid = None
 
-    def tearDown(self):
-        pass
-
     def getNextTID(self):
         self.ltid = super(ProtocolTests, self).getNextTID(self.ltid)
         return self.ltid

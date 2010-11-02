@@ -43,9 +43,6 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         self.client_address = ('127.0.0.1', self.client_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
 
-    def tearDown(self):
-        NeoUnitTestBase.tearDown(self)
-
     def _allocatePort(self):
         self.port = getattr(self, 'port', 1000) + 1
         return self.port

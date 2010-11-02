@@ -30,9 +30,6 @@ MARKER = []
 
 class MasterHandlerTests(NeoUnitTestBase):
 
-    def setUp(self):
-        pass
-
     def getConnection(self):
         return self.getFakeConnection()
 

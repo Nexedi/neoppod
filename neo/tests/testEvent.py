@@ -23,12 +23,6 @@ from neo.event import EpollEventManager
 
 class EventTests(NeoUnitTestBase):
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def test_01_EpollEventManager(self):
         # init one
         em = EpollEventManager()

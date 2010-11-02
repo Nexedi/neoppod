@@ -33,9 +33,6 @@ class StorageAppTests(NeoUnitTestBase):
         self.app = Application(config)
         self.app.event_queue = deque()
 
-    def tearDown(self):
-        NeoUnitTestBase.tearDown(self)
-
     def test_01_loadPartitionTable(self):
         self.app.dm = Mock({
             'getPartitionTable': [],

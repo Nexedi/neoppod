@@ -37,9 +37,6 @@ class ConnectionTests(NeoUnitTestBase):
         self.handler = Mock({'__repr__': 'Fake Handler'})
         self.address = ("127.0.0.7", 93413)
 
-    def tearDown(self):
-        pass
-
     def _makeListeningConnection(self, addr):
         # create instance after monkey patches
         self.connector = DoNothingConnector()

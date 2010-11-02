@@ -46,9 +46,6 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         kw = {'uuid':self.getNewUUID(), 'address': self.master_address}
         self.app.nm.createStorage(**kw)
 
-    def tearDown(self):
-        NeoUnitTestBase.tearDown(self)
-
     def getLastUUID(self):
         return self.uuid
 
