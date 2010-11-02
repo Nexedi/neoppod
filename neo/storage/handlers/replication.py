@@ -26,6 +26,10 @@ from neo import util
 RANGE_LENGTH = 4000
 MIN_RANGE_LENGTH = 1000
 
+CHECK_CHUNK = 0
+CHECK_REPLICATE = 1
+CHECK_DONE = 2
+
 """
 Replication algorythm
 
@@ -179,66 +183,99 @@ class ReplicationHandler(EventHandler):
         return Packets.AskObjectHistoryFrom(min_oid, min_serial, max_serial,
             length, partition_id)
 
+    def _checkRange(self, match, current_boundary, next_boundary, length,
+            count):
+        if match:
+            # Same data on both sides
+            if length < RANGE_LENGTH and length == count:
+                # ...and previous check detected a difference - and we still
+                # haven't reached the end. This means that we just check the
+                # first half of a chunk which, as a whole, is different. So
+                # next test must happen on the next chunk.
+                recheck_min_boundary = next_boundary
+            else:
+                # ...and we just checked a whole chunk, move on to the next
+                # one.
+                recheck_min_boundary = None
+        else:
+            # Something is different in current chunk
+            recheck_min_boundary = current_boundary
+        if recheck_min_boundary is None:
+            if count == length:
+                # Go on with next chunk
+                action = CHECK_CHUNK
+                params = (next_boundary, RANGE_LENGTH)
+            else:
+                # No more chunks.
+                action = CHECK_DONE
+                params = None
+        else:
+            # We must recheck current chunk.
+            if length <= MIN_RANGE_LENGTH:
+                # We are already at minimum chunk length, replicate.
+                action = CHECK_REPLICATE
+                params = (recheck_min_boundary, )
+            else:
+                # Check a smaller chunk.
+                # Note: +1, so we can detect we reached the end when answer
+                # comes back.
+                action = CHECK_CHUNK
+                params = (recheck_min_boundary, min(length / 2, count + 1))
+        return action, params
+
     @checkConnectionIsReplicatorConnection
     def answerCheckTIDRange(self, conn, min_tid, length, count, tid_checksum,
             max_tid):
+        ask = conn.ask
         replicator = self.app.replicator
-        our = replicator.getTIDCheckResult(min_tid, length)
-        his = (count, tid_checksum, max_tid)
-        p = None
-        if our != his:
-            # Something is different...
-            if length <= MIN_RANGE_LENGTH:
-                # We are already at minimum chunk length, replicate.
-                conn.ask(self._doAskTIDsFrom(min_tid, count))
+        next_tid = add64(max_tid, 1)
+        action, params = self._checkRange(
+            replicator.getTIDCheckResult(min_tid, length) == (
+            count, tid_checksum, max_tid), min_tid, next_tid, length,
+            count)
+        if action == CHECK_REPLICATE:
+            (min_tid, ) = params
+            ask(self._doAskTIDsFrom(min_tid, count))
+            if length == count:
+                action = CHECK_CHUNK
+                params = (next_tid, RANGE_LENGTH)
             else:
-                # Check a smaller chunk.
-                # Note: this could be made into a real binary search, but is
-                # it really worth the work ?
-                # Note: +1, so we can detect we reached the end when answer
-                # comes back.
-                p = self._doAskCheckTIDRange(min_tid, min(length / 2,
-                    count + 1))
-        if p is None:
-            if count == length and \
-                    max_tid < replicator.getCurrentCriticalTID():
-                # Go on with next chunk
-                p = self._doAskCheckTIDRange(add64(max_tid, 1))
+                action = CHECK_DONE
+        if action == CHECK_CHUNK:
+            (min_tid, count) = params
+            if min_tid >= replicator.getCurrentCriticalTID():
+                # Stop if past critical TID
+                action = CHECK_DONE
             else:
-                # If no more TID, a replication of transactions is finished.
-                # So start to replicate objects now.
-                p = self._doAskCheckSerialRange(ZERO_OID, ZERO_TID)
-        conn.ask(p)
+                ask(self._doAskCheckTIDRange(min_tid, count))
+        if action == CHECK_DONE:
+            # If no more TID, a replication of transactions is finished.
+            # So start to replicate objects now.
+            ask(self._doAskCheckSerialRange(ZERO_OID, ZERO_TID))
 
     @checkConnectionIsReplicatorConnection
     def answerCheckSerialRange(self, conn, min_oid, min_serial, length, count,
             oid_checksum, max_oid, serial_checksum, max_serial):
+        ask = conn.ask
         replicator = self.app.replicator
-        our = replicator.getSerialCheckResult(min_oid, min_serial, length)
-        his = (count, oid_checksum, max_oid, serial_checksum, max_serial)
-        p = None
-        if our != his:
-            # Something is different...
-            if length <= MIN_RANGE_LENGTH:
-                # We are already at minimum chunk length, replicate.
-                conn.ask(self._doAskObjectHistoryFrom(min_oid, min_serial,
-                  count))
+        next_params = (max_oid, add64(max_serial, 1))
+        action, params = self._checkRange(
+            replicator.getSerialCheckResult(min_oid, min_serial, length) == (
+            count, oid_checksum, max_oid, serial_checksum, max_serial),
+            (min_oid, min_serial), next_params, length, count)
+        if action == CHECK_REPLICATE:
+            ((min_oid, min_serial), ) = params
+            ask(self._doAskObjectHistoryFrom(min_oid, min_serial, count))
+            if length == count:
+                action = CHECK_CHUNK
+                params = (next_params, RANGE_LENGTH)
             else:
-                # Check a smaller chunk.
-                # Note: this could be made into a real binary search, but is
-                # it really worth the work ?
-                # Note: +1, so we can detect we reached the end when answer
-                # comes back.
-                p = self._doAskCheckSerialRange(min_oid, min_serial,
-                    min(length / 2, count + 1))
-        if p is None:
-            if count == length:
-                # Go on with next chunk
-                p = self._doAskCheckSerialRange(max_oid, add64(max_serial, 1))
-            else:
-                # Nothing remains, so the replication for this partition is
-                # finished.
-                replicator.setReplicationDone()
-        if p is not None:
-            conn.ask(p)
+                action = CHECK_DONE
+        if action == CHECK_CHUNK:
+            ((min_oid, min_serial), count) = params
+            ask(self._doAskCheckSerialRange(min_oid, min_serial, count))
+        if action == CHECK_DONE:
+            # Nothing remains, so the replication for this partition is
+            # finished.
+            replicator.setReplicationDone()
 

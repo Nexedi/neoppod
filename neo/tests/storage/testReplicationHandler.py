@@ -237,7 +237,31 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
             data_serial)], None, False)
 
     # CheckTIDRange
-    def test_answerCheckTIDRangeIdenticalChunkWithNext(self):
+    def test_answerCheckTIDFullRangeIdenticalChunkWithNext(self):
+        min_tid = self.getNextTID()
+        max_tid = self.getNextTID()
+        critical_tid = self.getNextTID()
+        assert max_tid < critical_tid
+        length = RANGE_LENGTH
+        rid = 12
+        conn = self.getFakeConnection()
+        app = self.getApp(tid_check_result=(length, 0, max_tid), rid=rid,
+            conn=conn, critical_tid=critical_tid)
+        handler = ReplicationHandler(app)
+        # Peer has the same data as we have: length, checksum and max_tid
+        # match.
+        handler.answerCheckTIDRange(conn, min_tid, length, length, 0, max_tid)
+        # Result: go on with next chunk
+        pmin_tid, plength, ppartition = self.checkAskPacket(conn,
+            Packets.AskCheckTIDRange, decode=True)
+        self.assertEqual(pmin_tid, add64(max_tid, 1))
+        self.assertEqual(plength, RANGE_LENGTH)
+        self.assertEqual(ppartition, rid)
+        calls = app.replicator.mockGetNamedCalls('checkTIDRange')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(pmin_tid, plength, ppartition)
+
+    def test_answerCheckTIDSmallRangeIdenticalChunkWithNext(self):
         min_tid = self.getNextTID()
         max_tid = self.getNextTID()
         critical_tid = self.getNextTID()
@@ -255,7 +279,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         pmin_tid, plength, ppartition = self.checkAskPacket(conn,
             Packets.AskCheckTIDRange, decode=True)
         self.assertEqual(pmin_tid, add64(max_tid, 1))
-        self.assertEqual(plength, RANGE_LENGTH)
+        self.assertEqual(plength, length / 2)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('checkTIDRange')
         self.assertEqual(len(calls), 1)
@@ -409,7 +433,32 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
 
     # CheckSerialRange
-    def test_answerCheckSerialRangeIdenticalChunkWithNext(self):
+    def test_answerCheckSerialFullRangeIdenticalChunkWithNext(self):
+        min_oid = self.getOID(1)
+        max_oid = self.getOID(10)
+        min_serial = self.getNextTID()
+        max_serial = self.getNextTID()
+        length = RANGE_LENGTH
+        rid = 12
+        conn = self.getFakeConnection()
+        app = self.getApp(serial_check_result=(length, 0, max_oid, 1,
+            max_serial), rid=rid, conn=conn)
+        handler = ReplicationHandler(app)
+        # Peer has the same data as we have
+        handler.answerCheckSerialRange(conn, min_oid, min_serial, length,
+            length, 0, max_oid, 1, max_serial)
+        # Result: go on with next chunk
+        pmin_oid, pmin_serial, plength, ppartition = self.checkAskPacket(conn,
+            Packets.AskCheckSerialRange, decode=True)
+        self.assertEqual(pmin_oid, max_oid)
+        self.assertEqual(pmin_serial, add64(max_serial, 1))
+        self.assertEqual(plength, RANGE_LENGTH)
+        self.assertEqual(ppartition, rid)
+        calls = app.replicator.mockGetNamedCalls('checkSerialRange')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
+
+    def test_answerCheckSerialSmallRangeIdenticalChunkWithNext(self):
         min_oid = self.getOID(1)
         max_oid = self.getOID(10)
         min_serial = self.getNextTID()
@@ -428,7 +477,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
             Packets.AskCheckSerialRange, decode=True)
         self.assertEqual(pmin_oid, max_oid)
         self.assertEqual(pmin_serial, add64(max_serial, 1))
-        self.assertEqual(plength, RANGE_LENGTH)
+        self.assertEqual(plength, length / 2)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('checkSerialRange')
         self.assertEqual(len(calls), 1)
