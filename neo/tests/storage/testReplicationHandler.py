@@ -313,11 +313,14 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
     def test_answerCheckTIDRangeDifferentBigChunk(self):
         min_tid = self.getNextTID()
         max_tid = self.getNextTID()
+        critical_tid = self.getNextTID()
+        assert min_tid < max_tid < critical_tid, (min_tid, max_tid,
+            critical_tid)
         length = RANGE_LENGTH / 2
         rid = 12
         conn = self.getFakeConnection()
         app = self.getApp(tid_check_result=(length - 5, 0, max_tid), rid=rid,
-            conn=conn)
+            conn=conn, critical_tid=critical_tid)
         handler = ReplicationHandler(app)
         # Peer has different data
         handler.answerCheckTIDRange(conn, min_tid, length, length, 0, max_tid)
