@@ -29,6 +29,7 @@ from neo.util import p64, u64
 class StorageVerificationHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.prepareDatabase(number=1)
         # create an application object
         config = self.getStorageConfiguration(master_number=1)

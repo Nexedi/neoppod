@@ -76,6 +76,7 @@ class ClientTests(NEOFunctionalTest):
     def tearDown(self):
         if self.neo is not None:
             self.neo.stop()
+        NEOFunctionalTest.tearDown(self)
 
     def __setup(self):
         # start cluster

@@ -39,6 +39,7 @@ class StorageTests(NEOFunctionalTest):
     def tearDown(self):
         if self.neo is not None:
             self.neo.stop()
+        NEOFunctionalTest.tearDown(self)
 
     def queryCount(self, db, query):
         db.query(query)

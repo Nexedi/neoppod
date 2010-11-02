@@ -24,6 +24,7 @@ from neo.tests import NeoUnitTestBase
 class ProtocolTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.ltid = None
 
     def getNextTID(self):

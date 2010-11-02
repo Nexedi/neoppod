@@ -32,6 +32,7 @@ from neo.locking import Queue
 class ConnectionTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.app = Mock({'__repr__': 'Fake App'})
         self.em = Mock({'__repr__': 'Fake Em'})
         self.handler = Mock({'__repr__': 'Fake Handler'})
@@ -834,6 +835,7 @@ class MTConnectionTests(ConnectionTests):
 class HandlerSwitcherTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self._handler = handler = Mock({
             '__repr__': 'initial handler',
         })
@@ -1087,6 +1089,7 @@ class HandlerSwitcherTests(NeoUnitTestBase):
 
 class TestTimeout(NeoUnitTestBase):
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.current = time()
         self.timeout = Timeout()
         self._updateAt(0)

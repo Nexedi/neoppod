@@ -28,6 +28,7 @@ from neo.exception import OperationFailure
 class MasterStorageHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         # create an application object
         config = self.getMasterConfiguration(master_number=1, replicas=1)
         self.app = Application(config)

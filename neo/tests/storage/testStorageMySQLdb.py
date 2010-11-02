@@ -30,6 +30,7 @@ NEO_SQL_USER = 'test'
 class StorageMySQSLdbTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.prepareDatabase(number=1, prefix=NEO_SQL_DATABASE[:-1])
         # db manager
         database = '%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE)
@@ -39,6 +40,7 @@ class StorageMySQSLdbTests(NeoUnitTestBase):
 
     def tearDown(self):
         self.db.close()
+        NeoUnitTestBase.tearDown(self)
 
     def checkCalledQuery(self, query=None, call=0):
         self.assertTrue(len(self.db.conn.mockGetNamedCalls('query')) > call)

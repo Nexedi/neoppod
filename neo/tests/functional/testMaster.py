@@ -35,6 +35,7 @@ class MasterTests(NEOFunctionalTest):
 
     def tearDown(self):
         self.neo.stop()
+        NEOFunctionalTest.tearDown(self)
 
     def testStoppingSecondaryMaster(self):
         # Wait for masters to stabilize

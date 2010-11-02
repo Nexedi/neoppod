@@ -60,6 +60,7 @@ def failing_tryToResolveConflict(oid, conflict_serial, serial, data):
 class ClientApplicationTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         # apply monkey patches
         self._getMasterConnection = Application._getMasterConnection
         self._waitMessage = Application._waitMessage
@@ -73,6 +74,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         Application._getMasterConnection = self._getMasterConnection
         Application._waitMessage = self._waitMessage
         Application._getPartitionTable = self._getPartitionTable
+        NeoUnitTestBase.tearDown(self)
 
     # some helpers
 

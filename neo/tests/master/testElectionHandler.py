@@ -34,6 +34,7 @@ def _addPacket(self, packet):
 class MasterClientElectionTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         # create an application object
         config = self.getMasterConfiguration(master_number=1)
         self.app = Application(config)
@@ -192,6 +193,7 @@ class MasterClientElectionTests(NeoUnitTestBase):
 class MasterServerElectionTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         # create an application object
         config = self.getMasterConfiguration(master_number=1)
         self.app = Application(config)

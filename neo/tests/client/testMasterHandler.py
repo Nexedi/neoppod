@@ -37,6 +37,7 @@ class MasterHandlerTests(NeoUnitTestBase):
 class MasterBootstrapHandlerTests(MasterHandlerTests):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.app = Mock()
         self.handler = PrimaryBootstrapHandler(self.app)
 
@@ -136,6 +137,7 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
 class MasterNotificationsHandlerTests(MasterHandlerTests):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.db = Mock()
         self.app = Mock({'getDB': self.db})
         self.app.nm = Mock()
@@ -221,6 +223,7 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
 class MasterAnswersHandlerTests(MasterHandlerTests):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.app = Mock()
         self.handler = PrimaryAnswersHandler(self.app)
 

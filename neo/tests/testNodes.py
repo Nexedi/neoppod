@@ -27,6 +27,7 @@ from time import time
 class NodesTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.manager = Mock()
 
     def _updatedByAddress(self, node, index=0):
@@ -125,6 +126,7 @@ class NodesTests(NeoUnitTestBase):
 class NodeManagerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.manager = NodeManager()
 
     def _addStorage(self):

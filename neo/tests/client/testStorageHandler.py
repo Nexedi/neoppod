@@ -30,6 +30,7 @@ MARKER = []
 class StorageBootstrapHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.app = Mock()
         self.handler = StorageBootstrapHandler(self.app)
 
@@ -67,6 +68,7 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
 class StorageAnswerHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.app = Mock()
         self.app.local_var = Mock()
         self.handler = StorageAnswersHandler(self.app)

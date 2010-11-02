@@ -24,6 +24,7 @@ from neo.util import p64, u64
 class MasterAppTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         # create an application object
         config = self.getMasterConfiguration()
         self.app = Application(config)

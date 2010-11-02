@@ -82,6 +82,7 @@ class TransactionTests(NeoUnitTestBase):
 class TransactionManagerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.app = Mock()
         # no history
         self.app.dm = Mock({'getObjectHistory': []})

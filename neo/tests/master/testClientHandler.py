@@ -26,6 +26,7 @@ from neo.master.app import Application
 class MasterClientHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         # create an application object
         config = self.getMasterConfiguration(master_number=1, replicas=1)
         self.app = Application(config)

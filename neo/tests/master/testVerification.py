@@ -26,6 +26,7 @@ from neo.master.app import Application
 class MasterVerificationTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         # create an application object
         config = self.getMasterConfiguration()
         self.app = Application(config)

@@ -26,6 +26,7 @@ from neo.storage.handlers.identification import IdentificationHandler
 class StorageIdentificationHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(config)
         self.app.name = 'NEO'

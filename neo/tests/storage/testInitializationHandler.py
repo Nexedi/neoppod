@@ -27,6 +27,7 @@ from neo.exception import PrimaryFailure
 class StorageInitializationHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.prepareDatabase(number=1)
         # create an application object
         config = self.getStorageConfiguration(master_number=1)

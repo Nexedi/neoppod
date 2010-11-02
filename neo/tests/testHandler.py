@@ -25,6 +25,7 @@ from neo.protocol import PacketMalformedError, UnexpectedPacketError, \
 class HandlerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         app = Mock()
         self.handler = EventHandler(app)
         self.fake_type = 'FAKE_PACKET_TYPE'

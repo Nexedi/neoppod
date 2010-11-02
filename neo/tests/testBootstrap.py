@@ -25,6 +25,7 @@ from neo.protocol import NodeTypes
 class BootstrapManagerTests(NeoUnitTestBase):
 
     def setUp(self):
+        NeoUnitTestBase.setUp(self)
         self.prepareDatabase(number=1)
         # create an application object
         config = self.getStorageConfiguration()
