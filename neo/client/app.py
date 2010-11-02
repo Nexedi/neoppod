@@ -125,7 +125,7 @@ class Application(object):
         # Start polling thread
         self.em = EventManager()
         self.poll_thread = ThreadedPoll(self.em, name=name)
-        neo.logging.info('Started %s', self.poll_thread)
+        neo.logging.debug('Started %s', self.poll_thread)
         psThreadedPoll()
         # Internal Attributes common to all thread
         self._db = None
@@ -1202,7 +1202,7 @@ class Application(object):
         for conn in self.em.getConnectionList():
             conn.close()
         # Stop polling thread
-        neo.logging.info('Stopping %s', self.poll_thread)
+        neo.logging.debug('Stopping %s', self.poll_thread)
         self.poll_thread.stop()
         psThreadedPoll()
     close = __del__
