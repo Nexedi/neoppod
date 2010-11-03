@@ -130,7 +130,6 @@ class Replicator(object):
     #   partition being currently synchronised
     # current_connection
     #   connection to a storage node we are replicating from
-    #   XXX: accessed (r) directory by ReplicationHandler
     # waiting_for_unfinished_tids
     #   unfinished_tid_list has been asked to primary master node, but it
     #   didn't answer yet.
