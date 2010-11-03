@@ -97,6 +97,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
             replicator = real_replicator
             dm = Mock({
                 'storeTransaction': None,
+                'deleteObject': None,
             })
         return FakeApp
 
@@ -194,10 +195,12 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         oid_1 = self.getOID(1)
         oid_2 = self.getOID(2)
         oid_3 = self.getOID(3)
+        oid_4 = self.getOID(4)
+        tid_list = [self.getNextTID() for x in xrange(7)]
         oid_dict = FakeDict((
-            (oid_1, [self.getNextTID(), self.getNextTID()]),
-            (oid_2, [self.getNextTID()]),
-            (oid_3, [self.getNextTID()]),
+            (oid_1, [tid_list[0], tid_list[1]]),
+            (oid_2, [tid_list[3]]),
+            (oid_3, [tid_list[5]]),
         ))
         flat_oid_list = []
         for oid, serial_list in oid_dict.iteritems():
@@ -208,16 +211,23 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         ReplicationHandler(app).answerObjectHistoryFrom(conn, oid_dict)
         self._checkPacketSerialList(conn, flat_oid_list)
         # With some known OID/Serials
+        # For test to be realist, history_result should contain the same
+        # number of serials as oid_dict, otherise it just tests the special
+        # case of the last check in a partition.
         conn = self.getFakeConnection()
         app = self.getApp(conn=conn, history_result={
             oid_1: [oid_dict[oid_1][0], ],
-            oid_3: [oid_dict[oid_3][0], ],
+            oid_3: [tid_list[4], oid_dict[oid_3][0], tid_list[6]],
+            oid_4: [tid_list[2], ],
         })
         ReplicationHandler(app).answerObjectHistoryFrom(conn, oid_dict)
         self._checkPacketSerialList(conn, (
             (oid_1, oid_dict[oid_1][1]),
             (oid_2, oid_dict[oid_2][0]),
         ))
+        calls = app.dm.mockGetNamedCalls('deleteObject')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(oid_3, tid_list[4])
 
     def test_answerObject(self):
         conn = self.getFakeConnection()

@@ -133,10 +133,21 @@ class ReplicationHandler(EventHandler):
         ask = conn.ask
         my_object_dict = app.replicator.getObjectHistoryFromResult()
         deleteObject = app.dm.deleteObject
+        max_oid = max(object_dict.iterkeys())
+        max_serial = max(object_dict[max_oid])
         for oid, serial_list in object_dict.iteritems():
             # Check if I have objects, request those which I don't have.
             if oid in my_object_dict:
-                my_serial_set = frozenset(my_object_dict[oid])
+                # We must ignore extra serials we might have locally found for
+                # last received oid, as they can just be present in our list
+                # because we lacked some records (hence, we would have fetched
+                # rows further than other node for the same number of rows).
+                if oid == max_oid:
+                    my_serial_list = (x for x in my_object_dict[oid]
+                        if x <= max_serial)
+                else:
+                    my_serial_list = my_object_dict[oid]
+                my_serial_set = frozenset(my_serial_list)
                 serial_set = frozenset(serial_list)
                 extra_serial_set = my_serial_set - serial_set
                 for serial in extra_serial_set:
