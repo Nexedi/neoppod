@@ -118,6 +118,7 @@ class ReplicationHandler(EventHandler):
         missing_tid_set = tid_set - my_tid_set
         for tid in missing_tid_set:
             ask(Packets.AskTransactionInformation(tid), timeout=300)
+        ask(self._doAskCheckTIDRange(add64(tid_list[-1], 1), RANGE_LENGTH))
 
     @checkConnectionIsReplicatorConnection
     def answerTransactionInformation(self, conn, tid,
@@ -157,6 +158,8 @@ class ReplicationHandler(EventHandler):
                 missing_serial_set = serial_list
             for serial in missing_serial_set:
                 ask(Packets.AskObject(oid, serial, None), timeout=300)
+        ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
+            RANGE_LENGTH))
 
     @checkConnectionIsReplicatorConnection
     def answerObject(self, conn, oid, serial_start,
@@ -249,10 +252,7 @@ class ReplicationHandler(EventHandler):
         if action == CHECK_REPLICATE:
             (min_tid, ) = params
             ask(self._doAskTIDsFrom(min_tid, count))
-            if length == count:
-                action = CHECK_CHUNK
-                params = (next_tid, RANGE_LENGTH)
-            else:
+            if length != count:
                 action = CHECK_DONE
         if action == CHECK_CHUNK:
             (min_tid, count) = params
@@ -279,10 +279,7 @@ class ReplicationHandler(EventHandler):
         if action == CHECK_REPLICATE:
             ((min_oid, min_serial), ) = params
             ask(self._doAskObjectHistoryFrom(min_oid, min_serial, count))
-            if length == count:
-                action = CHECK_CHUNK
-                params = (next_params, RANGE_LENGTH)
-            else:
+            if length != count:
                 action = CHECK_DONE
         if action == CHECK_CHUNK:
             ((min_oid, min_serial), count) = params
