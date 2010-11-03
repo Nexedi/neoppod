@@ -105,6 +105,7 @@ class ReplicationHandler(EventHandler):
     @checkConnectionIsReplicatorConnection
     def answerTIDsFrom(self, conn, tid_list):
         app = self.app
+        ask = conn.ask
         # If I have pending TIDs, check which TIDs I don't have, and
         # request the data.
         tid_set = frozenset(tid_list)
@@ -116,7 +117,7 @@ class ReplicationHandler(EventHandler):
                 deleteTransaction(tid)
         missing_tid_set = tid_set - my_tid_set
         for tid in missing_tid_set:
-            conn.ask(Packets.AskTransactionInformation(tid), timeout=300)
+            ask(Packets.AskTransactionInformation(tid), timeout=300)
 
     @checkConnectionIsReplicatorConnection
     def answerTransactionInformation(self, conn, tid,
@@ -129,6 +130,7 @@ class ReplicationHandler(EventHandler):
     @checkConnectionIsReplicatorConnection
     def answerObjectHistoryFrom(self, conn, object_dict):
         app = self.app
+        ask = conn.ask
         my_object_dict = app.replicator.getObjectHistoryFromResult()
         deleteObject = app.dm.deleteObject
         for oid, serial_list in object_dict.iteritems():
@@ -143,7 +145,7 @@ class ReplicationHandler(EventHandler):
             else:
                 missing_serial_set = serial_list
             for serial in missing_serial_set:
-                conn.ask(Packets.AskObject(oid, serial, None), timeout=300)
+                ask(Packets.AskObject(oid, serial, None), timeout=300)
 
     @checkConnectionIsReplicatorConnection
     def answerObject(self, conn, oid, serial_start,
