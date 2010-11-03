@@ -502,7 +502,7 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def deleteTransaction(self, tid, oid_list):
+    def deleteTransaction(self, tid, oid_list=()):
         q = self.query
         u64 = util.u64
         tid = u64(tid)
