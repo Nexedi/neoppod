@@ -705,6 +705,7 @@ class MTClientConnection(ClientConnection):
         self.acquire = lock.acquire
         self.release = lock.release
         self.dispatcher = kwargs.pop('dispatcher')
+        self.dispatcher.needPollThread()
         self.lock()
         try:
             super(MTClientConnection, self).__init__(*args, **kwargs)

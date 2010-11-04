@@ -44,12 +44,13 @@ def giant_lock(func):
 class Dispatcher:
     """Register a packet, connection pair as expecting a response packet."""
 
-    def __init__(self):
+    def __init__(self, poll_thread=None):
         self.message_table = {}
         self.queue_dict = {}
         lock = Lock()
         self.lock_acquire = lock.acquire
         self.lock_release = lock.release
+        self.poll_thread = poll_thread
 
     @giant_lock
     @profiler_decorator
@@ -64,10 +65,27 @@ class Dispatcher:
         queue.put(data)
         return True
 
+    def needPollThread(self):
+        thread = self.poll_thread
+        # If thread has been stopped, wait for it to stop
+        # Note: This is not, ironically, thread safe: if one thread is
+        # stopping poll thread while we are checking its state here, a
+        # race condition will occur. If safety is required, locks should
+        # be added to control the access to thread's "start", "stopping"
+        # and "stop" methods.
+        if thread.stopping():
+            # XXX: ideally, we should wake thread up here, to be sure not
+            # to wait forever.
+            thread.join()
+        if not thread.isAlive():
+            thread.start()
+
     @giant_lock
     @profiler_decorator
     def register(self, conn, msg_id, queue):
         """Register an expectation for a reply."""
+        if self.poll_thread is not None:
+            self.needPollThread()
         self.message_table.setdefault(id(conn), {})[msg_id] = queue
         queue_dict = self.queue_dict
         key = id(queue)

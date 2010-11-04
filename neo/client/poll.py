@@ -18,7 +18,7 @@
 from threading import Thread, Event, enumerate as thread_enum
 import neo
 
-class ThreadedPoll(Thread):
+class _ThreadedPoll(Thread):
     """Polling thread."""
 
     # Garbage collector hint:
@@ -31,19 +31,54 @@ class ThreadedPoll(Thread):
         self.em = em
         self.setDaemon(True)
         self._stop = Event()
-        self.start()
 
     def run(self):
-        while not self._stop.isSet():
+        neo.logging.debug('Started %s', self)
+        while not self.stopping():
             # First check if we receive any new message from other node
             try:
-                self.em.poll()
+                # XXX: Delay cannot be infinite here, unless we have a way to
+                # interrupt this call when stopping.
+                self.em.poll(1)
             except:
                 self.neo.logging.error('poll raised, retrying', exc_info=1)
         self.neo.logging.debug('Threaded poll stopped')
+        self._stop.clear()
 
     def stop(self):
         self._stop.set()
+
+    def stopping(self):
+        return self._stop.isSet()
+
+class ThreadedPoll(object):
+    """
+    Wrapper for polloing thread, just to be able to start it again when
+    it stopped.
+    """
+    _thread = None
+    _started = False
+
+    def __init__(self, *args, **kw):
+        self._args = args
+        self._kw = kw
+        self.newThread()
+
+    def newThread(self):
+        self._thread = _ThreadedPoll(*self._args, **self._kw)
+
+    def start(self):
+        if self._started:
+            self.newThread()
+        else:
+            self._started = True
+        self._thread.start()
+
+    def __getattr__(self, key):
+        return getattr(self._thread, key)
+
+    def __repr__(self):
+        return repr(self._thread)
 
 def psThreadedPoll(log=None):
     """

@@ -126,13 +126,12 @@ class Application(object):
         # Start polling thread
         self.em = EventManager()
         self.poll_thread = ThreadedPoll(self.em, name=name)
-        neo.logging.debug('Started %s', self.poll_thread)
         psThreadedPoll()
         # Internal Attributes common to all thread
         self._db = None
         self.name = name
         self.connector_handler = getConnectorHandler(connector)
-        self.dispatcher = Dispatcher()
+        self.dispatcher = Dispatcher(self.poll_thread)
         self.nm = NodeManager()
         self.cp = ConnectionPool(self)
         self.pt = None
@@ -1209,6 +1208,8 @@ class Application(object):
         # down zope, so use __del__ to close connections
         for conn in self.em.getConnectionList():
             conn.close()
+        self.cp.flush()
+        self.master_conn = None
         # Stop polling thread
         neo.logging.debug('Stopping %s', self.poll_thread)
         self.poll_thread.stop()

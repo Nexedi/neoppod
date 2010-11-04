@@ -178,3 +178,7 @@ class ConnectionPool(object):
         """Explicitly remove connection when a node is broken."""
         self.connection_dict.pop(node.getUUID(), None)
 
+    def flush(self):
+        """Remove all connections"""
+        self.connection_dict.clear()
+
