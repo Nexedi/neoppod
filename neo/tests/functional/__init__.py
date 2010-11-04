@@ -262,9 +262,10 @@ class NEOCluster(object):
         sql_connection = self.__getSuperSQLConnection()
         cursor = sql_connection.cursor()
         cursor.execute('use %s' % (database, ))
-        cursor.execute('rename table obj to tmp')
-        cursor.execute('rename table tobj to obj')
-        cursor.execute('rename table tmp to tobj')
+        for table in ('trans', 'obj'):
+            cursor.execute('rename table %s to tmp' % (table, ))
+            cursor.execute('rename table t%s to %s' % (table, table))
+            cursor.execute('rename table tmp to t%s' % (table, ))
         sql_connection.commit()
         sql_connection.close()
 
