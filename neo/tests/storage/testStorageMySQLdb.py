@@ -133,16 +133,20 @@ class StorageMySQSLdbTests(NeoUnitTestBase):
         self.assertEquals(self.db.escape("a'b"), "a\\'b")
 
     def test_setup(self):
+        # XXX: this test verifies irrelevant symptoms. It should instead check that
+        # - setup, store, setup, load -> data still there
+        # - setup, store, setup(reset=True), load -> data not found
+
         # create all tables
         self.db.conn = Mock()
         self.db.setup()
         calls = self.db.conn.mockGetNamedCalls('query')
-        self.assertEquals(len(calls), 6)
+        self.assertEquals(len(calls), 7)
         # create all tables but drop them first
         self.db.conn = Mock()
         self.db.setup(reset=True)
         calls = self.db.conn.mockGetNamedCalls('query')
-        self.assertEquals(len(calls), 7)
+        self.assertEquals(len(calls), 8)
 
     def test_configuration(self):
         # check if a configuration entry is well written

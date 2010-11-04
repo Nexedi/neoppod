@@ -266,6 +266,7 @@ class NEOCluster(object):
             cursor.execute('rename table %s to tmp' % (table, ))
             cursor.execute('rename table t%s to %s' % (table, table))
             cursor.execute('rename table tmp to t%s' % (table, ))
+        cursor.execute('truncate table obj_short')
         sql_connection.commit()
         sql_connection.close()
 
