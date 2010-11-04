@@ -19,6 +19,7 @@ from mock import Mock
 from neo.tests import NeoTestBase
 from neo.dispatcher import Dispatcher, ForgottenPacket
 from Queue import Queue
+import unittest
 
 class DispatcherTests(NeoTestBase):
 
