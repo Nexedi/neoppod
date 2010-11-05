@@ -680,6 +680,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         class ConnectionPool(object):
             def getConnForNode(self, node):
                 return node.getConnection()
+
+            def flush(self):
+                pass
         app.cp = ConnectionPool()
         # abort must be sent to storage 1 and 2
         app.tpc_abort(txn)
