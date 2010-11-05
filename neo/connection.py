@@ -179,7 +179,10 @@ class HandlerSwitcher(object):
         else:
             neo.logging.error('Unexpected answer %r in %r', packet, connection)
             notification = Packets.Notify('Unexpected answer: %r' % packet)
-            connection.notify(notification)
+            try:
+                connection.notify(notification)
+            except ConnectorConnectionClosedException:
+                pass
             connection.abort()
             handler.peerBroken(connection)
         # apply a pending handler if no more answers are pending

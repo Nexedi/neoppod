@@ -81,7 +81,9 @@ class EpollEventManager(object):
         return result
 
     def _addPendingConnection(self, conn):
-        self._pending_processing.append(conn)
+        pending_processing = self._pending_processing
+        if conn not in pending_processing:
+            pending_processing.append(conn)
 
     def poll(self, timeout=1):
         to_process = self._getPendingConnection()
@@ -102,6 +104,10 @@ class EpollEventManager(object):
                         self._addPendingConnection(to_process)
             finally:
                 to_process.unlock()
+            # Non-blocking call: as we handled a packet, we should just offer
+            # poll a chance to fetch & send already-available data, but it must
+            # not delay us.
+            self._poll(timeout=0)
 
     def _poll(self, timeout=1):
         rlist, wlist, elist = self.epoll.poll(timeout)
