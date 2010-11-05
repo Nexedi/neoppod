@@ -227,9 +227,12 @@ class TransactionManager(object):
         transaction = self._transaction_dict[tid]
         transaction.addObject(oid, compression, checksum, data, value_serial)
 
-    def abort(self, tid, even_if_locked=True):
+    def abort(self, tid, even_if_locked=False):
         """
             Abort a transaction
+            Releases locks held on all transaction objects, deletes Transaction
+            instance, and executed queued events.
+            Note: does not alter persistent content.
         """
         if tid not in self._transaction_dict:
             # the tid may be unknown as the transaction is aborted on every node
@@ -265,7 +268,7 @@ class TransactionManager(object):
         """
         # abort any non-locked transaction of this node
         for tid in [x.getTID() for x in self._uuid_dict.get(uuid, [])]:
-            self.abort(tid, even_if_locked=False)
+            self.abort(tid)
         # cleanup _uuid_dict if no transaction remains for this node
         transaction_set = self._uuid_dict.get(uuid)
         if transaction_set is not None and not transaction_set:

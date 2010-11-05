@@ -263,7 +263,7 @@ class TransactionManagerTests(NeoUnitTestBase):
         # lock transaction
         self.manager.lock(tid, txn[0])
         self.assertTrue(tid in self.manager)
-        self.manager.abort(tid, even_if_locked=False)
+        self.manager.abort(tid)
         self.assertTrue(tid in self.manager)
         for oid in txn[0]:
             self.assertTrue(self.manager.loadLocked(oid))
