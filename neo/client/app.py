@@ -432,8 +432,12 @@ class Application(object):
         # Try in cache first
         self._cache_lock_acquire()
         try:
-            if oid in self.mq_cache:
-                return self.mq_cache[oid][0]
+            try:
+                result = self.mq_cache[oid]
+            except KeyError:
+                pass
+            else:
+                return result[0]
         finally:
             self._cache_lock_release()
         # history return serial, so use it
@@ -559,9 +563,12 @@ class Application(object):
         try:
             self._cache_lock_acquire()
             try:
-                if oid in self.mq_cache:
-                    neo.logging.debug('load oid %s is cached', dump(oid))
+                try:
                     serial, data = self.mq_cache[oid]
+                except KeyError:
+                    pass
+                else:
+                    neo.logging.debug('load oid %s is cached', dump(oid))
                     return data, serial
             finally:
                 self._cache_lock_release()
