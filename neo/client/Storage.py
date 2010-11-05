@@ -29,6 +29,13 @@ def check_read_only(func):
         return func(self, *args, **kw)
     return wrapped
 
+class DummyCache(object):
+    def __init__(self, app):
+        self.app = app
+
+    def clear(self):
+        self.app.mq_cache.clear()
+
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
@@ -44,6 +51,7 @@ class Storage(BaseStorage.BaseStorage,
         self._is_read_only = read_only
         self.app = Application(master_nodes, name, connector,
             compress=compress)
+        self._cache = DummyCache(self.app)
 
     def load(self, oid, version=None):
         try:

@@ -147,16 +147,19 @@ class MQ(object):
 
     def __init__(self, life_time=10000, buffer_levels=9,
             max_history_size=100000, max_size=20*1024*1024):
-        self._history_buffer = FIFO()
-        self._cache_buffers = []
-        for level in range(buffer_levels):
-            self._cache_buffers.append(FIFO())
-        self._data = {}
-        self._time = 0
         self._life_time = life_time
         self._buffer_levels = buffer_levels
         self._max_history_size = max_history_size
         self._max_size = max_size
+        self.clear()
+
+    def clear(self):
+        self._history_buffer = FIFO()
+        self._cache_buffers = []
+        for level in range(self._buffer_levels):
+            self._cache_buffers.append(FIFO())
+        self._data = {}
+        self._time = 0
         self._size = 0
 
     def has_key(self, key):
