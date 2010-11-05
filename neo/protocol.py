@@ -1358,22 +1358,6 @@ class SetNodeState(Packet):
         uuid = _decodeUUID(uuid)
         return (uuid, state, modify)
 
-class AnswerNodeState(Packet):
-    """
-    Answer state of the node
-    """
-    _header_format = '!16sH'
-
-    def _encode(self, uuid, state):
-        uuid = _encodeUUID(uuid)
-        return ''.join([pack(self._header_format, uuid, state)])
-
-    def _decode(self, body):
-        (uuid, state) = unpack(self._header_format, body)
-        state = _decodeNodeState(state)
-        uuid = _decodeUUID(uuid)
-        return (uuid, state)
-
 class AddPendingNodes(Packet):
     """
     Ask the primary to include some pending node in the partition table
@@ -1387,32 +1371,6 @@ class AddPendingNodes(Packet):
         # an empty list means all current pending nodes
         uuid_list = [pack(list_header_format, _encodeUUID(uuid)) \
             for uuid in uuid_list]
-        return pack(self._header_format, len(uuid_list)) + ''.join(uuid_list)
-
-    def _decode(self, body):
-        header_len = self._header_len
-        (n, ) = unpack(self._header_format, body[:header_len])
-        list_header_format = self._list_header_format
-        list_header_len = self._list_header_len
-        uuid_list = [unpack(list_header_format,
-            body[header_len+i*list_header_len:\
-                 header_len+(i+1)*list_header_len])[0] for i in xrange(n)]
-        uuid_list = [_decodeUUID(x) for x in uuid_list]
-        return (uuid_list, )
-
-class AnswerNewNodes(Packet):
-    """
-    Answer what are the nodes added in the partition table
-    """
-    _header_format = '!H'
-    _list_header_format = '!16s'
-    _list_header_len = calcsize(_list_header_format)
-
-    def _encode(self, uuid_list):
-        list_header_format = self._list_header_format
-        # an empty list means no new nodes
-        uuid_list = [pack(list_header_format, _encodeUUID(uuid)) for \
-            uuid in uuid_list]
         return pack(self._header_format, len(uuid_list)) + ''.join(uuid_list)
 
     def _decode(self, body):
@@ -1928,14 +1886,14 @@ class PacketRegistry(dict):
             0x0022,
             AskNodeList,
             AnswerNodeList)
-    SetNodeState, AnswerNodeState = register(
+    SetNodeState = register(
             0x0023,
             SetNodeState,
-            AnswerNodeState)
-    AddPendingNodes, AnswerNewNodes = register(
+            Error)
+    AddPendingNodes = register(
             0x0024,
             AddPendingNodes,
-            AnswerNewNodes)
+            Error)
     AskNodeInformation, AnswerNodeInformation = register(
             0x0025,
             AskNodeInformation,

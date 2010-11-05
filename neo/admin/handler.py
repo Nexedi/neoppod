@@ -186,7 +186,5 @@ class MasterRequestEventHandler(EventHandler):
         # sent client the partition table
         self.app.sendPartitionTable(client_conn)
 
-    answerNewNodes = forward_answer(Packets.AnswerNewNodes)
-    answerNodeState = forward_answer(Packets.AnswerNodeState)
     ack = forward_answer(Errors.Ack)
     protocolError = forward_answer(Errors.ProtocolError)

@@ -518,21 +518,10 @@ class ProtocolTests(NeoUnitTestBase):
         p = Packets.AskNodeInformation()
         self.assertEqual(p.decode(), ())
 
-    def test_AnswerNewNodes(self):
-        uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
-        p = Packets.AnswerNewNodes([uuid1, uuid2])
-        self.assertEqual(p.decode(), ([uuid1, uuid2], ))
-
     def test_AddPendingNodes(self):
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
         p = Packets.AddPendingNodes([uuid1, uuid2])
         self.assertEqual(p.decode(), ([uuid1, uuid2], ))
-
-    def test_AnswerNodeState(self):
-        uuid = self.getNewUUID()
-        state = NodeStates.RUNNING
-        p = Packets.AnswerNodeState(uuid, state)
-        self.assertEqual(p.decode(), (uuid, state))
 
     def test_SetNodeState(self):
         uuid = self.getNewUUID()

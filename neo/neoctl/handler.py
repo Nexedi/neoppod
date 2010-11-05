@@ -63,7 +63,5 @@ class CommandEventHandler(EventHandler):
 
     answerPartitionList = __answer(Packets.AnswerPartitionList)
     answerNodeList = __answer(Packets.AnswerNodeList)
-    answerNodeState = __answer(Packets.AnswerNodeState)
     answerClusterState = __answer(Packets.AnswerClusterState)
-    answerNewNodes = __answer(Packets.AnswerNewNodes)
     answerPrimary = __answer(Packets.AnswerPrimary)

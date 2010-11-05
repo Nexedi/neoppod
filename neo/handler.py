@@ -297,13 +297,7 @@ class EventHandler(object):
     def setNodeState(self, conn, uuid, state, modify_partition_table):
         raise UnexpectedPacketError
 
-    def answerNodeState(self, conn, uuid, state):
-        raise UnexpectedPacketError
-
     def addPendingNodes(self, conn, uuid_list):
-        raise UnexpectedPacketError
-
-    def answerNewNodes(self, conn, uuid_list):
         raise UnexpectedPacketError
 
     def askNodeInformation(self, conn):
@@ -468,10 +462,8 @@ class EventHandler(object):
         d[Packets.AskNodeList] = self.askNodeList
         d[Packets.AnswerNodeList] = self.answerNodeList
         d[Packets.SetNodeState] = self.setNodeState
-        d[Packets.AnswerNodeState] = self.answerNodeState
         d[Packets.SetClusterState] = self.setClusterState
         d[Packets.AddPendingNodes] = self.addPendingNodes
-        d[Packets.AnswerNewNodes] = self.answerNewNodes
         d[Packets.AskNodeInformation] = self.askNodeInformation
         d[Packets.AnswerNodeInformation] = self.answerNodeInformation
         d[Packets.AskClusterState] = self.askClusterState
