@@ -239,6 +239,7 @@ class Packet(object):
     a tuple respectively.
     """
 
+    _ignore_when_closed = False
     _header_format = None
     _header_len = None
     _request = None
@@ -325,6 +326,13 @@ class Packet(object):
 
     def getAnswerClass(self):
         return self._answer
+
+    def ignoreOnClosedConnection(self):
+        """
+        Tells if this packet must be ignored when its connection is closed
+        when it is handled.
+        """
+        return self._ignore_when_closed
 
 class Notify(Packet):
     """
@@ -1718,7 +1726,7 @@ def initMessage(klass):
         klass._header_len = calcsize(klass._header_format)
 
 StaticRegistry = {}
-def register(code, request, answer=None):
+def register(code, request, answer=None, ignore_when_closed=None):
     """ Register a packet in the packet registry """
     # register the request
     # assert code & RESPONSE_MASK == 0
@@ -1727,6 +1735,13 @@ def register(code, request, answer=None):
     request._code = code
     request._answer = answer
     StaticRegistry[code] = request
+    if ignore_when_closed is None:
+        # By default, on a closed connection:
+        # - request: ignore
+        # - answer: keep
+        # - nofitication: keep
+        ignore_when_closed = answer is not None
+    request._ignore_when_closed = ignore_when_closed
     if answer not in (None, Error):
         initMessage(answer)
         # compute the answer code
@@ -1842,11 +1857,15 @@ class PacketRegistry(dict):
     AskFinishTransaction, AnswerTransactionFinished = register(
             0x0013,
             AskFinishTransaction,
-            AnswerTransactionFinished)
+            AnswerTransactionFinished,
+            ignore_when_closed=False,
+    )
     AskLockInformation, AnswerInformationLocked = register(
             0x0014,
             AskLockInformation,
-            AnswerInformationLocked)
+            AnswerInformationLocked,
+            ignore_when_closed=False,
+    )
     InvalidateObjects = register(0x0015, InvalidateObjects)
     NotifyUnlockInformation = register(0x0016, NotifyUnlockInformation)
     AskNewOIDs, AnswerNewOIDs = register(
@@ -1889,11 +1908,15 @@ class PacketRegistry(dict):
     SetNodeState = register(
             0x0023,
             SetNodeState,
-            Error)
+            Error,
+            ignore_when_closed=False,
+    )
     AddPendingNodes = register(
             0x0024,
             AddPendingNodes,
-            Error)
+            Error,
+            ignore_when_closed=False,
+    )
     AskNodeInformation, AnswerNodeInformation = register(
             0x0025,
             AskNodeInformation,
@@ -1901,7 +1924,9 @@ class PacketRegistry(dict):
     SetClusterState = register(
             0x0026,
             SetClusterState,
-            Error)
+            Error,
+            ignore_when_closed=False,
+    )
     NotifyClusterInformation = register(0x0027, NotifyClusterInformation)
     AskClusterState, AnswerClusterState = register(
             0x0028,
@@ -1932,7 +1957,9 @@ class PacketRegistry(dict):
     AskPack, AnswerPack = register(
             0x0038,
             AskPack,
-            AnswerPack)
+            AnswerPack,
+            ignore_when_closed=False,
+    )
     AskCheckTIDRange, AnswerCheckTIDRange = register(
             0x0039,
             AskCheckTIDRange,

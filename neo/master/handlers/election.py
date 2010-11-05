@@ -193,14 +193,6 @@ class ServerElectionHandler(MasterHandler):
 
     def requestIdentification(self, conn, node_type,
                                         uuid, address, name):
-        if conn.getConnector() is None:
-            # Connection can be closed by peer after he sent
-            # RequestIdentification if he finds the primary master before
-            # we answer him.
-            # The connection gets closed before this message gets processed
-            # because this message might have been queued, but connection
-            # interruption takes effect as soon as received.
-            return
         self.checkClusterName(name)
         app = self.app
         if node_type != NodeTypes.MASTER:

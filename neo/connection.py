@@ -162,6 +162,10 @@ class HandlerSwitcher(object):
     def _handle(self, connection, packet):
         assert len(self._pending) == 1 or self._pending[0][0]
         PACKET_LOGGER.dispatch(connection, packet, 'from')
+        if connection.isClosed() and packet.ignoreOnClosedConnection():
+            neo.logging.debug('Ignoring packet %r on closed connection %r',
+                packet, connection)
+            return
         msg_id = packet.getId()
         (request_dict, handler) = self._pending[0]
         # notifications are not expected

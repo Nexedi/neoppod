@@ -57,7 +57,8 @@ class MasterOperationHandler(BaseMasterHandler):
         if not tid in self.app.tm:
             raise ProtocolError('Unknown transaction')
         self.app.tm.lock(tid, oid_list)
-        conn.answer(Packets.AnswerInformationLocked(tid))
+        if not conn.isClosed():
+            conn.answer(Packets.AnswerInformationLocked(tid))
 
     def notifyUnlockInformation(self, conn, tid):
         if not tid in self.app.tm:
@@ -70,5 +71,6 @@ class MasterOperationHandler(BaseMasterHandler):
         neo.logging.info('Pack started, up to %s...', dump(tid))
         app.dm.pack(tid, app.tm.updateObjectDataForPack)
         neo.logging.info('Pack finished.')
-        conn.answer(Packets.AnswerPack(True))
+        if not conn.isClosed():
+            conn.answer(Packets.AnswerPack(True))
 
