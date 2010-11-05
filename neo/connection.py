@@ -504,6 +504,7 @@ class Connection(BaseConnection):
             packet_type = packet.getType()
             if packet_type == Packets.Ping:
                 # Send a pong notification
+                PACKET_LOGGER.dispatch(self, packet, 'from')
                 self.answer(Packets.Pong(), packet.getId())
             elif packet_type == Packets.Pong:
                 # Skip PONG packets, its only purpose is refresh the timeout
