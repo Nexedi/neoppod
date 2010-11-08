@@ -137,15 +137,14 @@ class PartitionTable(neo.pt.PartitionTable):
             raise PartitionTableException('Non-assigned partition')
 
         # update the partition table
-        self.setCell(offset, node, CellStates.UP_TO_DATE)
+        cell_list = [self.setCell(offset, node, CellStates.UP_TO_DATE)]
         cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
 
         # If the partition contains a feeding cell, drop it now.
         for feeding_cell in self.getCellList(offset):
             if feeding_cell.isFeeding():
-                self.removeCell(offset, feeding_cell.getNode())
-                cell = (offset, feeding_cell.getUUID(), CellStates.DISCARDED)
-                cell_list.append(cell)
+                cell_list.append(self.removeCell(offset,
+                    feeding_cell.getNode()))
                 break
 
         return cell_list

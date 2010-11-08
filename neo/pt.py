@@ -183,6 +183,7 @@ class PartitionTable(object):
             row.append(Cell(node, state))
             if state != CellStates.FEEDING:
                 self.count_dict[node] += 1
+        return (offset, node.getUUID(), state)
 
     def removeCell(self, offset, node):
         row = self.partition_list[offset]
@@ -193,6 +194,7 @@ class PartitionTable(object):
                 if not cell.isFeeding():
                     self.count_dict[node] -= 1
                 break
+        return (offset, node.getUUID(), CellStates.DISCARDED)
 
     def load(self, ptid, row_list, nm):
         """
