@@ -87,6 +87,9 @@ class Application(object):
 
         registerLiveDebugger(on_log=self.log)
 
+    def _poll(self):
+        self.em.poll(1)
+
     def log(self):
         self.em.log()
         self.logQueuedEvents()
@@ -249,14 +252,15 @@ class Application(object):
 
         handler = verification.VerificationHandler(self)
         self.master_conn.setHandler(handler)
-        em = self.em
+        _poll = self._poll
 
         while not self.operational:
-            em.poll(1)
+            _poll()
 
     def initialize(self):
         """ Retreive partition table and node informations from the primary """
         neo.logging.debug('initializing...')
+        _poll = self._poll
         handler = initialization.InitializationHandler(self)
         self.master_conn.setHandler(handler)
 
@@ -270,7 +274,7 @@ class Application(object):
         self.master_conn.ask(Packets.AskPartitionTable())
         while not self.has_node_information or not self.has_partition_table \
                 or not self.has_last_ids:
-            self.em.poll(1)
+            _poll()
         self.ready = True
         self.replicator.populate()
         self.master_conn.notify(Packets.NotifyReady())
@@ -279,7 +283,7 @@ class Application(object):
         """Handle everything, including replications and transactions."""
         neo.logging.info('doing operation')
 
-        em = self.em
+        _poll = self._poll
 
         handler = master.MasterOperationHandler(self)
         self.master_conn.setHandler(handler)
@@ -289,7 +293,7 @@ class Application(object):
         self.tm.reset()
 
         while True:
-            em.poll(1)
+            _poll()
             if self.replicator.pending():
                 # Call processDelayedTasks before act, so tasks added in the
                 # act call are executed after one poll call, so that sent
@@ -302,13 +306,14 @@ class Application(object):
     def wait(self):
         # change handler
         neo.logging.info("waiting in hidden state")
+        _poll = self._poll
         handler = hidden.HiddenHandler(self)
         for conn in self.em.getConnectionList():
             conn.setHandler(handler)
 
         node = self.nm.getByUUID(self.uuid)
         while True:
-            self.em.poll(1)
+            _poll()
             if not node.isHidden():
                 break
 
