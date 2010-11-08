@@ -140,19 +140,19 @@ class Replicator(object):
     #   True when current_partition is replicated, or we don't know yet if
     #   there is something to replicate
 
-    new_partition_dict = None
-    critical_tid_dict = None
-    partition_dict = None
-    task_list = None
-    task_dict = None
     current_partition = None
     current_connection = None
-    waiting_for_unfinished_tids = None
+    waiting_for_unfinished_tids = False
     unfinished_tid_list = None
-    replication_done = None
+    replication_done = True
 
     def __init__(self, app):
         self.app = app
+        self.new_partition_dict = {}
+        self.critical_tid_dict = {}
+        self.partition_dict = {}
+        self.task_list = []
+        self.task_dict = {}
 
     def populate(self):
         """

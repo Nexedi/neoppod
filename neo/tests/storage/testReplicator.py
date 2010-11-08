@@ -44,40 +44,32 @@ class StorageReplicatorTests(NeoUnitTestBase):
             ),
         })
         replicator = Replicator(app)
-        assert replicator.new_partition_dict is None, \
-            replicator.new_partition_dict
-        assert replicator.critical_tid_dict is None, \
-            replicator.critical_tid_dict
-        assert replicator.partition_dict is None, replicator.partition_dict
+        self.assertEqual(replicator.new_partition_dict, {})
+        replicator.replication_done = False
         replicator.populate()
         self.assertEqual(len(replicator.new_partition_dict), 1)
         partition = replicator.new_partition_dict[0]
         self.assertEqual(partition.getRID(), 0)
         self.assertEqual(partition.getCriticalTID(), None)
-        self.assertEqual(replicator.critical_tid_dict, {})
-        self.assertEqual(replicator.partition_dict, {})
+        self.assertTrue(replicator.replication_done)
 
     def test_reset(self):
         replicator = Replicator(None)
-        assert replicator.task_list is None, replicator.task_list
-        assert replicator.task_dict is None, replicator.task_dict
-        assert replicator.current_partition is None, \
-            replicator.current_partition
-        assert replicator.current_connection is None, \
-            replicator.current_connection
-        assert replicator.waiting_for_unfinished_tids is None, \
-            replicator.waiting_for_unfinished_tids
-        assert replicator.unfinished_tid_list is None, \
-            replicator.unfinished_tid_list
-        assert replicator.replication_done is None, replicator.replication_done
+        replicator.task_list = ['foo']
+        replicator.task_dict = {'foo': 'bar'}
+        replicator.current_partition = 'foo'
+        replicator.current_connection = 'foo'
+        replicator.waiting_for_unfinished_tids = 'foo'
+        replicator.unfinished_tid_list = ['foo']
+        replicator.replication_done = 'foo'
         replicator.reset()
         self.assertEqual(replicator.task_list, [])
         self.assertEqual(replicator.task_dict, {})
         self.assertEqual(replicator.current_partition, None)
         self.assertEqual(replicator.current_connection, None)
-        self.assertEqual(replicator.waiting_for_unfinished_tids, False)
+        self.assertFalse(replicator.waiting_for_unfinished_tids)
         self.assertEqual(replicator.unfinished_tid_list, None)
-        self.assertEqual(replicator.replication_done, True)
+        self.assertTrue(replicator.replication_done)
 
     def test_setCriticalTID(self):
         replicator = Replicator(None)
