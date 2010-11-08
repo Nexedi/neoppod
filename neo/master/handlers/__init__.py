@@ -100,3 +100,6 @@ class BaseServiceHandler(MasterHandler):
         # clean node related data in specialized handlers
         self.nodeLost(conn, node)
 
+    def notifyReady(self, conn):
+        self.app.setStorageReady(conn.getUUID())
+

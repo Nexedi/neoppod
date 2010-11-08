@@ -143,6 +143,3 @@ class StorageServiceHandler(BaseServiceHandler):
                 if not client.isClosed():
                     client.answer(Packets.AnswerPack(True), msg_id=msg_id)
 
-    def notifyReady(self, conn):
-        self.app.setStorageReady(conn.getUUID())
-
