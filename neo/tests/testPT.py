@@ -18,7 +18,7 @@
 import unittest
 from mock import Mock
 from neo.protocol import NodeStates, CellStates
-from neo.pt import Cell, PartitionTable
+from neo.pt import Cell, PartitionTable, PartitionTableException
 from neo.node import StorageNode
 from neo.tests import NeoUnitTestBase
 
@@ -113,12 +113,14 @@ class PartitionTableTests(NeoUnitTestBase):
             self.assertEqual(len(pt.partition_list[x]), 0)
         self.assertEqual(pt.count_dict[sn1], 0)
         sn1.setState(NodeStates.BROKEN)
-        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
+        self.assertRaises(PartitionTableException, pt.setCell,
+            0, sn1, CellStates.UP_TO_DATE)
         for x in xrange(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
         self.assertEqual(pt.count_dict[sn1], 0)
         sn1.setState(NodeStates.DOWN)
-        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
+        self.assertRaises(PartitionTableException, pt.setCell,
+            0, sn1, CellStates.UP_TO_DATE)
         for x in xrange(num_partitions):
             self.assertEqual(len(pt.partition_list[x]), 0)
         self.assertEqual(pt.count_dict[sn1], 0)

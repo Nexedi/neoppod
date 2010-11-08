@@ -159,7 +159,7 @@ class PartitionTable(object):
         if state == CellStates.DISCARDED:
             return self.removeCell(offset, node)
         if node.isBroken() or node.isDown():
-            return
+            raise PartitionTableException('Invalid node state')
 
         self.count_dict.setdefault(node, 0)
         row = self.partition_list[offset]
