@@ -186,13 +186,13 @@ class PartitionTable(object):
 
     def removeCell(self, offset, node):
         row = self.partition_list[offset]
-        if row is not None:
-            for cell in row:
-                if cell.getNode() == node:
-                    row.remove(cell)
-                    if not cell.isFeeding():
-                        self.count_dict[node] -= 1
-                    break
+        assert row is not None
+        for cell in row:
+            if cell.getNode() == node:
+                row.remove(cell)
+                if not cell.isFeeding():
+                    self.count_dict[node] -= 1
+                break
 
     def load(self, ptid, row_list, nm):
         """
