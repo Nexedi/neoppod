@@ -160,12 +160,12 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
     def test_connectionLost(self):
         app = self.getApp()
         ReplicationHandler(app).connectionLost(None, None)
-        self.assertEqual(len(app.replicator.mockGetNamedCalls('reset')), 1)
+        self.assertEqual(len(app.replicator.mockGetNamedCalls('storageLost')), 1)
 
     def test_connectionFailed(self):
         app = self.getApp()
         ReplicationHandler(app).connectionFailed(None)
-        self.assertEqual(len(app.replicator.mockGetNamedCalls('reset')), 1)
+        self.assertEqual(len(app.replicator.mockGetNamedCalls('storageLost')), 1)
 
     def test_acceptIdentification(self):
         rid = 24

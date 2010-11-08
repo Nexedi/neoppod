@@ -162,6 +162,12 @@ class Replicator(object):
         self.critical_tid_list = []
         self.waiting_for_unfinished_tids = False
 
+    def storageLost(self):
+        """
+        Restart replicating.
+        """
+        self.reset()
+
     def populate(self):
         """
         Populate partitions to replicate. Must be called when partition

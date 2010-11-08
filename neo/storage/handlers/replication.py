@@ -87,11 +87,11 @@ class ReplicationHandler(EventHandler):
 
     def connectionLost(self, conn, new_state):
         neo.logging.error('replication is stopped due to a connection lost')
-        self.app.replicator.reset()
+        self.app.replicator.storageLost()
 
     def connectionFailed(self, conn):
         neo.logging.error('replication is stopped due to connection failure')
-        self.app.replicator.reset()
+        self.app.replicator.storageLost()
 
     def acceptIdentification(self, conn, node_type,
                        uuid, num_partitions, num_replicas, your_uuid):
