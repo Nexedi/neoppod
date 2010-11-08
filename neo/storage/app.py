@@ -272,6 +272,7 @@ class Application(object):
                 or not self.has_last_ids:
             self.em.poll(1)
         self.ready = True
+        self.replicator.populate()
         self.master_conn.notify(Packets.NotifyReady())
 
     def doOperation(self):
@@ -286,8 +287,6 @@ class Application(object):
         # Forget all unfinished data.
         self.dm.dropUnfinishedData()
         self.tm.reset()
-
-        self.replicator.populate()
 
         while True:
             em.poll(1)
