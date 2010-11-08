@@ -120,7 +120,7 @@ class Replicator(object):
     # new_partition_dict
     #   outdated partitions for which no critical tid was asked to primary
     #   master yet
-    # critical_tid_dict
+    # critical_tid_list
     #   outdated partitions for which a critical tid was asked to primary
     #   master, but not answered so far
     # partition_dict
@@ -149,10 +149,18 @@ class Replicator(object):
     def __init__(self, app):
         self.app = app
         self.new_partition_dict = {}
-        self.critical_tid_dict = {}
+        self.critical_tid_list = []
         self.partition_dict = {}
         self.task_list = []
         self.task_dict = {}
+
+    def masterLost(self):
+        """
+        When connection to primary master is lost, stop waiting for unfinished
+        transactions.
+        """
+        self.critical_tid_list = []
+        self.waiting_for_unfinished_tids = False
 
     def populate(self):
         """
@@ -161,7 +169,6 @@ class Replicator(object):
         Implies a reset.
         """
         self.new_partition_dict = self._getOutdatedPartitionList()
-        self.critical_tid_dict = {}
         self.partition_dict = {}
         self.reset()
 
@@ -171,7 +178,6 @@ class Replicator(object):
         self.task_dict = {}
         self.current_partition = None
         self.current_connection = None
-        self.waiting_for_unfinished_tids = False
         self.unfinished_tid_list = None
         self.replication_done = True
 
@@ -203,24 +209,17 @@ class Replicator(object):
     def isCurrentConnection(self, conn):
         return self.current_connection is conn
 
-    def setCriticalTID(self, uuid, tid):
+    def setCriticalTID(self, tid):
         """This is a callback from MasterOperationHandler."""
-        try:
-            partition_list = self.critical_tid_dict.pop(uuid)
-        except KeyError:
-            neo.logging.debug("setCriticalTID raised KeyError for %s" %
-                    (dump(uuid), ))
-        else:
-            neo.logging.debug('setting critical TID %s to %s', dump(tid),
-                         ', '.join([str(p.getRID()) for p in partition_list]))
-            for partition in partition_list:
-                partition.setCriticalTID(tid)
+        neo.logging.debug('setting critical TID %s to %s', dump(tid),
+            ', '.join([str(p.getRID()) for p in self.critical_tid_list]))
+        for partition in self.critical_tid_list:
+            partition.setCriticalTID(tid)
+        self.critical_tid_list = []
 
     def _askCriticalTID(self):
-        conn = self.app.master_conn
-        conn.ask(Packets.AskLastIDs())
-        uuid = conn.getUUID()
-        self.critical_tid_dict[uuid] = self.new_partition_dict.values()
+        self.app.master_conn.ask(Packets.AskLastIDs())
+        self.critical_tid_list.extend(self.new_partition_dict.values())
         self.partition_dict.update(self.new_partition_dict)
         self.new_partition_dict = {}
 

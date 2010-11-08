@@ -201,6 +201,7 @@ class Application(object):
             except OperationFailure, msg:
                 neo.logging.error('operation stopped: %s', msg)
             except PrimaryFailure, msg:
+                self.replicator.masterLost()
                 neo.logging.error('primary master is down: %s', msg)
                 self.master_node = None
 

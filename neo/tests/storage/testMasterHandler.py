@@ -180,7 +180,7 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         )
         calls = self.app.replicator.mockGetNamedCalls('setCriticalTID')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs(conn.getUUID(), INVALID_TID)
+        calls[0].checkArgs(INVALID_TID)
 
     def test_31_answerUnfinishedTransactions(self):
         # set unfinished TID on replicator

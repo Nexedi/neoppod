@@ -25,7 +25,7 @@ class MasterOperationHandler(BaseMasterHandler):
     """ This handler is used for the primary master """
 
     def answerLastIDs(self, conn, loid, ltid, lptid):
-        self.app.replicator.setCriticalTID(conn.getUUID(), ltid)
+        self.app.replicator.setCriticalTID(ltid)
 
     def answerUnfinishedTransactions(self, conn, tid_list):
         self.app.replicator.setUnfinishedTIDList(tid_list)

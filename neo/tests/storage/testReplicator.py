@@ -73,14 +73,13 @@ class StorageReplicatorTests(NeoUnitTestBase):
 
     def test_setCriticalTID(self):
         replicator = Replicator(None)
-        master_uuid = self.getNewUUID()
         partition_list = [Partition(0), Partition(5)]
-        replicator.critical_tid_dict = {master_uuid: partition_list}
+        replicator.critical_tid_list = partition_list[:]
         critical_tid = self.getNextTID()
         for partition in partition_list:
             self.assertEqual(partition.getCriticalTID(), None)
-        replicator.setCriticalTID(master_uuid, critical_tid)
-        self.assertEqual(replicator.critical_tid_dict, {})
+        replicator.setCriticalTID(critical_tid)
+        self.assertEqual(replicator.critical_tid_list, [])
         for partition in partition_list:
             self.assertEqual(partition.getCriticalTID(), critical_tid)
 
@@ -154,7 +153,7 @@ class StorageReplicatorTests(NeoUnitTestBase):
         self.checkNoPacketSent(app.master_conn)
         self.assertTrue(replicator.waiting_for_unfinished_tids)
         # Send answers (garanteed to happen in this order)
-        replicator.setCriticalTID(master_uuid, critical_tid)
+        replicator.setCriticalTID(critical_tid)
         act()
         self.checkNoPacketSent(app.master_conn)
         self.assertTrue(replicator.waiting_for_unfinished_tids)
