@@ -132,6 +132,38 @@ RC  - Review output of pylint (CODE)
       be split in chunks and processed in "background" on storage nodes.
       Packing throttling should probably be at the lowest possible priority
       (below interactive use and below replication).
+    - Replication throttling (HIGH AVAILABILITY)
+      Replication should not prevent clients from accessing storage node with
+      good responsiveness.
+      See "Replication pipelining".
+    - Replication pipelining (SPEED)
+      Replication work currently with too many exchanges between replicating
+      storage, and network latency can become a significant limit.
+      This should be changed to have just one initial request from
+      replicating storage, and multiple packets from reference storage with
+      database range checksums. When receiving these checksums, replicating
+      storage must compare with what it has, and ask row lists (might not even
+      be required) and data when there are differences. Quick fetching from
+      network with asynchronous checking (=queueing) + congestion control
+      (asking reference storage's to pause its packet flow) will probably be
+      required.
+      This should make it easier to throttle replication workload on reference
+      storage node, as it can decide to postpone replication-related packets on
+      its own.
+    - Partial replication (SPEED)
+      In its current implementation, replication always happens on a whole
+      partition. In typical use, only a few last transactions will have been
+      missed, so replicating only past a given TID would be much faster.
+      To achieve this, storage nodes must store 2 values:
+      - a pack identifier, which must be different each time a pack occurs
+        (increasing number sequence, TID-ish, etc) to trigger a
+        whole-partition replication when a pack happened (this could be
+        improved too, later)
+      - the latest (-ish) transaction committed locally, to use as a lower
+        replication boundary
+    - tpc_finish failures propagation to master (FUNCTIONALITY)
+      When asked to lock transaction data, if something goes wrong the master
+      node must be informed.
 
     Master
     - Master node data redundancy (HIGH AVAILABILITY)
@@ -161,6 +193,9 @@ RC  - Review output of pylint (CODE)
       instead of parsing the whole partition table. (SPEED)
     - Improve partition table tweaking algorithm to reduce differences between
       frequently and rarely used nodes (SCALABILITY)
+    - tpc_finish failures propagation to client (FUNCTIONALITY)
+      When a storage node notifies a problem during lock/unlock phase, an error
+      must be propagated to client.
 
     Client
     - Implement C version of mq.py (LOAD LATENCY)
@@ -182,6 +217,8 @@ RC  - Review output of pylint (CODE)
     - Cache for loadSerial/loadBefore
     - Implement restore() ZODB API method to bypass consistency checks during
       imports.
+    - tpc_finish failures (FUNCTIONALITY)
+      New failure cases during tpc_finish must be handled.
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might
