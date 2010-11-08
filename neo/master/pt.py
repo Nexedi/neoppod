@@ -18,6 +18,7 @@
 import neo.pt
 from struct import pack, unpack
 from neo.protocol import CellStates
+from neo.pt import PartitionTableException
 
 class PartitionTable(neo.pt.PartitionTable):
     """This class manages a partition table for the primary master node"""
@@ -122,6 +123,32 @@ class PartitionTable(neo.pt.PartitionTable):
                     new_nodes.append(node.asTuple())
                 self.setCell(offset, node, state)
         return new_nodes
+
+    def setUpToDate(self, node, offset):
+        """Set a cell as up-to-date"""
+        uuid = node.getUUID()
+        # check the partition is assigned and known as outdated
+        for cell in self.getCellList(offset):
+            if cell.getUUID() == uuid:
+                if not cell.isOutOfDate():
+                    raise PartitionTableException('Non-oudated partition')
+                break
+        else:
+            raise PartitionTableException('Non-assigned partition')
+
+        # update the partition table
+        self.setCell(offset, node, CellStates.UP_TO_DATE)
+        cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
+
+        # If the partition contains a feeding cell, drop it now.
+        for feeding_cell in self.getCellList(offset):
+            if feeding_cell.isFeeding():
+                self.removeCell(offset, feeding_cell.getNode())
+                cell = (offset, feeding_cell.getUUID(), CellStates.DISCARDED)
+                cell_list.append(cell)
+                break
+
+        return cell_list
 
     def addNode(self, node):
         """Add a node. Take it into account that it might not be really a new

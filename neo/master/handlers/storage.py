@@ -18,11 +18,12 @@
 import neo
 
 from neo.protocol import ProtocolError
-from neo.protocol import CellStates, Packets
+from neo.protocol import Packets
 from neo.master.handlers import BaseServiceHandler
 from neo.exception import OperationFailure
 from neo.util import dump
 from neo.connector import ConnectorConnectionClosedException
+from neo.pt import PartitionTableException
 
 
 class StorageServiceHandler(BaseServiceHandler):
@@ -107,30 +108,12 @@ class StorageServiceHandler(BaseServiceHandler):
         tm.remove(tid)
 
     def notifyReplicationDone(self, conn, offset):
-        uuid = conn.getUUID()
-        node = self.app.nm.getByUUID(uuid)
-        neo.logging.debug("node %s is up for offset %s" % (dump(uuid), offset))
-
-        # check the partition is assigned and known as outdated
-        for cell in self.app.pt.getCellList(offset):
-            if cell.getUUID() == uuid:
-                if not cell.isOutOfDate():
-                    raise ProtocolError("Non-oudated partition")
-                break
-        else:
-            raise ProtocolError("Non-assigned partition")
-
-        # update the partition table
-        self.app.pt.setCell(offset, node, CellStates.UP_TO_DATE)
-        cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
-
-        # If the partition contains a feeding cell, drop it now.
-        for feeding_cell in self.app.pt.getCellList(offset):
-            if feeding_cell.isFeeding():
-                self.app.pt.removeCell(offset, feeding_cell.getNode())
-                cell = (offset, feeding_cell.getUUID(), CellStates.DISCARDED)
-                cell_list.append(cell)
-                break
+        node = self.app.nm.getByUUID(conn.getUUID())
+        neo.logging.debug("%s is up for offset %s" % (node, offset))
+        try:
+            cell_list = self.app.pt.setUpToDate(node, offset)
+        except PartitionTableException, e:
+            raise ProtocolError(str(e))
         self.app.broadcastPartitionChanges(cell_list)
 
     def answerPack(self, conn, status):

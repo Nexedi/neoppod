@@ -22,6 +22,10 @@ from neo.protocol import CellStates
 from neo.util import dump, u64
 from neo.locking import RLock
 
+class PartitionTableException(Exception):
+    """
+        Base class for partition table exceptions
+    """
 
 class Cell(object):
     """This class represents a cell in a partition table."""
