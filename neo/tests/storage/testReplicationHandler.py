@@ -151,11 +151,12 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
 
-        self.assertEqual(len(packet_list), len(object_list), packet_list)
-        for packet, (oid, serial) in zip(packet_list, object_list):
-            self.assertEqual(packet.getType(),
-                Packets.AskObject)
-            self.assertEqual(packet.decode(), (oid, serial, None))
+        self.assertEqual(len(packet_list), len(object_list),
+            ([x.decode() for x in packet_list], object_list))
+        reference_set = set((x + (None, ) for x in object_list))
+        packet_set = set((x.decode() for x in packet_list))
+        assert len(packet_list) == len(reference_set) == len(packet_set)
+        self.assertEqual(reference_set, packet_set)
 
     def test_connectionLost(self):
         app = self.getApp()
