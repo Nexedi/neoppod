@@ -82,6 +82,13 @@ def descKeys(tree):
             except ValueError:
                 break
 
+def safeIter(func, *args, **kw):
+    try:
+        some_list = func(*args, **kw)
+    except ValueError:
+        some_list = []
+    return some_list
+
 class BTreeDatabaseManager(DatabaseManager):
 
     _obj = None
@@ -431,7 +438,7 @@ class BTreeDatabaseManager(DatabaseManager):
         partition_list = frozenset(partition_list)
         result = []
         append = result.append
-        for oid in self._obj.keys(min=min_oid):
+        for oid in safeIter(self._obj.keys, min=min_oid):
             if oid % num_partitions in partition_list:
                 if length == 0:
                     break
@@ -494,11 +501,7 @@ class BTreeDatabaseManager(DatabaseManager):
         min_serial = u64(min_serial)
         max_serial = u64(max_serial)
         result = {}
-        try:
-            oid_set = self._obj.items(min=min_oid)
-        except ValueError:
-            oid_set = []
-        for oid, tserial in oid_set:
+        for oid, tserial in safeIter(self._obj.items, min=min_oid):
             if oid % num_partitions == partition:
                 result[p64(oid)] = tid_list = []
                 append = tid_list.append
@@ -543,11 +546,7 @@ class BTreeDatabaseManager(DatabaseManager):
         u64 = util.u64
         result = []
         append = result.append
-        try:
-            tid_seq = self._trans.keys(min=u64(min_tid), max=u64(max_tid))
-        except ValueError:
-            tid_seq = []
-        for tid in tid_seq:
+        for tid in safeIter(self._trans.keys, min=u64(min_tid), max=u64(max_tid)):
             if tid % num_partitions == partition:
                 if length == 0:
                     break
@@ -596,7 +595,7 @@ class BTreeDatabaseManager(DatabaseManager):
         while True:
             obj_to_drop = []
             append_obj = obj_to_drop.append
-            for oid, tserial in obj.items(min=last_obj):
+            for oid, tserial in safeIter(obj.items, min=last_obj):
                 try:
                     max_serial = tserial.maxKey(tid)
                 except ValueError:
@@ -642,7 +641,7 @@ class BTreeDatabaseManager(DatabaseManager):
         count = 0
         tid_checksum = 0
         max_tid = 0
-        for max_tid in self._trans.keys(min=util.u64(min_tid)):
+        for max_tid in safeIter(self._trans.keys, min=util.u64(min_tid)):
             if max_tid % num_partitions == partition:
                 if count >= length:
                     break
@@ -659,7 +658,7 @@ class BTreeDatabaseManager(DatabaseManager):
         count = 0
         oid_checksum = serial_checksum = 0
         max_oid = max_serial = 0
-        for max_oid, tserial in self._obj.items(min=min_oid):
+        for max_oid, tserial in safeIter(self._obj.items, min=min_oid):
             if max_oid % num_partitions == partition:
                 if max_oid == min_oid:
                     try:
