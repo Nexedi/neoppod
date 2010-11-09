@@ -27,6 +27,14 @@ except ImportError:
 else:
     DATABASE_MANAGER_DICT['MySQL'] = MySQLDatabaseManager
 
+try:
+    from neo.storage.database.btree import BTreeDatabaseManager
+except ImportError:
+    pass
+else:
+    # XXX: warning: name might change in the future.
+    DATABASE_MANAGER_DICT['BTree'] = BTreeDatabaseManager
+
 if not DATABASE_MANAGER_DICT:
     raise ImportError('No database back-end available.')
 
