@@ -127,27 +127,14 @@ class StorageTests(NEOFunctionalTest):
             return replicate_count == target_count, replicate_count
         self.neo.expectCondition(callback, timeout, delay)
 
-    def __expectRunning(self, process):
-        self.neo.expectStorageState(process.getUUID(), NodeStates.RUNNING)
-
-    def __expectPending(self, process):
-        self.neo.expectStorageState(process.getUUID(), NodeStates.PENDING)
-
-    def __expectUnknown(self, process):
-        self.neo.expectStorageState(process.getUUID(), NodeStates.UNKNOWN)
-
-    def __expectUnavailable(self, process):
-        self.neo.expectStorageState(process.getUUID(),
-                NodeStates.TEMPORARILY_DOWN)
-
     def testReplicationWithoutBreak(self):
         """ Start a cluster with two storage, one replicas, the two databasqes
         must have the same content """
 
         # populate the cluster then check the databases
         (started, _) = self.__setup(storage_number=2, replicas=1)
-        self.__expectRunning(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectRunning(started[0])
+        self.neo.expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)
         self.__populate()
         self.__checkReplicationDone()
@@ -159,15 +146,15 @@ class StorageTests(NEOFunctionalTest):
         # start with the first storage
         processes = self.__setup(storage_number=3, replicas=1, pending_number=2)
         started, stopped = processes
-        self.__expectRunning(started[0])
+        self.neo.expectRunning(started[0])
         self.neo.expectClusterRunning()
 
         # start the second then the third
         stopped[0].start()
-        self.__expectPending(stopped[0])
+        self.neo.expectPending(stopped[0])
         self.neo.expectClusterRunning()
         stopped[1].start()
-        self.__expectPending(stopped[1])
+        self.neo.expectPending(stopped[1])
         self.neo.expectClusterRunning()
 
     def testReplicationWithNewStorage(self):
@@ -186,12 +173,12 @@ class StorageTests(NEOFunctionalTest):
 
         # start the second
         stopped[0].start()
-        self.__expectPending(stopped[0])
+        self.neo.expectPending(stopped[0])
         self.neo.expectClusterRunning()
 
         # add it to the partition table
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
-        self.__expectRunning(stopped[0])
+        self.neo.expectRunning(stopped[0])
         self.neo.expectAssignedCells(stopped[0], number=10)
         self.neo.expectClusterRunning()
 
@@ -205,8 +192,8 @@ class StorageTests(NEOFunctionalTest):
 
         # populate the two storages
         (started, _) = self.__setup(storage_number=2, replicas=1)
-        self.__expectRunning(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectRunning(started[0])
+        self.neo.expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)
         self.__populate()
         self.__checkReplicationDone()
@@ -224,7 +211,7 @@ class StorageTests(NEOFunctionalTest):
 
         # start neo with one storages
         (started, _) = self.__setup(replicas=0, storage_number=1)
-        self.__expectRunning(started[0])
+        self.neo.expectRunning(started[0])
         self.neo.expectOudatedCells(number=0)
         # add a client node
         db, conn = self.neo.getZODBConnection()
@@ -234,7 +221,7 @@ class StorageTests(NEOFunctionalTest):
 
         # stop it, the cluster must switch to verification
         started[0].stop()
-        self.__expectUnavailable(started[0])
+        self.neo.expectUnavailable(started[0])
         self.neo.expectClusterVerifying()
         # client must have been disconnected
         self.assertEqual(len(self.neo.getClientlist()), 0)
@@ -243,7 +230,7 @@ class StorageTests(NEOFunctionalTest):
 
         # restart it, the cluster must come back to running state
         started[0].start()
-        self.__expectRunning(started[0])
+        self.neo.expectRunning(started[0])
         self.neo.expectClusterRunning()
 
     def testSequentialStorageKill(self):
@@ -252,33 +239,33 @@ class StorageTests(NEOFunctionalTest):
 
         # start neo with three storages / two replicas
         (started, _) = self.__setup(replicas=2, storage_number=3, partitions=10)
-        self.__expectRunning(started[0])
-        self.__expectRunning(started[1])
-        self.__expectRunning(started[2])
+        self.neo.expectRunning(started[0])
+        self.neo.expectRunning(started[1])
+        self.neo.expectRunning(started[2])
         self.neo.expectOudatedCells(number=0)
         self.neo.expectClusterRunning()
 
         # stop one storage, cluster must remains running
         started[0].stop()
-        self.__expectUnavailable(started[0])
-        self.__expectRunning(started[1])
-        self.__expectRunning(started[2])
+        self.neo.expectUnavailable(started[0])
+        self.neo.expectRunning(started[1])
+        self.neo.expectRunning(started[2])
         self.neo.expectOudatedCells(number=10)
         self.neo.expectClusterRunning()
 
         # stop a second storage, cluster is still running
         started[1].stop()
-        self.__expectUnavailable(started[0])
-        self.__expectUnavailable(started[1])
-        self.__expectRunning(started[2])
+        self.neo.expectUnavailable(started[0])
+        self.neo.expectUnavailable(started[1])
+        self.neo.expectRunning(started[2])
         self.neo.expectOudatedCells(number=20)
         self.neo.expectClusterRunning()
 
         # stop the last, cluster died
         started[2].stop()
-        self.__expectUnavailable(started[0])
-        self.__expectUnavailable(started[1])
-        self.__expectUnavailable(started[2])
+        self.neo.expectUnavailable(started[0])
+        self.neo.expectUnavailable(started[1])
+        self.neo.expectUnavailable(started[2])
         self.neo.expectOudatedCells(number=20)
         self.neo.expectClusterVerifying()
 
@@ -288,7 +275,7 @@ class StorageTests(NEOFunctionalTest):
 
         # start with one storage
         (started, stopped) = self.__setup(storage_number=2, pending_number=1)
-        self.__expectRunning(started[0])
+        self.neo.expectRunning(started[0])
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
 
@@ -298,7 +285,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectOudatedCells(number=0)
 
         # check the first and the cluster are still running
-        self.__expectRunning(started[0])
+        self.neo.expectRunning(started[0])
         self.neo.expectClusterRunning()
 
         # XXX: should wait for the storage rejection
@@ -314,16 +301,16 @@ class StorageTests(NEOFunctionalTest):
         # start with one storage and no replicas
         (started, stopped) = self.__setup(storage_number=2, pending_number=1,
             partitions=10, replicas=0)
-        self.__expectRunning(started[0])
+        self.neo.expectRunning(started[0])
         self.neo.expectClusterRunning()
         self.neo.expectAssignedCells(started[0], 10)
         self.neo.expectOudatedCells(number=0)
 
         # start the second and add it to the partition table
         stopped[0].start()
-        self.__expectPending(stopped[0])
+        self.neo.expectPending(stopped[0])
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
-        self.__expectRunning(stopped[0])
+        self.neo.expectRunning(stopped[0])
         self.neo.expectClusterRunning()
         self.neo.expectOudatedCells(number=0)
 
@@ -339,16 +326,16 @@ class StorageTests(NEOFunctionalTest):
         # start with two storage / one replicas
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 partitions=10, pending_number=0)
-        self.__expectRunning(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectRunning(started[0])
+        self.neo.expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)
         self.neo.expectAssignedCells(started[0], 10)
         self.neo.expectAssignedCells(started[1], 10)
 
         # kill one storage, it should be set as unavailable
         started[0].stop()
-        self.__expectUnavailable(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectUnavailable(started[0])
+        self.neo.expectRunning(started[1])
         # and the partition table must not change
         self.neo.expectAssignedCells(started[0], 10)
         self.neo.expectAssignedCells(started[1], 10)
@@ -366,7 +353,7 @@ class StorageTests(NEOFunctionalTest):
         # start with one storage
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 pending_number=1, partitions=10)
-        self.__expectRunning(started[0])
+        self.neo.expectRunning(started[0])
         self.neo.expectStorageNotKnown(stopped[0])
         self.neo.expectOudatedCells(number=0)
 
@@ -379,9 +366,9 @@ class StorageTests(NEOFunctionalTest):
 
         # add a second storage
         stopped[0].start()
-        self.__expectPending(stopped[0])
+        self.neo.expectPending(stopped[0])
         self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
-        self.__expectRunning(stopped[0])
+        self.neo.expectRunning(stopped[0])
         self.neo.expectClusterRunning()
         self.neo.expectAssignedCells(started[0], 10)
         self.neo.expectAssignedCells(stopped[0], 10)
@@ -393,7 +380,7 @@ class StorageTests(NEOFunctionalTest):
 
         # kill the first storage
         started[0].stop()
-        self.__expectUnavailable(started[0])
+        self.neo.expectUnavailable(started[0])
         self.neo.expectOudatedCells(number=10)
         self.neo.expectAssignedCells(started[0], 10)
         self.neo.expectAssignedCells(stopped[0], 10)
@@ -403,7 +390,7 @@ class StorageTests(NEOFunctionalTest):
         # drop it from partition table
         self.neo.neoctl.dropNode(started[0].getUUID())
         self.neo.expectStorageNotKnown(started[0])
-        self.__expectRunning(stopped[0])
+        self.neo.expectRunning(stopped[0])
         self.neo.expectAssignedCells(started[0], 0)
         self.neo.expectAssignedCells(stopped[0], 10)
         self.__checkDatabase(self.neo.db_list[1])
@@ -423,14 +410,14 @@ class StorageTests(NEOFunctionalTest):
         # start with two storage / one replica
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 master_node_count=1, partitions=10)
-        self.__expectRunning(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectRunning(started[0])
+        self.neo.expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)
 
         # drop one
         self.neo.neoctl.dropNode(started[0].getUUID())
         self.neo.expectStorageNotKnown(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectRunning(started[1])
 
         # wait for running storage to store new partition table
         self.__checkReplicateCount(self.neo.db_list[1], 1)
@@ -439,12 +426,12 @@ class StorageTests(NEOFunctionalTest):
         self.neo.stop()
         self.neo.start(except_storages=[started[0]])
         self.neo.expectStorageNotKnown(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectRunning(started[1])
 
         # then restart it, it must be in pending state
         started[0].start()
-        self.__expectPending(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectPending(started[0])
+        self.neo.expectRunning(started[1])
 
     def testAcceptFirstEmptyStorageAfterStartupAllowed(self):
         """ Create a new cluster with no storage node, allow it to starts
@@ -465,24 +452,24 @@ class StorageTests(NEOFunctionalTest):
         # start with one storage
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 pending_number=1, partitions=10)
-        self.__expectRunning(started[0])
+        self.neo.expectRunning(started[0])
         self.neo.expectStorageNotKnown(stopped[0])
         self.neo.expectOudatedCells(number=0)
         self.neo.expectClusterRunning()
 
         # set the second storage in pending state and drop the first
         stopped[0].start()
-        self.__expectPending(stopped[0])
+        self.neo.expectPending(stopped[0])
         self.neo.neoctl.dropNode(started[0].getUUID())
         self.neo.expectStorageNotKnown(started[0])
-        self.__expectPending(stopped[0])
+        self.neo.expectPending(stopped[0])
 
     def testRestartWithMissingStorage(self):
         # start a cluster with a replica
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 pending_number=0, partitions=10)
-        self.__expectRunning(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectRunning(started[0])
+        self.neo.expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)
         self.neo.expectClusterRunning()
         # XXX: need to sync with storages first
@@ -490,27 +477,27 @@ class StorageTests(NEOFunctionalTest):
 
         # restart it with one storage only
         self.neo.start(except_storages=(started[1], ))
-        self.__expectRunning(started[0])
-        self.__expectUnknown(started[1])
+        self.neo.expectRunning(started[0])
+        self.neo.expectUnknown(started[1])
         self.neo.expectClusterRunning()
 
     def testRecoveryWithMultiplePT(self):
         # start a cluster with 2 storages and a replica
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 pending_number=0, partitions=10)
-        self.__expectRunning(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectRunning(started[0])
+        self.neo.expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)
         self.neo.expectClusterRunning()
 
         # drop the first then the second storage
         started[0].stop()
-        self.__expectUnavailable(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectUnavailable(started[0])
+        self.neo.expectRunning(started[1])
         self.neo.expectOudatedCells(number=10)
         started[1].stop()
-        self.__expectUnavailable(started[0])
-        self.__expectUnavailable(started[1])
+        self.neo.expectUnavailable(started[0])
+        self.neo.expectUnavailable(started[1])
         self.neo.expectOudatedCells(number=10)
         self.neo.expectClusterVerifying()
         # XXX: need to sync with storages first
@@ -518,13 +505,13 @@ class StorageTests(NEOFunctionalTest):
 
         # restart the cluster with the first storage killed
         self.neo.run(except_storages=[started[1]])
-        self.__expectRunning(started[0])
-        self.__expectUnknown(started[1])
+        self.neo.expectRunning(started[0])
+        self.neo.expectUnknown(started[1])
         self.neo.expectClusterRecovering()
         self.neo.expectOudatedCells(number=0)
         started[1].start()
-        self.__expectRunning(started[0])
-        self.__expectRunning(started[1])
+        self.neo.expectRunning(started[0])
+        self.neo.expectRunning(started[1])
         self.neo.expectClusterRecovering()
         self.neo.expectOudatedCells(number=10)
 

@@ -472,7 +472,23 @@ class NEOCluster(object):
 
     def expectStorageState(self, uuid, state, timeout=0, delay=1):
         self.__expectNodeState(NodeTypes.STORAGE, uuid, state,
-                timeout,delay)
+                timeout, delay)
+
+    def expectRunning(self, process, timeout=0, delay=1):
+        self.expectStorageState(process.getUUID(), NodeStates.RUNNING, timeout,
+                delay)
+
+    def expectPending(self, process, timeout=0, delay=1):
+        self.expectStorageState(process.getUUID(), NodeStates.PENDING, timeout,
+                delay)
+
+    def expectUnknown(self, process, timeout=0, delay=1):
+        self.expectStorageState(process.getUUID(), NodeStates.UNKNOWN, timeout,
+                delay)
+
+    def expectUnavailable(self, process, timeout=0, delay=1):
+        self.expectStorageState(process.getUUID(),
+                NodeStates.TEMPORARILY_DOWN, timeout, delay)
 
     def expectPrimary(self, uuid=None, timeout=0, delay=1):
         def callback(last_try):
