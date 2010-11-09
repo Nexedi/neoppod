@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from threading import Thread, Event, enumerate as thread_enum
+from neo.locking import Lock
 import neo
 
 class _ThreadedPoll(Thread):
@@ -60,6 +61,9 @@ class ThreadedPoll(object):
     _started = False
 
     def __init__(self, *args, **kw):
+        lock = Lock()
+        self._status_lock_acquire = lock.acquire
+        self._status_lock_release = lock.release
         self._args = args
         self._kw = kw
         self.newThread()
@@ -68,11 +72,32 @@ class ThreadedPoll(object):
         self._thread = _ThreadedPoll(*self._args, **self._kw)
 
     def start(self):
-        if self._started:
-            self.newThread()
-        else:
-            self._started = True
-        self._thread.start()
+        """
+        Start thread if not started or restart it if it's shutting down.
+        """
+        # TODO: a refcount-based approach would be better, but more intrusive.
+        self._status_lock_acquire()
+        try:
+            thread = self._thread
+            if thread.stopping():
+                # XXX: ideally, we should wake thread up here, to be sure not
+                # to wait forever.
+                thread.join()
+            if not thread.isAlive():
+                if self._started:
+                    self.newThread()
+                else:
+                    self._started = True
+                self._thread.start()
+        finally:
+            self._status_lock_release()
+
+    def stop(self):
+        self._status_lock_acquire()
+        try:
+            self._thread.stop()
+        finally:
+            self._status_lock_release()
 
     def __getattr__(self, key):
         return getattr(self._thread, key)
