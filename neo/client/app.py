@@ -642,6 +642,8 @@ class Application(object):
             compression = 0
         else:
             assert data_serial is None
+            compression = self.compress
+            compressed_data = data
             if self.compress:
                 compressed_data = compress(data)
                 if len(compressed_data) > len(data):
