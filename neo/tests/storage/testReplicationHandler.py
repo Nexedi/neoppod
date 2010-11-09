@@ -186,18 +186,21 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
 
     def test_answerTIDsFrom(self):
         conn = self.getFakeConnection()
-        tid_list = [self.getNextTID(), self.getNextTID()]
+        tid_list = [self.getOID(0), self.getOID(1), self.getOID(2)]
         app = self.getApp(conn=conn, tid_result=[])
         # With no known TID
         ReplicationHandler(app).answerTIDsFrom(conn, tid_list)
         self._checkPacketTIDList(conn, tid_list[:], tid_list[-1], app)
-        # With first TID known
+        # With some TIDs known
         conn = self.getFakeConnection()
-        known_tid_list = [tid_list[0], ]
-        unknown_tid_list = [tid_list[1], ]
+        known_tid_list = [tid_list[0], tid_list[1]]
+        unknown_tid_list = [tid_list[2], ]
         app = self.getApp(conn=conn, tid_result=known_tid_list)
-        ReplicationHandler(app).answerTIDsFrom(conn, tid_list)
+        ReplicationHandler(app).answerTIDsFrom(conn, tid_list[1:])
         self._checkPacketTIDList(conn, unknown_tid_list, tid_list[-1], app)
+        calls = app.dm.mockGetNamedCalls('deleteTransaction')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(tid_list[0])
 
     def test_answerTransactionInformation(self):
         conn = self.getFakeConnection()
@@ -220,7 +223,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         oid_2 = self.getOID(2)
         oid_3 = self.getOID(3)
         oid_4 = self.getOID(4)
-        tid_list = [self.getNextTID() for x in xrange(7)]
+        tid_list = [self.getOID(x) for x in xrange(7)]
         oid_dict = FakeDict((
             (oid_1, [tid_list[0], tid_list[1]]),
             (oid_2, [tid_list[3]]),
