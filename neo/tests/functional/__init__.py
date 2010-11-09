@@ -328,7 +328,7 @@ class NEOCluster(object):
     def getNEOCTL(self):
         return self.neoctl
 
-    def getZODBStorage(self):
+    def getZODBStorage(self, **kw):
         master_nodes = self.master_nodes.replace('/', ' ')
         result = Storage(
             master_nodes=master_nodes,
@@ -336,13 +336,14 @@ class NEOCluster(object):
             connector='SocketConnector',
             logfile=os.path.join(self.temp_dir, 'client.log'),
             verbose=self.verbose,
+            **kw
         )
         self.zodb_storage_list.append(result)
         return result
 
-    def getZODBConnection(self):
+    def getZODBConnection(self, **kw):
         """ Return a tuple with the database and a connection """
-        db = ZODB.DB(storage=self.getZODBStorage())
+        db = ZODB.DB(storage=self.getZODBStorage(**kw))
         return (db, db.open())
 
     def getSQLConnection(self, db, autocommit=False):
