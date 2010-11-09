@@ -17,11 +17,18 @@
 
 from neo.exception import DatabaseFailure
 from neo.storage.database.manager import DatabaseManager
-from neo.storage.database.mysqldb import MySQLDatabaseManager
 
-DATABASE_MANAGER_DICT = {
-    'MySQL': MySQLDatabaseManager,
-}
+DATABASE_MANAGER_DICT = {}
+
+try:
+    from neo.storage.database.mysqldb import MySQLDatabaseManager
+except ImportError:
+    pass
+else:
+    DATABASE_MANAGER_DICT['MySQL'] = MySQLDatabaseManager
+
+if not DATABASE_MANAGER_DICT:
+    raise ImportError('No database back-end available.')
 
 def buildDatabaseManager(name, config):
     if name is None:
