@@ -132,32 +132,31 @@ class ReplicationHandler(EventHandler):
     def answerObjectHistoryFrom(self, conn, object_dict):
         app = self.app
         ask = conn.ask
-        my_object_dict = app.replicator.getObjectHistoryFromResult()
         deleteObject = app.dm.deleteObject
+        my_object_dict = app.replicator.getObjectHistoryFromResult()
+        object_set = set()
         max_oid = max(object_dict.iterkeys())
         max_serial = max(object_dict[max_oid])
         for oid, serial_list in object_dict.iteritems():
-            # Check if I have objects, request those which I don't have.
-            if oid in my_object_dict:
-                # We must ignore extra serials we might have locally found for
-                # last received oid, as they can just be present in our list
-                # because we lacked some records (hence, we would have fetched
-                # rows further than other node for the same number of rows).
-                if oid == max_oid:
-                    my_serial_list = (x for x in my_object_dict[oid]
-                        if x <= max_serial)
-                else:
-                    my_serial_list = my_object_dict[oid]
-                my_serial_set = frozenset(my_serial_list)
-                serial_set = frozenset(serial_list)
-                extra_serial_set = my_serial_set - serial_set
-                for serial in extra_serial_set:
-                    deleteObject(oid, serial)
-                missing_serial_set = serial_set - my_serial_set
+            for serial in serial_list:
+                object_set.add((oid, serial))
+        my_object_set = set()
+        for oid, serial_list in my_object_dict.iteritems():
+            if oid > max_oid:
+                continue
+            elif oid == max_oid:
+                filter = lambda x: x <= max_serial
             else:
-                missing_serial_set = serial_list
-            for serial in missing_serial_set:
-                ask(Packets.AskObject(oid, serial, None), timeout=300)
+                filter = lambda x: True
+            for serial in serial_list:
+                if filter(serial):
+                    my_object_set.add((oid, serial))
+        extra_object_set = my_object_set - object_set
+        for oid, serial in extra_object_set:
+            deleteObject(oid, serial)
+        missing_object_set = object_set - my_object_set
+        for oid, serial in missing_object_set:
+            ask(Packets.AskObject(oid, serial, None), timeout=300)
         ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
             RANGE_LENGTH))
 
