@@ -17,7 +17,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import traceback
-import optparse
 import unittest
 import tempfile
 import logging
@@ -25,6 +24,8 @@ import time
 import sys
 import neo
 import os
+
+from neo.tests.benchmark import BenchmarkRunner
 
 # list of test modules
 # each of them have to import its TestCase classes
@@ -153,7 +154,7 @@ class NeoTestRunner(unittest.TestResult):
 
     def startTest(self, test):
         unittest.TestResult.startTest(self, test)
-        logging.info(" * TEST %s" % test)
+        logging.info(" * TEST %s", test)
         stats = self._getModuleStats(test)
         stats.run += 1
         self.lastStart = time.time()
@@ -179,42 +180,18 @@ class NeoTestRunner(unittest.TestResult):
         stats.failures += 1
         self._updateTimer(stats)
 
-    def _buildSystemInfo(self):
-        import platform
-        import datetime
+    def _buildSummary(self, add_status):
         success = self.testsRun - len(self.errors) - len(self.failures)
-        s = """
-    Title       : %s
-    Date        : %s
-    Node        : %s
-    Machine     : %s
-    System      : %s (%s)
-    Python      : %s
-    Directory   : %s
-    Status      : %7.3f%%
-        """ % (
-            self._title,
-            datetime.date.today().isoformat(),
-            platform.node(),
-            platform.machine(),
-            platform.system(),
-            platform.release(),
-            platform.python_version(),
-            self.temp_directory,
-            success * 100.0 / self.testsRun,
-        )
-        return s
-
-    def _buildSummary(self):
-        # visual 
+        add_status('Directory', self.temp_directory)
+        add_status('Status', '%.3f%%' % (success * 100.0 / self.testsRun))
+        # visual
         header       = "%25s |   run   | success |  errors |  fails  |   time   \n" % 'Test Module'
         separator    = "%25s-+---------+---------+---------+---------+----------\n" % ('-' * 25)
         format       = "%25s |   %3s   |   %3s   |   %3s   |   %3s   | %6.2fs   \n"
         group_f      = "%25s |         |         |         |         |          \n" 
         # header
         s = ' ' * 30 + ' NEO TESTS REPORT'
-        s += '\n\n'
-        s += self._buildSystemInfo()
+        s += '\n'
         s += '\n' + header + separator
         group = None
         t_success = 0
@@ -243,7 +220,7 @@ class NeoTestRunner(unittest.TestResult):
         return s
 
     def _buildErrors(self):
-        s = '\n'
+        s = ''
         test_formatter = lambda t: t.id()
         if len(self.errors):
             s += '\nERRORS:\n'
@@ -272,98 +249,53 @@ class NeoTestRunner(unittest.TestResult):
         s += '\n'
         return s
 
-    def build(self):
+    def buildReport(self, add_status):
         self.time = sum([s.time for s in self.modulesStats.values()])
         self.subject = "%s: %s Tests, %s Errors, %s Failures" % (self._title,
             self.testsRun, len(self.errors), len(self.failures))
-        self._summary = self._buildSummary()
-        self._errors = self._buildErrors()
-        self._warnings = self._buildWarnings()
+        summary = self._buildSummary(add_status)
+        errors = self._buildErrors()
+        warnings = self._buildWarnings()
+        report = '\n'.join([summary, errors, warnings])
+        return (self.subject, report)
 
-    def sendReport(self, smtp_server, sender, recipients):
-        """ Send a mail with the report summary """
+class TestRunner(BenchmarkRunner):
 
-        import smtplib
-        from email.MIMEMultipart import MIMEMultipart
-        from email.MIMEText import MIMEText
+    def add_options(self, parser):
+        parser.add_option('-f', '--functional', action='store_true')
+        parser.add_option('-u', '--unit', action='store_true')
+        parser.add_option('-z', '--zodb', action='store_true')
 
-        # build the email
-        msg = MIMEMultipart()
-        msg['Subject'] = self.subject
-        msg['From']    = sender
-        msg['To']      = ', '.join(recipients)
-        #msg.preamble = self.subject
-        msg.epilogue = ''
+    def load_options(self, options, args):
+        if not (options.unit or options.functional or options.zodb or args):
+            sys.exit('Nothing to run, please give one of -f, -u, -z')
+        return dict(
+            unit = options.unit,
+            functional = options.functional,
+            zodb = options.zodb,
+        )
 
-        # Add custom headers for client side filtering
-        msg['X-ERP5-Tests'] = 'NEO'
-        if self.wasSuccessful():
-          msg['X-ERP5-Tests-Status'] = 'OK'
-
-        # write the body
-        body = MIMEText(self._summary + self._warnings + self._errors)
-        msg.attach(body)
-
-        # attach the log file
-        if ATTACH_LOG:
-            log = MIMEText(file(LOG_FILE, 'r').read())
-            log.add_header('Content-Disposition', 'attachment', filename=LOG_FILE)
-            msg.attach(log)
-
-        # Send the email via a smtp server
-        s = smtplib.SMTP()
-        s.connect(*mail_server)
-        mail = msg.as_string()
-        for recipient in recipients:
-            try:
-                s.sendmail(sender, recipient, mail)
-            except smtplib.SMTPRecipientsRefused, e:
-                print "Mail for %s fails : %s" % (recipient, e)
-        s.close()
+    def start(self):
+        config = self._config
+        # run requested tests
+        runner = NeoTestRunner(title=config.title or 'Neo')
+        try:
+            if config.unit:
+                runner.run('Unit tests', UNIT_TEST_MODULES)
+            if config.functional:
+                runner.run('Functional tests', FUNC_TEST_MODULES)
+            if config.zodb:
+                runner.run('ZODB tests', ZODB_TEST_MODULES)
+        except KeyboardInterrupt:
+            config['mail_to'] = None
+            traceback.print_exc()
+        # build report
+        self._successful = runner.wasSuccessful()
+        return runner.buildReport(self.add_status)
 
 if __name__ == "__main__":
-
-    # handle command line options
-    parser = optparse.OptionParser()
-    parser.add_option('-f', '--functional', action='store_true')
-    parser.add_option('-u', '--unit', action='store_true')
-    parser.add_option('-z', '--zodb', action='store_true')
-    parser.add_option('', '--recipient', action='append')
-    parser.add_option('', '--sender')
-    parser.add_option('', '--server')
-    parser.add_option('', '--title')
-    (options, args) = parser.parse_args()
-
-    # check arguments
-    if bool(options.sender) ^ bool(options.recipient):
-        sys.exit('Need a sender and recipients to mail report')
-    if not (options.unit or options.functional or options.zodb or args):
-        sys.exit('Nothing to run, please give one of -f, -u, -z')
-    mail_server = options.server or '127.0.0.1:25'
-    mail_server = mail_server.split(':')
-
-    # run requested tests
-    runner = NeoTestRunner(title=options.title or 'Neo')
-    try:
-        if options.unit:
-            runner.run('Unit tests', UNIT_TEST_MODULES)
-        if options.functional:
-            runner.run('Functional tests', FUNC_TEST_MODULES)
-        if options.zodb:
-            runner.run('ZODB tests', ZODB_TEST_MODULES)
-    except KeyboardInterrupt:
-        traceback.print_exc()
-        options.sender = False
-
-    # build report
-    runner.build()
-    print runner._errors
-    print runner._warnings
-    print runner._summary
-
-    # send a mail
-    if options.sender:
-        runner.sendReport(mail_server, options.sender, options.recipient)
-    if not runner.wasSuccessful():
+    runner = TestRunner()
+    runner.run()
+    if not runner.was_successful():
         sys.exit(1)
     sys.exit(0)

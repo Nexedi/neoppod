@@ -3,158 +3,128 @@
 import sys
 import os
 import math
-import optparse
 import traceback
 from time import time
 
+from neo.tests.benchmark import BenchmarkRunner
 from neo.tests.functional import NEOCluster
 from ZODB.FileStorage import FileStorage
 
-def run(masters, storages, replicas, partitions, datafs, verbose):
-    print "Import of %s with m=%s, s=%s, r=%s, p=%s" % (
-            datafs, masters, storages, replicas, partitions)
-    # cluster
-    neo = NEOCluster(
-        db_list=['test_import_%d' % i for i in xrange(storages)],
-        clear_databases=True,
-        partitions=partitions,
-        replicas=replicas,
-        master_node_count=masters,
-        verbose=verbose,
-    )
-    # import
-    neo_storage = neo.getZODBStorage()
-    dfs_storage = FileStorage(file_name=datafs)
-    neo.start()
-    start = time()
-    try:
+MIN_STORAGES = 1
+MAX_STORAGES = 2
+MIN_REPLICAS = 0
+MAX_REPLICAS = 1
+
+class MatrixImportBenchmark(BenchmarkRunner):
+
+    def add_options(self, parser):
+        parser.add_option('-d', '--datafs')
+        parser.add_option('', '--min-storages')
+        parser.add_option('', '--max-storages')
+        parser.add_option('', '--min-replicas')
+        parser.add_option('', '--max-replicas')
+
+    def load_options(self, options, args):
+        if not options.datafs or not os.path.exists(options.datafs):
+            sys.exit('Missing or wrong data.fs argument')
+        return dict(
+            datafs = options.datafs,
+            min_s = int(options.min_storages or MIN_STORAGES),
+            max_s = int(options.max_storages or MAX_STORAGES),
+            min_r = int(options.min_replicas or MIN_REPLICAS),
+            max_r = int(options.max_replicas or MAX_REPLICAS),
+        )
+
+    def start(self):
+        # build storage (logarithm) & replicas (linear) lists
+        min_s, max_s = self._config.min_s, self._config.max_s
+        min_r, max_r = self._config.min_r, self._config.max_r
+        min_s2 = int(math.log(min_s, 2))
+        max_s2 = int(math.log(max_s, 2))
+        storages = [2 ** x for x in range(min_s2, max_s2 + 1)]
+        if storages[0] < min_s:
+            storages[0] = min_s
+        if storages[-1] < max_s:
+            storages.append(max_s)
+        replicas = range(min_r, max_r + 1)
+        results = self.runMatrix(storages, replicas)
+        return self.buildReport(storages, replicas, results)
+
+    def runMatrix(self, storages, replicas):
+        stats = {}
+        size = float(os.path.getsize(self._config.datafs))
+        for s in storages:
+            for r in [r for r in replicas if r < s]:
+                stats.setdefault(s, {})
+                result = self.runImport(1, s, r, 100)
+                if result is not None:
+                    result = size / result / 1024
+                stats[s][r] = result
+        return stats
+
+    def runImport(self, masters, storages, replicas, partitions):
+        print "Import of %s with m=%s, s=%s, r=%s, p=%s" % (
+                self._config.datafs, masters, storages, replicas, partitions)
+        # cluster
+        neo = NEOCluster(
+            db_list=['neot_matrix_%d' % i for i in xrange(storages)],
+            clear_databases=True,
+            partitions=partitions,
+            replicas=replicas,
+            master_node_count=masters,
+            verbose=self._config.verbose,
+        )
+        # import
+        neo_storage = neo.getZODBStorage()
+        dfs_storage = FileStorage(file_name=self._config.datafs)
+        neo.start()
+        start = time()
         try:
-            neo_storage.copyTransactionsFrom(dfs_storage)
-            return time() - start
-        except:
-            traceback.print_exc()
-            return None
-    finally:
-        neo.stop()
+            try:
+                neo_storage.copyTransactionsFrom(dfs_storage)
+                return time() - start
+            except:
+                traceback.print_exc()
+                return None
+        finally:
+            neo.stop()
 
-def runMatrix(datafs, storages, replicas, verbose):
-    stats = {}
-    size = float(os.path.getsize(datafs))
-    for s in storages:
-        for r in [r for r in replicas if r < s]:
-            stats.setdefault(s, {})
-            result = run(1, s, r, 100, datafs, verbose)
-            if result is not None:
-                result = size / result / 1024
-            stats[s][r] = result
-    return stats
-
-def buildReport(storages, replicas, results):
-    # draw an array with results
-    fmt = '|' + '|'.join(['  %8s  '] * (len(replicas) + 1)) + '|\n'
-    sep = '+' + '+'.join(['-' * 12] * (len(replicas) + 1)) + '+\n'
-    report = sep
-    report += fmt % tuple(['S\R'] + range(0, len(replicas)))
-    report += sep
-    failures = 0
-    speedlist = []
-    for s in storages:
-        values = []
-        assert s in results
-        for r in replicas:
-            if r in results[s]:
-                if results[s][r] is None:
-                    values.append('FAIL')
-                    failures += 1
-                else:
-                    values.append('%8.1f' % results[s][r])
-                    speedlist.append(results[s][r])
-            else:
-                values.append('N/A')
-        report += fmt % (tuple([s] + values))
+    def buildReport(self, storages, replicas, results):
+        config = self._config
+        self.add_status('Min storages', config.min_s)
+        self.add_status('Max storages', config.max_s)
+        self.add_status('Min replicas', config.min_r)
+        self.add_status('Max replicas', config.max_r)
+        # draw an array with results
+        fmt = '|' + '|'.join(['  %8s  '] * (len(replicas) + 1)) + '|\n'
+        sep = '+' + '+'.join(['-' * 12] * (len(replicas) + 1)) + '+\n'
+        report = sep
+        report += fmt % tuple(['S\R'] + range(0, len(replicas)))
         report += sep
-    if failures:
-        info = '%d failures' % (failures, )
-    else:
-        info = '%.1f KB/s' % (sum(speedlist) / len(speedlist))
-    summary = 'Matrix : %s ' % (info, )
-    return (summary, report)
-
-def sendReport(sender, recipients, server, summary, report):
-    """ Send a mail with the report summary """
-    # XXX: C/C from perfs bench
-    import smtplib
-    from email.MIMEMultipart import MIMEMultipart
-    from email.MIMEText import MIMEText
-
-    # build the email
-    msg = MIMEMultipart()
-    msg['Subject'] = summary
-    msg['From']    = sender
-    msg['To']      = ', '.join(recipients)
-    msg.epilogue = ''
-    msg.attach(MIMEText(report))
-
-    # Send via smtp server
-    s = smtplib.SMTP()
-    s.connect(*server)
-    mail = msg.as_string()
-    for recipient in recipients:
-        try:
-            s.sendmail(sender, recipient, mail)
-        except smtplib.SMTPRecipientsRefused:
-            print "Mail for %s fails" % recipient
-    s.close()
+        failures = 0
+        speedlist = []
+        for s in storages:
+            values = []
+            assert s in results
+            for r in replicas:
+                if r in results[s]:
+                    if results[s][r] is None:
+                        values.append('FAIL')
+                        failures += 1
+                    else:
+                        values.append('%8.1f' % results[s][r])
+                        speedlist.append(results[s][r])
+                else:
+                    values.append('N/A')
+            report += fmt % (tuple([s] + values))
+            report += sep
+        if failures:
+            info = '%d failures' % (failures, )
+        else:
+            info = '%.1f KB/s' % (sum(speedlist) / len(speedlist))
+        summary = 'Matrix : %s ' % (info, )
+        return (summary, report)
 
 if __name__ == "__main__":
-
-    # options
-    parser = optparse.OptionParser()
-    parser.add_option('-d', '--datafs')
-    parser.add_option('', '--min-storages')
-    parser.add_option('', '--max-storages')
-    parser.add_option('', '--min-replicas')
-    parser.add_option('', '--max-replicas')
-    parser.add_option('', '--recipient', action='append')
-    parser.add_option('', '--sender')
-    parser.add_option('', '--server')
-    parser.add_option('-v', '--verbose', action='store_true')
-    (options, args) = parser.parse_args()
-
-    # check arguments
-    if not options.datafs or not os.path.exists(options.datafs):
-        sys.exit('Missing or wrong data.fs argument')
-    if bool(options.sender) ^ bool(options.recipient):
-        sys.exit('Need a sender and recipients to mail report')
-
-    # parse args
-    min_s = int(options.min_storages or 1)
-    max_s = int(options.max_storages or 2)
-    min_r = int(options.min_replicas or 0)
-    max_r = int(options.max_replicas or 1)
-    datafs = options.datafs
-    mail_server = options.server or '127.0.0.1:25'
-    mail_server = mail_server.split(':')
-    sender = options.sender
-    recipient = options.recipient
-    verbose = options.verbose or False
-
-    # build storage (logarithm) & replicas (linear) lists
-    min_s2 = int(math.log(min_s, 2))
-    max_s2 = int(math.log(max_s, 2))
-    storages = [2 ** x for x in range(min_s2, max_s2 + 1)]
-    if storages[0] < min_s:
-        storages[0] = min_s
-    if storages[-1] < max_s:
-        storages.append(max_s)
-    replicas = range(min_r, max_r + 1)
-    results = runMatrix(datafs, storages, replicas, verbose)
-    summary, report = buildReport(storages, replicas, results)
-
-    print summary
-    print
-    print report
-
-    if options.sender:
-        sendReport(sender, recipient, mail_server, summary, report)
+    MatrixImportBenchmark().run()
 
