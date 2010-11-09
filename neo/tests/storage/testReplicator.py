@@ -59,7 +59,6 @@ class StorageReplicatorTests(NeoUnitTestBase):
         replicator.task_dict = {'foo': 'bar'}
         replicator.current_partition = 'foo'
         replicator.current_connection = 'foo'
-        replicator.waiting_for_unfinished_tids = 'foo'
         replicator.unfinished_tid_list = ['foo']
         replicator.replication_done = 'foo'
         replicator.reset()
@@ -67,7 +66,6 @@ class StorageReplicatorTests(NeoUnitTestBase):
         self.assertEqual(replicator.task_dict, {})
         self.assertEqual(replicator.current_partition, None)
         self.assertEqual(replicator.current_connection, None)
-        self.assertFalse(replicator.waiting_for_unfinished_tids)
         self.assertEqual(replicator.unfinished_tid_list, None)
         self.assertTrue(replicator.replication_done)
 
