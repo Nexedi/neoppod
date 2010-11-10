@@ -4,6 +4,7 @@ import os
 import sys
 import platform
 import datetime
+import traceback
 from time import time
 from ZODB.FileStorage import FileStorage
 
@@ -48,7 +49,12 @@ class ImportBenchmark(BenchmarkRunner):
         # import datafs
         neo.start()
         try:
-            return self.buildReport(*self.runImport(neo))
+            try:
+                return self.buildReport(*self.runImport(neo))
+            except:
+                summary = 'Perf : import failed'
+                report = ''.join(traceback.format_exc())
+                return summary, report
         finally:
             neo.stop()
 
