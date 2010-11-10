@@ -13,10 +13,10 @@ from neo.tests.benchmark import BenchmarkRunner
 from neo.tests.functional import NEOCluster
 
 PARTITIONS = 16
-TRANSACTIONS = 1000
-OBJECTS = 10000
-REVISIONS = 5
-OBJECT_SIZE = 100
+TRANSACTIONS = 1024
+OBJECTS = 1024
+REVISIONS = 4
+OBJECT_SIZE = 1024
 CUT_AT = 0
 
 def humanize(size):
