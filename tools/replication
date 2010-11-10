@@ -82,10 +82,11 @@ class ReplicationBenchmark(BenchmarkRunner):
             try:
                 p_time = self.time_it(self.populate, neo)
                 neo.expectOudatedCells(self._config.partitions)
-                neo.getStorageProcessList()[-1].start()
-                neo.expectRunning(neo.getStorageProcessList()[-1])
+                storage = neo.getStorageProcessList()[-1]
+                storage.start()
+                neo.expectRunning(storage, delay=0.1)
                 print "Source storage populated in %.3f secs" % p_time
-                r_time = self.time_it(self.replicate, neo)
+                r_time = self.time_it(self.replicate, neo) + 0.1
             except Exception:
                 content = ''.join(traceback.format_exc())
         finally:
