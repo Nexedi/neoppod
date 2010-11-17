@@ -637,14 +637,12 @@ class BTreeDatabaseManager(DatabaseManager):
             try:
                 max_serial = tserial.maxKey(tid)
             except ValueError:
+                # No entry before pack TID, nothing to pack on this object.
                 return False
-            try:
-                tserial.maxKey(max_serial)
-            except ValueError:
-                if tserial[max_serial][2] == '':
-                    max_serial += 1
-                else:
-                    return False
+            if tserial[max_serial][2] == '':
+                # Last version before/at pack TID is a creation undo, drop
+                # it too.
+                max_serial += 1
             def serial_callback(serial, _):
                 updatePackFuture(oid, serial, max_serial,
                     updateObjectDataForPack)
