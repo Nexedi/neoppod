@@ -206,6 +206,13 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         calls = app.dm.mockGetNamedCalls('deleteTransaction')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(tid_list[0])
+        # Peer has no transaction above requested min, go on with object
+        # replication after deleting local transactions
+        conn = self.getFakeConnection()
+        known_tid_list = [tid_list[0], ]
+        app = self.getApp(conn=conn, tid_result=known_tid_list)
+        ReplicationHandler(app).answerTIDsFrom(conn, [])
+        self.checkAskPacket(conn, Packets.AskCheckSerialRange)
 
     def test_answerTransactionInformation(self):
         conn = self.getFakeConnection()
@@ -268,6 +275,22 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
             (oid_4, tid_list[4]),
         ))
         self.assertEqual(actual_deletes, expected_deletes)
+        # Peer has no object above requested min, replication is over for this
+        # transaction once we deleted local content.
+        oid_dict = FakeDict(())
+        conn = self.getFakeConnection()
+        app = self.getApp(conn=conn, history_result={
+            oid_1: [tid_list[2]],
+        })
+        ReplicationHandler(app).answerObjectHistoryFrom(conn, oid_dict)
+        calls = app.dm.mockGetNamedCalls('deleteObject')
+        actual_deletes = set(((x.getParam(0), x.getParam(1)) for x in calls))
+        expected_deletes = set((
+            (oid_1, tid_list[2]),
+        ))
+        self.assertEqual(actual_deletes, expected_deletes)
+        calls = app.replicator.mockGetNamedCalls('setReplicationDone')
+        self.assertEqual(len(calls), 1)
 
     def test_answerObject(self):
         conn = self.getFakeConnection()

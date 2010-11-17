@@ -115,10 +115,13 @@ class ReplicationHandler(EventHandler):
             deleteTransaction = app.dm.deleteTransaction
             for tid in extra_tid_set:
                 deleteTransaction(tid)
-        missing_tid_set = tid_set - my_tid_set
-        for tid in missing_tid_set:
-            ask(Packets.AskTransactionInformation(tid), timeout=300)
-        ask(self._doAskCheckTIDRange(add64(tid_list[-1], 1), RANGE_LENGTH))
+        if tid_list:
+            missing_tid_set = tid_set - my_tid_set
+            for tid in missing_tid_set:
+                ask(Packets.AskTransactionInformation(tid), timeout=300)
+            ask(self._doAskCheckTIDRange(add64(tid_list[-1], 1), RANGE_LENGTH))
+        else:
+            ask(self._doAskCheckSerialRange(ZERO_OID, ZERO_TID))
 
     @checkConnectionIsReplicatorConnection
     def answerTransactionInformation(self, conn, tid,
@@ -135,30 +138,36 @@ class ReplicationHandler(EventHandler):
         deleteObject = app.dm.deleteObject
         my_object_dict = app.replicator.getObjectHistoryFromResult()
         object_set = set()
-        max_oid = max(object_dict.iterkeys())
-        max_serial = max(object_dict[max_oid])
-        for oid, serial_list in object_dict.iteritems():
-            for serial in serial_list:
-                object_set.add((oid, serial))
+        if object_dict:
+            max_oid = max(object_dict.iterkeys())
+            max_serial = max(object_dict[max_oid])
+            for oid, serial_list in object_dict.iteritems():
+                for serial in serial_list:
+                    object_set.add((oid, serial))
+        else:
+            max_oid = None
         my_object_set = set()
         for oid, serial_list in my_object_dict.iteritems():
-            if oid > max_oid:
-                continue
-            elif oid == max_oid:
-                filter = lambda x: x <= max_serial
-            else:
-                filter = lambda x: True
+            filter = lambda x: True
+            if max_oid is not None:
+                if oid > max_oid:
+                    continue
+                elif oid == max_oid:
+                    filter = lambda x: x <= max_serial
             for serial in serial_list:
                 if filter(serial):
                     my_object_set.add((oid, serial))
         extra_object_set = my_object_set - object_set
         for oid, serial in extra_object_set:
             deleteObject(oid, serial)
-        missing_object_set = object_set - my_object_set
-        for oid, serial in missing_object_set:
-            ask(Packets.AskObject(oid, serial, None), timeout=300)
-        ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
-            RANGE_LENGTH))
+        if object_dict:
+            missing_object_set = object_set - my_object_set
+            for oid, serial in missing_object_set:
+                ask(Packets.AskObject(oid, serial, None), timeout=300)
+            ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
+                RANGE_LENGTH))
+        else:
+            self.app.replicator.setReplicationDone()
 
     @checkConnectionIsReplicatorConnection
     def answerObject(self, conn, oid, serial_start,
