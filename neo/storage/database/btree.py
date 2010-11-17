@@ -41,12 +41,23 @@ def OOBTree():
         result = TREE_POOL.pop()
     except IndexError:
         result = _OOBTree()
+    # Next btree we prune will have room, restore prune method
+    global prune
+    prune = _prune
     return result
 
-def prune(tree):
-    if len(TREE_POOL) < MAX_TREE_POOL_SIZE:
-        tree.clear()
-        TREE_POOL.append(tree)
+def _prune(tree):
+    tree.clear()
+    TREE_POOL.append(tree)
+    if len(TREE_POOL) >= MAX_TREE_POOL_SIZE:
+        # Already at/above max pool size, disable ourselve.
+        global prune
+        prune = _noPrune
+
+def _noPrune(_):
+    pass
+
+prune = _prune
 
 class CreationUndone(Exception):
     pass
