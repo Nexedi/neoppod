@@ -422,13 +422,14 @@ class BTreeDatabaseManager(DatabaseManager):
         except KeyError:
             pass
         else:
-            if serial is None:
-                del obj[oid]
-            else:
+            if serial is not None:
                 try:
                     del tserial[serial]
                 except KeyError:
                     pass
+            if serial is None or not tserial:
+                prune(obj[oid])
+                del obj[oid]
 
     def getTransaction(self, tid, all=False):
         tid = util.u64(tid)
