@@ -388,9 +388,19 @@ class DatabaseManager(object):
         an oid list"""
         raise NotImplementedError
 
+    def deleteTransactionsAbove(self, num_partitions, partition, tid):
+        """Delete all transactions above given TID (excluded) in given
+        partition."""
+        raise NotImplementedError
+
     def deleteObject(self, oid, serial=None):
         """Delete given object. If serial is given, only delete that serial for
         given oid."""
+        raise NotImplementedError
+
+    def deleteObjectsAbove(self, num_partitions, partition, oid, serial):
+        """Delete all objects above given OID and serial (excluded) in given
+        partition."""
         raise NotImplementedError
 
     def getTransaction(self, tid, all = False):

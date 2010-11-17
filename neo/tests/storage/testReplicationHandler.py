@@ -67,10 +67,12 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         pass
 
     def getApp(self, conn=None, tid_check_result=(0, 0, ZERO_TID),
-            serial_check_result=(0, 0, ZERO_OID, 0, ZERO_TID),
-            tid_result=(),
-            history_result=None,
-            rid=0, critical_tid=ZERO_TID):
+                serial_check_result=(0, 0, ZERO_OID, 0, ZERO_TID),
+                tid_result=(),
+                history_result=None,
+                rid=0, critical_tid=ZERO_TID,
+                num_partitions=1,
+            ):
         if history_result is None:
             history_result = {}
         replicator = Mock({
@@ -98,6 +100,9 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
             dm = Mock({
                 'storeTransaction': None,
                 'deleteObject': None,
+            })
+            pt = Mock({
+                'getPartitions': num_partitions,
             })
         return FakeApp
 
@@ -360,9 +365,10 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         max_tid = self.getNextTID()
         length = RANGE_LENGTH / 2
         rid = 12
+        num_partitions = 13
         conn = self.getFakeConnection()
         app = self.getApp(tid_check_result=(length - 1, 0, max_tid), rid=rid,
-            conn=conn)
+            conn=conn, num_partitions=num_partitions)
         handler = ReplicationHandler(app)
         # Peer has the same data as we have: length, checksum and max_tid
         # match.
@@ -378,6 +384,10 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         calls = app.replicator.mockGetNamedCalls('checkSerialRange')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
+        # ...and delete partition tail
+        calls = app.dm.mockGetNamedCalls('deleteTransactionsAbove')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(num_partitions, rid, max_tid)
 
     def test_answerCheckTIDRangeDifferentBigChunk(self):
         min_tid = self.getNextTID()
@@ -514,9 +524,10 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         max_serial = self.getNextTID()
         length = RANGE_LENGTH / 2
         rid = 12
+        num_partitions = 13
         conn = self.getFakeConnection()
         app = self.getApp(serial_check_result=(length - 1, 0, max_oid, 1,
-            max_serial), rid=rid, conn=conn)
+            max_serial), rid=rid, conn=conn, num_partitions=num_partitions)
         handler = ReplicationHandler(app)
         # Peer has the same data as we have
         handler.answerCheckSerialRange(conn, min_oid, min_serial, length,
@@ -524,6 +535,10 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         # Result: mark replication as done
         self.checkNoPacketSent(conn)
         self.assertTrue(app.replicator.replication_done)
+        # ...and delete partition tail
+        calls = app.dm.mockGetNamedCalls('deleteObjectsAbove')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(num_partitions, rid, max_oid, max_serial)
 
     def test_answerCheckSerialRangeDifferentBigChunk(self):
         min_oid = self.getOID(1)
@@ -590,9 +605,12 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         critical_tid = self.getNextTID()
         length = MIN_RANGE_LENGTH - 1
         rid = 12
+        num_partitions = 13
         conn = self.getFakeConnection()
         app = self.getApp(tid_check_result=(length - 5, 0, max_oid,
-            1, max_serial), rid=rid, conn=conn, critical_tid=critical_tid)
+            1, max_serial), rid=rid, conn=conn, critical_tid=critical_tid,
+            num_partitions=num_partitions,
+        )
         handler = ReplicationHandler(app)
         # Peer has different data, and less than length
         handler.answerCheckSerialRange(conn, min_oid, min_serial, length,
@@ -611,6 +629,10 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         calls[0].checkArgs(pmin_oid, pmin_serial, pmax_serial, plength,
             ppartition)
         self.assertTrue(app.replicator.replication_done)
+        # ...and delete partition tail
+        calls = app.dm.mockGetNamedCalls('deleteObjectsAbove')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(num_partitions, rid, max_oid, max_serial)
 
 if __name__ == "__main__":
     unittest.main()

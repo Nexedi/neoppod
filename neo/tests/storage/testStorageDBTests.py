@@ -334,6 +334,24 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(self.db.getTransaction(tid1, True), None)
         self.assertEqual(self.db.getTransaction(tid2, True), None)
 
+    def test_deleteTransactionsAbove(self):
+        self.db.setNumPartitions(2)
+        tid1 = self.getOID(0)
+        tid2 = self.getOID(1)
+        tid3 = self.getOID(2)
+        oid1 = self.getOID(1)
+        for tid in (tid1, tid2, tid3):
+            txn, objs = self.getTransaction([oid1])
+            self.db.storeTransaction(tid, objs, txn)
+            self.db.finishTransaction(tid)
+        self.db.deleteTransactionsAbove(2, 0, tid1)
+        # Right partition, below cutoff
+        self.assertNotEqual(self.db.getTransaction(tid1, True), None)
+        # Wrong partition, above cutoff
+        self.assertNotEqual(self.db.getTransaction(tid2, True), None)
+        # Right partition, above cutoff
+        self.assertEqual(self.db.getTransaction(tid3, True), None)
+
     def test_deleteObject(self):
         oid1, oid2 = self.getOIDs(2)
         tid1, tid2 = self.getTIDs(2)
@@ -350,6 +368,31 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(self.db.getObject(oid2, tid=tid1), False)
         self.assertEqual(self.db.getObject(oid2, tid=tid2), (tid2, None) + \
             objs2[1][1:])
+
+    def test_deleteObjectsAbove(self):
+        self.db.setNumPartitions(2)
+        tid1 = self.getOID(1)
+        tid2 = self.getOID(2)
+        tid3 = self.getOID(3)
+        oid1 = self.getOID(0)
+        oid2 = self.getOID(1)
+        oid3 = self.getOID(2)
+        for tid in (tid1, tid2, tid3):
+            txn, objs = self.getTransaction([oid1, oid2, oid3])
+            self.db.storeTransaction(tid, objs, txn)
+            self.db.finishTransaction(tid)
+        self.db.deleteObjectsAbove(2, 0, oid1, tid1)
+        # Right partition, below cutoff
+        self.assertNotEqual(self.db.getObject(oid1, tid=tid1), None)
+        # Right partition, above tid cutoff
+        self.assertEqual(self.db.getObject(oid1, tid=tid2), False)
+        self.assertEqual(self.db.getObject(oid1, tid=tid3), False)
+        # Wrong partition, above cutoff
+        self.assertNotEqual(self.db.getObject(oid2, tid=tid1), None)
+        self.assertNotEqual(self.db.getObject(oid2, tid=tid2), None)
+        self.assertNotEqual(self.db.getObject(oid2, tid=tid3), None)
+        # Right partition, above cutoff
+        self.assertEqual(self.db.getObject(oid3), None)
 
     def test_getTransaction(self):
         oid1, oid2 = self.getOIDs(2)

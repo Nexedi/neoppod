@@ -242,7 +242,8 @@ class ReplicationHandler(EventHandler):
     def answerCheckTIDRange(self, conn, min_tid, length, count, tid_checksum,
             max_tid):
         ask = conn.ask
-        replicator = self.app.replicator
+        app = self.app
+        replicator = app.replicator
         next_tid = add64(max_tid, 1)
         action, params = self._checkRange(
             replicator.getTIDCheckResult(min_tid, length) == (
@@ -261,6 +262,10 @@ class ReplicationHandler(EventHandler):
             else:
                 ask(self._doAskCheckTIDRange(min_tid, count))
         if action == CHECK_DONE:
+            # Delete all transactions we might have which are beyond what peer
+            # knows.
+            app.dm.deleteTransactionsAbove(app.pt.getPartitions(),
+              replicator.getCurrentRID(), max_tid)
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
             ask(self._doAskCheckSerialRange(ZERO_OID, ZERO_TID))
@@ -269,7 +274,8 @@ class ReplicationHandler(EventHandler):
     def answerCheckSerialRange(self, conn, min_oid, min_serial, length, count,
             oid_checksum, max_oid, serial_checksum, max_serial):
         ask = conn.ask
-        replicator = self.app.replicator
+        app = self.app
+        replicator = app.replicator
         next_params = (max_oid, add64(max_serial, 1))
         action, params = self._checkRange(
             replicator.getSerialCheckResult(min_oid, min_serial, length) == (
@@ -284,6 +290,10 @@ class ReplicationHandler(EventHandler):
             ((min_oid, min_serial), count) = params
             ask(self._doAskCheckSerialRange(min_oid, min_serial, count))
         if action == CHECK_DONE:
+            # Delete all objects we might have which are beyond what peer
+            # knows.
+            app.dm.deleteObjectsAbove(app.pt.getPartitions(),
+              replicator.getCurrentRID(), max_oid, max_serial)
             # Nothing remains, so the replication for this partition is
             # finished.
             replicator.setReplicationDone()

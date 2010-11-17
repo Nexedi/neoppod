@@ -557,6 +557,19 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
+    def deleteTransactionsAbove(self, num_partitions, partition, tid):
+        self.begin()
+        try:
+            self.query('DELETE FROM trans WHERE partition=%(partition)d AND '
+              'tid > %(tid)d' % {
+                'partition': partition,
+                'tid': util.u64(tid),
+            })
+        except:
+            self.rollback()
+            raise
+        self.commit()
+
     def deleteObject(self, oid, serial=None):
         u64 = util.u64
         oid = u64(oid)
@@ -572,6 +585,21 @@ class MySQLDatabaseManager(DatabaseManager):
         self.begin()
         try:
             self.objQuery(query_fmt % query_param_dict)
+        except:
+            self.rollback()
+            raise
+        self.commit()
+
+    def deleteObjectsAbove(self, num_partitions, partition, oid, serial):
+        u64 = util.u64
+        self.begin()
+        try:
+            self.query('DELETE FROM obj WHERE partition=%(partition)d AND '
+              'oid > %(oid)d OR (oid = %(oid)d AND serial > %(serial)d)' % {
+                'partition': partition,
+                'oid': u64(oid),
+                'serial': u64(serial),
+            })
         except:
             self.rollback()
             raise
