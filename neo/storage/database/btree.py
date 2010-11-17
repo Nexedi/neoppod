@@ -383,23 +383,28 @@ class BTreeDatabaseManager(DatabaseManager):
             else:
                 break
 
-    def deleteTransaction(self, tid, all=False):
+    def deleteTransaction(self, tid, oid_list=()):
         tid = util.u64(tid)
         self._popTransactionFromObj(self._tobj, tid)
         try:
             del self._ttrans[tid]
         except KeyError:
             pass
-        if all:
-            self._popTransactionFromObj(self._obj, tid)
-            try:
-                del self._trans[tid]
-            except KeyError:
-                pass
+        for oid in oid_list:
+            self._deleteObject(oid, serial=tid)
+        try:
+            del self._trans[tid]
+        except KeyError:
+            pass
 
     def deleteObject(self, oid, serial=None):
         u64 = util.u64
         oid = u64(oid)
+        if serial is not None:
+            serial = u64(serial)
+        self._deleteObject(oid, serial=serial)
+
+    def _deleteObject(self, oid, serial=None):
         obj = self._obj
         try:
             tserial = obj[oid]
@@ -409,7 +414,6 @@ class BTreeDatabaseManager(DatabaseManager):
             if serial is None:
                 del obj[oid]
             else:
-                serial = u64(serial)
                 try:
                     del tserial[serial]
                 except KeyError:
