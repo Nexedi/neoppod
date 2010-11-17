@@ -383,7 +383,7 @@ class DatabaseManager(object):
         temporarily data to a finished area."""
         raise NotImplementedError
 
-    def deleteTransaction(self, tid, oid_list):
+    def deleteTransaction(self, tid, oid_list=()):
         """Delete a transaction and its content specified by a given ID and
         an oid list"""
         raise NotImplementedError
