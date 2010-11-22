@@ -892,7 +892,6 @@ class Application(object):
                         if oid in mq_cache:
                             del mq_cache[oid]
                     else:
-                        # Now serial is same as tid
                         mq_cache[oid] = tid, data
             finally:
                 self._cache_lock_release()
