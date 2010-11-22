@@ -21,6 +21,10 @@ from datetime import timedelta, datetime
 from neo.util import dump
 import neo
 
+TID_LOW_OVERFLOW = 2**32
+TID_LOW_MAX = TID_LOW_OVERFLOW - 1
+SECOND_PER_TID_LOW = 60.0 / TID_LOW_OVERFLOW
+
 class Transaction(object):
     """
         A pending transaction
@@ -172,11 +176,11 @@ class TransactionManager(object):
         gmt = gmtime(tm)
         upper = make_upper(gmt.tm_year, gmt.tm_mon, gmt.tm_mday, gmt.tm_hour,
             gmt.tm_min)
-        lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / (60.0 / 65536.0 / 65536.0))
+        lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / SECOND_PER_TID_LOW)
         tid = pack('!LL', upper, lower)
         if self._last_tid is not None and tid <= self._last_tid:
             upper, lower = unpack('!LL', self._last_tid)
-            if lower == 0xffffffff:
+            if lower == TID_LOW_MAX:
                 # This should not happen usually.
                 d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday,
                              gmt.tm_hour, gmt.tm_min) + timedelta(0, 60)
