@@ -24,6 +24,64 @@ import neo
 TID_LOW_OVERFLOW = 2**32
 TID_LOW_MAX = TID_LOW_OVERFLOW - 1
 SECOND_PER_TID_LOW = 60.0 / TID_LOW_OVERFLOW
+TID_CHUNK_RULES = (
+    (-1900, 0),
+    (-1, 12),
+    (-1, 31),
+    (0, 24),
+    (0, 60),
+)
+
+def packTID(utid):
+    """
+    Pack given 2-tuple containing:
+    - a 5-tuple containing year, month, day, hour and minute
+    - seconds scaled to 60:2**32
+    into a 64 bits TID.
+    """
+    higher, lower = utid
+    assert len(higher) == len(TID_CHUNK_RULES), higher
+    packed_higher = 0
+    for value, (offset, multiplicator) in zip(higher, TID_CHUNK_RULES):
+        assert isinstance(value, (int, long)), value
+        value += offset
+        assert 0 <= value, (value, offset, multiplicator)
+        assert multiplicator == 0 or value < multiplicator, (value,
+            offset, multiplicator)
+        packed_higher *= multiplicator
+        packed_higher += value
+    assert isinstance(lower, (int, long)), lower
+    assert 0 <= lower < TID_LOW_OVERFLOW, hex(lower)
+    return pack('!LL', packed_higher, lower)
+
+def unpackTID(ptid):
+    """
+    Unpack given 64 bits TID in to a 2-tuple containing:
+    - a 5-tuple containing year, month, day, hour and minute
+    - seconds scaled to 60:2**32
+    """
+    packed_higher, lower = unpack('!LL', ptid)
+    higher = []
+    append = higher.append
+    for offset, multiplicator in reversed(TID_CHUNK_RULES):
+        if multiplicator:
+            packed_higher, value = divmod(packed_higher, multiplicator)
+        else:
+            packed_higher, value = 0, packed_higher
+        append(value - offset)
+    higher.reverse()
+    return (tuple(higher), lower)
+
+def addTID(ptid, offset):
+    """
+    Offset given packed TID.
+    """
+    higher, lower = unpackTID(ptid)
+    high_offset, lower = divmod(lower + offset, TID_LOW_OVERFLOW)
+    if high_offset:
+        d = datetime(*higher) + timedelta(0, 60 * high_offset)
+        higher = (d.year, d.month, d.day, d.hour, d.minute)
+    return packTID((higher, lower))
 
 class Transaction(object):
     """
@@ -169,26 +227,15 @@ class TransactionManager(object):
 
     def _nextTID(self):
         """ Compute the next TID based on the current time and check collisions """
-        def make_upper(year, month, day, hour, minute):
-            return ((((year - 1900) * 12 + month - 1) * 31 \
-                  + day - 1) * 24 + hour) * 60 + minute
         tm = time()
         gmt = gmtime(tm)
-        upper = make_upper(gmt.tm_year, gmt.tm_mon, gmt.tm_mday, gmt.tm_hour,
-            gmt.tm_min)
-        lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / SECOND_PER_TID_LOW)
-        tid = pack('!LL', upper, lower)
+        tid = packTID((
+            (gmt.tm_year, gmt.tm_mon, gmt.tm_mday, gmt.tm_hour,
+                gmt.tm_min),
+            int((gmt.tm_sec % 60 + (tm - int(tm))) / SECOND_PER_TID_LOW)
+        ))
         if self._last_tid is not None and tid <= self._last_tid:
-            upper, lower = unpack('!LL', self._last_tid)
-            if lower == TID_LOW_MAX:
-                # This should not happen usually.
-                d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday,
-                             gmt.tm_hour, gmt.tm_min) + timedelta(0, 60)
-                upper = make_upper(d.year, d.month, d.day, d.hour, d.minute)
-                lower = 0
-            else:
-                lower += 1
-            tid = pack('!LL', upper, lower)
+            tid  = addTID(self._last_tid, 1)
         self._last_tid = tid
         return self._last_tid
 
