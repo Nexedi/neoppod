@@ -863,20 +863,21 @@ class Application(object):
     @profiler_decorator
     def tpc_finish(self, transaction, tryToResolveConflict, f=None):
         """Finish current transaction."""
-        if self.local_var.txn is not transaction:
+        local_var = self.local_var
+        if local_var.txn is not transaction:
             raise StorageTransactionError('tpc_finish called for wrong '
                 'transaction')
-        if not self.local_var.txn_voted:
+        if not local_var.txn_voted:
             self.tpc_vote(transaction, tryToResolveConflict)
         self._load_lock_acquire()
         try:
-            tid = self.local_var.tid
+            tid = local_var.tid
             # Call function given by ZODB
             if f is not None:
                 f(tid)
 
             # Call finish on master
-            oid_list = self.local_var.data_list
+            oid_list = local_var.data_list
             p = Packets.AskFinishTransaction(tid, oid_list)
             self._askPrimary(p)
 
@@ -887,7 +888,7 @@ class Application(object):
             self._cache_lock_acquire()
             try:
                 mq_cache = self.mq_cache
-                for oid, data in self.local_var.data_dict.iteritems():
+                for oid, data in local_var.data_dict.iteritems():
                     if data == '':
                         if oid in mq_cache:
                             del mq_cache[oid]
@@ -895,7 +896,7 @@ class Application(object):
                         mq_cache[oid] = tid, data
             finally:
                 self._cache_lock_release()
-            self.local_var.clear()
+            local_var.clear()
             return tid
         finally:
             self._load_lock_release()
