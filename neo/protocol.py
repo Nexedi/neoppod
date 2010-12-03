@@ -1864,7 +1864,6 @@ class PacketRegistry(dict):
             0x0014,
             AskLockInformation,
             AnswerInformationLocked,
-            ignore_when_closed=False,
     )
     InvalidateObjects = register(0x0015, InvalidateObjects)
     NotifyUnlockInformation = register(0x0016, NotifyUnlockInformation)
