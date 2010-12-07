@@ -28,6 +28,10 @@ def u64(s):
 def p64(n):
     return pack('!Q', n)
 
+def add64(packed, offset):
+    """Add a python number to a 64-bits packed value"""
+    return p64(u64(packed) + offset)
+
 def dump(s):
     """Dump a binary string in hex."""
     if s is None:

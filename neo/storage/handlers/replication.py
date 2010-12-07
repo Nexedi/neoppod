@@ -20,7 +20,7 @@ import neo
 
 from neo.handler import EventHandler
 from neo.protocol import Packets, ZERO_TID, ZERO_OID
-from neo import util
+from neo.util import add64
 
 # TODO: benchmark how different values behave
 RANGE_LENGTH = 4000
@@ -77,10 +77,6 @@ def checkConnectionIsReplicatorConnection(func):
             result = None
         return result
     return decorator
-
-def add64(packed, offset):
-    """Add a python number to a 64-bits packed value"""
-    return util.p64(util.u64(packed) + offset)
 
 class ReplicationHandler(EventHandler):
     """This class handles events for replications."""

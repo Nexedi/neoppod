@@ -17,9 +17,10 @@
 
 import unittest
 from mock import Mock
+from neo.util import add64
 from neo.tests import NeoUnitTestBase
 from neo.protocol import Packets, ZERO_OID, ZERO_TID
-from neo.storage.handlers.replication import ReplicationHandler, add64
+from neo.storage.handlers.replication import ReplicationHandler
 from neo.storage.handlers.replication import RANGE_LENGTH, MIN_RANGE_LENGTH
 
 class FakeDict(object):
