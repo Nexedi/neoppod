@@ -1695,6 +1695,24 @@ class AnswerCheckSerialRange(Packet):
         # serial_checksum, max_serial
         return unpack(self._header_format, body)
 
+class AskLastTransaction(Packet):
+    """
+    Ask last committed TID.
+    C -> M
+    """
+    pass
+
+class AnswerLastTransaction(Packet):
+    """
+    Answer last committed TID.
+    M -> C
+    """
+    def _encode(self, tid):
+        return tid
+
+    def _decode(self, body):
+        return (body, )
+
 class NotifyReady(Packet):
     """
     Notify that node is ready to serve requests.
@@ -1970,6 +1988,11 @@ class PacketRegistry(dict):
             AnswerCheckSerialRange,
             )
     NotifyReady = register(0x003B, NotifyReady)
+    AskLastTransaction, AnswerLastTransaction = register(
+            0x003C,
+            AskLastTransaction,
+            AnswerLastTransaction,
+            )
 
 # build a "singleton"
 Packets = PacketRegistry()

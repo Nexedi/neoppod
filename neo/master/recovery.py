@@ -80,6 +80,7 @@ class RecoveryManager(MasterHandler):
             node.setPending()
         self.app.broadcastNodesInformation(refused_node_set)
 
+        self.app.setLastTransaction(self.app.tm.getLastTID())
         neo.logging.debug('cluster starts with loid=%s and this partition ' \
             'table :', dump(self.app.tm.getLastOID()))
         self.app.pt.log()

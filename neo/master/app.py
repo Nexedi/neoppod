@@ -20,7 +20,7 @@ import os, sys
 from time import time
 
 from neo import protocol
-from neo.protocol import UUID_NAMESPACES
+from neo.protocol import UUID_NAMESPACES, ZERO_TID
 from neo.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.node import NodeManager
 from neo.event import EventManager
@@ -41,6 +41,8 @@ from neo.live_debug import register as registerLiveDebugger
 class Application(object):
     """The master node application."""
     packing = None
+    # Latest completely commited TID
+    last_transaction = ZERO_TID
 
     def __init__(self, config):
 
@@ -558,6 +560,14 @@ class Application(object):
                 (uuid, state, handler) = self.identifyStorageNode(uuid, node)
             neo.logging.info('Accept a storage %s (%s)' % (dump(uuid), state))
         return (uuid, node, state, handler, node_ctor)
+
+    def getLastTransaction(self):
+        return self.last_transaction
+
+    def setLastTransaction(self, tid):
+        ltid = self.last_transaction
+        assert tid >= ltid, (tid, ltid)
+        self.last_transaction = tid
 
     def setStorageNotReady(self, uuid):
         self.storage_readiness.discard(uuid)

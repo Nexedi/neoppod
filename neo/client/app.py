@@ -124,6 +124,7 @@ class ThreadContext(object):
             'undo_object_tid_dict': {},
             'involved_nodes': set(),
             'barrier_done': False,
+            'last_transaction': None,
         }
 
 
@@ -1205,9 +1206,8 @@ class Application(object):
         return Iterator(self, start, stop)
 
     def lastTransaction(self):
-        # XXX: this doesn't consider transactions created by other clients,
-        #  should ask the primary master
-        return self.local_var.tid
+        self._askPrimary(Packets.AskLastCommittedTID())
+        return self.local_var.last_transaction
 
     def abortVersion(self, src, transaction):
         if transaction is not self.local_var.txn:

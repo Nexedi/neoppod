@@ -175,3 +175,6 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
         if not status:
             raise NEOStorageError('Already packing')
 
+    def answerLastTransaction(self, conn, ltid):
+        self.app.local_var.last_transaction = ltid
+

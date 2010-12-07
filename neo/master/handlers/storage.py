@@ -106,6 +106,7 @@ class StorageServiceHandler(BaseServiceHandler):
 
         # remove transaction from manager
         tm.remove(tid)
+        app.setLastTransaction(tid)
 
     def notifyReplicationDone(self, conn, offset):
         node = self.app.nm.getByUUID(conn.getUUID())

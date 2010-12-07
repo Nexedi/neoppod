@@ -693,6 +693,15 @@ class ProtocolTests(NeoUnitTestBase):
         p = Packets.NotifyReady()
         self.assertEqual(tuple(), p.decode())
 
+    def test_AskLastTransaction(self):
+        Packets.AskLastTransaction()
+
+    def test_AnswerLastTransaction(self):
+        tid = self.getNextTID()
+        p = Packets.AnswerLastTransaction(tid)
+        ptid = p.decode()[0]
+        self.assertEqual(ptid, tid)
+
 if __name__ == '__main__':
     unittest.main()
 

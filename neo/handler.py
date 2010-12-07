@@ -324,7 +324,7 @@ class EventHandler(object):
     def notifyReplicationDone(self, conn, offset):
         raise UnexpectedPacketError
 
-    def askObjectUndoSerial(self, conn, tid, undone_tid, oid_list):
+    def askObjectUndoSerial(self, conn, tid, ltid, undone_tid, oid_list):
         raise UnexpectedPacketError
 
     def answerObjectUndoSerial(self, conn, object_tid_dict):
@@ -364,6 +364,12 @@ class EventHandler(object):
         raise UnexpectedPacketError
 
     def notifyReady(self, conn):
+        raise UnexpectedPacketError
+
+    def askLastTransaction(self, conn):
+        raise UnexpectedPacketError
+
+    def answerLastTransaction(self, conn, tid):
         raise UnexpectedPacketError
 
     # Error packet handlers.
@@ -484,6 +490,8 @@ class EventHandler(object):
         d[Packets.AskCheckSerialRange] = self.askCheckSerialRange
         d[Packets.AnswerCheckSerialRange] = self.answerCheckSerialRange
         d[Packets.NotifyReady] = self.notifyReady
+        d[Packets.AskLastTransaction] = self.askLastTransaction
+        d[Packets.AnswerLastTransaction] = self.answerLastTransaction
 
         return d
 
