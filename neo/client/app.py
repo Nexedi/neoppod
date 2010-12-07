@@ -21,6 +21,7 @@ from zlib import compress as real_compress, decompress
 from neo.locking import Queue, Empty
 from random import shuffle
 import time
+import os
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
 from ZODB.ConflictResolution import ResolvedSerial
@@ -61,6 +62,13 @@ else:
     # If profiling is disabled, directly use original functions.
     compress = real_compress
     makeChecksum = real_makeChecksum
+
+# Set environment variable to non-empty value to ignore:
+# - multiple calls to tpc_begin for same transaction
+# - tpc_finish called for different transaction
+# This is needed to conform to the "old" ZODB API (ex: 3.4).
+RELAX_TRANSACTION_CHECKS = bool(os.getenv('NEO_RELAX_TRANSACTION_CHECKS',
+    False))
 
 class ThreadContext(object):
 
@@ -609,6 +617,8 @@ class Application(object):
         # First get a transaction, only one is allowed at a time
         if self.local_var.txn is transaction:
             # We already begin the same transaction
+            if RELAX_TRANSACTION_CHECKS:
+                return
             raise StorageTransactionError('Duplicate tpc_begin calls')
         if self.local_var.txn is not None:
             raise NeoException, 'local_var is not clean in tpc_begin'
@@ -865,6 +875,8 @@ class Application(object):
         """Finish current transaction."""
         local_var = self.local_var
         if local_var.txn is not transaction:
+            if RELAX_TRANSACTION_CHECKS:
+                return
             raise StorageTransactionError('tpc_finish called for wrong '
                 'transaction')
         if not local_var.txn_voted:
