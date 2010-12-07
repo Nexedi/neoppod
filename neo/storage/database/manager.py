@@ -389,7 +389,7 @@ class DatabaseManager(object):
         raise NotImplementedError
 
     def deleteTransactionsAbove(self, num_partitions, partition, tid):
-        """Delete all transactions above given TID (excluded) in given
+        """Delete all transactions above given TID (inclued) in given
         partition."""
         raise NotImplementedError
 
@@ -399,7 +399,7 @@ class DatabaseManager(object):
         raise NotImplementedError
 
     def deleteObjectsAbove(self, num_partitions, partition, oid, serial):
-        """Delete all objects above given OID and serial (excluded) in given
+        """Delete all objects above given OID and serial (inclued) in given
         partition."""
         raise NotImplementedError
 

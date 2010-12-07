@@ -561,7 +561,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.begin()
         try:
             self.query('DELETE FROM trans WHERE partition=%(partition)d AND '
-              'tid > %(tid)d' % {
+              'tid >= %(tid)d' % {
                 'partition': partition,
                 'tid': util.u64(tid),
             })
@@ -595,7 +595,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.begin()
         try:
             self.query('DELETE FROM obj WHERE partition=%(partition)d AND ('
-              'oid > %(oid)d OR (oid = %(oid)d AND serial > %(serial)d))' % {
+              'oid > %(oid)d OR (oid = %(oid)d AND serial >= %(serial)d))' % {
                 'partition': partition,
                 'oid': u64(oid),
                 'serial': u64(serial),

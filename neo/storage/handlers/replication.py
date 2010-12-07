@@ -100,6 +100,7 @@ class ReplicationHandler(EventHandler):
 
     @checkConnectionIsReplicatorConnection
     def answerTIDsFrom(self, conn, tid_list):
+        assert tid_list
         app = self.app
         ask = conn.ask
         # If I have pending TIDs, check which TIDs I don't have, and
@@ -111,13 +112,10 @@ class ReplicationHandler(EventHandler):
             deleteTransaction = app.dm.deleteTransaction
             for tid in extra_tid_set:
                 deleteTransaction(tid)
-        if tid_list:
-            missing_tid_set = tid_set - my_tid_set
-            for tid in missing_tid_set:
-                ask(Packets.AskTransactionInformation(tid), timeout=300)
-            ask(self._doAskCheckTIDRange(add64(tid_list[-1], 1), RANGE_LENGTH))
-        else:
-            ask(self._doAskCheckSerialRange(ZERO_OID, ZERO_TID))
+        missing_tid_set = tid_set - my_tid_set
+        for tid in missing_tid_set:
+            ask(Packets.AskTransactionInformation(tid), timeout=300)
+        ask(self._doAskCheckTIDRange(add64(tid_list[-1], 1), RANGE_LENGTH))
 
     @checkConnectionIsReplicatorConnection
     def answerTransactionInformation(self, conn, tid,
@@ -129,19 +127,17 @@ class ReplicationHandler(EventHandler):
 
     @checkConnectionIsReplicatorConnection
     def answerObjectHistoryFrom(self, conn, object_dict):
+        assert object_dict
         app = self.app
         ask = conn.ask
         deleteObject = app.dm.deleteObject
         my_object_dict = app.replicator.getObjectHistoryFromResult()
         object_set = set()
-        if object_dict:
-            max_oid = max(object_dict.iterkeys())
-            max_serial = max(object_dict[max_oid])
-            for oid, serial_list in object_dict.iteritems():
-                for serial in serial_list:
-                    object_set.add((oid, serial))
-        else:
-            max_oid = None
+        max_oid = max(object_dict.iterkeys())
+        max_serial = max(object_dict[max_oid])
+        for oid, serial_list in object_dict.iteritems():
+            for serial in serial_list:
+                object_set.add((oid, serial))
         my_object_set = set()
         for oid, serial_list in my_object_dict.iteritems():
             filter = lambda x: True
@@ -156,14 +152,11 @@ class ReplicationHandler(EventHandler):
         extra_object_set = my_object_set - object_set
         for oid, serial in extra_object_set:
             deleteObject(oid, serial)
-        if object_dict:
-            missing_object_set = object_set - my_object_set
-            for oid, serial in missing_object_set:
-                ask(Packets.AskObject(oid, serial, None), timeout=300)
-            ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
-                RANGE_LENGTH))
-        else:
-            self.app.replicator.setReplicationDone()
+        missing_object_set = object_set - my_object_set
+        for oid, serial in missing_object_set:
+            ask(Packets.AskObject(oid, serial, None), timeout=300)
+        ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
+            RANGE_LENGTH))
 
     @checkConnectionIsReplicatorConnection
     def answerObject(self, conn, oid, serial_start,
@@ -228,10 +221,15 @@ class ReplicationHandler(EventHandler):
             else:
                 # No more chunks.
                 action = CHECK_DONE
-                params = None
+                params = (next_boundary, )
         else:
             # We must recheck current chunk.
-            if length <= MIN_RANGE_LENGTH:
+            if count == 0:
+                # Reference storage has no data for this chunk, stop and
+                # truncate.
+                action = CHECK_DONE
+                params = (current_boundary, )
+            elif length <= MIN_RANGE_LENGTH:
                 # We are already at minimum chunk length, replicate.
                 action = CHECK_REPLICATE
                 params = (recheck_min_boundary, )
@@ -259,18 +257,21 @@ class ReplicationHandler(EventHandler):
             ask(self._doAskTIDsFrom(min_tid, count))
             if length != count:
                 action = CHECK_DONE
+                params = (next_tid, )
         if action == CHECK_CHUNK:
             (min_tid, count) = params
             if min_tid >= replicator.getCurrentCriticalTID():
                 # Stop if past critical TID
                 action = CHECK_DONE
+                params = (next_tid, )
             else:
                 ask(self._doAskCheckTIDRange(min_tid, count))
         if action == CHECK_DONE:
             # Delete all transactions we might have which are beyond what peer
             # knows.
+            (last_tid, ) = params
             app.dm.deleteTransactionsAbove(app.pt.getPartitions(),
-              replicator.getCurrentRID(), max_tid)
+                replicator.getCurrentRID(), last_tid)
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
             ask(self._doAskCheckSerialRange(ZERO_OID, ZERO_TID))
@@ -291,14 +292,16 @@ class ReplicationHandler(EventHandler):
             ask(self._doAskObjectHistoryFrom(min_oid, min_serial, count))
             if length != count:
                 action = CHECK_DONE
+                params = (next_params, )
         if action == CHECK_CHUNK:
             ((min_oid, min_serial), count) = params
             ask(self._doAskCheckSerialRange(min_oid, min_serial, count))
         if action == CHECK_DONE:
             # Delete all objects we might have which are beyond what peer
             # knows.
+            ((last_oid, last_serial), ) = params
             app.dm.deleteObjectsAbove(app.pt.getPartitions(),
-              replicator.getCurrentRID(), max_oid, max_serial)
+              replicator.getCurrentRID(), last_oid, last_serial)
             # Nothing remains, so the replication for this partition is
             # finished.
             replicator.setReplicationDone()

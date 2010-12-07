@@ -440,7 +440,7 @@ class BTreeDatabaseManager(DatabaseManager):
         def same_partition(key, _):
             return key % num_partitions == partition
         batchDelete(self._trans, same_partition,
-            iter_kw={'min': tid, 'excludemin': True})
+            iter_kw={'min': tid})
 
     def deleteObject(self, oid, serial=None):
         u64 = util.u64
@@ -477,7 +477,7 @@ class BTreeDatabaseManager(DatabaseManager):
                 pass
             else:
                 batchDelete(tserial, lambda _, __: True,
-                    iter_kw={'min': serial, 'excludemin': True})
+                    iter_kw={'min': serial})
         def same_partition(key, _):
             return key % num_partitions == partition
         batchDelete(obj, same_partition,
