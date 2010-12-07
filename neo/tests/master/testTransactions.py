@@ -19,6 +19,7 @@ import unittest
 from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoUnitTestBase
+from neo.protocol import ZERO_TID
 
 from neo.master.transactions import Transaction, TransactionManager
 from neo.master.transactions import packTID, unpackTID, addTID
@@ -126,7 +127,7 @@ class testTransactionManager(NeoUnitTestBase):
     def test_getNextTID(self):
         txnman = TransactionManager()
         # no previous TID
-        self.assertEqual(txnman.getLastTID(), None)
+        self.assertEqual(txnman.getLastTID(), ZERO_TID)
         # first transaction
         node1 = Mock({'__hash__': 1})
         tid1 = txnman.begin()

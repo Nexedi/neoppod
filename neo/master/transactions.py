@@ -17,6 +17,7 @@
 
 from time import time, gmtime
 from struct import pack, unpack
+from neo.protocol import ZERO_TID
 from datetime import timedelta, datetime
 from neo.util import dump
 import neo
@@ -175,13 +176,13 @@ class TransactionManager(object):
     """
         Manage current transactions
     """
+    _last_tid = ZERO_TID
 
     def __init__(self):
         # tid -> transaction
         self._tid_dict = {}
         # node -> transactions mapping
         self._node_dict = {}
-        self._last_tid = None
         self._last_oid = None
 
     def __getitem__(self, tid):
@@ -234,7 +235,7 @@ class TransactionManager(object):
                 gmt.tm_min),
             int((gmt.tm_sec % 60 + (tm - int(tm))) / SECOND_PER_TID_LOW)
         ))
-        if self._last_tid is not None and tid <= self._last_tid:
+        if tid <= self._last_tid:
             tid  = addTID(self._last_tid, 1)
         self._last_tid = tid
         return self._last_tid
@@ -249,10 +250,7 @@ class TransactionManager(object):
         """
             Set the last TID, keep the previous if lower
         """
-        if self._last_tid is None:
-            self._last_tid = tid
-        else:
-            self._last_tid = max(self._last_tid, tid)
+        self._last_tid = max(self._last_tid, tid)
 
     def reset(self):
         """
