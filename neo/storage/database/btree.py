@@ -290,7 +290,10 @@ class BTreeDatabaseManager(DatabaseManager):
                         tid = tserial.maxKey(before_tid)
                     except ValueError:
                         tid = None
-            result = tserial.get(tid, None)
+            if tid is None:
+                result = None
+            else:
+                result = tserial.get(tid, None)
             if result:
                 compression, checksum, data, value_serial = result
                 if before_tid is None:
