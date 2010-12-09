@@ -512,7 +512,7 @@ class Application(object):
         return data, start_serial, end_serial
 
     @profiler_decorator
-    def _loadFromStorage(self, oid, serial, tid):
+    def _loadFromStorage(self, oid, at_tid, before_tid):
         cell_list = self._getCellListForOID(oid, readable=True)
         if len(cell_list) == 0:
             # No cells available, so why are we running ?
@@ -522,10 +522,10 @@ class Application(object):
         shuffle(cell_list)
         cell_list.sort(key=self.cp.getCellSortKey)
         self.local_var.asked_object = 0
-        packet = Packets.AskObject(oid, serial, tid)
+        packet = Packets.AskObject(oid, at_tid, before_tid)
         for cell in cell_list:
             neo.logging.debug('trying to load %s at %s before %s from %s',
-                dump(oid), dump(serial), dump(tid), dump(cell.getUUID()))
+                dump(oid), dump(at_tid), dump(before_tid), dump(cell.getUUID()))
             conn = self.cp.getConnForCell(cell)
             if conn is None:
                 continue
@@ -536,7 +536,7 @@ class Application(object):
                 continue
 
             # Check data
-            noid, start_serial, end_serial, compression, checksum, data \
+            noid, tid, next_tid, compression, checksum, data \
                 = self.local_var.asked_object
             if noid != oid:
                 # Oops, try with next node
@@ -565,7 +565,7 @@ class Application(object):
         # Uncompress data
         if compression:
             data = decompress(data)
-        return data, start_serial, end_serial
+        return data, tid, next_tid
 
 
     @profiler_decorator
