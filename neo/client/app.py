@@ -270,10 +270,10 @@ class Application(object):
                     if is_forgotten:
                         raise ValueError, 'ForgottenPacket for an ' \
                             'explicitely expected packet.'
-                    self._handlePacket(conn, packet, handler=handler)
+                    _handlePacket(conn, packet, handler=handler)
                     break
             elif not is_forgotten and packet is not None:
-                self._handlePacket(conn, packet)
+                _handlePacket(conn, packet)
 
     @profiler_decorator
     def _askStorage(self, conn, packet):
