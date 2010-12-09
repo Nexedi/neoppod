@@ -313,7 +313,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # object should not have been cached
         self.assertFalse(oid in mq)
         # now a cached version ewxists but should not be hit
-        mq.store(oid, (tid1, 'WRONG'))
+        mq.store(oid, (tid2, 'WRONG'))
         self.assertTrue(oid in mq)
         another_object = (1, oid, tid2, INVALID_SERIAL, 0,
             makeChecksum('RIGHT'), 'RIGHT', None)
