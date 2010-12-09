@@ -91,12 +91,6 @@ class Storage(BaseStorage.BaseStorage,
         self.app.store(oid=oid, serial=serial, data='', version=None,
             transaction=transaction)
 
-    def getSerial(self, oid):
-        try:
-            return self.app.getSerial(oid = oid)
-        except NEOStorageNotFoundError:
-            raise POSException.POSKeyError(oid)
-
     # mutliple revisions
     def loadSerial(self, oid, serial):
         try:

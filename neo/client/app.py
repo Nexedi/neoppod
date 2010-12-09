@@ -437,28 +437,6 @@ class Application(object):
         return int(u64(self.last_oid))
 
     @profiler_decorator
-    def getSerial(self, oid):
-        # Try in cache first
-        self._cache_lock_acquire()
-        try:
-            try:
-                result = self.mq_cache[oid]
-            except KeyError:
-                pass
-            else:
-                return result[0]
-        finally:
-            self._cache_lock_release()
-        # history return serial, so use it
-        hist = self.history(oid, size=1, object_only=1)
-        if len(hist) == 0:
-            raise NEOStorageNotFoundError()
-        if hist[0] != oid:
-            raise NEOStorageError('getSerial failed')
-        return hist[1][0][0]
-
-
-    @profiler_decorator
     def _load(self, oid, serial=None, tid=None, cache=0):
         """
         Internal method which manage load, loadSerial and loadBefore.
@@ -1112,7 +1090,7 @@ class Application(object):
     def transactionLog(self, first, last):
         return self.__undoLog(first, last, with_oids=True)
 
-    def history(self, oid, version=None, size=1, filter=None, object_only=0):
+    def history(self, oid, version=None, size=1, filter=None):
         # Get history informations for object first
         cell_list = self._getCellListForOID(oid, readable=True)
         shuffle(cell_list)
@@ -1144,10 +1122,6 @@ class Application(object):
             # KeyError expected if no history was found
             # XXX: this may requires an error from the storages
             raise KeyError
-
-        if object_only:
-            # Use by getSerial
-            return self.local_var.history
 
         # Now that we have object informations, get txn informations
         history_list = []
