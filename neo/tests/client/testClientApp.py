@@ -337,6 +337,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         oid = self.makeOID()
         tid1 = self.makeTID(1)
         tid2 = self.makeTID(2)
+        tid3 = self.makeTID(3)
         # object not found in NEO -> NEOStorageDoesNotExistError
         self.assertTrue(oid not in mq)
         packet = Errors.OidDoesNotExist('')
@@ -376,7 +377,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = another_object
-        result = app.loadBefore(oid, tid1)
+        result = app.loadBefore(oid, tid3)
         self.assertEquals(result, ('RIGHT', tid1, tid2))
         self.checkAskObject(conn)
         self.assertTrue(oid in mq)
