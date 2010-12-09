@@ -62,6 +62,7 @@ UNIT_TEST_MODULES = [
     'neo.tests.storage.testTransactions',
     'neo.tests.storage.testReplicationHandler',
     'neo.tests.storage.testReplicator',
+    'neo.tests.storage.testReplication',
     # client application
     'neo.tests.client.testClientApp',
     'neo.tests.client.testMasterHandler',
