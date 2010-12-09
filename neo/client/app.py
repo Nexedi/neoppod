@@ -499,6 +499,20 @@ class Application(object):
         if not self.local_var.barrier_done:
             self.invalidationBarrier()
             self.local_var.barrier_done = True
+        data, start_serial, end_serial = self._loadFromStorage(oid, serial,
+            tid)
+        if cache:
+            self._cache_lock_acquire()
+            try:
+                self.mq_cache[oid] = start_serial, data
+            finally:
+                self._cache_lock_release()
+        if data == '':
+            raise NEOStorageCreationUndoneError(dump(oid))
+        return data, start_serial, end_serial
+
+    @profiler_decorator
+    def _loadFromStorage(self, oid, serial, tid):
         cell_list = self._getCellListForOID(oid, readable=True)
         if len(cell_list) == 0:
             # No cells available, so why are we running ?
@@ -551,16 +565,6 @@ class Application(object):
         # Uncompress data
         if compression:
             data = decompress(data)
-
-        # Put in cache only when using load
-        if cache:
-            self._cache_lock_acquire()
-            try:
-                self.mq_cache[oid] = start_serial, data
-            finally:
-                self._cache_lock_release()
-        if data == '':
-            raise NEOStorageCreationUndoneError(dump(oid))
         return data, start_serial, end_serial
 
 
