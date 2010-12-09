@@ -32,6 +32,31 @@ Multi-Queue Cache Algorithm.
 
 from math import log
 
+class MQIndex(object):
+    """
+    Virtual base class for MQ cache external indexes.
+    """
+    def clear(self):
+        """
+        Called when MQ is cleared.
+        """
+        raise NotImplementedError
+
+    def remove(self, key):
+        """
+        Called when key's value is removed from cache, and key is pushed to
+        history buffer.
+        """
+        raise NotImplementedError
+
+    def add(self, key):
+        """
+        Called when key is added into cache.
+        It is either a new key, or a know key comming back from history
+        buffer.
+        """
+        raise NotImplementedError
+
 class Element(object):
     """
       This class defines an element of a FIFO buffer.
@@ -150,11 +175,33 @@ class MQ(object):
 
     def __init__(self, life_time=10000, buffer_levels=9,
             max_history_size=100000, max_size=20*1024*1024):
+        self._index_list = []
         self._life_time = life_time
         self._buffer_levels = buffer_levels
         self._max_history_size = max_history_size
         self._max_size = max_size
         self.clear()
+
+    def addIndex(self, index, reindex=True):
+        """
+        Add an index ot this cache.
+        index
+            Object implementing methods from MQIndex class.
+        reindex (True)
+            If True, give all existing keys as new to index.
+        """
+        if reindex:
+            # Index existing entries
+            add = index.add
+            for key in self._data.iterkeys():
+                add(key)
+        self._index_list.append(index)
+
+    def _mapIndexes(self, method_id, args=(), kw=None):
+        if kw is None:
+            kw = {}
+        for index in self._index_list:
+            getattr(index, method_id)(*args, **kw)
 
     def clear(self):
         self._history_buffer = FIFO()
@@ -164,6 +211,7 @@ class MQ(object):
         self._data = {}
         self._time = 0
         self._size = 0
+        self._mapIndexes('clear')
 
     def has_key(self, key):
         if key in self._data:
@@ -198,6 +246,7 @@ class MQ(object):
         """
           Evict an element to the history buffer.
         """
+        self._mapIndexes('remove', (key, ))
         data = self._data[key]
         self._size -= sizeof(data.value)
         del self._cache_buffers[data.level][data.element]
@@ -221,8 +270,10 @@ class MQ(object):
                 del cache_buffers[level][element]
             else:
                 del self._history_buffer[element]
+                self._mapIndexes('add', (key, ))
         except KeyError:
             counter = 1
+            self._mapIndexes('add', (key, ))
 
         # XXX It might be better to adjust the level according to the object
         # size.
