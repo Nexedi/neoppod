@@ -194,3 +194,9 @@ class Storage(BaseStorage.BaseStorage,
     def close(self):
         self.app.close()
 
+    def getTID(self, oid):
+        return self.app.getLastTID(oid)
+
+    def checkCurrentSerialInTransaction(self, oid, serial, transaction):
+        self.app.checkCurrentSerialInTransaction(oid, serial, transaction)
+

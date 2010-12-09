@@ -24,6 +24,7 @@ import time
 import os
 
 from ZODB.POSException import UndoError, StorageTransactionError, ConflictError
+from ZODB.POSException import ReadConflictError
 from ZODB.ConflictResolution import ResolvedSerial
 from persistent.TimeStamp import TimeStamp
 
@@ -1259,4 +1260,14 @@ class Application(object):
         if tid == ZERO_TID:
             raise NEOStorageError('Invalid pack time')
         self._askPrimary(Packets.AskPack(tid))
+
+    def getLastTID(self, oid):
+        return self._load(oid)[1]
+
+    def checkCurrentSerialInTransaction(self, oid, serial, transaction):
+        if transaction is not self.local_var.txn:
+              raise StorageTransactionError(self, transaction)
+        committed_tid = self.getLastTID(oid)
+        if committed_tid != serial:
+            raise ReadConflictError(oid=oid, serials=(committed_tid, serial))
 
