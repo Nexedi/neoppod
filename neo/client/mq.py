@@ -109,7 +109,7 @@ class Data(object):
 def sizeof(o):
     """This function returns the estimated size of an object."""
     if isinstance(o, tuple):
-        return sum((len(s)+16 for s in o))
+        return sum((sizeof(s) for s in o))
     else:
         return len(o)+16
 
