@@ -283,10 +283,9 @@ class MQ(object):
                 del self._cache_buffers[data.level][data.element]
                 self._evict(key)
                 return
-        raise KeyError, "%s was not found in the cache" % key
+        raise KeyError, "%s was not found in the cache" % (key, )
 
     __delitem__ = invalidate
-
 
 # Here is a test.
 if __name__ == '__main__':
