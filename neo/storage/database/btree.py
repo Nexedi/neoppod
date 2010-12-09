@@ -684,12 +684,14 @@ class BTreeDatabaseManager(DatabaseManager):
         # XXX: XOR is a lame checksum
         count = 0
         tid_checksum = 0
+        tid = 0
         max_tid = 0
-        for max_tid in safeIter(self._trans.keys, min=util.u64(min_tid)):
-            if max_tid % num_partitions == partition:
+        for tid in safeIter(self._trans.keys, min=util.u64(min_tid)):
+            if tid % num_partitions == partition:
                 if count >= length:
                     break
-                tid_checksum ^= max_tid
+                max_tid = tid
+                tid_checksum ^= tid
                 count += 1
         return count, tid_checksum, util.p64(max_tid)
 
@@ -701,21 +703,23 @@ class BTreeDatabaseManager(DatabaseManager):
         min_oid = u64(min_oid)
         count = 0
         oid_checksum = serial_checksum = 0
-        max_oid = max_serial = 0
-        for max_oid, tserial in safeIter(self._obj.items, min=min_oid):
-            if max_oid % num_partitions == partition:
-                if max_oid == min_oid:
+        max_oid = oid = max_serial = serial = 0
+        for oid, tserial in safeIter(self._obj.items, min=min_oid):
+            if oid % num_partitions == partition:
+                if oid == min_oid:
                     try:
                         serial_iter = tserial.keys(min=u64(min_serial))
                     except ValueError:
                         continue
                 else:
                     serial_iter = tserial.keys()
-                for max_serial in serial_iter:
+                for serial in serial_iter:
                     if count >= length:
                         break
-                    oid_checksum ^= max_oid
-                    serial_checksum ^= max_serial
+                    oid_checksum ^= oid
+                    serial_checksum ^= serial
+                    max_serial = serial
+                    max_oid = oid
                     count += 1
                 if count >= length:
                     break
