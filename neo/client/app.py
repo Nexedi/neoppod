@@ -1206,7 +1206,7 @@ class Application(object):
         return Iterator(self, start, stop)
 
     def lastTransaction(self):
-        self._askPrimary(Packets.AskLastCommittedTID())
+        self._askPrimary(Packets.AskLastTransaction())
         return self.local_var.last_transaction
 
     def abortVersion(self, src, transaction):
