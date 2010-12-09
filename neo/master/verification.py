@@ -143,6 +143,7 @@ class VerificationManager(BaseServiceHandler):
                 packet = Packets.CommitTransaction(tid)
                 for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
                     node.notify(packet)
+            self._oid_set = set()
 
             # If possible, send the packets now.
             em.poll(0)
