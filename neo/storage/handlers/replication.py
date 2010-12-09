@@ -240,7 +240,8 @@ class ReplicationHandler(EventHandler):
                 # Note: +1, so we can detect we reached the end when answer
                 # comes back.
                 action = CHECK_CHUNK
-                params = (recheck_min_boundary, min(length / 2, count + 1))
+                params = (recheck_min_boundary, max(min(length / 2, count + 1),
+                                                    MIN_RANGE_LENGTH))
         return action, params
 
     @checkConnectionIsReplicatorConnection
