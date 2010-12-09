@@ -198,6 +198,9 @@ class ReplicationHandler(EventHandler):
 
     def _checkRange(self, match, current_boundary, next_boundary, length,
             count):
+        if count == 0:
+            # Reference storage has no data for this chunk, stop and truncate.
+            return CHECK_DONE, (current_boundary, )
         if match:
             # Same data on both sides
             if length < RANGE_LENGTH and length == count:
@@ -224,12 +227,7 @@ class ReplicationHandler(EventHandler):
                 params = (next_boundary, )
         else:
             # We must recheck current chunk.
-            if count == 0:
-                # Reference storage has no data for this chunk, stop and
-                # truncate.
-                action = CHECK_DONE
-                params = (current_boundary, )
-            elif length <= MIN_RANGE_LENGTH:
+            if length <= MIN_RANGE_LENGTH:
                 # We are already at minimum chunk length, replicate.
                 action = CHECK_REPLICATE
                 params = (recheck_min_boundary, )
