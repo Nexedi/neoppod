@@ -157,7 +157,8 @@ class ReplicationHandler(EventHandler):
             deleteObject(oid, serial)
         missing_object_set = object_set - my_object_set
         for oid, serial in missing_object_set:
-            ask(Packets.AskObject(oid, serial, None), timeout=300)
+            if not app.dm.objectPresent(oid, serial):
+                ask(Packets.AskObject(oid, serial, None), timeout=300)
         if sum((len(x) for x in object_dict.itervalues())) == MIN_RANGE_LENGTH:
             ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
                 RANGE_LENGTH))
