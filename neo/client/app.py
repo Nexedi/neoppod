@@ -646,9 +646,10 @@ class Application(object):
         cell_list = self._getCellListForOID(oid, writable=True)
         if len(cell_list) == 0:
             raise NEOStorageError
-        if data is None or data_serial is not None:
-            assert data is None or data_serial is None, data_serial
-            # this is a George Bailey object, stored as an empty string
+        if data is None:
+            # This is some undo: either a no-data object (undoing object
+            # creation) or a back-pointer to an earlier revision (going back to
+            # an older object revision).
             data = compressed_data = ''
             compression = 0
         else:
