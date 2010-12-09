@@ -124,7 +124,7 @@ class SocketConnector:
                 raise ConnectorTryAgainException
             if err in (errno.ECONNREFUSED, errno.EHOSTUNREACH):
                 raise ConnectorConnectionRefusedException
-            if err == errno.ECONNRESET:
+            if err in (errno.ECONNRESET, errno.ETIMEDOUT):
                 raise ConnectorConnectionClosedException
             raise ConnectorException, 'receive failed: %s:%s' % (err, errmsg)
 
@@ -134,7 +134,7 @@ class SocketConnector:
         except socket.error, (err, errmsg):
             if err == errno.EAGAIN:
                 raise ConnectorTryAgainException
-            if err in (errno.ECONNRESET, errno.EPIPE):
+            if err in (errno.ECONNRESET, errno.ETIMEDOUT, errno.EPIPE):
                 raise ConnectorConnectionClosedException
             raise ConnectorException, 'send failed: %s:%s' % (err, errmsg)
 
