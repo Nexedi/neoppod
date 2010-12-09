@@ -493,23 +493,34 @@ class Application(object):
         # TODO:
         # - rename parameters (here and in handlers & packet definitions)
 
-        # Once per transaction, upon first load, trigger a barrier so we
-        # handle all pending invalidations, so the snapshot of the database is
-        # as up-to-date as possible.
-        if not self.local_var.barrier_done:
-            self.invalidationBarrier()
-            self.local_var.barrier_done = True
-        data, start_serial, end_serial = self._loadFromStorage(oid, serial,
-            tid)
-        if cache:
-            self._cache_lock_acquire()
-            try:
-                self.mq_cache[oid] = start_serial, data
-            finally:
-                self._cache_lock_release()
-        if data == '':
-            raise NEOStorageCreationUndoneError(dump(oid))
-        return data, start_serial, end_serial
+        self._load_lock_acquire()
+        try:
+            # Once per transaction, upon first load, trigger a barrier so we
+            # handle all pending invalidations, so the snapshot of the database
+            # is as up-to-date as possible.
+            if not self.local_var.barrier_done:
+                self.invalidationBarrier()
+                self.local_var.barrier_done = True
+            if cache:
+                try:
+                    result = self._loadFromCache(oid, serial, tid)
+                except KeyError:
+                    pass
+                else:
+                    return result
+            data, start_serial, end_serial = self._loadFromStorage(oid, serial,
+                tid)
+            if cache:
+                self._cache_lock_acquire()
+                try:
+                    self.mq_cache[oid] = start_serial, data
+                finally:
+                    self._cache_lock_release()
+            if data == '':
+                raise NEOStorageCreationUndoneError(dump(oid))
+            return data, start_serial, end_serial
+        finally:
+            self._load_lock_release()
 
     @profiler_decorator
     def _loadFromStorage(self, oid, at_tid, before_tid):
@@ -567,38 +578,32 @@ class Application(object):
             data = decompress(data)
         return data, tid, next_tid
 
+    @profiler_decorator
+    def _loadFromCache(self, oid, at_tid, before_tid):
+        """
+        Load from local cache, raising KeyError if not found.
+        """
+        self._cache_lock_acquire()
+        try:
+            tid, data = self.mq_cache[oid]
+            neo.logging.debug('load oid %s is cached', dump(oid))
+            return (data, tid, None)
+        finally:
+            self._cache_lock_release()
 
     @profiler_decorator
     def load(self, oid, version=None):
         """Load an object for a given oid."""
-        # First try from cache
-        self._load_lock_acquire()
-        try:
-            self._cache_lock_acquire()
-            try:
-                try:
-                    serial, data = self.mq_cache[oid]
-                except KeyError:
-                    pass
-                else:
-                    neo.logging.debug('load oid %s is cached', dump(oid))
-                    return data, serial
-            finally:
-                self._cache_lock_release()
-            # Otherwise get it from storage node
-            result = self._load(oid, cache=1)[:2]
-            # Start a network barrier, so we get all invalidations *after* we
-            # received data. This ensures we get any invalidation message that
-            # would have been about the version we loaded.
-            # Those invalidations are checked at ZODB level, so it decides if
-            # loaded data can be handed to current transaction or if a separate
-            # loadBefore call is required.
-            # XXX: A better implementation is required to improve performances
-            self.invalidationBarrier()
-            return result
-        finally:
-            self._load_lock_release()
-
+        result = self._load(oid, cache=1)[:2]
+        # Start a network barrier, so we get all invalidations *after* we
+        # received data. This ensures we get any invalidation message that
+        # would have been about the version we loaded.
+        # Those invalidations are checked at ZODB level, so it decides if
+        # loaded data can be handed to current transaction or if a separate
+        # loadBefore call is required.
+        # XXX: A better implementation is required to improve performances
+        self.invalidationBarrier()
+        return result
 
     @profiler_decorator
     def loadSerial(self, oid, serial):
