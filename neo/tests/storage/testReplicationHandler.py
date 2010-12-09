@@ -196,14 +196,12 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         app = self.getApp(conn=conn, tid_result=[])
         # With no known TID
         ReplicationHandler(app).answerTIDsFrom(conn, tid_list)
-        self._checkPacketTIDList(conn, tid_list[:], tid_list[-1], app)
         # With some TIDs known
         conn = self.getFakeConnection()
         known_tid_list = [tid_list[0], tid_list[1]]
         unknown_tid_list = [tid_list[2], ]
         app = self.getApp(conn=conn, tid_result=known_tid_list)
         ReplicationHandler(app).answerTIDsFrom(conn, tid_list[1:])
-        self._checkPacketTIDList(conn, unknown_tid_list, tid_list[-1], app)
         calls = app.dm.mockGetNamedCalls('deleteTransaction')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(tid_list[0])
@@ -243,8 +241,6 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         app = self.getApp(conn=conn, history_result={})
         # With no known OID/Serial
         ReplicationHandler(app).answerObjectHistoryFrom(conn, oid_dict)
-        self._checkPacketSerialList(conn, flat_oid_list, oid_4, tid_list[5],
-            app)
         # With some known OID/Serials
         # For test to be realist, history_result should contain the same
         # number of serials as oid_dict, otherise it just tests the special
@@ -257,11 +253,6 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
             oid_5: [tid_list[6]],
         })
         ReplicationHandler(app).answerObjectHistoryFrom(conn, oid_dict)
-        self._checkPacketSerialList(conn, (
-            (oid_1, oid_dict[oid_1][1]),
-            (oid_2, oid_dict[oid_2][0]),
-            (oid_2, oid_dict[oid_2][1]),
-        ), oid_4, tid_list[5], app)
         calls = app.dm.mockGetNamedCalls('deleteObject')
         actual_deletes = set(((x.getParam(0), x.getParam(1)) for x in calls))
         expected_deletes = set((

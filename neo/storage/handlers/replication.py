@@ -115,7 +115,10 @@ class ReplicationHandler(EventHandler):
         missing_tid_set = tid_set - my_tid_set
         for tid in missing_tid_set:
             ask(Packets.AskTransactionInformation(tid), timeout=300)
-        ask(self._doAskCheckTIDRange(add64(tid_list[-1], 1), RANGE_LENGTH))
+        if len(tid_list) == MIN_RANGE_LENGTH:
+            # If we received fewer, we knew it before sending AskTIDsFrom, and
+            # we should have finished TID replication at that time.
+            ask(self._doAskCheckTIDRange(add64(tid_list[-1], 1), RANGE_LENGTH))
 
     @checkConnectionIsReplicatorConnection
     def answerTransactionInformation(self, conn, tid,
@@ -155,8 +158,9 @@ class ReplicationHandler(EventHandler):
         missing_object_set = object_set - my_object_set
         for oid, serial in missing_object_set:
             ask(Packets.AskObject(oid, serial, None), timeout=300)
-        ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
-            RANGE_LENGTH))
+        if sum((len(x) for x in object_dict.itervalues())) == MIN_RANGE_LENGTH:
+            ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
+                RANGE_LENGTH))
 
     @checkConnectionIsReplicatorConnection
     def answerObject(self, conn, oid, serial_start,
