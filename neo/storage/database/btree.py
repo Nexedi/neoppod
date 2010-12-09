@@ -574,8 +574,8 @@ class BTreeDatabaseManager(DatabaseManager):
         result = {}
         for oid, tserial in safeIter(self._obj.items, min=min_oid):
             if oid % num_partitions == partition:
-                result[p64(oid)] = tid_list = []
-                append = tid_list.append
+                if length == 0:
+                    break
                 if oid == min_oid:
                     try:
                         tid_seq = tserial.keys(min=min_serial,  max=max_serial)
@@ -583,6 +583,10 @@ class BTreeDatabaseManager(DatabaseManager):
                         continue
                 else:
                     tid_seq = tserial.keys(max=max_serial)
+                if not tid_seq:
+                    continue
+                result[p64(oid)] = tid_list = []
+                append = tid_list.append
                 for tid in tid_seq:
                     if length == 0:
                         break
