@@ -272,7 +272,7 @@ class Application(object):
                             'explicitely expected packet.'
                     _handlePacket(conn, packet, handler=handler)
                     break
-            elif not is_forgotten and packet is not None:
+            if not is_forgotten and packet is not None:
                 _handlePacket(conn, packet)
 
     @profiler_decorator
