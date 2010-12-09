@@ -341,6 +341,15 @@ class MQ(object):
 
     __delitem__ = invalidate
 
+    def update(self, key, callback):
+        """
+        Update entry without changing its level.
+        """
+        data = self._data[key]
+        if data.level < 0:
+            raise KeyError(key)
+        data.value = callback(data.value)
+
 # Here is a test.
 if __name__ == '__main__':
     import hotshot, hotshot.stats
