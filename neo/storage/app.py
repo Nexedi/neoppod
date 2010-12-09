@@ -337,9 +337,8 @@ class Application(object):
             return
         neo.logging.info("Pending events:")
         for event, _msg_id, _conn, args, _kwargs in self.event_queue:
-            oid, serial, _compression, _checksum, data, tid, time = args
-            neo.logging.info('  %r: %r:%r by %r -> %r (%r)', event.__name__,
-                dump(oid), dump(serial), dump(tid), data, time)
+            neo.logging.info('  %r: %r:%r %r %r', event.__name__, _msg_id,
+                _conn, args, _kwargs)
 
     def shutdown(self, erase=False):
         """Close all connections and exit"""
