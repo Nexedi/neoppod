@@ -372,6 +372,11 @@ class EventHandler(object):
     def answerLastTransaction(self, conn, tid):
         raise UnexpectedPacketError
 
+    def askCheckCurrentSerial(self, conn, tid, serial, oid):
+        raise UnexpectedPacketError
+
+    answerCheckCurrentSerial = answerStoreObject
+
     # Error packet handlers.
 
     def error(self, conn, code, message):
@@ -492,6 +497,8 @@ class EventHandler(object):
         d[Packets.NotifyReady] = self.notifyReady
         d[Packets.AskLastTransaction] = self.askLastTransaction
         d[Packets.AnswerLastTransaction] = self.answerLastTransaction
+        d[Packets.AskCheckCurrentSerial] = self.askCheckCurrentSerial
+        d[Packets.AnswerCheckCurrentSerial] = self.answerCheckCurrentSerial
 
         return d
 

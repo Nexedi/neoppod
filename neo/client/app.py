@@ -702,33 +702,40 @@ class Application(object):
             data = data_dict[oid]
             tid = local_var.tid
             resolved = False
-            if conflict_serial <= tid:
-                new_data = tryToResolveConflict(oid, conflict_serial, serial,
-                    data)
-                if new_data is not None:
-                    neo.logging.info('Conflict resolution succeed for ' \
-                        '%r:%r with %r', dump(oid), dump(serial),
-                        dump(conflict_serial))
-                    # Mark this conflict as resolved
-                    resolved_serial_set.update(conflict_serial_dict.pop(oid))
-                    # Try to store again
-                    self._store(oid, conflict_serial, new_data)
-                    append(oid)
-                    resolved = True
+            if data is not None:
+                if conflict_serial <= tid:
+                    new_data = tryToResolveConflict(oid, conflict_serial,
+                        serial, data)
+                    if new_data is not None:
+                        neo.logging.info('Conflict resolution succeed for ' \
+                            '%r:%r with %r', dump(oid), dump(serial),
+                            dump(conflict_serial))
+                        # Mark this conflict as resolved
+                        resolved_serial_set.update(conflict_serial_dict.pop(
+                            oid))
+                        # Try to store again
+                        self._store(oid, conflict_serial, new_data)
+                        append(oid)
+                        resolved = True
+                    else:
+                        neo.logging.info('Conflict resolution failed for ' \
+                            '%r:%r with %r', dump(oid), dump(serial),
+                            dump(conflict_serial))
                 else:
-                    neo.logging.info('Conflict resolution failed for ' \
-                        '%r:%r with %r', dump(oid), dump(serial),
-                        dump(conflict_serial))
-            else:
-                neo.logging.info('Conflict reported for %r:%r with later ' \
-                    'transaction %r , cannot resolve conflict.', dump(oid),
-                    dump(serial), dump(conflict_serial))
+                    neo.logging.info('Conflict reported for %r:%r with ' \
+                        'later transaction %r , cannot resolve conflict.',
+                        dump(oid), dump(serial), dump(conflict_serial))
             if not resolved:
                 # XXX: Is it really required to remove from data_dict ?
                 del data_dict[oid]
                 local_var.data_list.remove(oid)
-                raise ConflictError(oid=oid,
-                    serials=(tid, serial), data=data)
+                if data is None:
+                    exc = ReadConflictError(oid=oid, serials=(conflict_serial,
+                        serial))
+                else:
+                    exc = ConflictError(oid=oid, serials=(tid, serial),
+                        data=data)
+                raise exc
         return result
 
     @profiler_decorator
@@ -1252,9 +1259,31 @@ class Application(object):
         return self._load(oid)[1]
 
     def checkCurrentSerialInTransaction(self, oid, serial, transaction):
-        if transaction is not self.local_var.txn:
+        local_var = self.local_var
+        if transaction is not local_var.txn:
               raise StorageTransactionError(self, transaction)
-        committed_tid = self.getLastTID(oid)
-        if committed_tid != serial:
-            raise ReadConflictError(oid=oid, serials=(committed_tid, serial))
+        cell_list = self._getCellListForOID(oid, writable=True)
+        if len(cell_list) == 0:
+            raise NEOStorageError
+        p = Packets.AskCheckCurrentSerial(local_var.tid, serial, oid)
+        getConnForCell = self.cp.getConnForCell
+        queue = local_var.queue
+        local_var.object_serial_dict[oid] = serial
+        # Placeholders
+        local_var.object_stored_counter_dict[oid] = {}
+        data_dict = local_var.data_dict
+        if oid not in data_dict:
+            # Marker value so we don't try to resolve conflicts.
+            data_dict[oid] = None
+            local_var.data_list.append(oid)
+        for cell in cell_list:
+            conn = getConnForCell(cell)
+            if conn is None:
+                continue
+            try:
+                conn.ask(p, queue=queue)
+            except ConnectionClosed:
+                continue
+
+        self._waitAnyMessage(False)
 

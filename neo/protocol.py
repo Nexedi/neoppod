@@ -1591,6 +1591,28 @@ class AnswerHasLock(Packet):
         oid, state = unpack(self._header_format, body)
         return (oid, _decodeLockState(state))
 
+class AskCheckCurrentSerial(Packet):
+    """
+    Verifies if given serial is current for object oid in the database, and
+    take a write lock on it (so that this state is not altered until
+    transaction ends).
+    """
+    _header_format = '!8s8s8s'
+
+    def _encode(self, tid, serial, oid):
+        return tid + serial + oid
+
+    def _decode(self, body):
+        return unpack(self._header_format, body)
+
+class AnswerCheckCurrentSerial(AnswerStoreObject):
+    """
+    Answer to AskCheckCurrentSerial.
+    Same structure as AnswerStoreObject, to handle the same way, except there
+    is nothing to invalidate in any client's cache.
+    """
+    pass
+
 class AskBarrier(Packet):
     """
     Initates a "network barrier", allowing the node sending this packet to know
@@ -1992,6 +2014,11 @@ class PacketRegistry(dict):
             0x003C,
             AskLastTransaction,
             AnswerLastTransaction,
+            )
+    AskCheckCurrentSerial, AnswerCheckCurrentSerial = register(
+            0x003D,
+            AskCheckCurrentSerial,
+            AnswerCheckCurrentSerial,
             )
 
 # build a "singleton"

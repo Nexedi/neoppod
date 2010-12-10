@@ -89,6 +89,8 @@ class StorageAnswersHandler(AnswerBaseHandler):
             object_stored_counter_dict[serial] = \
                 object_stored_counter_dict.get(serial, 0) + 1
 
+    answerCheckCurrentSerial = answerStoreObject
+
     def answerStoreTransaction(self, conn, tid):
         if tid != self.app.getTID():
             raise ProtocolError('Wrong TID, transaction not started')

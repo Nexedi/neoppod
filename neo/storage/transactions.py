@@ -52,6 +52,7 @@ class Transaction(object):
         self._transaction = None
         self._locked = False
         self._birth = time()
+        self._checked_set = set()
 
     def __repr__(self):
         return "<%s(tid=%r, uuid=%r, locked=%r, age=%.2fs)> at %x" % (
@@ -62,6 +63,9 @@ class Transaction(object):
             time() - self._birth,
             id(self),
         )
+
+    def addCheckedObject(self, oid):
+        self._checked_set.add(oid)
 
     def getTID(self):
         return self._tid
@@ -98,6 +102,9 @@ class Transaction(object):
 
     def getOIDList(self):
         return self._object_dict.keys()
+
+    def getLockedOIDList(self):
+        return self._object_dict.keys() + list(self._checked_set)
 
     def getTransactionInformations(self):
         return self._transaction
@@ -191,10 +198,13 @@ class TransactionManager(object):
     def getLockingTID(self, oid):
         return self._store_lock_dict.get(oid)
 
-    def storeObject(self, tid, serial, oid, compression, checksum, data,
-            value_serial):
+    def lockObject(self, tid, serial, oid):
         """
-            Store an object received from client node
+            Take a write lock on given object, checking that "serial" is
+            current.
+            Raises:
+                DelayedError
+                ConflictError
         """
         # check if the object if locked
         locking_tid = self._store_lock_dict.get(oid)
@@ -222,6 +232,18 @@ class TransactionManager(object):
                 dump(oid), dump(tid), dump(locking_tid))
             raise ConflictError(locking_tid)
 
+    def checkCurrentSerial(self, tid, serial, oid):
+        self.lockObject(tid, serial, oid)
+        assert tid in self, "Transaction not registered"
+        transaction = self._transaction_dict[tid]
+        transaction.addCheckedObject(oid)
+
+    def storeObject(self, tid, serial, oid, compression, checksum, data,
+            value_serial):
+        """
+            Store an object received from client node
+        """
+        self.lockObject(tid, serial, oid)
         # store object
         assert tid in self, "Transaction not registered"
         transaction = self._transaction_dict[tid]
@@ -245,12 +267,12 @@ class TransactionManager(object):
         if not even_if_locked and has_load_lock:
             return
         # unlock any object
-        for oid in transaction.getOIDList():
+        for oid in transaction.getLockedOIDList():
             if has_load_lock:
-                lock_tid = self._load_lock_dict.pop(oid)
-                assert lock_tid == tid, 'Transaction %s tried to release ' \
-                    'the lock on oid %s, but it was held by %s' % (dump(tid),
-                    dump(oid), dump(lock_tid))
+                lock_tid = self._load_lock_dict.pop(oid, None)
+                assert lock_tid in (tid, None), 'Transaction %s tried to ' \
+                    'release the lock on oid %s, but it was held by %s' % (
+                    dump(tid), dump(oid), dump(lock_tid))
             del self._store_lock_dict[oid]
         # remove the transaction
         uuid = transaction.getUUID()

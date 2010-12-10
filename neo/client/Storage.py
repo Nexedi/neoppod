@@ -53,6 +53,7 @@ class Storage(BaseStorage.BaseStorage,
         # ZODB.interfaces.IStorageIteration,
         ZODB.interfaces.IStorageUndoable,
         ZODB.interfaces.IExternalGC,
+        ZODB.interfaces.ReadVerifyingStorage,
     )
 
     def __init__(self, master_nodes, name, connector=None, read_only=False,

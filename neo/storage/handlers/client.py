@@ -139,3 +139,33 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             history_list = []
         conn.answer(Packets.AnswerObjectHistory(oid, history_list))
 
+    def askCheckCurrentSerial(self, conn, tid, serial, oid):
+        self._askCheckCurrentSerial(conn, tid, serial, oid, time.time())
+
+    def _askCheckCurrentSerial(self, conn, tid, serial, oid, request_time):
+        if tid not in self.app.tm:
+            # transaction was aborted, cancel this event
+            neo.logging.info('Forget serial check of %s:%s by %s delayed by '
+                '%s', dump(oid), dump(serial), dump(tid),
+                dump(self.app.tm.getLockingTID(oid)))
+            # send an answer as the client side is waiting for it
+            conn.answer(Packets.AnswerStoreObject(0, oid, serial))
+            return
+        try:
+            self.app.tm.checkCurrentSerial(tid, serial, oid)
+        except ConflictError, err:
+            # resolvable or not
+            conn.answer(Packets.AnswerCheckCurrentSerial(1, oid,
+                err.getTID()))
+        except DelayedError:
+            # locked by a previous transaction, retry later
+            self.app.queueEvent(self._askCheckCurrentSerial, conn, tid, serial,
+                oid, request_time)
+        else:
+            if SLOW_STORE is not None:
+                duration = time.time() - request_time
+                if duration > SLOW_STORE:
+                    neo.logging.info('CheckCurrentSerial delay: %.02fs',
+                        duration)
+            conn.answer(Packets.AnswerCheckCurrentSerial(0, oid, serial))
+

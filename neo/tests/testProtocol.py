@@ -702,6 +702,16 @@ class ProtocolTests(NeoUnitTestBase):
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
 
+    def test_AskCheckCurrentSerial(self):
+        tid = self.getNextTID()
+        serial = self.getNextTID()
+        oid = self.getNextTID()
+        p = Packets.AskCheckCurrentSerial(tid, serial, oid)
+        ptid, pserial, poid = p.decode()
+        self.assertEqual(ptid, tid)
+        self.assertEqual(pserial, serial)
+        self.assertEqual(poid, oid)
+
 if __name__ == '__main__':
     unittest.main()
 
