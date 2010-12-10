@@ -47,6 +47,10 @@ class Storage(BaseStorage.BaseStorage,
         # "restore" missing for the moment, but "store" implements this
         # interface.
         # ZODB.interfaces.IStorageRestoreable,
+        # XXX: imperfect iterator implementation:
+        # - start & stop are not handled (raises if either is not None)
+        # - transaction isolation is not done
+        # ZODB.interfaces.IStorageIteration,
     )
 
     def __init__(self, master_nodes, name, connector=None, read_only=False,

@@ -16,12 +16,18 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from ZODB import BaseStorage
+from zope.interface import implements
+import ZODB.interfaces
 from neo import util
 from neo.client.exception import NEOStorageCreationUndoneError
 from neo.client.exception import NEOStorageNotFoundError
 
 class Record(BaseStorage.DataRecord):
     """ TBaseStorageransaction record yielded by the Transaction object """
+
+    implements(
+        ZODB.interfaces.IStorageRecordInformation,
+    )
 
     def __init__(self, oid, tid, version, data, prev):
         self.oid = oid
@@ -39,6 +45,12 @@ class Record(BaseStorage.DataRecord):
 
 class Transaction(BaseStorage.TransactionRecord):
     """ Transaction object yielded by the NEO iterator """
+
+    implements(
+        # TODO: add support for "extension" property so we implement entirely
+        # this interface.
+        # ZODB.interfaces.IStorageTransactionInformation,
+    )
 
     def __init__(self, app, tid, status, user, desc, ext, oid_list,
             prev_serial_dict):
