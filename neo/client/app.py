@@ -926,7 +926,6 @@ class Application(object):
         else:
             raise NEOStorageError('undo failed')
 
-        tid = self.local_var.tid
         oid_list = self.local_var.txn_info['oids']
 
         # Regroup objects per partition, to ask a minimum set of storage.
@@ -951,8 +950,8 @@ class Application(object):
             shuffle(cell_list)
             cell_list.sort(key=getCellSortKey)
             storage_conn = getConnForCell(cell_list[0])
-            storage_conn.ask(Packets.AskObjectUndoSerial(tid, undone_tid,
-                oid_list), queue=queue)
+            storage_conn.ask(Packets.AskObjectUndoSerial(self.local_var.tid,
+                undone_tid, oid_list), queue=queue)
 
         # Wait for all AnswerObjectUndoSerial. We might get OidNotFoundError,
         # meaning that objects in transaction's oid_list do not exist any
@@ -996,7 +995,6 @@ class Application(object):
                         'transaction', oid)
                 undo_serial = None
             self._store(oid, current_serial, data, undo_serial)
-        return tid, oid_list
 
     def _insertMetadata(self, txn_info, extension):
         for k, v in loads(extension).items():
