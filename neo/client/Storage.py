@@ -16,6 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from ZODB import BaseStorage, ConflictResolution, POSException
+from zope.interface import implements
+import ZODB.interfaces
 
 from neo import setupLog
 from neo.client.app import Application
@@ -40,20 +42,24 @@ class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
 
-    __name__ = 'NEOStorage'
+    implements(
+        ZODB.interfaces.IStorage,
+    )
 
     def __init__(self, master_nodes, name, connector=None, read_only=False,
                  compress=None, logfile=None, verbose=False, **kw):
         if compress is None:
             compress = True
         setupLog('CLIENT', filename=logfile, verbose=verbose)
-        BaseStorage.BaseStorage.__init__(self, name)
+        BaseStorage.BaseStorage.__init__(self, 'NEOStorage(%s)' % (name, ))
+        # Warning: _is_read_only is used in BaseStorage, do not rename it.
         self._is_read_only = read_only
         self.app = Application(master_nodes, name, connector,
             compress=compress)
         self._cache = DummyCache(self.app)
 
-    def load(self, oid, version=None):
+    def load(self, oid, version):
+        assert version == '', 'Versions are not supported'
         try:
             return self.app.load(oid=oid)
         except NEOStorageNotFoundError:
@@ -65,6 +71,9 @@ class Storage(BaseStorage.BaseStorage,
 
     @check_read_only
     def tpc_begin(self, transaction, tid=None, status=' '):
+        """
+        Note: never blocks in NEO.
+        """
         return self.app.tpc_begin(transaction=transaction, tid=tid,
                 status=status)
 
@@ -83,6 +92,7 @@ class Storage(BaseStorage.BaseStorage,
 
     @check_read_only
     def store(self, oid, serial, data, version, transaction):
+        assert version == '', 'Versions are not supported'
         return self.app.store(oid=oid, serial=serial,
             data=data, version=version, transaction=transaction)
 
@@ -143,7 +153,7 @@ class Storage(BaseStorage.BaseStorage,
     def __len__(self):
         return self.app.getStorageSize()
 
-    def registerDB(self, db, limit):
+    def registerDB(self, db, limit=None):
         self.app.registerDB(db, limit)
 
     def history(self, oid, version=None, size=1, filter=None):
