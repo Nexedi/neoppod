@@ -51,6 +51,7 @@ class Storage(BaseStorage.BaseStorage,
         # - start & stop are not handled (raises if either is not None)
         # - transaction isolation is not done
         # ZODB.interfaces.IStorageIteration,
+        ZODB.interfaces.IStorageUndoable,
     )
 
     def __init__(self, master_nodes, name, connector=None, read_only=False,
