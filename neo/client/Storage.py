@@ -44,6 +44,9 @@ class Storage(BaseStorage.BaseStorage,
 
     implements(
         ZODB.interfaces.IStorage,
+        # "restore" missing for the moment, but "store" implements this
+        # interface.
+        # ZODB.interfaces.IStorageRestoreable,
     )
 
     def __init__(self, master_nodes, name, connector=None, read_only=False,
