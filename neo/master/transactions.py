@@ -292,7 +292,6 @@ class TransactionManager(object):
             Remove a transaction, commited or aborted
         """
         node = self._tid_dict[tid].getNode()
-        # remove both mappings, node will be removed in abortFor
         del self._tid_dict[tid]
         del self._node_dict[node][tid]
 
@@ -312,8 +311,9 @@ class TransactionManager(object):
         if node not in self._node_dict:
             return
         # remove transactions
+        remove = self.remove
         for tid in self._node_dict[node].keys():
-            del self._tid_dict[tid]
+            remove(tid)
         # discard node entry
         del self._node_dict[node]
 
