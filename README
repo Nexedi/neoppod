@@ -11,7 +11,7 @@ Requirements
 
     - MySQLdb http://sourceforge.net/projects/mysql-python
 
-    - Zope 2.8 or later
+    - ZODB 3.10 or later (required python 2.5 or later, only for client nodes)
 
 Overview
 
