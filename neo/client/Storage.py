@@ -52,6 +52,7 @@ class Storage(BaseStorage.BaseStorage,
         # - transaction isolation is not done
         # ZODB.interfaces.IStorageIteration,
         ZODB.interfaces.IStorageUndoable,
+        ZODB.interfaces.IExternalGC,
     )
 
     def __init__(self, master_nodes, name, connector=None, read_only=False,
@@ -105,7 +106,7 @@ class Storage(BaseStorage.BaseStorage,
             data=data, version=version, transaction=transaction)
 
     @check_read_only
-    def deleteObject(oid, serial, transaction):
+    def deleteObject(self, oid, serial, transaction):
         self.app.store(oid=oid, serial=serial, data='', version=None,
             transaction=transaction)
 
