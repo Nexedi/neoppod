@@ -247,14 +247,13 @@ class MasterAnswersHandlerTests(MasterHandlerTests):
         tid2 = self.getNextTID(tid1)
         # wrong TID
         self.app = Mock({'getTID': tid1})
-        self.checkProtocolErrorRaised(self.handler.answerTransactionFinished, 
+        self.assertRaises(NEOStorageError,
+            self.handler.answerTransactionFinished,
             conn, tid2)
         # matching TID
         app = Mock({'getTID': tid2})
         handler = PrimaryAnswersHandler(app=app)
         handler.answerTransactionFinished(conn, tid2)
-        calls = app.mockGetNamedCalls('setTransactionFinished')
-        self.assertEqual(len(calls), 1)
         
     def test_answerPack(self):
         self.assertRaises(NEOStorageError, self.handler.answerPack, None, False)

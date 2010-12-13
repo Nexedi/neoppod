@@ -168,7 +168,7 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
 
     def answerTransactionFinished(self, conn, tid):
         if tid != self.app.getTID():
-            raise ProtocolError('Wrong TID, transaction not started')
+            raise NEOStorageError('Wrong TID, transaction not started')
 
     def answerPack(self, conn, status):
         if not status:

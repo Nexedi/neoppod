@@ -182,14 +182,13 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         # wrong tid
         app = Mock({'getTID': tid1})
         handler = StorageAnswersHandler(app=app)
-        self.checkProtocolErrorRaised(handler.answerStoreTransaction, conn, 
+        self.assertRaises(NEOStorageError,
+            handler.answerStoreTransaction, conn,
             tid2)
         # good tid
         app = Mock({'getTID': tid2})
         handler = StorageAnswersHandler(app=app)
         handler.answerStoreTransaction(conn, tid2)
-        calls = app.mockGetNamedCalls('setTransactionVoted')
-        self.assertEqual(len(calls), 1)
 
     def test_answerTransactionInformation(self):
         conn = self.getConnection()
