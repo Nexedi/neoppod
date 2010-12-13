@@ -112,10 +112,9 @@ class Iterator(object):
     """ An iterator for the NEO storage """
 
     def __init__(self, app, start, stop):
-        if start is not None or stop is not None:
-            raise NotImplementedError('partial scan not implemented yet')
         self.app = app
         self.txn_list = []
+        self._stop = stop
         # next index to load from storage nodes
         self._next = 0
         # index of current iteration
@@ -124,6 +123,8 @@ class Iterator(object):
         # OID -> previous TID mapping
         # TODO: prune old entries while walking ?
         self._prev_serial_dict = {}
+        if start is not None:
+            self.txn_list = self._skip(start)
 
     def __iter__(self):
         return self
@@ -134,21 +135,41 @@ class Iterator(object):
             raise IndexError, index
         return self.next()
 
+    def _read(self):
+        """ Request more transactions """
+        chunk = self.app.transactionLog(self._next, self._next + 100)
+        if not chunk:
+            # nothing more
+            raise StopIteration
+        self._next += len(chunk)
+        return chunk
+
+    def _skip(self, start):
+        """ Skip transactions until 'start' is reached """
+        chunk = self._read()
+        while chunk[0]['id'] < start:
+            chunk = self._read()
+        if chunk[-1]['id'] < start:
+            for index, txn in enumerate(reversed(chunk)):
+                if txn['id'] >= start:
+                    break
+            # keep only greater transactions
+            chunk = chunk[:-index]
+        return chunk
+
     def next(self):
         """ Return an iterator for the next transaction"""
         if self._closed:
             raise IOError, 'iterator closed'
-        app = self.app
         if not self.txn_list:
-            # ask some transactions
-            self.txn_list = app.transactionLog(self._next, self._next + 100)
-            if not self.txn_list:
-                # scan finished
-                raise StopIteration
-            self._next += len(self.txn_list)
+            self.txn_list = self._read()
         txn = self.txn_list.pop()
         self._index += 1
         tid = txn['id']
+        stop = self._stop
+        if stop is not None and stop < tid:
+            # stop reached
+            raise StopIteration
         user = txn['user_name']
         desc = txn['description']
         oid_list = txn['oids']
