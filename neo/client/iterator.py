@@ -25,9 +25,8 @@ from neo.client.exception import NEOStorageNotFoundError
 class Record(BaseStorage.DataRecord):
     """ TBaseStorageransaction record yielded by the Transaction object """
 
-    def __init__(self, oid, tid, version, data, prev):
+    def __init__(self, oid, tid, data, prev):
         BaseStorage.DataRecord.__init__(self, oid, tid, data, prev)
-        self.version = version
 
     def __str__(self):
         oid = util.u64(self.oid)
@@ -78,7 +77,7 @@ class Transaction(BaseStorage.TransactionRecord):
             self.oid_index = 0
             raise StopIteration
         self.oid_index = oid_index
-        record = Record(oid, self.tid, '', data,
+        record = Record(oid, self.tid, data,
             self.prev_serial_dict.get(oid))
         if next_tid is None:
             self.prev_serial_dict.pop(oid, None)
