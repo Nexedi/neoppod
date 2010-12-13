@@ -254,7 +254,7 @@ class NeoTestRunner(unittest.TestResult):
 
     def buildReport(self, add_status):
         self.time = sum([s.time for s in self.modulesStats.values()])
-        self.subject = "%s: %s Tests, %s Errors, %s Failures" % (self._title,
+        self.subject = "%s Tests, %s Errors, %s Failures" % (
             self.testsRun, len(self.errors), len(self.failures))
         summary = self._buildSummary(add_status)
         errors = self._buildErrors()
