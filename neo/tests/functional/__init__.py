@@ -576,9 +576,19 @@ class NEOFunctionalTest(NeoTestBase):
     def runWithTimeout(self, timeout, method, args=(), kwargs=None):
         if kwargs is None:
             kwargs = {}
-        thread = threading.Thread(None, method, args=args, kwargs=kwargs)
+        exc_list = []
+        def excWrapper(*args, **kw):
+            try:
+                method(*args, **kw)
+            except:
+                exc_list.append(sys.exc_info())
+        thread = threading.Thread(None, excWrapper, args=args, kwargs=kwargs)
         thread.setDaemon(True)
         thread.start()
         thread.join(timeout)
         self.assertFalse(thread.isAlive(), 'Run timeout')
+        if exc_list:
+            assert len(exc_list) == 1, exc_list
+            exc = exc_list[0]
+            raise exc[0], exc[1], exc[2]
 
