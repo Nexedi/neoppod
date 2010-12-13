@@ -25,16 +25,9 @@ from neo.client.exception import NEOStorageNotFoundError
 class Record(BaseStorage.DataRecord):
     """ TBaseStorageransaction record yielded by the Transaction object """
 
-    implements(
-        ZODB.interfaces.IStorageRecordInformation,
-    )
-
     def __init__(self, oid, tid, version, data, prev):
-        self.oid = oid
-        self.tid = tid
+        BaseStorage.DataRecord.__init__(self, oid, tid, data, prev)
         self.version = version
-        self.data = data
-        self.data_txn = prev
 
     def __str__(self):
         oid = util.u64(self.oid)
@@ -46,20 +39,11 @@ class Record(BaseStorage.DataRecord):
 class Transaction(BaseStorage.TransactionRecord):
     """ Transaction object yielded by the NEO iterator """
 
-    implements(
-        # TODO: add support for "extension" property so we implement entirely
-        # this interface.
-        # ZODB.interfaces.IStorageTransactionInformation,
-    )
-
     def __init__(self, app, tid, status, user, desc, ext, oid_list,
             prev_serial_dict):
+        BaseStorage.TransactionRecord.__init__( self, tid, status, user, desc,
+            ext)
         self.app = app
-        self.tid = tid
-        self.status = status
-        self.user = user
-        self.description = desc
-        self._extension = ext
         self.oid_list = oid_list
         self.oid_index = 0
         self.history = []
