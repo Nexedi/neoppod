@@ -108,7 +108,6 @@ class ThreadContext(object):
             'resolved_conflict_serial_dict': {},
             'object_stored': 0,
             'txn_voted': False,
-            'txn_finished': False,
             'queue': queue,
             'txn_info': 0,
             'history': None,
@@ -879,9 +878,6 @@ class Application(object):
             p = Packets.AskFinishTransaction(tid, oid_list)
             self._askPrimary(p)
 
-            if not self.isTransactionFinished():
-                raise NEOStorageError('tpc_finish failed')
-
             # Update cache
             self._cache_lock_acquire()
             try:
@@ -1236,12 +1232,6 @@ class Application(object):
 
     def getTID(self):
         return self.local_var.tid
-
-    def setTransactionFinished(self):
-        self.local_var.txn_finished = True
-
-    def isTransactionFinished(self):
-        return self.local_var.txn_finished
 
     def setTransactionVoted(self):
         self.local_var.txn_voted = True
