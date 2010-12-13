@@ -511,7 +511,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.local_var.txn = txn
         app.local_var.tid = tid
         # wrong answer -> failure
-        packet = Packets.AnswerTIDs(())
+        packet = Packets.AnswerStoreTransaction(INVALID_TID)
         packet.setId(0)
         conn = Mock({
             'getNextId': 1,
@@ -599,7 +599,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertEquals(app.local_var.txn, None)
         self.assertEquals(app.local_var.data_dict, {})
         self.assertEquals(app.local_var.txn_voted, False)
-        self.assertEquals(app.local_var.txn_finished, False)
 
     def test_tpc_abort3(self):
         """ check that abort is sent to all nodes involved in the transaction """
@@ -694,7 +693,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         def hook(tid):
             self.f_called = True
             self.f_called_with_tid = tid
-        packet = Packets.AnswerBeginTransaction(INVALID_TID)
+        packet = Packets.AnswerTransactionFinished(INVALID_TID)
         packet.setId(0)
         app.master_conn = Mock({
             'getNextId': 1,
@@ -709,7 +708,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.tpc_vote = voteDetector
         app.dispatcher = Mock({})
         app.local_var.txn_voted = True
-        app.local_var.txn_finished = False
         self.assertRaises(NEOStorageError, app.tpc_finish, txn,
             dummy_tryToResolveConflict, hook)
         self.assertTrue(self.f_called)
@@ -719,7 +717,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.checkDispatcherRegisterCalled(app, app.master_conn)
         # Call again, but this time transaction is not voted yet
         app.local_var.txn_voted = False
-        app.local_var.txn_finished = False
         self.f_called = False
         self.assertRaises(NEOStorageError, app.tpc_finish, txn,
             dummy_tryToResolveConflict, hook)
@@ -758,7 +755,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertEquals(app.local_var.txn, None)
         self.assertEquals(app.local_var.data_dict, {})
         self.assertEquals(app.local_var.txn_voted, False)
-        self.assertEquals(app.local_var.txn_finished, False)
 
     def test_undo1(self):
         # invalid transaction
