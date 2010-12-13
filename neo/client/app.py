@@ -800,15 +800,11 @@ class Application(object):
             if conn is None:
                 continue
 
-            local_var.txn_voted = False
             try:
                 self._askStorage(conn, p)
                 add_involved_nodes(cell.getNode())
             except ConnectionClosed:
                 continue
-
-            if not self.isTransactionVoted():
-                raise NEOStorageError('tpc_vote failed')
             voted_counter += 1
 
         # check at least one storage node accepted
@@ -820,6 +816,7 @@ class Application(object):
         # tpc_finish.
         self._getMasterConnection()
 
+        local_var.txn_voted = True
         return result
 
     @profiler_decorator
@@ -1232,12 +1229,6 @@ class Application(object):
 
     def getTID(self):
         return self.local_var.tid
-
-    def setTransactionVoted(self):
-        self.local_var.txn_voted = True
-
-    def isTransactionVoted(self):
-        return self.local_var.txn_voted
 
     def pack(self, t):
         tid = repr(TimeStamp(*time.gmtime(t)[:5] + (t % 60, )))

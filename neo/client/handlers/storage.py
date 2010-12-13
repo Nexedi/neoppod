@@ -94,7 +94,6 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerStoreTransaction(self, conn, tid):
         if tid != self.app.getTID():
             raise ProtocolError('Wrong TID, transaction not started')
-        self.app.setTransactionVoted()
 
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, packed, oid_list):
