@@ -788,7 +788,7 @@ class Application(object):
 
         tid = local_var.tid
         # Store data on each node
-        voted_counter = 0
+        txn_stored_counter = 0
         p = Packets.AskStoreTransaction(tid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
             local_var.data_list)
@@ -805,10 +805,10 @@ class Application(object):
                 add_involved_nodes(cell.getNode())
             except ConnectionClosed:
                 continue
-            voted_counter += 1
+            txn_stored_counter += 1
 
         # check at least one storage node accepted
-        if voted_counter == 0:
+        if txn_stored_counter == 0:
             raise NEOStorageError('tpc_vote failed')
         # Check if master connection is still alive.
         # This is just here to lower the probability of detecting a problem
