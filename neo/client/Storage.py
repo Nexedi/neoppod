@@ -68,7 +68,10 @@ class Storage(BaseStorage.BaseStorage,
             compress=compress)
         self._cache = DummyCache(self.app)
 
-    def load(self, oid, version):
+    def load(self, oid, version=''):
+        # XXX: interface deifinition states that version parameter is
+        # mandatory, while some ZODB tests do not provide it. For now, make
+        # it optional.
         assert version == '', 'Versions are not supported'
         try:
             return self.app.load(oid=oid)
