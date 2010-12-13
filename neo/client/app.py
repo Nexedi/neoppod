@@ -106,7 +106,6 @@ class ThreadContext(object):
             'object_stored_counter_dict': {},
             'conflict_serial_dict': {},
             'resolved_conflict_serial_dict': {},
-            'object_stored': 0,
             'txn_voted': False,
             'queue': queue,
             'txn_info': 0,
