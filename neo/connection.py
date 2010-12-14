@@ -286,7 +286,7 @@ class BaseConnection(object):
         if handlers.isPending():
             msg_id = handlers.checkTimeout(self, t)
             if msg_id is not None:
-                neo.logging.info('timeout for %r with %r', msg_id, self)
+                neo.logging.info('timeout for #0x%08x with %r', msg_id, self)
                 self.close()
                 self.getHandler().timeoutExpired(self)
             elif self._timeout.hardExpired(t):
