@@ -41,6 +41,9 @@ NEO_ADMIN = 'neoadmin'
 DELAY_SAFETY_MARGIN = 10
 MAX_START_TIME = 30
 
+class NodeProcessError(Exception):
+    pass
+
 class AlreadyRunning(Exception):
     pass
 
@@ -117,6 +120,9 @@ class NEOProcess(object):
             raise AlreadyStopped
         result = os.WEXITSTATUS(os.waitpid(self.pid, options)[1])
         self.pid = 0
+        if result:
+            raise NodeProcessError('%r %r exited with status %r' % (
+                self.command, self.arg_dict, result))
         return result
 
     def stop(self):
