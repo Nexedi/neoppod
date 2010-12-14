@@ -101,8 +101,9 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         oid_list = self.getOID(), self.getOID()
         msg_id = 1
         # register a transaction
-        tid = self.app.tm.begin()
-        self.app.tm.prepare(client_1, tid, oid_list, uuid_list, msg_id)
+        ttid = self.app.tm.begin()
+        tid = self.app.tm.prepare(client_1, ttid, 1, oid_list, uuid_list,
+            msg_id)
         self.assertTrue(tid in self.app.tm)
         # the first storage acknowledge the lock
         self.service.answerInformationLocked(storage_conn_1, tid)
@@ -145,18 +146,13 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         # create some transaction
         node, conn = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port=self.client_port)
-        def create_transaction(index):
-            tid = self.getNextTID()
-            oid_list = [self.getOID(index)]
-            self.app.tm.prepare(node, tid, oid_list, [node.getUUID()], index)
-        create_transaction(1)
-        create_transaction(2)
-        create_transaction(3)
+        self.app.tm.prepare(node, self.getNextTID(), 1,
+            [self.getOID(1)], [node.getUUID()], 1)
         conn = self.getFakeConnection(node.getUUID(), self.storage_address)
         service.askUnfinishedTransactions(conn)
         packet = self.checkAnswerUnfinishedTransactions(conn)
         (tid_list, ) = packet.decode()
-        self.assertEqual(len(tid_list), 3)
+        self.assertEqual(len(tid_list), 1)
 
     def _testWithMethod(self, method, state):
         # define two nodes
@@ -212,10 +208,11 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         # Transaction 1: 2 storage nodes involved, one will die and the other
         # already answered node lock
         msg_id_1 = 1
-        tid1 = tm.begin()
-        tm.prepare(client1, tid1, oid_list,
+        ttid1 = tm.begin()
+        tid1 = tm.prepare(client1, ttid1, 1, oid_list,
             [node1.getUUID(), node2.getUUID()], msg_id_1)
         tm.lock(tid1, node2.getUUID())
+        self.checkNoPacketSent(cconn1)
         # Storage 1 dies
         node1.setTemporarilyDown()
         self.service.nodeLost(conn1, node1)
@@ -229,8 +226,8 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
 
         # Transaction 2: 2 storage nodes involved, one will die
         msg_id_2 = 2
-        tid2 = tm.begin()
-        tm.prepare(client2, tid2, oid_list,
+        ttid2 = tm.begin()
+        tid2 = tm.prepare(client2, ttid2, 1, oid_list,
             [node1.getUUID(), node2.getUUID()], msg_id_2)
         # T2: pending locking answer, client keeps waiting
         self.checkNoPacketSent(cconn2, check_notify=False)
@@ -238,8 +235,8 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
 
         # Transaction 3: 1 storage node involved, which won't die
         msg_id_3 = 3
-        tid3 = tm.begin()
-        tm.prepare(client3, tid3, oid_list,
+        ttid3 = tm.begin()
+        tid3 = tm.prepare(client3, ttid3, 1, oid_list,
             [node2.getUUID(), ], msg_id_3)
         # T3: action not significant to this transacion, so no response
         self.checkNoPacketSent(cconn3, check_notify=False)

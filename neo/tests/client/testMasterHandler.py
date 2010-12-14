@@ -248,17 +248,18 @@ class MasterAnswersHandlerTests(MasterHandlerTests):
 
     def test_answerTransactionFinished(self):
         conn = self.getConnection()
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID(tid1)
+        ttid1 = self.getNextTID()
+        ttid2 = self.getNextTID(ttid1)
+        tid2 = self.getNextTID(ttid2)
         # wrong TID
-        self.app = Mock({'getTID': tid1})
+        self.app = Mock({'getTID': ttid1})
         self.assertRaises(NEOStorageError,
             self.handler.answerTransactionFinished,
-            conn, tid2)
+            conn, ttid2, tid2)
         # matching TID
-        app = Mock({'getTID': tid2})
+        app = Mock({'getTID': ttid2})
         handler = PrimaryAnswersHandler(app=app)
-        handler.answerTransactionFinished(conn, tid2)
+        handler.answerTransactionFinished(conn, ttid2, tid2)
         
     def test_answerPack(self):
         self.assertRaises(NEOStorageError, self.handler.answerPack, None, False)

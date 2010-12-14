@@ -789,30 +789,30 @@ class AnswerTransactionFinished(Packet):
     """
     Answer when a transaction is finished. PM -> C.
     """
-    def _encode(self, tid):
-        return _encodeTID(tid)
+    def _encode(self, ttid, tid):
+        return _encodeTID(ttid) + _encodeTID(tid)
 
     def _decode(self, body):
-        (tid, ) = unpack('8s', body)
-        return (_decodeTID(tid), )
+        (ttid, tid) = unpack('8s8s', body)
+        return (_decodeTID(ttid), _decodeTID(tid))
 
 class AskLockInformation(Packet):
     """
     Lock information on a transaction. PM -> S.
     """
     # XXX: Identical to InvalidateObjects and AskFinishTransaction
-    _header_format = '!8sL'
+    _header_format = '!8s8sL'
     _list_entry_format = '8s'
     _list_entry_len = calcsize(_list_entry_format)
 
-    def _encode(self, tid, oid_list):
-        body = [pack(self._header_format, tid, len(oid_list))]
+    def _encode(self, ttid, tid, oid_list):
+        body = [pack(self._header_format, ttid, tid, len(oid_list))]
         body.extend(oid_list)
         return ''.join(body)
 
     def _decode(self, body):
         offset = self._header_len
-        (tid, n) = unpack(self._header_format, body[:offset])
+        (ttid, tid, n) = unpack(self._header_format, body[:offset])
         oid_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
@@ -821,7 +821,7 @@ class AskLockInformation(Packet):
             oid = unpack(list_entry_format, body[offset:next_offset])[0]
             offset = next_offset
             oid_list.append(oid)
-        return (tid, oid_list)
+        return (ttid, tid, oid_list)
 
 class AnswerInformationLocked(Packet):
     """

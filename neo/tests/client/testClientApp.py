@@ -705,7 +705,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         def hook(tid):
             self.f_called = True
             self.f_called_with_tid = tid
-        packet = Packets.AnswerTransactionFinished(INVALID_TID)
+        packet = Packets.AnswerTransactionFinished(INVALID_TID, INVALID_TID)
         packet.setId(0)
         app.master_conn = Mock({
             'getNextId': 1,
@@ -722,8 +722,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.local_var.txn_voted = True
         self.assertRaises(NEOStorageError, app.tpc_finish, txn,
             dummy_tryToResolveConflict, hook)
-        self.assertTrue(self.f_called)
-        self.assertEquals(self.f_called_with_tid, tid)
+        self.assertFalse(self.f_called)
         self.assertEqual(self.vote_params, None)
         self.checkAskFinishTransaction(app.master_conn)
         self.checkDispatcherRegisterCalled(app, app.master_conn)
@@ -732,7 +731,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.f_called = False
         self.assertRaises(NEOStorageError, app.tpc_finish, txn,
             dummy_tryToResolveConflict, hook)
-        self.assertTrue(self.f_called)
+        self.assertFalse(self.f_called)
         self.assertTrue(self.vote_params[0] is txn)
         self.assertTrue(self.vote_params[1] is dummy_tryToResolveConflict)
         app.tpc_vote = tpc_vote
@@ -741,14 +740,15 @@ class ClientApplicationTests(NeoUnitTestBase):
         # transaction is finished
         app = self.getApp()
         tid = self.makeTID()
+        ttid = self.makeTID()
         txn = self.makeTransactionObject()
-        app.local_var.txn, app.local_var.tid = txn, tid
+        app.local_var.txn, app.local_var.tid = txn, ttid
         self.f_called = False
         self.f_called_with_tid = None
         def hook(tid):
             self.f_called = True
             self.f_called_with_tid = tid
-        packet = Packets.AnswerTransactionFinished(tid)
+        packet = Packets.AnswerTransactionFinished(ttid, tid)
         packet.setId(0)
         app.master_conn = Mock({
             'getNextId': 1,

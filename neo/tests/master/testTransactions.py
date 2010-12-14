@@ -39,11 +39,12 @@ class testTransactionManager(NeoUnitTestBase):
         # test data
         node = Mock({'__repr__': 'Node'})
         tid = self.makeTID(1)
+        ttid = self.makeTID(2)
         oid_list = (oid1, oid2) = [self.makeOID(1), self.makeOID(2)]
         uuid_list = (uuid1, uuid2) = [self.makeUUID(1), self.makeUUID(2)]
         msg_id = 1
         # create transaction object
-        txn = Transaction(node, tid, oid_list, uuid_list, msg_id)
+        txn = Transaction(node, ttid, tid, oid_list, uuid_list, msg_id)
         self.assertEqual(txn.getUUIDList(), uuid_list)
         self.assertEqual(txn.getOIDList(), oid_list)
         # lock nodes one by one
@@ -63,12 +64,12 @@ class testTransactionManager(NeoUnitTestBase):
         self.assertFalse(txnman.hasPending())
         self.assertEqual(txnman.getPendingList(), [])
         # begin the transaction
-        tid = txnman.begin()
-        self.assertTrue(tid is not None)
+        ttid = txnman.begin()
+        self.assertTrue(ttid is not None)
         self.assertFalse(txnman.hasPending())
         self.assertEqual(len(txnman.getPendingList()), 0)
         # prepare the transaction
-        txnman.prepare(node, tid, oid_list, uuid_list, msg_id)
+        tid = txnman.prepare(node, ttid, 1, oid_list, uuid_list, msg_id)
         self.assertTrue(txnman.hasPending())
         self.assertEqual(txnman.getPendingList()[0], tid)
         self.assertEqual(txnman[tid].getTID(), tid)
@@ -91,8 +92,8 @@ class testTransactionManager(NeoUnitTestBase):
         txnman = TransactionManager()
         # register 4 transactions made by two nodes
         self.assertEqual(txnman.getPendingList(), [])
-        tid1 = txnman.begin()
-        txnman.prepare(node1, tid1, oid_list, [storage_1_uuid], 1)
+        ttid1 = txnman.begin()
+        tid1 = txnman.prepare(node1, ttid1, 1, oid_list, [storage_1_uuid], 1)
         self.assertEqual(txnman.getPendingList(), [tid1])
         # abort transactions of another node, transaction stays
         txnman.abortFor(node2)
@@ -101,8 +102,8 @@ class testTransactionManager(NeoUnitTestBase):
         txnman.abortFor(node1)
         self.assertEqual(txnman.getPendingList(), [])
         self.assertFalse(txnman.hasPending())
-        # ...and we can start another transaction
-        tid2 = txnman.begin()
+        # ...and the lock is available
+        txnman.begin(self.getNextTID())
 
     def test_getNextOIDList(self):
         txnman = TransactionManager()
@@ -117,29 +118,6 @@ class testTransactionManager(NeoUnitTestBase):
         for i, oid in zip(xrange(len(oid_list)), oid_list):
             self.assertEqual(oid, self.getOID(i+2))
 
-    def test_getNextTID(self):
-        txnman = TransactionManager()
-        # no previous TID
-        self.assertEqual(txnman.getLastTID(), ZERO_TID)
-        # first transaction
-        node1 = Mock({'__hash__': 1})
-        tid1 = txnman.begin()
-        self.assertTrue(tid1 is not None)
-        self.assertEqual(txnman.getLastTID(), tid1)
-        # set a new last TID
-        ntid = pack('!Q', unpack('!Q', tid1)[0] + 10)
-        txnman.setLastTID(ntid)
-        self.assertEqual(txnman.getLastTID(), ntid)
-        self.assertTrue(ntid > tid1)
-        # If a new TID is generated, DelayedError is raised
-        self.assertRaises(DelayedError, txnman.begin)
-        txnman.remove(tid1)
-        # new trancation
-        node2 = Mock({'__hash__': 2})
-        tid2 = txnman.begin()
-        self.assertTrue(tid2 is not None)
-        self.assertTrue(tid2 > ntid > tid1)
-
     def test_forget(self):
         client1 = Mock({'__hash__': 1})
         client2 = Mock({'__hash__': 2})
@@ -152,8 +130,9 @@ class testTransactionManager(NeoUnitTestBase):
         # Transaction 1: 2 storage nodes involved, one will die and the other
         # already answered node lock
         msg_id_1 = 1
-        tid1 = tm.begin()
-        tm.prepare(client1, tid1, oid_list, [storage_1_uuid, storage_2_uuid], msg_id_1)
+        ttid1 = tm.begin()
+        tid1 = tm.prepare(client1, ttid1, 1, oid_list,
+            [storage_1_uuid, storage_2_uuid], msg_id_1)
         tm.lock(tid1, storage_2_uuid)
         t1 = tm[tid1]
         self.assertFalse(t1.locked())
@@ -165,8 +144,9 @@ class testTransactionManager(NeoUnitTestBase):
 
         # Transaction 2: 2 storage nodes involved, one will die
         msg_id_2 = 2
-        tid2 = tm.begin()
-        tm.prepare(client2, tid2, oid_list, [storage_1_uuid, storage_2_uuid], msg_id_2)
+        ttid2 = tm.begin()
+        tid2 = tm.prepare(client2, ttid2, 1, oid_list,
+            [storage_1_uuid, storage_2_uuid], msg_id_2)
         t2 = tm[tid2]
         self.assertFalse(t2.locked())
         # Storage 1 dies:
@@ -178,8 +158,9 @@ class testTransactionManager(NeoUnitTestBase):
 
         # Transaction 3: 1 storage node involved, which won't die
         msg_id_3 = 3
-        tid3 = tm.begin()
-        tm.prepare(client3, tid3, oid_list, [storage_2_uuid, ], msg_id_3)
+        ttid3 = tm.begin()
+        tid3 = tm.prepare(client3, ttid3, 1, oid_list, [storage_2_uuid, ],
+            msg_id_3)
         t3 = tm[tid3]
         self.assertFalse(t3.locked())
         # Storage 1 dies:
@@ -222,12 +203,21 @@ class testTransactionManager(NeoUnitTestBase):
         Note: this implementation might change later, to allow more paralelism.
         """
         tm = TransactionManager()
-        tid1 = tm.begin()
-        # Further calls fail with DelayedError
-        self.assertRaises(DelayedError, tm.begin)
-        # ...until tid1 gets removed
+        # With a requested TID, lock spans from begin to remove
+        ttid1 = self.getNextTID()
+        ttid2 = self.getNextTID()
+        tid1 = tm.begin(ttid1)
+        self.assertEqual(tid1, ttid1)
+        self.assertRaises(DelayedError, tm.begin, ttid2)
         tm.remove(tid1)
-        tid2 = tm.begin()
+        tm.remove(tm.begin(ttid2))
+        # Without a requested TID, lock spans from prepare to remove only
+        ttid3 = tm.begin()
+        ttid4 = tm.begin() # Doesn't raise
+        tid4 = tm.prepare(None, ttid4, 1, [], [], 0)
+        self.assertRaises(DelayedError, tm.prepare, None, ttid3, 1, [], [], 0)
+        tm.remove(tid4)
+        tm.prepare(None, ttid3, 1, [], [], 0)
 
 if __name__ == '__main__':
     unittest.main()

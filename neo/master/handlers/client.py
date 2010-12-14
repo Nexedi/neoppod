@@ -61,13 +61,13 @@ class ClientServiceHandler(MasterHandler):
         conn.answer(Packets.AnswerNewOIDs(app.tm.getNextOIDList(num_oids)))
         app.broadcastLastOID()
 
-    def askFinishTransaction(self, conn, tid, oid_list):
+    def askFinishTransaction(self, conn, ttid, oid_list):
         app = self.app
 
         # Collect partitions related to this transaction.
         getPartition = app.pt.getPartition
         partition_set = set()
-        partition_set.add(getPartition(tid))
+        partition_set.add(getPartition(ttid))
         partition_set.update((getPartition(oid) for oid in oid_list))
 
         # Collect the UUIDs of nodes related to this transaction.
@@ -79,6 +79,22 @@ class ClientServiceHandler(MasterHandler):
                     if cell.getNodeState() != NodeStates.HIDDEN)
                 if isStorageReady(uuid)))
 
+        if not uuid_set:
+            raise ProtocolError('No storage node ready for transaction')
+
+        identified_node_list = app.nm.getIdentifiedList(pool_set=uuid_set)
+        usable_uuid_set = set((x.getUUID() for x in identified_node_list))
+        partitions = app.pt.getPartitions()
+        peer_id = conn.getPeerId()
+        node = app.nm.getByUUID(conn.getUUID())
+        try:
+            tid = app.tm.prepare(node, ttid, partitions, oid_list,
+                usable_uuid_set, peer_id)
+        except DelayedError:
+            app.queueEvent(self.askFinishTransaction, conn, ttid,
+                oid_list)
+            return
+
         # check if greater and foreign OID was stored
         if app.tm.updateLastOID(oid_list):
             app.broadcastLastOID()
@@ -86,14 +102,9 @@ class ClientServiceHandler(MasterHandler):
         # Request locking data.
         # build a new set as we may not send the message to all nodes as some
         # might be not reachable at that time
-        p = Packets.AskLockInformation(tid, oid_list)
-        used_uuid_set = set()
-        for node in app.nm.getIdentifiedList(pool_set=uuid_set):
+        p = Packets.AskLockInformation(ttid, tid, oid_list)
+        for node in identified_node_list:
             node.ask(p, timeout=60)
-            used_uuid_set.add(node.getUUID())
-
-        node = app.nm.getByUUID(conn.getUUID())
-        app.tm.prepare(node, tid, oid_list, used_uuid_set, conn.getPeerId())
 
     def askPack(self, conn, tid):
         app = self.app

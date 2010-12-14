@@ -882,8 +882,6 @@ class Application(object):
                 raise NEOStorageError('tpc_store failed')
             elif oid in resolved_oid_set:
                 append((oid, ResolvedSerial))
-            else:
-                append((oid, tid))
         return result
 
     @profiler_decorator
@@ -975,15 +973,16 @@ class Application(object):
             self.tpc_vote(transaction, tryToResolveConflict)
         self._load_lock_acquire()
         try:
+            # Call finish on master
+            oid_list = local_var.data_list
+            p = Packets.AskFinishTransaction(local_var.tid, oid_list)
+            self._askPrimary(p)
+
+            # From now on, self.local_var.tid holds the "real" TID.
             tid = local_var.tid
             # Call function given by ZODB
             if f is not None:
                 f(tid)
-
-            # Call finish on master
-            oid_list = local_var.data_list
-            p = Packets.AskFinishTransaction(tid, oid_list)
-            self._askPrimary(p)
 
             # Update cache
             self._cache_lock_acquire()
@@ -1280,26 +1279,20 @@ class Application(object):
     @profiler_decorator
     def importFrom(self, source, start, stop, tryToResolveConflict):
         serials = {}
-        def updateLastSerial(oid, result):
-            if result:
-                if isinstance(result, str):
-                    assert oid is not None
-                    serials[oid] = result
-                else:
-                    for oid, serial in result:
-                        assert isinstance(serial, str), serial
-                        serials[oid] = serial
         transaction_iter = source.iterator(start, stop)
         for transaction in transaction_iter:
-            self.tpc_begin(transaction, transaction.tid, transaction.status)
+            tid = transaction.tid
+            self.tpc_begin(transaction, tid, transaction.status)
             for r in transaction:
-                pre = serials.get(r.oid, None)
+                oid = r.oid
+                pre = serials.get(oid, None)
                 # TODO: bypass conflict resolution, locks...
-                result = self.store(r.oid, pre, r.data, r.version, transaction)
-                updateLastSerial(r.oid, result)
-            updateLastSerial(None, self.tpc_vote(transaction,
-                        tryToResolveConflict))
-            self.tpc_finish(transaction, tryToResolveConflict)
+                self.store(oid, pre, r.data, r.version, transaction)
+                serials[oid] = tid
+            conflicted = self.tpc_vote(transaction, tryToResolveConflict)
+            assert not conflicted, conflicted
+            real_tid = self.tpc_finish(transaction, tryToResolveConflict)
+            assert real_tid == tid, (real_tid, tid)
         transaction_iter.close()
 
     def iterator(self, start=None, stop=None):

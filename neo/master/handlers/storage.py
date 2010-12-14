@@ -88,10 +88,12 @@ class StorageServiceHandler(BaseServiceHandler):
         app = self.app
         tm = app.tm
         t = tm[tid]
+        ttid = t.getTTID()
         nm = app.nm
         transaction_node = t.getNode()
         invalidate_objects = Packets.InvalidateObjects(tid, t.getOIDList())
-        answer_transaction_finished = Packets.AnswerTransactionFinished(tid)
+        answer_transaction_finished = Packets.AnswerTransactionFinished(ttid,
+            tid)
         for client_node in nm.getClientList(only_identified=True):
             c = client_node.getConnection()
             if client_node is transaction_node:
@@ -100,7 +102,7 @@ class StorageServiceHandler(BaseServiceHandler):
                 c.notify(invalidate_objects)
 
         # - Unlock Information to relevant storage nodes.
-        notify_unlock = Packets.NotifyUnlockInformation(tid)
+        notify_unlock = Packets.NotifyUnlockInformation(ttid)
         for storage_uuid in t.getUUIDList():
             nm.getByUUID(storage_uuid).getConnection().notify(notify_unlock)
 

@@ -19,7 +19,7 @@ from time import time, gmtime
 from struct import pack, unpack
 from neo.protocol import ZERO_TID
 from datetime import timedelta, datetime
-from neo.util import dump
+from neo.util import dump, u64, p64
 import neo
 
 TID_LOW_OVERFLOW = 2**32
@@ -92,11 +92,12 @@ class Transaction(object):
         A pending transaction
     """
 
-    def __init__(self, node, tid, oid_list, uuid_list, msg_id):
+    def __init__(self, node, ttid, tid, oid_list, uuid_list, msg_id):
         """
             Prepare the transaction, set OIDs and UUIDs related to it
         """
         self._node = node
+        self._ttid = ttid
         self._tid = tid
         self._oid_list = oid_list
         self._msg_id = msg_id
@@ -121,6 +122,12 @@ class Transaction(object):
             Return the node that had began the transaction
         """
         return self._node
+
+    def getTTID(self):
+        """
+            Return the temporary transaction ID.
+        """
+        return self._ttid
 
     def getTID(self):
         """
@@ -184,6 +191,8 @@ class TransactionManager(object):
     # We don't need to use a real lock, as we are mono-threaded.
     _locked = None
 
+    _next_ttid = 0
+
     def __init__(self):
         # tid -> transaction
         self._tid_dict = {}
@@ -232,8 +241,18 @@ class TransactionManager(object):
     def getLastOID(self):
         return self._last_oid
 
-    def _nextTID(self):
-        """ Compute the next TID based on the current time and check collisions """
+    def _nextTID(self, ttid, divisor):
+        """
+        Compute the next TID based on the current time and check collisions.
+        Also, adjust it so that 
+            tid % divisor == ttid % divisor
+        while preserving
+            min_tid < tid
+        When constraints allow, prefer decreasing generated TID, to avoid
+        fast-forwarding to future dates.
+        """
+        assert isinstance(ttid, basestring), repr(ttid)
+        assert isinstance(divisor, (int, long)), repr(divisor)
         tm = time()
         gmt = gmtime(tm)
         tid = packTID((
@@ -241,8 +260,28 @@ class TransactionManager(object):
                 gmt.tm_min),
             int((gmt.tm_sec % 60 + (tm - int(tm))) / SECOND_PER_TID_LOW)
         ))
-        if tid <= self._last_tid:
-            tid  = addTID(self._last_tid, 1)
+        min_tid = self._last_tid
+        if tid <= min_tid:
+            tid  = addTID(min_tid, 1)
+            # We know we won't have room to adjust by decreasing.
+            try_decrease = False
+        else:
+            try_decrease = True
+        ref_remainder = u64(ttid) % divisor
+        remainder = u64(tid) % divisor
+        if ref_remainder != remainder:
+            if try_decrease:
+                new_tid = addTID(tid, ref_remainder - divisor - remainder)
+                assert u64(new_tid) % divisor == ref_remainder, (dump(new_tid),
+                    ref_remainder)
+                if new_tid <= min_tid:
+                    new_tid = addTID(new_tid, divisor)
+            else:
+                if ref_remainder > remainder:
+                    ref_remainder += divisor
+                new_tid = addTID(tid, ref_remainder - remainder)
+            assert min_tid < new_tid, (dump(min_tid), dump(tid), dump(new_tid))
+            tid = new_tid
         self._last_tid = tid
         return self._last_tid
 
@@ -257,6 +296,14 @@ class TransactionManager(object):
             Set the last TID, keep the previous if lower
         """
         self._last_tid = max(self._last_tid, tid)
+
+    def getTTID(self):
+        """
+            Generate a temporary TID, to be used only during a single node's
+            2PC.
+        """
+        self._next_ttid += 1
+        return p64(self._next_ttid)
 
     def reset(self):
         """
@@ -282,28 +329,47 @@ class TransactionManager(object):
         """
             Generate a new TID
         """
-        if self._locked is not None:
-            raise DelayedError()
         if tid is None:
-            tid = self._nextTID()
-        self._locked = tid
+            # No TID requested, generate a temporary one
+            tid = self.getTTID()
+        else:
+            # TID requested, take commit lock immediately
+            if self._locked is not None:
+                raise DelayedError()
+            self._locked = tid
         return tid
 
-    def prepare(self, node, tid, oid_list, uuid_list, msg_id):
+    def prepare(self, node, ttid, divisor, oid_list, uuid_list, msg_id):
         """
             Prepare a transaction to be finished
         """
+        locked = self._locked
+        if locked == ttid:
+            # Transaction requested some TID upon begin, and it owns the commit
+            # lock since then.
+            tid = ttid
+        else:
+            # Otherwise, acquire lock and allocate a new TID.
+            if locked is not None:
+                raise DelayedError()
+            tid = self._nextTID(ttid, divisor)
+            self._locked = tid
+
         self.setLastTID(tid)
-        txn = Transaction(node, tid, oid_list, uuid_list, msg_id)
+        txn = Transaction(node, ttid, tid, oid_list, uuid_list, msg_id)
         self._tid_dict[tid] = txn
         self._node_dict.setdefault(node, {})[tid] = txn
+        return tid
 
     def remove(self, tid):
         """
             Remove a transaction, commited or aborted
         """
-        assert self._locked == tid, (self._locked, tid)
-        self._locked = None
+        if tid == self._locked:
+            # If TID has the lock, release it.
+            # It might legitimately not have the lock (ex: a transaction
+            # aborting, which didn't request a TID upon begin)
+            self._locked = None
         tid_dict = self._tid_dict
         if tid in tid_dict:
             # ...and tried to finish

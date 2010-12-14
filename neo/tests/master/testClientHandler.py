@@ -65,13 +65,33 @@ class MasterClientHandlerTests(NeoUnitTestBase):
 
     # Tests
     def test_07_askBeginTransaction(self):
+        tid1 = self.getNextTID()
+        tid2 = self.getNextTID()
         service = self.service
-        ltid = self.app.tm.getLastTID()
+        tm_org = self.app.tm
+        self.app.tm = tm = Mock({
+            'begin': '\x00\x00\x00\x00\x00\x00\x00\x01',
+        })
         # client call it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         service.askBeginTransaction(conn, None)
-        self.assertTrue(ltid < self.app.tm.getLastTID())
+        calls = tm.mockGetNamedCalls('begin')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(None)
+        # Client asks for a TID
+        self.app.tm = tm_org
+        service.askBeginTransaction(conn, tid1)
+        # If asking again for a TID, call is queued
+        call_marker = []
+        def queueEvent(*args, **kw):
+            call_marker.append((args, kw))
+        self.app.queueEvent = queueEvent
+        service.askBeginTransaction(conn, tid2)
+        self.assertEqual(len(call_marker), 1)
+        args, kw = call_marker[0]
+        self.assertEqual(kw, {})
+        self.assertEqual(args, (service.askBeginTransaction, conn, tid2))
 
     def test_08_askNewOIDs(self):
         service = self.service
@@ -96,11 +116,19 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         storage_uuid = self.identifyToMasterNode()
         storage_conn = self.getFakeConnection(storage_uuid, self.storage_address)
+        storage2_uuid = self.identifyToMasterNode()
+        storage2_conn = self.getFakeConnection(storage2_uuid,
+            (self.storage_address[0], self.storage_address[1] + 1))
+        self.app.setStorageReady(storage2_uuid)
         self.assertNotEquals(uuid, client_uuid)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.pt = Mock({
             'getPartition': 0,
-            'getCellList': [Mock({'getUUID': storage_uuid})],
+            'getCellList': [
+                Mock({'getUUID': storage_uuid}),
+                Mock({'getUUID': storage2_uuid}),
+            ],
+            'getPartitions': 2,
         })
         service.askBeginTransaction(conn, None)
         oid_list = []
@@ -111,6 +139,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.assertFalse(self.app.isStorageReady(storage_uuid))
         service.askFinishTransaction(conn, tid, oid_list)
         self.checkNoPacketSent(storage_conn)
+        self.app.tm.abortFor(self.app.nm.getByUUID(client_uuid))
         # ...but AskLockInformation is sent if it is ready
         self.app.setStorageReady(storage_uuid)
         self.assertTrue(self.app.isStorageReady(storage_uuid))
@@ -118,8 +147,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.checkAskLockInformation(storage_conn)
         self.assertEquals(len(self.app.tm.getPendingList()), 1)
         apptid = self.app.tm.getPendingList()[0]
-        self.assertEquals(tid, apptid)
-        txn = self.app.tm[tid]
+        txn = self.app.tm[apptid]
         self.assertEquals(len(txn.getOIDList()), 0)
         self.assertEquals(len(txn.getUUIDList()), 1)
 

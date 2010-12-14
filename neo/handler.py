@@ -211,10 +211,10 @@ class EventHandler(object):
     def askFinishTransaction(self, conn, tid, oid_list):
         raise UnexpectedPacketError
 
-    def answerTransactionFinished(self, conn, tid):
+    def answerTransactionFinished(self, conn, ttid, tid):
         raise UnexpectedPacketError
 
-    def askLockInformation(self, conn, tid, oid_list):
+    def askLockInformation(self, conn, ttid, tid, oid_list):
         raise UnexpectedPacketError
 
     def answerInformationLocked(self, conn, tid):

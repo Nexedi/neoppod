@@ -163,9 +163,10 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
     def answerNewOIDs(self, conn, oid_list):
         self.app.new_oid_list = oid_list
 
-    def answerTransactionFinished(self, conn, tid):
-        if tid != self.app.getTID():
+    def answerTransactionFinished(self, conn, ttid, tid):
+        if ttid != self.app.getTID():
             raise NEOStorageError('Wrong TID, transaction not started')
+        self.app.setTID(tid)
 
     def answerPack(self, conn, status):
         if not status:
