@@ -59,12 +59,13 @@ class testTransactionManager(NeoUnitTestBase):
         msg_id = 1
         oid_list = (oid1, oid2) = self.makeOID(1), self.makeOID(2)
         uuid_list = (uuid1, uuid2) = self.makeUUID(1), self.makeUUID(2)
+        client_uuid = self.makeUUID(3)
         # create transaction manager
         txnman = TransactionManager()
         self.assertFalse(txnman.hasPending())
         self.assertEqual(txnman.getPendingList(), [])
         # begin the transaction
-        ttid = txnman.begin()
+        ttid = txnman.begin(client_uuid)
         self.assertTrue(ttid is not None)
         self.assertFalse(txnman.hasPending())
         self.assertEqual(len(txnman.getPendingList()), 0)
@@ -89,10 +90,11 @@ class testTransactionManager(NeoUnitTestBase):
         oid_list = [self.makeOID(1), ]
         storage_1_uuid = self.makeUUID(1)
         storage_2_uuid = self.makeUUID(2)
+        client_uuid = self.makeUUID(3)
         txnman = TransactionManager()
         # register 4 transactions made by two nodes
         self.assertEqual(txnman.getPendingList(), [])
-        ttid1 = txnman.begin()
+        ttid1 = txnman.begin(client_uuid)
         tid1 = txnman.prepare(node1, ttid1, 1, oid_list, [storage_1_uuid], 1)
         self.assertEqual(txnman.getPendingList(), [tid1])
         # abort transactions of another node, transaction stays
@@ -103,7 +105,7 @@ class testTransactionManager(NeoUnitTestBase):
         self.assertEqual(txnman.getPendingList(), [])
         self.assertFalse(txnman.hasPending())
         # ...and the lock is available
-        txnman.begin(self.getNextTID())
+        txnman.begin(client_uuid, self.getNextTID())
 
     def test_getNextOIDList(self):
         txnman = TransactionManager()
@@ -125,12 +127,13 @@ class testTransactionManager(NeoUnitTestBase):
         storage_1_uuid = self.makeUUID(1)
         storage_2_uuid = self.makeUUID(2)
         oid_list = [self.makeOID(1), ]
+        client_uuid = self.makeUUID(3)
 
         tm = TransactionManager()
         # Transaction 1: 2 storage nodes involved, one will die and the other
         # already answered node lock
         msg_id_1 = 1
-        ttid1 = tm.begin()
+        ttid1 = tm.begin(client_uuid)
         tid1 = tm.prepare(client1, ttid1, 1, oid_list,
             [storage_1_uuid, storage_2_uuid], msg_id_1)
         tm.lock(tid1, storage_2_uuid)
@@ -144,7 +147,7 @@ class testTransactionManager(NeoUnitTestBase):
 
         # Transaction 2: 2 storage nodes involved, one will die
         msg_id_2 = 2
-        ttid2 = tm.begin()
+        ttid2 = tm.begin(client_uuid)
         tid2 = tm.prepare(client2, ttid2, 1, oid_list,
             [storage_1_uuid, storage_2_uuid], msg_id_2)
         t2 = tm[tid2]
@@ -158,7 +161,7 @@ class testTransactionManager(NeoUnitTestBase):
 
         # Transaction 3: 1 storage node involved, which won't die
         msg_id_3 = 3
-        ttid3 = tm.begin()
+        ttid3 = tm.begin(client_uuid)
         tid3 = tm.prepare(client3, ttid3, 1, oid_list, [storage_2_uuid, ],
             msg_id_3)
         t3 = tm[tid3]
@@ -202,22 +205,36 @@ class testTransactionManager(NeoUnitTestBase):
         strictly increasing order.
         Note: this implementation might change later, to allow more paralelism.
         """
+        client_uuid = self.makeUUID(3)
         tm = TransactionManager()
         # With a requested TID, lock spans from begin to remove
         ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
-        tid1 = tm.begin(ttid1)
+        tid1 = tm.begin(client_uuid, ttid1)
         self.assertEqual(tid1, ttid1)
-        self.assertRaises(DelayedError, tm.begin, ttid2)
+        self.assertRaises(DelayedError, tm.begin, client_uuid, ttid2)
         tm.remove(tid1)
-        tm.remove(tm.begin(ttid2))
+        tm.remove(tm.begin(client_uuid, ttid2))
         # Without a requested TID, lock spans from prepare to remove only
-        ttid3 = tm.begin()
-        ttid4 = tm.begin() # Doesn't raise
-        tid4 = tm.prepare(None, ttid4, 1, [], [], 0)
-        self.assertRaises(DelayedError, tm.prepare, None, ttid3, 1, [], [], 0)
+        ttid3 = tm.begin(client_uuid)
+        ttid4 = tm.begin(client_uuid) # Doesn't raise
+        node = Mock({'getUUID': client_uuid, '__hash__': 0})
+        tid4 = tm.prepare(node, ttid4, 1, [], [], 0)
+        self.assertRaises(DelayedError, tm.prepare, node, ttid3, 1, [], [], 0)
         tm.remove(tid4)
-        tm.prepare(None, ttid3, 1, [], [], 0)
+        tm.prepare(node, ttid3, 1, [], [], 0)
+
+    def testClientDisconectsAfterBegin(self):
+        client1_uuid = self.makeUUID(1)
+        client2_uuid = self.makeUUID(2)
+        tm = TransactionManager()
+        tid1 = self.getNextTID()
+        tid2 = self.getNextTID()
+        tm.begin(client1_uuid, tid1)
+        self.assertRaises(DelayedError, tm.begin, client2_uuid, tid2)
+        node1 = Mock({'getUUID': client1_uuid, '__hash__': 0})
+        tm.abortFor(node1)
+        tm.begin(client2_uuid, tid2)
 
 if __name__ == '__main__':
     unittest.main()

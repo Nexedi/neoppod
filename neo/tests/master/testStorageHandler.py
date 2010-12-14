@@ -101,7 +101,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         oid_list = self.getOID(), self.getOID()
         msg_id = 1
         # register a transaction
-        ttid = self.app.tm.begin()
+        ttid = self.app.tm.begin(client_1.getUUID())
         tid = self.app.tm.prepare(client_1, ttid, 1, oid_list, uuid_list,
             msg_id)
         self.assertTrue(tid in self.app.tm)
@@ -208,7 +208,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         # Transaction 1: 2 storage nodes involved, one will die and the other
         # already answered node lock
         msg_id_1 = 1
-        ttid1 = tm.begin()
+        ttid1 = tm.begin(node1.getUUID())
         tid1 = tm.prepare(client1, ttid1, 1, oid_list,
             [node1.getUUID(), node2.getUUID()], msg_id_1)
         tm.lock(tid1, node2.getUUID())
@@ -226,7 +226,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
 
         # Transaction 2: 2 storage nodes involved, one will die
         msg_id_2 = 2
-        ttid2 = tm.begin()
+        ttid2 = tm.begin(node1.getUUID())
         tid2 = tm.prepare(client2, ttid2, 1, oid_list,
             [node1.getUUID(), node2.getUUID()], msg_id_2)
         # T2: pending locking answer, client keeps waiting
@@ -235,7 +235,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
 
         # Transaction 3: 1 storage node involved, which won't die
         msg_id_3 = 3
-        ttid3 = tm.begin()
+        ttid3 = tm.begin(node1.getUUID())
         tid3 = tm.prepare(client3, ttid3, 1, oid_list,
             [node2.getUUID(), ], msg_id_3)
         # T3: action not significant to this transacion, so no response

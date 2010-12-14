@@ -52,7 +52,8 @@ class ClientServiceHandler(MasterHandler):
             A client request a TID, nothing is kept about it until the finish.
         """
         try:
-            conn.answer(Packets.AnswerBeginTransaction(self.app.tm.begin(tid)))
+            conn.answer(Packets.AnswerBeginTransaction(self.app.tm.begin(
+                conn.getUUID(), tid)))
         except DelayedError:
             self.app.queueEvent(self.askBeginTransaction, conn, tid)
 

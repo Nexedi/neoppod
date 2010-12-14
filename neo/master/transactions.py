@@ -325,7 +325,7 @@ class TransactionManager(object):
         """
         return self._tid_dict.keys()
 
-    def begin(self, tid=None):
+    def begin(self, uuid, tid=None):
         """
             Generate a new TID
         """
@@ -336,7 +336,7 @@ class TransactionManager(object):
             # TID requested, take commit lock immediately
             if self._locked is not None:
                 raise DelayedError()
-            self._locked = tid
+            self._locked = (uuid, tid)
         return tid
 
     def prepare(self, node, ttid, divisor, oid_list, uuid_list, msg_id):
@@ -344,7 +344,9 @@ class TransactionManager(object):
             Prepare a transaction to be finished
         """
         locked = self._locked
-        if locked == ttid:
+        uuid = node.getUUID()
+        if locked is not None and locked[1] == ttid:
+            assert locked[0] == uuid
             # Transaction requested some TID upon begin, and it owns the commit
             # lock since then.
             tid = ttid
@@ -353,7 +355,7 @@ class TransactionManager(object):
             if locked is not None:
                 raise DelayedError()
             tid = self._nextTID(ttid, divisor)
-            self._locked = tid
+            self._locked = (uuid, tid)
 
         self.setLastTID(tid)
         txn = Transaction(node, ttid, tid, oid_list, uuid_list, msg_id)
@@ -365,7 +367,8 @@ class TransactionManager(object):
         """
             Remove a transaction, commited or aborted
         """
-        if tid == self._locked:
+        locked = self._locked
+        if locked is not None and tid == locked[1]:
             # If TID has the lock, release it.
             # It might legitimately not have the lock (ex: a transaction
             # aborting, which didn't request a TID upon begin)
@@ -389,6 +392,9 @@ class TransactionManager(object):
         """
             Abort pending transactions initiated by a node
         """
+        locked = self._locked
+        if locked is not None and locked[0] == node.getUUID():
+            self._locked = None
         # nothing to do
         if node not in self._node_dict:
             return
