@@ -324,12 +324,15 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def findUndoTID(self, oid, tid, undone_tid, transaction_object):
+    def findUndoTID(self, oid, tid, ltid, undone_tid, transaction_object):
         """
         oid
             Object OID
         tid
             Transation doing the undo
+        ltid
+            Upper (exclued) bound of transactions visible to transaction doing
+            the undo.
         undone_tid
             Transaction to undo
         transaction_object
@@ -355,16 +358,17 @@ class DatabaseManager(object):
         p64 = util.p64
         oid = u64(oid)
         tid = u64(tid)
+        ltid = u64(ltid)
         undone_tid = u64(undone_tid)
         _getDataTID = self._getDataTID
         if transaction_object is not None:
             toid, tcompression, tchecksum, tdata, tvalue_serial = \
                 transaction_object
             current_tid, current_data_tid = self._getDataTIDFromData(oid,
-                (tid, None, tcompression, tchecksum, tdata,
+                (ltid, None, tcompression, tchecksum, tdata,
                 u64(tvalue_serial)))
         else:
-            current_tid, current_data_tid = _getDataTID(oid, before_tid=tid)
+            current_tid, current_data_tid = _getDataTID(oid, before_tid=ltid)
         if current_tid is None:
             return (None, None, False)
         found_undone_tid, undone_data_tid = _getDataTID(oid, tid=undone_tid)

@@ -466,11 +466,13 @@ class ProtocolTests(NeoUnitTestBase):
 
     def test_askObjectUndoSerial(self):
         tid = self.getNextTID()
+        ltid = self.getNextTID()
         undone_tid = self.getNextTID()
         oid_list = [self.getOID(x) for x in xrange(4)]
-        p = Packets.AskObjectUndoSerial(tid, undone_tid, oid_list)
-        ptid, pundone_tid, poid_list = p.decode()
+        p = Packets.AskObjectUndoSerial(tid, ltid, undone_tid, oid_list)
+        ptid, pltid, pundone_tid, poid_list = p.decode()
         self.assertEqual(tid, ptid)
+        self.assertEqual(ltid, pltid)
         self.assertEqual(undone_tid, pundone_tid)
         self.assertEqual(oid_list, poid_list)
 

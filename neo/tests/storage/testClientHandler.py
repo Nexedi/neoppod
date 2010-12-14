@@ -271,6 +271,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         uuid = self.getNewUUID()
         conn = self._getConnection(uuid=uuid)
         tid = self.getNextTID()
+        ltid = self.getNextTID()
         undone_tid = self.getNextTID()
         # Keep 2 entries here, so we check findUndoTID is called only once.
         oid_list = [self.getOID(1), self.getOID(2)]
@@ -281,7 +282,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.app.dm = Mock({
             'findUndoTID': ReturnValues((None, None, False), )
         })
-        self.operation.askObjectUndoSerial(conn, tid, undone_tid, oid_list)
+        self.operation.askObjectUndoSerial(conn, tid, ltid, undone_tid, oid_list)
         self.checkErrorPacket(conn)
 
     def test_askHasLock(self):

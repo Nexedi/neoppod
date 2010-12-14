@@ -102,14 +102,14 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                              app.pt.getPartitions(), partition_list)
         conn.answer(Packets.AnswerTIDs(tid_list))
 
-    def askObjectUndoSerial(self, conn, tid, undone_tid, oid_list):
+    def askObjectUndoSerial(self, conn, tid, ltid, undone_tid, oid_list):
         app = self.app
         findUndoTID = app.dm.findUndoTID
         getObjectFromTransaction = app.tm.getObjectFromTransaction
         object_tid_dict = {}
         for oid in oid_list:
             current_serial, undo_serial, is_current = findUndoTID(oid, tid,
-                undone_tid, getObjectFromTransaction(tid, oid))
+                ltid, undone_tid, getObjectFromTransaction(tid, oid))
             if current_serial is None:
                 p = Errors.OidNotFound(dump(oid))
                 break

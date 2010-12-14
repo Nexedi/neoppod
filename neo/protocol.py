@@ -1507,12 +1507,12 @@ class AskObjectUndoSerial(Packet):
     for a list of OIDs.
     C -> S
     """
-    _header_format = '!8s8sL'
+    _header_format = '!8s8s8sL'
 
-    def _encode(self, tid, undone_tid, oid_list):
+    def _encode(self, tid, ltid, undone_tid, oid_list):
         body = StringIO()
         write = body.write
-        write(pack(self._header_format, tid, undone_tid, len(oid_list)))
+        write(pack(self._header_format, tid, ltid, undone_tid, len(oid_list)))
         for oid in oid_list:
             write(oid)
         return body.getvalue()
@@ -1520,10 +1520,10 @@ class AskObjectUndoSerial(Packet):
     def _decode(self, body):
         body = StringIO(body)
         read = body.read
-        tid, undone_tid, oid_list_len = unpack(self._header_format,
+        tid, ltid, undone_tid, oid_list_len = unpack(self._header_format,
             read(self._header_len))
         oid_list = [read(8) for _ in xrange(oid_list_len)]
-        return tid, undone_tid, oid_list
+        return tid, ltid, undone_tid, oid_list
 
 class AnswerObjectUndoSerial(Packet):
     """

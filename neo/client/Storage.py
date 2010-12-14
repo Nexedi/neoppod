@@ -20,6 +20,8 @@ from zope.interface import implements
 import ZODB.interfaces
 
 from neo import setupLog
+from neo.util import add64
+from neo.protocol import ZERO_TID
 from neo.client.app import Application
 from neo.client.exception import NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
@@ -42,6 +44,8 @@ class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
 
+    _snapshot_tid = None
+
     implements(
         ZODB.interfaces.IStorage,
         # "restore" missing for the moment, but "store" implements this
@@ -54,19 +58,67 @@ class Storage(BaseStorage.BaseStorage,
         ZODB.interfaces.IStorageUndoable,
         ZODB.interfaces.IExternalGC,
         ZODB.interfaces.ReadVerifyingStorage,
+        ZODB.interfaces.IMVCCStorage,
     )
 
     def __init__(self, master_nodes, name, connector=None, read_only=False,
-                 compress=None, logfile=None, verbose=False, **kw):
+            compress=None, logfile=None, verbose=False,
+            _app=None, _cache=None,
+            **kw):
+        """
+        Do not pass those parameters (used internally):
+        _app
+        _cache
+        """
         if compress is None:
             compress = True
         setupLog('CLIENT', filename=logfile, verbose=verbose)
         BaseStorage.BaseStorage.__init__(self, 'NEOStorage(%s)' % (name, ))
         # Warning: _is_read_only is used in BaseStorage, do not rename it.
         self._is_read_only = read_only
-        self.app = Application(master_nodes, name, connector,
-            compress=compress)
-        self._cache = DummyCache(self.app)
+        if _app is None:
+            _app = Application(master_nodes, name, connector,
+                compress=compress)
+            assert _cache is None
+            _cache = DummyCache(_app)
+        self.app = _app
+        assert _cache is not None
+        self._cache = _cache
+        # Used to clone self (see new_instance & IMVCCStorage definition).
+        self._init_args = (master_nodes, name)
+        self._init_kw = {
+            'connector': connector,
+            'read_only': read_only,
+            'compress': compress,
+            'logfile': logfile,
+            'verbose': verbose,
+            '_app': _app,
+            '_cache': _cache,
+        }
+
+    def _getSnapshotTID(self):
+        """
+        Get the highest TID visible for current transaction.
+        First call sets this snapshot by asking master node most recent
+        committed TID.
+        As a (positive) side-effect, this forces us to handle all pending
+        invalidations, so we get a very recent view of the database (which is
+        good when multiple databases are used in the same program with some
+        amount of referential integrity).
+        """
+        tid = self._snapshot_tid
+        if tid is None:
+            tid = self.lastTransaction()
+            if tid is ZERO_TID:
+                raise NEOStorageDoesNotExistError('No transaction in storage')
+            # Increment by one, as we will use this as an excluded upper
+            # bound (loadBefore).
+            tid = add64(tid, 1)
+            self._snapshot_tid = tid
+        return tid
+
+    def _load(self, *args, **kw):
+        return self.app.load(self._getSnapshotTID(), *args, **kw)
 
     def load(self, oid, version=''):
         # XXX: interface deifinition states that version parameter is
@@ -74,7 +126,7 @@ class Storage(BaseStorage.BaseStorage,
         # it optional.
         assert version == '', 'Versions are not supported'
         try:
-            return self.app.load(oid=oid)
+            return self._load(oid)[:2]
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
@@ -97,11 +149,14 @@ class Storage(BaseStorage.BaseStorage,
 
     @check_read_only
     def tpc_abort(self, transaction):
+        self.sync()
         return self.app.tpc_abort(transaction=transaction)
 
     def tpc_finish(self, transaction, f=None):
-        return self.app.tpc_finish(transaction=transaction,
+        result = self.app.tpc_finish(transaction=transaction,
             tryToResolveConflict=self.tryToResolveConflict, f=f)
+        self.sync()
+        return result
 
     @check_read_only
     def store(self, oid, serial, data, version, transaction):
@@ -117,13 +172,13 @@ class Storage(BaseStorage.BaseStorage,
     # mutliple revisions
     def loadSerial(self, oid, serial):
         try:
-            return self.app.loadSerial(oid=oid, serial=serial)
+            return self._load(oid, serial=serial)[0]
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
     def loadBefore(self, oid, tid):
         try:
-            return self.app.loadBefore(oid=oid, tid=tid)
+            return self._load(oid, tid=tid)
         except NEOStorageDoesNotExistError:
             raise POSException.POSKeyError(oid)
         except NEOStorageNotFoundError:
@@ -135,8 +190,8 @@ class Storage(BaseStorage.BaseStorage,
     # undo
     @check_read_only
     def undo(self, transaction_id, txn):
-        return self.app.undo(undone_tid=transaction_id, txn=txn,
-            tryToResolveConflict=self.tryToResolveConflict)
+        return self.app.undo(self._getSnapshotTID(), undone_tid=transaction_id,
+            txn=txn, tryToResolveConflict=self.tryToResolveConflict)
 
 
     @check_read_only
@@ -159,9 +214,10 @@ class Storage(BaseStorage.BaseStorage,
 
     def loadEx(self, oid, version):
         try:
-            return self.app.loadEx(oid=oid, version=version)
+            data, serial, _ = self._load(oid)
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
+        return data, serial, ''
 
     def __len__(self):
         return self.app.getStorageSize()
@@ -172,8 +228,8 @@ class Storage(BaseStorage.BaseStorage,
     def history(self, oid, version=None, size=1, filter=None):
         return self.app.history(oid, version, size, filter)
 
-    def sync(self):
-        self.app.sync()
+    def sync(self, force=True):
+        self._snapshot_tid = None
 
     def copyTransactionsFrom(self, source, verbose=False):
         """ Zope compliant API """
@@ -217,9 +273,23 @@ class Storage(BaseStorage.BaseStorage,
     def close(self):
         self.app.close()
 
-    def getTID(self, oid):
-        return self.app.getLastTID(oid)
+    def getTid(self, oid):
+        try:
+            return self.app.getLastTID(oid)
+        except NEOStorageNotFoundError:
+            raise KeyError
 
     def checkCurrentSerialInTransaction(self, oid, serial, transaction):
         self.app.checkCurrentSerialInTransaction(oid, serial, transaction)
+
+    def new_instance(self):
+        return Storage(*self._init_args, **self._init_kw)
+
+    def poll_invalidations(self):
+        """
+        Nothing to do, NEO doesn't need any polling.
+        """
+        pass
+
+    release = sync
 

@@ -115,7 +115,6 @@ class ThreadContext(object):
             'asked_object': 0,
             'undo_object_tid_dict': {},
             'involved_nodes': set(),
-            'barrier_done': False,
             'last_transaction': None,
         }
 
@@ -564,10 +563,13 @@ class Application(object):
         return int(u64(self.last_oid))
 
     @profiler_decorator
-    def _load(self, oid, serial=None, tid=None):
+    def load(self, snapshot_tid, oid, serial=None, tid=None):
         """
         Internal method which manage load, loadSerial and loadBefore.
         OID and TID (serial) parameters are expected packed.
+        snapshot_tid
+            First TID not visible to current transaction.
+            Set to None for no limit.
         oid
             OID of object to get.
         serial
@@ -595,15 +597,19 @@ class Application(object):
         """
         # TODO:
         # - rename parameters (here and in handlers & packet definitions)
+        if snapshot_tid is not None:
+            if serial is None:
+                if tid is None:
+                    tid = snapshot_tid
+                else:
+                    tid = min(tid, snapshot_tid)
+            # XXX: we must not clamp serial with snapshot_tid, as loadSerial is
+            # used during conflict resolution to load object's current version,
+            # which is not visible to us normaly (it was committed after our
+            # snapshot was taken).
 
         self._load_lock_acquire()
         try:
-            # Once per transaction, upon first load, trigger a barrier so we
-            # handle all pending invalidations, so the snapshot of the database
-            # is as up-to-date as possible.
-            if not self.local_var.barrier_done:
-                self.invalidationBarrier()
-                self.local_var.barrier_done = True
             try:
                 result = self._loadFromCache(oid, serial, tid)
             except KeyError:
@@ -700,34 +706,6 @@ class Application(object):
             return (data, tid, next_tid)
         finally:
             self._cache_lock_release()
-
-    @profiler_decorator
-    def load(self, oid, version=None):
-        """Load an object for a given oid."""
-        result = self._load(oid)[:2]
-        # Start a network barrier, so we get all invalidations *after* we
-        # received data. This ensures we get any invalidation message that
-        # would have been about the version we loaded.
-        # Those invalidations are checked at ZODB level, so it decides if
-        # loaded data can be handed to current transaction or if a separate
-        # loadBefore call is required.
-        # XXX: A better implementation is required to improve performances
-        self.invalidationBarrier()
-        return result
-
-    @profiler_decorator
-    def loadSerial(self, oid, serial):
-        """Load an object for a given oid and serial."""
-        neo.logging.debug('loading %s at %s', dump(oid), dump(serial))
-        return self._load(oid, serial=serial)[0]
-
-
-    @profiler_decorator
-    def loadBefore(self, oid, tid):
-        """Load an object for a given oid before tid committed."""
-        neo.logging.debug('loading %s before %s', dump(oid), dump(tid))
-        return self._load(oid, tid=tid)
-
 
     @profiler_decorator
     def tpc_begin(self, transaction, tid=None, status=' '):
@@ -1047,7 +1025,7 @@ class Application(object):
         finally:
             self._load_lock_release()
 
-    def undo(self, undone_tid, txn, tryToResolveConflict):
+    def undo(self, snapshot_tid, undone_tid, txn, tryToResolveConflict):
         if txn is not self.local_var.txn:
             raise StorageTransactionError(self, undone_tid)
 
@@ -1106,7 +1084,7 @@ class Application(object):
             cell_list.sort(key=getCellSortKey)
             storage_conn = getConnForCell(cell_list[0])
             storage_conn.ask(Packets.AskObjectUndoSerial(self.local_var.tid,
-                undone_tid, oid_list), queue=queue)
+                snapshot_tid, undone_tid, oid_list), queue=queue)
 
         # Wait for all AnswerObjectUndoSerial. We might get OidNotFoundError,
         # meaning that objects in transaction's oid_list do not exist any
@@ -1133,9 +1111,9 @@ class Application(object):
                 # object. This is an undo conflict, try to resolve it.
                 try:
                     # Load the latest version we are supposed to see
-                    data = self.loadSerial(oid, current_serial)
+                    data = self.load(snapshot_tid, oid, serial=current_serial)[0]
                     # Load the version we were undoing to
-                    undo_data = self.loadSerial(oid, undo_serial)
+                    undo_data = self.load(snapshot_tid, oid, serial=undo_serial)[0]
                 except NEOStorageNotFoundError:
                     raise UndoError('Object not found while resolving undo '
                         'conflict')
@@ -1346,10 +1324,6 @@ class Application(object):
             raise StorageTransactionError(self, transaction)
         return '', []
 
-    def loadEx(self, oid, version):
-        data, serial = self.load(oid=oid)
-        return data, serial, ''
-
     def __del__(self):
         """Clear all connection."""
         # Due to bug in ZODB, close is not always called when shutting
@@ -1366,9 +1340,6 @@ class Application(object):
 
     def invalidationBarrier(self):
         self._askPrimary(Packets.AskBarrier())
-
-    def sync(self):
-        self._waitAnyMessage(False)
 
     def setNodeReady(self):
         self.local_var.node_ready = True
@@ -1401,7 +1372,7 @@ class Application(object):
             self._cache_lock_release()
 
     def getLastTID(self, oid):
-        return self._load(oid)[1]
+        return self.load(None, oid)[1]
 
     def checkCurrentSerialInTransaction(self, oid, serial, transaction):
         local_var = self.local_var

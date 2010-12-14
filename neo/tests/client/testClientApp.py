@@ -206,6 +206,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         oid = self.makeOID()
         tid1 = self.makeTID(1)
         tid2 = self.makeTID(2)
+        snapshot_tid = self.makeTID(3)
         an_object = (1, oid, tid1, tid2, 0, makeChecksum('OBJ'), 'OBJ', None)
         # connection to SN close
         self.assertTrue((oid, tid1) not in mq)
@@ -221,7 +222,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
         Application._waitMessage = self._waitMessage
-        self.assertRaises(NEOStorageError, app.load, oid)
+        self.assertRaises(NEOStorageError, app.load, snapshot_tid, oid)
         self.checkAskObject(conn)
         Application._waitMessage = _waitMessage
         # object not found in NEO -> NEOStorageNotFoundError
@@ -236,7 +237,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
-        self.assertRaises(NEOStorageNotFoundError, app.load, oid)
+        self.assertRaises(NEOStorageNotFoundError, app.load, snapshot_tid, oid)
         self.checkAskObject(conn)
         # object found on storage nodes and put in cache
         packet = Packets.AnswerObject(*an_object[1:])
@@ -253,7 +254,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             'getNextId': 1,
             'fakeReceived': answer_barrier,
         })
-        result = app.load(oid)
+        result = app.load(snapshot_tid, oid)[:2]
         self.assertEquals(result, ('OBJ', tid1))
         self.checkAskObject(conn)
         self.assertTrue((oid, tid1) in mq)
@@ -262,7 +263,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             'getAddress': ('127.0.0.1', 0),
         })
         app.cp = Mock({ 'getConnForCell' : conn})
-        result = app.load(oid)
+        result = app.load(snapshot_tid, oid)[:2]
         self.assertEquals(result, ('OBJ', tid1))
         self.checkNoPacketSent(conn)
 
@@ -273,6 +274,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         oid = self.makeOID()
         tid1 = self.makeTID(1)
         tid2 = self.makeTID(2)
+        snapshot_tid = self.makeTID(3)
+        def loadSerial(oid, serial):
+            return app.load(snapshot_tid, oid, serial=serial)[0]
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue((oid, tid1) not in mq)
         self.assertTrue((oid, tid2) not in mq)
@@ -285,7 +289,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
-        self.assertRaises(NEOStorageNotFoundError, app.loadSerial, oid, tid2)
+        self.assertRaises(NEOStorageNotFoundError, loadSerial, oid, tid2)
         self.checkAskObject(conn)
         # object should not have been cached
         self.assertFalse((oid, tid2) in mq)
@@ -302,7 +306,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = another_object[:-1]
-        result = app.loadSerial(oid, tid1)
+        result = loadSerial(oid, tid1)
         self.assertEquals(result, 'RIGHT')
         self.checkAskObject(conn)
         self.assertTrue((oid, tid2) in mq)
@@ -315,6 +319,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid1 = self.makeTID(1)
         tid2 = self.makeTID(2)
         tid3 = self.makeTID(3)
+        snapshot_tid = self.makeTID(4)
+        def loadBefore(oid, tid):
+            return app.load(snapshot_tid, oid, tid=tid)
         # object not found in NEO -> NEOStorageDoesNotExistError
         self.assertTrue((oid, tid1) not in mq)
         self.assertTrue((oid, tid2) not in mq)
@@ -327,7 +334,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = Mock({ 'getConnForCell' : conn})
-        self.assertRaises(NEOStorageDoesNotExistError, app.loadBefore, oid, tid2)
+        self.assertRaises(NEOStorageDoesNotExistError, loadBefore, oid, tid2)
         self.checkAskObject(conn)
         # no visible version -> NEOStorageNotFoundError
         an_object = (1, oid, INVALID_SERIAL, None, 0, 0, '', None)
@@ -339,7 +346,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = an_object[:-1]
-        self.assertRaises(NEOStorageError, app.loadBefore, oid, tid1)
+        self.assertRaises(NEOStorageError, loadBefore, oid, tid1)
         # object should not have been cached
         self.assertFalse((oid, tid1) in mq)
         # as for loadSerial, the object is cached but should be loaded from db
@@ -356,7 +363,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = another_object
-        result = app.loadBefore(oid, tid3)
+        result = loadBefore(oid, tid3)
         self.assertEquals(result, ('RIGHT', tid2, tid3))
         self.checkAskObject(conn)
         self.assertTrue((oid, tid1) in mq)
@@ -765,6 +772,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # invalid transaction
         app = self.getApp()
         tid = self.makeTID()
+        snapshot_tid = self.getNextTID()
         txn = self.makeTransactionObject()
         marker = []
         def tryToResolveConflict(oid, conflict_serial, serial, data):
@@ -774,8 +782,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertFalse(app.local_var.txn is txn)
         conn = Mock()
         cell = Mock()
-        self.assertRaises(StorageTransactionError, app.undo, tid, txn,
-            tryToResolveConflict)
+        self.assertRaises(StorageTransactionError, app.undo, snapshot_tid, tid,
+            txn, tryToResolveConflict)
         # no packet sent
         self.checkNoPacketSent(conn)
         self.checkNoPacketSent(app.master_conn)
@@ -808,10 +816,10 @@ class ClientApplicationTests(NeoUnitTestBase):
             def pending(self, queue): 
                 return not queue.empty()
         app.dispatcher = Dispatcher()
-        def loadSerial(oid, tid):
+        def load(snapshot_tid, oid, serial):
             self.assertEqual(oid, oid0)
-            return {tid0: 'dummy', tid2: 'cdummy'}[tid]
-        app.loadSerial = loadSerial
+            return ({tid0: 'dummy', tid2: 'cdummy'}[serial], None, None)
+        app.load = load
         store_marker = []
         def _store(oid, serial, data, data_serial=None):
             store_marker.append((oid, serial, data, data_serial))
@@ -832,6 +840,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()
+        snapshot_tid = self.getNextTID()
         app, conn, store_marker = self._getAppForUndoTests(oid0, tid0, tid1,
             tid2)
         undo_serial = Packets.AnswerObjectUndoSerial({
@@ -845,7 +854,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             return 'solved'
         # The undo
         txn = self.beginTransaction(app, tid=tid3)
-        app.undo(tid1, txn, tryToResolveConflict)
+        app.undo(snapshot_tid, tid1, txn, tryToResolveConflict)
         # Checking what happened
         moid, mconflict_serial, mserial, mdata, mcommittedData = marker[0]
         self.assertEqual(moid, oid0)
@@ -872,6 +881,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()
+        snapshot_tid = self.getNextTID()
         undo_serial = Packets.AnswerObjectUndoSerial({
             oid0: (tid2, tid0, False)})
         undo_serial.setId(2)
@@ -885,7 +895,8 @@ class ClientApplicationTests(NeoUnitTestBase):
             return None
         # The undo
         txn = self.beginTransaction(app, tid=tid3)
-        self.assertRaises(UndoError, app.undo, tid1, txn, tryToResolveConflict)
+        self.assertRaises(UndoError, app.undo, snapshot_tid, tid1, txn,
+            tryToResolveConflict)
         # Checking what happened
         moid, mconflict_serial, mserial, mdata, mcommittedData = marker[0]
         self.assertEqual(moid, oid0)
@@ -903,7 +914,8 @@ class ClientApplicationTests(NeoUnitTestBase):
             raise ConflictError
         # The undo
         app.local_var.queue.put((conn, undo_serial))
-        self.assertRaises(UndoError, app.undo, tid1, txn, tryToResolveConflict)
+        self.assertRaises(UndoError, app.undo, snapshot_tid, tid1, txn,
+            tryToResolveConflict)
         # Checking what happened
         moid, mconflict_serial, mserial, mdata, mcommittedData = marker[0]
         self.assertEqual(moid, oid0)
@@ -925,6 +937,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()
+        snapshot_tid = self.getNextTID()
         transaction_info = Packets.AnswerTransactionInformation(tid1, '', '',
             '', False, (oid0, ))
         transaction_info.setId(1)
@@ -940,7 +953,7 @@ class ClientApplicationTests(NeoUnitTestBase):
                 'is no conflict in this test !'
         # The undo
         txn = self.beginTransaction(app, tid=tid3)
-        app.undo(tid1, txn, tryToResolveConflict)
+        app.undo(snapshot_tid, tid1, txn, tryToResolveConflict)
         # Checking what happened
         moid, mserial, mdata, mdata_serial = store_marker[0]
         self.assertEqual(moid, oid0)

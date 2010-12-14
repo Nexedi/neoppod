@@ -145,10 +145,14 @@ class ClientTests(NEOFunctionalTest):
         """ Check transaction isolation within zope connection """
         self.__setup()
         t, c = self.makeTransaction()
-        c.root()['item'] = 0
+        root = c.root()
+        root['item'] = 0
+        root['other'] = 'bla'
         t.commit()
         t1, c1 = self.makeTransaction()
         t2, c2 = self.makeTransaction()
+        # Makes c2 take a snapshot of database state
+        c2.root()['other']
         c1.root()['item'] = 1
         t1.commit()
         # load objet from zope cache
@@ -159,10 +163,14 @@ class ClientTests(NEOFunctionalTest):
         """ Check isolation with zope cache cleared """
         self.__setup()
         t, c = self.makeTransaction()
-        c.root()['item'] = 0
+        root = c.root()
+        root['item'] = 0
+        root['other'] = 'bla'
         t.commit()
         t1, c1 = self.makeTransaction()
         t2, c2 = self.makeTransaction()
+        # Makes c2 take a snapshot of database state
+        c2.root()['other']
         c1.root()['item'] = 1
         t1.commit()
         # clear zope cache to force re-ask NEO

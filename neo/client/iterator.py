@@ -61,7 +61,7 @@ class Transaction(BaseStorage.TransactionRecord):
         while oid_index < oid_len:
             oid = oid_list[oid_index]
             try:
-                data, _, next_tid = app._load(oid, serial=self.tid)
+                data, _, next_tid = app.load(None, oid, serial=self.tid)
             except NEOStorageCreationUndoneError:
                 data = next_tid = None
             except NEOStorageNotFoundError:
