@@ -816,28 +816,23 @@ class Application(object):
             tid = local_var.tid
             resolved = False
             if data is not None:
-                if conflict_serial <= tid:
-                    new_data = tryToResolveConflict(oid, conflict_serial,
-                        serial, data)
-                    if new_data is not None:
-                        neo.logging.info('Conflict resolution succeed for ' \
-                            '%r:%r with %r', dump(oid), dump(serial),
-                            dump(conflict_serial))
-                        # Mark this conflict as resolved
-                        resolved_serial_set.update(conflict_serial_dict.pop(
-                            oid))
-                        # Try to store again
-                        self._store(oid, conflict_serial, new_data)
-                        append(oid)
-                        resolved = True
-                    else:
-                        neo.logging.info('Conflict resolution failed for ' \
-                            '%r:%r with %r', dump(oid), dump(serial),
-                            dump(conflict_serial))
+                new_data = tryToResolveConflict(oid, conflict_serial,
+                    serial, data)
+                if new_data is not None:
+                    neo.logging.info('Conflict resolution succeed for ' \
+                        '%r:%r with %r', dump(oid), dump(serial),
+                        dump(conflict_serial))
+                    # Mark this conflict as resolved
+                    resolved_serial_set.update(conflict_serial_dict.pop(
+                        oid))
+                    # Try to store again
+                    self._store(oid, conflict_serial, new_data)
+                    append(oid)
+                    resolved = True
                 else:
-                    neo.logging.info('Conflict reported for %r:%r with ' \
-                        'later transaction %r , cannot resolve conflict.',
-                        dump(oid), dump(serial), dump(conflict_serial))
+                    neo.logging.info('Conflict resolution failed for ' \
+                        '%r:%r with %r', dump(oid), dump(serial),
+                        dump(conflict_serial))
             if not resolved:
                 # XXX: Is it really required to remove from data_dict ?
                 del data_dict[oid]

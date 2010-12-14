@@ -155,26 +155,6 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.assertRaises(DelayedError, self.manager.storeObject,
                 tid2, serial, *obj)
 
-    def testUnresolvableConflict(self):
-        """ A newer transaction has already modified an object """
-        uuid = self.getNewUUID()
-        tid1, txn1 = self._getTransaction()
-        tid2, txn2 = self._getTransaction()
-        serial, obj = self._getObject(1)
-        # the (later) transaction lock (change) the object
-        self.manager.register(uuid, tid2)
-        self.manager.storeTransaction(tid2, *txn2)
-        self.manager.storeObject(tid2, serial, *obj)
-        self.assertTrue(tid2 in self.manager)
-        self._storeTransactionObjects(tid2, txn2)
-        self.manager.lock(tid2, txn2[0])
-        # the previous it's not using the latest version
-        self.manager.register(uuid, tid1)
-        self.manager.storeTransaction(tid1, *txn1)
-        self.assertTrue(tid1 in self.manager)
-        self.assertRaises(ConflictError, self.manager.storeObject,
-                tid1, serial, *obj)
-
     def testResolvableConflict(self):
         """ Try to store an object with the lastest revision """
         uuid = self.getNewUUID()
@@ -229,13 +209,13 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.manager.storeObject(tid2, serial2, *obj2)
         self.assertTrue(tid2 in self.manager)
         self.manager.lock(tid2, txn1[0])
-        # the first get a conflict
+        # the first get a delay, as nothing is committed yet
         self.manager.register(uuid1, tid1)
         self.manager.storeTransaction(tid1, *txn1)
         self.assertTrue(tid1 in self.manager)
-        self.assertRaises(ConflictError, self.manager.storeObject,
+        self.assertRaises(DelayedError, self.manager.storeObject,
                 tid1, serial1, *obj1)
-        self.assertRaises(ConflictError, self.manager.storeObject,
+        self.assertRaises(DelayedError, self.manager.storeObject,
                 tid1, serial2, *obj2)
 
     def testAbortUnlocked(self):

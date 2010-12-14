@@ -220,17 +220,11 @@ class TransactionManager(object):
                 raise ConflictError(history_list[0][0])
             neo.logging.info('Transaction %s storing %s', dump(tid), dump(oid))
             self._store_lock_dict[oid] = tid
-        elif locking_tid < tid:
+        else:
             # a previous transaction lock this object, retry later
             neo.logging.info('Store delayed for %r:%r by %r', dump(oid),
                     dump(tid), dump(locking_tid))
             raise DelayedError
-        else:
-            # If a newer transaction already locks this object,
-            # do not try to resolve a conflict, so return immediately.
-            neo.logging.info('Unresolvable conflict on %r:%r with %r',
-                dump(oid), dump(tid), dump(locking_tid))
-            raise ConflictError(locking_tid)
 
     def checkCurrentSerial(self, tid, serial, oid):
         self.lockObject(tid, serial, oid)
