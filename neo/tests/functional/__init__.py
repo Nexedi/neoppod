@@ -82,7 +82,7 @@ class NEOProcess(object):
             # If we reach this line, exec call failed (is it possible to reach
             # it without going through above "except" branch ?).
             print 'Error executing %r.' % (command + ' ' + ' '.join(args), )
-            self._exit()
+            self._exit(-1)
 
     def _exit(self):
 	# KeyboardInterrupt is not intercepted by test runner (it is still
