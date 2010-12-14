@@ -156,17 +156,22 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
     def test_invalidateObjects(self):
         conn = self.getConnection()
         tid = self.getNextTID()
-        oid1, oid2 = self.getOID(1), self.getOID(2)
+        oid1, oid2, oid3 = self.getOID(1), self.getOID(2), self.getOID(3)
         self.app.mq_cache = {
-            oid1: tid,
-            oid2: tid,
+            (oid1, tid): ('bla', None),
+            (oid2, tid): ('bla', None),
         }
-        self.handler.invalidateObjects(conn, tid, [oid1])
-        self.assertFalse(oid1 in self.app.mq_cache)
-        self.assertTrue(oid2 in self.app.mq_cache)
+        self.app.cache_revision_index = Mock({
+            'invalidate': None,
+        })
+        self.handler.invalidateObjects(conn, tid, [oid1, oid3])
+        cache_calls = self.app.cache_revision_index.mockGetNamedCalls(
+            'invalidate')
+        self.assertEqual(len(cache_calls), 1)
+        cache_calls[0].checkArgs([oid1, oid3], tid)
         invalidation_calls = self.db.mockGetNamedCalls('invalidate')
         self.assertEqual(len(invalidation_calls), 1)
-        invalidation_calls[0].checkArgs(tid, {oid1:tid})
+        invalidation_calls[0].checkArgs(tid, {oid1:tid, oid3:tid})
 
     def test_notifyPartitionChanges(self):
         conn = self.getConnection()

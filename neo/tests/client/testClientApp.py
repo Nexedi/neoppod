@@ -21,7 +21,7 @@ from cPickle import dumps
 from mock import Mock, ReturnValues
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
 from neo.tests import NeoUnitTestBase
-from neo.client.app import Application
+from neo.client.app import Application, RevisionIndex
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
 from neo.protocol import Packet, Packets, Errors, INVALID_TID, INVALID_SERIAL
@@ -208,7 +208,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid2 = self.makeTID(2)
         an_object = (1, oid, tid1, tid2, 0, makeChecksum('OBJ'), 'OBJ', None)
         # connection to SN close
-        self.assertTrue(oid not in mq)
+        self.assertTrue((oid, tid1) not in mq)
+        self.assertTrue((oid, tid2) not in mq)
         packet = Errors.OidNotFound('')
         packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
@@ -224,7 +225,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.checkAskObject(conn)
         Application._waitMessage = _waitMessage
         # object not found in NEO -> NEOStorageNotFoundError
-        self.assertTrue(oid not in mq)
+        self.assertTrue((oid, tid1) not in mq)
+        self.assertTrue((oid, tid2) not in mq)
         packet = Errors.OidNotFound('')
         packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
@@ -254,7 +256,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         result = app.load(oid)
         self.assertEquals(result, ('OBJ', tid1))
         self.checkAskObject(conn)
-        self.assertTrue(oid in mq)
+        self.assertTrue((oid, tid1) in mq)
         # object is now cached, try to reload it
         conn = Mock({
             'getAddress': ('127.0.0.1', 0),
@@ -272,7 +274,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid1 = self.makeTID(1)
         tid2 = self.makeTID(2)
         # object not found in NEO -> NEOStorageNotFoundError
-        self.assertTrue(oid not in mq)
+        self.assertTrue((oid, tid1) not in mq)
+        self.assertTrue((oid, tid2) not in mq)
         packet = Errors.OidNotFound('')
         packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
@@ -285,10 +288,10 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertRaises(NEOStorageNotFoundError, app.loadSerial, oid, tid2)
         self.checkAskObject(conn)
         # object should not have been cached
-        self.assertFalse(oid in mq)
+        self.assertFalse((oid, tid2) in mq)
         # now a cached version ewxists but should not be hit
-        mq.store(oid, (tid2, 'WRONG'))
-        self.assertTrue(oid in mq)
+        mq.store((oid, tid2), ('WRONG', None))
+        self.assertTrue((oid, tid2) in mq)
         another_object = (1, oid, tid2, INVALID_SERIAL, 0,
             makeChecksum('RIGHT'), 'RIGHT', None)
         packet = Packets.AnswerObject(*another_object[1:])
@@ -302,7 +305,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         result = app.loadSerial(oid, tid1)
         self.assertEquals(result, 'RIGHT')
         self.checkAskObject(conn)
-        self.assertTrue(oid in mq)
+        self.assertTrue((oid, tid2) in mq)
 
     def test_loadBefore(self):
         app = self.getApp()
@@ -313,7 +316,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid2 = self.makeTID(2)
         tid3 = self.makeTID(3)
         # object not found in NEO -> NEOStorageDoesNotExistError
-        self.assertTrue(oid not in mq)
+        self.assertTrue((oid, tid1) not in mq)
+        self.assertTrue((oid, tid2) not in mq)
         packet = Errors.OidDoesNotExist('')
         packet.setId(0)
         cell = Mock({ 'getUUID': '\x00' * 16})
@@ -337,11 +341,12 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.local_var.asked_object = an_object[:-1]
         self.assertRaises(NEOStorageError, app.loadBefore, oid, tid1)
         # object should not have been cached
-        self.assertFalse(oid in mq)
+        self.assertFalse((oid, tid1) in mq)
         # as for loadSerial, the object is cached but should be loaded from db
-        mq.store(oid, (tid1, 'WRONG'))
-        self.assertTrue(oid in mq)
-        another_object = (1, oid, tid1, tid2, 0, makeChecksum('RIGHT'),
+        mq.store((oid, tid1), ('WRONG', tid2))
+        self.assertTrue((oid, tid1) in mq)
+        app.cache_revision_index.invalidate([oid], tid2)
+        another_object = (1, oid, tid2, tid3, 0, makeChecksum('RIGHT'),
             'RIGHT', None)
         packet = Packets.AnswerObject(*another_object[1:])
         packet.setId(0)
@@ -352,9 +357,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.cp = Mock({ 'getConnForCell' : conn})
         app.local_var.asked_object = another_object
         result = app.loadBefore(oid, tid3)
-        self.assertEquals(result, ('RIGHT', tid1, tid2))
+        self.assertEquals(result, ('RIGHT', tid2, tid3))
         self.checkAskObject(conn)
-        self.assertTrue(oid in mq)
+        self.assertTrue((oid, tid1) in mq)
 
     def test_tpc_begin(self):
         app = self.getApp()
@@ -1155,6 +1160,90 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertEqual(len(marker), 1)
         self.assertEqual(marker[0].getType(), Packets.AskPack)
         # XXX: how to validate packet content ?
+
+    def test_RevisionIndex_1(self):
+        # Test add, getLatestSerial, getSerialList and clear
+        # without invalidations
+        oid1 = self.getOID(1)
+        oid2 = self.getOID(2)
+        tid1 = self.getOID(1)
+        tid2 = self.getOID(2)
+        tid3 = self.getOID(3)
+        ri = RevisionIndex()
+        # index is empty
+        self.assertEqual(ri.getSerialList(oid1), [])
+        ri.add((oid1, tid1))
+        # now, it knows oid1 at tid1
+        self.assertEqual(ri.getLatestSerial(oid1), tid1)
+        self.assertEqual(ri.getSerialList(oid1), [tid1])
+        self.assertEqual(ri.getSerialList(oid2), [])
+        ri.add((oid1, tid2))
+        # and at tid2
+        self.assertEqual(ri.getLatestSerial(oid1), tid2)
+        self.assertEqual(ri.getSerialList(oid1), [tid2, tid1])
+        ri.remove((oid1, tid1))
+        # oid1 at tid1 was pruned from cache
+        self.assertEqual(ri.getLatestSerial(oid1), tid2)
+        self.assertEqual(ri.getSerialList(oid1), [tid2])
+        ri.remove((oid1, tid2))
+        # oid1 is completely priuned from cache
+        self.assertEqual(ri.getLatestSerial(oid1), None)
+        self.assertEqual(ri.getSerialList(oid1), [])
+        ri.add((oid1, tid2))
+        ri.add((oid1, tid1))
+        # oid1 is populated, but in non-chronological order, check index
+        # still answers consistent result.
+        self.assertEqual(ri.getLatestSerial(oid1), tid2)
+        self.assertEqual(ri.getSerialList(oid1), [tid2, tid1])
+        ri.add((oid2, tid3))
+        # which is not affected by the addition of oid2 at tid3
+        self.assertEqual(ri.getLatestSerial(oid1), tid2)
+        self.assertEqual(ri.getSerialList(oid1), [tid2, tid1])
+        ri.clear()
+        # index is empty again
+        self.assertEqual(ri.getSerialList(oid1), [])
+        self.assertEqual(ri.getSerialList(oid2), [])
+
+    def test_RevisionIndex_2(self):
+        # Test getLatestSerial & getSerialBefore with invalidations
+        oid1 = self.getOID(1)
+        tid1 = self.getOID(1)
+        tid2 = self.getOID(2)
+        tid3 = self.getOID(3)
+        tid4 = self.getOID(4)
+        tid5 = self.getOID(5)
+        tid6 = self.getOID(6)
+        ri = RevisionIndex()
+        ri.add((oid1, tid1))
+        ri.add((oid1, tid2))
+        self.assertEqual(ri.getLatestSerial(oid1), tid2)
+        self.assertEqual(ri.getSerialBefore(oid1, tid2), tid1)
+        self.assertEqual(ri.getSerialBefore(oid1, tid3), tid2)
+        self.assertEqual(ri.getSerialBefore(oid1, tid4), tid2)
+        ri.invalidate([oid1], tid3)
+        # We don't have the latest data in cache, return None
+        self.assertEqual(ri.getLatestSerial(oid1), None)
+        self.assertEqual(ri.getSerialBefore(oid1, tid2), tid1)
+        self.assertEqual(ri.getSerialBefore(oid1, tid3), tid2)
+        # There is a gap between the last version we have and requested one,
+        # return None
+        self.assertEqual(ri.getSerialBefore(oid1, tid4), None)
+        ri.add((oid1, tid3))
+        # No gap anymore, tid3 found.
+        self.assertEqual(ri.getLatestSerial(oid1), tid3)
+        self.assertEqual(ri.getSerialBefore(oid1, tid4), tid3)
+        ri.invalidate([oid1], tid4)
+        ri.invalidate([oid1], tid5)
+        # A bigger gap...
+        self.assertEqual(ri.getLatestSerial(oid1), None)
+        self.assertEqual(ri.getSerialBefore(oid1, tid5), None)
+        self.assertEqual(ri.getSerialBefore(oid1, tid6), None)
+        # not entirely filled.
+        ri.add((oid1, tid5))
+        # Still, we know the latest and what is before tid6
+        self.assertEqual(ri.getLatestSerial(oid1), tid5)
+        self.assertEqual(ri.getSerialBefore(oid1, tid5), None)
+        self.assertEqual(ri.getSerialBefore(oid1, tid6), tid5)
 
 if __name__ == '__main__':
     unittest.main()

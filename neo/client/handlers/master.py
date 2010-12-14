@@ -123,10 +123,7 @@ class PrimaryNotificationsHandler(BaseHandler):
         app._cache_lock_acquire()
         try:
             # ZODB required a dict with oid as key, so create it
-            mq_cache = app.mq_cache
-            for oid in oid_list:
-                if oid in mq_cache:
-                    del mq_cache[oid]
+            app.cache_revision_index.invalidate(oid_list, tid)
             db = app.getDB()
             if db is not None:
                 db.invalidate(tid, dict.fromkeys(oid_list, tid))
