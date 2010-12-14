@@ -232,7 +232,7 @@ class ReplicationHandler(EventHandler):
                 params = (next_boundary, )
         else:
             # We must recheck current chunk.
-            if count <= MIN_RANGE_LENGTH:
+            if not match and count <= MIN_RANGE_LENGTH:
                 # We are already at minimum chunk length, replicate.
                 action = CHECK_REPLICATE
                 params = (recheck_min_boundary, )
