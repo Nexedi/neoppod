@@ -185,6 +185,12 @@ class Storage(BaseStorage.BaseStorage,
             return None
 
     def iterator(self, start=None, stop=None):
+        # Iterator lives in its own transaction, so get a fresh snapshot.
+        snapshot_tid = self.lastTransaction()
+        if stop is None:
+            stop = snapshot_tid
+        else:
+            stop = min(snapshot_tid, stop)
         return self.app.iterator(start, stop)
 
     # undo
