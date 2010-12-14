@@ -742,6 +742,11 @@ class AskBeginTransaction(Packet):
     """
     Ask to begin a new transaction. C -> PM.
     """
+    def _encode(self, tid):
+        return _encodeTID(tid)
+
+    def _decode(self, body):
+        return (_decodeTID(unpack('8s', body)[0]), )
 
 class AnswerBeginTransaction(Packet):
     """

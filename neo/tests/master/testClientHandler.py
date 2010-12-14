@@ -70,7 +70,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         # client call it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
-        service.askBeginTransaction(conn)
+        service.askBeginTransaction(conn, None)
         self.assertTrue(ltid < self.app.tm.getLastTID())
 
     def test_08_askNewOIDs(self):
@@ -102,7 +102,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
             'getPartition': 0,
             'getCellList': [Mock({'getUUID': storage_uuid})],
         })
-        service.askBeginTransaction(conn)
+        service.askBeginTransaction(conn, None)
         oid_list = []
         tid = self.app.tm.getLastTID()
         conn = self.getFakeConnection(client_uuid, self.client_address)

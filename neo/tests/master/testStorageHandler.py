@@ -201,9 +201,6 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         client1, cconn1 = self._getClient()
         client2, cconn2 = self._getClient()
         client3, cconn3 = self._getClient()
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID(tid1)
-        tid3 = self.getNextTID(tid2)
         oid_list = [self.getOID(), ]
 
         # Some shortcuts to simplify test code
@@ -215,25 +212,13 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         # Transaction 1: 2 storage nodes involved, one will die and the other
         # already answered node lock
         msg_id_1 = 1
-        tm.prepare(client1, tid1, oid_list, [node1.getUUID(), node2.getUUID()], msg_id_1)
+        tid1 = tm.begin()
+        tm.prepare(client1, tid1, oid_list,
+            [node1.getUUID(), node2.getUUID()], msg_id_1)
         tm.lock(tid1, node2.getUUID())
-        # Transaction 2: 2 storage nodes involved, one will die
-        msg_id_2 = 2
-        tm.prepare(client2, tid2, oid_list, [node1.getUUID(), node2.getUUID()], msg_id_2)
-        # Transaction 3: 1 storage node involved, which won't die
-        msg_id_3 = 3
-        tm.prepare(client3, tid3, oid_list, [node2.getUUID(), ], msg_id_3)
-
-        # Assert initial state
-        self.checkNoPacketSent(cconn1)
-        self.checkNoPacketSent(cconn2)
-        self.checkNoPacketSent(cconn3)
-
         # Storage 1 dies
         node1.setTemporarilyDown()
         self.service.nodeLost(conn1, node1)
-
-        # Check state after node lost
         # T1: last locking node lost, client receives AnswerTransactionFinished
         self.checkAnswerTransactionFinished(cconn1)
         self.checkNotifyUnlockInformation(conn2)
@@ -241,10 +226,24 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         # ...and notifications are sent to other clients
         self.checkInvalidateObjects(cconn2)
         self.checkInvalidateObjects(cconn3)
+
+        # Transaction 2: 2 storage nodes involved, one will die
+        msg_id_2 = 2
+        tid2 = tm.begin()
+        tm.prepare(client2, tid2, oid_list,
+            [node1.getUUID(), node2.getUUID()], msg_id_2)
         # T2: pending locking answer, client keeps waiting
         self.checkNoPacketSent(cconn2, check_notify=False)
+        tm.remove(tid2)
+
+        # Transaction 3: 1 storage node involved, which won't die
+        msg_id_3 = 3
+        tid3 = tm.begin()
+        tm.prepare(client3, tid3, oid_list,
+            [node2.getUUID(), ], msg_id_3)
         # T3: action not significant to this transacion, so no response
         self.checkNoPacketSent(cconn3, check_notify=False)
+        tm.remove(tid3)
 
     def test_answerPack(self):
         # Note: incomming status has no meaning here, so it's left to False.

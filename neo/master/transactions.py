@@ -84,6 +84,9 @@ def addTID(ptid, offset):
         higher = (d.year, d.month, d.day, d.hour, d.minute)
     return packTID((higher, lower))
 
+class DelayedError(Exception):
+    pass
+
 class Transaction(object):
     """
         A pending transaction
@@ -177,6 +180,9 @@ class TransactionManager(object):
         Manage current transactions
     """
     _last_tid = ZERO_TID
+    # Transaction serialisation
+    # We don't need to use a real lock, as we are mono-threaded.
+    _locked = None
 
     def __init__(self):
         # tid -> transaction
@@ -272,11 +278,16 @@ class TransactionManager(object):
         """
         return self._tid_dict.keys()
 
-    def begin(self):
+    def begin(self, tid=None):
         """
             Generate a new TID
         """
-        return self._nextTID()
+        if self._locked is not None:
+            raise DelayedError()
+        if tid is None:
+            tid = self._nextTID()
+        self._locked = tid
+        return tid
 
     def prepare(self, node, tid, oid_list, uuid_list, msg_id):
         """
@@ -291,9 +302,14 @@ class TransactionManager(object):
         """
             Remove a transaction, commited or aborted
         """
-        node = self._tid_dict[tid].getNode()
-        del self._tid_dict[tid]
-        del self._node_dict[node][tid]
+        assert self._locked == tid, (self._locked, tid)
+        self._locked = None
+        tid_dict = self._tid_dict
+        if tid in tid_dict:
+            # ...and tried to finish
+            node = tid_dict[tid].getNode()
+            del tid_dict[tid]
+            del self._node_dict[node][tid]
 
     def lock(self, tid, uuid):
         """

@@ -601,11 +601,10 @@ class Application(object):
         if self.local_var.txn is not None:
             raise NeoException, 'local_var is not clean in tpc_begin'
         # use the given TID or request a new one to the master
-        self.local_var.tid = tid
-        if tid is None:
-            self._askPrimary(Packets.AskBeginTransaction())
-            if self.local_var.tid is None:
-                raise NEOStorageError('tpc_begin failed')
+        self._askPrimary(Packets.AskBeginTransaction(tid))
+        if self.local_var.tid is None:
+            raise NEOStorageError('tpc_begin failed')
+        assert tid in (None, self.local_var.tid), (tid, self.local_var.tid)
         self.local_var.txn = transaction
 
     @profiler_decorator
@@ -837,6 +836,7 @@ class Application(object):
             except:
                 neo.logging.error('Exception in tpc_abort while notifying ' \
                     'storage node %r of abortion, ignoring.', conn, exc_info=1)
+        self._getMasterConnection().notify(p)
 
         # Just wait for responses to arrive. If any leads to an exception,
         # log it and continue: we *must* eat all answers to not disturb the

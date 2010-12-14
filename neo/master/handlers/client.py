@@ -20,7 +20,7 @@ import neo
 from neo.protocol import NodeStates, Packets, ProtocolError
 from neo.master.handlers import MasterHandler
 from neo.util import dump
-
+from neo.master.transactions import DelayedError
 
 class ClientServiceHandler(MasterHandler):
     """ Handler dedicated to client during service state """
@@ -47,11 +47,14 @@ class ClientServiceHandler(MasterHandler):
         conn.notify(Packets.NotifyNodeInformation(node_list))
         conn.answer(Packets.AnswerNodeInformation())
 
-    def askBeginTransaction(self, conn):
+    def askBeginTransaction(self, conn, tid):
         """
             A client request a TID, nothing is kept about it until the finish.
         """
-        conn.answer(Packets.AnswerBeginTransaction(self.app.tm.begin()))
+        try:
+            conn.answer(Packets.AnswerBeginTransaction(self.app.tm.begin(tid)))
+        except DelayedError:
+            self.app.queueEvent(self.askBeginTransaction, conn, tid)
 
     def askNewOIDs(self, conn, num_oids):
         app = self.app
@@ -107,4 +110,9 @@ class ClientServiceHandler(MasterHandler):
     def askLastTransaction(self, conn):
         conn.answer(Packets.AnswerLastTransaction(
             self.app.getLastTransaction()))
+
+    def abortTransaction(self, conn, tid):
+        app = self.app
+        app.tm.remove(tid)
+        app.executeQueuedEvent()
 

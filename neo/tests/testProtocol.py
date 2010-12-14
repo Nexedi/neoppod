@@ -236,8 +236,10 @@ class ProtocolTests(NeoUnitTestBase):
 
 
     def test_32_askBeginTransaction(self):
-        p = Packets.AskBeginTransaction()
-        self.assertEqual(p.decode(), ())
+        tid = self.getNextTID()
+        p = Packets.AskBeginTransaction(tid)
+        ptid = p.decode()[0]
+        self.assertEqual(tid, ptid)
 
     def test_33_answerBeginTransaction(self):
         tid = self.getNextTID()
