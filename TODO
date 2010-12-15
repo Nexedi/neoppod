@@ -110,16 +110,13 @@ RC  - Review output of pylint (CODE)
       In its current implementation, replication runs at full speed, which
       degrades performance for client nodes. Replication should allow
       throttling, and that throttling should be configurable.
+      See "Replication pipelining".
     - Pack segmentation & throttling (HIGH AVAILABILITY)
       In its current implementation, pack runs in one call on all storage nodes
       at the same time, which lcoks down the whole cluster. This task should
       be split in chunks and processed in "background" on storage nodes.
       Packing throttling should probably be at the lowest possible priority
       (below interactive use and below replication).
-    - Replication throttling (HIGH AVAILABILITY)
-      Replication should not prevent clients from accessing storage node with
-      good responsiveness.
-      See "Replication pipelining".
     - Replication pipelining (SPEED)
       Replication work currently with too many exchanges between replicating
       storage, and network latency can become a significant limit.
@@ -157,12 +154,6 @@ RC  - Review output of pylint (CODE)
       increases the risk of starting from underestimated values.
       This risk is (currently) unavoidable when all nodes stop running, but this
       case must be avoided.
-    - Don't reject peers during startup phases (STARTUP LATENCY)
-      When (for example) a client sends a RequestNodeIdentification to the
-      primary master node while the cluster is not yet operational, the primary
-      master should postpone the node acceptance until the cluster is
-      operational, instead of closing the connection immediately. This would
-      avoid the need to poll the master to know when it is ready.
     - Differential partition table updates (BANDWITH)
       When a storage asks for current partition table (when it connects to a
       cluster in service state), it must update its knowledge of the partition
