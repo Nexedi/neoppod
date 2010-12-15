@@ -204,6 +204,10 @@ RC  - Review output of pylint (CODE)
     - tpc_finish failures (FUNCTIONALITY)
       New failure cases during tpc_finish must be handled.
 
+    Admin
+    - Make admin node able to monitor multiple clusters simultaneously
+    - Send notifications (ie: mail) when a storage node is lost
+
   Later
     - Consider auto-generating cluster name upon initial startup (it might
       actualy be a partition property).
@@ -214,10 +218,8 @@ RC  - Review output of pylint (CODE)
       the probability to use an outdated partition table.
     - Decentralize primary master tasks as much as possible (consider
       distributed lock mechanisms, ...)
-    - Make admin node able to monitor multiple clusters simultaneously
     - Choose how to compute the storage size
     - Make storage check if the OID match with it's partitions during a store
-    - Send notifications when a storage node is lost
     - Simple deployment solution, based on embedded database, integrated master
     and storage node that works out of the box
     - Simple import/export solution that generate SQL/data.fs.
