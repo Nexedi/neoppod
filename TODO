@@ -91,6 +91,10 @@ RC  - Review output of pylint (CODE)
       like set a node in TEMPORARILY_DOWN state.
     - Review node notfications. Eg. A storage don't have to be notified of new
       clients but only when one is lost.
+    - Review transactional isolation of various methods
+      Some methods might not implement proper transaction isolation when they
+      should. An example is object history (undoLog), which can see data
+      committed by future transactions.
 
     Storage
     - Use Kyoto Cabinet instead of a stand-alone MySQL server.
