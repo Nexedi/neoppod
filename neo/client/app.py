@@ -1184,12 +1184,14 @@ class Application(object):
                                     'be found' % (tid, )
 
             if filter is None or filter(self.local_var.txn_info):
-                self.local_var.txn_info.pop('packed')
+                txn_info = self.local_var.txn_info
+                txn_info.pop('packed')
                 if not with_oids:
-                    self.local_var.txn_info.pop("oids")
-                append(self.local_var.txn_info)
-                self._insertMetadata(self.local_var.txn_info,
-                        self.local_var.txn_ext)
+                    txn_info.pop("oids")
+                    self._insertMetadata(txn_info, self.local_var.txn_ext)
+                else:
+                    txn_info['ext'] = loads(self.local_var.txn_ext)
+                append(txn_info)
                 if len(undo_info) >= last - first:
                     break
         # Check we return at least one element, otherwise call

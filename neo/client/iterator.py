@@ -156,7 +156,7 @@ class Iterator(object):
         user = txn['user_name']
         desc = txn['description']
         oid_list = txn['oids']
-        extension = {} # as expected by the ZODB
+        extension = txn['ext']
         txn = Transaction(self.app, tid, ' ', user, desc, extension, oid_list,
             self._prev_serial_dict)
         return txn
