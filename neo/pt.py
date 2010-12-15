@@ -318,6 +318,13 @@ class PartitionTable(object):
         getRow = self.getRow
         return [(x, getRow(x)) for x in xrange(self.np)]
 
+    def getNodeMap(self):
+        """ Return a list of 2-tuple: (uuid, partition_list) """
+        uuid_map = {}
+        for index, row in enumerate(self.partition_list):
+            for cell in row:
+                uuid_map.setdefault(cell.getNode(), []).append(index)
+        return uuid_map
 
 def thread_safe(method):
     def wrapper(self, *args, **kwargs):
@@ -366,4 +373,8 @@ class MTPartitionTable(PartitionTable):
     @thread_safe
     def getNodeList(self, *args, **kwargs):
         return PartitionTable.getNodeList(self, *args, **kwargs)
+
+    @thread_safe
+    def getNodeMap(self, *args, **kwargs):
+        return PartitionTable.getNodeMap(self, *args, **kwargs)
 
