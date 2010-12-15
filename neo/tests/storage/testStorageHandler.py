@@ -119,7 +119,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         self.app.pt = Mock({'getPartitions': 1})
         tid = self.getNextTID()
         tid2 = self.getNextTID()
-        self.operation.askTIDsFrom(conn, tid, tid2, 2, 1)
+        self.operation.askTIDsFrom(conn, tid, tid2, 2, [1])
         calls = self.app.dm.mockGetNamedCalls('getReplicationTIDList')
         self.assertEquals(len(calls), 1)
         calls[0].checkArgs(tid, tid2, 2, 1, 1)

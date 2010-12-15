@@ -426,10 +426,10 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         self.assertEqual(pmin_tid, min_tid)
         self.assertEqual(pmax_tid, critical_tid)
         self.assertEqual(plength, length)
-        self.assertEqual(ppartition, rid)
+        self.assertEqual(ppartition, [rid])
         calls = app.replicator.mockGetNamedCalls('getTIDsFrom')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_tid, pmax_tid, plength, ppartition)
+        calls[0].checkArgs(pmin_tid, pmax_tid, plength, ppartition[0])
 
     def test_answerCheckTIDRangeDifferentSmallChunkWithoutNext(self):
         min_tid = self.getNextTID()
@@ -453,10 +453,10 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         self.assertEqual(pmin_tid, min_tid)
         self.assertEqual(pmax_tid, critical_tid)
         self.assertEqual(plength, length - 1)
-        self.assertEqual(ppartition, rid)
+        self.assertEqual(ppartition, [rid])
         calls = app.replicator.mockGetNamedCalls('getTIDsFrom')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_tid, pmax_tid, plength, ppartition)
+        calls[0].checkArgs(pmin_tid, pmax_tid, plength, ppartition[0])
 
     # CheckSerialRange
     def test_answerCheckSerialFullRangeIdenticalChunkWithNext(self):

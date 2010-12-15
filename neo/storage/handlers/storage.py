@@ -30,7 +30,9 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
         tid = app.dm.getLastTID()
         conn.answer(Packets.AnswerLastIDs(oid, tid, app.pt.getID()))
 
-    def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
+    def askTIDsFrom(self, conn, min_tid, max_tid, length, partition_list):
+        assert len(partition_list) == 1, partition_list
+        partition = partition_list[0]
         app = self.app
         tid_list = app.dm.getReplicationTIDList(min_tid, max_tid, length,
             app.pt.getPartitions(), partition)

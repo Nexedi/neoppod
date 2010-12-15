@@ -591,12 +591,12 @@ class ProtocolTests(NeoUnitTestBase):
     def test_AskTIDsFrom(self):
         tid = self.getNextTID()
         tid2 = self.getNextTID()
-        p = Packets.AskTIDsFrom(tid, tid2, 1000, 5)
+        p = Packets.AskTIDsFrom(tid, tid2, 1000, [5])
         min_tid, max_tid, length, partition = p.decode()
         self.assertEqual(min_tid, tid)
         self.assertEqual(max_tid, tid2)
         self.assertEqual(length, 1000)
-        self.assertEqual(partition, 5)
+        self.assertEqual(partition, [5])
 
     def test_AnswerTIDsFrom(self):
         self._test_AnswerTIDs(Packets.AnswerTIDsFrom)

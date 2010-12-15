@@ -18,9 +18,11 @@
 from ZODB import BaseStorage
 from zope.interface import implements
 import ZODB.interfaces
-from neo import util
+from neo.util import u64, add64
 from neo.client.exception import NEOStorageCreationUndoneError
 from neo.client.exception import NEOStorageNotFoundError
+
+CHUNK_LENGTH = 100
 
 class Record(BaseStorage.DataRecord):
     """ TBaseStorageransaction record yielded by the Transaction object """
@@ -29,8 +31,8 @@ class Record(BaseStorage.DataRecord):
         BaseStorage.DataRecord.__init__(self, oid, tid, data, prev)
 
     def __str__(self):
-        oid = util.u64(self.oid)
-        tid = util.u64(self.tid)
+        oid = u64(self.oid)
+        tid = u64(self.tid)
         args = (oid, tid, len(self.data), self.data_txn)
         return 'Record %s:%s: %s (%s)' % args
 
@@ -86,7 +88,7 @@ class Transaction(BaseStorage.TransactionRecord):
         return record
 
     def __str__(self):
-        tid = util.u64(self.tid)
+        tid = u64(self.tid)
         args = (tid, self.user, self.status)
         return 'Transaction #%s: %s %s' % args
 
@@ -97,17 +99,15 @@ class Iterator(object):
     def __init__(self, app, start, stop):
         self.app = app
         self.txn_list = []
+        assert None not in (start, stop)
+        self._start = start
         self._stop = stop
-        # next index to load from storage nodes
-        self._next = 0
         # index of current iteration
         self._index = 0
         self._closed = False
         # OID -> previous TID mapping
         # TODO: prune old entries while walking ?
         self._prev_serial_dict = {}
-        if start is not None:
-            self.txn_list = self._skip(start)
 
     def __iter__(self):
         return self
@@ -118,41 +118,21 @@ class Iterator(object):
             raise IndexError, index
         return self.next()
 
-    def _read(self):
-        """ Request more transactions """
-        chunk = self.app.transactionLog(self._next, self._next + 100)
-        if not chunk:
-            # nothing more
-            raise StopIteration
-        self._next += len(chunk)
-        return chunk
-
-    def _skip(self, start):
-        """ Skip transactions until 'start' is reached """
-        chunk = self._read()
-        while chunk[0]['id'] < start:
-            chunk = self._read()
-        if chunk[-1]['id'] < start:
-            for index, txn in enumerate(reversed(chunk)):
-                if txn['id'] >= start:
-                    break
-            # keep only greater transactions
-            chunk = chunk[:-index]
-        return chunk
-
     def next(self):
         """ Return an iterator for the next transaction"""
         if self._closed:
             raise IOError, 'iterator closed'
         if not self.txn_list:
-            self.txn_list = self._read()
-        txn = self.txn_list.pop()
+            (max_tid, chunk) = self.app.transactionLog(self._start, self._stop,
+                CHUNK_LENGTH)
+            if not chunk:
+                # nothing more
+                raise StopIteration
+            self._start = add64(max_tid, 1)
+            self.txn_list = chunk
+        txn = self.txn_list.pop(0)
         self._index += 1
         tid = txn['id']
-        stop = self._stop
-        if stop is not None and stop < tid:
-            # stop reached
-            raise StopIteration
         user = txn['user_name']
         desc = txn['description']
         oid_list = txn['oids']

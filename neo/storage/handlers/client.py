@@ -86,6 +86,17 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
             data_serial, tid, time.time())
 
+    def askTIDsFrom(self, conn, min_tid, max_tid, length, partition_list):
+        app = self.app
+        getReplicationTIDList = app.dm.getReplicationTIDList
+        partitions = app.pt.getPartitions()
+        tid_list = []
+        extend = tid_list.extend
+        for partition in partition_list:
+            extend(getReplicationTIDList(min_tid, max_tid, length,
+                partitions, partition))
+        conn.answer(Packets.AnswerTIDsFrom(tid_list))
+
     def askTIDs(self, conn, first, last, partition):
         # This method is complicated, because I must return TIDs only
         # about usable partitions assigned to me.

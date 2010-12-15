@@ -1127,7 +1127,32 @@ class Application(object):
         for k, v in loads(extension).items():
             txn_info[k] = v
 
-    def __undoLog(self, first, last, filter=None, block=0, with_oids=False):
+    def _getTransactionInformation(self, tid):
+        cell_list = self._getCellListForTID(tid, readable=True)
+        shuffle(cell_list)
+        cell_list.sort(key=self.cp.getCellSortKey)
+        for cell in cell_list:
+            conn = self.cp.getConnForCell(cell)
+            if conn is not None:
+                self.local_var.txn_info = 0
+                self.local_var.txn_ext = 0
+                try:
+                    self._askStorage(conn,
+                            Packets.AskTransactionInformation(tid))
+                except ConnectionClosed:
+                    continue
+                if isinstance(self.local_var.txn_info, dict):
+                    break
+        if self.local_var.txn_info in (-1, 0):
+            # TID not found at all
+            raise NeoException, 'Data inconsistency detected: ' \
+                                'transaction info for TID %r could not ' \
+                                'be found' % (tid, )
+        return (self.local_var.txn_info, self.local_var.txn_ext)
+
+
+    def undoLog(self, first, last, filter=None, block=0):
+        # XXX: undoLog is broken
         if last < 0:
             # See FileStorage.py for explanation
             last = first - last
@@ -1161,51 +1186,51 @@ class Application(object):
         undo_info = []
         append = undo_info.append
         for tid in ordered_tids:
-            cell_list = self._getCellListForTID(tid, readable=True)
-            shuffle(cell_list)
-            cell_list.sort(key=self.cp.getCellSortKey)
-            for cell in cell_list:
-                conn = self.cp.getConnForCell(cell)
-                if conn is not None:
-                    self.local_var.txn_info = 0
-                    self.local_var.txn_ext = 0
-                    try:
-                        self._askStorage(conn,
-                                Packets.AskTransactionInformation(tid))
-                    except ConnectionClosed:
-                        continue
-                    if isinstance(self.local_var.txn_info, dict):
-                        break
-
-            if self.local_var.txn_info in (-1, 0):
-                # TID not found at all
-                raise NeoException, 'Data inconsistency detected: ' \
-                                    'transaction info for TID %r could not ' \
-                                    'be found' % (tid, )
-
+            (txn_info, txn_ext) = self._getTransactionInformation(tid)
             if filter is None or filter(self.local_var.txn_info):
                 txn_info = self.local_var.txn_info
                 txn_info.pop('packed')
-                if not with_oids:
-                    txn_info.pop("oids")
-                    self._insertMetadata(txn_info, self.local_var.txn_ext)
-                else:
-                    txn_info['ext'] = loads(self.local_var.txn_ext)
+                txn_info.pop("oids")
+                self._insertMetadata(txn_info, self.local_var.txn_ext)
                 append(txn_info)
                 if len(undo_info) >= last - first:
                     break
         # Check we return at least one element, otherwise call
         # again but extend offset
         if len(undo_info) == 0 and not block:
-            undo_info = self.__undoLog(first=first, last=last*5, filter=filter,
-                    block=1, with_oids=with_oids)
+            undo_info = self.undoLog(first=first, last=last*5, filter=filter,
+                    block=1)
         return undo_info
 
-    def undoLog(self, first, last, filter=None, block=0):
-        return self.__undoLog(first, last, filter, block)
-
-    def transactionLog(self, first, last):
-        return self.__undoLog(first, last, with_oids=True)
+    def transactionLog(self, start, stop, limit):
+        node_map = self.pt.getNodeMap()
+        node_list = node_map.keys()
+        node_list.sort(key=self.cp.getCellSortKey)
+        partition_set = set(range(self.pt.getPartitions()))
+        queue = self.local_var.queue
+        # request a tid list for each partition
+        self.local_var.tids_from = set()
+        for node in node_list:
+            conn = self.cp.getConnForNode(node)
+            request_set = set(node_map[node]) & partition_set
+            if conn is None or not request_set:
+                continue
+            partition_set -= set(request_set)
+            packet = Packets.AskTIDsFrom(start, stop, limit, request_set)
+            conn.ask(packet, queue=queue)
+            if not partition_set:
+                break
+        assert not partition_set
+        self.waitResponses()
+        # request transactions informations
+        txn_list = []
+        append = txn_list.append
+        tid = None
+        for tid in sorted(self.local_var.tids_from):
+            (txn_info, txn_ext) = self._getTransactionInformation(tid)
+            txn_info['ext'] = loads(self.local_var.txn_ext)
+            append(txn_info)
+        return (tid, txn_list)
 
     def history(self, oid, version=None, size=1, filter=None):
         # Get history informations for object first
@@ -1297,7 +1322,9 @@ class Application(object):
             assert real_tid == tid, (real_tid, tid)
         transaction_iter.close()
 
-    def iterator(self, start=None, stop=None):
+    def iterator(self, start, stop):
+        if start is None:
+            start = ZERO_TID
         return Iterator(self, start, stop)
 
     def lastTransaction(self):

@@ -95,6 +95,11 @@ class StorageAnswersHandler(AnswerBaseHandler):
         if tid != self.app.getTID():
             raise NEOStorageError('Wrong TID, transaction not started')
 
+    def answerTIDsFrom(self, conn, tid_list):
+        neo.logging.debug('Get %d TIDs from %r', len(tid_list), conn)
+        assert not self.app.local_var.tids_from.intersection(set(tid_list))
+        self.app.local_var.tids_from.update(tid_list)
+
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, packed, oid_list):
         # transaction information are returned as a dict

@@ -1098,12 +1098,29 @@ class AskTIDsFrom(Packet):
     S -> S.
     """
     _header_format = '!8s8sLL'
+    _list_entry_format = 'L'
+    _list_entry_len = calcsize(_list_entry_format)
 
-    def _encode(self, min_tid, max_tid, length, partition):
-        return pack(self._header_format, min_tid, max_tid, length, partition)
+    def _encode(self, min_tid, max_tid, length, partition_list):
+        body = [pack(self._header_format, min_tid, max_tid, length,
+            len(partition_list))]
+        list_entry_format = self._list_entry_format
+        for partition in partition_list:
+            body.append(pack(list_entry_format, partition))
+        return ''.join(body)
 
     def _decode(self, body):
-        return unpack(self._header_format, body) # min_tid, length, partition
+        body = StringIO(body)
+        read = body.read
+        header = unpack(self._header_format, read(self._header_len))
+        min_tid, max_tid, length, list_length = header
+        list_entry_format = self._list_entry_format
+        list_entry_len = self._list_entry_len
+        partition_list = []
+        for _ in xrange(list_length):
+            partition = unpack(list_entry_format, read(list_entry_len))[0]
+            partition_list.append(partition)
+        return (min_tid, max_tid, length, partition_list)
 
 class AnswerTIDsFrom(AnswerTIDs):
     """

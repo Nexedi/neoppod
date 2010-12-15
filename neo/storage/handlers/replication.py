@@ -190,7 +190,7 @@ class ReplicationHandler(EventHandler):
         partition_id = replicator.getCurrentRID()
         max_tid = replicator.getCurrentCriticalTID()
         replicator.getTIDsFrom(min_tid, max_tid, length, partition_id)
-        return Packets.AskTIDsFrom(min_tid, max_tid, length, partition_id)
+        return Packets.AskTIDsFrom(min_tid, max_tid, length, [partition_id])
 
     def _doAskObjectHistoryFrom(self, min_oid, min_serial, length):
         replicator = self.app.replicator
