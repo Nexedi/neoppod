@@ -104,7 +104,6 @@ RC  - Review output of pylint (CODE)
       of maximum SQL request size allowed. (SPEED)
     - Prevent from SQL injection, escape() from MySQLdb api is not sufficient,
       consider using query(request, args) instead of query(request % args)
-    - Create database adapter for other RDBMS (sqlite, postgres)
     - Make listening address and port optionnal, and if they are not provided
       listen on all interfaces on any available port.
     - Replication throttling (HIGH AVAILABILITY)
@@ -184,14 +183,6 @@ RC  - Review output of pylint (CODE)
 
     Client
     - Implement C version of mq.py (LOAD LATENCY)
-    - Move object data replication task to storage nodes (COMMIT LATENCY)
-      Currently the client node must send a single object data to all storage
-      nodes in charge of the partition cell containing that object. This
-      increases the time the client has to wait for storage reponse, and
-      increases client-to-storage bandwith usage. It must be possible to send
-      object data to only one stroage and that storage should automatically
-      replicate on other storages. Locks on objects would then be released by
-      storage nodes.
     - Use generic bootstrap module (CODE)
     - Find a way to make ask() from the thread poll to allow send initial packet
       (requestNodeIdentification) from the connectionCompleted() event instead
@@ -220,9 +211,6 @@ RC  - Review output of pylint (CODE)
       distributed lock mechanisms, ...)
     - Choose how to compute the storage size
     - Make storage check if the OID match with it's partitions during a store
-    - Simple deployment solution, based on embedded database, integrated master
-    and storage node that works out of the box
-    - Simple import/export solution that generate SQL/data.fs.
     - Consider using out-of-band TCP feature.
     - IPv6 support (address field, bind, name resolution)
 
