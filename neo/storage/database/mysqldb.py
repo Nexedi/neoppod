@@ -416,6 +416,9 @@ class MySQLDatabaseManager(DatabaseManager):
         offset_list = ', '.join((str(i) for i in offset_list))
         self.begin()
         try:
+            # XXX: these queries are inefficient (execution time increase with
+            # row count, although we use indexes) when there are rows to
+            # delete. It should be done as an idle task, by chunks.
             self.objQuery('DELETE FROM %%(table)s WHERE partition IN (%s)' %
                 (offset_list, ))
             q("""DELETE FROM trans WHERE partition IN (%s)""" %
