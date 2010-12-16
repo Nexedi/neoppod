@@ -326,7 +326,7 @@ class MQ(object):
                     del data.value
                 if size <= max_size:
                     break
-                self._size = size
+            self._size = size
 
     __setitem__ = store
 
