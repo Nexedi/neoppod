@@ -289,8 +289,7 @@ class MQ(object):
 
         # Expire old elements.
         time = self._time
-        for level in xrange(self._buffer_levels):
-            cache_buffer = cache_buffers[level]
+        for level, cache_buffer in enumerate(cache_buffers):
             head = cache_buffer.head
             if head is not None and head.data.expire_time < time:
                 del cache_buffer[head]
