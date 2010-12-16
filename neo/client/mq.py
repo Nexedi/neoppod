@@ -69,8 +69,8 @@ class FIFO(object):
     """
 
     def __init__(self):
-        self._head = None
-        self._tail = None
+        self.head = None
+        self.tail = None
         self._len = 0
         self.prev = None
         self.data = None
@@ -88,23 +88,17 @@ class FIFO(object):
     def append(self):
         element = Element()
         element.next = None
-        element.prev = self._tail
-        if self._tail is not None:
-            self._tail.next = element
-        self._tail = element
-        if self._head is None:
-            self._head = element
+        element.prev = self.tail
+        if self.tail is not None:
+            self.tail.next = element
+        self.tail = element
+        if self.head is None:
+            self.head = element
         self._len += 1
         return element
 
-    def head(self):
-        return self._head
-
-    def tail(self):
-        return self._tail
-
     def shift(self):
-        element = self._head
+        element = self.head
         if element is None:
             return None
         del self[element]
@@ -114,12 +108,12 @@ class FIFO(object):
 
     def __delitem__(self, element):
         if element.next is None:
-            self._tail = element.prev
+            self.tail = element.prev
         else:
             element.next.prev = element.prev
 
         if element.prev is None:
-            self._head = element.next
+            self.head = element.next
         else:
             element.prev.next = element.next
 
@@ -297,7 +291,7 @@ class MQ(object):
         time = self._time
         for level in xrange(self._buffer_levels):
             cache_buffer = cache_buffers[level]
-            head = cache_buffer.head()
+            head = cache_buffer.head
             if head is not None and head.data.expire_time < time:
                 del cache_buffer[head]
                 data = head.data
@@ -316,7 +310,7 @@ class MQ(object):
         if self._size > max_size:
             for cache_buffer in cache_buffers:
                 while self._size > max_size:
-                    element = cache_buffer.head()
+                    element = cache_buffer.head
                     if element is None:
                         break
                     self._evict(element.data.key)
