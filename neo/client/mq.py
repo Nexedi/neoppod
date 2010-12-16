@@ -259,15 +259,16 @@ class MQ(object):
 
         try:
             data = self._data[key]
+        except KeyError:
+            counter = 1
+            self._mapIndexes('add', (key, ))
+        else:
             level, element, counter = data.level, data.element, data.counter + 1
             if level >= 0:
                 del cache_buffers[level][element]
             else:
                 del self._history_buffer[element]
                 self._mapIndexes('add', (key, ))
-        except KeyError:
-            counter = 1
-            self._mapIndexes('add', (key, ))
 
         # XXX It might be better to adjust the level according to the object
         # size.
