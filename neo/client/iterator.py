@@ -98,7 +98,7 @@ class Iterator(object):
 
     def __init__(self, app, start, stop):
         self.app = app
-        self.txn_list = []
+        self._txn_list = []
         assert None not in (start, stop)
         self._start = start
         self._stop = stop
@@ -122,15 +122,15 @@ class Iterator(object):
         """ Return an iterator for the next transaction"""
         if self._closed:
             raise IOError, 'iterator closed'
-        if not self.txn_list:
+        if not self._txn_list:
             (max_tid, chunk) = self.app.transactionLog(self._start, self._stop,
                 CHUNK_LENGTH)
             if not chunk:
                 # nothing more
                 raise StopIteration
             self._start = add64(max_tid, 1)
-            self.txn_list = chunk
-        txn = self.txn_list.pop(0)
+            self._txn_list = chunk
+        txn = self._txn_list.pop(0)
         self._index += 1
         tid = txn['id']
         user = txn['user_name']
