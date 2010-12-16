@@ -312,21 +312,16 @@ class MQ(object):
                     self._evict(data.key)
 
         # Limit the size.
-        size = self._size
         max_size = self._max_size
-        if size > max_size:
+        if self._size > max_size:
             for cache_buffer in cache_buffers:
-                while size > max_size:
-                    element = cache_buffer.shift()
+                while self._size > max_size:
+                    element = cache_buffer.head()
                     if element is None:
                         break
-                    data = element.data
-                    del self._data[data.key]
-                    size -= sizeof(data.value)
-                    del data.value
-                if size <= max_size:
+                    self._evict(element.data.key)
+                if self._size <= max_size:
                     break
-            self._size = size
 
     __setitem__ = store
 
