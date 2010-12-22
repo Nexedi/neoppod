@@ -61,9 +61,25 @@ class Dispatcher:
             return False
         elif queue is NOBODY:
             return True
-        self.queue_dict[id(queue)] -= 1
+        self._decrefQueue(queue)
         queue.put(data)
         return True
+
+    def _decrefQueue(self, queue):
+        queue_id = id(queue)
+        queue_dict = self.queue_dict
+        if queue_dict[queue_id] == 1:
+            queue_dict.pop(queue_id)
+        else:
+            queue_dict[queue_id] -= 1
+
+    def _increfQueue(self, queue):
+        queue_id = id(queue)
+        queue_dict = self.queue_dict
+        try:
+            queue_dict[queue_id] += 1
+        except KeyError:
+            queue_dict[queue_id] = 1
 
     def needPollThread(self):
         self.poll_thread.start()
@@ -75,12 +91,7 @@ class Dispatcher:
         if self.poll_thread is not None:
             self.needPollThread()
         self.message_table.setdefault(id(conn), {})[msg_id] = queue
-        queue_dict = self.queue_dict
-        key = id(queue)
-        try:
-            queue_dict[key] += 1
-        except KeyError:
-            queue_dict[key] = 1
+        self._increfQueue(queue)
 
     @profiler_decorator
     def unregister(self, conn):
@@ -92,7 +103,7 @@ class Dispatcher:
         finally:
             self.lock_release()
         notified_set = set()
-        queue_dict = self.queue_dict
+        _decrefQueue = self._decrefQueue
         for queue in message_table.itervalues():
             if queue is NOBODY:
                 continue
@@ -100,7 +111,7 @@ class Dispatcher:
             if queue_id not in notified_set:
                 queue.put((conn, None))
                 notified_set.add(queue_id)
-            queue_dict[queue_id] -= 1
+            _decrefQueue(queue)
 
     @giant_lock
     @profiler_decorator
