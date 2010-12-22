@@ -54,15 +54,17 @@ class Dispatcher:
 
     @giant_lock
     @profiler_decorator
-    def dispatch(self, conn, msg_id, data):
-        """Retrieve register-time provided queue, and put data in it."""
+    def dispatch(self, conn, msg_id, packet):
+        """
+        Retrieve register-time provided queue, and put conn and packet in it.
+        """
         queue = self.message_table.get(id(conn), EMPTY).pop(msg_id, None)
         if queue is None:
             return False
         elif queue is NOBODY:
             return True
         self._decrefQueue(queue)
-        queue.put(data)
+        queue.put((conn, packet))
         return True
 
     def _decrefQueue(self, queue):
