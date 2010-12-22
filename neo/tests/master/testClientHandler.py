@@ -82,16 +82,6 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         # Client asks for a TID
         self.app.tm = tm_org
         service.askBeginTransaction(conn, tid1)
-        # If asking again for a TID, call is queued
-        call_marker = []
-        def queueEvent(*args, **kw):
-            call_marker.append((args, kw))
-        self.app.queueEvent = queueEvent
-        service.askBeginTransaction(conn, tid2)
-        self.assertEqual(len(call_marker), 1)
-        args, kw = call_marker[0]
-        self.assertEqual(kw, {})
-        self.assertEqual(args, (service.askBeginTransaction, conn, tid2))
 
     def test_08_askNewOIDs(self):
         service = self.service

@@ -187,10 +187,6 @@ class TransactionManager(object):
         Manage current transactions
     """
     _last_tid = ZERO_TID
-    # Transaction serialisation
-    # We don't need to use a real lock, as we are mono-threaded.
-    _locked = None
-
     _next_ttid = 0
 
     def __init__(self, on_commit):
@@ -200,6 +196,7 @@ class TransactionManager(object):
         self._node_dict = {}
         self._last_oid = None
         self._on_commit = on_commit
+        self._queue = []
 
     def __getitem__(self, tid):
         """
@@ -336,46 +333,36 @@ class TransactionManager(object):
             # No TID requested, generate a temporary one
             tid = self.getTTID()
         else:
-            # TID requested, take commit lock immediately
-            if self._locked is not None:
-                raise DelayedError()
-            self._locked = (uuid, tid)
+            self._queue.append((uuid, tid))
         return tid
 
     def prepare(self, node, ttid, divisor, oid_list, uuid_list, msg_id):
         """
             Prepare a transaction to be finished
         """
-        locked = self._locked
-        uuid = node.getUUID()
-        if locked is not None and locked[1] == ttid:
-            assert locked[0] == uuid
-            # Transaction requested some TID upon begin, and it owns the commit
-            # lock since then.
-            tid = ttid
+        # XXX: not efficient but the list should be often small
+        for _, tid in self._queue:
+            if ttid == tid:
+                break
         else:
-            # Otherwise, acquire lock and allocate a new TID.
-            if locked is not None:
-                raise DelayedError()
             tid = self._nextTID(ttid, divisor)
-            self._locked = (uuid, tid)
-
+            self._queue.append((node.getUUID(), tid))
         self.setLastTID(tid)
+        neo.logging.debug('Finish TXN %s for %s (was %s)', dump(tid), node, dump(ttid))
         txn = Transaction(node, ttid, tid, oid_list, uuid_list, msg_id)
         self._tid_dict[tid] = txn
         self._node_dict.setdefault(node, {})[tid] = txn
         return tid
 
-    def remove(self, tid):
+    def remove(self, uuid, tid):
         """
             Remove a transaction, commited or aborted
         """
-        locked = self._locked
-        if locked is not None and tid == locked[1]:
-            # If TID has the lock, release it.
-            # It might legitimately not have the lock (ex: a transaction
-            # aborting, which didn't request a TID upon begin)
-            self._locked = None
+        try:
+            self._queue.remove((uuid, tid))
+        except ValueError:
+            # finish might not have been started
+            pass
         tid_dict = self._tid_dict
         if tid in tid_dict:
             # ...and tried to finish
@@ -392,7 +379,7 @@ class TransactionManager(object):
         txn = self._tid_dict[tid]
         if txn.lock(uuid):
             # all storage are locked
-            self._on_commit(tid, txn)
+            self._unlockPending()
 
     def forget(self, uuid):
         """
@@ -401,22 +388,37 @@ class TransactionManager(object):
         """
         for tid, txn in self._tid_dict.items():
             if txn.forget(uuid):
+                self._unlockPending()
+
+    def _unlockPending(self):
+        # unlock pending transactions
+        while self._queue:
+            tid = self._queue[0][1]
+            # _queue can contain un-prepared transactions
+            txn = self._tid_dict.get(tid, None)
+            if txn is not None and txn.locked():
+                self._queue.pop()
                 self._on_commit(tid, txn)
+            else:
+                break
 
     def abortFor(self, node):
         """
             Abort pending transactions initiated by a node
         """
-        locked = self._locked
-        if locked is not None and locked[0] == node.getUUID():
-            self._locked = None
+        neo.logging.debug('Abort for %s', node)
         # nothing to do
         if node not in self._node_dict:
             return
         # remove transactions
+        uuid = node.getUUID()
         remove = self.remove
         for tid in self._node_dict[node].keys():
-            remove(tid)
+            remove(uuid, tid)
+        # the code below is usefull only during an import
+        for nuuid, ntid in list(self._queue):
+            if nuuid == uuid:
+                self._queue.remove((uuid, tid))
         # discard node entry
         del self._node_dict[node]
 

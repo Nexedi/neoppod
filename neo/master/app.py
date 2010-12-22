@@ -45,8 +45,6 @@ class Application(object):
     last_transaction = ZERO_TID
 
     def __init__(self, config):
-        self._queued_events = []
-
         # always use default connector for now
         self.connector_handler = getConnectorHandler()
 
@@ -584,9 +582,8 @@ class Application(object):
             getByUUID(storage_uuid).getConnection().notify(notify_unlock)
 
         # remove transaction from manager
-        self.tm.remove(tid)
+        self.tm.remove(transaction_node.getUUID(), tid)
         self.setLastTransaction(tid)
-        self.executeQueuedEvent()
 
     def getLastTransaction(self):
         return self.last_transaction
@@ -604,18 +601,4 @@ class Application(object):
 
     def isStorageReady(self, uuid):
         return uuid in self.storage_readiness
-
-    def queueEvent(self, func, conn, *args, **kw):
-        msg_id = conn.getPeerId()
-        self._queued_events.append((func, msg_id, conn, args, kw))
-
-    def executeQueuedEvent(self):
-        queue = self._queued_events
-        while queue:
-            func, msg_id, conn, args, kw = queue.pop(0)
-            if conn.isAborted() or conn.isClosed():
-                continue
-            conn.setPeerId(msg_id)
-            func(conn, *args, **kw)
-            break
 

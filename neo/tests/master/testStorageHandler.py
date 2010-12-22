@@ -231,7 +231,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
             [node1.getUUID(), node2.getUUID()], msg_id_2)
         # T2: pending locking answer, client keeps waiting
         self.checkNoPacketSent(cconn2, check_notify=False)
-        tm.remove(tid2)
+        tm.remove(node1.getUUID(), tid2)
 
         # Transaction 3: 1 storage node involved, which won't die
         msg_id_3 = 3
@@ -240,7 +240,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
             [node2.getUUID(), ], msg_id_3)
         # T3: action not significant to this transacion, so no response
         self.checkNoPacketSent(cconn3, check_notify=False)
-        tm.remove(tid3)
+        tm.remove(node1.getUUID(), tid3)
 
     def test_answerPack(self):
         # Note: incomming status has no meaning here, so it's left to False.

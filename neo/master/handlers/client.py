@@ -51,11 +51,8 @@ class ClientServiceHandler(MasterHandler):
         """
             A client request a TID, nothing is kept about it until the finish.
         """
-        try:
-            conn.answer(Packets.AnswerBeginTransaction(self.app.tm.begin(
-                conn.getUUID(), tid)))
-        except DelayedError:
-            self.app.queueEvent(self.askBeginTransaction, conn, tid)
+        conn.answer(Packets.AnswerBeginTransaction(self.app.tm.begin(
+            conn.getUUID(), tid)))
 
     def askNewOIDs(self, conn, num_oids):
         app = self.app
@@ -88,13 +85,8 @@ class ClientServiceHandler(MasterHandler):
         partitions = app.pt.getPartitions()
         peer_id = conn.getPeerId()
         node = app.nm.getByUUID(conn.getUUID())
-        try:
-            tid = app.tm.prepare(node, ttid, partitions, oid_list,
-                usable_uuid_set, peer_id)
-        except DelayedError:
-            app.queueEvent(self.askFinishTransaction, conn, ttid,
-                oid_list)
-            return
+        tid = app.tm.prepare(node, ttid, partitions, oid_list,
+            usable_uuid_set, peer_id)
 
         # check if greater and foreign OID was stored
         if app.tm.updateLastOID(oid_list):
@@ -124,7 +116,5 @@ class ClientServiceHandler(MasterHandler):
             self.app.getLastTransaction()))
 
     def abortTransaction(self, conn, tid):
-        app = self.app
-        app.tm.remove(tid)
-        app.executeQueuedEvent()
+        self.app.tm.remove(conn.getUUID(), tid)
 
