@@ -1023,37 +1023,8 @@ class Application(object):
         if txn is not self.local_var.txn:
             raise StorageTransactionError(self, undone_tid)
 
-        # First get transaction information from a storage node.
-        cell_list = self._getCellListForTID(undone_tid, readable=True)
-        shuffle(cell_list)
-        cell_list.sort(key=self.cp.getCellSortKey)
-        packet = Packets.AskTransactionInformation(undone_tid)
-        getConnForCell = self.cp.getConnForCell
-        for cell in cell_list:
-            conn = getConnForCell(cell)
-            if conn is None:
-                continue
-
-            self.local_var.txn_info = 0
-            self.local_var.txn_ext = 0
-            try:
-                self._askStorage(conn, packet)
-            except ConnectionClosed:
-                continue
-            except NEOStorageNotFoundError:
-                # Tid not found, try with next node
-                neo.logging.warning('Transaction %s was not found on node %s',
-                    dump(undone_tid), self.nm.getByAddress(conn.getAddress()))
-                continue
-
-            if isinstance(self.local_var.txn_info, dict):
-                break
-            else:
-                raise NEOStorageError('undo failed')
-        else:
-            raise NEOStorageError('undo failed')
-
-        oid_list = self.local_var.txn_info['oids']
+        txn_info, txn_ext = self._getTransactionInformation(undone_tid)
+        oid_list = txn_info['oids']
 
         # Regroup objects per partition, to ask a minimum set of storage.
         partition_oid_dict = {}
@@ -1070,6 +1041,7 @@ class Application(object):
         # is)
         getCellList = pt.getCellList
         getCellSortKey = self.cp.getCellSortKey
+        getConnForCell = self.cp.getConnForCell
         queue = self.local_var.queue
         undo_object_tid_dict = self.local_var.undo_object_tid_dict = {}
         for partition, oid_list in partition_oid_dict.iteritems():
@@ -1131,23 +1103,22 @@ class Application(object):
         cell_list = self._getCellListForTID(tid, readable=True)
         shuffle(cell_list)
         cell_list.sort(key=self.cp.getCellSortKey)
+        packet = Packets.AskTransactionInformation(tid)
+        getConnForCell = self.cp.getConnForCell
         for cell in cell_list:
-            conn = self.cp.getConnForCell(cell)
-            if conn is not None:
-                self.local_var.txn_info = 0
-                self.local_var.txn_ext = 0
-                try:
-                    self._askStorage(conn,
-                            Packets.AskTransactionInformation(tid))
-                except ConnectionClosed:
-                    continue
-                if isinstance(self.local_var.txn_info, dict):
-                    break
-        if self.local_var.txn_info in (-1, 0):
-            # TID not found at all
-            raise NeoException, 'Data inconsistency detected: ' \
-                                'transaction info for TID %r could not ' \
-                                'be found' % (tid, )
+            conn = getConnForCell(cell)
+            if conn is None:
+                continue
+            try:
+                self._askStorage(conn, packet)
+            except ConnectionClosed:
+                continue
+            except NEOStorageNotFoundError:
+                # TID not found
+                continue
+            break
+        else:
+            raise NEOStorageError('Transaction %r not found' % (tid, ))
         return (self.local_var.txn_info, self.local_var.txn_ext)
 
 
@@ -1268,38 +1239,17 @@ class Application(object):
         # Now that we have object informations, get txn informations
         history_list = []
         for serial, size in self.local_var.history[1]:
-            self._getCellListForTID(serial, readable=True)
-            shuffle(cell_list)
-            cell_list.sort(key=self.cp.getCellSortKey)
-            for cell in cell_list:
-                conn = self.cp.getConnForCell(cell)
-                if conn is None:
-                    continue
-
-                # ask transaction information
-                self.local_var.txn_info = None
-                try:
-                    self._askStorage(conn,
-                            Packets.AskTransactionInformation(serial))
-                except ConnectionClosed:
-                    continue
-                except NEOStorageNotFoundError:
-                    # TID not found
-                    continue
-                if isinstance(self.local_var.txn_info, dict):
-                    break
-
+            txn_info, txn_ext = self._getTransactionInformation(serial)
             # create history dict
-            self.local_var.txn_info.pop('id')
-            self.local_var.txn_info.pop('oids')
-            self.local_var.txn_info.pop('packed')
-            self.local_var.txn_info['tid'] = serial
-            self.local_var.txn_info['version'] = ''
-            self.local_var.txn_info['size'] = size
-            if filter is None or filter(self.local_var.txn_info):
-                history_list.append(self.local_var.txn_info)
-            self._insertMetadata(self.local_var.txn_info,
-                    self.local_var.txn_ext)
+            txn_info.pop('id')
+            txn_info.pop('oids')
+            txn_info.pop('packed')
+            txn_info['tid'] = serial
+            txn_info['version'] = ''
+            txn_info['size'] = size
+            if filter is None or filter(txn_info):
+                history_list.append(txn_info)
+            self._insertMetadata(txn_info, txn_ext)
 
         return history_list
 
