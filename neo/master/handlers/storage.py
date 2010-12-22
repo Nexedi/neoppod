@@ -48,13 +48,8 @@ class StorageServiceHandler(BaseServiceHandler):
         # this is intentionaly placed after the raise because the last cell in a
         # partition must not oudated to allows a cluster restart.
         self.app.outdateAndBroadcastPartition()
-        uuid = conn.getUUID()
-        for tid, transaction in self.app.tm.items():
-            # if a transaction is known, this means that it's being committed
-            if transaction.forget(uuid):
-                self._afterLock(tid)
-        packing = self.app.packing
-        if packing is not None:
+        self.app.tm.forget(conn.getUUID())
+        if self.app.packing is not None:
             self.answerPack(conn, False)
 
     def askLastIDs(self, conn):
@@ -68,9 +63,7 @@ class StorageServiceHandler(BaseServiceHandler):
         conn.answer(p)
 
     def answerInformationLocked(self, conn, tid):
-        uuid = conn.getUUID()
-        app = self.app
-        tm = app.tm
+        tm = self.app.tm
 
         # If the given transaction ID is later than the last TID, the peer
         # is crazy.
@@ -78,38 +71,7 @@ class StorageServiceHandler(BaseServiceHandler):
             raise ProtocolError('TID too big')
 
         # transaction locked on this storage node
-        if tm.lock(tid, uuid):
-            self._afterLock(tid)
-
-    def _afterLock(self, tid):
-        # I have received all the lock answers now:
-        # - send a Notify Transaction Finished to the initiated client node
-        # - Invalidate Objects to the other client nodes
-        app = self.app
-        tm = app.tm
-        t = tm[tid]
-        ttid = t.getTTID()
-        nm = app.nm
-        transaction_node = t.getNode()
-        invalidate_objects = Packets.InvalidateObjects(tid, t.getOIDList())
-        answer_transaction_finished = Packets.AnswerTransactionFinished(ttid,
-            tid)
-        for client_node in nm.getClientList(only_identified=True):
-            c = client_node.getConnection()
-            if client_node is transaction_node:
-                c.answer(answer_transaction_finished, msg_id=t.getMessageId())
-            else:
-                c.notify(invalidate_objects)
-
-        # - Unlock Information to relevant storage nodes.
-        notify_unlock = Packets.NotifyUnlockInformation(ttid)
-        for storage_uuid in t.getUUIDList():
-            nm.getByUUID(storage_uuid).getConnection().notify(notify_unlock)
-
-        # remove transaction from manager
-        tm.remove(tid)
-        app.setLastTransaction(tid)
-        app.executeQueuedEvent()
+        tm.lock(tid, conn.getUUID())
 
     def notifyReplicationDone(self, conn, offset):
         node = self.app.nm.getByUUID(conn.getUUID())

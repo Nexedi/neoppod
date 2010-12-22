@@ -193,17 +193,19 @@ class TransactionManager(object):
 
     _next_ttid = 0
 
-    def __init__(self):
+    def __init__(self, on_commit):
         # tid -> transaction
         self._tid_dict = {}
         # node -> transactions mapping
         self._node_dict = {}
         self._last_oid = None
+        self._on_commit = on_commit
 
     def __getitem__(self, tid):
         """
             Return the transaction object for this TID
         """
+        # XXX: used by unit tests only
         return self._tid_dict[tid]
 
     def __contains__(self, tid):
@@ -213,6 +215,7 @@ class TransactionManager(object):
         return tid in self._tid_dict
 
     def items(self):
+        # XXX: used by unit tests only
         return self._tid_dict.items()
 
     def getNextOIDList(self, num_oids):
@@ -386,7 +389,19 @@ class TransactionManager(object):
             Returns True if all are now locked
         """
         assert tid in self._tid_dict, "Transaction not started"
-        return self._tid_dict[tid].lock(uuid)
+        txn = self._tid_dict[tid]
+        if txn.lock(uuid):
+            # all storage are locked
+            self._on_commit(tid, txn)
+
+    def forget(self, uuid):
+        """
+            A storage node has been lost, don't expect a reply from it for
+            current transactions
+        """
+        for tid, txn in self._tid_dict.items():
+            if txn.forget(uuid):
+                self._on_commit(tid, txn)
 
     def abortFor(self, node):
         """

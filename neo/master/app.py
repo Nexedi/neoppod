@@ -53,7 +53,7 @@ class Application(object):
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
-        self.tm = TransactionManager()
+        self.tm = TransactionManager(self.onTransactionCommitted)
 
         self.name = config.getCluster()
         self.server = config.getBind()
@@ -561,6 +561,32 @@ class Application(object):
                 (uuid, state, handler) = self.identifyStorageNode(uuid, node)
             neo.logging.info('Accept a storage %s (%s)' % (dump(uuid), state))
         return (uuid, node, state, handler, node_ctor)
+
+    def onTransactionCommitted(self, tid, txn):
+        # I have received all the lock answers now:
+        # - send a Notify Transaction Finished to the initiated client node
+        # - Invalidate Objects to the other client nodes
+        ttid = txn.getTTID()
+        transaction_node = txn.getNode()
+        invalidate_objects = Packets.InvalidateObjects(tid, txn.getOIDList())
+        transaction_finished = Packets.AnswerTransactionFinished(ttid, tid)
+        for client_node in self.nm.getClientList(only_identified=True):
+            c = client_node.getConnection()
+            if client_node is transaction_node:
+                c.answer(transaction_finished, msg_id=txn.getMessageId())
+            else:
+                c.notify(invalidate_objects)
+
+        # Unlock Information to relevant storage nodes.
+        notify_unlock = Packets.NotifyUnlockInformation(ttid)
+        getByUUID = self.nm.getByUUID
+        for storage_uuid in txn.getUUIDList():
+            getByUUID(storage_uuid).getConnection().notify(notify_unlock)
+
+        # remove transaction from manager
+        self.tm.remove(tid)
+        self.setLastTransaction(tid)
+        self.executeQueuedEvent()
 
     def getLastTransaction(self):
         return self.last_transaction

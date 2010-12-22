@@ -61,7 +61,8 @@ class testTransactionManager(NeoUnitTestBase):
         uuid_list = (uuid1, uuid2) = self.makeUUID(1), self.makeUUID(2)
         client_uuid = self.makeUUID(3)
         # create transaction manager
-        txnman = TransactionManager()
+        callback = Mock()
+        txnman = TransactionManager(on_commit=callback)
         self.assertFalse(txnman.hasPending())
         self.assertEqual(txnman.getPendingList(), [])
         # begin the transaction
@@ -78,8 +79,10 @@ class testTransactionManager(NeoUnitTestBase):
         self.assertEqual(txn.getUUIDList(), list(uuid_list))
         self.assertEqual(txn.getOIDList(), list(oid_list))
         # lock nodes
-        self.assertFalse(txnman.lock(tid, uuid1))
-        self.assertTrue(txnman.lock(tid, uuid2))
+        txnman.lock(tid, uuid1)
+        self.assertEqual(len(callback.getNamedCalls('__call__')), 0)
+        txnman.lock(tid, uuid2)
+        self.assertEqual(len(callback.getNamedCalls('__call__')), 1)
         # transaction finished
         txnman.remove(tid)
         self.assertEqual(txnman.getPendingList(), [])
@@ -91,7 +94,7 @@ class testTransactionManager(NeoUnitTestBase):
         storage_1_uuid = self.makeUUID(1)
         storage_2_uuid = self.makeUUID(2)
         client_uuid = self.makeUUID(3)
-        txnman = TransactionManager()
+        txnman = TransactionManager(lambda tid, txn: None)
         # register 4 transactions made by two nodes
         self.assertEqual(txnman.getPendingList(), [])
         ttid1 = txnman.begin(client_uuid)
@@ -108,7 +111,7 @@ class testTransactionManager(NeoUnitTestBase):
         txnman.begin(client_uuid, self.getNextTID())
 
     def test_getNextOIDList(self):
-        txnman = TransactionManager()
+        txnman = TransactionManager(lambda tid, txn: None)
         # must raise as we don"t have one
         self.assertEqual(txnman.getLastOID(), None)
         self.assertRaises(RuntimeError, txnman.getNextOIDList, 1)
@@ -129,7 +132,7 @@ class testTransactionManager(NeoUnitTestBase):
         oid_list = [self.makeOID(1), ]
         client_uuid = self.makeUUID(3)
 
-        tm = TransactionManager()
+        tm = TransactionManager(lambda tid, txn: None)
         # Transaction 1: 2 storage nodes involved, one will die and the other
         # already answered node lock
         msg_id_1 = 1
@@ -206,7 +209,7 @@ class testTransactionManager(NeoUnitTestBase):
         Note: this implementation might change later, to allow more paralelism.
         """
         client_uuid = self.makeUUID(3)
-        tm = TransactionManager()
+        tm = TransactionManager(lambda tid, txn: None)
         # With a requested TID, lock spans from begin to remove
         ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
@@ -227,7 +230,7 @@ class testTransactionManager(NeoUnitTestBase):
     def testClientDisconectsAfterBegin(self):
         client1_uuid = self.makeUUID(1)
         client2_uuid = self.makeUUID(2)
-        tm = TransactionManager()
+        tm = TransactionManager(lambda tid, txn: None)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tm.begin(client1_uuid, tid1)
