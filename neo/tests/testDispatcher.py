@@ -36,7 +36,7 @@ class DispatcherTests(NeoTestBase):
         self.assertTrue(queue.empty())
         self.assertTrue(self.dispatcher.dispatch(conn, 1, MARKER))
         self.assertFalse(queue.empty())
-        self.assertTrue(queue.get(block=False) is MARKER)
+        self.assertEqual(queue.get(block=False), (conn, MARKER))
         self.assertTrue(queue.empty())
         self.assertFalse(self.dispatcher.dispatch(conn, 2, None))
         self.assertEqual(len(self.fake_thread.mockGetNamedCalls('start')), 1)
