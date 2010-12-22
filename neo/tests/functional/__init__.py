@@ -87,13 +87,9 @@ class NEOProcess(object):
             print 'Error executing %r.' % (command + ' ' + ' '.join(args), )
             self._exit(-1)
 
-    def _exit(self):
-	# KeyboardInterrupt is not intercepted by test runner (it is still
-	# above us in the stack), and we do want to exit.
-	# To avoid polluting test foreground output with induced
-	# traceback, replace stdout & stderr.
-	sys.stdout = sys.stderr = open('/dev/null', 'w')
-	raise KeyboardInterrupt
+    def _exit(self, status=0):
+        sys.stdout = sys.stderr = open('/dev/null', 'w')
+        sys.exit(status)
 
     def kill(self, sig=signal.SIGTERM):
         if self.pid:
