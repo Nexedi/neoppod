@@ -79,9 +79,16 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         calls = tm.mockGetNamedCalls('begin')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(client_uuid, None)
+        self.checkAnswerBeginTransaction(conn)
         # Client asks for a TID
+        conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.tm = tm_org
         service.askBeginTransaction(conn, tid1)
+        calls = tm.mockGetNamedCalls('begin')
+        self.assertEqual(len(calls), 1)
+        calls[0].checkArgs(client_uuid, None)
+        args = self.checkAnswerBeginTransaction(conn, decode=True)
+        self.assertEqual(args, (tid1, ))
 
     def test_08_askNewOIDs(self):
         service = self.service

@@ -389,6 +389,7 @@ class TransactionManager(object):
             A storage node has been lost, don't expect a reply from it for
             current transactions
         """
+        # iterate over a copy because _unlockPending may alter the dict
         for tid, txn in self._tid_dict.items():
             if txn.forget(uuid):
                 self._unlockPending()
@@ -396,34 +397,32 @@ class TransactionManager(object):
     def _unlockPending(self):
         # unlock pending transactions
         while self._queue:
-            tid = self._queue[0][1]
-            # _queue can contain un-prepared transactions
+            uuid, tid = self._queue.pop(0)
             txn = self._tid_dict.get(tid, None)
+            # _queue can contain un-prepared transactions
             if txn is not None and txn.locked():
-                self._queue.pop()
                 self._on_commit(tid, txn)
             else:
+                self._queue.insert(0, (uuid, tid))
                 break
 
     def abortFor(self, node):
         """
             Abort pending transactions initiated by a node
         """
-        neo.logging.debug('Abort for %s', node)
-        # nothing to do
-        if node not in self._node_dict:
-            return
-        # remove transactions
+        neo.logging.debug('Abort TXN for %s', node)
         uuid = node.getUUID()
-        remove = self.remove
-        for tid in self._node_dict[node].keys():
-            remove(uuid, tid)
-        # the code below is usefull only during an import
+        # XXX: this loop is usefull only during an import
         for nuuid, ntid in list(self._queue):
             if nuuid == uuid:
-                self._queue.remove((uuid, tid))
-        # discard node entry
-        del self._node_dict[node]
+                self._queue.remove((uuid, ntid))
+        if node in self._node_dict:
+            # remove transactions
+            remove = self.remove
+            for tid in self._node_dict[node].keys():
+                remove(uuid, tid)
+            # discard node entry
+            del self._node_dict[node]
 
     def log(self):
         neo.logging.info('Transactions:')

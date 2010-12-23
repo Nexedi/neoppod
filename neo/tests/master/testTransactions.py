@@ -35,6 +35,11 @@ class testTransactionManager(NeoUnitTestBase):
     def makeUUID(self, i):
         return '\0' * 12 + pack('!Q', i)
 
+    def makeNode(self, i):
+        uuid = self.makeUUID(i)
+        node = Mock({'getUUID': uuid, '__hash__': 0})
+        return uuid, node
+
     def testTransaction(self):
         # test data
         node = Mock({'__repr__': 'Node'})
@@ -108,7 +113,7 @@ class testTransactionManager(NeoUnitTestBase):
         self.assertEqual(txnman.getPendingList(), [])
         self.assertFalse(txnman.hasPending())
         # ...and the lock is available
-        txnman.begin(self.getNextTID())
+        txnman.begin(client_uuid, self.getNextTID())
 
     def test_getNextOIDList(self):
         txnman = TransactionManager(lambda tid, txn: None)
@@ -226,14 +231,30 @@ class testTransactionManager(NeoUnitTestBase):
 
     def testClientDisconectsAfterBegin(self):
         client1_uuid = self.makeUUID(1)
-        client2_uuid = self.makeUUID(2)
         tm = TransactionManager(lambda tid, txn: None)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
-        tm.begin(tid1)
+        tm.begin(client1_uuid, tid1)
         node1 = Mock({'getUUID': client1_uuid, '__hash__': 0})
         tm.abortFor(node1)
-        tm.begin(tid2)
+        self.assertTrue(tid1 not in tm)
+
+    def testUnlockPending(self):
+        callback = Mock()
+        uuid1, node1 = self.makeNode(1)
+        uuid2, node2 = self.makeNode(2)
+        storage_uuid = self.makeUUID(3)
+        tm = TransactionManager(callback)
+        ttid1 = tm.begin(uuid1)
+        ttid2 = tm.begin(uuid2)
+        tid1 = tm.prepare(node1, ttid1, 1, [], [storage_uuid], 0)
+        tid2 = tm.prepare(node2, ttid2, 1, [], [storage_uuid], 0)
+        tm.lock(tid2, storage_uuid)
+        # txn 2 is still blocked by txn 1
+        self.assertEqual(len(callback.getNamedCalls('__call__')), 0)
+        tm.lock(tid1, storage_uuid)
+        # both transactions are unlocked when txn 1 is fully locked
+        self.assertEqual(len(callback.getNamedCalls('__call__')), 2)
 
 if __name__ == '__main__':
     unittest.main()

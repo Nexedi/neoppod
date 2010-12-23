@@ -375,6 +375,9 @@ class NeoUnitTestBase(NeoTestBase):
     def checkAnswerTransactionInformation(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerTransactionInformation, **kw)
 
+    def checkAnswerBeginTransaction(self, conn, **kw):
+        return self.checkAnswerPacket(conn, Packets.AnswerBeginTransaction, **kw)
+
     def checkAnswerTids(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerTIDs, **kw)
 
