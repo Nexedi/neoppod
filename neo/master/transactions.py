@@ -333,7 +333,10 @@ class TransactionManager(object):
             # No TID requested, generate a temporary one
             tid = self.getTTID()
         else:
+            # Use of specific TID requested, queue it immediately and update
+            # last TID.
             self._queue.append((uuid, tid))
+            self.setLastTID(tid)
         return tid
 
     def prepare(self, node, ttid, divisor, oid_list, uuid_list, msg_id):
@@ -347,7 +350,6 @@ class TransactionManager(object):
         else:
             tid = self._nextTID(ttid, divisor)
             self._queue.append((node.getUUID(), tid))
-        self.setLastTID(tid)
         neo.logging.debug('Finish TXN %s for %s (was %s)', dump(tid), node, dump(ttid))
         txn = Transaction(node, ttid, tid, oid_list, uuid_list, msg_id)
         self._tid_dict[tid] = txn
