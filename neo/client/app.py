@@ -1208,6 +1208,7 @@ class Application(object):
         cell_list = self._getCellListForOID(oid, readable=True)
         shuffle(cell_list)
         cell_list.sort(key=self.cp.getCellSortKey)
+        packet = Packets.AskObjectHistory(oid, 0, size)
         for cell in cell_list:
             # FIXME: we keep overwriting self.local_var.history here, we
             # should aggregate it instead.
@@ -1217,7 +1218,7 @@ class Application(object):
 
             self.local_var.history = None
             try:
-                self._askStorage(conn, Packets.AskObjectHistory(oid, 0, size))
+                self._askStorage(conn, packet)
             except ConnectionClosed:
                 continue
 
