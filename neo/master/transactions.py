@@ -399,14 +399,19 @@ class TransactionManager(object):
 
     def _unlockPending(self):
         # unlock pending transactions
-        while self._queue:
-            uuid, tid = self._queue.pop(0)
-            txn = self._tid_dict.get(tid, None)
+        queue = self._queue
+        pop = queue.pop
+        insert = queue.insert
+        on_commit = self._on_commit
+        get = self._tid_dict.get
+        while queue:
+            uuid, tid = pop(0)
+            txn = get(tid, None)
             # _queue can contain un-prepared transactions
             if txn is not None and txn.locked():
-                self._on_commit(tid, txn)
+                on_commit(tid, txn)
             else:
-                self._queue.insert(0, (uuid, tid))
+                insert(0, (uuid, tid))
                 break
 
     def abortFor(self, node):
