@@ -373,7 +373,8 @@ class TransactionManager(object):
     def lock(self, tid, uuid):
         """
             Set that a node has locked the transaction.
-            Returns True if all are now locked
+            If transaction is completely locked, calls function given at
+            instanciation time.
         """
         assert tid in self._tid_dict, "Transaction not started"
         txn = self._tid_dict[tid]
