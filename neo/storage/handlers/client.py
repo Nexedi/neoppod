@@ -147,8 +147,10 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         app = self.app
         history_list = app.dm.getObjectHistory(oid, first, last - first)
         if history_list is None:
-            history_list = []
-        conn.answer(Packets.AnswerObjectHistory(oid, history_list))
+            p = Errors.OidNotFound(dump(oid))
+        else:
+            p = Packets.AnswerObjectHistory(oid, history_list)
+        conn.answer(p)
 
     def askCheckCurrentSerial(self, conn, tid, serial, oid):
         self._askCheckCurrentSerial(conn, tid, serial, oid, time.time())

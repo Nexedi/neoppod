@@ -232,7 +232,10 @@ class Storage(BaseStorage.BaseStorage,
         self.app.registerDB(db, limit)
 
     def history(self, oid, version=None, size=1, filter=None):
-        return self.app.history(oid, version, size, filter)
+        try:
+            return self.app.history(oid, version, size, filter)
+        except NEOStorageNotFoundError:
+            raise KeyError
 
     def sync(self, force=True):
         self._snapshot_tid = None

@@ -177,7 +177,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         conn = self._getConnection()
         self.app.dm = Mock({'getObjectHistory': None})
         self.operation.askObjectHistory(conn, oid1, 1, 2)
-        self.checkAnswerObjectHistory(conn)
+        self.checkErrorPacket(conn)
         # second case: not empty history
         conn = self._getConnection()
         serial = self.getNextTID()
