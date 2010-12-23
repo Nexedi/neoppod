@@ -380,8 +380,8 @@ class TransactionManager(object):
         """
         assert tid in self._tid_dict, "Transaction not started"
         txn = self._tid_dict[tid]
-        if txn.lock(uuid):
-            # all storage are locked
+        if txn.lock(uuid) and self._queue[0][1] == tid:
+            # all storage are locked and we unlock the commit queue
             self._unlockPending()
 
     def forget(self, uuid):
@@ -389,10 +389,13 @@ class TransactionManager(object):
             A storage node has been lost, don't expect a reply from it for
             current transactions
         """
+        unlock = False
         # iterate over a copy because _unlockPending may alter the dict
         for tid, txn in self._tid_dict.items():
-            if txn.forget(uuid):
-                self._unlockPending()
+            if txn.forget(uuid) and self._queue[0][1] == tid:
+                unlock = True
+        if unlock:
+            self._unlockPending()
 
     def _unlockPending(self):
         # unlock pending transactions
