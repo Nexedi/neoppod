@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from mock import Mock
+from mock import Mock, ReturnValues
 from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.protocol import CellStates
@@ -131,8 +131,9 @@ class StorageAppTests(NeoUnitTestBase):
     def test_03_executeQueuedEvents(self):
         self.assertEqual(len(self.app.event_queue), 0)
         msg_id = 1325136
+        msg_id_2 = 1325137
         event = Mock({'__repr__': 'event'})
-        conn = Mock({'__repr__': 'conn', 'getPeerId': msg_id})
+        conn = Mock({'__repr__': 'conn', 'getPeerId': ReturnValues(msg_id, msg_id_2)})
         self.app.queueEvent(event, conn, "test")
         self.app.executeQueuedEvents()
         self.assertEquals(len(event.mockGetNamedCalls("__call__")), 1)
@@ -141,6 +142,10 @@ class StorageAppTests(NeoUnitTestBase):
         self.assertEqual(params, "test")
         params = call.kwparams
         self.assertEqual(params, {})
+        calls = conn.mockGetNamedCalls("setPeerId")
+        self.assertEqual(len(calls), 2)
+        calls[0].checkArgs(msg_id)
+        calls[1].checkArgs(msg_id_2)
 
 if __name__ == '__main__':
     unittest.main()

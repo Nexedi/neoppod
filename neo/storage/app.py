@@ -329,8 +329,10 @@ class Application(object):
             some_callable, msg_id, conn, args = p()
             if conn.isAborted() or conn.isClosed():
                 continue
+            orig_msg_id = conn.getPeerId()
             conn.setPeerId(msg_id)
             some_callable(conn, *args)
+            conn.setPeerId(orig_msg_id)
 
     def logQueuedEvents(self):
         if self.event_queue is None:
