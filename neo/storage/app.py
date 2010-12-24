@@ -318,27 +318,27 @@ class Application(object):
             if not node.isHidden():
                 break
 
-    def queueEvent(self, some_callable, conn, *args, **kwargs):
+    def queueEvent(self, some_callable, conn, *args):
         msg_id = conn.getPeerId()
-        self.event_queue.append((some_callable, msg_id, conn, args, kwargs))
+        self.event_queue.append((some_callable, msg_id, conn, args))
 
     def executeQueuedEvents(self):
         l = len(self.event_queue)
         p = self.event_queue.popleft
         for _ in xrange(l):
-            some_callable, msg_id, conn, args, kwargs = p()
+            some_callable, msg_id, conn, args = p()
             if conn.isAborted() or conn.isClosed():
                 continue
             conn.setPeerId(msg_id)
-            some_callable(conn, *args, **kwargs)
+            some_callable(conn, *args)
 
     def logQueuedEvents(self):
         if self.event_queue is None:
             return
         neo.logging.info("Pending events:")
-        for event, _msg_id, _conn, args, _kwargs in self.event_queue:
+        for event, _msg_id, _conn, args in self.event_queue:
             neo.logging.info('  %r: %r:%r %r %r', event.__name__, _msg_id,
-                _conn, args, _kwargs)
+                _conn, args)
 
     def shutdown(self, erase=False):
         """Close all connections and exit"""

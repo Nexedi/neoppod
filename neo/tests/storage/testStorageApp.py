@@ -121,27 +121,26 @@ class StorageAppTests(NeoUnitTestBase):
         msg_id = 1325136
         event = Mock({'__repr__': 'event'})
         conn = Mock({'__repr__': 'conn', 'getPeerId': msg_id})
-        self.app.queueEvent(event, conn, "test", key="value")
+        self.app.queueEvent(event, conn, "test")
         self.assertEqual(len(self.app.event_queue), 1)
-        _event, _msg_id, _conn, args, kw = self.app.event_queue[0]
+        _event, _msg_id, _conn, args = self.app.event_queue[0]
         self.assertEqual(msg_id, _msg_id)
         self.assertEqual(len(args), 1)
         self.assertEqual(args[0], "test")
-        self.assertEqual(kw, {"key" : "value"})
 
     def test_03_executeQueuedEvents(self):
         self.assertEqual(len(self.app.event_queue), 0)
         msg_id = 1325136
         event = Mock({'__repr__': 'event'})
         conn = Mock({'__repr__': 'conn', 'getPeerId': msg_id})
-        self.app.queueEvent(event, conn, "test", key="value")
+        self.app.queueEvent(event, conn, "test")
         self.app.executeQueuedEvents()
         self.assertEquals(len(event.mockGetNamedCalls("__call__")), 1)
         call = event.mockGetNamedCalls("__call__")[0]
         params = call.getParam(1)
         self.assertEqual(params, "test")
         params = call.kwparams
-        self.assertEqual(params, {'key': 'value'})
+        self.assertEqual(params, {})
 
 if __name__ == '__main__':
     unittest.main()
