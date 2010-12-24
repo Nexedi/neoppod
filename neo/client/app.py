@@ -879,6 +879,7 @@ class Application(object):
         for oid, store_dict in \
             local_var.object_stored_counter_dict.iteritems():
             if not store_dict:
+                neo.logging.error('tpc_store failed')
                 raise NEOStorageError('tpc_store failed')
             elif oid in resolved_oid_set:
                 append((oid, ResolvedSerial))
@@ -916,6 +917,7 @@ class Application(object):
 
         # check at least one storage node accepted
         if txn_stored_counter == 0:
+            neo.logging.error('tpc_vote failed')
             raise NEOStorageError('tpc_vote failed')
         # Check if master connection is still alive.
         # This is just here to lower the probability of detecting a problem
