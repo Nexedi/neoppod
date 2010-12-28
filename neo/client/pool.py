@@ -113,18 +113,6 @@ class ConnectionPool(object):
                 conn.unlock()
 
     @profiler_decorator
-    def _createNodeConnection(self, node):
-        """Create a connection to a given storage node."""
-        if len(self.connection_dict) > self.max_pool_size:
-            # must drop some unused connections
-            self._dropConnections()
-
-        conn = self._initNodeConnection(node)
-        if conn is not None:
-            self.connection_dict[node.getUUID()] = conn
-        return conn
-
-    @profiler_decorator
     def notifyFailure(self, node):
         self._notifyFailure(node.getUUID(), time.time() + MAX_FAILURE_AGE)
 
@@ -163,8 +151,14 @@ class ConnectionPool(object):
                 # Already connected to node
                 return self.connection_dict[uuid]
             except KeyError:
+                if len(self.connection_dict) > self.max_pool_size:
+                    # must drop some unused connections
+                    self._dropConnections()
                 # Create new connection to node
-                return self._createNodeConnection(node)
+                conn = self._initNodeConnection(node)
+                if conn is not None:
+                    self.connection_dict[uuid] = conn
+                return conn
         finally:
             self.connection_lock_release()
 
