@@ -58,45 +58,41 @@ class ConnectionPool(object):
             return None
 
         app = self.app
+        app.setNodeReady()
+        neo.logging.debug('trying to connect to %s - %s', node,
+            node.getState())
+        conn = MTClientConnection(app.em, app.storage_event_handler, addr,
+            connector=app.connector_handler(), dispatcher=app.dispatcher)
+        conn.lock()
 
-        # Loop until a connection is obtained.
-        while True:
-            neo.logging.debug('trying to connect to %s - %s', node,
-                node.getState())
-            app.setNodeReady()
-            conn = MTClientConnection(app.em,
-                app.storage_event_handler, addr,
-                connector=app.connector_handler(), dispatcher=app.dispatcher)
-            conn.lock()
-
-            try:
-                if conn.getConnector() is None:
-                    # This happens, if a connection could not be established.
-                    neo.logging.error('Connection to %r failed', node)
-                    self.notifyFailure(node)
-                    return None
-
-                p = Packets.RequestIdentification(NodeTypes.CLIENT,
-                            app.uuid, None, app.name)
-                msg_id = conn.ask(p, queue=app.local_var.queue)
-            finally:
-                conn.unlock()
-
-            try:
-                app._waitMessage(conn, msg_id,
-                        handler=app.storage_bootstrap_handler)
-            except ConnectionClosed:
+        try:
+            if conn.getConnector() is None:
+                # This happens, if a connection could not be established.
                 neo.logging.error('Connection to %r failed', node)
                 self.notifyFailure(node)
                 return None
 
-            if app.isNodeReady():
-                neo.logging.info('Connected %r', node)
-                return conn
-            else:
-                neo.logging.info('%r not ready', node)
-                self.notifyFailure(node)
-                return None
+            p = Packets.RequestIdentification(NodeTypes.CLIENT,
+                app.uuid, None, app.name)
+            msg_id = conn.ask(p, queue=app.local_var.queue)
+        finally:
+            conn.unlock()
+
+        try:
+            app._waitMessage(conn, msg_id,
+                handler=app.storage_bootstrap_handler)
+        except ConnectionClosed:
+            neo.logging.error('Connection to %r failed', node)
+            self.notifyFailure(node)
+            return None
+
+        if app.isNodeReady():
+            neo.logging.info('Connected %r', node)
+            return conn
+        else:
+            neo.logging.info('%r not ready', node)
+            self.notifyFailure(node)
+            return None
 
     @profiler_decorator
     def _dropConnections(self):
