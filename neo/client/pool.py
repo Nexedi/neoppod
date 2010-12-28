@@ -160,9 +160,8 @@ class ConnectionPool(object):
         self.connection_lock_acquire()
         try:
             try:
-                conn = self.connection_dict[uuid]
                 # Already connected to node
-                return conn
+                return self.connection_dict[uuid]
             except KeyError:
                 # Create new connection to node
                 return self._createNodeConnection(node)
