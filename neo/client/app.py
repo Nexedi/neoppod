@@ -428,23 +428,12 @@ class Application(object):
                 self._connecting_to_master_node_release()
         return result
 
-    def _getPartitionTable(self):
+    def getPartitionTable(self):
         """ Return the partition table manager, reconnect the PMN if needed """
         # this ensure the master connection is established and the partition
         # table is up to date.
         self._getMasterConnection()
         return self.pt
-
-    @profiler_decorator
-    def _getCellListForOID(self, oid, readable=False, writable=False):
-        """ Return the cells available for the specified OID """
-        pt = self._getPartitionTable()
-        return pt.getCellListForOID(oid, readable, writable)
-
-    def _getCellListForTID(self, tid, readable=False, writable=False):
-        """ Return the cells available for the specified TID """
-        pt = self._getPartitionTable()
-        return pt.getCellListForTID(tid, readable, writable)
 
     @profiler_decorator
     def _connectToPrimaryNode(self):
@@ -631,52 +620,35 @@ class Application(object):
 
     @profiler_decorator
     def _loadFromStorage(self, oid, at_tid, before_tid):
-        cell_list = self._getCellListForOID(oid, readable=True)
-        if len(cell_list) == 0:
-            # No cells available, so why are we running ?
-            raise NEOStorageError('No storage available for oid %s' % (
-                dump(oid), ))
-
-        shuffle(cell_list)
-        cell_list.sort(key=self.cp.getCellSortKey)
         self.local_var.asked_object = 0
         packet = Packets.AskObject(oid, at_tid, before_tid)
-        for cell in cell_list:
-            neo.logging.debug('trying to load %s at %s before %s from %s',
-                dump(oid), dump(at_tid), dump(before_tid), dump(cell.getUUID()))
-            conn = self.cp.getConnForCell(cell)
-            if conn is None:
-                continue
+        while self.local_var.asked_object == 0:
+            # try without waiting for a node to be ready
+            for node, conn in self.cp.iterateForObject(oid, readable=True,
+                    wait_ready=False):
+                try:
+                    self._askStorage(conn, packet)
+                except ConnectionClosed:
+                    continue
 
-            try:
-                self._askStorage(conn, packet)
-            except ConnectionClosed:
-                continue
-
-            # Check data
-            noid, tid, next_tid, compression, checksum, data \
-                = self.local_var.asked_object
-            if noid != oid:
-                # Oops, try with next node
-                neo.logging.error('got wrong oid %s instead of %s from node ' \
-                    '%s', noid, dump(oid), cell.getAddress())
-                self.local_var.asked_object = -1
-                continue
-            elif checksum != makeChecksum(data):
-                # Check checksum.
-                neo.logging.error('wrong checksum from node %s for oid %s',
-                              cell.getAddress(), dump(oid))
-                self.local_var.asked_object = -1
-                continue
-            else:
-                # Everything looks alright.
+                # Check data
+                noid, tid, next_tid, compression, checksum, data \
+                    = self.local_var.asked_object
+                if noid != oid:
+                    # Oops, try with next node
+                    neo.logging.error('got wrong oid %s instead of %s from %s',
+                        noid, dump(oid), conn)
+                    self.local_var.asked_object = -1
+                    continue
+                elif checksum != makeChecksum(data):
+                    # Check checksum.
+                    neo.logging.error('wrong checksum from %s for oid %s',
+                                  conn, dump(oid))
+                    self.local_var.asked_object = -1
+                    continue
                 break
-
-        if self.local_var.asked_object == 0:
-            # We didn't got any object from all storage node because of
-            # connection error
-            raise NEOStorageError('connection failure')
-
+            else:
+                raise NEOStorageError('no storage available')
         if self.local_var.asked_object == -1:
             raise NEOStorageError('inconsistent data')
 
@@ -728,16 +700,11 @@ class Application(object):
         """Store object."""
         if transaction is not self.local_var.txn:
             raise StorageTransactionError(self, transaction)
-        neo.logging.debug('storing oid %s serial %s',
-                     dump(oid), dump(serial))
+        neo.logging.debug('storing oid %s serial %s', dump(oid), dump(serial))
         self._store(oid, serial, data)
         return None
 
     def _store(self, oid, serial, data, data_serial=None):
-        # Find which storage node to use
-        cell_list = self._getCellListForOID(oid, writable=True)
-        if len(cell_list) == 0:
-            raise NEOStorageError
         if data is None:
             # This is some undo: either a no-data object (undoing object
             # creation) or a back-pointer to an earlier revision (going back to
@@ -756,8 +723,6 @@ class Application(object):
                 else:
                     compression = 1
         checksum = makeChecksum(compressed_data)
-        p = Packets.AskStoreObject(oid, serial, compression,
-                 checksum, compressed_data, data_serial, self.local_var.tid)
         on_timeout = OnTimeout(self.onStoreTimeout, self.local_var.tid, oid)
         # Store object in tmp cache
         local_var = self.local_var
@@ -768,18 +733,19 @@ class Application(object):
         # Store data on each node
         self.local_var.object_stored_counter_dict[oid] = {}
         self.local_var.object_serial_dict[oid] = serial
-        getConnForCell = self.cp.getConnForCell
         queue = self.local_var.queue
         add_involved_nodes = self.local_var.involved_nodes.add
-        for cell in cell_list:
-            conn = getConnForCell(cell)
-            if conn is None:
-                continue
+        packet = Packets.AskStoreObject(oid, serial, compression,
+                 checksum, compressed_data, data_serial, self.local_var.tid)
+        for node, conn in self.cp.iterateForObject(oid, writable=True,
+                wait_ready=True):
             try:
-                conn.ask(p, on_timeout=on_timeout, queue=queue)
-                add_involved_nodes(cell.getNode())
+                conn.ask(packet, on_timeout=on_timeout, queue=queue)
+                add_involved_nodes(node)
             except ConnectionClosed:
                 continue
+        if not self.local_var.involved_nodes:
+            raise NEOStorageError("Store failed")
 
         self._waitAnyMessage(False)
 
@@ -897,20 +863,17 @@ class Application(object):
         tid = local_var.tid
         # Store data on each node
         txn_stored_counter = 0
-        p = Packets.AskStoreTransaction(tid, str(transaction.user),
+        packet = Packets.AskStoreTransaction(tid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
             local_var.data_list)
         add_involved_nodes = self.local_var.involved_nodes.add
-        for cell in self._getCellListForTID(tid, writable=True):
-            neo.logging.debug("voting object %s %s", cell.getAddress(),
-                cell.getState())
-            conn = self.cp.getConnForCell(cell)
-            if conn is None:
-                continue
-
+        for node, conn in self.cp.iterateForObject(tid, writable=True,
+                wait_ready=False):
+            neo.logging.debug("voting object %s on %s", dump(tid),
+                dump(conn.getUUID()))
             try:
-                self._askStorage(conn, p)
-                add_involved_nodes(cell.getNode())
+                self._askStorage(conn, packet)
+                add_involved_nodes(node)
             except ConnectionClosed:
                 continue
             txn_stored_counter += 1
@@ -1030,7 +993,7 @@ class Application(object):
 
         # Regroup objects per partition, to ask a minimum set of storage.
         partition_oid_dict = {}
-        pt = self._getPartitionTable()
+        pt = self.getPartitionTable()
         for oid in oid_list:
             partition = pt.getPartition(oid)
             try:
@@ -1050,7 +1013,7 @@ class Application(object):
             cell_list = getCellList(partition, readable=True)
             shuffle(cell_list)
             cell_list.sort(key=getCellSortKey)
-            storage_conn = getConnForCell(cell_list[0])
+            storage_conn = getConnForCell(cell_list[0], wait_ready=False)
             storage_conn.ask(Packets.AskObjectUndoSerial(self.local_var.tid,
                 snapshot_tid, undone_tid, oid_list), queue=queue)
 
@@ -1102,15 +1065,9 @@ class Application(object):
             txn_info[k] = v
 
     def _getTransactionInformation(self, tid):
-        cell_list = self._getCellListForTID(tid, readable=True)
-        shuffle(cell_list)
-        cell_list.sort(key=self.cp.getCellSortKey)
         packet = Packets.AskTransactionInformation(tid)
-        getConnForCell = self.cp.getConnForCell
-        for cell in cell_list:
-            conn = getConnForCell(cell)
-            if conn is None:
-                continue
+        for node, conn in self.cp.iterateForObject(tid, readable=True,
+                wait_ready=False):
             try:
                 self._askStorage(conn, packet)
             except ConnectionClosed:
@@ -1123,7 +1080,6 @@ class Application(object):
             raise NEOStorageError('Transaction %r not found' % (tid, ))
         return (self.local_var.txn_info, self.local_var.txn_ext)
 
-
     def undoLog(self, first, last, filter=None, block=0):
         # XXX: undoLog is broken
         if last < 0:
@@ -1133,7 +1089,7 @@ class Application(object):
         # First get a list of transactions from all storage nodes.
         # Each storage node will return TIDs only for UP_TO_DATE state and
         # FEEDING state cells
-        pt = self._getPartitionTable()
+        pt = self.getPartitionTable()
         storage_node_list = pt.getNodeList()
 
         self.local_var.node_tids = {}
@@ -1207,17 +1163,11 @@ class Application(object):
 
     def history(self, oid, version=None, size=1, filter=None):
         # Get history informations for object first
-        cell_list = self._getCellListForOID(oid, readable=True)
-        shuffle(cell_list)
-        cell_list.sort(key=self.cp.getCellSortKey)
         packet = Packets.AskObjectHistory(oid, 0, size)
-        for cell in cell_list:
+        for node, conn in self.cp.iterateForObject(oid, readable=True,
+                wait_ready=False):
             # FIXME: we keep overwriting self.local_var.history here, we
             # should aggregate it instead.
-            conn = self.cp.getConnForCell(cell)
-            if conn is None:
-                continue
-
             self.local_var.history = None
             try:
                 self._askStorage(conn, packet)
@@ -1227,8 +1177,7 @@ class Application(object):
             if self.local_var.history[0] != oid:
                 # Got history for wrong oid
                 raise NEOStorageError('inconsistency in storage: asked oid ' \
-                                      '%r, got %r' % (
-                                      oid, self.local_var.history[0]))
+                      '%r, got %r' % (oid, self.local_var.history[0]))
 
         if not isinstance(self.local_var.history, tuple):
             raise NEOStorageError('history failed')
@@ -1342,28 +1291,24 @@ class Application(object):
         local_var = self.local_var
         if transaction is not local_var.txn:
               raise StorageTransactionError(self, transaction)
-        cell_list = self._getCellListForOID(oid, writable=True)
-        if len(cell_list) == 0:
-            raise NEOStorageError
-        p = Packets.AskCheckCurrentSerial(local_var.tid, serial, oid)
-        getConnForCell = self.cp.getConnForCell
-        queue = local_var.queue
         local_var.object_serial_dict[oid] = serial
         # Placeholders
+        queue = local_var.queue
         local_var.object_stored_counter_dict[oid] = {}
         data_dict = local_var.data_dict
         if oid not in data_dict:
             # Marker value so we don't try to resolve conflicts.
             data_dict[oid] = None
             local_var.data_list.append(oid)
-        for cell in cell_list:
-            conn = getConnForCell(cell)
-            if conn is None:
-                continue
+        packet = Packets.AskCheckCurrentSerial(local_var.tid, serial, oid)
+        for node, conn in self.cp.iterateForObject(oid, writable=True,
+                wait_ready=False):
             try:
-                conn.ask(p, queue=queue)
+                conn.ask(packet, queue=queue)
             except ConnectionClosed:
                 continue
+        else:
+            raise NEOStorageError('no storage available')
 
         self._waitAnyMessage(False)
 

@@ -15,13 +15,16 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+import time
+from random import shuffle
 
 import neo
+from neo.util import dump
 from neo.locking import RLock
 from neo.protocol import NodeTypes, Packets
 from neo.connection import MTClientConnection, ConnectionClosed
+from neo.client.exception import NEOStorageError
 from neo.profiling import profiler_decorator
-import time
 
 # How long before we might retry a connection to a node to which connection
 # failed in the past.
@@ -34,6 +37,8 @@ CELL_CONNECTED = -1
 CELL_GOOD = 0
 #   Storage node hosting cell failed recently, low priority
 CELL_FAILED = 1
+
+NOT_READY = object()
 
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
@@ -92,7 +97,7 @@ class ConnectionPool(object):
         else:
             neo.logging.info('%r not ready', node)
             self.notifyFailure(node)
-            return None
+            return NOT_READY
 
     @profiler_decorator
     def _dropConnections(self):
@@ -135,11 +140,26 @@ class ConnectionPool(object):
         return result
 
     @profiler_decorator
-    def getConnForCell(self, cell):
-        return self.getConnForNode(cell.getNode())
+    def getConnForCell(self, cell, wait_ready=False):
+        return self.getConnForNode(cell.getNode(), wait_ready=wait_ready)
+
+    def iterateForObject(self, object_id, readable=False, writable=False,
+            wait_ready=False):
+        """ Iterate over nodes responsible of a object by it's ID """
+        pt = self.app.getPartitionTable()
+        cell_list = pt.getCellListForOID(object_id, readable, writable)
+        if cell_list:
+            shuffle(cell_list)
+            cell_list.sort(key=self.getCellSortKey)
+            getConnForNode = self.getConnForNode
+            for cell in cell_list:
+                node = cell.getNode()
+                conn = getConnForNode(node, wait_ready=wait_ready)
+                if conn is not None:
+                    yield (node, conn)
 
     @profiler_decorator
-    def getConnForNode(self, node):
+    def getConnForNode(self, node, wait_ready=True):
         """Return a locked connection object to a given node
         If no connection exists, create a new one"""
         if not node.isRunning():
@@ -155,10 +175,16 @@ class ConnectionPool(object):
                     # must drop some unused connections
                     self._dropConnections()
                 # Create new connection to node
-                conn = self._initNodeConnection(node)
-                if conn is not None:
-                    self.connection_dict[uuid] = conn
-                return conn
+                while True:
+                    conn = self._initNodeConnection(node)
+                    if conn is NOT_READY and wait_ready:
+                        time.sleep(1)
+                        continue
+                    if conn not in (None, NOT_READY):
+                        self.connection_dict[uuid] = conn
+                        return conn
+                    else:
+                        return None
         finally:
             self.connection_lock_release()
 

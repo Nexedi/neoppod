@@ -68,6 +68,38 @@ class ConnectionPoolTests(NeoUnitTestBase):
         self.assertEqual(getCellSortKey(node_uuid_2, 10), getCellSortKey(
             node_uuid_3, 10))
 
+    def test_iterateForObject_noStorageAvailable(self):
+        # no node available
+        oid = self.getOID(1)
+        pt = Mock({'getCellListForOID': []})
+        app = Mock({'getPartitionTable': pt})
+        pool = ConnectionPool(app)
+        self.assertRaises(StopIteration, pool.iterateForObject(oid).next)
+
+    def test_iterateForObject_connectionRefused(self):
+        # connection refused
+        oid = self.getOID(1)
+        node = Mock({'__repr__': 'node'})
+        cell = Mock({'__repr__': 'cell', 'getNode': node})
+        conn = Mock({'__repr__': 'conn'})
+        pt = Mock({'getCellListForOID': [cell]})
+        app = Mock({'getPartitionTable': pt})
+        pool = ConnectionPool(app)
+        pool.getConnForNode = Mock({'__call__': None})
+        self.assertRaises(StopIteration, pool.iterateForObject(oid).next)
+
+    def test_iterateForObject_connectionRefused(self):
+        # connection refused
+        oid = self.getOID(1)
+        node = Mock({'__repr__': 'node'})
+        cell = Mock({'__repr__': 'cell', 'getNode': node})
+        conn = Mock({'__repr__': 'conn'})
+        pt = Mock({'getCellListForOID': [cell]})
+        app = Mock({'getPartitionTable': pt})
+        pool = ConnectionPool(app)
+        pool.getConnForNode = Mock({'__call__': conn})
+        self.assertEqual(list(pool.iterateForObject(oid)), [(node, conn)])
+
 if __name__ == '__main__':
     unittest.main()
 
