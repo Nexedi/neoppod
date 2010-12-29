@@ -647,8 +647,6 @@ class Application(object):
                     self.local_var.asked_object = -1
                     continue
                 break
-            else:
-                raise NEOStorageError('no storage available')
         if self.local_var.asked_object == -1:
             raise NEOStorageError('inconsistent data')
 
@@ -1307,8 +1305,6 @@ class Application(object):
                 conn.ask(packet, queue=queue)
             except ConnectionClosed:
                 continue
-        else:
-            raise NEOStorageError('no storage available')
 
         self._waitAnyMessage(False)
 

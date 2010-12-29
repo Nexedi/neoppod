@@ -20,6 +20,7 @@ from mock import Mock
 
 from neo.tests import NeoUnitTestBase
 from neo.client.app import ConnectionPool
+from neo.client.exception import NEOStorageError
 
 class ConnectionPoolTests(NeoUnitTestBase):
 
@@ -74,7 +75,7 @@ class ConnectionPoolTests(NeoUnitTestBase):
         pt = Mock({'getCellListForOID': []})
         app = Mock({'getPartitionTable': pt})
         pool = ConnectionPool(app)
-        self.assertRaises(StopIteration, pool.iterateForObject(oid).next)
+        self.assertRaises(NEOStorageError, pool.iterateForObject(oid).next)
 
     def test_iterateForObject_connectionRefused(self):
         # connection refused

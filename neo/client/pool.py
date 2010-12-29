@@ -148,6 +148,7 @@ class ConnectionPool(object):
         """ Iterate over nodes responsible of a object by it's ID """
         pt = self.app.getPartitionTable()
         cell_list = pt.getCellListForOID(object_id, readable, writable)
+        yielded = 0
         if cell_list:
             shuffle(cell_list)
             cell_list.sort(key=self.getCellSortKey)
@@ -156,7 +157,10 @@ class ConnectionPool(object):
                 node = cell.getNode()
                 conn = getConnForNode(node, wait_ready=wait_ready)
                 if conn is not None:
+                    yielded += 1
                     yield (node, conn)
+        if not yielded:
+            raise NEOStorageError('no storage available')
 
     @profiler_decorator
     def getConnForNode(self, node, wait_ready=True):
