@@ -987,12 +987,12 @@ class Application(object):
             raise StorageTransactionError(self, undone_tid)
 
         txn_info, txn_ext = self._getTransactionInformation(undone_tid)
-        oid_list = txn_info['oids']
+        txn_oid_list = txn_info['oids']
 
         # Regroup objects per partition, to ask a minimum set of storage.
         partition_oid_dict = {}
         pt = self.getPartitionTable()
-        for oid in oid_list:
+        for oid in txn_oid_list:
             partition = pt.getPartition(oid)
             try:
                 oid_list = partition_oid_dict[partition]
@@ -1031,7 +1031,7 @@ class Application(object):
             raise UndoError('non-undoable transaction')
 
         # Send undo data to all storage nodes.
-        for oid in oid_list:
+        for oid in txn_oid_list:
             current_serial, undo_serial, is_current = undo_object_tid_dict[oid]
             if is_current:
                 data = None
