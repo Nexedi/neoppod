@@ -105,14 +105,22 @@ for logger_name in ('NEO', 'CLIENT'):
 class NeoTestRunner(unittest.TestResult):
     """ Custom result class to build report with statistics per module """
 
-    def __init__(self, title):
+    def __init__(self, title, masters, storages, replicas, partitions):
         unittest.TestResult.__init__(self)
         self._title = title
         self.modulesStats = {}
         self.failedImports = {}
         self.lastStart = None
+        self.masters = masters
+        self.storages = storages
+        self.replicas = replicas
+        self.partitions = partitions
         self.temp_directory = tempfile.mkdtemp(prefix='neo_')
         os.environ['TEMP'] = self.temp_directory
+        os.environ['ZODB_MASTERS'] = str(masters)
+        os.environ['ZODB_STORAGES'] = str(storages)
+        os.environ['ZODB_REPLICAS'] = str(replicas)
+        os.environ['ZODB_PARTITIONS'] = str(partitions)
         print "Base directory : %s" % (self.temp_directory, )
 
     def run(self, name, modules):
@@ -186,6 +194,10 @@ class NeoTestRunner(unittest.TestResult):
     def _buildSummary(self, add_status):
         success = self.testsRun - len(self.errors) - len(self.failures)
         add_status('Directory', self.temp_directory)
+        add_status('Masters', self.masters)
+        add_status('Storages', self.storages)
+        add_status('Replicas', self.replicas)
+        add_status('Partitions', self.partitions)
         add_status('Status', '%.3f%%' % (success * 100.0 / self.testsRun))
         # visual
         header       = "%25s |   run   | success |  errors |  fails  |   time   \n" % 'Test Module'
@@ -268,6 +280,10 @@ class TestRunner(BenchmarkRunner):
         parser.add_option('-f', '--functional', action='store_true')
         parser.add_option('-u', '--unit', action='store_true')
         parser.add_option('-z', '--zodb', action='store_true')
+        parser.add_option('', '--zodb-masters')
+        parser.add_option('', '--zodb-storages')
+        parser.add_option('', '--zodb-replicas')
+        parser.add_option('', '--zodb-partitions')
 
     def load_options(self, options, args):
         if not (options.unit or options.functional or options.zodb or args):
@@ -276,12 +292,22 @@ class TestRunner(BenchmarkRunner):
             unit = options.unit,
             functional = options.functional,
             zodb = options.zodb,
+            zodb_masters = int(options.zodb_masters or 1),
+            zodb_storages = int(options.zodb_storages or 1),
+            zodb_replicas = int(options.zodb_replicas or 0),
+            zodb_partitions = int(options.zodb_partitions or 1),
         )
 
     def start(self):
         config = self._config
         # run requested tests
-        runner = NeoTestRunner(title=config.title or 'Neo')
+        runner = NeoTestRunner(
+            title=config.title or 'Neo',
+            masters=config.zodb_masters,
+            storages=config.zodb_storages,
+            replicas=config.zodb_replicas,
+            partitions=config.zodb_partitions,
+        )
         try:
             if config.unit:
                 runner.run('Unit tests', UNIT_TEST_MODULES)

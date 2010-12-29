@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+import os
 import unittest
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
@@ -24,8 +25,17 @@ class ZODBTestCase(NEOFunctionalTest):
 
     def setUp(self):
         NEOFunctionalTest.setUp(self)
-        self.neo = NEOCluster(['test_neo1'], partitions=1, replicas=0,
-                master_node_count=1, temp_dir=self.getTempDirectory())
+        masters = int(os.environ.get('ZODB_MASTERS', 1))
+        storages = int(os.environ.get('ZODB_STORAGES', 1))
+        replicas = int(os.environ.get('ZODB_REPLICAS', 0))
+        partitions = int(os.environ.get('ZODB_PARTITIONS', 1))
+        self.neo = NEOCluster(
+            db_list=['test_neo%d' % x for x in xrange(storages)],
+            partitions=partitions,
+            replicas=replicas,
+            master_node_count=masters,
+            temp_dir=self.getTempDirectory(),
+        )
         self.neo.start()
         self._storage = self.neo.getZODBStorage()
 
