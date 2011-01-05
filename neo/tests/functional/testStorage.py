@@ -21,6 +21,8 @@ from persistent import Persistent
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo.protocol import ClusterStates, NodeStates
+from MySQLdb import ProgrammingError
+from MySQLdb.constants.ER import NO_SUCH_TABLE
 
 class PObject(Persistent):
 
@@ -119,8 +121,13 @@ class StorageTests(NEOFunctionalTest):
     def __checkReplicateCount(self, db_name, target_count, timeout=0, delay=1):
         db = self.neo.getSQLConnection(db_name, autocommit=True)
         def callback(last_try):
-            replicate_count = self.queryCount(db,
-                'select count(distinct uuid) from pt')
+            try:
+                replicate_count = self.queryCount(db,
+                    'select count(distinct uuid) from pt')
+            except ProgrammingError, exc:
+                if exc[0] != NO_SUCH_TABLE:
+                    raise
+                replicate_count = 0
             if last_try is not None and last_try < replicate_count:
                 raise AssertionError, 'Regression: %s became %s' % \
                     (last_try, replicate_count)
