@@ -108,6 +108,8 @@ class RecoveryManager(MasterHandler):
         if node.getState() == new_state:
             return
         node.setState(new_state)
+        # broadcast to all so that admin nodes gets informed
+        self.app.broadcastNodesInformation([node])
 
     def connectionCompleted(self, conn):
         # XXX: handler split review needed to remove this hack

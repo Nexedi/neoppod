@@ -127,6 +127,32 @@ class ClusterTests(NEOFunctionalTest):
         transaction.commit()
         self.assertEqual(len(self.neo.getClientlist()), 1)
 
+    def testStorageLostDuringRecovery(self):
+        """
+            Check that admin node receive notifications of storage
+            connection and disconnection during recovery
+        """
+        self.neo = NEOCluster(['test_neo%d' % i for i in xrange(2)],
+            master_node_count=1, partitions=10, replicas=1,
+            temp_dir=self.getTempDirectory(), clear_databases=True,
+        )
+        storages  = self.neo.getStorageProcessList()
+        self.neo.run(except_storages=storages)
+        self.neo.expectStorageNotKnown(storages[0])
+        self.neo.expectStorageNotKnown(storages[1])
+        storages[0].start()
+        self.neo.expectRunning(storages[0])
+        self.neo.expectStorageNotKnown(storages[1])
+        storages[1].start()
+        self.neo.expectRunning(storages[0])
+        self.neo.expectRunning(storages[1])
+        storages[0].stop()
+        self.neo.expectUnavailable(storages[0])
+        self.neo.expectRunning(storages[1])
+        storages[1].stop()
+        self.neo.expectUnavailable(storages[0])
+        self.neo.expectUnavailable(storages[1])
+
 def test_suite():
     return unittest.makeSuite(ClusterTests)
 
