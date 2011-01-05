@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
-from neo.protocol import Packets, MAX_TID
+from neo.protocol import Packets
 
 class StorageOperationHandler(BaseClientAndStorageOperationHandler):
 

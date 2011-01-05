@@ -19,7 +19,6 @@ import time
 from random import shuffle
 
 import neo
-from neo.util import dump
 from neo.locking import RLock
 from neo.protocol import NodeTypes, Packets
 from neo.connection import MTClientConnection, ConnectionClosed
