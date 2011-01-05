@@ -622,31 +622,28 @@ class Application(object):
     def _loadFromStorage(self, oid, at_tid, before_tid):
         self.local_var.asked_object = 0
         packet = Packets.AskObject(oid, at_tid, before_tid)
-        while self.local_var.asked_object == 0:
-            # try without waiting for a node to be ready
-            for node, conn in self.cp.iterateForObject(oid, readable=True,
-                    wait_ready=False):
-                try:
-                    self._askStorage(conn, packet)
-                except ConnectionClosed:
-                    continue
+        for node, conn in self.cp.iterateForObject(oid, readable=True):
+            try:
+                self._askStorage(conn, packet)
+            except ConnectionClosed:
+                continue
 
-                # Check data
-                noid, tid, next_tid, compression, checksum, data \
-                    = self.local_var.asked_object
-                if noid != oid:
-                    # Oops, try with next node
-                    neo.logging.error('got wrong oid %s instead of %s from %s',
-                        noid, dump(oid), conn)
-                    self.local_var.asked_object = -1
-                    continue
-                elif checksum != makeChecksum(data):
-                    # Check checksum.
-                    neo.logging.error('wrong checksum from %s for oid %s',
-                                  conn, dump(oid))
-                    self.local_var.asked_object = -1
-                    continue
-                break
+            # Check data
+            noid, tid, next_tid, compression, checksum, data \
+                = self.local_var.asked_object
+            if noid != oid:
+                # Oops, try with next node
+                neo.logging.error('got wrong oid %s instead of %s from %s',
+                    noid, dump(oid), conn)
+                self.local_var.asked_object = -1
+                continue
+            elif checksum != makeChecksum(data):
+                # Check checksum.
+                neo.logging.error('wrong checksum from %s for oid %s',
+                              conn, dump(oid))
+                self.local_var.asked_object = -1
+                continue
+            break
         if self.local_var.asked_object == -1:
             raise NEOStorageError('inconsistent data')
 
@@ -735,8 +732,7 @@ class Application(object):
         add_involved_nodes = self.local_var.involved_nodes.add
         packet = Packets.AskStoreObject(oid, serial, compression,
                  checksum, compressed_data, data_serial, self.local_var.tid)
-        for node, conn in self.cp.iterateForObject(oid, writable=True,
-                wait_ready=True):
+        for node, conn in self.cp.iterateForObject(oid, writable=True):
             try:
                 conn.ask(packet, on_timeout=on_timeout, queue=queue)
                 add_involved_nodes(node)
@@ -865,8 +861,7 @@ class Application(object):
             str(transaction.description), dumps(transaction._extension),
             local_var.data_list)
         add_involved_nodes = self.local_var.involved_nodes.add
-        for node, conn in self.cp.iterateForObject(tid, writable=True,
-                wait_ready=False):
+        for node, conn in self.cp.iterateForObject(tid, writable=True):
             neo.logging.debug("voting object %s on %s", dump(tid),
                 dump(conn.getUUID()))
             try:
@@ -1011,7 +1006,7 @@ class Application(object):
             cell_list = getCellList(partition, readable=True)
             shuffle(cell_list)
             cell_list.sort(key=getCellSortKey)
-            storage_conn = getConnForCell(cell_list[0], wait_ready=False)
+            storage_conn = getConnForCell(cell_list[0])
             storage_conn.ask(Packets.AskObjectUndoSerial(self.local_var.tid,
                 snapshot_tid, undone_tid, oid_list), queue=queue)
 
@@ -1064,8 +1059,7 @@ class Application(object):
 
     def _getTransactionInformation(self, tid):
         packet = Packets.AskTransactionInformation(tid)
-        for node, conn in self.cp.iterateForObject(tid, readable=True,
-                wait_ready=False):
+        for node, conn in self.cp.iterateForObject(tid, readable=True):
             try:
                 self._askStorage(conn, packet)
             except ConnectionClosed:
@@ -1162,8 +1156,7 @@ class Application(object):
     def history(self, oid, version=None, size=1, filter=None):
         # Get history informations for object first
         packet = Packets.AskObjectHistory(oid, 0, size)
-        for node, conn in self.cp.iterateForObject(oid, readable=True,
-                wait_ready=False):
+        for node, conn in self.cp.iterateForObject(oid, readable=True):
             # FIXME: we keep overwriting self.local_var.history here, we
             # should aggregate it instead.
             self.local_var.history = None
@@ -1299,8 +1292,7 @@ class Application(object):
             data_dict[oid] = None
             local_var.data_list.append(oid)
         packet = Packets.AskCheckCurrentSerial(local_var.tid, serial, oid)
-        for node, conn in self.cp.iterateForObject(oid, writable=True,
-                wait_ready=False):
+        for node, conn in self.cp.iterateForObject(oid, writable=True):
             try:
                 conn.ask(packet, queue=queue)
             except ConnectionClosed:

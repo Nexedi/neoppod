@@ -139,30 +139,34 @@ class ConnectionPool(object):
         return result
 
     @profiler_decorator
-    def getConnForCell(self, cell, wait_ready=False):
-        return self.getConnForNode(cell.getNode(), wait_ready=wait_ready)
+    def getConnForCell(self, cell):
+        return self.getConnForNode(cell.getNode())
 
-    def iterateForObject(self, object_id, readable=False, writable=False,
-            wait_ready=False):
-        """ Iterate over nodes responsible of a object by it's ID """
+    def iterateForObject(self, object_id, readable=False, writable=False):
+        """ Iterate over nodes managing an object """
         pt = self.app.getPartitionTable()
         cell_list = pt.getCellListForOID(object_id, readable, writable)
-        yielded = 0
-        if cell_list:
+        if not cell_list:
+            raise NEOStorageError('no storage available')
+        getConnForNode = self.getConnForNode
+        while cell_list:
+            new_cell_list = []
             shuffle(cell_list)
             cell_list.sort(key=self.getCellSortKey)
-            getConnForNode = self.getConnForNode
             for cell in cell_list:
                 node = cell.getNode()
-                conn = getConnForNode(node, wait_ready=wait_ready)
+                conn = getConnForNode(node)
                 if conn is not None:
-                    yielded += 1
                     yield (node, conn)
-        if not yielded:
-            raise NEOStorageError('no storage available')
+                else:
+                    new_cell_list.append(cell)
+            cell_list = new_cell_list
+            if new_cell_list:
+                # wait a bit to avoid a busy loop
+                time.sleep(1)
 
     @profiler_decorator
-    def getConnForNode(self, node, wait_ready=True):
+    def getConnForNode(self, node):
         """Return a locked connection object to a given node
         If no connection exists, create a new one"""
         if not node.isRunning():
@@ -180,9 +184,6 @@ class ConnectionPool(object):
                 # Create new connection to node
                 while True:
                     conn = self._initNodeConnection(node)
-                    if conn is NOT_READY and wait_ready:
-                        time.sleep(1)
-                        continue
                     if conn not in (None, NOT_READY):
                         self.connection_dict[uuid] = conn
                         return conn

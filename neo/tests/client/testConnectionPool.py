@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from mock import Mock
+from mock import Mock, ReturnValues
 
 from neo.tests import NeoUnitTestBase
 from neo.client.app import ConnectionPool
@@ -78,7 +78,7 @@ class ConnectionPoolTests(NeoUnitTestBase):
         self.assertRaises(NEOStorageError, pool.iterateForObject(oid).next)
 
     def test_iterateForObject_connectionRefused(self):
-        # connection refused
+        # connection refused at the first try
         oid = self.getOID(1)
         node = Mock({'__repr__': 'node'})
         cell = Mock({'__repr__': 'cell', 'getNode': node})
@@ -86,11 +86,11 @@ class ConnectionPoolTests(NeoUnitTestBase):
         pt = Mock({'getCellListForOID': [cell]})
         app = Mock({'getPartitionTable': pt})
         pool = ConnectionPool(app)
-        pool.getConnForNode = Mock({'__call__': None})
-        self.assertRaises(StopIteration, pool.iterateForObject(oid).next)
+        pool.getConnForNode = Mock({'__call__': ReturnValues(None, conn)})
+        self.assertEqual(list(pool.iterateForObject(oid)), [(node, conn)])
 
-    def test_iterateForObject_connectionRefused(self):
-        # connection refused
+    def test_iterateForObject_connectionAccepted(self):
+        # connection accepted
         oid = self.getOID(1)
         node = Mock({'__repr__': 'node'})
         cell = Mock({'__repr__': 'cell', 'getNode': node})
