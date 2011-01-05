@@ -382,6 +382,10 @@ class StorageDBTests(NeoUnitTestBase):
             self.db.storeTransaction(tid, objs, txn)
             self.db.finishTransaction(tid)
         self.db.deleteObjectsAbove(2, 0, oid1, tid2)
+        # Check getObjectHistoryFrom because MySQL adapter use two tables
+        # that must be synchronized
+        self.assertEqual(self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID,
+            MAX_TID, 10, 2, 0), {oid1: [tid1]})
         # Right partition, below cutoff
         self.assertNotEqual(self.db.getObject(oid1, tid=tid1), None)
         # Right partition, above tid cutoff

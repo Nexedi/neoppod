@@ -597,7 +597,7 @@ class MySQLDatabaseManager(DatabaseManager):
         u64 = util.u64
         self.begin()
         try:
-            self.query('DELETE FROM obj WHERE partition=%(partition)d AND ('
+            self.objQuery('DELETE FROM %%(table)s WHERE partition=%(partition)d AND ('
               'oid > %(oid)d OR (oid = %(oid)d AND serial >= %(serial)d))' % {
                 'partition': partition,
                 'oid': u64(oid),
