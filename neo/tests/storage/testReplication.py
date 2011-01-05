@@ -30,6 +30,7 @@ from neo.protocol import ZERO_OID, ZERO_TID
 
 MAX_TRANSACTIONS = 10000
 MAX_OBJECTS = 100000
+MAX_TID = '\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFE' # != INVALID_TID
 
 class FakeConnection(object):
 
@@ -77,7 +78,7 @@ class ReplicationTests(NeoUnitTestBase):
         oapp.replicator = Replicator(oapp)
         oapp.replicator.getCurrentRID = lambda: 0
         oapp.replicator.isCurrentConnection = lambda c: True
-        oapp.replicator.getCurrentCriticalTID = lambda: '\xFF' * 8
+        oapp.replicator.getCurrentCriticalTID = lambda: MAX_TID
         # handlers and connections
         rhandler = StorageOperationHandler(rapp)
         rconn = FakeConnection()

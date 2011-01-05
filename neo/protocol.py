@@ -113,7 +113,6 @@ ZERO_TID = '\0' * 8
 ZERO_OID = '\0' * 8
 OID_LEN = len(INVALID_OID)
 TID_LEN = len(INVALID_TID)
-MAX_TID = '\xff' * 8
 
 UUID_NAMESPACES = {
     NodeTypes.STORAGE: 'S',
