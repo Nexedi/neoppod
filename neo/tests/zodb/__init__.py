@@ -25,10 +25,10 @@ class ZODBTestCase(NEOFunctionalTest):
 
     def setUp(self):
         NEOFunctionalTest.setUp(self)
-        masters = int(os.environ.get('ZODB_MASTERS', 1))
-        storages = int(os.environ.get('ZODB_STORAGES', 1))
-        replicas = int(os.environ.get('ZODB_REPLICAS', 0))
-        partitions = int(os.environ.get('ZODB_PARTITIONS', 1))
+        masters = int(os.environ.get('NEO_TEST_ZODB_MASTERS', 1))
+        storages = int(os.environ.get('NEO_TEST_ZODB_STORAGES', 1))
+        replicas = int(os.environ.get('NEO_TEST_ZODB_REPLICAS', 0))
+        partitions = int(os.environ.get('NEO_TEST_ZODB_PARTITIONS', 1))
         self.neo = NEOCluster(
             db_list=['test_neo%d' % x for x in xrange(storages)],
             partitions=partitions,

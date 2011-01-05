@@ -53,7 +53,7 @@ class BenchmarkRunner(object):
         self._status.append((key, value))
 
     def build_report(self, content):
-        fmt = "%-20s : %s"
+        fmt = "%-25s : %s"
         status = "\n".join([fmt % item for item in [
             ('Title', self._config.title),
             ('Date', datetime.date.today().isoformat()),
