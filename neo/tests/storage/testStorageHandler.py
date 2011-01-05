@@ -22,7 +22,7 @@ from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.storage import StorageOperationHandler
 from neo.protocol import INVALID_PARTITION, Packets
-from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
+from neo.protocol import INVALID_TID, INVALID_OID
 
 class StorageStorageHandlerTests(NeoUnitTestBase):
 

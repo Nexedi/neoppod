@@ -107,7 +107,6 @@ cell_state_prefix_dict = {
 INVALID_UUID = '\0' * 16
 INVALID_TID = '\xff' * 8
 INVALID_OID = '\xff' * 8
-INVALID_SERIAL = INVALID_TID
 INVALID_PARTITION = 0xffffffff
 ZERO_TID = '\0' * 8
 ZERO_OID = '\0' * 8

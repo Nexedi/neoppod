@@ -23,7 +23,7 @@ from neo.storage.app import Application
 from neo.storage.transactions import ConflictError, DelayedError
 from neo.storage.handlers.client import ClientOperationHandler
 from neo.protocol import INVALID_PARTITION
-from neo.protocol import INVALID_TID, INVALID_OID, INVALID_SERIAL
+from neo.protocol import INVALID_TID, INVALID_OID
 from neo.protocol import Packets, LockState
 
 class StorageClientHandlerTests(NeoUnitTestBase):
@@ -93,7 +93,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.app.load_lock_dict[INVALID_OID] = object()
         self.assertEquals(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=INVALID_OID,
-            serial=INVALID_SERIAL, tid=INVALID_TID)
+            serial=INVALID_TID, tid=INVALID_TID)
         self.assertEquals(len(self.app.event_queue), 1)
         self.checkNoPacketSent(conn)
         self.assertEquals(len(self.app.dm.mockGetNamedCalls('getObject')), 0)
@@ -104,7 +104,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         conn = self._getConnection()
         self.assertEquals(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=INVALID_OID,
-            serial=INVALID_SERIAL, tid=INVALID_TID)
+            serial=INVALID_TID, tid=INVALID_TID)
         calls = self.app.dm.mockGetNamedCalls('getObject')
         self.assertEquals(len(self.app.event_queue), 0)
         self.assertEquals(len(calls), 1)

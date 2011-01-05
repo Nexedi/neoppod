@@ -24,7 +24,7 @@ from neo.tests import NeoUnitTestBase
 from neo.client.app import Application, RevisionIndex
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
-from neo.protocol import Packet, Packets, Errors, INVALID_TID, INVALID_SERIAL
+from neo.protocol import Packet, Packets, Errors, INVALID_TID
 from neo.util import makeChecksum
 import time
 
@@ -320,7 +320,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # now a cached version ewxists but should not be hit
         mq.store((oid, tid2), ('WRONG', None))
         self.assertTrue((oid, tid2) in mq)
-        another_object = (1, oid, tid2, INVALID_SERIAL, 0,
+        another_object = (1, oid, tid2, INVALID_TID, 0,
             makeChecksum('RIGHT'), 'RIGHT', None)
         packet = Packets.AnswerObject(*another_object[1:])
         packet.setId(0)
@@ -360,7 +360,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertRaises(NEOStorageDoesNotExistError, loadBefore, oid, tid2)
         self.checkAskObject(conn)
         # no visible version -> NEOStorageNotFoundError
-        an_object = (1, oid, INVALID_SERIAL, None, 0, 0, '', None)
+        an_object = (1, oid, INVALID_TID, None, 0, 0, '', None)
         packet = Packets.AnswerObject(*an_object[1:])
         packet.setId(0)
         conn = Mock({
