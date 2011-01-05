@@ -825,17 +825,19 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
   
-    def checkTIDRange(self, min_tid, length, num_partitions, partition):
+    def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
         # XXX: XOR is a lame checksum
         count, tid_checksum, max_tid = self.query('SELECT COUNT(*), '
             'BIT_XOR(tid), MAX(tid) FROM ('
               'SELECT tid FROM trans '
               'WHERE partition = %(partition)s '
               'AND tid >= %(min_tid)d '
+              'AND tid <= %(max_tid)d '
               'ORDER BY tid ASC LIMIT %(length)d'
             ') AS foo' % {
                 'partition': partition,
                 'min_tid': util.u64(min_tid),
+                'max_tid': util.u64(max_tid),
                 'length': length,
         })[0]
         if count == 0:
@@ -845,18 +847,20 @@ class MySQLDatabaseManager(DatabaseManager):
             max_tid = util.p64(max_tid)
         return count, tid_checksum, max_tid
 
-    def checkSerialRange(self, min_oid, min_serial, length, num_partitions,
-            partition):
+    def checkSerialRange(self, min_oid, min_serial, max_tid, length,
+            num_partitions, partition):
         # XXX: XOR is a lame checksum
         u64 = util.u64
         p64 = util.p64
         r = self.query('SELECT oid, serial FROM obj_short WHERE '
             'partition = %(partition)s AND '
+            'serial <= %(max_tid)d AND '
             '(oid > %(min_oid)d OR '
             '(oid = %(min_oid)d AND serial >= %(min_serial)d)) '
             'ORDER BY oid ASC, serial ASC LIMIT %(length)d' % {
                 'min_oid': u64(min_oid),
                 'min_serial': u64(min_serial),
+                'max_tid': u64(max_tid),
                 'length': length,
                 'partition': partition,
         })

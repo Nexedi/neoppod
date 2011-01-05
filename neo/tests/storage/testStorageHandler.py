@@ -157,10 +157,10 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         self.app.dm = Mock({'checkTIDRange': (count, tid_checksum, max_tid)})
         self.app.pt = Mock({'getPartitions': num_partitions})
         conn = self.getFakeConnection()
-        self.operation.askCheckTIDRange(conn, min_tid, length, partition)
+        self.operation.askCheckTIDRange(conn, min_tid, max_tid, length, partition)
         calls = self.app.dm.mockGetNamedCalls('checkTIDRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(min_tid, length, num_partitions, partition)
+        calls[0].checkArgs(min_tid, max_tid, length, num_partitions, partition)
         pmin_tid, plength, pcount, ptid_checksum, pmax_tid = \
             self.checkAnswerPacket(conn, Packets.AnswerCheckTIDRange,
             decode=True)
@@ -185,12 +185,12 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
             serial_checksum, max_serial)})
         self.app.pt = Mock({'getPartitions': num_partitions})
         conn = self.getFakeConnection()
-        self.operation.askCheckSerialRange(conn, min_oid, min_serial, length,
-            partition)
+        self.operation.askCheckSerialRange(conn, min_oid, min_serial,
+            max_serial, length, partition)
         calls = self.app.dm.mockGetNamedCalls('checkSerialRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(min_oid, min_serial, length, num_partitions,
-            partition)
+        calls[0].checkArgs(min_oid, min_serial, max_serial, length,
+            num_partitions, partition)
         pmin_oid, pmin_serial, plength, pcount, poid_checksum, pmax_oid, \
             pserial_checksum, pmax_serial = self.checkAnswerPacket(conn,
             Packets.AnswerCheckSerialRange, decode=True)

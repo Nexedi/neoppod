@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
-from neo.protocol import Packets
+from neo.protocol import Packets, MAX_TID
 
 class StorageOperationHandler(BaseClientAndStorageOperationHandler):
 
@@ -44,18 +44,18 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
             length, app.pt.getPartitions(), partition)
         conn.answer(Packets.AnswerObjectHistoryFrom(object_dict))
 
-    def askCheckTIDRange(self, conn, min_tid, length, partition):
+    def askCheckTIDRange(self, conn, min_tid, max_tid, length, partition):
         app = self.app
-        count, tid_checksum, max_tid = app.dm.checkTIDRange(min_tid, length,
-            app.pt.getPartitions(), partition)
-        conn.answer(Packets.AnswerCheckTIDRange(min_tid, length, count,
-            tid_checksum, max_tid))
+        count, tid_checksum, max_tid = app.dm.checkTIDRange(min_tid, max_tid,
+            length, app.pt.getPartitions(), partition)
+        conn.answer(Packets.AnswerCheckTIDRange(min_tid, length,
+            count, tid_checksum, max_tid))
 
-    def askCheckSerialRange(self, conn, min_oid, min_serial, length,
+    def askCheckSerialRange(self, conn, min_oid, min_serial, max_tid, length,
             partition):
         app = self.app
         count, oid_checksum, max_oid, serial_checksum, max_serial = \
-            app.dm.checkSerialRange(min_oid, min_serial, length,
+            app.dm.checkSerialRange(min_oid, min_serial, max_tid, length,
                 app.pt.getPartitions(), partition)
         conn.answer(Packets.AnswerCheckSerialRange(min_oid, min_serial, length,
             count, oid_checksum, max_oid, serial_checksum, max_serial))

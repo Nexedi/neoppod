@@ -684,13 +684,15 @@ class BTreeDatabaseManager(DatabaseManager):
             return not tserial
         batchDelete(self._obj, obj_callback, recycle_subtrees=True)
 
-    def checkTIDRange(self, min_tid, length, num_partitions, partition):
+    def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
         # XXX: XOR is a lame checksum
         count = 0
         tid_checksum = 0
         tid = 0
+        upper_bound = util.u64(max_tid)
         max_tid = 0
-        for tid in safeIter(self._trans.keys, min=util.u64(min_tid)):
+        for tid in safeIter(self._trans.keys, min=util.u64(min_tid),
+                max=upper_bound):
             if tid % num_partitions == partition:
                 if count >= length:
                     break
@@ -699,8 +701,8 @@ class BTreeDatabaseManager(DatabaseManager):
                 count += 1
         return count, tid_checksum, util.p64(max_tid)
 
-    def checkSerialRange(self, min_oid, min_serial, length, num_partitions,
-            partition):
+    def checkSerialRange(self, min_oid, min_serial, max_tid, length,
+            num_partitions, partition):
         # XXX: XOR is a lame checksum
         u64 = util.u64
         p64 = util.p64
@@ -712,7 +714,8 @@ class BTreeDatabaseManager(DatabaseManager):
             if oid % num_partitions == partition:
                 if oid == min_oid:
                     try:
-                        serial_iter = tserial.keys(min=u64(min_serial))
+                        serial_iter = tserial.keys(min=u64(min_serial),
+                            max=u64(max_tid))
                     except ValueError:
                         continue
                 else:

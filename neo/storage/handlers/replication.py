@@ -96,7 +96,8 @@ class ReplicationHandler(EventHandler):
         self.startReplication(conn)
 
     def startReplication(self, conn):
-        conn.ask(self._doAskCheckTIDRange(ZERO_TID), timeout=300)
+        max_tid = self.app.replicator.getCurrentCriticalTID()
+        conn.ask(self._doAskCheckTIDRange(ZERO_TID, max_tid), timeout=300)
 
     @checkConnectionIsReplicatorConnection
     def answerTIDsFrom(self, conn, tid_list):
@@ -118,7 +119,9 @@ class ReplicationHandler(EventHandler):
         if len(tid_list) == MIN_RANGE_LENGTH:
             # If we received fewer, we knew it before sending AskTIDsFrom, and
             # we should have finished TID replication at that time.
-            ask(self._doAskCheckTIDRange(add64(tid_list[-1], 1), RANGE_LENGTH))
+            max_tid = self.app.replicator.getCurrentCriticalTID()
+            ask(self._doAskCheckTIDRange(add64(tid_list[-1], 1), max_tid,
+                RANGE_LENGTH))
 
     @checkConnectionIsReplicatorConnection
     def answerTransactionInformation(self, conn, tid,
@@ -160,8 +163,9 @@ class ReplicationHandler(EventHandler):
             if not app.dm.objectPresent(oid, serial):
                 ask(Packets.AskObject(oid, serial, None), timeout=300)
         if sum((len(x) for x in object_dict.itervalues())) == MIN_RANGE_LENGTH:
+            max_tid = self.app.replicator.getCurrentCriticalTID()
             ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
-                RANGE_LENGTH))
+                max_tid, RANGE_LENGTH))
 
     @checkConnectionIsReplicatorConnection
     def answerObject(self, conn, oid, serial_start,
@@ -173,17 +177,19 @@ class ReplicationHandler(EventHandler):
         del obj
         del data
 
-    def _doAskCheckSerialRange(self, min_oid, min_tid, length=RANGE_LENGTH):
+    def _doAskCheckSerialRange(self, min_oid, min_tid, max_tid,
+            length=RANGE_LENGTH):
         replicator = self.app.replicator
         partition = replicator.getCurrentRID()
-        replicator.checkSerialRange(min_oid, min_tid, length, partition)
-        return Packets.AskCheckSerialRange(min_oid, min_tid, length, partition)
+        check_args = (min_oid, min_tid, max_tid, length, partition)
+        replicator.checkSerialRange(*check_args)
+        return Packets.AskCheckSerialRange(*check_args)
 
-    def _doAskCheckTIDRange(self, min_tid, length=RANGE_LENGTH):
+    def _doAskCheckTIDRange(self, min_tid, max_tid, length=RANGE_LENGTH):
         replicator = self.app.replicator
         partition = replicator.getCurrentRID()
-        replicator.checkTIDRange(min_tid, length, partition)
-        return Packets.AskCheckTIDRange(min_tid, length, partition)
+        replicator.checkTIDRange(min_tid, max_tid, length, partition)
+        return Packets.AskCheckTIDRange(min_tid, max_tid, length, partition)
 
     def _doAskTIDsFrom(self, min_tid, length):
         replicator = self.app.replicator
@@ -269,7 +275,8 @@ class ReplicationHandler(EventHandler):
                 action = CHECK_DONE
                 params = (next_tid, )
             else:
-                ask(self._doAskCheckTIDRange(min_tid, count))
+                max_tid = replicator.getCurrentCriticalTID()
+                ask(self._doAskCheckTIDRange(min_tid, max_tid, count))
         if action == CHECK_DONE:
             # Delete all transactions we might have which are beyond what peer
             # knows.
@@ -278,7 +285,8 @@ class ReplicationHandler(EventHandler):
                 replicator.getCurrentRID(), last_tid)
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
-            ask(self._doAskCheckSerialRange(ZERO_OID, ZERO_TID))
+            max_tid = replicator.getCurrentCriticalTID()
+            ask(self._doAskCheckSerialRange(ZERO_OID, ZERO_TID, max_tid))
 
     @checkConnectionIsReplicatorConnection
     def answerCheckSerialRange(self, conn, min_oid, min_serial, length, count,
@@ -299,7 +307,8 @@ class ReplicationHandler(EventHandler):
                 params = (next_params, )
         if action == CHECK_CHUNK:
             ((min_oid, min_serial), count) = params
-            ask(self._doAskCheckSerialRange(min_oid, min_serial, count))
+            max_tid = replicator.getCurrentCriticalTID()
+            ask(self._doAskCheckSerialRange(min_oid, min_serial, max_tid, count))
         if action == CHECK_DONE:
             # Delete all objects we might have which are beyond what peer
             # knows.

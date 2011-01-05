@@ -366,15 +366,16 @@ class Replicator(object):
                 task.process()
             self.task_list = []
 
-    def checkTIDRange(self, min_tid, length, partition):
+    def checkTIDRange(self, min_tid, max_tid, length, partition):
         app = self.app
         self._addTask(('TID', min_tid, length), app.dm.checkTIDRange,
-            (min_tid, length, app.pt.getPartitions(), partition))
+            (min_tid, max_tid, length, app.pt.getPartitions(), partition))
 
-    def checkSerialRange(self, min_oid, min_serial, length, partition):
+    def checkSerialRange(self, min_oid, min_serial, max_tid, length,
+            partition):
         app = self.app
         self._addTask(('Serial', min_oid, min_serial, length),
-            app.dm.checkSerialRange, (min_oid, min_serial, length,
+            app.dm.checkSerialRange, (min_oid, min_serial, max_tid, length,
             app.pt.getPartitions(), partition))
 
     def getTIDsFrom(self, min_tid, max_tid, length, partition):

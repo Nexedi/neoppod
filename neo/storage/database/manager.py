@@ -459,7 +459,7 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def checkTIDRange(self, min_tid, length, num_partitions, partition):
+    def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
         """
         Generate a diggest from transaction list.
         min_tid (packed)
@@ -478,8 +478,8 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def checkSerialRange(self, min_oid, min_serial, length, num_partitions,
-            partition):
+    def checkSerialRange(self, min_oid, min_serial, max_tid, length,
+            num_partitions, partition):
         """
         Generate a diggest from object list.
         min_oid (packed)

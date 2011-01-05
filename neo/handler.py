@@ -348,14 +348,14 @@ class EventHandler(object):
     def answerPack(self, conn, status):
         raise UnexpectedPacketError
   
-    def askCheckTIDRange(self, conn, min_tid, length, partition):
+    def askCheckTIDRange(self, conn, min_tid, max_tid, length, partition):
         raise UnexpectedPacketError
 
     def answerCheckTIDRange(self, conn, min_tid, length, count, tid_checksum,
             max_tid):
         raise UnexpectedPacketError
 
-    def askCheckSerialRange(self, conn, min_oid, min_serial, length,
+    def askCheckSerialRange(self, conn, min_oid, min_serial, max_tid, length,
             partition):
         raise UnexpectedPacketError
 

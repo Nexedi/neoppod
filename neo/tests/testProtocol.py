@@ -627,11 +627,13 @@ class ProtocolTests(NeoUnitTestBase):
 
     def test_AskCheckTIDRange(self):
         min_tid = self.getNextTID()
+        max_tid = self.getNextTID()
         length = 2
         partition = 4
-        p = Packets.AskCheckTIDRange(min_tid, length, partition)
-        p_min_tid, p_length, p_partition = p.decode()
+        p = Packets.AskCheckTIDRange(min_tid, max_tid, length, partition)
+        p_min_tid, p_max_tid, p_length, p_partition = p.decode()
         self.assertEqual(p_min_tid, min_tid)
+        self.assertEqual(p_max_tid, max_tid)
         self.assertEqual(p_length, length)
         self.assertEqual(p_partition, partition)
 
@@ -653,12 +655,15 @@ class ProtocolTests(NeoUnitTestBase):
     def test_AskCheckSerialRange(self):
         min_oid = self.getOID(1)
         min_serial = self.getNextTID()
+        max_tid = self.getNextTID()
         length = 2
         partition = 4
-        p = Packets.AskCheckSerialRange(min_oid, min_serial, length, partition)
-        p_min_oid, p_min_serial, p_length, p_partition = p.decode()
+        p = Packets.AskCheckSerialRange(min_oid, min_serial, max_tid, length,
+            partition)
+        p_min_oid, p_min_serial, p_max_tid, p_length, p_partition = p.decode()
         self.assertEqual(p_min_oid, min_oid)
         self.assertEqual(p_min_serial, min_serial)
+        self.assertEqual(p_max_tid, max_tid)
         self.assertEqual(p_length, length)
         self.assertEqual(p_partition, partition)
 

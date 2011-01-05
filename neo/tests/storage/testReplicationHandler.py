@@ -108,14 +108,14 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         return FakeApp
 
     def _checkReplicationStarted(self, conn, rid, replicator):
-        min_tid, length, partition = self.checkAskPacket(conn,
+        min_tid, max_tid, length, partition = self.checkAskPacket(conn,
             Packets.AskCheckTIDRange, decode=True)
         self.assertEqual(min_tid, ZERO_TID)
         self.assertEqual(length, RANGE_LENGTH)
         self.assertEqual(partition, rid)
         calls = replicator.mockGetNamedCalls('checkTIDRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(min_tid, length, partition)
+        calls[0].checkArgs(min_tid, max_tid, length, partition)
 
     def _checkPacketTIDList(self, conn, tid_list, next_tid, app):
         packet_list = [x.getParam(0) for x in conn.mockGetNamedCalls('ask')]
@@ -294,14 +294,14 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         # match.
         handler.answerCheckTIDRange(conn, min_tid, length, length, 0, max_tid)
         # Result: go on with next chunk
-        pmin_tid, plength, ppartition = self.checkAskPacket(conn,
+        pmin_tid, pmax_tid, plength, ppartition = self.checkAskPacket(conn,
             Packets.AskCheckTIDRange, decode=True)
         self.assertEqual(pmin_tid, add64(max_tid, 1))
         self.assertEqual(plength, RANGE_LENGTH)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('checkTIDRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_tid, plength, ppartition)
+        calls[0].checkArgs(pmin_tid, pmax_tid, plength, ppartition)
 
     def test_answerCheckTIDSmallRangeIdenticalChunkWithNext(self):
         min_tid = self.getNextTID()
@@ -318,14 +318,15 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         # match.
         handler.answerCheckTIDRange(conn, min_tid, length, length, 0, max_tid)
         # Result: go on with next chunk
-        pmin_tid, plength, ppartition = self.checkAskPacket(conn,
+        pmin_tid, pmax_tid, plength, ppartition = self.checkAskPacket(conn,
             Packets.AskCheckTIDRange, decode=True)
+        self.assertEqual(pmax_tid, critical_tid)
         self.assertEqual(pmin_tid, add64(max_tid, 1))
         self.assertEqual(plength, length / 2)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('checkTIDRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_tid, plength, ppartition)
+        calls[0].checkArgs(pmin_tid, pmax_tid, plength, ppartition)
 
     def test_answerCheckTIDRangeIdenticalChunkAboveCriticalTID(self):
         critical_tid = self.getNextTID()
@@ -342,15 +343,15 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         # match.
         handler.answerCheckTIDRange(conn, min_tid, length, length, 0, max_tid)
         # Result: go on with object range checks
-        pmin_oid, pmin_serial, plength, ppartition = self.checkAskPacket(conn,
-            Packets.AskCheckSerialRange, decode=True)
+        pmin_oid, pmin_serial, pmax_tid, plength, ppartition = \
+            self.checkAskPacket(conn, Packets.AskCheckSerialRange, decode=True)
         self.assertEqual(pmin_oid, ZERO_OID)
         self.assertEqual(pmin_serial, ZERO_TID)
         self.assertEqual(plength, RANGE_LENGTH)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('checkSerialRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
+        calls[0].checkArgs(pmin_oid, pmin_serial, pmax_tid, plength, ppartition)
 
     def test_answerCheckTIDRangeIdenticalChunkWithoutNext(self):
         min_tid = self.getNextTID()
@@ -367,15 +368,15 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         handler.answerCheckTIDRange(conn, min_tid, length, length - 1, 0,
             max_tid)
         # Result: go on with object range checks
-        pmin_oid, pmin_serial, plength, ppartition = self.checkAskPacket(conn,
-            Packets.AskCheckSerialRange, decode=True)
+        pmin_oid, pmin_serial, pmax_tid, plength, ppartition = \
+            self.checkAskPacket(conn, Packets.AskCheckSerialRange, decode=True)
         self.assertEqual(pmin_oid, ZERO_OID)
         self.assertEqual(pmin_serial, ZERO_TID)
         self.assertEqual(plength, RANGE_LENGTH)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('checkSerialRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
+        calls[0].checkArgs(pmin_oid, pmin_serial, pmax_tid, plength, ppartition)
         # ...and delete partition tail
         calls = app.dm.mockGetNamedCalls('deleteTransactionsAbove')
         self.assertEqual(len(calls), 1)
@@ -396,14 +397,14 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         # Peer has different data
         handler.answerCheckTIDRange(conn, min_tid, length, length, 0, max_tid)
         # Result: ask again, length halved
-        pmin_tid, plength, ppartition = self.checkAskPacket(conn,
+        pmin_tid, pmax_tid, plength, ppartition = self.checkAskPacket(conn,
             Packets.AskCheckTIDRange, decode=True)
         self.assertEqual(pmin_tid, min_tid)
         self.assertEqual(plength, length / 2)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('checkTIDRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_tid, plength, ppartition)
+        calls[0].checkArgs(pmin_tid, pmax_tid, plength, ppartition)
 
     def test_answerCheckTIDRangeDifferentSmallChunkWithNext(self):
         min_tid = self.getNextTID()
@@ -474,15 +475,15 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         handler.answerCheckSerialRange(conn, min_oid, min_serial, length,
             length, 0, max_oid, 1, max_serial)
         # Result: go on with next chunk
-        pmin_oid, pmin_serial, plength, ppartition = self.checkAskPacket(conn,
-            Packets.AskCheckSerialRange, decode=True)
+        pmin_oid, pmin_serial, pmax_tid, plength, ppartition = \
+            self.checkAskPacket(conn, Packets.AskCheckSerialRange, decode=True)
         self.assertEqual(pmin_oid, max_oid)
         self.assertEqual(pmin_serial, add64(max_serial, 1))
         self.assertEqual(plength, RANGE_LENGTH)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('checkSerialRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
+        calls[0].checkArgs(pmin_oid, pmin_serial, pmax_tid, plength, ppartition)
 
     def test_answerCheckSerialSmallRangeIdenticalChunkWithNext(self):
         min_oid = self.getOID(1)
@@ -499,15 +500,15 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         handler.answerCheckSerialRange(conn, min_oid, min_serial, length,
             length, 0, max_oid, 1, max_serial)
         # Result: go on with next chunk
-        pmin_oid, pmin_serial, plength, ppartition = self.checkAskPacket(conn,
-            Packets.AskCheckSerialRange, decode=True)
+        pmin_oid, pmin_serial, pmax_tid, plength, ppartition = \
+            self.checkAskPacket(conn, Packets.AskCheckSerialRange, decode=True)
         self.assertEqual(pmin_oid, max_oid)
         self.assertEqual(pmin_serial, add64(max_serial, 1))
         self.assertEqual(plength, length / 2)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('checkSerialRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
+        calls[0].checkArgs(pmin_oid, pmin_serial, pmax_tid, plength, ppartition)
 
     def test_answerCheckSerialRangeIdenticalChunkWithoutNext(self):
         min_oid = self.getOID(1)
@@ -547,15 +548,15 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         handler.answerCheckSerialRange(conn, min_oid, min_serial, length,
             length, 0, max_oid, 1, max_serial)
         # Result: ask again, length halved
-        pmin_oid, pmin_serial, plength, ppartition = self.checkAskPacket(conn,
-            Packets.AskCheckSerialRange, decode=True)
+        pmin_oid, pmin_serial, pmax_tid, plength, ppartition = \
+            self.checkAskPacket(conn, Packets.AskCheckSerialRange, decode=True)
         self.assertEqual(pmin_oid, min_oid)
         self.assertEqual(pmin_serial, min_serial)
         self.assertEqual(plength, length / 2)
         self.assertEqual(ppartition, rid)
         calls = app.replicator.mockGetNamedCalls('checkSerialRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)
+        calls[0].checkArgs(pmin_oid, pmin_serial, pmax_tid, plength, ppartition)
 
     def test_answerCheckSerialRangeDifferentSmallChunkWithNext(self):
         min_oid = self.getOID(1)

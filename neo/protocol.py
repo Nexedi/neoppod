@@ -1679,13 +1679,14 @@ class AskCheckTIDRange(Packet):
     reference node.
     S -> S
     """
-    _header_format = '!8sLL'
+    _header_format = '!8s8sLL'
 
-    def _encode(self, min_tid, length, partition):
-        return pack(self._header_format, min_tid, length, partition)
+    def _encode(self, min_tid, max_tid, length, partition):
+        return pack(self._header_format, min_tid, max_tid, length, partition)
 
     def _decode(self, body):
-        return unpack(self._header_format, body) # min_tid, length, partition
+        # min_tid, max_tid, length, partition
+        return unpack(self._header_format, body)
 
 class AnswerCheckTIDRange(Packet):
     """
@@ -1710,14 +1711,14 @@ class AskCheckSerialRange(Packet):
     reference node.
     S -> S
     """
-    _header_format = '!8s8sLL'
+    _header_format = '!8s8s8sLL'
 
-    def _encode(self, min_oid, min_serial, length, partition):
-        return pack(self._header_format, min_oid, min_serial, length,
+    def _encode(self, min_oid, min_serial, max_tid, length, partition):
+        return pack(self._header_format, min_oid, min_serial, max_tid, length,
             partition)
 
     def _decode(self, body):
-        # min_oid, min_serial, length, partition
+        # min_oid, min_serial, max_tid, length, partition
         return unpack(self._header_format, body)
 
 class AnswerCheckSerialRange(Packet):
