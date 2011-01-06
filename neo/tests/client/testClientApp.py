@@ -482,7 +482,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertRaises(ConflictError, app.waitStoreResponses,
             failing_tryToResolveConflict)
         self.assertTrue(oid not in app.local_var.data_dict)
-        self.assertEquals(app.local_var.conflict_serial_dict[oid], set([tid, ]))
         self.assertEquals(app.local_var.object_stored_counter_dict[oid], {})
         self.checkAskStoreObject(conn)
 

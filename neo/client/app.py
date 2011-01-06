@@ -761,15 +761,16 @@ class Application(object):
         # Check for conflicts
         data_dict = local_var.data_dict
         object_serial_dict = local_var.object_serial_dict
-        conflict_serial_dict = local_var.conflict_serial_dict
+        conflict_serial_dict = local_var.conflict_serial_dict.copy()
+        local_var.conflict_serial_dict.clear()
         resolved_conflict_serial_dict = local_var.resolved_conflict_serial_dict
-        for oid, conflict_serial_set in conflict_serial_dict.items():
+        for oid, conflict_serial_set in conflict_serial_dict.iteritems():
             resolved_serial_set = resolved_conflict_serial_dict.setdefault(
                 oid, set())
             conflict_serial = max(conflict_serial_set)
             if resolved_serial_set and conflict_serial <= max(resolved_serial_set):
                 # A later serial has already been resolved, skip.
-                resolved_serial_set.update(conflict_serial_dict.pop(oid))
+                resolved_serial_set.update(conflict_serial_set)
                 continue
             serial = object_serial_dict[oid]
             data = data_dict[oid]
@@ -783,8 +784,7 @@ class Application(object):
                         '%r:%r with %r', dump(oid), dump(serial),
                         dump(conflict_serial))
                     # Mark this conflict as resolved
-                    resolved_serial_set.update(conflict_serial_dict.pop(
-                        oid))
+                    resolved_serial_set.update(conflict_serial_set)
                     # Try to store again
                     self._store(oid, conflict_serial, new_data)
                     append(oid)
