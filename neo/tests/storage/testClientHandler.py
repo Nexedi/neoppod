@@ -45,6 +45,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.app.store_lock_dict = {}
         self.app.load_lock_dict = {}
         self.app.event_queue = deque()
+        self.app.event_queue_keys = set()
         self.app.tm = Mock({'__contains__': True})
         # handler
         self.operation = ClientOperationHandler(self.app)
@@ -215,9 +216,9 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         tid = self.getNextTID()
         oid, serial, comp, checksum, data = self._getObject()
         self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
-                data, None, tid)
+                data, None, tid, False)
         self._checkStoreObjectCalled(tid, serial, oid, comp,
-                checksum, data, None)
+                checksum, data, None, False)
         pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
             decode=True)
         self.assertEqual(pconflicting, 0)
@@ -232,9 +233,9 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         oid, serial, comp, checksum, data = self._getObject()
         data_tid = self.getNextTID()
         self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
-                '', data_tid, tid)
+                '', data_tid, tid, False)
         self._checkStoreObjectCalled(tid, serial, oid, comp,
-                checksum, None, data_tid)
+                checksum, None, data_tid, False)
         pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
             decode=True)
         self.assertEqual(pconflicting, 0)
@@ -252,7 +253,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.app.tm.storeObject = fakeStoreObject
         oid, serial, comp, checksum, data = self._getObject()
         self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
-                data, None, tid)
+                data, None, tid, False)
         pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
             decode=True)
         self.assertEqual(pconflicting, 1)

@@ -616,11 +616,11 @@ class ClientApplicationTests(NeoUnitTestBase):
         """ check that abort is sent to all nodes involved in the transaction """
         app = self.getApp()
         # three partitions/storages: one per object/transaction
-        app.num_partitions = 3
+        app.num_partitions = num_partitions = 3
         app.num_replicas = 0
-        tid = self.makeTID(0)  # on partition 0
-        oid1 = self.makeOID(1) # on partition 1, conflicting
-        oid2 = self.makeOID(2) # on partition 2
+        tid = self.makeTID(num_partitions)  # on partition 0
+        oid1 = self.makeOID(num_partitions + 1) # on partition 1, conflicting
+        oid2 = self.makeOID(num_partitions + 2) # on partition 2
         # storage nodes
         uuid1, uuid2, uuid3 = [self.getNewUUID() for _ in range(3)]
         address1 = ('127.0.0.1', 10000)

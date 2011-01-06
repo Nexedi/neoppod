@@ -45,6 +45,7 @@ class ErrorCodes(Enum):
     TID_NOT_FOUND = Enum.Item(3)
     PROTOCOL_ERROR = Enum.Item(4)
     BROKEN_NODE = Enum.Item(5)
+    ALREADY_PENDING = Enum.Item(7)
 ErrorCodes = ErrorCodes()
 
 class ClusterStates(Enum):
@@ -912,26 +913,28 @@ class AskStoreObject(Packet):
     Ask to store an object. Send an OID, an original serial, a current
     transaction ID, and data. C -> S.
     """
-    _header_format = '!8s8s8sBL8s'
+    _header_format = '!8s8s8sBL8sB'
 
     @profiler_decorator
     def _encode(self, oid, serial, compression, checksum, data, data_serial,
-            tid):
+            tid, unlock):
         if serial is None:
             serial = INVALID_TID
         if data_serial is None:
             data_serial = INVALID_TID
+        unlock = unlock and 1 or 0
         return pack(self._header_format, oid, serial, tid, compression,
-                          checksum, data_serial) + _encodeString(data)
+                          checksum, data_serial, unlock) + _encodeString(data)
 
     def _decode(self, body):
         header_len = self._header_len
         r = unpack(self._header_format, body[:header_len])
-        oid, serial, tid, compression, checksum, data_serial = r
+        oid, serial, tid, compression, checksum, data_serial, unlock = r
         serial = _decodeTID(serial)
         data_serial = _decodeTID(data_serial)
         (data, _) = _decodeString(body, 'data', offset=header_len)
-        return (oid, serial, compression, checksum, data, data_serial, tid)
+        return (oid, serial, compression, checksum, data, data_serial, tid,
+            bool(unlock))
 
 class AnswerStoreObject(Packet):
     """
@@ -2065,6 +2068,7 @@ class ErrorRegistry(dict):
     OidDoesNotExist = register_error(ErrorCodes.OID_DOES_NOT_EXIST)
     NotReady = register_error(ErrorCodes.NOT_READY)
     Broken = register_error(ErrorCodes.BROKEN_NODE)
+    AlreadyPending = register_error(ErrorCodes.ALREADY_PENDING)
 
 Errors = ErrorRegistry()
 

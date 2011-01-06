@@ -18,7 +18,7 @@
 from time import time
 import neo
 from neo.util import dump
-
+from neo.protocol import ZERO_TID
 
 class ConflictError(Exception):
     """
@@ -214,7 +214,7 @@ class TransactionManager(object):
     def getLockingTID(self, oid):
         return self._store_lock_dict.get(oid)
 
-    def lockObject(self, tid, serial, oid):
+    def lockObject(self, tid, serial, oid, unlock=False):
         """
             Take a write lock on given object, checking that "serial" is
             current.
@@ -224,6 +224,16 @@ class TransactionManager(object):
         """
         # check if the object if locked
         locking_tid = self._store_lock_dict.get(oid)
+        if locking_tid == tid and unlock:
+            neo.logging.info('Deadlock resolution on %r:%r', dump(oid),
+                dump(tid))
+            # A duplicate store means client is resolving a deadlock, so
+            # drop the lock it held on this object.
+            del self._store_lock_dict[oid]
+            # Give a chance to pending events to take that lock now.
+            self._app.executeQueuedEvents()
+            # Attemp to acquire lock again.
+            locking_tid = self._store_lock_dict.get(oid)
         if locking_tid == tid:
             neo.logging.info('Transaction %s storing %s more than once',
                 dump(tid), dump(oid))
@@ -236,24 +246,34 @@ class TransactionManager(object):
                 raise ConflictError(history_list[0][0])
             neo.logging.info('Transaction %s storing %s', dump(tid), dump(oid))
             self._store_lock_dict[oid] = tid
-        else:
-            # a previous transaction lock this object, retry later
+        elif locking_tid > tid:
+            # We have a smaller TID than locking transaction, so we are older:
+            # enter waiting queue so we are handled when lock gets released.
             neo.logging.info('Store delayed for %r:%r by %r', dump(oid),
                     dump(tid), dump(locking_tid))
             raise DelayedError
+        else:
+            # We have a bigger TID than locking transaction, so we are
+            # younger: this is a possible deadlock case, as we might already
+            # hold locks that older transaction is waiting upon. Make client
+            # release locks & reacquire them by notifying it of the possible
+            # deadlock.
+            neo.logging.info('Possible deadlock on %r:%r with %r',
+                dump(oid), dump(tid), dump(locking_tid))
+            raise ConflictError(ZERO_TID)
 
     def checkCurrentSerial(self, tid, serial, oid):
-        self.lockObject(tid, serial, oid)
+        self.lockObject(tid, serial, oid, unlock=True)
         assert tid in self, "Transaction not registered"
         transaction = self._transaction_dict[tid]
         transaction.addCheckedObject(oid)
 
     def storeObject(self, tid, serial, oid, compression, checksum, data,
-            value_serial):
+            value_serial, unlock=False):
         """
             Store an object received from client node
         """
-        self.lockObject(tid, serial, oid)
+        self.lockObject(tid, serial, oid, unlock=unlock)
         # store object
         assert tid in self, "Transaction not registered"
         transaction = self._transaction_dict[tid]

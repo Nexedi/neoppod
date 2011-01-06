@@ -699,7 +699,7 @@ class Application(object):
         self._store(oid, serial, data)
         return None
 
-    def _store(self, oid, serial, data, data_serial=None):
+    def _store(self, oid, serial, data, data_serial=None, unlock=False):
         if data is None:
             # This is some undo: either a no-data object (undoing object
             # creation) or a back-pointer to an earlier revision (going back to
@@ -731,7 +731,7 @@ class Application(object):
         queue = self.local_var.queue
         add_involved_nodes = self.local_var.involved_nodes.add
         packet = Packets.AskStoreObject(oid, serial, compression,
-                 checksum, compressed_data, data_serial, self.local_var.tid)
+            checksum, compressed_data, data_serial, self.local_var.tid, unlock)
         for node, conn in self.cp.iterateForObject(oid, writable=True):
             try:
                 conn.ask(packet, on_timeout=on_timeout, queue=queue)
@@ -776,7 +776,37 @@ class Application(object):
             data = data_dict[oid]
             tid = local_var.tid
             resolved = False
-            if data is not None:
+            if conflict_serial == ZERO_TID:
+                # Storage refused us from taking object lock, to avoid a
+                # possible deadlock. TID is actually used for some kind of
+                # "locking priority": when a higher value has the lock,
+                # this means we stored objects "too late", and we would
+                # otherwise cause a deadlock.
+                # To recover, we must ask storages to release locks we
+                # hold (to let possibly-competing transactions acquire
+                # them), and requeue our already-sent store requests.
+                # XXX: currently, brute-force is implemented: we send
+                # object data again.
+                neo.logging.info('Deadlock avoidance triggered on %r:%r',
+                    dump(oid), dump(serial))
+                for store_oid, store_data in \
+                        local_var.data_dict.iteritems():
+                    store_serial = object_serial_dict[store_oid]
+                    if store_data is None:
+                        self.checkCurrentSerialInTransaction(store_oid,
+                            store_serial)
+                    else:
+                        if store_data is '':
+                            # Some undo
+                            neo.logging.warning('Deadlock avoidance cannot'
+                                ' reliably work with undo, this must be '
+                                'implemented.')
+                            break
+                        self._store(store_oid, store_serial, store_data,
+                            unlock=True)
+                else:
+                    resolved = True
+            elif data is not None:
                 new_data = tryToResolveConflict(oid, conflict_serial,
                     serial, data)
                 if new_data is not None:

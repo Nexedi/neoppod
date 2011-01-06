@@ -43,6 +43,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         self.app.store_lock_dict = {}
         self.app.load_lock_dict = {}
         self.app.event_queue = deque()
+        self.app.event_queue_keys = set()
         # handler
         self.operation = StorageOperationHandler(self.app)
         # set pmn

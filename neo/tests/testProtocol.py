@@ -352,8 +352,10 @@ class ProtocolTests(NeoUnitTestBase):
         serial = self.getNextTID()
         tid = self.getNextTID()
         tid2 = self.getNextTID()
-        p = Packets.AskStoreObject(oid, serial, 1, 55, "to", tid2, tid)
-        poid, pserial, compression, checksum, data, ptid2, ptid = p.decode()
+        unlock = False
+        p = Packets.AskStoreObject(oid, serial, 1, 55, "to", tid2, tid, unlock)
+        poid, pserial, compression, checksum, data, ptid2, ptid, punlock = \
+            p.decode()
         self.assertEqual(oid, poid)
         self.assertEqual(serial, pserial)
         self.assertEqual(tid, ptid)
@@ -361,6 +363,7 @@ class ProtocolTests(NeoUnitTestBase):
         self.assertEqual(compression, 1)
         self.assertEqual(checksum, 55)
         self.assertEqual(data, "to")
+        self.assertEqual(unlock, punlock)
 
     def test_46_answerStoreObject(self):
         oid = self.getNextTID()

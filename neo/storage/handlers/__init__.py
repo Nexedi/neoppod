@@ -82,7 +82,7 @@ class BaseClientAndStorageOperationHandler(EventHandler):
         app = self.app
         if self.app.tm.loadLocked(oid):
             # Delay the response.
-            app.queueEvent(self.askObject, conn, oid, serial, tid)
+            app.queueEvent(self.askObject, conn, (oid, serial, tid))
             return
         o = self._askObject(oid, serial, tid)
         if o is None:

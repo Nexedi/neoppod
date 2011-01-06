@@ -254,8 +254,8 @@ class ClientTests(NEOFunctionalTest):
             oid = st1.new_oid()
             rev = '\0' * 8
             data = zodb_pickle(PObject())
-            st1.tpc_begin(t1)
             st2.tpc_begin(t2)
+            st1.tpc_begin(t1)
             st1.store(oid, rev, data, '', t1)
             # this store will be delayed
             st2.store(oid, rev, data, '', t2)

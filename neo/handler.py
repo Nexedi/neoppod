@@ -230,7 +230,7 @@ class EventHandler(object):
         raise UnexpectedPacketError
 
     def askStoreObject(self, conn, oid, serial,
-                             compression, checksum, data, data_serial, tid):
+            compression, checksum, data, data_serial, tid, unlock):
         raise UnexpectedPacketError
 
     def answerStoreObject(self, conn, conflicting, oid, serial):
@@ -411,6 +411,9 @@ class EventHandler(object):
     def brokenNodeDisallowedError(self, conn, message):
         raise RuntimeError, 'broken node disallowed error: %s' % (message,)
 
+    def alreadyPendingError(self, conn, message):
+        neo.logging.error('already pending error: %s' % (message, ))
+
     def ack(self, conn, message):
         neo.logging.debug("no error message : %s" % (message))
 
@@ -516,6 +519,7 @@ class EventHandler(object):
         d[ErrorCodes.TID_NOT_FOUND] = self.tidNotFound
         d[ErrorCodes.PROTOCOL_ERROR] = self.protocolError
         d[ErrorCodes.BROKEN_NODE] = self.brokenNodeDisallowedError
+        d[ErrorCodes.ALREADY_PENDING] = self.alreadyPendingError
 
         return d
 

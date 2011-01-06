@@ -21,6 +21,7 @@ from neo.util import dump
 from neo.protocol import Packets, LockState, Errors
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
 from neo.storage.transactions import ConflictError, DelayedError
+from neo.storage.exception import AlreadyPendingError
 import time
 
 # Log stores taking (incl. lock delays) more than this many seconds.
@@ -47,7 +48,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         conn.answer(Packets.AnswerStoreTransaction(tid))
 
     def _askStoreObject(self, conn, oid, serial, compression, checksum, data,
-            data_serial, tid, request_time):
+            data_serial, tid, unlock, request_time):
         if tid not in self.app.tm:
             # transaction was aborted, cancel this event
             neo.logging.info('Forget store of %s:%s by %s delayed by %s',
@@ -58,15 +59,23 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             return
         try:
             self.app.tm.storeObject(tid, serial, oid, compression,
-                    checksum, data, data_serial)
+                    checksum, data, data_serial, unlock)
         except ConflictError, err:
             # resolvable or not
             tid_or_serial = err.getTID()
             conn.answer(Packets.AnswerStoreObject(1, oid, tid_or_serial))
         except DelayedError:
             # locked by a previous transaction, retry later
-            self.app.queueEvent(self._askStoreObject, conn, oid, serial,
-                compression, checksum, data, data_serial, tid, request_time)
+            # If we are unlocking, we want queueEvent to raise
+            # AlreadyPendingError, to avoid making lcient wait for an unneeded
+            # response.
+            try:
+                self.app.queueEvent(self._askStoreObject, conn, (oid, serial,
+                    compression, checksum, data, data_serial, tid,
+                    unlock, request_time), key=(oid, tid),
+                    raise_on_duplicate=unlock)
+            except AlreadyPendingError:
+                conn.answer(Errors.AlreadyPending(dump(oid)))
         else:
             if SLOW_STORE is not None:
                 duration = time.time() - request_time
@@ -75,7 +84,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
 
     def askStoreObject(self, conn, oid, serial,
-                             compression, checksum, data, data_serial, tid):
+            compression, checksum, data, data_serial, tid, unlock):
         # register the transaction
         self.app.tm.register(conn.getUUID(), tid)
         if data_serial is not None:
@@ -84,7 +93,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             # delayed.
             data = None
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
-            data_serial, tid, time.time())
+            data_serial, tid, unlock, time.time())
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition_list):
         app = self.app
@@ -172,8 +181,11 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                 err.getTID()))
         except DelayedError:
             # locked by a previous transaction, retry later
-            self.app.queueEvent(self._askCheckCurrentSerial, conn, tid, serial,
-                oid, request_time)
+            try:
+                self.app.queueEvent(self._askCheckCurrentSerial, conn, (tid,
+                    serial, oid, request_time), key=(oid, tid))
+            except AlreadyPendingError:
+                conn.answer(Errors.AlreadyPending(dump(oid)))
         else:
             if SLOW_STORE is not None:
                 duration = time.time() - request_time

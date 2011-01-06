@@ -153,3 +153,6 @@ class StorageAnswersHandler(AnswerBaseHandler):
             # XXX: Not sure what to do in this case yet
             raise NotImplementedError
 
+    def alreadyPendingError(self, conn, message):
+        pass
+

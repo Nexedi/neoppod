@@ -23,6 +23,7 @@ from neo.protocol import CellStates
 from collections import deque
 from neo.pt import PartitionTable
 from neo.util import dump
+from neo.storage.exception import AlreadyPendingError
 
 class StorageAppTests(NeoUnitTestBase):
 
@@ -33,6 +34,7 @@ class StorageAppTests(NeoUnitTestBase):
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(config)
         self.app.event_queue = deque()
+        self.app.event_queue_keys = set()
 
     def test_01_loadPartitionTable(self):
         self.app.dm = Mock({
@@ -121,12 +123,20 @@ class StorageAppTests(NeoUnitTestBase):
         msg_id = 1325136
         event = Mock({'__repr__': 'event'})
         conn = Mock({'__repr__': 'conn', 'getPeerId': msg_id})
-        self.app.queueEvent(event, conn, "test")
+        key = 'foo'
+        self.app.queueEvent(event, conn, ("test", ), key=key)
         self.assertEqual(len(self.app.event_queue), 1)
-        _event, _msg_id, _conn, args = self.app.event_queue[0]
+        _key, _event, _msg_id, _conn, args = self.app.event_queue[0]
+        self.assertEqual(key, _key)
         self.assertEqual(msg_id, _msg_id)
         self.assertEqual(len(args), 1)
         self.assertEqual(args[0], "test")
+        self.assertRaises(AlreadyPendingError, self.app.queueEvent, event,
+            conn, ("test2", ), key=key)
+        self.assertEqual(len(self.app.event_queue), 1)
+        self.app.queueEvent(event, conn, ("test3", ), key=key,
+            raise_on_duplicate=False)
+        self.assertEqual(len(self.app.event_queue), 2)
 
     def test_03_executeQueuedEvents(self):
         self.assertEqual(len(self.app.event_queue), 0)
@@ -134,7 +144,7 @@ class StorageAppTests(NeoUnitTestBase):
         msg_id_2 = 1325137
         event = Mock({'__repr__': 'event'})
         conn = Mock({'__repr__': 'conn', 'getPeerId': ReturnValues(msg_id, msg_id_2)})
-        self.app.queueEvent(event, conn, "test")
+        self.app.queueEvent(event, conn, ("test", ))
         self.app.executeQueuedEvents()
         self.assertEquals(len(event.mockGetNamedCalls("__call__")), 1)
         call = event.mockGetNamedCalls("__call__")[0]

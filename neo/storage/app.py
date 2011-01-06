@@ -29,6 +29,7 @@ from neo.storage.handlers import master, hidden
 from neo.storage.replicator import Replicator
 from neo.storage.database import buildDatabaseManager
 from neo.storage.transactions import TransactionManager
+from neo.storage.exception import AlreadyPendingError
 from neo.connector import getConnectorHandler
 from neo.pt import PartitionTable
 from neo.util import dump
@@ -71,6 +72,7 @@ class Application(object):
 
         # operation related data
         self.event_queue = None
+        self.event_queue_keys = None
         self.operational = False
 
         # ready is True when operational and got all informations
@@ -193,6 +195,7 @@ class Application(object):
                     conn.close()
             # create/clear event queue
             self.event_queue = deque()
+            self.event_queue_keys = set()
             try:
                 self.verifyData()
                 self.initialize()
@@ -318,15 +321,25 @@ class Application(object):
             if not node.isHidden():
                 break
 
-    def queueEvent(self, some_callable, conn, *args):
+    def queueEvent(self, some_callable, conn, args, key=None,
+            raise_on_duplicate=True):
         msg_id = conn.getPeerId()
-        self.event_queue.append((some_callable, msg_id, conn, args))
+        keys = self.event_queue_keys
+        if raise_on_duplicate and key in keys:
+            raise AlreadyPendingError()
+        else:
+            self.event_queue.append((key, some_callable, msg_id, conn, args))
+            if key is not None:
+                keys.add(key)
 
     def executeQueuedEvents(self):
         l = len(self.event_queue)
         p = self.event_queue.popleft
+        remove = self.event_queue_keys.remove
         for _ in xrange(l):
-            some_callable, msg_id, conn, args = p()
+            key, some_callable, msg_id, conn, args = p()
+            if key is not None:
+                remove(key)
             if conn.isAborted() or conn.isClosed():
                 continue
             orig_msg_id = conn.getPeerId()

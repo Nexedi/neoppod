@@ -144,8 +144,8 @@ class TransactionManagerTests(NeoUnitTestBase):
     def testDelayed(self):
         """ Two transactions, the first cause the second to be delayed """
         uuid = self.getNewUUID()
-        ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
+        ttid1 = self.getNextTID()
         tid1, txn1 = self._getTransaction()
         tid2, txn2 = self._getTransaction()
         serial, obj = self._getObject(1)
@@ -161,6 +161,27 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.assertTrue(ttid2 in self.manager)
         self.assertRaises(DelayedError, self.manager.storeObject,
                 ttid2, serial, *obj)
+
+    def testUnresolvableConflict(self):
+        """ A newer transaction has already modified an object """
+        uuid = self.getNewUUID()
+        ttid2 = self.getNextTID()
+        ttid1 = self.getNextTID()
+        tid1, txn1 = self._getTransaction()
+        tid2, txn2 = self._getTransaction()
+        serial, obj = self._getObject(1)
+        # the (later) transaction lock (change) the object
+        self.manager.register(uuid, ttid2)
+        self.manager.storeTransaction(ttid2, *txn2)
+        self.assertTrue(ttid2 in self.manager)
+        self._storeTransactionObjects(ttid2, txn2)
+        self.manager.lock(ttid2, tid2, txn2[0])
+        # the previous it's not using the latest version
+        self.manager.register(uuid, ttid1)
+        self.manager.storeTransaction(ttid1, *txn1)
+        self.assertTrue(ttid1 in self.manager)
+        self.assertRaises(ConflictError, self.manager.storeObject,
+                ttid1, serial, *obj)
 
     def testResolvableConflict(self):
         """ Try to store an object with the lastest revision """
@@ -180,8 +201,8 @@ class TransactionManagerTests(NeoUnitTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         self.assertNotEqual(uuid1, uuid2)
-        ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
+        ttid1 = self.getNextTID()
         tid1, txn1 = self._getTransaction()
         tid2, txn2 = self._getTransaction()
         serial1, obj1 = self._getObject(1)
@@ -207,8 +228,8 @@ class TransactionManagerTests(NeoUnitTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         self.assertNotEqual(uuid1, uuid2)
-        ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
+        ttid1 = self.getNextTID()
         tid1, txn1 = self._getTransaction()
         tid2, txn2 = self._getTransaction()
         serial1, obj1 = self._getObject(1)
@@ -220,13 +241,13 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.manager.storeObject(ttid2, serial2, *obj2)
         self.assertTrue(ttid2 in self.manager)
         self.manager.lock(ttid2, tid2, txn1[0])
-        # the first get a delay, as nothing is committed yet
+        # the first get a conflict
         self.manager.register(uuid1, ttid1)
         self.manager.storeTransaction(ttid1, *txn1)
         self.assertTrue(ttid1 in self.manager)
-        self.assertRaises(DelayedError, self.manager.storeObject,
+        self.assertRaises(ConflictError, self.manager.storeObject,
                 ttid1, serial1, *obj1)
-        self.assertRaises(DelayedError, self.manager.storeObject,
+        self.assertRaises(ConflictError, self.manager.storeObject,
                 ttid1, serial2, *obj2)
 
     def testAbortUnlocked(self):
