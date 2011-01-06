@@ -142,7 +142,7 @@ class TransactionManagerTests(NeoUnitTestBase):
         self._checkTransactionFinished(tid)
 
     def testDelayed(self):
-        """ Two transactions, the first cause delaytion of the second """
+        """ Two transactions, the first cause the second to be delayed """
         uuid = self.getNewUUID()
         ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
@@ -176,7 +176,7 @@ class TransactionManagerTests(NeoUnitTestBase):
                 tid, serial, *obj)
 
     def testLockDelayed(self):
-        """ Check lock delaytion"""
+        """ Check lock delay """
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         self.assertNotEqual(uuid1, uuid2)
