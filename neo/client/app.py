@@ -825,15 +825,16 @@ class Application(object):
         local_var = self.local_var
         tid = local_var.tid
         _handleConflicts = self._handleConflicts
-        while True:
-            self.waitResponses()
-            conflicts = _handleConflicts(tryToResolveConflict)
-            if conflicts:
-                update(conflicts)
-            else:
-                # No more conflict resolutions to do, no more pending store
-                # requests
-                break
+        conflict_serial_dict = local_var.conflict_serial_dict
+        queue = local_var.queue
+        pending = self.dispatcher.pending
+        _waitAnyMessage = self._waitAnyMessage
+        while pending(queue) or conflict_serial_dict:
+            _waitAnyMessage()
+            if conflict_serial_dict:
+                conflicts = _handleConflicts(tryToResolveConflict)
+                if conflicts:
+                    update(conflicts)
 
         # Check for never-stored objects, and update result for all others
         for oid, store_dict in \
