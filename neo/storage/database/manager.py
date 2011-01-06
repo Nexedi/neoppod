@@ -362,11 +362,8 @@ class DatabaseManager(object):
         undone_tid = u64(undone_tid)
         _getDataTID = self._getDataTID
         if transaction_object is not None:
-            toid, tcompression, tchecksum, tdata, tvalue_serial = \
-                transaction_object
-            current_tid, current_data_tid = self._getDataTIDFromData(oid,
-                (ltid, None, tcompression, tchecksum, tdata,
-                u64(tvalue_serial)))
+            _, _, _, _, tvalue_serial = transaction_object
+            current_tid = current_data_tid = u64(tvalue_serial)
         else:
             current_tid, current_data_tid = _getDataTID(oid, before_tid=ltid)
         if current_tid is None:

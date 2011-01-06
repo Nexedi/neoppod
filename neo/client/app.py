@@ -102,6 +102,7 @@ class ThreadContext(object):
             'txn': None,
             'data_dict': {},
             'data_list': [],
+            'object_base_serial_dict': {},
             'object_serial_dict': {},
             'object_stored_counter_dict': {},
             'conflict_serial_dict': {},
@@ -727,6 +728,9 @@ class Application(object):
         data_dict[oid] = data
         # Store data on each node
         self.local_var.object_stored_counter_dict[oid] = {}
+        object_base_serial_dict = local_var.object_base_serial_dict
+        if oid not in object_base_serial_dict:
+            object_base_serial_dict[oid] = serial
         self.local_var.object_serial_dict[oid] = serial
         queue = self.local_var.queue
         add_involved_nodes = self.local_var.involved_nodes.add
@@ -760,6 +764,7 @@ class Application(object):
         local_var = self.local_var
         # Check for conflicts
         data_dict = local_var.data_dict
+        object_base_serial_dict = local_var.object_base_serial_dict
         object_serial_dict = local_var.object_serial_dict
         conflict_serial_dict = local_var.conflict_serial_dict.copy()
         local_var.conflict_serial_dict.clear()
@@ -815,6 +820,8 @@ class Application(object):
                         dump(conflict_serial))
                     # Mark this conflict as resolved
                     resolved_serial_set.update(conflict_serial_set)
+                    # Base serial changes too, as we resolved a conflict
+                    object_base_serial_dict[oid] = conflict_serial
                     # Try to store again
                     self._store(oid, conflict_serial, new_data)
                     append(oid)
@@ -983,7 +990,7 @@ class Application(object):
                     assert next_tid is None, (dump(oid), dump(base_tid),
                         dump(next_tid))
                     return (data, tid)
-                get_baseTID = local_var.object_serial_dict.get
+                get_baseTID = local_var.object_base_serial_dict.get
                 for oid, data in local_var.data_dict.iteritems():
                     if data is None:
                         # this is just a remain of

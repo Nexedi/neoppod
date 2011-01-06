@@ -729,14 +729,14 @@ class StorageDBTests(NeoUnitTestBase):
 
         # Undoing oid1 tid1 with tid2 being undone in same transaction,
         # OK: tid1 is latest
-        # Result: current tid is tid2, data_tid is None (undoing object
+        # Result: current tid is tid1, data_tid is None (undoing object
         # creation)
         # Explanation of transaction_object: oid1, no data but a data serial
         # to tid1
         self.assertEqual(
             db.findUndoTID(oid1, tid5, tid4, tid1,
                 (u64(oid1), None, None, None, tid1)),
-            (tid4, None, True))
+            (tid1, None, True))
 
         # Store a new transaction
         db.storeTransaction(
