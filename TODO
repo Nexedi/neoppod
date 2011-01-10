@@ -149,6 +149,14 @@ RC  - Review output of pylint (CODE)
     - tpc_finish failures propagation to master (FUNCTIONALITY)
       When asked to lock transaction data, if something goes wrong the master
       node must be informed.
+    - Verify data checksum on reception (FUNCTIONALITY)
+      In current implementation, client generates a checksum before storing,
+      which is only checked upon load. This doesn't prevent from storing
+      altered data, which misses the point of having a checksum, and creates
+      weird decisions (ex: if checksum verification fails on load, what should
+      be done ? hope to find a storage with valid checksum ? assume that data
+      is correct in storage but was altered when it travelled through network
+      as we loaded it ?).
 
     Master
     - Master node data redundancy (HIGH AVAILABILITY)
