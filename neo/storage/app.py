@@ -72,7 +72,7 @@ class Application(object):
 
         # operation related data
         self.event_queue = None
-        self.event_queue_keys = None
+        self.event_queue_dict = None
         self.operational = False
 
         # ready is True when operational and got all informations
@@ -195,7 +195,7 @@ class Application(object):
                     conn.close()
             # create/clear event queue
             self.event_queue = deque()
-            self.event_queue_keys = set()
+            self.event_queue_dict = dict()
             try:
                 self.verifyData()
                 self.initialize()
@@ -324,22 +324,27 @@ class Application(object):
     def queueEvent(self, some_callable, conn, args, key=None,
             raise_on_duplicate=True):
         msg_id = conn.getPeerId()
-        keys = self.event_queue_keys
-        if raise_on_duplicate and key in keys:
+        event_queue_dict = self.event_queue_dict
+        if raise_on_duplicate and key in event_queue_dict:
             raise AlreadyPendingError()
         else:
             self.event_queue.append((key, some_callable, msg_id, conn, args))
             if key is not None:
-                keys.add(key)
+                try:
+                    event_queue_dict[key] += 1
+                except KeyError:
+                    event_queue_dict[key] = 1
 
     def executeQueuedEvents(self):
         l = len(self.event_queue)
         p = self.event_queue.popleft
-        remove = self.event_queue_keys.remove
+        event_queue_dict = self.event_queue_dict
         for _ in xrange(l):
             key, some_callable, msg_id, conn, args = p()
             if key is not None:
-                remove(key)
+                event_queue_dict[key] -= 1
+                if event_queue_dict[key] == 0:
+                    del event_queue_dict[key]
             if conn.isAborted() or conn.isClosed():
                 continue
             orig_msg_id = conn.getPeerId()
