@@ -351,9 +351,9 @@ class Application(object):
         if self.event_queue is None:
             return
         neo.logging.info("Pending events:")
-        for event, _msg_id, _conn, args in self.event_queue:
-            neo.logging.info('  %r: %r:%r %r %r', event.__name__, _msg_id,
-                _conn, args)
+        for key, event, _msg_id, _conn, args in self.event_queue:
+            neo.logging.info('  %r:%r: %r:%r %r %r', key, event.__name__,
+                _msg_id, _conn, args)
 
     def shutdown(self, erase=False):
         """Close all connections and exit"""
