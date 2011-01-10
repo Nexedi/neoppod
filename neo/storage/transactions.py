@@ -239,16 +239,28 @@ class TransactionManager(object):
             self._app.executeQueuedEvents()
             # Attemp to acquire lock again.
             locking_tid = self._store_lock_dict.get(oid)
-        if locking_tid == tid:
-            neo.logging.info('Transaction %s storing %s more than once',
-                dump(tid), dump(oid))
-        elif locking_tid is None:
+        if locking_tid in (None, tid):
             # check if this is generated from the latest revision.
-            history_list = self._app.dm.getObjectHistory(oid)
-            if history_list and history_list[0][0] != serial:
+            if locking_tid == tid:
+                # If previous store was an undo, next store must be based on
+                # undo target.
+                _, _, _, _, previous_serial = self._transaction_dict[
+                    tid].getObject(oid)
+                if previous_serial is None:
+                    # XXX: use some special serial when previous store was not
+                    # an undo ? Maybe it should just not happen.
+                    neo.logging.info('Transaction %s storing %s more than '
+                        'once', dump(tid), dump(oid))
+            else:
+                previous_serial = None
+            if previous_serial is None:
+                history_list = self._app.dm.getObjectHistory(oid)
+                if history_list:
+                    previous_serial = history_list[0][0]
+            if previous_serial is not None and previous_serial != serial:
                 neo.logging.info('Resolvable conflict on %r:%r', dump(oid),
                         dump(tid))
-                raise ConflictError(history_list[0][0])
+                raise ConflictError(previous_serial)
             neo.logging.info('Transaction %s storing %s', dump(tid), dump(oid))
             self._store_lock_dict[oid] = tid
         elif locking_tid > tid:
