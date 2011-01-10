@@ -320,7 +320,12 @@ class TransactionManager(object):
                 assert lock_tid in (tid, None), 'Transaction %s tried to ' \
                     'release the lock on oid %s, but it was held by %s' % (
                     dump(tid), dump(oid), dump(lock_tid))
-            del self._store_lock_dict[oid]
+            try:
+                del self._store_lock_dict[oid]
+            except KeyError:
+                # all locks might not have been acquiredwhen aborting
+                neo.logging.warning('%s write lock was not held by %s',
+                    dump(oid), dump(tid))
         # remove the transaction
         uuid = transaction.getUUID()
         self._uuid_dict[uuid].discard(transaction)
