@@ -104,6 +104,9 @@ class Transaction(object):
         self._object_dict[oid] = (oid, compression, checksum, data,
             value_serial)
 
+    def delObject(self, oid):
+        del self._object_dict[oid]
+
     def getObject(self, oid):
         return self._object_dict.get(oid)
 
@@ -228,8 +231,10 @@ class TransactionManager(object):
             neo.logging.info('Deadlock resolution on %r:%r', dump(oid),
                 dump(tid))
             # A duplicate store means client is resolving a deadlock, so
-            # drop the lock it held on this object.
+            # drop the lock it held on this object, and drop object data for
+            # consistency.
             del self._store_lock_dict[oid]
+            self._transaction_dict[tid].delObject(oid)
             # Give a chance to pending events to take that lock now.
             self._app.executeQueuedEvents()
             # Attemp to acquire lock again.
