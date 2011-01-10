@@ -151,6 +151,7 @@ class ConnectionPool(object):
         getConnForNode = self.getConnForNode
         while cell_list:
             new_cell_list = []
+            cell_list = [c for c in cell_list if c.getNode().isRunning()]
             shuffle(cell_list)
             cell_list.sort(key=self.getCellSortKey)
             for cell in cell_list:
@@ -158,7 +159,7 @@ class ConnectionPool(object):
                 conn = getConnForNode(node)
                 if conn is not None:
                     yield (node, conn)
-                else:
+                elif node.isRunning():
                     new_cell_list.append(cell)
             cell_list = new_cell_list
             if new_cell_list:
