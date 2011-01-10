@@ -58,9 +58,7 @@ class ConnectionPool(object):
     def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
         addr = node.getAddress()
-        if addr is None:
-            return None
-
+        assert addr is not None
         app = self.app
         app.setNodeReady()
         neo.logging.debug('trying to connect to %s - %s', node,
