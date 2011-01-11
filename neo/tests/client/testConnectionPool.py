@@ -80,7 +80,7 @@ class ConnectionPoolTests(NeoUnitTestBase):
     def test_iterateForObject_connectionRefused(self):
         # connection refused at the first try
         oid = self.getOID(1)
-        node = Mock({'__repr__': 'node'})
+        node = Mock({'__repr__': 'node', 'isRunning': True})
         cell = Mock({'__repr__': 'cell', 'getNode': node})
         conn = Mock({'__repr__': 'conn'})
         pt = Mock({'getCellListForOID': [cell]})
@@ -92,7 +92,7 @@ class ConnectionPoolTests(NeoUnitTestBase):
     def test_iterateForObject_connectionAccepted(self):
         # connection accepted
         oid = self.getOID(1)
-        node = Mock({'__repr__': 'node'})
+        node = Mock({'__repr__': 'node', 'isRunning': True})
         cell = Mock({'__repr__': 'cell', 'getNode': node})
         conn = Mock({'__repr__': 'conn'})
         pt = Mock({'getCellListForOID': [cell]})
