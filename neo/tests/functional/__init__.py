@@ -89,7 +89,7 @@ class NEOProcess(object):
 
     def _exit(self, status=0):
         sys.stdout = sys.stderr = open('/dev/null', 'w')
-        sys.exit(status)
+        raise KeyboardInterrupt
 
     def kill(self, sig=signal.SIGTERM):
         if self.pid:
