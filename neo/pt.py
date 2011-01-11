@@ -148,6 +148,13 @@ class PartitionTable(object):
     def getPartition(self, oid_or_tid):
         return u64(oid_or_tid) % self.getPartitions()
 
+    def getOutdatedOffsetListFor(self, uuid):
+        return [
+            offset for offset in xrange(self.np)
+            for c in self.partition_list[offset]
+            if c.getUUID() == uuid and c.getState() == CellStates.OUT_OF_DATE
+        ]
+
     def isAssigned(self, oid, uuid):
         """ Check if the oid is assigned to the given node """
         for cell in self.partition_list[u64(oid) % self.np]:

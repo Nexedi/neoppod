@@ -36,12 +36,7 @@ class StorageReplicatorTests(NeoUnitTestBase):
         app.uuid = my_uuid
         app.pt = Mock({
             'getPartitions': 2,
-            'getRow': ReturnValues(
-                ((my_uuid, CellStates.OUT_OF_DATE),
-                (other_uuid, CellStates.UP_TO_DATE), ),
-                ((my_uuid, CellStates.UP_TO_DATE),
-                (other_uuid, CellStates.OUT_OF_DATE), ),
-            ),
+            'getOutdatedOffsetListFor': [0],
         })
         replicator = Replicator(app)
         self.assertEqual(replicator.new_partition_dict, {})
@@ -118,11 +113,8 @@ class StorageReplicatorTests(NeoUnitTestBase):
             'getNodeState': NodeStates.UNKNOWN,
         })
         app.pt = Mock({
-            'getPartitions': 1,
-            'getRow': ReturnValues(
-                ((uuid, CellStates.OUT_OF_DATE), ),
-            ),
             'getCellList': [running_cell, unknown_cell],
+            'getOutdatedOffsetListFor': [0],
         })
         node_conn_handler = Mock({
             'startReplication': None,

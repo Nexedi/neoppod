@@ -19,7 +19,7 @@ import neo
 from random import choice
 
 from neo.storage.handlers import replication
-from neo.protocol import NodeTypes, NodeStates, CellStates, Packets, ZERO_TID
+from neo.protocol import NodeTypes, NodeStates, Packets
 from neo.connection import ClientConnection
 from neo.util import dump
 
@@ -174,7 +174,9 @@ class Replicator(object):
         table is the one accepted by primary master.
         Implies a reset.
         """
-        self.new_partition_dict = self._getOutdatedPartitionList()
+        self.new_partition_dict = {}
+        for offset in self.app.pt.getOutdatedOffsetListFor(self.app.uuid):
+            self.new_partition_dict[offset] = Partition(offset)
         self.partition_dict = {}
         self.reset()
 
@@ -186,15 +188,6 @@ class Replicator(object):
         self.current_connection = None
         self.unfinished_tid_list = None
         self.replication_done = True
-
-    def _getOutdatedPartitionList(self):
-        app = self.app
-        partition_dict = {}
-        for offset in xrange(app.pt.getPartitions()):
-            for uuid, state in app.pt.getRow(offset):
-                if uuid == app.uuid and state == CellStates.OUT_OF_DATE:
-                    partition_dict[offset] = Partition(offset)
-        return partition_dict
 
     def pending(self):
         """Return whether there is any pending partition."""
