@@ -220,7 +220,7 @@ class EventHandler(object):
     def askLockInformation(self, conn, ttid, tid, oid_list):
         raise UnexpectedPacketError
 
-    def answerInformationLocked(self, conn, tid):
+    def answerInformationLocked(self, conn, ttid):
         raise UnexpectedPacketError
 
     def invalidateObjects(self, conn, tid, oid_list):

@@ -58,7 +58,7 @@ class MasterOperationHandler(BaseMasterHandler):
             raise ProtocolError('Unknown transaction')
         self.app.tm.lock(ttid, tid, oid_list)
         if not conn.isClosed():
-            conn.answer(Packets.AnswerInformationLocked(tid))
+            conn.answer(Packets.AnswerInformationLocked(ttid))
 
     def notifyUnlockInformation(self, conn, ttid):
         if not ttid in self.app.tm:

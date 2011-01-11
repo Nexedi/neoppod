@@ -62,16 +62,12 @@ class StorageServiceHandler(BaseServiceHandler):
         p = Packets.AnswerUnfinishedTransactions(self.app.tm.getPendingList())
         conn.answer(p)
 
-    def answerInformationLocked(self, conn, tid):
+    def answerInformationLocked(self, conn, ttid):
         tm = self.app.tm
-
-        # If the given transaction ID is later than the last TID, the peer
-        # is crazy.
-        if tid > tm.getLastTID():
-            raise ProtocolError('TID too big')
-
+        if ttid not in tm:
+            raise ProtocolError('Unknown transaction')
         # transaction locked on this storage node
-        tm.lock(tid, conn.getUUID())
+        self.app.tm.lock(ttid, conn.getUUID())
 
     def notifyReplicationDone(self, conn, offset):
         node = self.app.nm.getByUUID(conn.getUUID())

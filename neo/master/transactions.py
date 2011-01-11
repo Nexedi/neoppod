@@ -190,26 +190,27 @@ class TransactionManager(object):
     _next_ttid = 0
 
     def __init__(self, on_commit):
-        # tid -> transaction
-        self._tid_dict = {}
+        # ttid -> transaction
+        self._ttid_dict = {}
         # node -> transactions mapping
         self._node_dict = {}
         self._last_oid = None
         self._on_commit = on_commit
+        # queue filled with ttids pointing to transactions with increasing tids
         self._queue = []
 
-    def __getitem__(self, tid):
+    def __getitem__(self, ttid):
         """
             Return the transaction object for this TID
         """
         # XXX: used by unit tests only
-        return self._tid_dict[tid]
+        return self._ttid_dict[ttid]
 
-    def __contains__(self, tid):
+    def __contains__(self, ttid):
         """
             Returns True if this is a pending transaction
         """
-        return tid in self._tid_dict
+        return ttid in self._ttid_dict
 
     def getNextOIDList(self, num_oids):
         """ Generate a new OID list """
@@ -306,20 +307,20 @@ class TransactionManager(object):
             Discard all manager content
             This doesn't reset the last TID.
         """
-        self._tid_dict = {}
+        self._ttid_dict = {}
         self._node_dict = {}
 
     def hasPending(self):
         """
             Returns True if some transactions are pending
         """
-        return bool(self._tid_dict)
+        return bool(self._ttid_dict)
 
     def getPendingList(self):
         """
             Return the list of pending transaction IDs
         """
-        return self._tid_dict.keys()
+        return [txn.getTID() for txn in self._ttid_dict.values()]
 
     def begin(self, uuid, tid=None):
         """
@@ -345,38 +346,41 @@ class TransactionManager(object):
                 break
         else:
             tid = self._nextTID(ttid, divisor)
-            self._queue.append((node.getUUID(), tid))
+            self._queue.append((node.getUUID(), ttid))
         neo.logging.debug('Finish TXN %s for %s (was %s)', dump(tid), node, dump(ttid))
         txn = Transaction(node, ttid, tid, oid_list, uuid_list, msg_id)
-        self._tid_dict[tid] = txn
-        self._node_dict.setdefault(node, {})[tid] = txn
+        self._ttid_dict[ttid] = txn
+        self._node_dict.setdefault(node, {})[ttid] = txn
         return tid
 
-    def remove(self, uuid, tid):
+    def remove(self, uuid, ttid):
         """
             Remove a transaction, commited or aborted
         """
         try:
-            self._queue.remove((uuid, tid))
+            # only in case of an import:
+            self._queue.remove((uuid, ttid))
         except ValueError:
             # finish might not have been started
             pass
-        tid_dict = self._tid_dict
-        if tid in tid_dict:
+        ttid_dict = self._ttid_dict
+        if ttid in ttid_dict:
+            txn = ttid_dict[ttid]
+            tid = txn.getTID()
+            node = txn.getNode()
             # ...and tried to finish
-            node = tid_dict[tid].getNode()
-            del tid_dict[tid]
-            del self._node_dict[node][tid]
+            del ttid_dict[ttid]
+            del self._node_dict[node][ttid]
 
-    def lock(self, tid, uuid):
+    def lock(self, ttid, uuid):
         """
             Set that a node has locked the transaction.
             If transaction is completely locked, calls function given at
             instanciation time.
         """
-        assert tid in self._tid_dict, "Transaction not started"
-        txn = self._tid_dict[tid]
-        if txn.lock(uuid) and self._queue[0][1] == tid:
+        assert ttid in self._ttid_dict, "Transaction not started"
+        txn = self._ttid_dict[ttid]
+        if txn.lock(uuid) and self._queue[0][1] == ttid:
             # all storage are locked and we unlock the commit queue
             self._unlockPending()
 
@@ -387,8 +391,8 @@ class TransactionManager(object):
         """
         unlock = False
         # iterate over a copy because _unlockPending may alter the dict
-        for tid, txn in self._tid_dict.items():
-            if txn.forget(uuid) and self._queue[0][1] == tid:
+        for ttid, txn in self._ttid_dict.items():
+            if txn.forget(uuid) and self._queue[0][1] == ttid:
                 unlock = True
         if unlock:
             self._unlockPending()
@@ -399,15 +403,15 @@ class TransactionManager(object):
         pop = queue.pop
         insert = queue.insert
         on_commit = self._on_commit
-        get = self._tid_dict.get
+        get = self._ttid_dict.get
         while queue:
-            uuid, tid = pop(0)
-            txn = get(tid, None)
+            uuid, ttid = pop(0)
+            txn = get(ttid, None)
             # _queue can contain un-prepared transactions
             if txn is not None and txn.locked():
-                on_commit(tid, txn)
+                on_commit(txn)
             else:
-                insert(0, (uuid, tid))
+                insert(0, (uuid, ttid))
                 break
 
     def abortFor(self, node):
@@ -423,13 +427,13 @@ class TransactionManager(object):
         if node in self._node_dict:
             # remove transactions
             remove = self.remove
-            for tid in self._node_dict[node].keys():
-                remove(uuid, tid)
+            for ttid in self._node_dict[node].keys():
+                remove(uuid, ttid)
             # discard node entry
             del self._node_dict[node]
 
     def log(self):
         neo.logging.info('Transactions:')
-        for txn in self._tid_dict.itervalues():
+        for txn in self._ttid_dict.itervalues():
             neo.logging.info('  %r', txn)
 

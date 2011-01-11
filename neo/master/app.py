@@ -560,11 +560,12 @@ class Application(object):
             neo.logging.info('Accept a storage %s (%s)' % (dump(uuid), state))
         return (uuid, node, state, handler, node_ctor)
 
-    def onTransactionCommitted(self, tid, txn):
+    def onTransactionCommitted(self, txn):
         # I have received all the lock answers now:
         # - send a Notify Transaction Finished to the initiated client node
         # - Invalidate Objects to the other client nodes
         ttid = txn.getTTID()
+        tid = txn.getTID()
         transaction_node = txn.getNode()
         invalidate_objects = Packets.InvalidateObjects(tid, txn.getOIDList())
         transaction_finished = Packets.AnswerTransactionFinished(ttid, tid)
@@ -582,7 +583,7 @@ class Application(object):
             getByUUID(storage_uuid).getConnection().notify(notify_unlock)
 
         # remove transaction from manager
-        self.tm.remove(transaction_node.getUUID(), tid)
+        self.tm.remove(transaction_node.getUUID(), ttid)
         self.setLastTransaction(tid)
 
     def getLastTransaction(self):

@@ -127,24 +127,24 @@ class MasterClientHandlerTests(NeoUnitTestBase):
             ],
             'getPartitions': 2,
         })
-        service.askBeginTransaction(conn, None)
+        ttid = self.getNextTID()
+        service.askBeginTransaction(conn, ttid)
         oid_list = []
-        tid = self.app.tm.getLastTID()
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
         # No packet sent if storage node is not ready
         self.assertFalse(self.app.isStorageReady(storage_uuid))
-        service.askFinishTransaction(conn, tid, oid_list)
+        service.askFinishTransaction(conn, ttid, oid_list)
         self.checkNoPacketSent(storage_conn)
         self.app.tm.abortFor(self.app.nm.getByUUID(client_uuid))
         # ...but AskLockInformation is sent if it is ready
         self.app.setStorageReady(storage_uuid)
         self.assertTrue(self.app.isStorageReady(storage_uuid))
-        service.askFinishTransaction(conn, tid, oid_list)
+        service.askFinishTransaction(conn, ttid, oid_list)
         self.checkAskLockInformation(storage_conn)
         self.assertEquals(len(self.app.tm.getPendingList()), 1)
-        apptid = self.app.tm.getPendingList()[0]
-        txn = self.app.tm[apptid]
+        txn = self.app.tm[ttid]
+        self.assertEquals(txn.getTID(), self.app.tm.getPendingList()[0])
         self.assertEquals(len(txn.getOIDList()), 0)
         self.assertEquals(len(txn.getUUIDList()), 1)
 

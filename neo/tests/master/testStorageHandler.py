@@ -104,15 +104,15 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         ttid = self.app.tm.begin(client_1.getUUID())
         tid = self.app.tm.prepare(client_1, ttid, 1, oid_list, uuid_list,
             msg_id)
-        self.assertTrue(tid in self.app.tm)
+        self.assertTrue(ttid in self.app.tm)
         # the first storage acknowledge the lock
-        self.service.answerInformationLocked(storage_conn_1, tid)
+        self.service.answerInformationLocked(storage_conn_1, ttid)
         self.checkNoPacketSent(client_conn_1)
         self.checkNoPacketSent(client_conn_2)
         self.checkNoPacketSent(storage_conn_1)
         self.checkNoPacketSent(storage_conn_2)
         # then the second
-        self.service.answerInformationLocked(storage_conn_2, tid)
+        self.service.answerInformationLocked(storage_conn_2, ttid)
         self.checkAnswerTransactionFinished(client_conn_1)
         self.checkInvalidateObjects(client_conn_2)
         self.checkNotifyUnlockInformation(storage_conn_1)
@@ -211,7 +211,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         ttid1 = tm.begin(node1.getUUID())
         tid1 = tm.prepare(client1, ttid1, 1, oid_list,
             [node1.getUUID(), node2.getUUID()], msg_id_1)
-        tm.lock(tid1, node2.getUUID())
+        tm.lock(ttid1, node2.getUUID())
         self.checkNoPacketSent(cconn1)
         # Storage 1 dies
         node1.setTemporarilyDown()
@@ -231,7 +231,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
             [node1.getUUID(), node2.getUUID()], msg_id_2)
         # T2: pending locking answer, client keeps waiting
         self.checkNoPacketSent(cconn2, check_notify=False)
-        tm.remove(node1.getUUID(), tid2)
+        tm.remove(node1.getUUID(), ttid2)
 
         # Transaction 3: 1 storage node involved, which won't die
         msg_id_3 = 3
@@ -240,7 +240,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
             [node2.getUUID(), ], msg_id_3)
         # T3: action not significant to this transacion, so no response
         self.checkNoPacketSent(cconn3, check_notify=False)
-        tm.remove(node1.getUUID(), tid3)
+        tm.remove(node1.getUUID(), ttid3)
 
     def test_answerPack(self):
         # Note: incomming status has no meaning here, so it's left to False.
