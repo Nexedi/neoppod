@@ -131,6 +131,9 @@ class MatrixImportBenchmark(BenchmarkRunner):
         summary = 'Matrix : %s ' % (info, )
         return (summary, report)
 
-if __name__ == "__main__":
+def main(args=None):
     MatrixImportBenchmark().run()
+
+if __name__ == "__main__":
+    main()
 

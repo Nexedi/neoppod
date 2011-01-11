@@ -127,8 +127,10 @@ class ImportBenchmark(BenchmarkRunner):
         summary = 'Perf : %.1f KB/s (%.1f MB)' % (speed, size)
         return (summary, report)
 
-if __name__ == "__main__":
+def main(args=None):
     ImportBenchmark().run()
     if PROFILING_ENABLED:
         print profiler_report()
 
+if __name__ == "__main__":
+    main()

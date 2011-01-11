@@ -300,9 +300,12 @@ class TestRunner(BenchmarkRunner):
         self._successful = runner.wasSuccessful()
         return runner.buildReport(self.add_status)
 
-if __name__ == "__main__":
+def main(args=None):
     runner = TestRunner()
     runner.run()
     if not runner.was_successful():
         sys.exit(1)
     sys.exit(0)
+
+if __name__ == "__main__":
+    main()

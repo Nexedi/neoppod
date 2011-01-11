@@ -178,6 +178,9 @@ class ReplicationBenchmark(BenchmarkRunner):
             assert cut_at == 100
             neo.getStorageProcessList()[-1].stop()
 
-if __name__ == "__main__":
+def main(args=None):
     ReplicationBenchmark().run()
+
+if __name__ == "__main__":
+    main()
 
