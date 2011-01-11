@@ -211,10 +211,6 @@ class TransactionManager(object):
         """
         return tid in self._tid_dict
 
-    def items(self):
-        # XXX: used by unit tests only
-        return self._tid_dict.items()
-
     def getNextOIDList(self, num_oids):
         """ Generate a new OID list """
         if self._last_oid is None:
