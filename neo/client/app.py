@@ -747,14 +747,14 @@ class Application(object):
 
         self._waitAnyMessage(False)
 
-    def onStoreTimeout(self, conn, msg_id, tid, oid):
+    def onStoreTimeout(self, conn, msg_id, ttid, oid):
         # NOTE: this method is called from poll thread, don't use
         # local_var !
         # Stop expecting the timed-out store request.
         queue = self.dispatcher.forget(conn, msg_id)
         # Ask the storage if someone locks the object.
         # Shorten timeout to react earlier to an unresponding storage.
-        conn.ask(Packets.AskHasLock(tid, oid), timeout=5, queue=queue)
+        conn.ask(Packets.AskHasLock(ttid, oid), timeout=5, queue=queue)
         return True
 
     @profiler_decorator

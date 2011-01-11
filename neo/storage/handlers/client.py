@@ -30,8 +30,8 @@ SLOW_STORE = 2
 
 class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
-    def _askObject(self, oid, serial, tid):
-        return self.app.dm.getObject(oid, serial, tid)
+    def _askObject(self, oid, serial, ttid):
+        return self.app.dm.getObject(oid, serial, ttid)
 
     def connectionLost(self, conn, new_state):
         uuid = conn.getUUID()
@@ -39,31 +39,31 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         assert node is not None, conn
         self.app.nm.remove(node)
 
-    def abortTransaction(self, conn, tid):
-        self.app.tm.abort(tid)
+    def abortTransaction(self, conn, ttid):
+        self.app.tm.abort(ttid)
 
-    def askStoreTransaction(self, conn, tid, user, desc, ext, oid_list):
-        self.app.tm.register(conn.getUUID(), tid)
-        self.app.tm.storeTransaction(tid, oid_list, user, desc, ext, False)
-        conn.answer(Packets.AnswerStoreTransaction(tid))
+    def askStoreTransaction(self, conn, ttid, user, desc, ext, oid_list):
+        self.app.tm.register(conn.getUUID(), ttid)
+        self.app.tm.storeTransaction(ttid, oid_list, user, desc, ext, False)
+        conn.answer(Packets.AnswerStoreTransaction(ttid))
 
     def _askStoreObject(self, conn, oid, serial, compression, checksum, data,
-            data_serial, tid, unlock, request_time):
-        if tid not in self.app.tm:
+            data_serial, ttid, unlock, request_time):
+        if ttid not in self.app.tm:
             # transaction was aborted, cancel this event
             neo.logging.info('Forget store of %s:%s by %s delayed by %s',
-                    dump(oid), dump(serial), dump(tid),
+                    dump(oid), dump(serial), dump(ttid),
                     dump(self.app.tm.getLockingTID(oid)))
             # send an answer as the client side is waiting for it
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
             return
         try:
-            self.app.tm.storeObject(tid, serial, oid, compression,
+            self.app.tm.storeObject(ttid, serial, oid, compression,
                     checksum, data, data_serial, unlock)
         except ConflictError, err:
             # resolvable or not
-            tid_or_serial = err.getTID()
-            conn.answer(Packets.AnswerStoreObject(1, oid, tid_or_serial))
+            ttid_or_serial = err.getTID()
+            conn.answer(Packets.AnswerStoreObject(1, oid, ttid_or_serial))
         except DelayedError:
             # locked by a previous transaction, retry later
             # If we are unlocking, we want queueEvent to raise
@@ -71,8 +71,8 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             # response.
             try:
                 self.app.queueEvent(self._askStoreObject, conn, (oid, serial,
-                    compression, checksum, data, data_serial, tid,
-                    unlock, request_time), key=(oid, tid),
+                    compression, checksum, data, data_serial, ttid,
+                    unlock, request_time), key=(oid, ttid),
                     raise_on_duplicate=unlock)
             except AlreadyPendingError:
                 conn.answer(Errors.AlreadyPending(dump(oid)))
@@ -84,16 +84,16 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
 
     def askStoreObject(self, conn, oid, serial,
-            compression, checksum, data, data_serial, tid, unlock):
+            compression, checksum, data, data_serial, ttid, unlock):
         # register the transaction
-        self.app.tm.register(conn.getUUID(), tid)
+        self.app.tm.register(conn.getUUID(), ttid)
         if data_serial is not None:
             assert data == '', repr(data)
             # Change data to None here, to do it only once, even if store gets
             # delayed.
             data = None
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
-            data_serial, tid, unlock, time.time())
+            data_serial, ttid, unlock, time.time())
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition_list):
         app = self.app
@@ -122,14 +122,14 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                              app.pt.getPartitions(), partition_list)
         conn.answer(Packets.AnswerTIDs(tid_list))
 
-    def askObjectUndoSerial(self, conn, tid, ltid, undone_tid, oid_list):
+    def askObjectUndoSerial(self, conn, ttid, ltid, undone_tid, oid_list):
         app = self.app
         findUndoTID = app.dm.findUndoTID
         getObjectFromTransaction = app.tm.getObjectFromTransaction
         object_tid_dict = {}
         for oid in oid_list:
-            current_serial, undo_serial, is_current = findUndoTID(oid, tid,
-                ltid, undone_tid, getObjectFromTransaction(tid, oid))
+            current_serial, undo_serial, is_current = findUndoTID(oid, ttid,
+                ltid, undone_tid, getObjectFromTransaction(ttid, oid))
             if current_serial is None:
                 p = Errors.OidNotFound(dump(oid))
                 break
@@ -138,12 +138,12 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             p = Packets.AnswerObjectUndoSerial(object_tid_dict)
         conn.answer(p)
 
-    def askHasLock(self, conn, tid, oid):
+    def askHasLock(self, conn, ttid, oid):
         locking_tid = self.app.tm.getLockingTID(oid)
-        neo.logging.info('%r check lock of %r:%r', conn, dump(tid), dump(oid))
+        neo.logging.info('%r check lock of %r:%r', conn, dump(ttid), dump(oid))
         if locking_tid is None:
             state = LockState.NOT_LOCKED
-        elif locking_tid is tid:
+        elif locking_tid is ttid:
             state = LockState.GRANTED
         else:
             state = LockState.GRANTED_TO_OTHER
@@ -161,20 +161,20 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             p = Packets.AnswerObjectHistory(oid, history_list)
         conn.answer(p)
 
-    def askCheckCurrentSerial(self, conn, tid, serial, oid):
-        self._askCheckCurrentSerial(conn, tid, serial, oid, time.time())
+    def askCheckCurrentSerial(self, conn, ttid, serial, oid):
+        self._askCheckCurrentSerial(conn, ttid, serial, oid, time.time())
 
-    def _askCheckCurrentSerial(self, conn, tid, serial, oid, request_time):
-        if tid not in self.app.tm:
+    def _askCheckCurrentSerial(self, conn, ttid, serial, oid, request_time):
+        if ttid not in self.app.tm:
             # transaction was aborted, cancel this event
             neo.logging.info('Forget serial check of %s:%s by %s delayed by '
-                '%s', dump(oid), dump(serial), dump(tid),
+                '%s', dump(oid), dump(serial), dump(ttid),
                 dump(self.app.tm.getLockingTID(oid)))
             # send an answer as the client side is waiting for it
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
             return
         try:
-            self.app.tm.checkCurrentSerial(tid, serial, oid)
+            self.app.tm.checkCurrentSerial(ttid, serial, oid)
         except ConflictError, err:
             # resolvable or not
             conn.answer(Packets.AnswerCheckCurrentSerial(1, oid,
@@ -182,8 +182,8 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         except DelayedError:
             # locked by a previous transaction, retry later
             try:
-                self.app.queueEvent(self._askCheckCurrentSerial, conn, (tid,
-                    serial, oid, request_time), key=(oid, tid))
+                self.app.queueEvent(self._askCheckCurrentSerial, conn, (ttid,
+                    serial, oid, request_time), key=(oid, ttid))
             except AlreadyPendingError:
                 conn.answer(Errors.AlreadyPending(dump(oid)))
         else:

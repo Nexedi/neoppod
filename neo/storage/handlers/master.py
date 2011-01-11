@@ -60,11 +60,11 @@ class MasterOperationHandler(BaseMasterHandler):
         if not conn.isClosed():
             conn.answer(Packets.AnswerInformationLocked(tid))
 
-    def notifyUnlockInformation(self, conn, tid):
-        if not tid in self.app.tm:
+    def notifyUnlockInformation(self, conn, ttid):
+        if not ttid in self.app.tm:
             raise ProtocolError('Unknown transaction')
         # TODO: send an answer
-        self.app.tm.unlock(tid)
+        self.app.tm.unlock(ttid)
 
     def askPack(self, conn, tid):
         app = self.app

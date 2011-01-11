@@ -135,29 +135,29 @@ class TransactionManager(object):
         self._load_lock_dict = {}
         self._uuid_dict = {}
 
-    def __contains__(self, tid):
+    def __contains__(self, ttid):
         """
             Returns True if the TID is known by the manager
         """
-        return tid in self._transaction_dict
+        return ttid in self._transaction_dict
 
-    def register(self, uuid, tid):
+    def register(self, uuid, ttid):
         """
             Register a transaction, it may be already registered
         """
-        transaction = self._transaction_dict.get(tid, None)
+        transaction = self._transaction_dict.get(ttid, None)
         if transaction is None:
-            transaction = Transaction(uuid, tid)
+            transaction = Transaction(uuid, ttid)
             self._uuid_dict.setdefault(uuid, set()).add(transaction)
-            self._transaction_dict[tid] = transaction
+            self._transaction_dict[ttid] = transaction
         return transaction
 
-    def getObjectFromTransaction(self, tid, oid):
+    def getObjectFromTransaction(self, ttid, oid):
         """
             Return object data for given running transaction.
             Return None if not found.
         """
-        result = self._transaction_dict.get(tid)
+        result = self._transaction_dict.get(ttid)
         if result is not None:
             result = result.getObject(oid)
         return result
@@ -206,18 +206,18 @@ class TransactionManager(object):
         self._app.dm.finishTransaction(self.getTIDFromTTID(ttid))
         self.abort(ttid, even_if_locked=True)
 
-    def storeTransaction(self, tid, oid_list, user, desc, ext, packed):
+    def storeTransaction(self, ttid, oid_list, user, desc, ext, packed):
         """
             Store transaction information received from client node
         """
-        assert tid in self, "Transaction not registered"
-        transaction = self._transaction_dict[tid]
+        assert ttid in self, "Transaction not registered"
+        transaction = self._transaction_dict[ttid]
         transaction.prepare(oid_list, user, desc, ext, packed)
 
     def getLockingTID(self, oid):
         return self._store_lock_dict.get(oid)
 
-    def lockObject(self, tid, serial, oid, unlock=False):
+    def lockObject(self, ttid, serial, oid, unlock=False):
         """
             Take a write lock on given object, checking that "serial" is
             current.
@@ -227,30 +227,30 @@ class TransactionManager(object):
         """
         # check if the object if locked
         locking_tid = self._store_lock_dict.get(oid)
-        if locking_tid == tid and unlock:
+        if locking_tid == ttid and unlock:
             neo.logging.info('Deadlock resolution on %r:%r', dump(oid),
-                dump(tid))
+                dump(ttid))
             # A duplicate store means client is resolving a deadlock, so
             # drop the lock it held on this object, and drop object data for
             # consistency.
             del self._store_lock_dict[oid]
-            self._transaction_dict[tid].delObject(oid)
+            self._transaction_dict[ttid].delObject(oid)
             # Give a chance to pending events to take that lock now.
             self._app.executeQueuedEvents()
             # Attemp to acquire lock again.
             locking_tid = self._store_lock_dict.get(oid)
-        if locking_tid in (None, tid):
+        if locking_tid in (None, ttid):
             # check if this is generated from the latest revision.
-            if locking_tid == tid:
+            if locking_tid == ttid:
                 # If previous store was an undo, next store must be based on
                 # undo target.
                 _, _, _, _, previous_serial = self._transaction_dict[
-                    tid].getObject(oid)
+                    ttid].getObject(oid)
                 if previous_serial is None:
                     # XXX: use some special serial when previous store was not
                     # an undo ? Maybe it should just not happen.
                     neo.logging.info('Transaction %s storing %s more than '
-                        'once', dump(tid), dump(oid))
+                        'once', dump(ttid), dump(oid))
             else:
                 previous_serial = None
             if previous_serial is None:
@@ -259,56 +259,56 @@ class TransactionManager(object):
                     previous_serial = history_list[0][0]
             if previous_serial is not None and previous_serial != serial:
                 neo.logging.info('Resolvable conflict on %r:%r', dump(oid),
-                        dump(tid))
+                        dump(ttid))
                 raise ConflictError(previous_serial)
-            neo.logging.info('Transaction %s storing %s', dump(tid), dump(oid))
-            self._store_lock_dict[oid] = tid
-        elif locking_tid > tid:
+            neo.logging.info('Transaction %s storing %s', dump(ttid), dump(oid))
+            self._store_lock_dict[oid] = ttid
+        elif locking_tid > ttid:
             # We have a smaller TID than locking transaction, so we are older:
             # enter waiting queue so we are handled when lock gets released.
             neo.logging.info('Store delayed for %r:%r by %r', dump(oid),
-                    dump(tid), dump(locking_tid))
+                    dump(ttid), dump(locking_tid))
             raise DelayedError
         else:
-            # We have a bigger TID than locking transaction, so we are
+            # We have a bigger TTID than locking transaction, so we are
             # younger: this is a possible deadlock case, as we might already
             # hold locks that older transaction is waiting upon. Make client
             # release locks & reacquire them by notifying it of the possible
             # deadlock.
             neo.logging.info('Possible deadlock on %r:%r with %r',
-                dump(oid), dump(tid), dump(locking_tid))
+                dump(oid), dump(ttid), dump(locking_tid))
             raise ConflictError(ZERO_TID)
 
-    def checkCurrentSerial(self, tid, serial, oid):
-        self.lockObject(tid, serial, oid, unlock=True)
-        assert tid in self, "Transaction not registered"
-        transaction = self._transaction_dict[tid]
+    def checkCurrentSerial(self, ttid, serial, oid):
+        self.lockObject(ttid, serial, oid, unlock=True)
+        assert ttid in self, "Transaction not registered"
+        transaction = self._transaction_dict[ttid]
         transaction.addCheckedObject(oid)
 
-    def storeObject(self, tid, serial, oid, compression, checksum, data,
+    def storeObject(self, ttid, serial, oid, compression, checksum, data,
             value_serial, unlock=False):
         """
             Store an object received from client node
         """
-        self.lockObject(tid, serial, oid, unlock=unlock)
+        self.lockObject(ttid, serial, oid, unlock=unlock)
         # store object
-        assert tid in self, "Transaction not registered"
-        transaction = self._transaction_dict[tid]
+        assert ttid in self, "Transaction not registered"
+        transaction = self._transaction_dict[ttid]
         transaction.addObject(oid, compression, checksum, data, value_serial)
 
-    def abort(self, tid, even_if_locked=False):
+    def abort(self, ttid, even_if_locked=False):
         """
             Abort a transaction
             Releases locks held on all transaction objects, deletes Transaction
             instance, and executed queued events.
             Note: does not alter persistent content.
         """
-        if tid not in self._transaction_dict:
+        if ttid not in self._transaction_dict:
             # the tid may be unknown as the transaction is aborted on every node
             # of the partition, even if no data was received (eg. conflict on
             # another node)
             return
-        transaction = self._transaction_dict[tid]
+        transaction = self._transaction_dict[ttid]
         has_load_lock = transaction.isLocked()
         # if the transaction is locked, ensure we can drop it
         if not even_if_locked and has_load_lock:
@@ -316,23 +316,23 @@ class TransactionManager(object):
         # unlock any object
         for oid in transaction.getLockedOIDList():
             if has_load_lock:
-                lock_tid = self._load_lock_dict.pop(oid, None)
-                assert lock_tid in (tid, None), 'Transaction %s tried to ' \
+                lock_ttid = self._load_lock_dict.pop(oid, None)
+                assert lock_ttid in (ttid, None), 'Transaction %s tried to ' \
                     'release the lock on oid %s, but it was held by %s' % (
-                    dump(tid), dump(oid), dump(lock_tid))
+                    dump(ttid), dump(oid), dump(lock_tid))
             try:
                 del self._store_lock_dict[oid]
             except KeyError:
                 # all locks might not have been acquiredwhen aborting
                 neo.logging.warning('%s write lock was not held by %s',
-                    dump(oid), dump(tid))
+                    dump(oid), dump(ttid))
         # remove the transaction
         uuid = transaction.getUUID()
         self._uuid_dict[uuid].discard(transaction)
         # clean node index if there is no more current transactions
         if not self._uuid_dict[uuid]:
             del self._uuid_dict[uuid]
-        del self._transaction_dict[tid]
+        del self._transaction_dict[ttid]
         # some locks were released, some pending locks may now succeed
         self._app.executeQueuedEvents()
 
@@ -356,11 +356,11 @@ class TransactionManager(object):
         for txn in self._transaction_dict.values():
             neo.logging.info('    %r', txn)
         neo.logging.info('  Read locks:')
-        for oid, tid in self._load_lock_dict.items():
-            neo.logging.info('    %r by %r', dump(oid), dump(tid))
+        for oid, ttid in self._load_lock_dict.items():
+            neo.logging.info('    %r by %r', dump(oid), dump(ttid))
         neo.logging.info('  Write locks:')
-        for oid, tid in self._store_lock_dict.items():
-            neo.logging.info('    %r by %r', dump(oid), dump(tid))
+        for oid, ttid in self._store_lock_dict.items():
+            neo.logging.info('    %r by %r', dump(oid), dump(ttid))
 
     def updateObjectDataForPack(self, oid, orig_serial, new_serial,
             getObjectData):

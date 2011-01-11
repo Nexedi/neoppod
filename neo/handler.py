@@ -202,7 +202,7 @@ class EventHandler(object):
     def askBeginTransaction(self, conn, tid):
         raise UnexpectedPacketError
 
-    def answerBeginTransaction(self, conn, tid):
+    def answerBeginTransaction(self, conn, ttid):
         raise UnexpectedPacketError
 
     def askNewOIDs(self, conn, num_oids):
@@ -211,7 +211,7 @@ class EventHandler(object):
     def answerNewOIDs(self, conn, num_oids):
         raise UnexpectedPacketError
 
-    def askFinishTransaction(self, conn, tid, oid_list):
+    def askFinishTransaction(self, conn, ttid, oid_list):
         raise UnexpectedPacketError
 
     def answerTransactionFinished(self, conn, ttid, tid):
@@ -226,27 +226,27 @@ class EventHandler(object):
     def invalidateObjects(self, conn, tid, oid_list):
         raise UnexpectedPacketError
 
-    def notifyUnlockInformation(self, conn, tid):
+    def notifyUnlockInformation(self, conn, ttid):
         raise UnexpectedPacketError
 
     def askStoreObject(self, conn, oid, serial,
-            compression, checksum, data, data_serial, tid, unlock):
+            compression, checksum, data, data_serial, ttid, unlock):
         raise UnexpectedPacketError
 
     def answerStoreObject(self, conn, conflicting, oid, serial):
         raise UnexpectedPacketError
 
-    def abortTransaction(self, conn, tid):
+    def abortTransaction(self, conn, ttid):
         raise UnexpectedPacketError
 
-    def askStoreTransaction(self, conn, tid, user, desc,
+    def askStoreTransaction(self, conn, ttid, user, desc,
                                   ext, oid_list):
         raise UnexpectedPacketError
 
-    def answerStoreTransaction(self, conn, tid):
+    def answerStoreTransaction(self, conn, ttid):
         raise UnexpectedPacketError
 
-    def askObject(self, conn, oid, serial, tid):
+    def askObject(self, conn, oid, serial, ttid):
         raise UnexpectedPacketError
 
     def answerObject(self, conn, oid, serial_start,
@@ -327,13 +327,13 @@ class EventHandler(object):
     def notifyReplicationDone(self, conn, offset):
         raise UnexpectedPacketError
 
-    def askObjectUndoSerial(self, conn, tid, ltid, undone_tid, oid_list):
+    def askObjectUndoSerial(self, conn, ttid, ltid, undone_tid, oid_list):
         raise UnexpectedPacketError
 
     def answerObjectUndoSerial(self, conn, object_tid_dict):
         raise UnexpectedPacketError
 
-    def askHasLock(self, conn, tid, oid):
+    def askHasLock(self, conn, ttid, oid):
         raise UnexpectedPacketError
 
     def answerHasLock(self, conn, oid, status):
@@ -375,7 +375,7 @@ class EventHandler(object):
     def answerLastTransaction(self, conn, tid):
         raise UnexpectedPacketError
 
-    def askCheckCurrentSerial(self, conn, tid, serial, oid):
+    def askCheckCurrentSerial(self, conn, ttid, serial, oid):
         raise UnexpectedPacketError
 
     answerCheckCurrentSerial = answerStoreObject
