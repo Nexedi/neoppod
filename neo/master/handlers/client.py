@@ -15,11 +15,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo
+import neo.lib
 
-from neo.protocol import NodeStates, Packets, ProtocolError
+from neo.lib.protocol import NodeStates, Packets, ProtocolError
 from neo.master.handlers import MasterHandler
-from neo.util import dump
+from neo.lib.util import dump
 from neo.master.transactions import DelayedError
 
 class ClientServiceHandler(MasterHandler):

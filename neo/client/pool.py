@@ -18,12 +18,12 @@
 import time
 from random import shuffle
 
-import neo
-from neo.locking import RLock
-from neo.protocol import NodeTypes, Packets
-from neo.connection import MTClientConnection, ConnectionClosed
+import neo.lib
+from neo.lib.locking import RLock
+from neo.lib.protocol import NodeTypes, Packets
+from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.client.exception import NEOStorageError
-from neo.profiling import profiler_decorator
+from neo.lib.profiling import profiler_decorator
 
 # How long before we might retry a connection to a node to which connection
 # failed in the past.
@@ -61,7 +61,7 @@ class ConnectionPool(object):
         assert addr is not None
         app = self.app
         app.setNodeReady()
-        neo.logging.debug('trying to connect to %s - %s', node,
+        neo.lib.logging.debug('trying to connect to %s - %s', node,
             node.getState())
         conn = MTClientConnection(app.em, app.storage_event_handler, addr,
             connector=app.connector_handler(), dispatcher=app.dispatcher)
@@ -70,7 +70,7 @@ class ConnectionPool(object):
         try:
             if conn.getConnector() is None:
                 # This happens, if a connection could not be established.
-                neo.logging.error('Connection to %r failed', node)
+                neo.lib.logging.error('Connection to %r failed', node)
                 self.notifyFailure(node)
                 return None
 
@@ -84,15 +84,15 @@ class ConnectionPool(object):
             app._waitMessage(conn, msg_id,
                 handler=app.storage_bootstrap_handler)
         except ConnectionClosed:
-            neo.logging.error('Connection to %r failed', node)
+            neo.lib.logging.error('Connection to %r failed', node)
             self.notifyFailure(node)
             return None
 
         if app.isNodeReady():
-            neo.logging.info('Connected %r', node)
+            neo.lib.logging.info('Connected %r', node)
             return conn
         else:
-            neo.logging.info('%r not ready', node)
+            neo.lib.logging.info('%r not ready', node)
             self.notifyFailure(node)
             return NOT_READY
 
@@ -107,7 +107,7 @@ class ConnectionPool(object):
                         not self.app.dispatcher.registered(conn):
                     del self.connection_dict[conn.getUUID()]
                     conn.close()
-                    neo.logging.debug('_dropConnections : connection to ' \
+                    neo.lib.logging.debug('_dropConnections : connection to ' \
                         'storage node %s:%d closed', *(conn.getAddress()))
                     if len(self.connection_dict) <= self.max_pool_size:
                         break

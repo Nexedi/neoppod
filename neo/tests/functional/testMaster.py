@@ -17,7 +17,7 @@
 
 import unittest
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
-from neo.protocol import NodeStates
+from neo.lib.protocol import NodeStates
 
 MASTER_NODE_COUNT = 3
 

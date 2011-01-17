@@ -17,10 +17,10 @@
 
 import unittest
 from mock import Mock
-from neo import protocol
-from neo.protocol import NodeTypes, NodeStates
-from neo.node import Node, MasterNode, StorageNode, ClientNode, AdminNode, \
-        NodeManager
+from neo.lib import protocol
+from neo.lib.protocol import NodeTypes, NodeStates
+from neo.lib.node import Node, MasterNode, StorageNode,
+        ClientNode, AdminNode, NodeManager
 from neo.tests import NeoUnitTestBase
 from time import time
 

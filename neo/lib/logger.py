@@ -16,10 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import neo
-from neo.protocol import PacketMalformedError
-from neo.util import dump
-from neo.handler import EventHandler
-from neo.profiling import profiler_decorator
+from neo.lib.protocol import PacketMalformedError
+from neo.lib.util import dump
+from neo.lib.handler import EventHandler
+from neo.lib.profiling import profiler_decorator
 
 LOGGER_ENABLED = False
 
@@ -37,7 +37,7 @@ class PacketLogger(object):
         klass = packet.getType()
         uuid = dump(conn.getUUID())
         ip, port = conn.getAddress()
-        neo.logging.debug('#0x%08x %-30s %s %s (%s:%d)', packet.getId(),
+        neo.lib.logging.debug('#0x%08x %-30s %s %s (%s:%d)', packet.getId(),
                 packet.__class__.__name__, direction, uuid, ip, port)
         # look for custom packet logger
         logger = self.packet_dispatch_table.get(klass, None)
@@ -48,11 +48,11 @@ class PacketLogger(object):
         try:
             args = packet.decode() or ()
         except PacketMalformedError:
-            neo.logging.warning("Can't decode packet for logging")
+            neo.lib.logging.warning("Can't decode packet for logging")
             return
         log_message = logger(conn, *args)
         if log_message is not None:
-            neo.logging.debug('#0x%08x %s', packet.getId(), log_message)
+            neo.lib.logging.debug('#0x%08x %s', packet.getId(), log_message)
 
     def error(self, conn, code, message):
         return "%s (%s)" % (code, message)
@@ -64,7 +64,7 @@ class PacketLogger(object):
             else:
                 address = '?'
             node = (dump(uuid), node_type, address, state)
-            neo.logging.debug(' ! %s | %8s | %22s | %s' % node)
+            neo.lib.logging.debug(' ! %s | %8s | %22s | %s' % node)
 
 PACKET_LOGGER = PacketLogger()
 if not LOGGER_ENABLED:

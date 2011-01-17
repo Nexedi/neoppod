@@ -18,10 +18,10 @@
 import neo
 from time import sleep
 
-from neo.handler import EventHandler
-from neo.protocol import Packets
-from neo.util import dump
-from neo.connection import ClientConnection
+from neo.lib.handler import EventHandler
+from neo.lib.protocol import Packets
+from neo.lib.util import dump
+from neo.lib.connection import ClientConnection
 
 NO_SERVER = ('0.0.0.0', 0)
 
@@ -106,7 +106,7 @@ class BootstrapManager(EventHandler):
             conn.close()
             return
 
-        neo.logging.info('connected to a primary master node')
+        neo.lib.logging.info('connected to a primary master node')
         conn.ask(Packets.RequestIdentification(self.node_type,
                 self.uuid, self.server, self.name))
 
@@ -120,7 +120,7 @@ class BootstrapManager(EventHandler):
         if self.uuid != your_uuid:
             # got an uuid from the primary master
             self.uuid = your_uuid
-            neo.logging.info('Got a new UUID : %s' % dump(self.uuid))
+            neo.lib.logging.info('Got a new UUID : %s' % dump(self.uuid))
         conn.setUUID(uuid)
 
     def getPrimaryConnection(self, connector_handler):
@@ -128,7 +128,7 @@ class BootstrapManager(EventHandler):
         Primary lookup/connection process.
         Returns when the connection is made.
         """
-        neo.logging.info('connecting to a primary master node')
+        neo.lib.logging.info('connecting to a primary master node')
         em, nm = self.app.em, self.app.nm
         index = 0
         self.current = nm.getMasterList()[0]

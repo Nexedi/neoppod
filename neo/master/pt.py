@@ -15,12 +15,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo.pt
+import neo.lib.pt
 from struct import pack, unpack
-from neo.protocol import CellStates
-from neo.pt import PartitionTableException
+from neo.lib.protocol import CellStates
+from neo.lib.pt import PartitionTableException
+from neo.lib.pt import PartitionTable
 
-class PartitionTable(neo.pt.PartitionTable):
+class PartitionTable(PartitionTable):
     """This class manages a partition table for the primary master node"""
 
     def setID(self, id):
@@ -53,7 +54,7 @@ class PartitionTable(neo.pt.PartitionTable):
             row = []
             for _ in xrange(repeats):
                 node = node_list[index]
-                row.append(neo.pt.Cell(node))
+                row.append(neo.lib.pt.Cell(node))
                 self.count_dict[node] = self.count_dict.get(node, 0) + 1
                 index += 1
                 if index == len(node_list):
@@ -87,7 +88,8 @@ class PartitionTable(neo.pt.PartitionTable):
                         node_list = [c.getNode() for c in row]
                         n = self.findLeastUsedNode(node_list)
                         if n is not None:
-                            row.append(neo.pt.Cell(n, CellStates.OUT_OF_DATE))
+                            row.append(neo.lib.pt.Cell(n,
+                                    CellStates.OUT_OF_DATE))
                             self.count_dict[n] += 1
                             cell_list.append((offset, n.getUUID(),
                                               CellStates.OUT_OF_DATE))
@@ -180,7 +182,7 @@ class PartitionTable(neo.pt.PartitionTable):
                 continue
 
             if num_cells <= self.nr:
-                row.append(neo.pt.Cell(node, CellStates.OUT_OF_DATE))
+                row.append(neo.lib.pt.Cell(node, CellStates.OUT_OF_DATE))
                 cell_list.append((offset, node.getUUID(),
                     CellStates.OUT_OF_DATE))
                 node_count += 1
@@ -200,7 +202,7 @@ class PartitionTable(neo.pt.PartitionTable):
                                           CellStates.FEEDING))
                         # Don't count a feeding cell.
                         self.count_dict[max_cell.getNode()] -= 1
-                    row.append(neo.pt.Cell(node, CellStates.OUT_OF_DATE))
+                    row.append(neo.lib.pt.Cell(node, CellStates.OUT_OF_DATE))
                     cell_list.append((offset, node.getUUID(),
                                       CellStates.OUT_OF_DATE))
                     node_count += 1
@@ -281,7 +283,7 @@ class PartitionTable(neo.pt.PartitionTable):
                 node = self.findLeastUsedNode([cell.getNode() for cell in row])
                 if node is None:
                     break
-                row.append(neo.pt.Cell(node, CellStates.OUT_OF_DATE))
+                row.append(neo.lib.pt.Cell(node, CellStates.OUT_OF_DATE))
                 changed_cell_list.append((offset, node.getUUID(),
                     CellStates.OUT_OF_DATE))
                 self.count_dict[node] += 1

@@ -19,7 +19,7 @@ import unittest
 from mock import Mock, ReturnValues
 from neo.tests import NeoUnitTestBase
 from neo.storage.replicator import Replicator, Partition, Task
-from neo.protocol import CellStates, NodeStates, Packets
+from neo.lib.protocol import CellStates, NodeStates, Packets
 
 class StorageReplicatorTests(NeoUnitTestBase):
 

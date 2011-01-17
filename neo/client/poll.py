@@ -16,8 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from threading import Thread, Event, enumerate as thread_enum
-from neo.locking import Lock
-import neo
+from neo.lib.locking import Lock
+import neo.lib
 
 class _ThreadedPoll(Thread):
     """Polling thread."""
@@ -34,7 +34,7 @@ class _ThreadedPoll(Thread):
         self._stop = Event()
 
     def run(self):
-        neo.logging.debug('Started %s', self)
+        neo.lib.logging.debug('Started %s', self)
         while not self.stopping():
             # First check if we receive any new message from other node
             try:
@@ -42,8 +42,8 @@ class _ThreadedPoll(Thread):
                 # interrupt this call when stopping.
                 self.em.poll(1)
             except:
-                self.neo.logging.error('poll raised, retrying', exc_info=1)
-        self.neo.logging.debug('Threaded poll stopped')
+                self.neo.lib.logging.error('poll raised, retrying', exc_info=1)
+        self.neo.lib.logging.debug('Threaded poll stopped')
         self._stop.clear()
 
     def stop(self):
@@ -110,7 +110,7 @@ def psThreadedPoll(log=None):
     Logs alive ThreadedPoll threads.
     """
     if log is None:
-        log = neo.logging.debug
+        log = neo.lib.logging.debug
     for thread in thread_enum():
         if not isinstance(thread, ThreadedPoll):
             continue

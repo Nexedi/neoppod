@@ -19,13 +19,13 @@ import neo
 import os, sys
 from time import time
 
-from neo import protocol
-from neo.protocol import UUID_NAMESPACES, ZERO_TID
-from neo.protocol import ClusterStates, NodeStates, NodeTypes, Packets
-from neo.node import NodeManager
-from neo.event import EventManager
-from neo.connection import ListeningConnection, ClientConnection
-from neo.exception import ElectionFailure, PrimaryFailure, OperationFailure
+from neo.lib import protocol
+from neo.lib.protocol import UUID_NAMESPACES, ZERO_TID
+from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
+from neo.lib.node import NodeManager
+from neo.lib.event import EventManager
+from neo.lib.connection import ListeningConnection, ClientConnection
+from neo.lib.exception import ElectionFailure, PrimaryFailure, OperationFailure
 from neo.master.handlers import election, identification, secondary
 from neo.master.handlers import storage, client, shutdown
 from neo.master.handlers import administration
@@ -33,10 +33,10 @@ from neo.master.pt import PartitionTable
 from neo.master.transactions import TransactionManager
 from neo.master.verification import VerificationManager
 from neo.master.recovery import RecoveryManager
-from neo.util import dump
-from neo.connector import getConnectorHandler
+from neo.lib.util import dump
+from neo.lib.connector import getConnectorHandler
 
-from neo.live_debug import register as registerLiveDebugger
+from neo.lib.live_debug import register as registerLiveDebugger
 
 class Application(object):
     """The master node application."""
@@ -61,7 +61,7 @@ class Application(object):
         for address in config.getMasters():
             self.nm.createMaster(address=address)
 
-        neo.logging.debug('IP address is %s, port is %d', *(self.server))
+        neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))
 
         # Partition table
         replicas, partitions = config.getReplicas(), config.getPartitions()
@@ -70,10 +70,10 @@ class Application(object):
         if partitions <= 0:
             raise RuntimeError, 'partitions must be more than zero'
         self.pt = PartitionTable(partitions, replicas)
-        neo.logging.info('Configuration:')
-        neo.logging.info('Partitions: %d', partitions)
-        neo.logging.info('Replicas  : %d', replicas)
-        neo.logging.info('Name      : %s', self.name)
+        neo.lib.logging.info('Configuration:')
+        neo.lib.logging.info('Partitions: %d', partitions)
+        neo.lib.logging.info('Replicas  : %d', replicas)
+        neo.lib.logging.info('Name      : %s', self.name)
 
         self.listening_conn = None
         self.primary = None
@@ -86,7 +86,7 @@ class Application(object):
         if uuid is None or uuid == '':
             uuid = self.getNewUUID(NodeTypes.MASTER)
         self.uuid = uuid
-        neo.logging.info('UUID      : %s', dump(uuid))
+        neo.lib.logging.info('UUID      : %s', dump(uuid))
 
         # election related data
         self.unconnected_master_node_set = set()
@@ -107,7 +107,7 @@ class Application(object):
         try:
             self._run()
         except:
-            neo.logging.info('\nPre-mortem informations:')
+            neo.lib.logging.info('\nPre-mortem informations:')
             self.log()
             raise
 
@@ -145,7 +145,7 @@ class Application(object):
         others while attempting to connect to other master nodes at the
         same time. Note that storage nodes and client nodes may connect
         to self as well as master nodes."""
-        neo.logging.info('begin the election of a primary master')
+        neo.lib.logging.info('begin the election of a primary master')
 
         self.unconnected_master_node_set.clear()
         self.negotiating_master_node_set.clear()
@@ -199,7 +199,7 @@ class Application(object):
                 for node in self.nm.getMasterList():
                     if not node.isRunning() and node.getLastStateChange() + \
                             expiration < current_time:
-                        neo.logging.info('%s is down' % (node, ))
+                        neo.lib.logging.info('%s is down' % (node, ))
                         node.setDown()
                         self.unconnected_master_node_set.discard(
                                 node.getAddress())
@@ -222,7 +222,7 @@ class Application(object):
             Broadcast the announce that I'm the primary
         """
         # I am the primary.
-        neo.logging.debug('I am the primary, sending an announcement')
+        neo.lib.logging.debug('I am the primary, sending an announcement')
         for conn in self.em.getClientList():
             conn.notify(Packets.AnnouncePrimary())
             conn.abort()
@@ -239,7 +239,7 @@ class Application(object):
         """
             Ask other masters to reelect a primary after an election failure.
         """
-        neo.logging.error('election failed: %s', (m, ))
+        neo.lib.logging.error('election failed: %s', (m, ))
 
         # Ask all connected nodes to reelect a single primary master.
         for conn in self.em.getClientList():
@@ -288,7 +288,7 @@ class Application(object):
 
     def broadcastPartitionChanges(self, cell_list, selector=None):
         """Broadcast a Notify Partition Changes packet."""
-        neo.logging.debug('broadcastPartitionChanges')
+        neo.lib.logging.debug('broadcastPartitionChanges')
         if not cell_list:
             return
         if not selector:
@@ -308,7 +308,8 @@ class Application(object):
 
     def broadcastLastOID(self):
         oid = self.tm.getLastOID()
-        neo.logging.debug('Broadcast last OID to storages : %s' % dump(oid))
+        neo.lib.logging.debug(
+                        'Broadcast last OID to storages : %s' % dump(oid))
         packet = Packets.NotifyLastOID(oid)
         for node in self.nm.getStorageList(only_identified=True):
             node.notify(packet)
@@ -319,7 +320,7 @@ class Application(object):
         and stop the service only if a catastrophy happens or the user commits
         a shutdown.
         """
-        neo.logging.info('provide service')
+        neo.lib.logging.info('provide service')
         em = self.em
         self.tm.reset()
 
@@ -332,7 +333,7 @@ class Application(object):
             except OperationFailure:
                 # If not operational, send Stop Operation packets to storage
                 # nodes and client nodes. Abort connections to client nodes.
-                neo.logging.critical('No longer operational')
+                neo.lib.logging.critical('No longer operational')
                 for node in self.nm.getIdentifiedList():
                     if node.isStorage() or node.isClient():
                         node.notify(Packets.StopOperation())
@@ -345,7 +346,8 @@ class Application(object):
                 return
 
     def playPrimaryRole(self):
-        neo.logging.info('play the primary role with %r', self.listening_conn)
+        neo.lib.logging.info(
+                        'play the primary role with %r', self.listening_conn)
 
         # i'm the primary, send the announcement
         self._announcePrimary()
@@ -382,7 +384,7 @@ class Application(object):
         """
         I play a secondary role, thus only wait for a primary master to fail.
         """
-        neo.logging.info('play the secondary role with %r',
+        neo.lib.logging.info('play the secondary role with %r',
             self.listening_conn)
 
         # Wait for an announcement. If this is too long, probably
@@ -496,7 +498,7 @@ class Application(object):
             self.em.poll(1)
 
         if self.cluster_state != ClusterStates.RUNNING:
-            neo.logging.info("asking all nodes to shutdown")
+            neo.lib.logging.info("asking all nodes to shutdown")
             # This code sends packets but never polls, so they never reach
             # network.
             for node in self.nm.getIdentifiedList():
@@ -533,7 +535,7 @@ class Application(object):
             # always accept admin nodes
             node_ctor = self.nm.createAdmin
             handler = administration.AdministrationHandler(self)
-            neo.logging.info('Accept an admin %s' % (dump(uuid), ))
+            neo.lib.logging.info('Accept an admin %s' % (dump(uuid), ))
         elif node_type == NodeTypes.MASTER:
             if node is None:
                 # unknown master, rejected
@@ -541,15 +543,15 @@ class Application(object):
             # always put other master in waiting state
             node_ctor = self.nm.createMaster
             handler = secondary.SecondaryMasterHandler(self)
-            neo.logging.info('Accept a master %s' % (dump(uuid), ))
+            neo.lib.logging.info('Accept a master %s' % (dump(uuid), ))
         elif node_type == NodeTypes.CLIENT:
             # refuse any client before running
             if self.cluster_state != ClusterStates.RUNNING:
-                neo.logging.info('Reject a connection from a client')
+                neo.lib.logging.info('Reject a connection from a client')
                 raise protocol.NotReadyError
             node_ctor = self.nm.createClient
             handler = client.ClientServiceHandler(self)
-            neo.logging.info('Accept a client %s' % (dump(uuid), ))
+            neo.lib.logging.info('Accept a client %s' % (dump(uuid), ))
         elif node_type == NodeTypes.STORAGE:
             node_ctor = self.nm.createStorage
             if self._current_manager is not None:
@@ -557,7 +559,8 @@ class Application(object):
                 (uuid, state, handler) = identify(uuid, node)
             else:
                 (uuid, state, handler) = self.identifyStorageNode(uuid, node)
-            neo.logging.info('Accept a storage %s (%s)' % (dump(uuid), state))
+            neo.lib.logging.info('Accept a storage %s (%s)' %
+                            (dump(uuid), state))
         return (uuid, node, state, handler, node_ctor)
 
     def onTransactionCommitted(self, txn):

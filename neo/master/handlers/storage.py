@@ -15,15 +15,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo
+import neo.lib
 
-from neo.protocol import ProtocolError
-from neo.protocol import Packets
+from neo.lib.protocol import ProtocolError
+from neo.lib.protocol import Packets
 from neo.master.handlers import BaseServiceHandler
-from neo.exception import OperationFailure
-from neo.util import dump
-from neo.connector import ConnectorConnectionClosedException
-from neo.pt import PartitionTableException
+from neo.lib.exception import OperationFailure
+from neo.lib.util import dump
+from neo.lib.connector import ConnectorConnectionClosedException
+from neo.lib.pt import PartitionTableException
 
 
 class StorageServiceHandler(BaseServiceHandler):
@@ -40,7 +40,7 @@ class StorageServiceHandler(BaseServiceHandler):
             conn.notify(Packets.StartOperation())
 
     def nodeLost(self, conn, node):
-        neo.logging.info('storage node lost')
+        neo.lib.logging.info('storage node lost')
         assert not node.isRunning(), node.getState()
 
         if not self.app.pt.operational():
@@ -71,7 +71,7 @@ class StorageServiceHandler(BaseServiceHandler):
 
     def notifyReplicationDone(self, conn, offset):
         node = self.app.nm.getByUUID(conn.getUUID())
-        neo.logging.debug("%s is up for offset %s" % (node, offset))
+        neo.lib.logging.debug("%s is up for offset %s" % (node, offset))
         try:
             cell_list = self.app.pt.setUpToDate(node, offset)
         except PartitionTableException, e:

@@ -16,8 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from neo.protocol import NodeTypes, NodeStates, CellStates, ClusterStates
-from neo.protocol import ErrorCodes, Packets, Errors, LockState
+from neo.lib.protocol import NodeTypes, NodeStates, CellStates, ClusterStates
+from neo.lib.protocol import ErrorCodes, Packets, Errors, LockState
 from neo.tests import NeoUnitTestBase
 
 class ProtocolTests(NeoUnitTestBase):

@@ -17,17 +17,17 @@
 import unittest
 from time import time
 from mock import Mock
-from neo.connection import ListeningConnection, Connection, \
+from neo.lib.connection import ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, \
      HandlerSwitcher, Timeout, PING_DELAY, PING_TIMEOUT, OnTimeout
-from neo.connector import getConnectorHandler, registerConnectorHandler
+from neo.lib.connector import getConnectorHandler, registerConnectorHandler
 from neo.tests import DoNothingConnector
-from neo.connector import ConnectorException, ConnectorTryAgainException, \
+from neo.lib.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
-from neo.protocol import Packets, ParserState
+from neo.lib.protocol import Packets, ParserState
 from neo.tests import NeoUnitTestBase
-from neo.util import ReadBuffer
-from neo.locking import Queue
+from neo.lib.util import ReadBuffer
+from neo.lib.locking import Queue
 
 class ConnectionTests(NeoUnitTestBase):
 

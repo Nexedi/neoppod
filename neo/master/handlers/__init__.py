@@ -17,15 +17,16 @@
 
 import neo
 
-from neo.handler import EventHandler
-from neo.protocol import NodeTypes, NodeStates, Packets
-from neo.util import dump
+from neo.lib.handler import EventHandler
+from neo.lib.protocol import NodeTypes, NodeStates, Packets
+from neo.lib.util import dump
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
     def protocolError(self, conn, message):
-        neo.logging.error('Protocol error %s %s', message, conn.getAddress())
+        neo.lib.logging.error(
+                        'Protocol error %s %s', message, conn.getAddress())
 
     def askPrimary(self, conn):
         app = self.app
@@ -94,7 +95,7 @@ class BaseServiceHandler(MasterHandler):
         if new_state != NodeStates.BROKEN and was_pending:
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
-            neo.logging.info('drop a pending node from the node manager')
+            neo.lib.logging.info('drop a pending node from the node manager')
             self.app.nm.remove(node)
         self.app.broadcastNodesInformation([node])
         # clean node related data in specialized handlers

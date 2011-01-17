@@ -18,7 +18,7 @@
 from ZODB import BaseStorage
 from zope.interface import implements
 import ZODB.interfaces
-from neo.util import u64, add64
+from neo.lib.util import u64, add64
 from neo.client.exception import NEOStorageCreationUndoneError
 from neo.client.exception import NEOStorageNotFoundError
 

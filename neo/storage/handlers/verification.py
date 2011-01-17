@@ -18,9 +18,9 @@
 import neo
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.protocol import Packets, Errors, ProtocolError
-from neo.util import dump
-from neo.exception import OperationFailure
+from neo.lib.protocol import Packets, Errors, ProtocolError
+from neo.lib.util import dump
+from neo.lib.exception import OperationFailure
 
 class VerificationHandler(BaseMasterHandler):
     """This class deals with events for a verification phase."""
@@ -48,7 +48,7 @@ class VerificationHandler(BaseMasterHandler):
         app = self.app
         if ptid <= app.pt.getID():
             # Ignore this packet.
-            neo.logging.debug('ignoring older partition changes')
+            neo.lib.logging.debug('ignoring older partition changes')
             return
         # update partition table in memory and the database
         app.pt.update(ptid, cell_list, app.nm)

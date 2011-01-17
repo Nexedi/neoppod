@@ -15,10 +15,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo
+import neo.lib
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.protocol import CellStates
+from neo.lib.protocol import CellStates
 
 class HiddenHandler(BaseMasterHandler):
     """This class implements a generic part of the event handlers."""
@@ -29,7 +29,7 @@ class HiddenHandler(BaseMasterHandler):
         app = self.app
         if ptid <= app.pt.getID():
             # Ignore this packet.
-            neo.logging.debug('ignoring older partition changes')
+            neo.lib.logging.debug('ignoring older partition changes')
             return
 
         # update partition table in memory and the database

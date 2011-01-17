@@ -18,8 +18,8 @@
 import unittest
 from mock import Mock, ReturnValues
 from neo.tests import NeoUnitTestBase
-from neo.pt import PartitionTable
-from neo.protocol import NodeTypes, NodeStates
+from neo.lib.pt import PartitionTable
+from neo.lib.protocol import NodeTypes, NodeStates
 from neo.client.handlers.master import PrimaryBootstrapHandler
 from neo.client.handlers.master import PrimaryNotificationsHandler, \
        PrimaryAnswersHandler

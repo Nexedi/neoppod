@@ -29,8 +29,8 @@ import traceback
 import threading
 
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
-from neo.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
-from neo.util import dump
+from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
+from neo.lib.util import dump
 from neo.tests import DB_ADMIN, DB_PASSWD, NeoTestBase
 from neo.client.Storage import Storage
 

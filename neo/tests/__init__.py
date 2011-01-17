@@ -23,8 +23,8 @@ import tempfile
 import MySQLdb
 import neo
 from mock import Mock
-from neo import protocol
-from neo.protocol import Packets
+from neo.lib import protocol
+from neo.lib.protocol import Packets
 from time import time, gmtime
 from struct import pack, unpack
 
@@ -409,7 +409,7 @@ connector_cpt = 0
 
 class DoNothingConnector(Mock):
     def __init__(self, s=None):
-        neo.logging.info("initializing connector")
+        neo.lib.logging.info("initializing connector")
         self.desc = globals()['connector_cpt']
         globals()['connector_cpt'] = globals()['connector_cpt']+ 1
         self.packet_cpt = 0

@@ -17,19 +17,19 @@
 
 from time import time
 
-import neo
-from neo.locking import RLock
+import neo.lib
+from neo.lib.locking import RLock
 
-from neo.protocol import PacketMalformedError, Packets, ParserState
-from neo.connector import ConnectorException, ConnectorTryAgainException, \
+from neo.lib.protocol import PacketMalformedError, Packets, ParserState
+from neo.lib.connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
         ConnectorConnectionClosedException
-from neo.util import dump
-from neo.logger import PACKET_LOGGER
+from neo.lib.util import dump
+from neo.lib.logger import PACKET_LOGGER
 
-from neo import attributeTracker
-from neo.util import ReadBuffer
-from neo.profiling import profiler_decorator
+from neo.lib import attributeTracker
+from neo.lib.util import ReadBuffer
+from neo.lib.profiling import profiler_decorator
 
 PING_DELAY = 6
 PING_TIMEOUT = 5
@@ -62,7 +62,7 @@ def lockCheckWrapper(func):
     def wrapper(self, *args, **kw):
         if not self._lock._is_owned():
             import traceback
-            neo.logging.warning('%s called on %s instance without being ' \
+            neo.lib.logging.warning('%s called on %s instance without being ' \
                 'locked. Stack:\n%s', func.func_code.co_name,
                 self.__class__.__name__, ''.join(traceback.format_stack()))
         # Call anyway
@@ -163,7 +163,7 @@ class HandlerSwitcher(object):
         assert len(self._pending) == 1 or self._pending[0][0]
         PACKET_LOGGER.dispatch(connection, packet, 'from')
         if connection.isClosed() and packet.ignoreOnClosedConnection():
-            neo.logging.debug('Ignoring packet %r on closed connection %r',
+            neo.lib.logging.debug('Ignoring packet %r on closed connection %r',
                 packet, connection)
             return
         msg_id = packet.getId()
@@ -177,7 +177,8 @@ class HandlerSwitcher(object):
         if klass and isinstance(packet, klass) or packet.isError():
             handler.packetReceived(connection, packet)
         else:
-            neo.logging.error('Unexpected answer %r in %r', packet, connection)
+            neo.lib.logging.error(
+                            'Unexpected answer %r in %r', packet, connection)
             notification = Packets.Notify('Unexpected answer: %r' % packet)
             try:
                 connection.notify(notification)
@@ -188,7 +189,8 @@ class HandlerSwitcher(object):
         # apply a pending handler if no more answers are pending
         while len(self._pending) > 1 and not self._pending[0][0]:
             del self._pending[0]
-            neo.logging.debug('Apply handler %r on %r', self._pending[0][1],
+            neo.lib.logging.debug(
+                            'Apply handler %r on %r', self._pending[0][1],
                     connection)
         if timeout == self._next_timeout:
             self._updateNextTimeout()
@@ -286,12 +288,13 @@ class BaseConnection(object):
         if handlers.isPending():
             msg_id = handlers.checkTimeout(self, t)
             if msg_id is not None:
-                neo.logging.info('timeout for #0x%08x with %r', msg_id, self)
+                neo.lib.logging.info(
+                                'timeout for #0x%08x with %r', msg_id, self)
                 self.close()
                 self.getHandler().timeoutExpired(self)
             elif self._timeout.hardExpired(t):
                 # critical time reach or pong not received, abort
-                neo.logging.info('timeout with %r', self)
+                neo.lib.logging.info('timeout with %r', self)
                 self.notify(Packets.Notify('Timeout'))
                 self.abort()
                 self.getHandler().timeoutExpired(self)
@@ -345,9 +348,9 @@ class BaseConnection(object):
 
     def setHandler(self, handler):
         if self._handlers.setHandler(handler):
-            neo.logging.debug('Set handler %r on %r', handler, self)
+            neo.lib.logging.debug('Set handler %r on %r', handler, self)
         else:
-            neo.logging.debug('Delay handler %r on %r', handler, self)
+            neo.lib.logging.debug('Delay handler %r on %r', handler, self)
 
     def getEventManager(self):
         return self.em
@@ -386,7 +389,7 @@ class ListeningConnection(BaseConnection):
     """A listen connection."""
 
     def __init__(self, event_manager, handler, addr, connector, **kw):
-        neo.logging.debug('listening to %s:%d', *addr)
+        neo.lib.logging.debug('listening to %s:%d', *addr)
         BaseConnection.__init__(self, event_manager, handler,
                                 addr=addr, connector=connector)
         self.connector.makeListeningConnection(addr)
@@ -395,7 +398,7 @@ class ListeningConnection(BaseConnection):
     def readable(self):
         try:
             new_s, addr = self.connector.getNewConnection()
-            neo.logging.debug('accepted a connection from %s:%d', *addr)
+            neo.lib.logging.debug('accepted a connection from %s:%d', *addr)
             handler = self.getHandler()
             new_conn = ServerConnection(self.getEventManager(), handler,
                 connector=new_s, addr=addr)
@@ -458,7 +461,7 @@ class Connection(BaseConnection):
         return next_id
 
     def close(self):
-        neo.logging.debug('closing a connector for %r', self)
+        neo.lib.logging.debug('closing a connector for %r', self)
         BaseConnection.close(self)
         if self._on_close is not None:
             self._on_close()
@@ -469,7 +472,7 @@ class Connection(BaseConnection):
 
     def abort(self):
         """Abort dealing with this connection."""
-        neo.logging.debug('aborting a connector for %r', self)
+        neo.lib.logging.debug('aborting a connector for %r', self)
         self.aborted = True
 
     def writable(self):
@@ -556,17 +559,19 @@ class Connection(BaseConnection):
         except ConnectorConnectionClosedException:
             # connection resetted by peer, according to the man, this error
             # should not occurs but it seems it's false
-            neo.logging.debug('Connection reset by peer: %r', self.connector)
+            neo.lib.logging.debug(
+                            'Connection reset by peer: %r', self.connector)
             self._closure()
         except:
-            neo.logging.debug('Unknown connection error: %r', self.connector)
+            neo.lib.logging.debug(
+                            'Unknown connection error: %r', self.connector)
             self._closure()
             # unhandled connector exception
             raise
         else:
             if not data:
-                neo.logging.debug('Connection %r closed in recv',
-                    self.connector)
+                neo.lib.logging.debug(
+                    'Connection %r closed in recv', self.connector)
                 self._closure()
                 return
             self.read_buf.append(data)
@@ -583,16 +588,18 @@ class Connection(BaseConnection):
             pass
         except ConnectorConnectionClosedException:
             # connection resetted by peer
-            neo.logging.debug('Connection reset by peer: %r', self.connector)
+            neo.lib.logging.debug(
+                            'Connection reset by peer: %r', self.connector)
             self._closure()
         except:
-            neo.logging.debug('Unknown connection error: %r', self.connector)
+            neo.lib.logging.debug(
+                            'Unknown connection error: %r', self.connector)
             # unhandled connector exception
             self._closure()
             raise
         else:
             if not n:
-                neo.logging.debug('Connection %r closed in send',
+                neo.lib.logging.debug('Connection %r closed in send',
                     self.connector)
                 self._closure()
                 return

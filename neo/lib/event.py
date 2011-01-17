@@ -16,9 +16,9 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from time import time
-import neo
-from neo.epoll import Epoll
-from neo.profiling import profiler_decorator
+import neo.lib
+from neo.lib.epoll import Epoll
+from neo.lib.profiling import profiler_decorator
 
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""
@@ -190,13 +190,13 @@ class EpollEventManager(object):
             self.epoll.modify(fd, fd in self.reader_set, 0)
 
     def log(self):
-        neo.logging.info('Event Manager:')
-        neo.logging.info('  Readers: %r', [x for x in self.reader_set])
-        neo.logging.info('  Writers: %r', [x for x in self.writer_set])
-        neo.logging.info('  Connections:')
+        neo.lib.logging.info('Event Manager:')
+        neo.lib.logging.info('  Readers: %r', [x for x in self.reader_set])
+        neo.lib.logging.info('  Writers: %r', [x for x in self.writer_set])
+        neo.lib.logging.info('  Connections:')
         pending_set = set(self._pending_processing)
         for fd, conn in self.connection_dict.items():
-            neo.logging.info('    %r: %r (pending=%r)', fd, conn,
+            neo.lib.logging.info('    %r: %r (pending=%r)', fd, conn,
                 conn in pending_set)
 
 

@@ -15,10 +15,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo
+import neo.lib
 
 from neo.storage.handlers import BaseMasterHandler
-from neo import protocol
+from neo.lib import protocol
 
 class InitializationHandler(BaseMasterHandler):
 
@@ -35,7 +35,7 @@ class InitializationHandler(BaseMasterHandler):
         pt.load(ptid, row_list, self.app.nm)
         if not pt.filled():
             raise protocol.ProtocolError('Partial partition table received')
-        neo.logging.debug('Got the partition table :')
+        neo.lib.logging.debug('Got the partition table :')
         self.app.pt.log()
         # Install the partition table into the database for persistency.
         cell_list = []
@@ -48,7 +48,8 @@ class InitializationHandler(BaseMasterHandler):
                     unassigned_set.remove(offset)
         # delete objects database
         if unassigned_set:
-            neo.logging.debug('drop data for partitions %r' % unassigned_set)
+            neo.lib.logging.debug(
+                            'drop data for partitions %r' % unassigned_set)
             app.dm.dropPartitions(num_partitions, unassigned_set)
 
         app.dm.setPartitionTable(ptid, cell_list)
@@ -66,5 +67,5 @@ class InitializationHandler(BaseMasterHandler):
         #   packets in between (or even before asking for node information).
         # - this handler will be changed after receiving answerPartitionTable
         #   and before handling the next packet
-        neo.logging.debug('ignoring notifyPartitionChanges during '\
+        neo.lib.logging.debug('ignoring notifyPartitionChanges during '\
             'initialization')

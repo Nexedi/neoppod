@@ -19,10 +19,10 @@ import unittest
 from mock import Mock, ReturnValues
 from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
-from neo.protocol import CellStates
+from neo.lib.protocol import CellStates
 from collections import deque
-from neo.pt import PartitionTable
-from neo.util import dump
+from neo.lib.pt import PartitionTable
+from neo.lib.util import dump
 from neo.storage.exception import AlreadyPendingError
 
 class StorageAppTests(NeoUnitTestBase):

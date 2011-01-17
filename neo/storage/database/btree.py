@@ -21,11 +21,11 @@ Not persistent ! (no data retained after process exit)
 """
 
 from BTrees.OOBTree import OOBTree as _OOBTree
-import neo
+import neo.lib
 
 from neo.storage.database import DatabaseManager
-from neo.protocol import CellStates
-from neo import util
+from neo.lib.protocol import CellStates
+from neo.lib import util
 
 # The only purpose of this value (and code using it) is to avoid creating
 # arbitrarily-long lists of values when cleaning up dictionaries.
@@ -266,7 +266,7 @@ class BTreeDatabaseManager(DatabaseManager):
         except KeyError:
             raise IndexError(value_serial)
         if value is None:
-            neo.logging.info("Multiple levels of indirection when " \
+            neo.lib.logging.info("Multiple levels of indirection when " \
                 "searching for object data for oid %d at tid %d. This " \
                 "causes suboptimal performance." % (oid, value_serial))
             value_serial, compression, checksum, value = self._getObjectData(
@@ -522,7 +522,7 @@ class BTreeDatabaseManager(DatabaseManager):
             raise CreationUndone
         _, _, value, value_serial = self._obj[oid][value_serial]
         if value is None:
-            neo.logging.info("Multiple levels of indirection when " \
+            neo.lib.logging.info("Multiple levels of indirection when " \
                 "searching for object data for oid %d at tid %d. This " \
                 "causes suboptimal performance." % (oid, value_serial))
             length = self._getObjectLength(oid, value_serial)

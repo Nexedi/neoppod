@@ -26,7 +26,7 @@ from neo.storage.handlers.replication import ReplicationHandler
 from neo.storage.handlers.replication import RANGE_LENGTH
 from neo.storage.handlers.storage import StorageOperationHandler
 from neo.storage.replicator import Replicator
-from neo.protocol import ZERO_OID, ZERO_TID
+from neo.lib.protocol import ZERO_OID, ZERO_TID
 
 MAX_TRANSACTIONS = 10000
 MAX_OBJECTS = 100000

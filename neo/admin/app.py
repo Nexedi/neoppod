@@ -15,19 +15,19 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo
+import neo.lib
 
-from neo.node import NodeManager
-from neo.event import EventManager
-from neo.connection import ListeningConnection
-from neo.exception import PrimaryFailure
+from neo.lib.node import NodeManager
+from neo.lib.event import EventManager
+from neo.lib.connection import ListeningConnection
+from neo.lib.exception import PrimaryFailure
 from neo.admin.handler import AdminEventHandler, MasterEventHandler, \
     MasterRequestEventHandler
-from neo.connector import getConnectorHandler
-from neo.bootstrap import BootstrapManager
-from neo.pt import PartitionTable
-from neo.protocol import NodeTypes, NodeStates, Packets, Errors
-from neo.live_debug import register as registerLiveDebugger
+from neo.lib.connector import getConnectorHandler
+from neo.lib.bootstrap import BootstrapManager
+from neo.lib.pt import PartitionTable
+from neo.lib.protocol import NodeTypes, NodeStates, Packets, Errors
+from neo.lib.live_debug import register as registerLiveDebugger
 
 class Dispatcher:
     """Dispatcher use to redirect master request to handler"""
@@ -68,7 +68,7 @@ class Application(object):
         self.server = config.getBind()
         self.master_addresses = config.getMasters()
 
-        neo.logging.debug('IP address is %s, port is %d', *(self.server))
+        neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))
 
         # The partition table is initialized after getting the number of
         # partitions.
@@ -105,7 +105,7 @@ class Application(object):
                 while True:
                     self.em.poll(1)
             except PrimaryFailure:
-                neo.logging.error('primary master is down')
+                neo.lib.logging.error('primary master is down')
 
 
     def connectToPrimary(self):

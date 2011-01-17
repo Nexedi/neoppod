@@ -17,10 +17,10 @@
 
 from time import time, gmtime
 from struct import pack, unpack
-from neo.protocol import ZERO_TID
+from neo.lib.protocol import ZERO_TID
 from datetime import timedelta, datetime
-from neo.util import dump, u64, p64
-import neo
+from neo.lib.util import dump, u64, p64
+import neo.lib
 
 TID_LOW_OVERFLOW = 2**32
 TID_LOW_MAX = TID_LOW_OVERFLOW - 1
@@ -347,7 +347,8 @@ class TransactionManager(object):
         else:
             tid = self._nextTID(ttid, divisor)
             self._queue.append((node.getUUID(), ttid))
-        neo.logging.debug('Finish TXN %s for %s (was %s)', dump(tid), node, dump(ttid))
+        neo.lib.logging.debug('Finish TXN %s for %s (was %s)',
+                        dump(tid), node, dump(ttid))
         txn = Transaction(node, ttid, tid, oid_list, uuid_list, msg_id)
         self._ttid_dict[ttid] = txn
         self._node_dict.setdefault(node, {})[ttid] = txn
@@ -418,7 +419,7 @@ class TransactionManager(object):
         """
             Abort pending transactions initiated by a node
         """
-        neo.logging.debug('Abort TXN for %s', node)
+        neo.lib.logging.debug('Abort TXN for %s', node)
         uuid = node.getUUID()
         # XXX: this loop is usefull only during an import
         for nuuid, ntid in list(self._queue):
@@ -433,7 +434,7 @@ class TransactionManager(object):
             del self._node_dict[node]
 
     def log(self):
-        neo.logging.info('Transactions:')
+        neo.lib.logging.info('Transactions:')
         for txn in self._ttid_dict.itervalues():
-            neo.logging.info('  %r', txn)
+            neo.lib.logging.info('  %r', txn)
 

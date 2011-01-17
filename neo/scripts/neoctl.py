@@ -18,7 +18,7 @@
 
 import sys
 from optparse import OptionParser
-from neo import setupLog
+from neo.lib import setupLog
 
 parser = OptionParser()
 parser.add_option('-v', '--verbose', action = 'store_true', 

@@ -16,8 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
-from neo.util import bin, dump
-from neo.protocol import ClusterStates, NodeStates, NodeTypes
+from neo.lib.util import bin, dump
+from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes
 
 action_dict = {
     'print': {

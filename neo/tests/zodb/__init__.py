@@ -19,7 +19,7 @@ import os
 import unittest
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
-import neo
+import neo.lib
 
 class ZODBTestCase(NEOFunctionalTest):
 

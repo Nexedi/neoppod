@@ -19,7 +19,7 @@ import unittest
 from mock import Mock
 from struct import pack, unpack
 from neo.tests import NeoUnitTestBase
-from neo.protocol import ZERO_TID
+from neo.lib.protocol import ZERO_TID
 
 from neo.master.transactions import Transaction, TransactionManager
 from neo.master.transactions import packTID, unpackTID, addTID, DelayedError

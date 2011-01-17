@@ -17,13 +17,13 @@
 
 import unittest
 from mock import Mock
-from neo import protocol
+from neo.lib import protocol
 from neo.tests import NeoUnitTestBase
-from neo.protocol import Packet, NodeTypes, NodeStates
+from neo.lib.protocol import Packet, NodeTypes, NodeStates
 from neo.master.handlers.election import ClientElectionHandler, ServerElectionHandler
 from neo.master.app import Application
-from neo.exception import ElectionFailure
-from neo.connection import ClientConnection
+from neo.lib.exception import ElectionFailure
+from neo.lib.connection import ClientConnection
 
 # patch connection so that we can register _addPacket messages
 # in mock object

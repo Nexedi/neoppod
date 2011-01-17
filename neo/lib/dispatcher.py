@@ -15,8 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo.locking import Lock
-from neo.profiling import profiler_decorator
+from neo.lib.locking import Lock
+from neo.lib.profiling import profiler_decorator
 EMPTY = {}
 NOBODY = []
 

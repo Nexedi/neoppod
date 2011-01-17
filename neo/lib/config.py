@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from ConfigParser import SafeConfigParser
-from neo import util
+from neo.lib import util
 
 
 class ConfigurationManager(object):

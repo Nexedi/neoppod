@@ -17,10 +17,10 @@
 
 import unittest
 from mock import Mock
-from neo.util import dump, p64, u64
-from neo.protocol import CellStates, ZERO_OID, ZERO_TID
+from neo.lib.util import dump, p64, u64
+from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID
 from neo.tests import NeoUnitTestBase
-from neo.exception import DatabaseFailure
+from neo.lib.exception import DatabaseFailure
 from neo.storage.database.mysqldb import MySQLDatabaseManager
 
 MAX_TID = '\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFE' # != INVALID_TID

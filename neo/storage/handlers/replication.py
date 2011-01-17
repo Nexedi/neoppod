@@ -16,11 +16,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo
+import neo.lib
 
-from neo.handler import EventHandler
-from neo.protocol import Packets, ZERO_TID, ZERO_OID
-from neo.util import add64
+from neo.lib.handler import EventHandler
+from neo.lib.protocol import Packets, ZERO_TID, ZERO_OID
+from neo.lib.util import add64
 
 # TODO: benchmark how different values behave
 RANGE_LENGTH = 4000
@@ -82,11 +82,13 @@ class ReplicationHandler(EventHandler):
     """This class handles events for replications."""
 
     def connectionLost(self, conn, new_state):
-        neo.logging.error('replication is stopped due to a connection lost')
+        neo.lib.logging.error(
+                        'replication is stopped due to a connection lost')
         self.app.replicator.storageLost()
 
     def connectionFailed(self, conn):
-        neo.logging.error('replication is stopped due to connection failure')
+        neo.lib.logging.error(
+                        'replication is stopped due to connection failure')
         self.app.replicator.storageLost()
 
     def acceptIdentification(self, conn, node_type,

@@ -24,8 +24,8 @@ from neo.tests import NeoUnitTestBase
 from neo.client.app import Application, RevisionIndex
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
-from neo.protocol import Packet, Packets, Errors, INVALID_TID
-from neo.util import makeChecksum
+from neo.lib.protocol import Packet, Packets, Errors, INVALID_TID
+from neo.lib.util import makeChecksum
 import time
 
 def _getMasterConnection(self):

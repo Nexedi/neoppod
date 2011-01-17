@@ -17,9 +17,9 @@
 
 import unittest
 from mock import Mock
-from neo.protocol import NodeStates, CellStates
-from neo.pt import Cell, PartitionTable, PartitionTableException
-from neo.node import StorageNode
+from neo.lib.protocol import NodeStates, CellStates
+from neo.lib.pt import Cell, PartitionTable, PartitionTableException
+from neo.lib.node import StorageNode
 from neo.tests import NeoUnitTestBase
 
 class PartitionTableTests(NeoUnitTestBase):

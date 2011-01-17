@@ -15,10 +15,10 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo
-from neo import protocol
-from neo.util import dump
-from neo.protocol import Packets, LockState, Errors
+import neo.lib
+from neo.lib import protocol
+from neo.lib.util import dump
+from neo.lib.protocol import Packets, LockState, Errors
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
 from neo.storage.transactions import ConflictError, DelayedError
 from neo.storage.exception import AlreadyPendingError
@@ -51,7 +51,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             data_serial, ttid, unlock, request_time):
         if ttid not in self.app.tm:
             # transaction was aborted, cancel this event
-            neo.logging.info('Forget store of %s:%s by %s delayed by %s',
+            neo.lib.logging.info('Forget store of %s:%s by %s delayed by %s',
                     dump(oid), dump(serial), dump(ttid),
                     dump(self.app.tm.getLockingTID(oid)))
             # send an answer as the client side is waiting for it
@@ -80,7 +80,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             if SLOW_STORE is not None:
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
-                    neo.logging.info('StoreObject delay: %.02fs', duration)
+                    neo.lib.logging.info('StoreObject delay: %.02fs', duration)
             conn.answer(Packets.AnswerStoreObject(0, oid, serial))
 
     def askStoreObject(self, conn, oid, serial,
@@ -140,7 +140,8 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
     def askHasLock(self, conn, ttid, oid):
         locking_tid = self.app.tm.getLockingTID(oid)
-        neo.logging.info('%r check lock of %r:%r', conn, dump(ttid), dump(oid))
+        neo.lib.logging.info('%r check lock of %r:%r', conn,
+                        dump(ttid), dump(oid))
         if locking_tid is None:
             state = LockState.NOT_LOCKED
         elif locking_tid is ttid:
@@ -167,7 +168,8 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
     def _askCheckCurrentSerial(self, conn, ttid, serial, oid, request_time):
         if ttid not in self.app.tm:
             # transaction was aborted, cancel this event
-            neo.logging.info('Forget serial check of %s:%s by %s delayed by '
+            neo.lib.logging.info(
+                'Forget serial check of %s:%s by %s delayed by '
                 '%s', dump(oid), dump(serial), dump(ttid),
                 dump(self.app.tm.getLockingTID(oid)))
             # send an answer as the client side is waiting for it
@@ -190,7 +192,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             if SLOW_STORE is not None:
                 duration = time.time() - request_time
                 if duration > SLOW_STORE:
-                    neo.logging.info('CheckCurrentSerial delay: %.02fs',
+                    neo.lib.logging.info('CheckCurrentSerial delay: %.02fs',
                         duration)
             conn.answer(Packets.AnswerCheckCurrentSerial(0, oid, serial))
 

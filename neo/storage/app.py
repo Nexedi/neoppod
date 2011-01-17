@@ -19,23 +19,23 @@ import neo
 import sys
 from collections import deque
 
-from neo.protocol import NodeTypes, CellStates, Packets
-from neo.node import NodeManager
-from neo.event import EventManager
-from neo.connection import ListeningConnection
-from neo.exception import OperationFailure, PrimaryFailure
+from neo.lib.protocol import NodeTypes, CellStates, Packets
+from neo.lib.node import NodeManager
+from neo.lib.event import EventManager
+from neo.lib.connection import ListeningConnection
+from neo.lib.exception import OperationFailure, PrimaryFailure
 from neo.storage.handlers import identification, verification, initialization
 from neo.storage.handlers import master, hidden
 from neo.storage.replicator import Replicator
 from neo.storage.database import buildDatabaseManager
 from neo.storage.transactions import TransactionManager
 from neo.storage.exception import AlreadyPendingError
-from neo.connector import getConnectorHandler
-from neo.pt import PartitionTable
-from neo.util import dump
-from neo.bootstrap import BootstrapManager
+from neo.lib.connector import getConnectorHandler
+from neo.lib.pt import PartitionTable
+from neo.lib.util import dump
+from neo.lib.bootstrap import BootstrapManager
 
-from neo.live_debug import register as registerLiveDebugger
+from neo.lib.live_debug import register as registerLiveDebugger
 
 class Application(object):
     """The storage node application."""
@@ -59,7 +59,7 @@ class Application(object):
 
         # set the bind address
         self.server = config.getBind()
-        neo.logging.debug('IP address is %s, port is %d', *(self.server))
+        neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))
 
         # The partition table is initialized after getting the number of
         # partitions.
@@ -131,12 +131,12 @@ class Application(object):
             # create a partition table
             self.pt = PartitionTable(num_partitions, num_replicas)
 
-        neo.logging.info('Configuration loaded:')
-        neo.logging.info('UUID      : %s', dump(self.uuid))
-        neo.logging.info('PTID      : %s', dump(ptid))
-        neo.logging.info('Name      : %s', self.name)
-        neo.logging.info('Partitions: %s', num_partitions)
-        neo.logging.info('Replicas  : %s', num_replicas)
+        neo.lib.logging.info('Configuration loaded:')
+        neo.lib.logging.info('UUID      : %s', dump(self.uuid))
+        neo.lib.logging.info('PTID      : %s', dump(ptid))
+        neo.lib.logging.info('Name      : %s', self.name)
+        neo.lib.logging.info('Partitions: %s', num_partitions)
+        neo.lib.logging.info('Replicas  : %s', num_replicas)
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
@@ -161,7 +161,7 @@ class Application(object):
         try:
             self._run()
         except:
-            neo.logging.info('\nPre-mortem informations:')
+            neo.lib.logging.info('\nPre-mortem informations:')
             self.log()
             raise
 
@@ -202,10 +202,10 @@ class Application(object):
                 self.doOperation()
                 raise RuntimeError, 'should not reach here'
             except OperationFailure, msg:
-                neo.logging.error('operation stopped: %s', msg)
+                neo.lib.logging.error('operation stopped: %s', msg)
             except PrimaryFailure, msg:
                 self.replicator.masterLost()
-                neo.logging.error('primary master is down: %s', msg)
+                neo.lib.logging.error('primary master is down: %s', msg)
                 self.master_node = None
 
     def connectToPrimary(self):
@@ -230,7 +230,7 @@ class Application(object):
         (node, conn, uuid, num_partitions, num_replicas) = data
         self.master_node = node
         self.master_conn = conn
-        neo.logging.info('I am %s', dump(uuid))
+        neo.lib.logging.info('I am %s', dump(uuid))
         self.uuid = uuid
         self.dm.setUUID(uuid)
 
@@ -252,7 +252,7 @@ class Application(object):
     def verifyData(self):
         """Verify data under the control by a primary master node.
         Connections from client nodes may not be accepted at this stage."""
-        neo.logging.info('verifying data')
+        neo.lib.logging.info('verifying data')
 
         handler = verification.VerificationHandler(self)
         self.master_conn.setHandler(handler)
@@ -263,7 +263,7 @@ class Application(object):
 
     def initialize(self):
         """ Retreive partition table and node informations from the primary """
-        neo.logging.debug('initializing...')
+        neo.lib.logging.debug('initializing...')
         _poll = self._poll
         handler = initialization.InitializationHandler(self)
         self.master_conn.setHandler(handler)
@@ -285,7 +285,7 @@ class Application(object):
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""
-        neo.logging.info('doing operation')
+        neo.lib.logging.info('doing operation')
 
         _poll = self._poll
 
@@ -309,7 +309,7 @@ class Application(object):
 
     def wait(self):
         # change handler
-        neo.logging.info("waiting in hidden state")
+        neo.lib.logging.info("waiting in hidden state")
         _poll = self._poll
         handler = hidden.HiddenHandler(self)
         for conn in self.em.getConnectionList():
@@ -355,9 +355,9 @@ class Application(object):
     def logQueuedEvents(self):
         if self.event_queue is None:
             return
-        neo.logging.info("Pending events:")
+        neo.lib.logging.info("Pending events:")
         for key, event, _msg_id, _conn, args in self.event_queue:
-            neo.logging.info('  %r:%r: %r:%r %r %r', key, event.__name__,
+            neo.lib.logging.info('  %r:%r: %r:%r %r %r', key, event.__name__,
                 _msg_id, _conn, args)
 
     def shutdown(self, erase=False):

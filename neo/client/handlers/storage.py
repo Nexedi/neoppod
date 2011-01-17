@@ -18,10 +18,10 @@
 from ZODB.TimeStamp import TimeStamp
 from ZODB.POSException import ConflictError
 
-import neo
+import neo.lib
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
-from neo.protocol import NodeTypes, ProtocolError, LockState
-from neo.util import dump
+from neo.lib.protocol import NodeTypes, ProtocolError, LockState
+from neo.lib.util import dump
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
 
@@ -74,7 +74,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
         local_var = self.app.local_var
         object_stored_counter_dict = local_var.object_stored_counter_dict[oid]
         if conflicting:
-            neo.logging.info('%r report a conflict for %r with %r', conn,
+            neo.lib.logging.info('%r report a conflict for %r with %r', conn,
                         dump(oid), dump(serial))
             conflict_serial_dict = local_var.conflict_serial_dict
             if serial in object_stored_counter_dict:
@@ -96,7 +96,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
             raise NEOStorageError('Wrong TID, transaction not started')
 
     def answerTIDsFrom(self, conn, tid_list):
-        neo.logging.debug('Get %d TIDs from %r', len(tid_list), conn)
+        neo.lib.logging.debug('Get %d TIDs from %r', len(tid_list), conn)
         assert not self.app.local_var.tids_from.intersection(set(tid_list))
         self.app.local_var.tids_from.update(tid_list)
 
@@ -144,7 +144,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
             raise ConflictError, 'Lock wait timeout for oid %s on %r' % (
                 dump(oid), conn)
         elif status == LockState.GRANTED:
-            neo.logging.info('Store of oid %s was successful, but after ' \
+            neo.lib.logging.info('Store of oid %s was successful, but after ' \
                 'timeout.', dump(oid))
             # XXX: Not sure what to do in this case yet, for now do nothing.
         else:

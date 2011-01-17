@@ -19,7 +19,7 @@ import unittest
 from mock import Mock
 from neo.tests import NeoUnitTestBase
 from neo.master.app import Application
-from neo.util import p64, u64
+from neo.lib.util import p64, u64
 
 class MasterAppTests(NeoUnitTestBase):
 

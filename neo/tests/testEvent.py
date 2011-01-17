@@ -18,8 +18,8 @@ import unittest
 from mock import Mock
 from time import time
 from neo.tests import NeoUnitTestBase
-from neo.epoll import Epoll
-from neo.event import EpollEventManager
+from neo.lib.epoll import Epoll
+from neo.lib.event import EpollEventManager
 
 class EventTests(NeoUnitTestBase):
 

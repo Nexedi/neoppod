@@ -18,11 +18,11 @@
 import unittest
 from mock import Mock
 from neo.tests import NeoUnitTestBase
-from neo.pt import PartitionTable
+from neo.lib.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.initialization import InitializationHandler
-from neo.protocol import CellStates, ProtocolError
-from neo.exception import PrimaryFailure
+from neo.lib.protocol import CellStates, ProtocolError
+from neo.lib.exception import PrimaryFailure
 
 class StorageInitializationHandlerTests(NeoUnitTestBase):
 

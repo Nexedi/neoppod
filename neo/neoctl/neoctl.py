@@ -15,11 +15,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo.connector import getConnectorHandler
-from neo.connection import ClientConnection
-from neo.event import EventManager
+from neo.lib.connector import getConnectorHandler
+from neo.lib.connection import ClientConnection
+from neo.lib.event import EventManager
 from neo.neoctl.handler import CommandEventHandler
-from neo.protocol import ClusterStates, NodeStates, ErrorCodes, Packets
+from neo.lib.protocol import ClusterStates, NodeStates, ErrorCodes, Packets
 
 class NotReadyException(Exception):
     pass

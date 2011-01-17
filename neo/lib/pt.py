@@ -17,10 +17,10 @@
 
 import neo
 
-from neo import protocol
-from neo.protocol import CellStates
-from neo.util import dump, u64
-from neo.locking import RLock
+from neo.lib import protocol
+from neo.lib.protocol import CellStates
+from neo.lib.util import dump, u64
+from neo.lib.locking import RLock
 
 class PartitionTableException(Exception):
     """
@@ -218,7 +218,7 @@ class PartitionTable(object):
                 # the node must be known by the node manager
                 assert node is not None
                 self.setCell(offset, node, state)
-        neo.logging.debug('partition table loaded')
+        neo.lib.logging.debug('partition table loaded')
         self.log()
 
     def update(self, ptid, cell_list, nm):
@@ -228,14 +228,14 @@ class PartitionTable(object):
         is not known, it is created in the node manager and set as unavailable
         """
         if ptid <= self._id:
-            neo.logging.warning('ignoring older partition changes')
+            neo.lib.logging.warning('ignoring older partition changes')
             return
         self._id = ptid
         for offset, uuid, state in cell_list:
             node = nm.getByUUID(uuid)
             assert node is not None, 'No node found for uuid %r' % (dump(uuid), )
             self.setCell(offset, node, state)
-        neo.logging.debug('partition table updated')
+        neo.lib.logging.debug('partition table updated')
         self.log()
 
     def filled(self):
@@ -243,7 +243,7 @@ class PartitionTable(object):
 
     def log(self):
         for line in self._format():
-            neo.logging.debug(line)
+            neo.lib.logging.debug(line)
 
     def format(self):
         return '\n'.join(self._format())

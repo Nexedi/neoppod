@@ -15,8 +15,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo import util
-from neo.exception import DatabaseFailure
+from neo.lib import util
+from neo.lib.exception import DatabaseFailure
 
 class CreationUndone(Exception):
     pass

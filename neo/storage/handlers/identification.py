@@ -15,18 +15,18 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo
+import neo.lib
 
-from neo.handler import EventHandler
-from neo.protocol import NodeTypes, Packets, NotReadyError
-from neo.protocol import ProtocolError, BrokenNodeDisallowedError
-from neo.util import dump
+from neo.lib.handler import EventHandler
+from neo.lib.protocol import NodeTypes, Packets, NotReadyError
+from neo.lib.protocol import ProtocolError, BrokenNodeDisallowedError
+from neo.lib.util import dump
 
 class IdentificationHandler(EventHandler):
     """ Handler used for incoming connections during operation state """
 
     def connectionLost(self, conn, new_state):
-        neo.logging.warning('A connection was lost during identification')
+        neo.lib.logging.warning('A connection was lost during identification')
 
     def requestIdentification(self, conn, node_type,
                                         uuid, address, name):
@@ -54,7 +54,7 @@ class IdentificationHandler(EventHandler):
             from neo.storage.handlers.storage import StorageOperationHandler
             handler = StorageOperationHandler
             if node is None:
-                neo.logging.error('reject an unknown storage node %s',
+                neo.lib.logging.error('reject an unknown storage node %s',
                     dump(uuid))
                 raise NotReadyError
         else:

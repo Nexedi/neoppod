@@ -18,12 +18,12 @@
 import unittest
 from mock import Mock
 from neo.tests import NeoUnitTestBase
-from neo.pt import PartitionTable
+from neo.lib.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.verification import VerificationHandler
-from neo.protocol import CellStates, ErrorCodes
-from neo.exception import PrimaryFailure, OperationFailure
-from neo.util import p64, u64
+from neo.lib.protocol import CellStates, ErrorCodes
+from neo.lib.exception import PrimaryFailure, OperationFailure
+from neo.lib.util import p64, u64
 
 class StorageVerificationHandlerTests(NeoUnitTestBase):
 

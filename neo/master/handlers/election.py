@@ -15,14 +15,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo
+import neo.lib
 
-from neo.protocol import NodeTypes, Packets
-from neo.protocol import NotReadyError, ProtocolError, UnexpectedPacketError
-from neo.protocol import BrokenNodeDisallowedError
+from neo.lib.protocol import NodeTypes, Packets
+from neo.lib.protocol import NotReadyError, ProtocolError,
+                              UnexpectedPacketError
+from neo.lib.protocol import BrokenNodeDisallowedError
 from neo.master.handlers import MasterHandler
-from neo.exception import ElectionFailure
-from neo.util import dump
+from neo.lib.exception import ElectionFailure
+from neo.lib.util import dump
 
 class ClientElectionHandler(MasterHandler):
 
@@ -90,7 +91,7 @@ class ClientElectionHandler(MasterHandler):
         node = app.nm.getByAddress(conn.getAddress())
         if node_type != NodeTypes.MASTER:
             # The peer is not a master node!
-            neo.logging.error('%r is not a master node', conn)
+            neo.lib.logging.error('%r is not a master node', conn)
             app.nm.remove(node)
             app.negotiating_master_node_set.discard(node.getAddress())
             conn.close()
@@ -99,7 +100,8 @@ class ClientElectionHandler(MasterHandler):
         if your_uuid != app.uuid:
             # uuid conflict happened, accept the new one and restart election
             app.uuid = your_uuid
-            neo.logging.info('UUID conflict, new UUID: %s', dump(your_uuid))
+            neo.lib.logging.info('UUID conflict, new UUID: %s',
+                            dump(your_uuid))
             raise ElectionFailure, 'new uuid supplied'
 
         conn.setUUID(uuid)
@@ -138,7 +140,8 @@ class ClientElectionHandler(MasterHandler):
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
-                neo.logging.warning('received an unknown primary node UUID')
+                neo.lib.logging.warning(
+                                'received an unknown primary node UUID')
             else:
                 # Whatever the situation is, I trust this master.
                 app.primary = False
@@ -196,11 +199,11 @@ class ServerElectionHandler(MasterHandler):
         self.checkClusterName(name)
         app = self.app
         if node_type != NodeTypes.MASTER:
-            neo.logging.info('reject a connection from a non-master')
+            neo.lib.logging.info('reject a connection from a non-master')
             raise NotReadyError
         node = app.nm.getByAddress(address)
         if node is None:
-            neo.logging.error('unknown master node: %s' % (address, ))
+            neo.lib.logging.error('unknown master node: %s' % (address, ))
             raise ProtocolError('unknown master node')
         # If this node is broken, reject it.
         if node.getUUID() == uuid:
@@ -236,5 +239,5 @@ class ServerElectionHandler(MasterHandler):
         app.primary_master_node = node
         app.unconnected_master_node_set.clear()
         app.negotiating_master_node_set.clear()
-        neo.logging.info('%s is the primary', node)
+        neo.lib.logging.info('%s is the primary', node)
 

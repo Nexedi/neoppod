@@ -18,7 +18,7 @@
 import unittest
 import MySQLdb
 from mock import Mock
-from neo.exception import DatabaseFailure
+from neo.lib.exception import DatabaseFailure
 from neo.tests.storage.testStorageDBTests import StorageDBTests
 from neo.storage.database.mysqldb import MySQLDatabaseManager
 

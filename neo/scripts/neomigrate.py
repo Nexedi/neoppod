@@ -23,7 +23,7 @@ import logging
 import time
 import os
 
-from neo import setupLog
+from neo.lib import setupLog
 
 # register options
 parser = OptionParser()

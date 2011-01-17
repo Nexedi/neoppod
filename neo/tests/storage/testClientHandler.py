@@ -22,9 +22,9 @@ from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.transactions import ConflictError, DelayedError
 from neo.storage.handlers.client import ClientOperationHandler
-from neo.protocol import INVALID_PARTITION
-from neo.protocol import INVALID_TID, INVALID_OID
-from neo.protocol import Packets, LockState
+from neo.lib.protocol import INVALID_PARTITION
+from neo.lib.protocol import INVALID_TID, INVALID_OID
+from neo.lib.protocol import Packets, LockState
 
 class StorageClientHandlerTests(NeoUnitTestBase):
 

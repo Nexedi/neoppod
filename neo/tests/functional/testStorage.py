@@ -20,7 +20,7 @@ import transaction
 from persistent import Persistent
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
-from neo.protocol import ClusterStates, NodeStates
+from neo.lib.protocol import ClusterStates, NodeStates
 from MySQLdb import ProgrammingError
 from MySQLdb.constants.ER import NO_SUCH_TABLE
 

@@ -18,7 +18,7 @@
 import unittest
 
 from neo.tests import NeoUnitTestBase
-from neo.util import ReadBuffer
+from neo.lib.util import ReadBuffer
 
 class UtilTests(NeoUnitTestBase):
 

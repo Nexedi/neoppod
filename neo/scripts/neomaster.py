@@ -17,8 +17,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 from optparse import OptionParser
-from neo import setupLog
-from neo.config import ConfigurationManager
+from neo.lib import setupLog
+from neo.lib.config import ConfigurationManager
 
 parser = OptionParser()
 parser.add_option('-v', '--verbose', action = 'store_true', 

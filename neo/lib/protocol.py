@@ -17,10 +17,10 @@
 
 from struct import pack, unpack, error, calcsize
 from socket import inet_ntoa, inet_aton
-from neo.profiling import profiler_decorator
+from neo.lib.profiling import profiler_decorator
 from cStringIO import StringIO
 
-from neo.util import Enum
+from neo.lib.util import Enum
 
 # The protocol version (major, minor).
 PROTOCOL_VERSION = (4, 1)

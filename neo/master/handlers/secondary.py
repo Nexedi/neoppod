@@ -16,8 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo.master.handlers import MasterHandler
-from neo.exception import ElectionFailure, PrimaryFailure
-from neo.protocol import NodeTypes, Packets
+from neo.lib.exception import ElectionFailure, PrimaryFailure
+from neo.lib.protocol import NodeTypes, Packets
 
 class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
