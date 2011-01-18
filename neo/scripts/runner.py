@@ -100,7 +100,7 @@ LOG_FILE = 'neo.log'
 
 # override logging configuration to send all messages to a file
 for logger_name in ('NEO', 'CLIENT'):
-    neo.setupLog(logger_name, filename=LOG_FILE)
+    neo.lib.setupLog(logger_name, filename=LOG_FILE)
 
 class NeoTestRunner(unittest.TestResult):
     """ Custom result class to build report with statistics per module """

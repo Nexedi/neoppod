@@ -43,7 +43,7 @@ class ZODBTestCase(NEOFunctionalTest):
         self._storage.cleanup()
         self.neo.stop()
         # Deconfigure client logger
-        neo.setupLog('CLIENT')
+        neo.lib.setupLog('CLIENT')
         NEOFunctionalTest.tearDown(self)
 
     def open(self, read_only=False):

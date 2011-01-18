@@ -18,7 +18,7 @@
 import neo.lib
 
 from neo.lib.protocol import NodeTypes, Packets
-from neo.lib.protocol import NotReadyError, ProtocolError,
+from neo.lib.protocol import NotReadyError, ProtocolError, \
                               UnexpectedPacketError
 from neo.lib.protocol import BrokenNodeDisallowedError
 from neo.master.handlers import MasterHandler

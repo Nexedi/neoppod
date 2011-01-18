@@ -25,8 +25,8 @@ class IdentificationHandler(MasterHandler):
     """This class deals with messages from the admin node only"""
 
     def nodeLost(self, conn, node):
-        neo.lib.logging.warning('
-                        lost a node in IdentificationHandler : %s' % node)
+        neo.lib.logging.warning(
+            'lost a node in IdentificationHandler : %s' % node)
 
     def requestIdentification(self, conn, node_type, uuid, address, name):
 
