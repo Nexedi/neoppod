@@ -50,11 +50,24 @@ class AlreadyRunning(Exception):
 class AlreadyStopped(Exception):
     pass
 
+class NotFound(Exception):
+    pass
+
 class NEOProcess(object):
     pid = 0
 
     def __init__(self, command, uuid, arg_dict):
-        self.command = command
+        path = os.getenv('PATH')
+        split_path = path.split(":")
+       
+        for elt_path in split_path:
+            command = "%s/%s" % (elt_path, command)
+            if os.path.exists(command):
+                self.command = command
+                break
+        else:
+            raise NotFound, '%s not found' % (command)
+    
         self.arg_dict = arg_dict
         self.with_uuid = True
         self.setUUID(uuid)
