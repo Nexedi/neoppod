@@ -61,9 +61,9 @@ class NEOProcess(object):
         split_path = path.split(":")
        
         for elt_path in split_path:
-            command = "%s/%s" % (elt_path, command)
-            if os.path.exists(command):
-                self.command = command
+            command_tmp = "%s/%s" % (elt_path, command)
+            if os.path.exists(command_tmp):
+                self.command = command_tmp
                 break
         else:
             raise NotFound, '%s not found' % (command)
