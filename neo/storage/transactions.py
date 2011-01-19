@@ -67,6 +67,7 @@ class Transaction(object):
         )
 
     def addCheckedObject(self, oid):
+        assert oid not in self._object_dict, dump(oid)
         self._checked_set.add(oid)
 
     def getTTID(self):
@@ -101,11 +102,15 @@ class Transaction(object):
         """
             Add an object to the transaction
         """
+        assert oid not in self._checked_set, dump(oid)
         self._object_dict[oid] = (oid, compression, checksum, data,
             value_serial)
 
     def delObject(self, oid):
-        del self._object_dict[oid]
+        try:
+            del self._object_dict[oid]
+        except KeyError:
+            self._checked_set.remove(oid)
 
     def getObject(self, oid):
         return self._object_dict.get(oid)
