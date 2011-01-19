@@ -19,6 +19,7 @@ from ZODB import BaseStorage, ConflictResolution, POSException
 from zope.interface import implements
 import ZODB.interfaces
 
+import neo
 from neo.lib import setupLog
 from neo.lib.util import add64
 from neo.lib.protocol import ZERO_TID
