@@ -326,12 +326,10 @@ class TransactionManager(object):
                 assert lock_ttid in (ttid, None), 'Transaction %s tried to ' \
                     'release the lock on oid %s, but it was held by %s' % (
                     dump(ttid), dump(oid), dump(lock_tid))
-            try:
-                del self._store_lock_dict[oid]
-            except KeyError:
-                # all locks might not have been acquiredwhen aborting
-                neo.lib.logging.warning('%s write lock was not held by %s',
-                    dump(oid), dump(ttid))
+            write_locking_tid = self._store_lock_dict.pop(oid)
+            assert write_locking_tid == ttid, 'Inconsistent locking state: ' \
+                'aborting %s:%s but %s has the lock.' % (dump(ttid), dump(oid),
+                    dump(write_locking_tid))
         # remove the transaction
         uuid = transaction.getUUID()
         self._uuid_dict[uuid].discard(transaction)
