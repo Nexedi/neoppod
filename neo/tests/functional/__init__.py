@@ -90,7 +90,7 @@ class NEOProcess(object):
             # Child
             try:
                 sys.argv = [command] + args
-                execfile(command, {})
+                execfile(command, {"__name__": "__main__"})
             except (SystemExit, KeyboardInterrupt):
                 self._exit()
             except:
