@@ -242,8 +242,8 @@ class RevisionIndex(MQIndex):
                 pass
             else:
                 if result < tid_list[-1]:
-                    # An invalidation happened from a transaction later than our
-                    # most recent view of this object, so we cannot answer.
+                    # An invalidation happened from a transaction later than
+                    # our most recent view of this object, so we cannot answer.
                     result = None
         return result
 
@@ -256,7 +256,8 @@ class RevisionIndex(MQIndex):
 class Application(object):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, connector=None, compress=True, **kw):
+    def __init__(self, master_nodes, name, connector=None, compress=True,
+            **kw):
         # Start polling thread
         self.em = EventManager()
         self.poll_thread = ThreadedPoll(self.em, name=name)
@@ -776,7 +777,8 @@ class Application(object):
             resolved_serial_set = resolved_conflict_serial_dict.setdefault(
                 oid, set())
             conflict_serial = max(conflict_serial_set)
-            if resolved_serial_set and conflict_serial <= max(resolved_serial_set):
+            if resolved_serial_set and conflict_serial <= max(
+                    resolved_serial_set):
                 # A later serial has already been resolved, skip.
                 resolved_serial_set.update(conflict_serial_set)
                 continue
