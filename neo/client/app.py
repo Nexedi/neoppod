@@ -524,8 +524,7 @@ class Application(object):
             msg_id = conn.ask(Packets.AskPartitionTable(), queue=queue)
             self._waitMessage(conn, msg_id,
                     handler=self.primary_bootstrap_handler)
-        return self.uuid is not None and self.pt is not None \
-                             and self.pt.operational()
+        return self.pt.operational()
 
     def registerDB(self, db, limit):
         self._db = db
