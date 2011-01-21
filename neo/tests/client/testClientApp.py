@@ -203,16 +203,16 @@ class ClientApplicationTests(NeoUnitTestBase):
                      'getAddress': ('127.0.0.1', 0),
                      'fakeReceived': packet,
                      })
-        app.local_var.queue = Mock({'get' : ReturnValues(
-            (conn, None), (conn, packet)
-        )})
+        #app.local_var.queue = Mock({'get' : ReturnValues(
+        #    (conn, None), (conn, packet)
+        #)})
         app.pt = Mock({ 'getCellListForOID': [cell, ], })
         app.cp = self.getConnectionPool([(Mock(), conn)])
-        Application._waitMessage = self._waitMessage
+        #Application._waitMessage = self._waitMessage
         # XXX: test disabled because of an infinite loop
         # self.assertRaises(NEOStorageError, app.load, snapshot_tid, oid)
         # self.checkAskObject(conn)
-        Application._waitMessage = _waitMessage
+        #Application._waitMessage = _waitMessage
         # object not found in NEO -> NEOStorageNotFoundError
         self.assertTrue((oid, tid1) not in mq)
         self.assertTrue((oid, tid2) not in mq)
