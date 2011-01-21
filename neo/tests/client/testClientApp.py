@@ -388,7 +388,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             'getNextId': 1,
             'fakeReceived': packet,
         })
-        app.dispatcher = Mock({ })
         app.tpc_begin(transaction=txn, tid=None)
         self.checkAskNewTid(app.master_conn)
         self.checkDispatcherRegisterCalled(app, app.master_conn)
@@ -499,7 +498,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             'getAddress': ('127.0.0.1', 0),
         })
         app.cp = self.getConnectionPool([(Mock(), conn)])
-        app.dispatcher = Mock()
         self.assertRaises(NEOStorageError, app.tpc_vote, app.local_var.txn,
             resolving_tryToResolveConflict)
         self.checkAskPacket(conn, Packets.AskStoreTransaction)
@@ -522,7 +520,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             '__repr__': 'FakeNode',
         })
         app.cp = self.getConnectionPool([(node, conn)])
-        app.dispatcher = Mock()
         app.tpc_vote(txn, resolving_tryToResolveConflict)
         self.checkAskStoreTransaction(conn)
         self.checkDispatcherRegisterCalled(app, conn)
@@ -618,7 +615,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             'getConnForNode': ReturnValues(conn2, conn3, conn1),
             'iterateForObject': [(node2, conn2), (node3, conn3), (node1, conn1)],
         })
-        app.dispatcher = Mock()
         app.master_conn = Mock({'__hash__': 0})
         txn = self.makeTransactionObject()
         app.local_var.txn, app.local_var.tid = txn, tid
@@ -678,7 +674,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             self.vote_params = (transaction, tryToResolveConflict)
         dummy_tryToResolveConflict = []
         app.tpc_vote = voteDetector
-        app.dispatcher = Mock({})
         app.local_var.txn_voted = True
         self.assertRaises(NEOStorageError, app.tpc_finish, txn,
             dummy_tryToResolveConflict, hook)
@@ -715,7 +710,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             'getAddress': ('127.0.0.1', 10010),
             'fakeReceived': packet,
         })
-        app.dispatcher = Mock({})
         app.local_var.txn_voted = True
         app.local_var.txn_finished = True
         app.tpc_finish(txn, None, hook)
@@ -1063,7 +1057,6 @@ class ClientApplicationTests(NeoUnitTestBase):
     def test_askStorage(self):
         """ _askStorage is private but test it anyway """
         app = self.getApp('')
-        app.dispatcher = Mock()
         conn = Mock()
         self.test_ok = False
         def _waitMessage_hook(app, conn, msg_id, handler=None):
@@ -1081,7 +1074,6 @@ class ClientApplicationTests(NeoUnitTestBase):
     def test_askPrimary(self):
         """ _askPrimary is private but test it anyway """
         app = self.getApp('')
-        app.dispatcher = Mock()
         conn = Mock()
         app.master_conn = conn
         app.primary_handler = Mock()
