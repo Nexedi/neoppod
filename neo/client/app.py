@@ -850,7 +850,7 @@ class Application(object):
     @profiler_decorator
     def waitResponses(self):
         """Wait for all requests to be answered (or their connection to be
-        dected as closed)"""
+        detected as closed)"""
         queue = self.local_var.queue
         pending = self.dispatcher.pending
         _waitAnyMessage = self._waitAnyMessage
