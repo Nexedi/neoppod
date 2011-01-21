@@ -1132,11 +1132,12 @@ class Application(object):
 
         self.local_var.node_tids = {}
         queue = self.local_var.queue
+        packet = Packets.AskTIDs(first, last, INVALID_PARTITION)
         for storage_node in storage_node_list:
             conn = self.cp.getConnForNode(storage_node)
             if conn is None:
                 continue
-            conn.ask(Packets.AskTIDs(first, last, INVALID_PARTITION), queue=queue)
+            conn.ask(packet, queue=queue)
 
         # Wait for answers from all storages.
         self.waitResponses()
