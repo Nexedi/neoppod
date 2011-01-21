@@ -146,43 +146,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.tpc_begin(txn, tid=tid)
         return txn
 
-    def storeObject(self, app, oid=None, data='DATA'):
-        tid = app.local_var.tid
-        if oid is None:
-            oid = self.makeOID()
-        obj = (oid, tid, 'DATA', '', app.local_var.txn)
-        packet = Packets.AnswerStoreObject(conflicting=0, oid=oid, serial=tid)
-        packet.setId(0)
-        conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
-        cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
-        app.cp = Mock({ 'getConnForCell': conn})
-        app.pt = Mock({ 'getCellListForOID': (cell, cell, ) })
-        return oid
-
-    def voteTransaction(self, app):
-        tid = app.local_var.tid
-        txn = app.local_var.txn
-        packet = Packets.AnswerStoreTransaction(tid=tid)
-        packet.setId(0)
-        conn = Mock({ 'getNextId': 1, 'fakeReceived': packet, })
-        cell = Mock({ 'getAddress': 'FakeServer', 'getState': 'FakeState', })
-        app.pt = Mock({ 'getCellListForTID': (cell, cell, ) })
-        app.cp = Mock({ 'getConnForCell': ReturnValues(None, conn), })
-        app.tpc_vote(txn, resolving_tryToResolveConflict)
-
-    def askFinishTransaction(self, app):
-        txn = app.local_var.txn
-        tid = app.local_var.tid
-        packet = Packets.AnswerTransactionFinished(tid)
-        packet.setId(0)
-        app.master_conn = Mock({
-            'getNextId': 1,
-            'getAddress': ('127.0.0.1', 10010),
-            'fakeReceived': packet,
-        })
-        app.local_var.txn_voted = True
-        app.tpc_finish(txn, None)
-
     # common checks
 
     def checkDispatcherRegisterCalled(self, app, conn):
