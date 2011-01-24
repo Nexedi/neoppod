@@ -48,6 +48,7 @@ from neo.client.pool import ConnectionPool
 from neo.lib.util import u64, parseMasterList
 from neo.lib.profiling import profiler_decorator, PROFILING_ENABLED
 from neo.lib.live_debug import register as registerLiveDebugger
+from neo.client.mq_index import RevisionIndex
 
 if PROFILING_ENABLED:
     # Those functions require a "real" python function wrapper before they can
