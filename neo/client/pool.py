@@ -38,8 +38,6 @@ CELL_GOOD = 0
 #   Storage node hosting cell failed recently, low priority
 CELL_FAILED = 1
 
-NOT_READY = object()
-
 class ConnectionPool(object):
     """This class manages a pool of connections to storage nodes."""
 
@@ -78,7 +76,7 @@ class ConnectionPool(object):
         except NodeNotReady:
             neo.lib.logging.info('%r not ready', node)
             self.notifyFailure(node)
-            conn = NOT_READY
+            conn = None
         else:
             neo.lib.logging.info('Connected %r', node)
         return conn
@@ -170,7 +168,7 @@ class ConnectionPool(object):
                 # Create new connection to node
                 while True:
                     conn = self._initNodeConnection(node)
-                    if conn not in (None, NOT_READY):
+                    if conn is not None:
                         self.connection_dict[uuid] = conn
                         return conn
                     else:
