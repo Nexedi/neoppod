@@ -65,22 +65,10 @@ class ConnectionPool(object):
             node.getState())
         conn = MTClientConnection(app.em, app.storage_event_handler, addr,
             connector=app.connector_handler(), dispatcher=app.dispatcher)
-        conn.lock()
-
+        p = Packets.RequestIdentification(NodeTypes.CLIENT,
+            app.uuid, None, app.name)
         try:
-            if conn.getConnector() is None:
-                # This happens, if a connection could not be established.
-                neo.lib.logging.error('Connection to %r failed', node)
-                self.notifyFailure(node)
-                return None
-
-            p = Packets.RequestIdentification(NodeTypes.CLIENT,
-                app.uuid, None, app.name)
             msg_id = conn.ask(p, queue=app.local_var.queue)
-        finally:
-            conn.unlock()
-
-        try:
             app._waitMessage(conn, msg_id,
                 handler=app.storage_bootstrap_handler)
         except ConnectionClosed:
