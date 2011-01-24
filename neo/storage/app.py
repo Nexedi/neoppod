@@ -72,7 +72,7 @@ class Application(object):
 
         # operation related data
         self.event_queue = None
-        self.event_queue_dict = {}
+        self.event_queue_dict = None
         self.operational = False
 
         # ready is True when operational and got all informations

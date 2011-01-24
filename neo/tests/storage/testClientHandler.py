@@ -45,7 +45,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.app.store_lock_dict = {}
         self.app.load_lock_dict = {}
         self.app.event_queue = deque()
-        self.app.event_queue_keys = set()
+        self.app.event_queue_dict = {}
         self.app.tm = Mock({'__contains__': True})
         # handler
         self.operation = ClientOperationHandler(self.app)

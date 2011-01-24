@@ -34,7 +34,7 @@ class StorageAppTests(NeoUnitTestBase):
         config = self.getStorageConfiguration(master_number=1)
         self.app = Application(config)
         self.app.event_queue = deque()
-        self.app.event_queue_keys = set()
+        self.app.event_queue_dict = {}
 
     def test_01_loadPartitionTable(self):
         self.app.dm = Mock({
