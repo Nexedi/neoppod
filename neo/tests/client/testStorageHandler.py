@@ -24,6 +24,7 @@ from neo.client.handlers.storage import StorageBootstrapHandler, \
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
 from ZODB.POSException import ConflictError
+from neo.lib.exception import NodeNotReady
 
 MARKER = []
 
@@ -39,9 +40,7 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
 
     def test_notReady(self):
         conn = self.getConnection()
-        self.handler.notReady(conn, 'message')
-        calls = self.app.mockGetNamedCalls('setNodeNotReady')
-        self.assertEqual(len(calls), 1)
+        self.assertRaises(NodeNotReady, self.handler.notReady, conn, 'message')
 
     def test_acceptIdentification1(self):
         """ Not a storage node """

@@ -1027,7 +1027,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             app._waitMessage = _waitMessage6
         # third iteration : node not ready
         def _waitMessage4(conn, msg_id, handler=None):
-            app.setNodeNotReady()
             app.trying_master_node = None
             app._waitMessage = _waitMessage5
         # second iteration : master node changed

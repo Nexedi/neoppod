@@ -24,6 +24,7 @@ from neo.lib.protocol import NodeTypes, ProtocolError, LockState
 from neo.lib.util import dump
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
+from neo.lib.exception import NodeNotReady
 
 class StorageEventHandler(BaseHandler):
 
@@ -45,7 +46,7 @@ class StorageBootstrapHandler(AnswerBaseHandler):
     """ Handler used when connecting to a storage node """
 
     def notReady(self, conn, message):
-        self.app.setNodeNotReady()
+        raise NodeNotReady(message)
 
     def acceptIdentification(self, conn, node_type,
            uuid, num_partitions, num_replicas, your_uuid):

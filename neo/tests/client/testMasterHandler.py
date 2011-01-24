@@ -50,7 +50,6 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
         conn = self.getConnection()
         self.handler.notReady(conn, 'message')
         self.assertEqual(self.app.trying_master_node, None)
-        self.checkCalledOnApp('setNodeNotReady')
 
     def test_acceptIdentification1(self):
         """ Non-master node """

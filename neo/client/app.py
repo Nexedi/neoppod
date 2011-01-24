@@ -113,7 +113,6 @@ class ThreadContext(object):
             'txn_info': 0,
             'history': None,
             'node_tids': {},
-            'node_ready': False,
             'asked_object': 0,
             'undo_object_tid_dict': {},
             'involved_nodes': set(),
@@ -1159,15 +1158,6 @@ class Application(object):
 
     def invalidationBarrier(self):
         self._askPrimary(Packets.AskBarrier())
-
-    def setNodeReady(self):
-        self.local_var.node_ready = True
-
-    def setNodeNotReady(self):
-        self.local_var.node_ready = False
-
-    def isNodeReady(self):
-        return self.local_var.node_ready
 
     def setTID(self, value):
         self.local_var.tid = value

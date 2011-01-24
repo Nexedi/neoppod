@@ -29,7 +29,6 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
     def notReady(self, conn, message):
         app = self.app
         app.trying_master_node = None
-        app.setNodeNotReady()
 
     def acceptIdentification(self, conn, node_type,
                    uuid, num_partitions, num_replicas, your_uuid):

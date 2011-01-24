@@ -29,3 +29,7 @@ class OperationFailure(NeoException):
 
 class DatabaseFailure(NeoException):
     pass
+
+class NodeNotReady(NeoException):
+    pass
+

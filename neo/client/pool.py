@@ -24,6 +24,7 @@ from neo.lib.protocol import NodeTypes, Packets
 from neo.lib.connection import MTClientConnection, ConnectionClosed
 from neo.client.exception import NEOStorageError
 from neo.lib.profiling import profiler_decorator
+from neo.lib.exception import NodeNotReady
 
 # How long before we might retry a connection to a node to which connection
 # failed in the past.
@@ -60,7 +61,6 @@ class ConnectionPool(object):
         addr = node.getAddress()
         assert addr is not None
         app = self.app
-        app.setNodeReady()
         neo.lib.logging.debug('trying to connect to %s - %s', node,
             node.getState())
         conn = MTClientConnection(app.em, app.storage_event_handler, addr,
@@ -74,15 +74,14 @@ class ConnectionPool(object):
         except ConnectionClosed:
             neo.lib.logging.error('Connection to %r failed', node)
             self.notifyFailure(node)
-            return None
-
-        if app.isNodeReady():
-            neo.lib.logging.info('Connected %r', node)
-            return conn
-        else:
+            conn = None
+        except NodeNotReady:
             neo.lib.logging.info('%r not ready', node)
             self.notifyFailure(node)
-            return NOT_READY
+            conn = NOT_READY
+        else:
+            neo.lib.logging.info('Connected %r', node)
+        return conn
 
     @profiler_decorator
     def _dropConnections(self):
