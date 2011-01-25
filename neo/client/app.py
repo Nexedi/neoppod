@@ -619,7 +619,7 @@ class Application(object):
 
     def onStoreTimeout(self, conn, msg_id, ttid, oid):
         # NOTE: this method is called from poll thread, don't use
-        # local_var !
+        # thread-specific value !
         # Stop expecting the timed-out store request.
         queue = self.dispatcher.forget(conn, msg_id)
         # Ask the storage if someone locks the object.
