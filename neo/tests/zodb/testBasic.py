@@ -22,9 +22,7 @@ from ZODB.tests.StorageTestBase import StorageTestBase
 from neo.tests.zodb import ZODBTestCase
 
 class BasicTests(ZODBTestCase, StorageTestBase, BasicStorage):
-
-    def check_tid_ordering_w_commit(self):
-        self.fail("Test disabled")
+    pass
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(BasicTests, 'check')

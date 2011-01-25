@@ -156,21 +156,19 @@ class PrimaryNotificationsHandler(BaseHandler):
 class PrimaryAnswersHandler(AnswerBaseHandler):
     """ Handle that process expected packets from the primary master """
 
-    def answerBeginTransaction(self, conn, tid):
-        self.app.setTID(tid)
+    def answerBeginTransaction(self, conn, ttid):
+        self.app.setHandlerData(ttid)
 
     def answerNewOIDs(self, conn, oid_list):
         self.app.new_oid_list = oid_list
 
-    def answerTransactionFinished(self, conn, ttid, tid):
-        if ttid != self.app.getTID():
-            raise NEOStorageError('Wrong TID, transaction not started')
-        self.app.setTID(tid)
+    def answerTransactionFinished(self, conn, _, tid):
+        self.app.setHandlerData(tid)
 
     def answerPack(self, conn, status):
         if not status:
             raise NEOStorageError('Already packing')
 
     def answerLastTransaction(self, conn, ltid):
-        self.app.local_var.last_transaction = ltid
+        self.app.setHandlerData(ltid)
 

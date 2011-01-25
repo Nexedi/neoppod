@@ -66,9 +66,7 @@ class ConnectionPool(object):
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
             app.uuid, None, app.name)
         try:
-            msg_id = conn.ask(p, queue=app.local_var.queue)
-            app._waitMessage(conn, msg_id,
-                handler=app.storage_bootstrap_handler)
+            app._ask(conn, p, handler=app.storage_bootstrap_handler)
         except ConnectionClosed:
             neo.lib.logging.error('Connection to %r failed', node)
             self.notifyFailure(node)

@@ -68,23 +68,25 @@ class StorageAnswersHandler(AnswerBaseHandler):
         if data_serial is not None:
             raise NEOStorageError, 'Storage should never send non-None ' \
                 'data_serial to clients, got %s' % (dump(data_serial), )
-        self.app.local_var.asked_object = (oid, start_serial, end_serial,
-                compression, checksum, data)
+        self.app.setHandlerData((oid, start_serial, end_serial,
+                compression, checksum, data))
 
     def answerStoreObject(self, conn, conflicting, oid, serial):
-        local_var = self.app.local_var
-        object_stored_counter_dict = local_var.object_stored_counter_dict[oid]
+        txn_context = self.app.getHandlerData()
+        object_stored_counter_dict = txn_context[
+            'object_stored_counter_dict'][oid]
         if conflicting:
             neo.lib.logging.info('%r report a conflict for %r with %r', conn,
                         dump(oid), dump(serial))
-            conflict_serial_dict = local_var.conflict_serial_dict
+            conflict_serial_dict = txn_context['conflict_serial_dict']
             if serial in object_stored_counter_dict:
                 raise NEOStorageError, 'A storage accepted object for ' \
                     'serial %s but another reports a conflict for it.' % (
                         dump(serial), )
             # If this conflict is not already resolved, mark it for
             # resolution.
-            if serial not in local_var.resolved_conflict_serial_dict.get(oid, ()):
+            if serial not in txn_context[
+                    'resolved_conflict_serial_dict'].get(oid, ()):
                 conflict_serial_dict.setdefault(oid, set()).add(serial)
         else:
             object_stored_counter_dict[serial] = \
@@ -92,31 +94,29 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     answerCheckCurrentSerial = answerStoreObject
 
-    def answerStoreTransaction(self, conn, tid):
-        if tid != self.app.getTID():
-            raise NEOStorageError('Wrong TID, transaction not started')
+    def answerStoreTransaction(self, conn, _):
+        pass
 
     def answerTIDsFrom(self, conn, tid_list):
         neo.lib.logging.debug('Get %d TIDs from %r', len(tid_list), conn)
-        assert not self.app.local_var.tids_from.intersection(set(tid_list))
-        self.app.local_var.tids_from.update(tid_list)
+        tids_from = self.app.getHandlerData()
+        assert not tids_from.intersection(set(tid_list))
+        tids_from.update(tid_list)
 
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, packed, oid_list):
-        # transaction information are returned as a dict
-        info = {}
-        info['time'] = TimeStamp(tid).timeTime()
-        info['user_name'] = user
-        info['description'] = desc
-        info['id'] = tid
-        info['oids'] = oid_list
-        info['packed'] = packed
-        self.app.local_var.txn_ext = ext
-        self.app.local_var.txn_info = info
+        self.app.setHandlerData(({
+            'time': TimeStamp(tid).timeTime(),
+            'user_name': user,
+            'description': desc,
+            'id': tid,
+            'oids': oid_list,
+            'packed': packed,
+        }, ext))
 
-    def answerObjectHistory(self, conn, oid, history_list):
+    def answerObjectHistory(self, conn, _, history_list):
         # history_list is a list of tuple (serial, size)
-        self.app.local_var.history = oid, history_list
+        self.app.getHandlerData().update(history_list)
 
     def oidNotFound(self, conn, message):
         # This can happen either when :
@@ -132,10 +132,10 @@ class StorageAnswersHandler(AnswerBaseHandler):
         raise NEOStorageNotFoundError(message)
 
     def answerTIDs(self, conn, tid_list):
-        self.app.local_var.node_tids[conn.getUUID()] = tid_list
+        self.app.getHandlerData().update(tid_list)
 
     def answerObjectUndoSerial(self, conn, object_tid_dict):
-        self.app.local_var.undo_object_tid_dict.update(object_tid_dict)
+        self.app.getHandlerData().update(object_tid_dict)
 
     def answerHasLock(self, conn, oid, status):
         if status == LockState.GRANTED_TO_OTHER:

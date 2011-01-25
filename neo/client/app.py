@@ -15,10 +15,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from thread import get_ident
 from cPickle import dumps, loads
 from zlib import compress as real_compress, decompress
-from neo.lib.locking import Queue, Empty
+from neo.lib.locking import Empty
 from random import shuffle
 import time
 import os
@@ -49,6 +48,7 @@ from neo.lib.util import u64, parseMasterList
 from neo.lib.profiling import profiler_decorator, PROFILING_ENABLED
 from neo.lib.live_debug import register as registerLiveDebugger
 from neo.client.mq_index import RevisionIndex
+from neo.client.container import ThreadContainer, TransactionContainer
 
 if PROFILING_ENABLED:
     # Those functions require a "real" python function wrapper before they can
@@ -64,60 +64,6 @@ else:
     # If profiling is disabled, directly use original functions.
     compress = real_compress
     makeChecksum = real_makeChecksum
-
-class ThreadContext(object):
-
-    def __init__(self):
-        super(ThreadContext, self).__setattr__('_threads_dict', {})
-
-    def __getThreadData(self):
-        thread_id = get_ident()
-        try:
-            result = self._threads_dict[thread_id]
-        except KeyError:
-            self.clear(thread_id)
-            result = self._threads_dict[thread_id]
-        return result
-
-    def __getattr__(self, name):
-        thread_data = self.__getThreadData()
-        try:
-            return thread_data[name]
-        except KeyError:
-            raise AttributeError, name
-
-    def __setattr__(self, name, value):
-        thread_data = self.__getThreadData()
-        thread_data[name] = value
-
-    def clear(self, thread_id=None):
-        if thread_id is None:
-            thread_id = get_ident()
-        thread_dict = self._threads_dict.get(thread_id)
-        if thread_dict is None:
-            queue = Queue(0)
-        else:
-            queue = thread_dict['queue']
-        self._threads_dict[thread_id] = {
-            'tid': None,
-            'txn': None,
-            'data_dict': {},
-            'data_list': [],
-            'object_base_serial_dict': {},
-            'object_serial_dict': {},
-            'object_stored_counter_dict': {},
-            'conflict_serial_dict': {},
-            'resolved_conflict_serial_dict': {},
-            'txn_voted': False,
-            'queue': queue,
-            'txn_info': 0,
-            'history': None,
-            'node_tids': {},
-            'asked_object': 0,
-            'undo_object_tid_dict': {},
-            'involved_nodes': set(),
-            'last_transaction': None,
-        }
 
 class Application(object):
     """The client node application."""
@@ -158,7 +104,8 @@ class Application(object):
         self.primary_bootstrap_handler = master.PrimaryBootstrapHandler(self)
         self.notifications_handler = master.PrimaryNotificationsHandler( self)
         # Internal attribute distinct between thread
-        self.local_var = ThreadContext()
+        self._thread_container = ThreadContainer()
+        self._txn_container = TransactionContainer()
         # Lock definition :
         # _load_lock is used to make loading and storing atomic
         lock = Lock()
@@ -184,6 +131,15 @@ class Application(object):
         self._nm_release = lock.release
         self.compress = compress
         registerLiveDebugger(on_log=self.log)
+
+    def getHandlerData(self):
+        return self._thread_container.get()['answer']
+
+    def setHandlerData(self, data):
+        self._thread_container.get()['answer'] = data
+
+    def _getThreadQueue(self):
+        return self._thread_container.get()['queue']
 
     def log(self):
         self.em.log()
@@ -222,7 +178,7 @@ class Application(object):
             conn.unlock()
 
     @profiler_decorator
-    def _waitAnyMessage(self, block=True):
+    def _waitAnyMessage(self, queue, block=True):
         """
           Handle all pending packets.
           block
@@ -230,7 +186,6 @@ class Application(object):
             received.
         """
         pending = self.dispatcher.pending
-        queue = self.local_var.queue
         get = queue.get
         _handlePacket = self._handlePacket
         while pending(queue):
@@ -247,39 +202,53 @@ class Application(object):
             except ConnectionClosed:
                 pass
 
+    def _waitAnyTransactionMessage(self, txn_context, block=True):
+        """
+        Just like _waitAnyMessage, but for per-transaction exchanges, rather
+        than per-thread.
+        """
+        queue = txn_context['queue']
+        self.setHandlerData(txn_context)
+        try:
+            self._waitAnyMessage(queue, block=block)
+        finally:
+            # Don't leave access to thread context, even if a raise happens.
+            self.setHandlerData(None)
+
     @profiler_decorator
-    def _waitMessage(self, target_conn, msg_id, handler=None):
-        """Wait for a message returned by the dispatcher in queues."""
-        get = self.local_var.queue.get
+    def _ask(self, conn, packet, handler=None):
+        self.setHandlerData(None)
+        queue = self._getThreadQueue()
+        msg_id = conn.ask(packet, queue=queue)
+        get = queue.get
         _handlePacket = self._handlePacket
         while True:
-            conn, packet = get(True)
-            is_forgotten = isinstance(packet, ForgottenPacket)
-            if target_conn is conn:
+            qconn, qpacket = get(True)
+            is_forgotten = isinstance(qpacket, ForgottenPacket)
+            if conn is qconn:
                 # check fake packet
-                if packet is None:
+                if qpacket is None:
                     raise ConnectionClosed
-                if msg_id == packet.getId():
+                if msg_id == qpacket.getId():
                     if is_forgotten:
                         raise ValueError, 'ForgottenPacket for an ' \
                             'explicitely expected packet.'
-                    _handlePacket(conn, packet, handler=handler)
+                    _handlePacket(qconn, qpacket, handler=handler)
                     break
-            if not is_forgotten and packet is not None:
-                _handlePacket(conn, packet)
+            if not is_forgotten and qpacket is not None:
+                _handlePacket(qconn, qpacket)
+        return self.getHandlerData()
 
     @profiler_decorator
     def _askStorage(self, conn, packet):
         """ Send a request to a storage node and process its answer """
-        msg_id = conn.ask(packet, queue=self.local_var.queue)
-        self._waitMessage(conn, msg_id, self.storage_handler)
+        return self._ask(conn, packet, handler=self.storage_handler)
 
     @profiler_decorator
     def _askPrimary(self, packet):
         """ Send a request to the primary master and process its answer """
-        conn = self._getMasterConnection()
-        msg_id = conn.ask(packet, queue=self.local_var.queue)
-        self._waitMessage(conn, msg_id, self.primary_handler)
+        return self._ask(self._getMasterConnection(), packet,
+            handler=self.primary_handler)
 
     @profiler_decorator
     def _getMasterConnection(self):
@@ -311,7 +280,6 @@ class Application(object):
         neo.lib.logging.debug('connecting to primary master...')
         ready = False
         nm = self.nm
-        queue = self.local_var.queue
         packet = Packets.AskPrimary()
         while not ready:
             # Get network connection to primary master
@@ -346,9 +314,8 @@ class Application(object):
                                   self.trying_master_node)
                     continue
                 try:
-                    msg_id = conn.ask(packet, queue=queue)
-                    self._waitMessage(conn, msg_id,
-                            handler=self.primary_bootstrap_handler)
+                    self._ask(conn, packet,
+                        handler=self.primary_bootstrap_handler)
                 except ConnectionClosed:
                     continue
                 # If we reached the primary master node, mark as connected
@@ -373,24 +340,19 @@ class Application(object):
             looked-up again.
         """
         neo.lib.logging.info('Initializing from master')
-        queue = self.local_var.queue
+        ask = self._ask
+        handler = self.primary_bootstrap_handler
         # Identify to primary master and request initial data
         p = Packets.RequestIdentification(NodeTypes.CLIENT, self.uuid, None,
             self.name)
         while conn.getUUID() is None:
-            self._waitMessage(conn, conn.ask(p, queue=queue),
-                    handler=self.primary_bootstrap_handler)
+            ask(conn, p, handler=handler)
             if conn.getUUID() is None:
                 # Node identification was refused by master, it is considered
                 # as the primary as long as we are connected to it.
                 time.sleep(1)
-        if self.uuid is not None:
-            msg_id = conn.ask(Packets.AskNodeInformation(), queue=queue)
-            self._waitMessage(conn, msg_id,
-                    handler=self.primary_bootstrap_handler)
-            msg_id = conn.ask(Packets.AskPartitionTable(), queue=queue)
-            self._waitMessage(conn, msg_id,
-                    handler=self.primary_bootstrap_handler)
+        ask(conn, Packets.AskNodeInformation(), handler=handler)
+        ask(conn, Packets.AskPartitionTable(), handler=handler)
         return self.pt.operational()
 
     def registerDB(self, db, limit):
@@ -490,32 +452,27 @@ class Application(object):
 
     @profiler_decorator
     def _loadFromStorage(self, oid, at_tid, before_tid):
-        self.local_var.asked_object = 0
+        data = None
         packet = Packets.AskObject(oid, at_tid, before_tid)
         for node, conn in self.cp.iterateForObject(oid, readable=True):
             try:
-                self._askStorage(conn, packet)
+                noid, tid, next_tid, compression, checksum, data \
+                    = self._askStorage(conn, packet)
             except ConnectionClosed:
                 continue
 
-            # Check data
-            noid, tid, next_tid, compression, checksum, data \
-                = self.local_var.asked_object
-            if noid != oid:
-                # Oops, try with next node
-                neo.lib.logging.error('got wrong oid %s instead of %s from %s',
-                    noid, dump(oid), conn)
-                self.local_var.asked_object = -1
-                continue
-            elif checksum != makeChecksum(data):
+            if checksum != makeChecksum(data):
+                # Warning: see TODO file.
                 # Check checksum.
                 neo.lib.logging.error('wrong checksum from %s for oid %s',
                               conn, dump(oid))
-                self.local_var.asked_object = -1
+                data = None
                 continue
             break
-        if self.local_var.asked_object == -1:
-            raise NEOStorageError('inconsistent data')
+        if data is None:
+            # We didn't got any object from all storage node because of
+            # connection error
+            raise NEOStorageError('connection failure')
 
         # Uncompress data
         if compression:
@@ -547,30 +504,34 @@ class Application(object):
     @profiler_decorator
     def tpc_begin(self, transaction, tid=None, status=' '):
         """Begin a new transaction."""
+        txn_container = self._txn_container
         # First get a transaction, only one is allowed at a time
-        if self.local_var.txn is transaction:
+        if txn_container.get(transaction) is not None:
             # We already begin the same transaction
             raise StorageTransactionError('Duplicate tpc_begin calls')
-        if self.local_var.txn is not None:
-            raise NeoException, 'local_var is not clean in tpc_begin'
+        txn_context = txn_container.new(transaction)
         # use the given TID or request a new one to the master
-        self._askPrimary(Packets.AskBeginTransaction(tid))
-        if self.local_var.tid is None:
+        answer_ttid = self._askPrimary(Packets.AskBeginTransaction(tid))
+        if answer_ttid is None:
             raise NEOStorageError('tpc_begin failed')
-        assert tid in (None, self.local_var.tid), (tid, self.local_var.tid)
-        self.local_var.txn = transaction
+        assert tid in (None, answer_ttid), (tid, answer_ttid)
+        txn_context['txn'] = transaction
+        txn_context['ttid'] = answer_ttid
 
     @profiler_decorator
     def store(self, oid, serial, data, version, transaction):
         """Store object."""
-        if transaction is not self.local_var.txn:
+        txn_context = self._txn_container.get(transaction)
+        if txn_context is None:
             raise StorageTransactionError(self, transaction)
         neo.lib.logging.debug(
                         'storing oid %s serial %s', dump(oid), dump(serial))
-        self._store(oid, serial, data)
+        self._store(txn_context, oid, serial, data)
         return None
 
-    def _store(self, oid, serial, data, data_serial=None, unlock=False):
+    def _store(self, txn_context, oid, serial, data, data_serial=None,
+            unlock=False):
+        ttid = txn_context['ttid']
         if data is None:
             # This is some undo: either a no-data object (undoing object
             # creation) or a back-pointer to an earlier revision (going back to
@@ -589,33 +550,33 @@ class Application(object):
                 else:
                     compression = 1
         checksum = makeChecksum(compressed_data)
-        on_timeout = OnTimeout(self.onStoreTimeout, self.local_var.tid, oid)
+        on_timeout = OnTimeout(self.onStoreTimeout, ttid, oid)
         # Store object in tmp cache
-        local_var = self.local_var
-        data_dict = local_var.data_dict
+        data_dict = txn_context['data_dict']
         if oid not in data_dict:
-            local_var.data_list.append(oid)
+            txn_context['data_list'].append(oid)
         data_dict[oid] = data
         # Store data on each node
-        self.local_var.object_stored_counter_dict[oid] = {}
-        object_base_serial_dict = local_var.object_base_serial_dict
+        txn_context['object_stored_counter_dict'][oid] = {}
+        object_base_serial_dict = txn_context['object_base_serial_dict']
         if oid not in object_base_serial_dict:
             object_base_serial_dict[oid] = serial
-        self.local_var.object_serial_dict[oid] = serial
-        queue = self.local_var.queue
-        add_involved_nodes = self.local_var.involved_nodes.add
+        txn_context['object_serial_dict'][oid] = serial
+        queue = txn_context['queue']
+        involved_nodes = txn_context['involved_nodes']
+        add_involved_nodes = involved_nodes.add
         packet = Packets.AskStoreObject(oid, serial, compression,
-            checksum, compressed_data, data_serial, self.local_var.tid, unlock)
+            checksum, compressed_data, data_serial, ttid, unlock)
         for node, conn in self.cp.iterateForObject(oid, writable=True):
             try:
                 conn.ask(packet, on_timeout=on_timeout, queue=queue)
                 add_involved_nodes(node)
             except ConnectionClosed:
                 continue
-        if not self.local_var.involved_nodes:
+        if not involved_nodes:
             raise NEOStorageError("Store failed")
 
-        self._waitAnyMessage(False)
+        self._waitAnyTransactionMessage(txn_context, False)
 
     def onStoreTimeout(self, conn, msg_id, ttid, oid):
         # NOTE: this method is called from poll thread, don't use
@@ -628,17 +589,17 @@ class Application(object):
         return True
 
     @profiler_decorator
-    def _handleConflicts(self, tryToResolveConflict):
+    def _handleConflicts(self, txn_context, tryToResolveConflict):
         result = []
         append = result.append
-        local_var = self.local_var
         # Check for conflicts
-        data_dict = local_var.data_dict
-        object_base_serial_dict = local_var.object_base_serial_dict
-        object_serial_dict = local_var.object_serial_dict
-        conflict_serial_dict = local_var.conflict_serial_dict.copy()
-        local_var.conflict_serial_dict.clear()
-        resolved_conflict_serial_dict = local_var.resolved_conflict_serial_dict
+        data_dict = txn_context['data_dict']
+        object_base_serial_dict = txn_context['object_base_serial_dict']
+        object_serial_dict = txn_context['object_serial_dict']
+        conflict_serial_dict = txn_context['conflict_serial_dict'].copy()
+        txn_context['conflict_serial_dict'].clear()
+        resolved_conflict_serial_dict = txn_context[
+            'resolved_conflict_serial_dict']
         for oid, conflict_serial_set in conflict_serial_dict.iteritems():
             resolved_serial_set = resolved_conflict_serial_dict.setdefault(
                 oid, set())
@@ -650,7 +611,6 @@ class Application(object):
                 continue
             serial = object_serial_dict[oid]
             data = data_dict[oid]
-            tid = local_var.tid
             resolved = False
             if conflict_serial == ZERO_TID:
                 # Storage refused us from taking object lock, to avoid a
@@ -665,12 +625,11 @@ class Application(object):
                 # object data again.
                 neo.lib.logging.info('Deadlock avoidance triggered on %r:%r',
                     dump(oid), dump(serial))
-                for store_oid, store_data in \
-                        local_var.data_dict.iteritems():
+                for store_oid, store_data in data_dict.iteritems():
                     store_serial = object_serial_dict[store_oid]
                     if store_data is None:
-                        self.checkCurrentSerialInTransaction(store_oid,
-                            store_serial)
+                        self._checkCurrentSerialInTransaction(txn_context,
+                            store_oid, store_serial)
                     else:
                         if store_data is '':
                             # Some undo
@@ -678,8 +637,8 @@ class Application(object):
                                 ' reliably work with undo, this must be '
                                 'implemented.')
                             break
-                        self._store(store_oid, store_serial, store_data,
-                            unlock=True)
+                        self._store(txn_context, store_oid, store_serial,
+                            store_data, unlock=True)
                 else:
                     resolved = True
             elif data is not None:
@@ -694,7 +653,7 @@ class Application(object):
                     # Base serial changes too, as we resolved a conflict
                     object_base_serial_dict[oid] = conflict_serial
                     # Try to store again
-                    self._store(oid, conflict_serial, new_data)
+                    self._store(txn_context, oid, conflict_serial, new_data)
                     append(oid)
                     resolved = True
                 else:
@@ -704,49 +663,51 @@ class Application(object):
             if not resolved:
                 # XXX: Is it really required to remove from data_dict ?
                 del data_dict[oid]
-                local_var.data_list.remove(oid)
+                txn_context['data_list'].remove(oid)
                 if data is None:
                     exc = ReadConflictError(oid=oid, serials=(conflict_serial,
                         serial))
                 else:
-                    exc = ConflictError(oid=oid, serials=(tid, serial),
-                        data=data)
+                    exc = ConflictError(oid=oid, serials=(txn_context['ttid'],
+                        serial), data=data)
                 raise exc
         return result
 
     @profiler_decorator
-    def waitResponses(self):
+    def waitResponses(self, queue, handler_data):
         """Wait for all requests to be answered (or their connection to be
         detected as closed)"""
-        queue = self.local_var.queue
         pending = self.dispatcher.pending
         _waitAnyMessage = self._waitAnyMessage
+        self.setHandlerData(handler_data)
         while pending(queue):
-            _waitAnyMessage()
+            _waitAnyMessage(queue)
 
     @profiler_decorator
-    def waitStoreResponses(self, tryToResolveConflict):
+    def waitStoreResponses(self, txn_context, tryToResolveConflict):
         result = []
         append = result.append
         resolved_oid_set = set()
         update = resolved_oid_set.update
-        local_var = self.local_var
-        tid = local_var.tid
+        ttid = txn_context['ttid']
         _handleConflicts = self._handleConflicts
-        conflict_serial_dict = local_var.conflict_serial_dict
-        queue = local_var.queue
+        queue = txn_context['queue']
+        conflict_serial_dict = txn_context['conflict_serial_dict']
         pending = self.dispatcher.pending
-        _waitAnyMessage = self._waitAnyMessage
+        _waitAnyTransactionMessage = self._waitAnyTransactionMessage
         while pending(queue) or conflict_serial_dict:
-            _waitAnyMessage()
+            # Note: handler data can be overwritten by _handleConflicts
+            # so we must set it for each iteration.
+            _waitAnyTransactionMessage(txn_context)
             if conflict_serial_dict:
-                conflicts = _handleConflicts(tryToResolveConflict)
+                conflicts = _handleConflicts(txn_context,
+                    tryToResolveConflict)
                 if conflicts:
                     update(conflicts)
 
         # Check for never-stored objects, and update result for all others
         for oid, store_dict in \
-            local_var.object_stored_counter_dict.iteritems():
+                txn_context['object_stored_counter_dict'].iteritems():
             if not store_dict:
                 neo.lib.logging.error('tpc_store failed')
                 raise NEOStorageError('tpc_store failed')
@@ -757,27 +718,27 @@ class Application(object):
     @profiler_decorator
     def tpc_vote(self, transaction, tryToResolveConflict):
         """Store current transaction."""
-        local_var = self.local_var
-        if transaction is not local_var.txn:
+        txn_context = self._txn_container.get(transaction)
+        if txn_context is None or transaction is not txn_context['txn']:
             raise StorageTransactionError(self, transaction)
 
-        result = self.waitStoreResponses(tryToResolveConflict)
+        result = self.waitStoreResponses(txn_context, tryToResolveConflict)
 
-        tid = local_var.tid
+        ttid = txn_context['ttid']
         # Store data on each node
         txn_stored_counter = 0
-        packet = Packets.AskStoreTransaction(tid, str(transaction.user),
+        packet = Packets.AskStoreTransaction(ttid, str(transaction.user),
             str(transaction.description), dumps(transaction._extension),
-            local_var.data_list)
-        add_involved_nodes = self.local_var.involved_nodes.add
-        for node, conn in self.cp.iterateForObject(tid, writable=True):
-            neo.lib.logging.debug("voting object %s on %s", dump(tid),
+            txn_context['data_list'])
+        add_involved_nodes = txn_context['involved_nodes'].add
+        for node, conn in self.cp.iterateForObject(ttid, writable=True):
+            neo.lib.logging.debug("voting object %s on %s", dump(ttid),
                 dump(conn.getUUID()))
             try:
                 self._askStorage(conn, packet)
-                add_involved_nodes(node)
             except ConnectionClosed:
                 continue
+            add_involved_nodes(node)
             txn_stored_counter += 1
 
         # check at least one storage node accepted
@@ -790,20 +751,22 @@ class Application(object):
         # tpc_finish.
         self._getMasterConnection()
 
-        local_var.txn_voted = True
+        txn_context['txn_voted'] = True
         return result
 
     @profiler_decorator
     def tpc_abort(self, transaction):
         """Abort current transaction."""
-        if transaction is not self.local_var.txn:
+        txn_container = self._txn_container
+        txn_context = txn_container.get(transaction)
+        if txn_context is None:
             return
 
-        tid = self.local_var.tid
-        p = Packets.AbortTransaction(tid)
+        ttid = txn_context['ttid']
+        p = Packets.AbortTransaction(ttid)
         getConnForNode = self.cp.getConnForNode
         # cancel transaction one all those nodes
-        for node in self.local_var.involved_nodes:
+        for node in txn_context['involved_nodes']:
             conn = getConnForNode(node)
             if conn is None:
                 continue
@@ -815,28 +778,30 @@ class Application(object):
                     'storage node %r of abortion, ignoring.',
                     conn, exc_info=1)
         self._getMasterConnection().notify(p)
-        queue = self.local_var.queue
-        self.dispatcher.forget_queue(queue)
-        self.local_var.clear()
+        queue = txn_context['queue']
+        # We don't need to flush queue, as it won't be reused by future
+        # transactions (deleted on next line & indexed by transaction object
+        # instance).
+        self.dispatcher.forget_queue(queue, flush_queue=False)
+        txn_container.delete(transaction)
 
     @profiler_decorator
     def tpc_finish(self, transaction, tryToResolveConflict, f=None):
         """Finish current transaction."""
-        local_var = self.local_var
-        if local_var.txn is not transaction:
+        txn_container = self._txn_container
+        txn_context = txn_container.get(transaction)
+        if txn_context is None:
             raise StorageTransactionError('tpc_finish called for wrong '
                 'transaction')
-        if not local_var.txn_voted:
+        if not txn_context['txn_voted']:
             self.tpc_vote(transaction, tryToResolveConflict)
         self._load_lock_acquire()
         try:
             # Call finish on master
-            oid_list = local_var.data_list
-            p = Packets.AskFinishTransaction(local_var.tid, oid_list)
-            self._askPrimary(p)
+            oid_list = txn_context['data_list']
+            p = Packets.AskFinishTransaction(txn_context['ttid'], oid_list)
+            tid = self._askPrimary(p)
 
-            # From now on, self.local_var.tid holds the "real" TID.
-            tid = local_var.tid
             # Call function given by ZODB
             if f is not None:
                 f(tid)
@@ -851,8 +816,8 @@ class Application(object):
                     assert next_tid is None, (dump(oid), dump(base_tid),
                         dump(next_tid))
                     return (data, tid)
-                get_baseTID = local_var.object_base_serial_dict.get
-                for oid, data in local_var.data_dict.iteritems():
+                get_baseTID = txn_context['object_base_serial_dict'].get
+                for oid, data in txn_context['data_dict'].iteritems():
                     if data is None:
                         # this is just a remain of
                         # checkCurrentSerialInTransaction call, ignore (no data
@@ -871,13 +836,14 @@ class Application(object):
                         mq_cache[(oid, tid)] = (data, None)
             finally:
                 self._cache_lock_release()
-            local_var.clear()
+            txn_container.delete(transaction)
             return tid
         finally:
             self._load_lock_release()
 
     def undo(self, snapshot_tid, undone_tid, txn, tryToResolveConflict):
-        if txn is not self.local_var.txn:
+        txn_context = self._txn_container.get(txn)
+        if txn_context is None:
             raise StorageTransactionError(self, undone_tid)
 
         txn_info, txn_ext = self._getTransactionInformation(undone_tid)
@@ -899,22 +865,23 @@ class Application(object):
         getCellList = pt.getCellList
         getCellSortKey = self.cp.getCellSortKey
         getConnForCell = self.cp.getConnForCell
-        queue = self.local_var.queue
-        undo_object_tid_dict = self.local_var.undo_object_tid_dict = {}
+        queue = self._getThreadQueue()
+        ttid = txn_context['ttid']
         for partition, oid_list in partition_oid_dict.iteritems():
             cell_list = getCellList(partition, readable=True)
             shuffle(cell_list)
             cell_list.sort(key=getCellSortKey)
             storage_conn = getConnForCell(cell_list[0])
-            storage_conn.ask(Packets.AskObjectUndoSerial(self.local_var.tid,
+            storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
                 snapshot_tid, undone_tid, oid_list), queue=queue)
 
         # Wait for all AnswerObjectUndoSerial. We might get OidNotFoundError,
         # meaning that objects in transaction's oid_list do not exist any
         # longer. This is the symptom of a pack, so forbid undoing transaction
         # when it happens.
+        undo_object_tid_dict = {}
         try:
-            self.waitResponses()
+            self.waitResponses(queue, undo_object_tid_dict)
         except NEOStorageNotFoundError:
             self.dispatcher.forget_queue(queue)
             raise UndoError('non-undoable transaction')
@@ -929,9 +896,11 @@ class Application(object):
                 # object. This is an undo conflict, try to resolve it.
                 try:
                     # Load the latest version we are supposed to see
-                    data = self.load(snapshot_tid, oid, serial=current_serial)[0]
+                    data = self.load(snapshot_tid, oid,
+                        serial=current_serial)[0]
                     # Load the version we were undoing to
-                    undo_data = self.load(snapshot_tid, oid, serial=undo_serial)[0]
+                    undo_data = self.load(snapshot_tid, oid,
+                        serial=undo_serial)[0]
                 except NEOStorageNotFoundError:
                     raise UndoError('Object not found while resolving undo '
                         'conflict')
@@ -945,7 +914,7 @@ class Application(object):
                     raise UndoError('Some data were modified by a later ' \
                         'transaction', oid)
                 undo_serial = None
-            self._store(oid, current_serial, data, undo_serial)
+            self._store(txn_context, oid, current_serial, data, undo_serial)
 
     def _insertMetadata(self, txn_info, extension):
         for k, v in loads(extension).items():
@@ -955,7 +924,7 @@ class Application(object):
         packet = Packets.AskTransactionInformation(tid)
         for node, conn in self.cp.iterateForObject(tid, readable=True):
             try:
-                self._askStorage(conn, packet)
+                txn_info, txn_ext = self._askStorage(conn, packet)
             except ConnectionClosed:
                 continue
             except NEOStorageNotFoundError:
@@ -964,7 +933,7 @@ class Application(object):
             break
         else:
             raise NEOStorageError('Transaction %r not found' % (tid, ))
-        return (self.local_var.txn_info, self.local_var.txn_ext)
+        return (txn_info, txn_ext)
 
     def undoLog(self, first, last, filter=None, block=0):
         # XXX: undoLog is broken
@@ -978,8 +947,7 @@ class Application(object):
         pt = self.getPartitionTable()
         storage_node_list = pt.getNodeList()
 
-        self.local_var.node_tids = {}
-        queue = self.local_var.queue
+        queue = self._getThreadQueue()
         packet = Packets.AskTIDs(first, last, INVALID_PARTITION)
         for storage_node in storage_node_list:
             conn = self.cp.getConnForNode(storage_node)
@@ -988,15 +956,11 @@ class Application(object):
             conn.ask(packet, queue=queue)
 
         # Wait for answers from all storages.
-        self.waitResponses()
+        tid_set = set()
+        self.waitResponses(queue, tid_set)
 
         # Reorder tids
-        ordered_tids = set()
-        update = ordered_tids.update
-        for tid_list in self.local_var.node_tids.itervalues():
-            update(tid_list)
-        ordered_tids = list(ordered_tids)
-        ordered_tids.sort(reverse=True)
+        ordered_tids = sorted(tid_set, reverse=True)
         neo.lib.logging.debug(
                         "UndoLog tids %s", [dump(x) for x in ordered_tids])
         # For each transaction, get info
@@ -1004,11 +968,10 @@ class Application(object):
         append = undo_info.append
         for tid in ordered_tids:
             (txn_info, txn_ext) = self._getTransactionInformation(tid)
-            if filter is None or filter(self.local_var.txn_info):
-                txn_info = self.local_var.txn_info
+            if filter is None or filter(txn_info):
                 txn_info.pop('packed')
                 txn_info.pop("oids")
-                self._insertMetadata(txn_info, self.local_var.txn_ext)
+                self._insertMetadata(txn_info, txn_ext)
                 append(txn_info)
                 if len(undo_info) >= last - first:
                     break
@@ -1024,9 +987,8 @@ class Application(object):
         node_list = node_map.keys()
         node_list.sort(key=self.cp.getCellSortKey)
         partition_set = set(range(self.pt.getPartitions()))
-        queue = self.local_var.queue
+        queue = self._getThreadQueue()
         # request a tid list for each partition
-        self.local_var.tids_from = set()
         for node in node_list:
             conn = self.cp.getConnForNode(node)
             request_set = set(node_map[node]) & partition_set
@@ -1038,40 +1000,34 @@ class Application(object):
             if not partition_set:
                 break
         assert not partition_set
-        self.waitResponses()
+        tid_set = set()
+        self.waitResponses(queue, tid_set)
         # request transactions informations
         txn_list = []
         append = txn_list.append
         tid = None
-        for tid in sorted(self.local_var.tids_from):
+        for tid in sorted(tid_set):
             (txn_info, txn_ext) = self._getTransactionInformation(tid)
-            txn_info['ext'] = loads(self.local_var.txn_ext)
+            txn_info['ext'] = loads(txn_ext)
             append(txn_info)
         return (tid, txn_list)
 
     def history(self, oid, version=None, size=1, filter=None):
+        queue = self._getThreadQueue()
         # Get history informations for object first
         packet = Packets.AskObjectHistory(oid, 0, size)
         for node, conn in self.cp.iterateForObject(oid, readable=True):
-            # FIXME: we keep overwriting self.local_var.history here, we
-            # should aggregate it instead.
-            self.local_var.history = None
             try:
-                self._askStorage(conn, packet)
+                conn.ask(packet, queue=queue)
             except ConnectionClosed:
                 continue
-
-            if self.local_var.history[0] != oid:
-                # Got history for wrong oid
-                raise NEOStorageError('inconsistency in storage: asked oid ' \
-                      '%r, got %r' % (oid, self.local_var.history[0]))
-
-        if not isinstance(self.local_var.history, tuple):
-            raise NEOStorageError('history failed')
-
+        history_dict = {}
+        self.waitResponses(queue, history_dict)
         # Now that we have object informations, get txn informations
         history_list = []
-        for serial, size in self.local_var.history[1]:
+        append = history_list.append
+        for serial in sorted(history_dict.keys(), reverse=True):
+            size = history_dict[serial]
             txn_info, txn_ext = self._getTransactionInformation(serial)
             # create history dict
             txn_info.pop('id')
@@ -1081,9 +1037,8 @@ class Application(object):
             txn_info['version'] = ''
             txn_info['size'] = size
             if filter is None or filter(txn_info):
-                history_list.append(txn_info)
+                append(txn_info)
             self._insertMetadata(txn_info, txn_ext)
-
         return history_list
 
     @profiler_decorator
@@ -1111,16 +1066,15 @@ class Application(object):
         return Iterator(self, start, stop)
 
     def lastTransaction(self):
-        self._askPrimary(Packets.AskLastTransaction())
-        return self.local_var.last_transaction
+        return self._askPrimary(Packets.AskLastTransaction())
 
     def abortVersion(self, src, transaction):
-        if transaction is not self.local_var.txn:
+        if self._txn_container.get(transaction) is None:
             raise StorageTransactionError(self, transaction)
         return '', []
 
     def commitVersion(self, src, dest, transaction):
-        if transaction is not self.local_var.txn:
+        if self._txn_container.get(transaction) is None:
             raise StorageTransactionError(self, transaction)
         return '', []
 
@@ -1141,12 +1095,6 @@ class Application(object):
     def invalidationBarrier(self):
         self._askPrimary(Packets.AskBarrier())
 
-    def setTID(self, value):
-        self.local_var.tid = value
-
-    def getTID(self):
-        return self.local_var.tid
-
     def pack(self, t):
         tid = repr(TimeStamp(*time.gmtime(t)[:5] + (t % 60, )))
         if tid == ZERO_TID:
@@ -1166,24 +1114,27 @@ class Application(object):
         return self.load(None, oid)[1]
 
     def checkCurrentSerialInTransaction(self, oid, serial, transaction):
-        local_var = self.local_var
-        if transaction is not local_var.txn:
+        txn_context = self._txn_container.get(transaction)
+        if txn_context is None:
               raise StorageTransactionError(self, transaction)
-        local_var.object_serial_dict[oid] = serial
+        self._checkCurrentSerialInTransaction(txn_context, oid, serial)
+
+    def _checkCurrentSerialInTransaction(self, txn_context, oid, serial):
+        ttid = txn_context['ttid']
+        txn_context['object_serial_dict'][oid] = serial
         # Placeholders
-        queue = local_var.queue
-        local_var.object_stored_counter_dict[oid] = {}
-        data_dict = local_var.data_dict
+        queue = txn_context['queue']
+        txn_context['object_stored_counter_dict'][oid] = {}
+        data_dict = txn_context['data_dict']
         if oid not in data_dict:
             # Marker value so we don't try to resolve conflicts.
             data_dict[oid] = None
-            local_var.data_list.append(oid)
-        packet = Packets.AskCheckCurrentSerial(local_var.tid, serial, oid)
+            txn_context['data_list'].append(oid)
+        packet = Packets.AskCheckCurrentSerial(ttid, serial, oid)
         for node, conn in self.cp.iterateForObject(oid, writable=True):
             try:
                 conn.ask(packet, queue=queue)
             except ConnectionClosed:
                 continue
-
-        self._waitAnyMessage(False)
+        self._waitAnyTransactionMessage(txn_context, False)
 
