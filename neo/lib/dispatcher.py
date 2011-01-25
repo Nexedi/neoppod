@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo.lib.locking import Lock
+from neo.lib.locking import Lock, Empty
 from neo.lib.profiling import profiler_decorator
 EMPTY = {}
 NOBODY = []
@@ -133,11 +133,13 @@ class Dispatcher:
 
     @giant_lock
     @profiler_decorator
-    def forget_queue(self, queue):
+    def forget_queue(self, queue, flush_queue=True):
         """
         Forget all pending messages for given queue.
         Actually makes them "expected by nobody", so we know we can ignore
         them, and not detect it as an error.
+        flush_queue (boolean, default=True)
+            All packets in queue get flushed.
         """
         # XXX: expensive lookup: we iterate over the whole dict
         found = 0
@@ -150,6 +152,13 @@ class Dispatcher:
         if refcount != found:
             raise ValueError('We hit a refcount bug: %s queue uses ' \
                 'expected, %s found' % (refcount, found))
+        if flush_queue:
+            get = queue.get
+            while True:
+                try:
+                    get(block=False)
+                except Empty:
+                    break
 
     @profiler_decorator
     def registered(self, conn):

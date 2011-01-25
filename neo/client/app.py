@@ -817,11 +817,6 @@ class Application(object):
         self._getMasterConnection().notify(p)
         queue = self.local_var.queue
         self.dispatcher.forget_queue(queue)
-        while True:
-            try:
-                queue.get(block=False)
-            except Empty:
-                break
         self.local_var.clear()
 
     @profiler_decorator
@@ -917,16 +912,11 @@ class Application(object):
         # Wait for all AnswerObjectUndoSerial. We might get OidNotFoundError,
         # meaning that objects in transaction's oid_list do not exist any
         # longer. This is the symptom of a pack, so forbid undoing transaction
-        # when it happens, but sill keep waiting for answers.
-        failed = False
-        while True:
-            try:
-                self.waitResponses()
-            except NEOStorageNotFoundError:
-                failed = True
-            else:
-                break
-        if failed:
+        # when it happens.
+        try:
+            self.waitResponses()
+        except NEOStorageNotFoundError:
+            self.dispatcher.forget_queue(queue)
             raise UndoError('non-undoable transaction')
 
         # Send undo data to all storage nodes.
