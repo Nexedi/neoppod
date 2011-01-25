@@ -312,6 +312,7 @@ class Application(object):
         ready = False
         nm = self.nm
         queue = self.local_var.queue
+        packet = Packets.AskPrimary()
         while not ready:
             # Get network connection to primary master
             index = 0
@@ -345,7 +346,7 @@ class Application(object):
                                   self.trying_master_node)
                     continue
                 try:
-                    msg_id = conn.ask(Packets.AskPrimary(), queue=queue)
+                    msg_id = conn.ask(packet, queue=queue)
                     self._waitMessage(conn, msg_id,
                             handler=self.primary_bootstrap_handler)
                 except ConnectionClosed:
@@ -374,9 +375,9 @@ class Application(object):
         neo.lib.logging.info('Initializing from master')
         queue = self.local_var.queue
         # Identify to primary master and request initial data
+        p = Packets.RequestIdentification(NodeTypes.CLIENT, self.uuid, None,
+            self.name)
         while conn.getUUID() is None:
-            p = Packets.RequestIdentification(NodeTypes.CLIENT, self.uuid,
-                    None, self.name)
             self._waitMessage(conn, conn.ask(p, queue=queue),
                     handler=self.primary_bootstrap_handler)
             if conn.getUUID() is None:
