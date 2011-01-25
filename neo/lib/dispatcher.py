@@ -131,6 +131,26 @@ class Dispatcher:
         message_table[msg_id] = NOBODY
         return queue
 
+    @giant_lock
+    @profiler_decorator
+    def forget_queue(self, queue):
+        """
+        Forget all pending messages for given queue.
+        Actually makes them "expected by nobody", so we know we can ignore
+        them, and not detect it as an error.
+        """
+        # XXX: expensive lookup: we iterate over the whole dict
+        found = 0
+        for message_table in self.message_table.itervalues():
+            for msg_id, t_queue in message_table.iteritems():
+                if queue is t_queue:
+                    found += 1
+                    message_table[msg_id] = NOBODY
+        refcount = self.queue_dict.pop(id(queue), 0)
+        if refcount != found:
+            raise ValueError('We hit a refcount bug: %s queue uses ' \
+                'expected, %s found' % (refcount, found))
+
     @profiler_decorator
     def registered(self, conn):
         """Check if a connection is registered into message table."""

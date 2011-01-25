@@ -815,22 +815,13 @@ class Application(object):
                     'storage node %r of abortion, ignoring.',
                     conn, exc_info=1)
         self._getMasterConnection().notify(p)
-
-        # Just wait for responses to arrive. If any leads to an exception,
-        # log it and continue: we *must* eat all answers to not disturb the
-        # next transaction.
         queue = self.local_var.queue
-        pending = self.dispatcher.pending
-        _waitAnyMessage = self._waitAnyMessage
-        while pending(queue):
+        self.dispatcher.forget_queue(queue)
+        while True:
             try:
-                _waitAnyMessage()
-            except:
-                neo.lib.logging.error(
-                    'Exception in tpc_abort while' \
-                    'handling pending answers, ignoring.',
-                    exc_info=1)
-
+                queue.get(block=False)
+            except Empty:
+                break
         self.local_var.clear()
 
     @profiler_decorator

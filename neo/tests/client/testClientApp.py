@@ -621,6 +621,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         class Dispatcher(object):
             def pending(self, queue):
                 return not queue.empty()
+
+            def forget_queue(self, queue):
+                pass
         app.dispatcher = Dispatcher()
         # conflict occurs on storage 2
         app.store(oid1, tid, 'DATA', None, txn)
