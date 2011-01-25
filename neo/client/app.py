@@ -270,13 +270,13 @@ class Application(object):
 
     @profiler_decorator
     def _askStorage(self, conn, packet):
-        """ Send a request to a storage node and process it's answer """
+        """ Send a request to a storage node and process its answer """
         msg_id = conn.ask(packet, queue=self.local_var.queue)
         self._waitMessage(conn, msg_id, self.storage_handler)
 
     @profiler_decorator
     def _askPrimary(self, packet):
-        """ Send a request to the primary master and process it's answer """
+        """ Send a request to the primary master and process its answer """
         conn = self._getMasterConnection()
         msg_id = conn.ask(packet, queue=self.local_var.queue)
         self._waitMessage(conn, msg_id, self.primary_handler)
