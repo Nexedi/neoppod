@@ -39,14 +39,10 @@ class StorageReplicatorTests(NeoUnitTestBase):
             'getOutdatedOffsetListFor': [0],
         })
         replicator = Replicator(app)
-        self.assertEqual(replicator.new_partition_dict, {})
+        self.assertEqual(replicator.new_partition_set, set())
         replicator.replication_done = False
         replicator.populate()
-        self.assertEqual(len(replicator.new_partition_dict), 1)
-        partition = replicator.new_partition_dict[0]
-        self.assertEqual(partition.getOffset(), 0)
-        self.assertEqual(partition.getCriticalTID(), None)
-        self.assertTrue(replicator.replication_done)
+        self.assertEqual(replicator.new_partition_set, set([0]))
 
     def test_reset(self):
         replicator = Replicator(None)
@@ -66,15 +62,9 @@ class StorageReplicatorTests(NeoUnitTestBase):
 
     def test_setCriticalTID(self):
         replicator = Replicator(None)
-        partition_list = [Partition(0), Partition(5)]
-        replicator.critical_tid_list = partition_list[:]
         critical_tid = self.getNextTID()
-        for partition in partition_list:
-            self.assertEqual(partition.getCriticalTID(), None)
-        replicator.setCriticalTID(critical_tid)
-        self.assertEqual(replicator.critical_tid_list, [])
-        for partition in partition_list:
-            self.assertEqual(partition.getCriticalTID(), critical_tid)
+        partition = Partition(0, critical_tid)
+        self.assertEqual(partition.getCriticalTID(), critical_tid)
 
     def test_setUnfinishedTIDList(self):
         replicator = Replicator(None)
@@ -134,7 +124,7 @@ class StorageReplicatorTests(NeoUnitTestBase):
         last_ids, unfinished_tids = [x.getParam(0) for x in \
             app.master_conn.mockGetNamedCalls('ask')]
         self.assertEqual(last_ids.getType(), Packets.AskLastIDs)
-        self.assertFalse(replicator.new_partition_dict)
+        self.assertFalse(replicator.new_partition_set)
         self.assertEqual(unfinished_tids.getType(),
             Packets.AskUnfinishedTransactions)
         self.assertTrue(replicator.waiting_for_unfinished_tids)
@@ -192,32 +182,29 @@ class StorageReplicatorTests(NeoUnitTestBase):
     def test_removePartition(self):
         replicator = Replicator(None)
         replicator.partition_dict = {0: None, 2: None}
-        replicator.new_partition_dict = {1: None}
+        replicator.new_partition_set = set([1])
         replicator.removePartition(0)
         self.assertEqual(replicator.partition_dict, {2: None})
-        self.assertEqual(replicator.new_partition_dict, {1: None})
+        self.assertEqual(replicator.new_partition_set, set([1]))
         replicator.removePartition(1)
         replicator.removePartition(2)
         self.assertEqual(replicator.partition_dict, {})
-        self.assertEqual(replicator.new_partition_dict, {})
+        self.assertEqual(replicator.new_partition_set, set())
         # Must not raise
         replicator.removePartition(3)
 
     def test_addPartition(self):
         replicator = Replicator(None)
         replicator.partition_dict = {0: None}
-        replicator.new_partition_dict = {1: None}
+        replicator.new_partition_set = set([1])
         replicator.addPartition(0)
         replicator.addPartition(1)
         self.assertEqual(replicator.partition_dict, {0: None})
-        self.assertEqual(replicator.new_partition_dict, {1: None})
+        self.assertEqual(replicator.new_partition_set, set([1]))
         replicator.addPartition(2)
         self.assertEqual(replicator.partition_dict, {0: None})
-        self.assertEqual(len(replicator.new_partition_dict), 2)
-        self.assertEqual(replicator.new_partition_dict[1], None)
-        partition = replicator.new_partition_dict[2]
-        self.assertEqual(partition.getOffset(), 2)
-        self.assertEqual(partition.getCriticalTID(), None)
+        self.assertEqual(len(replicator.new_partition_set), 2)
+        self.assertEqual(replicator.new_partition_set, set([1, 2]))
 
     def test_processDelayedTasks(self):
         replicator = Replicator(None)

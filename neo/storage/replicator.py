@@ -26,20 +26,17 @@ from neo.lib.util import dump
 class Partition(object):
     """This class abstracts the state of a partition."""
 
-    def __init__(self, offset):
+    def __init__(self, offset, tid):
         self.offset = offset
-        self.tid = None
+        if tid is None:
+            tid = ZERO_TID
+        self.tid = tid
 
     def getOffset(self):
         return self.offset
 
     def getCriticalTID(self):
         return self.tid
-
-    def setCriticalTID(self, tid):
-        if tid is None:
-            tid = ZERO_TID
-        self.tid = tid
 
     def safe(self, min_pending_tid):
         tid = self.tid
@@ -117,7 +114,7 @@ class Replicator(object):
           namely, a list of serials. This is also done part by part, and
           I ask only non-existing data. """
 
-    # new_partition_dict
+    # new_partition_set
     #   outdated partitions for which no critical tid was asked to primary
     #   master yet
     # critical_tid_list
@@ -148,7 +145,7 @@ class Replicator(object):
 
     def __init__(self, app):
         self.app = app
-        self.new_partition_dict = {}
+        self.new_partition_set = set()
         self.critical_tid_list = []
         self.partition_dict = {}
         self.task_list = []
@@ -174,9 +171,8 @@ class Replicator(object):
         table is the one accepted by primary master.
         Implies a reset.
         """
-        self.new_partition_dict = {}
-        for offset in self.app.pt.getOutdatedOffsetListFor(self.app.uuid):
-            self.new_partition_dict[offset] = Partition(offset)
+        partition_list = self.app.pt.getOutdatedOffsetListFor(self.app.uuid)
+        self.new_partition_set = set(partition_list)
         self.partition_dict = {}
         self.reset()
 
@@ -191,7 +187,8 @@ class Replicator(object):
 
     def pending(self):
         """Return whether there is any pending partition."""
-        return len(self.partition_dict) or len(self.new_partition_dict)
+        return len(self.partition_dict) or len(self.new_partition_set) \
+            or self.critical_tid_list
 
     def getCurrentOffset(self):
         assert self.current_partition is not None
@@ -211,16 +208,15 @@ class Replicator(object):
     def setCriticalTID(self, tid):
         """This is a callback from MasterOperationHandler."""
         neo.lib.logging.debug('setting critical TID %s to %s', dump(tid),
-            ', '.join([str(p.getOffset()) for p in self.critical_tid_list]))
-        for partition in self.critical_tid_list:
-            partition.setCriticalTID(tid)
+            ', '.join([str(p) for p in self.critical_tid_list]))
+        for offset in self.critical_tid_list:
+            self.partition_dict[offset] = Partition(offset, tid)
         self.critical_tid_list = []
 
     def _askCriticalTID(self):
         self.app.master_conn.ask(Packets.AskLastIDs())
-        self.critical_tid_list.extend(self.new_partition_dict.values())
-        self.partition_dict.update(self.new_partition_dict)
-        self.new_partition_dict = {}
+        self.critical_tid_list.extend(self.new_partition_set)
+        self.new_partition_set.clear()
 
     def setUnfinishedTIDList(self, tid_list):
         """This is a callback from MasterOperationHandler."""
@@ -289,7 +285,7 @@ class Replicator(object):
     def act(self):
         # If the new partition list is not empty, I must ask a critical
         # TID to a primary master node.
-        if self.new_partition_dict:
+        if self.new_partition_set:
             self._askCriticalTID()
 
         if self.current_partition is not None:
@@ -335,13 +331,12 @@ class Replicator(object):
     def removePartition(self, offset):
         """This is a callback from MasterOperationHandler."""
         self.partition_dict.pop(offset, None)
-        self.new_partition_dict.pop(offset, None)
+        self.new_partition_set.discard(offset)
 
     def addPartition(self, offset):
         """This is a callback from MasterOperationHandler."""
-        if not self.partition_dict.has_key(offset) \
-                and not self.new_partition_dict.has_key(offset):
-            self.new_partition_dict[offset] = Partition(offset)
+        if not self.partition_dict.has_key(offset):
+            self.new_partition_set.add(offset)
 
     def _addTask(self, key, func, args=(), kw=None):
         task = Task(func, args, kw)
