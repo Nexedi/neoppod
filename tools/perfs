@@ -10,7 +10,7 @@ from ZODB.FileStorage import FileStorage
 
 from neo.tests.benchmark import BenchmarkRunner
 from neo.tests.functional import NEOCluster
-from neo.profiling import PROFILING_ENABLED, profiler_decorator, \
+from neo.lib.profiling import PROFILING_ENABLED, profiler_decorator, \
     profiler_report
 
 class ImportBenchmark(BenchmarkRunner):

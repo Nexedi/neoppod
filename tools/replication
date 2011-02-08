@@ -7,8 +7,8 @@ import transaction
 from persistent import Persistent
 from ZODB.tests.StorageTestBase import zodb_pickle
 
-from neo.util import p64
-from neo.protocol import CellStates
+from neo.lib.util import p64
+from neo.lib.protocol import CellStates
 from neo.tests.benchmark import BenchmarkRunner
 from neo.tests.functional import NEOCluster
 
