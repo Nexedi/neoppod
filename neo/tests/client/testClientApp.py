@@ -122,15 +122,16 @@ class ClientApplicationTests(NeoUnitTestBase):
         return '\00' * 7 + chr(value)
     makeTID = makeOID
 
-    def getNodeCellConn(self, index=1, address=('127.0.0.1', 10000)):
+    def getNodeCellConn(self, index=1, address=('127.0.0.1', 10000), uuid=None):
         conn = Mock({
             'getAddress': address,
-            '__repr__': 'connection mock'
+            '__repr__': 'connection mock',
+            'getUUID': uuid,
         })
         node = Mock({
             '__repr__': 'node%s' % index,
             '__hash__': index,
-            'getConnection': conn,
+             'getConnection': conn,
         })
         cell = Mock({
             'getAddress': 'FakeServer',
@@ -442,6 +443,7 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def test_store3(self):
         app = self.getApp()
+        uuid = self.getNewUUID()
         oid = self.makeOID(11)
         tid = self.makeTID()
         txn = self.makeTransactionObject()
@@ -450,7 +452,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         packet = Packets.AnswerStoreObject(conflicting=0, oid=oid, serial=tid)
         packet.setId(0)
         storage_address = ('127.0.0.1', 10020)
-        node, cell, conn = self.getNodeCellConn(address=storage_address)
+        node, cell, conn = self.getNodeCellConn(address=storage_address,
+            uuid=uuid)
         app.cp = self.getConnectionPool([(node, conn)])
         app.pt = Mock({ 'getCellListForOID': (cell, cell, ) })
         class Dispatcher(object):
@@ -463,7 +466,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         txn_context['queue'].put((conn, packet))
         app.waitStoreResponses(txn_context, resolving_tryToResolveConflict)
         self.assertEquals(txn_context['object_stored_counter_dict'][oid],
-            {tid: 1})
+            {tid: set([uuid])})
         self.assertEquals(txn_context['data_dict'].get(oid, None), 'DATA')
         self.assertFalse(oid in txn_context['conflict_serial_dict'])
 

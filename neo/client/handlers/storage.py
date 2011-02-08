@@ -80,17 +80,20 @@ class StorageAnswersHandler(AnswerBaseHandler):
                         dump(oid), dump(serial))
             conflict_serial_dict = txn_context['conflict_serial_dict']
             if serial in object_stored_counter_dict:
-                raise NEOStorageError, 'A storage accepted object for ' \
-                    'serial %s but another reports a conflict for it.' % (
-                        dump(serial), )
+                raise NEOStorageError, 'Storages %s accepted object %s for ' \
+                    'serial %s but %s reports a conflict for it.' % (
+                    [dump(uuid) for uuid in object_stored_counter_dict[serial]],
+                    dump(oid), dump(serial),
+                    dump(conn.getUUID()),
+                )
             # If this conflict is not already resolved, mark it for
             # resolution.
             if serial not in txn_context[
                     'resolved_conflict_serial_dict'].get(oid, ()):
                 conflict_serial_dict.setdefault(oid, set()).add(serial)
         else:
-            object_stored_counter_dict[serial] = \
-                object_stored_counter_dict.get(serial, 0) + 1
+            uuid_set = object_stored_counter_dict.setdefault(serial, set())
+            uuid_set.add(conn.getUUID())
 
     answerCheckCurrentSerial = answerStoreObject
 
