@@ -76,7 +76,7 @@ class ReplicationTests(NeoUnitTestBase):
         oapp.pt = pt
         oapp.master_conn = mconn
         oapp.replicator = Replicator(oapp)
-        oapp.replicator.getCurrentRID = lambda: 0
+        oapp.replicator.getCurrentOffset = lambda: 0
         oapp.replicator.isCurrentConnection = lambda c: True
         oapp.replicator.getCurrentCriticalTID = lambda: MAX_TID
         # handlers and connections

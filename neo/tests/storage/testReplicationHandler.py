@@ -89,7 +89,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
             'checkTIDRange': None,
             'getTIDsFrom': None,
             'getObjectHistoryFrom': None,
-            'getCurrentRID': rid,
+            'getCurrentOffset': rid,
             'getCurrentCriticalTID': critical_tid,
         })
         def isCurrentConnection(other_conn):
@@ -125,7 +125,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         pmin_tid, plength, ppartition = next_range.decode()
         self.assertEqual(pmin_tid, add64(next_tid, 1))
         self.assertEqual(plength, RANGE_LENGTH)
-        self.assertEqual(ppartition, app.replicator.getCurrentRID())
+        self.assertEqual(ppartition, app.replicator.getCurrentOffset())
         calls = app.replicator.mockGetNamedCalls('checkTIDRange')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(pmin_tid, plength, ppartition)
@@ -152,7 +152,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         self.assertEqual(pmin_oid, next_oid)
         self.assertEqual(pmin_serial, add64(next_serial, 1))
         self.assertEqual(plength, RANGE_LENGTH)
-        self.assertEqual(ppartition, app.replicator.getCurrentRID())
+        self.assertEqual(ppartition, app.replicator.getCurrentOffset())
         calls = app.replicator.mockGetNamedCalls('checkSerialRange')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(pmin_oid, pmin_serial, plength, ppartition)

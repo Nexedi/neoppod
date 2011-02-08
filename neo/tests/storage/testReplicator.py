@@ -44,7 +44,7 @@ class StorageReplicatorTests(NeoUnitTestBase):
         replicator.populate()
         self.assertEqual(len(replicator.new_partition_dict), 1)
         partition = replicator.new_partition_dict[0]
-        self.assertEqual(partition.getRID(), 0)
+        self.assertEqual(partition.getOffset(), 0)
         self.assertEqual(partition.getCriticalTID(), None)
         self.assertTrue(replicator.replication_done)
 
@@ -216,7 +216,7 @@ class StorageReplicatorTests(NeoUnitTestBase):
         self.assertEqual(len(replicator.new_partition_dict), 2)
         self.assertEqual(replicator.new_partition_dict[1], None)
         partition = replicator.new_partition_dict[2]
-        self.assertEqual(partition.getRID(), 2)
+        self.assertEqual(partition.getOffset(), 2)
         self.assertEqual(partition.getCriticalTID(), None)
 
     def test_processDelayedTasks(self):

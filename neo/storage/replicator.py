@@ -26,12 +26,12 @@ from neo.lib.util import dump
 class Partition(object):
     """This class abstracts the state of a partition."""
 
-    def __init__(self, rid):
-        self.rid = rid
+    def __init__(self, offset):
+        self.offset = offset
         self.tid = None
 
-    def getRID(self):
-        return self.rid
+    def getOffset(self):
+        return self.offset
 
     def getCriticalTID(self):
         return self.tid
@@ -193,9 +193,9 @@ class Replicator(object):
         """Return whether there is any pending partition."""
         return len(self.partition_dict) or len(self.new_partition_dict)
 
-    def getCurrentRID(self):
+    def getCurrentOffset(self):
         assert self.current_partition is not None
-        return self.current_partition.getRID()
+        return self.current_partition.getOffset()
 
     def getCurrentCriticalTID(self):
         assert self.current_partition is not None
@@ -211,7 +211,7 @@ class Replicator(object):
     def setCriticalTID(self, tid):
         """This is a callback from MasterOperationHandler."""
         neo.lib.logging.debug('setting critical TID %s to %s', dump(tid),
-            ', '.join([str(p.getRID()) for p in self.critical_tid_list]))
+            ', '.join([str(p.getOffset()) for p in self.critical_tid_list]))
         for partition in self.critical_tid_list:
             partition.setCriticalTID(tid)
         self.critical_tid_list = []
@@ -237,7 +237,7 @@ class Replicator(object):
     def _startReplication(self):
         # Choose a storage node for the source.
         app = self.app
-        cell_list = app.pt.getCellList(self.current_partition.getRID(),
+        cell_list = app.pt.getCellList(self.current_partition.getOffset(),
                                        readable=True)
         node_list = [cell.getNode() for cell in cell_list
                         if cell.getNodeState() == NodeStates.RUNNING]
@@ -274,10 +274,10 @@ class Replicator(object):
     def _finishReplication(self):
         # TODO: remove try..except: pass
         try:
-            self.partition_dict.pop(self.current_partition.getRID())
+            self.partition_dict.pop(self.current_partition.getOffset())
             # Notify to a primary master node that my cell is now up-to-date.
             conn = self.app.master_conn
-            offset = self.current_partition.getRID()
+            offset = self.current_partition.getOffset()
             conn.notify(Packets.NotifyReplicationDone(offset))
         except KeyError:
             pass
@@ -300,7 +300,7 @@ class Replicator(object):
                     not self.current_connection.isPending():
                 # finish a replication
                 neo.lib.logging.info('replication is done for %s' %
-                        (self.current_partition.getRID(), ))
+                        (self.current_partition.getOffset(), ))
                 self._finishReplication()
             return
 
@@ -332,16 +332,16 @@ class Replicator(object):
 
         self._startReplication()
 
-    def removePartition(self, rid):
+    def removePartition(self, offset):
         """This is a callback from MasterOperationHandler."""
-        self.partition_dict.pop(rid, None)
-        self.new_partition_dict.pop(rid, None)
+        self.partition_dict.pop(offset, None)
+        self.new_partition_dict.pop(offset, None)
 
-    def addPartition(self, rid):
+    def addPartition(self, offset):
         """This is a callback from MasterOperationHandler."""
-        if not self.partition_dict.has_key(rid) \
-                and not self.new_partition_dict.has_key(rid):
-            self.new_partition_dict[rid] = Partition(rid)
+        if not self.partition_dict.has_key(offset) \
+                and not self.new_partition_dict.has_key(offset):
+            self.new_partition_dict[offset] = Partition(offset)
 
     def _addTask(self, key, func, args=(), kw=None):
         task = Task(func, args, kw)

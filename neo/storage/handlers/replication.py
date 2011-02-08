@@ -182,27 +182,27 @@ class ReplicationHandler(EventHandler):
     def _doAskCheckSerialRange(self, min_oid, min_tid, max_tid,
             length=RANGE_LENGTH):
         replicator = self.app.replicator
-        partition = replicator.getCurrentRID()
+        partition = replicator.getCurrentOffset()
         check_args = (min_oid, min_tid, max_tid, length, partition)
         replicator.checkSerialRange(*check_args)
         return Packets.AskCheckSerialRange(*check_args)
 
     def _doAskCheckTIDRange(self, min_tid, max_tid, length=RANGE_LENGTH):
         replicator = self.app.replicator
-        partition = replicator.getCurrentRID()
+        partition = replicator.getCurrentOffset()
         replicator.checkTIDRange(min_tid, max_tid, length, partition)
         return Packets.AskCheckTIDRange(min_tid, max_tid, length, partition)
 
     def _doAskTIDsFrom(self, min_tid, length):
         replicator = self.app.replicator
-        partition_id = replicator.getCurrentRID()
+        partition_id = replicator.getCurrentOffset()
         max_tid = replicator.getCurrentCriticalTID()
         replicator.getTIDsFrom(min_tid, max_tid, length, partition_id)
         return Packets.AskTIDsFrom(min_tid, max_tid, length, [partition_id])
 
     def _doAskObjectHistoryFrom(self, min_oid, min_serial, length):
         replicator = self.app.replicator
-        partition_id = replicator.getCurrentRID()
+        partition_id = replicator.getCurrentOffset()
         max_serial = replicator.getCurrentCriticalTID()
         replicator.getObjectHistoryFrom(min_oid, min_serial, max_serial,
             length, partition_id)
@@ -284,7 +284,7 @@ class ReplicationHandler(EventHandler):
             # knows.
             (last_tid, ) = params
             app.dm.deleteTransactionsAbove(app.pt.getPartitions(),
-                replicator.getCurrentRID(), last_tid)
+                replicator.getCurrentOffset(), last_tid)
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
             max_tid = replicator.getCurrentCriticalTID()
@@ -316,7 +316,7 @@ class ReplicationHandler(EventHandler):
             # knows.
             ((last_oid, last_serial), ) = params
             app.dm.deleteObjectsAbove(app.pt.getPartitions(),
-              replicator.getCurrentRID(), last_oid, last_serial)
+              replicator.getCurrentOffset(), last_oid, last_serial)
             # Nothing remains, so the replication for this partition is
             # finished.
             replicator.setReplicationDone()
