@@ -274,10 +274,10 @@ class Replicator(object):
     def _finishReplication(self):
         # TODO: remove try..except: pass
         try:
-            self.partition_dict.pop(self.current_partition.getOffset())
             # Notify to a primary master node that my cell is now up-to-date.
             conn = self.app.master_conn
             offset = self.current_partition.getOffset()
+            self.partition_dict.pop(offset)
             conn.notify(Packets.NotifyReplicationDone(offset))
         except KeyError:
             pass
