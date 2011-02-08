@@ -133,9 +133,12 @@ class EventHandler(object):
     def notify(self, conn, message):
         neo.lib.logging.info('notification from %r: %s', conn, message)
 
-    def requestIdentification(self, conn, node_type,
-                                        uuid, address, name):
+    def requestIdentification(self, conn, node_type, uuid, address, name):
         raise UnexpectedPacketError
+
+    def _requestIdentification(self, conn, protocol, node_type,
+            uuid, address, name):
+        self.requestIdentification(conn, node_type, uuid, address, name)
 
     def acceptIdentification(self, conn, node_type,
                        uuid, num_partitions, num_replicas, your_uuid):
@@ -428,7 +431,7 @@ class EventHandler(object):
 
         d[Packets.Error] = self.error
         d[Packets.Notify] = self.notify
-        d[Packets.RequestIdentification] = self.requestIdentification
+        d[Packets.RequestIdentification] = self._requestIdentification
         d[Packets.AcceptIdentification] = self.acceptIdentification
         d[Packets.AskPrimary] = self.askPrimary
         d[Packets.AnswerPrimary] = self.answerPrimary

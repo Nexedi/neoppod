@@ -70,9 +70,9 @@ class ProtocolTests(NeoUnitTestBase):
 
     def test_11_RequestIdentification(self):
         uuid = self.getNewUUID()
-        p = Packets.RequestIdentification(NodeTypes.CLIENT, uuid,
-                                    ("127.0.0.1", 9080), "unittest")
-        node, p_uuid, (ip, port), name  = p.decode()
+        p = Packets.RequestIdentification(NodeTypes.CLIENT,
+                uuid, ("127.0.0.1", 9080), "unittest")
+        (plow, phigh), node, p_uuid, (ip, port), name  = p.decode()
         self.assertEqual(node, NodeTypes.CLIENT)
         self.assertEqual(p_uuid, uuid)
         self.assertEqual(ip, "127.0.0.1")
@@ -148,9 +148,11 @@ class ProtocolTests(NeoUnitTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        cell_list = [(0, ((uuid1, CellStates.UP_TO_DATE), (uuid2, CellStates.OUT_OF_DATE))),
-                     (43, ((uuid2, CellStates.OUT_OF_DATE),(uuid3, CellStates.DISCARDED))),
-                     (124, ((uuid1, CellStates.DISCARDED), (uuid3, CellStates.UP_TO_DATE)))]
+        cell_list = [
+            (0, [(uuid1, CellStates.UP_TO_DATE), (uuid2, CellStates.OUT_OF_DATE)]),
+            (43, [(uuid2, CellStates.OUT_OF_DATE), (uuid3, CellStates.DISCARDED)]),
+            (124, [(uuid1, CellStates.DISCARDED), (uuid3, CellStates.UP_TO_DATE)]),
+        ]
         p = Packets.AnswerPartitionTable(ptid, cell_list)
         pptid, p_cell_list  = p.decode()
         self.assertEqual(pptid, ptid)
@@ -161,9 +163,11 @@ class ProtocolTests(NeoUnitTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        cell_list = [(0, ((uuid1, CellStates.UP_TO_DATE), (uuid2, CellStates.OUT_OF_DATE))),
-                     (43, ((uuid2, CellStates.OUT_OF_DATE),(uuid3, CellStates.DISCARDED))),
-                     (124, ((uuid1, CellStates.DISCARDED), (uuid3, CellStates.UP_TO_DATE)))]
+        cell_list = [
+            (0, [(uuid1, CellStates.UP_TO_DATE), (uuid2, CellStates.OUT_OF_DATE)]),
+            (43, [(uuid2, CellStates.OUT_OF_DATE), (uuid3, CellStates.DISCARDED)]),
+            (124, [(uuid1, CellStates.DISCARDED), (uuid3, CellStates.UP_TO_DATE)]),
+        ]
         p = Packets.AnswerPartitionTable(ptid, cell_list)
         pptid, p_cell_list  = p.decode()
         self.assertEqual(pptid, ptid)
@@ -176,8 +180,7 @@ class ProtocolTests(NeoUnitTestBase):
         cell_list = [(0, uuid1, CellStates.UP_TO_DATE),
                      (43, uuid2, CellStates.OUT_OF_DATE),
                      (124, uuid1, CellStates.DISCARDED)]
-        p = Packets.NotifyPartitionChanges(ptid,
-                                 cell_list)
+        p = Packets.NotifyPartitionChanges(ptid, cell_list)
         pptid, p_cell_list  = p.decode()
         self.assertEqual(pptid, ptid)
         self.assertEqual(p_cell_list, cell_list)
@@ -234,7 +237,6 @@ class ProtocolTests(NeoUnitTestBase):
         p = Packets.CommitTransaction(tid)
         ptid = p.decode()[0]
         self.assertEqual(ptid, tid)
-
 
     def test_32_askBeginTransaction(self):
         tid = self.getNextTID()
@@ -370,11 +372,11 @@ class ProtocolTests(NeoUnitTestBase):
     def test_46_answerStoreObject(self):
         oid = self.getNextTID()
         serial = self.getNextTID()
-        p = Packets.AnswerStoreObject(1, oid, serial)
+        p = Packets.AnswerStoreObject(True, oid, serial)
         conflicting, poid, pserial = p.decode()
         self.assertEqual(oid, poid)
         self.assertEqual(serial, pserial)
-        self.assertEqual(conflicting, 1)
+        self.assertTrue(conflicting)
 
     def test_47_askObject(self):
         oid = self.getNextTID()
@@ -532,7 +534,7 @@ class ProtocolTests(NeoUnitTestBase):
 
     def test_AddPendingNodes(self):
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
-        p = Packets.AddPendingNodes([uuid1, uuid2])
+        p = Packets.AddPendingNodes((uuid1, uuid2))
         self.assertEqual(p.decode(), ([uuid1, uuid2], ))
 
     def test_SetNodeState(self):
@@ -551,7 +553,7 @@ class ProtocolTests(NeoUnitTestBase):
                 self.getNewUUID(), NodeStates.DOWN)
         node2 = (NodeTypes.MASTER, ('127.0.0.1', 2000),
                 self.getNewUUID(), NodeStates.RUNNING)
-        p = Packets.AnswerNodeList([node1, node2])
+        p = Packets.AnswerNodeList((node1, node2))
         self.assertEqual(p.decode(), ([node1, node2], ))
 
     def test_AskPartitionList(self):
@@ -564,14 +566,14 @@ class ProtocolTests(NeoUnitTestBase):
     def test_AnswerPartitionList(self):
         ptid = self.getPTID(1)
         row_list = [
-            (0, (
+            (0, [
                 (self.getNewUUID(), CellStates.UP_TO_DATE),
                 (self.getNewUUID(), CellStates.OUT_OF_DATE),
-                )),
-            (1, (
+                ]),
+            (1, [
                 (self.getNewUUID(), CellStates.FEEDING),
                 (self.getNewUUID(), CellStates.DISCARDED),
-                )),
+                ]),
         ]
         p = Packets.AnswerPartitionList(ptid, row_list)
         self.assertEqual(p.decode(), (ptid, row_list))

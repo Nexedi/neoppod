@@ -160,7 +160,7 @@ class PrimaryAnswersHandler(AnswerBaseHandler):
         self.app.setHandlerData(ttid)
 
     def answerNewOIDs(self, conn, oid_list):
-        self.app.new_oid_list = oid_list
+        self.app.new_oid_list = list(oid_list)
 
     def answerTransactionFinished(self, conn, _, tid):
         self.app.setHandlerData(tid)

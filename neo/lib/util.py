@@ -22,6 +22,23 @@ from zlib import adler32
 from Queue import deque
 from struct import pack, unpack
 
+try:
+    from struct import Struct
+except ImportError:
+    import struct
+    # support for python 2.4
+    class Struct(object):
+
+        def __init__(self, fmt):
+            self._fmt = fmt
+            self.size = struct.calcsize(fmt)
+
+        def pack(self, *args):
+            return struct.pack(self._fmt, *args)
+
+        def unpack(self, *args):
+            return struct.unpack(self._fmt, *args)
+
 def u64(s):
     return unpack('!Q', s)[0]
 
