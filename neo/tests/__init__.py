@@ -283,7 +283,7 @@ class NeoUnitTestBase(NeoTestBase):
     def checkNotifyPacket(self, conn, packet_type, packet_number=0, decode=False):
         """ Check if a notify-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('notify')
-        self.assertTrue(len(calls) > packet_number)
+        self.assertTrue(len(calls) > packet_number, (len(calls), packet_number))
         packet = calls[packet_number].getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEquals(packet.getType(), packet_type)
@@ -323,6 +323,9 @@ class NeoUnitTestBase(NeoTestBase):
 
     def checkNotifyUnlockInformation(self, conn, **kw):
         return self.checkNotifyPacket(conn, Packets.NotifyUnlockInformation, **kw)
+
+    def checkNotifyTransactionFinished(self, conn, **kw):
+        return self.checkNotifyPacket(conn, Packets.NotifyTransactionFinished, **kw)
 
     def checkRequestIdentification(self, conn, **kw):
         return self.checkAskPacket(conn, Packets.RequestIdentification, **kw)

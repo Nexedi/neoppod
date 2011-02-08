@@ -15,12 +15,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+import time
 import unittest
 import transaction
 from persistent import Persistent
 
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
 from neo.lib.protocol import ClusterStates, NodeStates
+from ZODB.tests.StorageTestBase import zodb_pickle
 from MySQLdb import ProgrammingError
 from MySQLdb.constants.ER import NO_SUCH_TABLE
 
@@ -521,6 +523,47 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectRunning(started[1])
         self.neo.expectClusterRecovering()
         self.neo.expectOudatedCells(number=10)
+
+    def testReplicationBlockedByUnfinished(self):
+        # start a cluster with 1 of 2 storages and a replica
+        (started, stopped) = self.__setup(storage_number=2, replicas=1,
+                pending_number=1, partitions=10)
+        self.neo.expectRunning(started[0])
+        self.neo.expectStorageNotKnown(stopped[0])
+        self.neo.expectOudatedCells(number=0)
+        self.neo.expectClusterRunning()
+        self.__populate()
+        self.neo.expectOudatedCells(number=0)
+
+        # start a transaction that will block the end of the replication
+        db, conn = self.neo.getZODBConnection()
+        st = conn._storage
+        t = transaction.Transaction()
+        t.user  = 'user'
+        t.description = 'desc'
+        oid = st.new_oid()
+        rev = '\0' * 8
+        data = zodb_pickle(PObject(42))
+        st.tpc_begin(t)
+        st.store(oid, rev, data, '', t)
+
+        # start the oudated storage
+        stopped[0].start()
+        self.neo.expectPending(stopped[0])
+        self.neo.neoctl.enableStorageList([stopped[0].getUUID()])
+        self.neo.expectRunning(stopped[0])
+        self.neo.expectClusterRunning()
+        self.neo.expectAssignedCells(started[0], 10)
+        self.neo.expectAssignedCells(stopped[0], 10)
+        # wait a bit, replication must not happen. This hack is required
+        # because we cannot gather informations directly from the storages
+        time.sleep(10)
+        self.neo.expectOudatedCells(number=10)
+
+        # finish the transaction, the replication must happen and finish
+        st.tpc_vote(t)
+        st.tpc_finish(t)
+        self.neo.expectOudatedCells(number=0, timeout=10)
 
 if __name__ == "__main__":
     unittest.main()

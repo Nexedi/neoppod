@@ -661,18 +661,18 @@ class AnswerUnfinishedTransactions(Packet):
     """
     Answer unfinished transactions  S -> PM.
     """
-    _header_format = '!L'
+    _header_format = '!8sL'
     _list_entry_format = '8s'
     _list_entry_len = calcsize(_list_entry_format)
 
-    def _encode(self, tid_list):
-        body = [pack(self._header_format, len(tid_list))]
+    def _encode(self, max_tid, tid_list):
+        body = [pack(self._header_format, max_tid, len(tid_list))]
         body.extend(tid_list)
         return ''.join(body)
 
     def _decode(self, body):
         offset = self._header_len
-        (n,) = unpack(self._header_format, body[:offset])
+        (max_tid, n) = unpack(self._header_format, body[:offset])
         tid_list = []
         list_entry_format = self._list_entry_format
         list_entry_len = self._list_entry_len
@@ -681,7 +681,7 @@ class AnswerUnfinishedTransactions(Packet):
             tid = unpack(list_entry_format, body[offset:next_offset])[0]
             offset = next_offset
             tid_list.append(tid)
-        return (tid_list,)
+        return (max_tid, tid_list)
 
 class AskObjectPresent(Packet):
     """
@@ -783,6 +783,18 @@ class AskFinishTransaction(Packet):
             offset = next_offset
             oid_list.append(oid)
         return (tid, oid_list)
+
+class NotifyTransactionFinished(Packet):
+    """
+    Notify that a transaction blocking a replication is now finished
+    M -> S
+    """
+    def _encode(self, ttid, max_tid):
+        return _encodeTID(ttid) + _encodeTID(max_tid)
+
+    def _decode(self, body):
+        (ttid, max_tid) = unpack('8s8s', body)
+        return (ttid, max_tid)
 
 class AnswerTransactionFinished(Packet):
     """
@@ -2043,6 +2055,10 @@ class PacketRegistry(dict):
             0x003D,
             AskCheckCurrentSerial,
             AnswerCheckCurrentSerial,
+            )
+    NotifyTransactionFinished = register(
+            0x003E,
+            NotifyTransactionFinished,
             )
 
 # build a "singleton"

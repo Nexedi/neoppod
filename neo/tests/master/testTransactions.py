@@ -37,7 +37,7 @@ class testTransactionManager(NeoUnitTestBase):
 
     def makeNode(self, i):
         uuid = self.makeUUID(i)
-        node = Mock({'getUUID': uuid, '__hash__': 0})
+        node = Mock({'getUUID': uuid, '__hash__': i, '__repr__': 'FakeNode'})
         return uuid, node
 
     def testTransaction(self):
@@ -49,7 +49,8 @@ class testTransactionManager(NeoUnitTestBase):
         uuid_list = (uuid1, uuid2) = [self.makeUUID(1), self.makeUUID(2)]
         msg_id = 1
         # create transaction object
-        txn = Transaction(node, ttid, tid, oid_list, uuid_list, msg_id)
+        txn = Transaction(node, ttid)
+        txn.prepare(tid, oid_list, uuid_list, msg_id)
         self.assertEqual(txn.getUUIDList(), uuid_list)
         self.assertEqual(txn.getOIDList(), oid_list)
         # lock nodes one by one
@@ -69,16 +70,16 @@ class testTransactionManager(NeoUnitTestBase):
         callback = Mock()
         txnman = TransactionManager(on_commit=callback)
         self.assertFalse(txnman.hasPending())
-        self.assertEqual(txnman.getPendingList(), [])
+        self.assertEqual(txnman.registerForNotification(uuid1), set())
         # begin the transaction
-        ttid = txnman.begin(client_uuid)
+        ttid = txnman.begin(node)
         self.assertTrue(ttid is not None)
-        self.assertFalse(txnman.hasPending())
-        self.assertEqual(len(txnman.getPendingList()), 0)
-        # prepare the transaction
-        tid = txnman.prepare(node, ttid, 1, oid_list, uuid_list, msg_id)
+        self.assertEqual(len(txnman.registerForNotification(uuid1)), 1)
         self.assertTrue(txnman.hasPending())
-        self.assertEqual(txnman.getPendingList()[0], tid)
+        # prepare the transaction
+        tid = txnman.prepare(ttid, 1, oid_list, uuid_list, msg_id)
+        self.assertTrue(txnman.hasPending())
+        self.assertEqual(txnman.registerForNotification(uuid1), set([ttid]))
         txn = txnman[ttid]
         self.assertEqual(txn.getTID(), tid)
         self.assertEqual(txn.getUUIDList(), list(uuid_list))
@@ -90,30 +91,30 @@ class testTransactionManager(NeoUnitTestBase):
         self.assertEqual(len(callback.getNamedCalls('__call__')), 1)
         # transaction finished
         txnman.remove(client_uuid, ttid)
-        self.assertEqual(txnman.getPendingList(), [])
+        self.assertEqual(txnman.registerForNotification(uuid1), set())
 
     def testAbortFor(self):
-        node1 = Mock({'__hash__': 1})
-        node2 = Mock({'__hash__': 2})
         oid_list = [self.makeOID(1), ]
-        storage_1_uuid = self.makeUUID(1)
-        storage_2_uuid = self.makeUUID(2)
-        client_uuid = self.makeUUID(3)
+        storage_1_uuid, node1 = self.makeNode(1)
+        storage_2_uuid, node2 = self.makeNode(2)
+        client_uuid, client = self.makeNode(3)
         txnman = TransactionManager(lambda tid, txn: None)
         # register 4 transactions made by two nodes
-        self.assertEqual(txnman.getPendingList(), [])
-        ttid1 = txnman.begin(client_uuid)
-        tid1 = txnman.prepare(node1, ttid1, 1, oid_list, [storage_1_uuid], 1)
-        self.assertEqual(txnman.getPendingList(), [tid1])
+        self.assertEqual(txnman.registerForNotification(storage_1_uuid), set())
+        ttid1 = txnman.begin(client)
+        tid1 = txnman.prepare(ttid1, 1, oid_list, [storage_1_uuid], 1)
+        self.assertEqual(txnman.registerForNotification(storage_1_uuid), set([ttid1]))
         # abort transactions of another node, transaction stays
         txnman.abortFor(node2)
-        self.assertEqual(txnman.getPendingList(), [tid1])
-        # abort transactions of requesting node, transaction is removed
+        self.assertEqual(txnman.registerForNotification(storage_1_uuid), set([ttid1]))
+        # abort transactions of requesting node, transaction is not removed
+        # because the transaction is prepared and must remains until the end of
+        # the 2PC
         txnman.abortFor(node1)
-        self.assertEqual(txnman.getPendingList(), [])
-        self.assertFalse(txnman.hasPending())
+        self.assertEqual(txnman.registerForNotification(storage_1_uuid), set([ttid1]))
+        self.assertTrue(txnman.hasPending())
         # ...and the lock is available
-        txnman.begin(client_uuid, self.getNextTID())
+        txnman.begin(client, self.getNextTID())
 
     def test_getNextOIDList(self):
         txnman = TransactionManager(lambda tid, txn: None)
@@ -141,8 +142,8 @@ class testTransactionManager(NeoUnitTestBase):
         # Transaction 1: 2 storage nodes involved, one will die and the other
         # already answered node lock
         msg_id_1 = 1
-        ttid1 = tm.begin(client_uuid)
-        tid1 = tm.prepare(client1, ttid1, 1, oid_list,
+        ttid1 = tm.begin(client1)
+        tid1 = tm.prepare(ttid1, 1, oid_list,
             [storage_1_uuid, storage_2_uuid], msg_id_1)
         tm.lock(ttid1, storage_2_uuid)
         t1 = tm[ttid1]
@@ -155,8 +156,8 @@ class testTransactionManager(NeoUnitTestBase):
 
         # Transaction 2: 2 storage nodes involved, one will die
         msg_id_2 = 2
-        ttid2 = tm.begin(client_uuid)
-        tid2 = tm.prepare(client2, ttid2, 1, oid_list,
+        ttid2 = tm.begin(client2)
+        tid2 = tm.prepare(ttid2, 1, oid_list,
             [storage_1_uuid, storage_2_uuid], msg_id_2)
         t2 = tm[ttid2]
         self.assertFalse(t2.locked())
@@ -169,8 +170,8 @@ class testTransactionManager(NeoUnitTestBase):
 
         # Transaction 3: 1 storage node involved, which won't die
         msg_id_3 = 3
-        ttid3 = tm.begin(client_uuid)
-        tid3 = tm.prepare(client3, ttid3, 1, oid_list, [storage_2_uuid, ],
+        ttid3 = tm.begin(client3)
+        tid3 = tm.prepare(ttid3, 1, oid_list, [storage_2_uuid, ],
             msg_id_3)
         t3 = tm[ttid3]
         self.assertFalse(t3.locked())
@@ -213,29 +214,28 @@ class testTransactionManager(NeoUnitTestBase):
         strictly increasing order.
         Note: this implementation might change later, to allow more paralelism.
         """
-        client_uuid = self.makeUUID(3)
+        client_uuid, client = self.makeNode(1)
         tm = TransactionManager(lambda tid, txn: None)
         # With a requested TID, lock spans from begin to remove
         ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
-        tid1 = tm.begin(client_uuid, ttid1)
+        tid1 = tm.begin(client, ttid1)
         self.assertEqual(tid1, ttid1)
         tm.remove(client_uuid, tid1)
         # Without a requested TID, lock spans from prepare to remove only
-        ttid3 = tm.begin(client_uuid)
-        ttid4 = tm.begin(client_uuid) # Doesn't raise
+        ttid3 = tm.begin(client)
+        ttid4 = tm.begin(client) # Doesn't raise
         node = Mock({'getUUID': client_uuid, '__hash__': 0})
-        tid4 = tm.prepare(node, ttid4, 1, [], [], 0)
+        tid4 = tm.prepare(ttid4, 1, [], [], 0)
         tm.remove(client_uuid, tid4)
-        tm.prepare(node, ttid3, 1, [], [], 0)
+        tm.prepare(ttid3, 1, [], [], 0)
 
     def testClientDisconectsAfterBegin(self):
-        client1_uuid = self.makeUUID(1)
+        client_uuid1, node1 = self.makeNode(1)
         tm = TransactionManager(lambda tid, txn: None)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
-        tm.begin(client1_uuid, tid1)
-        node1 = Mock({'getUUID': client1_uuid, '__hash__': 0})
+        tm.begin(node1, tid1)
         tm.abortFor(node1)
         self.assertTrue(tid1 not in tm)
 
@@ -245,10 +245,10 @@ class testTransactionManager(NeoUnitTestBase):
         uuid2, node2 = self.makeNode(2)
         storage_uuid = self.makeUUID(3)
         tm = TransactionManager(callback)
-        ttid1 = tm.begin(uuid1)
-        ttid2 = tm.begin(uuid2)
-        tid1 = tm.prepare(node1, ttid1, 1, [], [storage_uuid], 0)
-        tid2 = tm.prepare(node2, ttid2, 1, [], [storage_uuid], 0)
+        ttid1 = tm.begin(node1)
+        ttid2 = tm.begin(node2)
+        tid1 = tm.prepare(ttid1, 1, [], [storage_uuid], 0)
+        tid2 = tm.prepare(ttid2, 1, [], [storage_uuid], 0)
         tm.lock(ttid2, storage_uuid)
         # txn 2 is still blocked by txn 1
         self.assertEqual(len(callback.getNamedCalls('__call__')), 0)

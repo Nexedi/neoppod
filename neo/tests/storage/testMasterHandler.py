@@ -190,11 +190,12 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         self.app.replicator = Mock()
         self.operation.answerUnfinishedTransactions(
             conn=conn,
-            tid_list=(INVALID_TID, ),
+            max_tid=INVALID_TID,
+            ttid_list=(INVALID_TID, ),
         )
         calls = self.app.replicator.mockGetNamedCalls('setUnfinishedTIDList')
         self.assertEquals(len(calls), 1)
-        calls[0].checkArgs((INVALID_TID, ))
+        calls[0].checkArgs(INVALID_TID, (INVALID_TID, ))
 
     def test_askPack(self):
         self.app.dm = Mock({'pack': None})

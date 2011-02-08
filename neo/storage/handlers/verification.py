@@ -18,7 +18,7 @@
 import neo
 
 from neo.storage.handlers import BaseMasterHandler
-from neo.lib.protocol import Packets, Errors, ProtocolError
+from neo.lib.protocol import Packets, Errors, ProtocolError, INVALID_TID
 from neo.lib.util import dump
 from neo.lib.exception import OperationFailure
 
@@ -62,7 +62,7 @@ class VerificationHandler(BaseMasterHandler):
 
     def askUnfinishedTransactions(self, conn):
         tid_list = self.app.dm.getUnfinishedTIDList()
-        conn.answer(Packets.AnswerUnfinishedTransactions(tid_list))
+        conn.answer(Packets.AnswerUnfinishedTransactions(INVALID_TID, tid_list))
 
     def askTransactionInformation(self, conn, tid):
         app = self.app

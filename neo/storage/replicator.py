@@ -26,22 +26,26 @@ from neo.lib.util import dump
 class Partition(object):
     """This class abstracts the state of a partition."""
 
-    def __init__(self, offset, tid):
-        self.offset = offset
-        if tid is None:
-            tid = ZERO_TID
-        self.tid = tid
+    def __init__(self, offset, max_tid, ttid_list):
+        self._offset = offset
+        self._pending_ttid_list = ttid_list
+        # pending upper bound
+        self._critical_tid = max_tid
 
     def getOffset(self):
-        return self.offset
+        return self._offset
 
     def getCriticalTID(self):
-        return self.tid
+        return self._critical_tid
 
-    def safe(self, min_pending_tid):
-        tid = self.tid
-        return tid is not None and (
-            min_pending_tid is None or tid < min_pending_tid)
+    def transactionFinished(self, ttid, max_tid):
+        self._pending_ttid_list.remove(ttid)
+        assert max_tid is not None
+        # final upper bound
+        self._critical_tid = max_tid
+
+    def safe(self):
+        return not self._pending_ttid_list
 
 class Task(object):
     """
@@ -115,23 +119,18 @@ class Replicator(object):
           I ask only non-existing data. """
 
     # new_partition_set
-    #   outdated partitions for which no critical tid was asked to primary
-    #   master yet
-    # critical_tid_list
-    #   outdated partitions for which a critical tid was asked to primary
-    #   master, but not answered so far
+    #   outdated partitions for which no pending transactions was asked to
+    #   primary master yet
     # partition_dict
-    #   outdated partitions (with or without a critical tid - if without, it
-    #   was asked to primary master)
+    #   outdated partitions with pending transaction and temporary critical
+    #   tid
     # current_partition
     #   partition being currently synchronised
     # current_connection
     #   connection to a storage node we are replicating from
     # waiting_for_unfinished_tids
-    #   unfinished_tid_list has been asked to primary master node, but it
+    #   unfinished tids have been asked to primary master node, but it
     #   didn't answer yet.
-    # unfinished_tid_list
-    #   The list of unfinished TIDs known by master node.
     # replication_done
     #   False if we know there is something to replicate.
     #   True when current_partition is replicated, or we don't know yet if
@@ -140,13 +139,11 @@ class Replicator(object):
     current_partition = None
     current_connection = None
     waiting_for_unfinished_tids = False
-    unfinished_tid_list = None
     replication_done = True
 
     def __init__(self, app):
         self.app = app
         self.new_partition_set = set()
-        self.critical_tid_list = []
         self.partition_dict = {}
         self.task_list = []
         self.task_dict = {}
@@ -156,7 +153,6 @@ class Replicator(object):
         When connection to primary master is lost, stop waiting for unfinished
         transactions.
         """
-        self.critical_tid_list = []
         self.waiting_for_unfinished_tids = False
 
     def storageLost(self):
@@ -182,13 +178,11 @@ class Replicator(object):
         self.task_dict = {}
         self.current_partition = None
         self.current_connection = None
-        self.unfinished_tid_list = None
         self.replication_done = True
 
     def pending(self):
         """Return whether there is any pending partition."""
-        return len(self.partition_dict) or len(self.new_partition_set) \
-            or self.critical_tid_list
+        return len(self.partition_dict) or len(self.new_partition_set)
 
     def getCurrentOffset(self):
         assert self.current_partition is not None
@@ -205,25 +199,21 @@ class Replicator(object):
     def isCurrentConnection(self, conn):
         return self.current_connection is conn
 
-    def setCriticalTID(self, tid):
+    def setUnfinishedTIDList(self, max_tid, ttid_list):
         """This is a callback from MasterOperationHandler."""
-        neo.lib.logging.debug('setting critical TID %s to %s', dump(tid),
-            ', '.join([str(p) for p in self.critical_tid_list]))
-        for offset in self.critical_tid_list:
-            self.partition_dict[offset] = Partition(offset, tid)
-        self.critical_tid_list = []
-
-    def _askCriticalTID(self):
-        self.app.master_conn.ask(Packets.AskLastIDs())
-        self.critical_tid_list.extend(self.new_partition_set)
-        self.new_partition_set.clear()
-
-    def setUnfinishedTIDList(self, tid_list):
-        """This is a callback from MasterOperationHandler."""
-        neo.lib.logging.debug('setting unfinished TIDs %s',
-                      ','.join([dump(tid) for tid in tid_list]))
+        neo.lib.logging.debug('setting unfinished TTIDs %s',
+                      ','.join([dump(tid) for tid in ttid_list]))
+        # all new outdated partition must wait those ttid
+        new_partition_set = self.new_partition_set
+        while new_partition_set:
+            offset = new_partition_set.pop()
+            self.partition_dict[offset] = Partition(offset, max_tid, ttid_list)
         self.waiting_for_unfinished_tids = False
-        self.unfinished_tid_list = tid_list
+
+    def transactionFinished(self, ttid, max_tid):
+        """ Callback from MasterOperationHandler """
+        partition = self.partition_dict[self.app.pt.getPartition(ttid)]
+        partition.transactionFinished(ttid, max_tid)
 
     def _askUnfinishedTIDs(self):
         conn = self.app.master_conn
@@ -283,10 +273,6 @@ class Replicator(object):
             self.current_connection = None
 
     def act(self):
-        # If the new partition list is not empty, I must ask a critical
-        # TID to a primary master node.
-        if self.new_partition_set:
-            self._askCriticalTID()
 
         if self.current_partition is not None:
             # Don't end replication until we have received all expected
@@ -305,24 +291,22 @@ class Replicator(object):
             neo.lib.logging.debug('waiting for unfinished tids')
             return
 
-        if self.unfinished_tid_list is None:
+        if self.new_partition_set:
             # Ask pending transactions.
             neo.lib.logging.debug('asking unfinished tids')
             self._askUnfinishedTIDs()
             return
 
         # Try to select something.
-        if len(self.unfinished_tid_list):
-            min_unfinished_tid = min(self.unfinished_tid_list)
-        else:
-            min_unfinished_tid = None
         for partition in self.partition_dict.values():
-            if partition.safe(min_unfinished_tid):
+            # XXX: replication could start up to the initial critical tid, that
+            # is below the pending transactions, then finish when all pending
+            # transactions are committed.
+            if partition.safe():
                 self.current_partition = partition
                 break
         else:
             # Not yet.
-            self.unfinished_tid_list = None
             neo.lib.logging.debug('not ready yet')
             return
 

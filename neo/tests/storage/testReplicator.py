@@ -40,7 +40,6 @@ class StorageReplicatorTests(NeoUnitTestBase):
         })
         replicator = Replicator(app)
         self.assertEqual(replicator.new_partition_set, set())
-        replicator.replication_done = False
         replicator.populate()
         self.assertEqual(replicator.new_partition_set, set([0]))
 
@@ -50,40 +49,32 @@ class StorageReplicatorTests(NeoUnitTestBase):
         replicator.task_dict = {'foo': 'bar'}
         replicator.current_partition = 'foo'
         replicator.current_connection = 'foo'
-        replicator.unfinished_tid_list = ['foo']
         replicator.replication_done = 'foo'
         replicator.reset()
         self.assertEqual(replicator.task_list, [])
         self.assertEqual(replicator.task_dict, {})
         self.assertEqual(replicator.current_partition, None)
         self.assertEqual(replicator.current_connection, None)
-        self.assertEqual(replicator.unfinished_tid_list, None)
         self.assertTrue(replicator.replication_done)
 
     def test_setCriticalTID(self):
-        replicator = Replicator(None)
         critical_tid = self.getNextTID()
-        partition = Partition(0, critical_tid)
+        partition = Partition(0, critical_tid, [])
         self.assertEqual(partition.getCriticalTID(), critical_tid)
-
-    def test_setUnfinishedTIDList(self):
-        replicator = Replicator(None)
-        replicator.waiting_for_unfinished_tids = True
-        assert replicator.unfinished_tid_list is None, \
-            replicator.unfinished_tid_list
-        tid_list = [self.getNextTID(), ]
-        replicator.setUnfinishedTIDList(tid_list)
-        self.assertEqual(replicator.unfinished_tid_list, tid_list)
-        self.assertFalse(replicator.waiting_for_unfinished_tids)
+        self.assertEqual(partition.getOffset(), 0)
 
     def test_act(self):
         # Also tests "pending"
         uuid = self.getNewUUID()
         master_uuid = self.getNewUUID()
-        bad_unfinished_tid = self.getNextTID()
-        critical_tid = self.getNextTID()
-        unfinished_tid = self.getNextTID()
+        critical_tid_0 = self.getNextTID()
+        critical_tid_1 = self.getNextTID()
+        critical_tid_2 = self.getNextTID()
+        unfinished_ttid_1 = self.getOID(1)
+        unfinished_ttid_2 = self.getOID(2)
         app = Mock()
+        app.server = ('127.0.0.1', 10000)
+        app.name = 'fake cluster'
         app.em = Mock({
             'register': None,
         })
@@ -105,6 +96,7 @@ class StorageReplicatorTests(NeoUnitTestBase):
         app.pt = Mock({
             'getCellList': [running_cell, unknown_cell],
             'getOutdatedOffsetListFor': [0],
+            'getPartition': 0,
         })
         node_conn_handler = Mock({
             'startReplication': None,
@@ -119,37 +111,28 @@ class StorageReplicatorTests(NeoUnitTestBase):
             app.master_conn = self.getFakeConnection(uuid=master_uuid)
             self.assertTrue(replicator.pending())
             replicator.act()
-        # ask last IDs to infer critical_tid and unfinished tids
+        # ask unfinished tids
         act()
-        last_ids, unfinished_tids = [x.getParam(0) for x in \
-            app.master_conn.mockGetNamedCalls('ask')]
-        self.assertEqual(last_ids.getType(), Packets.AskLastIDs)
-        self.assertFalse(replicator.new_partition_set)
-        self.assertEqual(unfinished_tids.getType(),
-            Packets.AskUnfinishedTransactions)
+        unfinished_tids = app.master_conn.mockGetNamedCalls('ask')[0].getParam(0)
+        self.assertTrue(replicator.new_partition_set)
+        self.assertEqual(unfinished_tids.getType(), Packets.AskUnfinishedTransactions)
         self.assertTrue(replicator.waiting_for_unfinished_tids)
         # nothing happens until waiting_for_unfinished_tids becomes False
         act()
         self.checkNoPacketSent(app.master_conn)
         self.assertTrue(replicator.waiting_for_unfinished_tids)
-        # Send answers (garanteed to happen in this order)
-        replicator.setCriticalTID(critical_tid)
-        act()
-        self.checkNoPacketSent(app.master_conn)
-        self.assertTrue(replicator.waiting_for_unfinished_tids)
         # first time, there is an unfinished tid before critical tid,
         # replication cannot start, and unfinished TIDs are asked again
-        replicator.setUnfinishedTIDList([unfinished_tid, bad_unfinished_tid])
+        replicator.setUnfinishedTIDList(critical_tid_0,
+            [unfinished_ttid_1, unfinished_ttid_2])
         self.assertFalse(replicator.waiting_for_unfinished_tids)
         # Note: detection that nothing can be replicated happens on first call
         # and unfinished tids are asked again on second call. This is ok, but
         # might change, so just call twice.
         act()
+        replicator.transactionFinished(unfinished_ttid_1, critical_tid_1)
         act()
-        self.checkAskPacket(app.master_conn, Packets.AskUnfinishedTransactions)
-        self.assertTrue(replicator.waiting_for_unfinished_tids)
-        # this time, critical tid check should be satisfied
-        replicator.setUnfinishedTIDList([unfinished_tid, ])
+        replicator.transactionFinished(unfinished_ttid_2, critical_tid_2)
         replicator.current_connection = node_conn
         act()
         self.assertEqual(replicator.current_partition,
@@ -174,8 +157,6 @@ class StorageReplicatorTests(NeoUnitTestBase):
             'isPending': False,
         })
         act()
-        # unfinished tid list will not be asked again
-        self.assertTrue(replicator.unfinished_tid_list)
         # also, replication is over
         self.assertFalse(replicator.pending())
 

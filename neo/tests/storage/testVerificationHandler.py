@@ -161,7 +161,7 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
         })
         conn = self.getMasterConnection()
         self.verification.askUnfinishedTransactions(conn)
-        (tid_list, ) = self.checkAnswerUnfinishedTransactions(conn, decode=True)
+        (max_tid, tid_list) = self.checkAnswerUnfinishedTransactions(conn, decode=True)
         self.assertEqual(len(tid_list), 0)
         call_list = self.app.dm.mockGetNamedCalls('getUnfinishedTIDList')
         self.assertEqual(len(call_list), 1)
@@ -173,7 +173,7 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
         })
         conn = self.getMasterConnection()
         self.verification.askUnfinishedTransactions(conn)
-        (tid_list, ) = self.checkAnswerUnfinishedTransactions(conn, decode=True)
+        (max_tid, tid_list) = self.checkAnswerUnfinishedTransactions(conn, decode=True)
         self.assertEqual(len(tid_list), 1)
         self.assertEqual(u64(tid_list[0]), 4)
 

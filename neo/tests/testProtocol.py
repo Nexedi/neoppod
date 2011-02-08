@@ -195,13 +195,15 @@ class ProtocolTests(NeoUnitTestBase):
         self.assertEqual(p.decode(), ())
 
     def test_27_answerUnfinishedTransaction(self):
+        tid = self.getNextTID()
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()
         tid4 = self.getNextTID()
         tid_list = [tid1, tid2, tid3, tid4]
-        p = Packets.AnswerUnfinishedTransactions(tid_list)
-        p_tid_list  = p.decode()[0]
+        p = Packets.AnswerUnfinishedTransactions(tid, tid_list)
+        p_tid, p_tid_list  = p.decode()
+        self.assertEqual(p_tid, tid)
         self.assertEqual(p_tid_list, tid_list)
 
     def test_28_askObjectPresent(self):

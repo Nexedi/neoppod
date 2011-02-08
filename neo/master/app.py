@@ -585,6 +585,13 @@ class Application(object):
         for storage_uuid in txn.getUUIDList():
             getByUUID(storage_uuid).getConnection().notify(notify_unlock)
 
+        # Notify storage that have replications blocked by this transaction
+        notify_finished = Packets.NotifyTransactionFinished(ttid, tid)
+        for storage_uuid in txn.getNotificationUUIDList():
+            node = getByUUID(storage_uuid)
+            if node is not None and node.isConnected():
+                node.getConnection().notify(notify_finished)
+
         # remove transaction from manager
         self.tm.remove(transaction_node.getUUID(), ttid)
         self.setLastTransaction(tid)

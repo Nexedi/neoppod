@@ -51,8 +51,9 @@ class ClientServiceHandler(MasterHandler):
         """
             A client request a TID, nothing is kept about it until the finish.
         """
-        conn.answer(Packets.AnswerBeginTransaction(self.app.tm.begin(
-            conn.getUUID(), tid)))
+        app = self.app
+        node = app.nm.getByUUID(conn.getUUID())
+        conn.answer(Packets.AnswerBeginTransaction(app.tm.begin(node, tid)))
 
     def askNewOIDs(self, conn, num_oids):
         app = self.app
@@ -84,9 +85,8 @@ class ClientServiceHandler(MasterHandler):
         usable_uuid_set = set((x.getUUID() for x in identified_node_list))
         partitions = app.pt.getPartitions()
         peer_id = conn.getPeerId()
-        node = app.nm.getByUUID(conn.getUUID())
-        tid = app.tm.prepare(node, ttid, partitions, oid_list,
-            usable_uuid_set, peer_id)
+        tid = app.tm.prepare(ttid, partitions, oid_list, usable_uuid_set,
+            peer_id)
 
         # check if greater and foreign OID was stored
         if app.tm.updateLastOID(oid_list):

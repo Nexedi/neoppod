@@ -74,11 +74,12 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         })
         # client call it
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
+        client_node = self.app.nm.getByUUID(client_uuid)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         service.askBeginTransaction(conn, None)
         calls = tm.mockGetNamedCalls('begin')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(client_uuid, None)
+        calls[0].checkArgs(client_node, None)
         self.checkAnswerBeginTransaction(conn)
         # Client asks for a TID
         conn = self.getFakeConnection(client_uuid, self.client_address)
@@ -86,7 +87,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         service.askBeginTransaction(conn, tid1)
         calls = tm.mockGetNamedCalls('begin')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(client_uuid, None)
+        calls[0].checkArgs(client_node, None)
         args = self.checkAnswerBeginTransaction(conn, decode=True)
         self.assertEqual(args, (tid1, ))
 
@@ -142,9 +143,10 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.assertTrue(self.app.isStorageReady(storage_uuid))
         service.askFinishTransaction(conn, ttid, oid_list)
         self.checkAskLockInformation(storage_conn)
-        self.assertEquals(len(self.app.tm.getPendingList()), 1)
+        self.assertEquals(len(self.app.tm.registerForNotification(storage_uuid)), 1)
         txn = self.app.tm[ttid]
-        self.assertEquals(txn.getTID(), self.app.tm.getPendingList()[0])
+        pending_ttid = list(self.app.tm.registerForNotification(storage_uuid))[0]
+        self.assertEquals(ttid, pending_ttid)
         self.assertEquals(len(txn.getOIDList()), 0)
         self.assertEquals(len(txn.getUUIDList()), 1)
 

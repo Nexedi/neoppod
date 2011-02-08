@@ -59,7 +59,10 @@ class StorageServiceHandler(BaseServiceHandler):
         conn.answer(Packets.AnswerLastIDs(loid, ltid, app.pt.getID()))
 
     def askUnfinishedTransactions(self, conn):
-        p = Packets.AnswerUnfinishedTransactions(self.app.tm.getPendingList())
+        tm = self.app.tm
+        pending_list = tm.registerForNotification(conn.getUUID())
+        last_tid = tm.getLastTID()
+        p = Packets.AnswerUnfinishedTransactions(last_tid, pending_list)
         conn.answer(p)
 
     def answerInformationLocked(self, conn, ttid):

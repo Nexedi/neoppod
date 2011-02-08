@@ -184,7 +184,7 @@ class EventHandler(object):
     def askUnfinishedTransactions(self, conn):
         raise UnexpectedPacketError
 
-    def answerUnfinishedTransactions(self, conn, tid_list):
+    def answerUnfinishedTransactions(self, conn, max_tid, ttid_list):
         raise UnexpectedPacketError
 
     def askObjectPresent(self, conn, oid, tid):
@@ -227,6 +227,9 @@ class EventHandler(object):
         raise UnexpectedPacketError
 
     def notifyUnlockInformation(self, conn, ttid):
+        raise UnexpectedPacketError
+
+    def notifyTransactionFinished(self, conn, ttid, max_tid):
         raise UnexpectedPacketError
 
     def askStoreObject(self, conn, oid, serial,
@@ -506,6 +509,7 @@ class EventHandler(object):
         d[Packets.AnswerLastTransaction] = self.answerLastTransaction
         d[Packets.AskCheckCurrentSerial] = self.askCheckCurrentSerial
         d[Packets.AnswerCheckCurrentSerial] = self.answerCheckCurrentSerial
+        d[Packets.NotifyTransactionFinished] = self.notifyTransactionFinished
 
         return d
 

@@ -27,8 +27,11 @@ class MasterOperationHandler(BaseMasterHandler):
     def answerLastIDs(self, conn, loid, ltid, lptid):
         self.app.replicator.setCriticalTID(ltid)
 
-    def answerUnfinishedTransactions(self, conn, tid_list):
-        self.app.replicator.setUnfinishedTIDList(tid_list)
+    def answerUnfinishedTransactions(self, conn, max_tid, ttid_list):
+        self.app.replicator.setUnfinishedTIDList(max_tid, ttid_list)
+
+    def notifyTransactionFinished(self, conn, ttid, max_tid):
+        self.app.replicator.transactionFinished(ttid, max_tid)
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         """This is very similar to Send Partition Table, except that

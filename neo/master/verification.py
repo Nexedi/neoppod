@@ -195,7 +195,7 @@ class VerificationManager(BaseServiceHandler):
         # approved during recovery, there is no need to check them here.
         pass
 
-    def answerUnfinishedTransactions(self, conn, tid_list):
+    def answerUnfinishedTransactions(self, conn, max_tid, tid_list):
         uuid = conn.getUUID()
         neo.lib.logging.info('got unfinished transactions %s from %r',
             [dump(tid) for tid in tid_list], conn)

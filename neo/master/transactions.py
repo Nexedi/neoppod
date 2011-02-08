@@ -91,29 +91,31 @@ class Transaction(object):
     """
         A pending transaction
     """
+    _tid = None
+    _msg_id = None
+    _oid_list = None
+    _prepared = False
+    # uuid dict hold flag to known who has locked the transaction
+    _uuid_set = None
+    _lock_wait_uuid_set = None
 
-    def __init__(self, node, ttid, tid, oid_list, uuid_list, msg_id):
+    def __init__(self, node, ttid):
         """
             Prepare the transaction, set OIDs and UUIDs related to it
         """
         self._node = node
         self._ttid = ttid
-        self._tid = tid
-        self._oid_list = oid_list
-        self._msg_id = msg_id
-        # uuid dict hold flag to known who has locked the transaction
-        self._uuid_set = set(uuid_list)
-        self._lock_wait_uuid_set = set(uuid_list)
         self._birth = time()
-        self._prepared = False
+        # store storage uuids that must be notified at commit
+        self._notification_set = set()
 
     def __repr__(self):
         return "<%s(client=%r, tid=%r, oids=%r, storages=%r, age=%.2fs) at %x>" % (
                 self.__class__.__name__,
                 self._node,
                 dump(self._tid),
-                [dump(x) for x in self._oid_list],
-                [dump(x) for x in self._uuid_set],
+                [dump(x) for x in self._oid_list or ()],
+                [dump(x) for x in self._uuid_set or ()],
                 time() - self._birth,
                 id(self),
         )
@@ -160,6 +162,19 @@ class Transaction(object):
             Returns True if the commit has been requested by the client
         """
         return self._prepared
+
+    def registerForNotification(self, uuid):
+        """
+            Register a storage node that requires a notification at commit
+        """
+        self._notification_set.add(uuid)
+
+    def getNotificationUUIDList(self):
+        """
+            Returns the list of storage waiting for the transaction to be
+            finished
+        """
+        return list(self._notification_set)
 
     def prepare(self, tid, oid_list, uuid_list, msg_id):
 
@@ -332,31 +347,42 @@ class TransactionManager(object):
         """
         return bool(self._ttid_dict)
 
-    def getPendingList(self):
+    def registerForNotification(self, uuid):
         """
             Return the list of pending transaction IDs
         """
-        return [txn.getTID() for txn in self._ttid_dict.values()]
+        # remember that this node must be notified when pending transactions
+        # will be finished
+        for txn in self._ttid_dict.itervalues():
+            txn.registerForNotification(uuid)
+        return set(self._ttid_dict.keys())
 
-    def begin(self, uuid, tid=None):
+    def begin(self, node, tid=None):
         """
             Generate a new TID
         """
         if tid is None:
             # No TID requested, generate a temporary one
-            tid = self.getTTID()
+            ttid = self.getTTID()
         else:
             # Use of specific TID requested, queue it immediately and update
             # last TID.
-            self._queue.append((uuid, tid))
+            self._queue.append((node.getUUID(), tid))
             self.setLastTID(tid)
-        return tid
+            ttid = tid
+        txn = Transaction(node, ttid)
+        self._ttid_dict[ttid] = txn
+        self._node_dict.setdefault(node, {})[ttid] = txn
+        neo.lib.logging.debug('Begin %s for %s', txn, node)
+        return ttid
 
-    def prepare(self, node, ttid, divisor, oid_list, uuid_list, msg_id):
+    def prepare(self, ttid, divisor, oid_list, uuid_list, msg_id):
         """
             Prepare a transaction to be finished
         """
         # XXX: not efficient but the list should be often small
+        txn = self._ttid_dict[ttid]
+        node = txn.getNode()
         for _, tid in self._queue:
             if ttid == tid:
                 break
@@ -365,9 +391,7 @@ class TransactionManager(object):
             self._queue.append((node.getUUID(), ttid))
         neo.lib.logging.debug('Finish TXN %s for %s (was %s)',
                         dump(tid), node, dump(ttid))
-        txn = Transaction(node, ttid, tid, oid_list, uuid_list, msg_id)
-        self._ttid_dict[ttid] = txn
-        self._node_dict.setdefault(node, {})[ttid] = txn
+        txn.prepare(tid, oid_list, uuid_list, msg_id)
         return tid
 
     def remove(self, uuid, ttid):
@@ -383,7 +407,6 @@ class TransactionManager(object):
         ttid_dict = self._ttid_dict
         if ttid in ttid_dict:
             txn = ttid_dict[ttid]
-            tid = txn.getTID()
             node = txn.getNode()
             # ...and tried to finish
             del ttid_dict[ttid]
