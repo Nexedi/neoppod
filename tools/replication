@@ -102,7 +102,6 @@ class ReplicationBenchmark(BenchmarkRunner):
                     if cell[1] == CellStates.OUT_OF_DATE:
                         number_of_oudated += 1
             return number_of_oudated
-        start_time = time.time()
         end_time = time.time() + 3600
         while time.time() <= end_time and number_of_oudated_cell() > 0:
             time.sleep(1)
