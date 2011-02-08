@@ -105,6 +105,7 @@ class Transaction(object):
         self._uuid_set = set(uuid_list)
         self._lock_wait_uuid_set = set(uuid_list)
         self._birth = time()
+        self._prepared = False
 
     def __repr__(self):
         return "<%s(client=%r, tid=%r, oids=%r, storages=%r, age=%.2fs) at %x>" % (
@@ -153,6 +154,21 @@ class Transaction(object):
         """
 
         return list(self._oid_list)
+
+    def isPrepared(self):
+        """
+            Returns True if the commit has been requested by the client
+        """
+        return self._prepared
+
+    def prepare(self, tid, oid_list, uuid_list, msg_id):
+
+        self._tid = tid
+        self._oid_list = oid_list
+        self._msg_id = msg_id
+        self._uuid_set = set(uuid_list)
+        self._lock_wait_uuid_set = set(uuid_list)
+        self._prepared = True
 
     def forget(self, uuid):
         """
@@ -429,7 +445,8 @@ class TransactionManager(object):
             # remove transactions
             remove = self.remove
             for ttid in self._node_dict[node].keys():
-                remove(uuid, ttid)
+                if not self._ttid_dict[ttid].isPrepared():
+                    remove(uuid, ttid)
             # discard node entry
             del self._node_dict[node]
 
