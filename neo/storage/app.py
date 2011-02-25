@@ -41,9 +41,6 @@ class Application(object):
     """The storage node application."""
 
     def __init__(self, config):
-        # always use default connector for now
-        self.connector_handler = getConnectorHandler()
-
         # set the cluster name
         self.name = config.getCluster()
 
@@ -54,9 +51,11 @@ class Application(object):
         self.dm = buildDatabaseManager(config.getAdapter(), config.getDatabase())
 
         # load master nodes
-        for address in config.getMasters():
-            self.nm.createMaster(address=address)
-
+        master_addresses, connector_name = config.getMasters()
+        self.connector_handler = getConnectorHandler(connector_name)
+        for master_address in master_addresses :
+            self.nm.createMaster(address=master_address)
+        
         # set the bind address
         self.server = config.getBind()
         neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))

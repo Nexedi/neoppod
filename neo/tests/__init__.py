@@ -21,10 +21,13 @@ import random
 import unittest
 import tempfile
 import MySQLdb
+import socket
 import neo
+
 from mock import Mock
 from neo.lib import protocol
 from neo.lib.protocol import Packets
+from neo.lib.util import getAddressType
 from time import time, gmtime
 from struct import pack, unpack
 
@@ -32,6 +35,22 @@ DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo_')
 DB_ADMIN = os.getenv('NEO_DB_ADMIN', 'root')
 DB_PASSWD = os.getenv('NEO_DB_PASSWD', None)
 DB_USER = os.getenv('NEO_DB_USER', 'test')
+
+IP_VERSION_FORMAT_DICT = {
+    socket.AF_INET:  '127.0.0.1',
+    socket.AF_INET6: '::1',                   
+}
+
+ADDRESS_TYPE = socket.AF_INET
+
+def buildUrlFromString(address):
+    try:
+        socket.inet_pton(socket.AF_INET6, address)
+        address = '[%s]' % address
+    except:
+        pass
+    
+    return address
 
 class NeoTestBase(unittest.TestCase):
     def setUp(self):
@@ -47,8 +66,10 @@ class NeoTestBase(unittest.TestCase):
 class NeoUnitTestBase(NeoTestBase):
     """ Base class for neo tests, implements common checks """
 
+    local_ip = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE]
+
     def prepareDatabase(self, number, admin=DB_ADMIN, password=DB_PASSWD,
-            user=DB_USER, prefix=DB_PREFIX):
+            user=DB_USER, prefix=DB_PREFIX, address_type = ADDRESS_TYPE):
         """ create empties databases """
         # SQL connection
         connect_arg_dict = {'user': admin}
@@ -69,11 +90,13 @@ class NeoUnitTestBase(NeoTestBase):
     def getMasterConfiguration(self, cluster='main', master_number=2,
             replicas=2, partitions=1009, uuid=None):
         assert master_number >= 1 and master_number <= 10
-        masters = [('127.0.0.1', 10010 + i) for i in xrange(master_number)]
+        masters = ([(self.local_ip, 10010 + i)
+                    for i in xrange(master_number)])
         return Mock({
                 'getCluster': cluster,
                 'getBind': masters[0],
-                'getMasters': masters,
+                'getMasters': (masters, getAddressType((
+                        self.local_ip, 0))),
                 'getReplicas': replicas,
                 'getPartitions': partitions,
                 'getUUID': uuid,
@@ -83,13 +106,15 @@ class NeoUnitTestBase(NeoTestBase):
             index=0, prefix=DB_PREFIX, uuid=None):
         assert master_number >= 1 and master_number <= 10
         assert index >= 0 and index <= 9
-        masters = [('127.0.0.1', 10010 + i) for i in xrange(master_number)]
+        masters = [(buildUrlFromString(self.local_ip),
+                     10010 + i) for i in xrange(master_number)]
         database = '%s@%s%s' % (DB_USER, prefix, index)
         return Mock({
                 'getCluster': cluster,
                 'getName': 'storage',
-                'getBind': ('127.0.0.1', 10020 + index),
-                'getMasters': masters,
+                'getBind': (masters[0], 10020 + index),
+                'getMasters': (masters, getAddressType((
+                        self.local_ip, 0))),
                 'getDatabase': database,
                 'getUUID': uuid,
                 'getReset': False,

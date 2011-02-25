@@ -19,6 +19,7 @@
 import sys
 from optparse import OptionParser
 from neo.lib import setupLog
+from neo.lib.util import parseNodeAddress
 
 parser = OptionParser()
 parser.add_option('-v', '--verbose', action = 'store_true', 
@@ -29,16 +30,13 @@ parser.add_option('--handler', help = 'specify the connection handler')
 
 def main(args=None):
     (options, args) = parser.parse_args(args=args)
-    address = options.address
-    if ':' in address:
-        address, port = address.split(':', 1)
-        port = int(port)
+    if options.address is not None:
+        address = parseNodeAddress(options.address, 9999) 
     else:
-        port = 9999
-    handler = options.handler or "SocketConnector"
-
+        address = ('127.0.0.1', 9999)
+    
     setupLog('NEOCTL', options.verbose)
     from neo.neoctl.app import Application
 
-    print Application(address, port, handler).execute(args)
+    print Application(address).execute(args)
 

@@ -17,11 +17,51 @@
 
 import unittest
 
-from neo.tests import NeoUnitTestBase
-from neo.lib.util import ReadBuffer
+import socket
+from neo.tests import NeoUnitTestBase, IP_VERSION_FORMAT_DICT
+from neo.lib.util import ReadBuffer, getAddressType, parseNodeAddress, \
+    getConnectorFromAddress, SOCKET_CONNECTORS_DICT  
 
 class UtilTests(NeoUnitTestBase):
 
+    def test_getConnectorFromAddress(self):
+        """ Connector name must correspond to address type """
+        connector = getConnectorFromAddress((
+                            IP_VERSION_FORMAT_DICT[socket.AF_INET], 0))
+        self.assertEqual(connector, SOCKET_CONNECTORS_DICT[socket.AF_INET])
+        connector = getConnectorFromAddress((
+                            IP_VERSION_FORMAT_DICT[socket.AF_INET6], 0))
+        self.assertEqual(connector, SOCKET_CONNECTORS_DICT[socket.AF_INET6])
+        self.assertRaises(ValueError, getConnectorFromAddress, ('', 0))
+        self.assertRaises(ValueError, getConnectorFromAddress, ('test', 0))
+        
+    def test_getAddressType(self):
+        """ Get the type on an IP Address """
+        self.assertRaises(ValueError, parseNodeAddress, '', 0)
+        address_type = getAddressType(('::1', 0))
+        self.assertEqual(address_type, socket.AF_INET6)
+        address_type = getAddressType(('0.0.0.0', 0))
+        self.assertEqual(address_type, socket.AF_INET)
+        address_type = getAddressType(('127.0.0.1', 0))
+        self.assertEqual(address_type, socket.AF_INET)
+
+    def test_parseNodeAddress(self):
+        """ Parsing of addesses """
+        ip_address = parseNodeAddress('127.0.0.1:0')
+        self.assertEqual(('127.0.0.1', 0), ip_address)
+        ip_address = parseNodeAddress('127.0.0.1:0', 100)
+        self.assertEqual(('127.0.0.1', 0), ip_address)
+        ip_address = parseNodeAddress('127.0.0.1', 500)
+        self.assertEqual(('127.0.0.1', 500), ip_address)
+        self.assertRaises(ValueError, parseNodeAddress, '127.0.0.1')
+        ip_address = parseNodeAddress('[::1]:0')
+        self.assertEqual(('::1', 0), ip_address)
+        ip_address = parseNodeAddress('[::1]:0', 100)
+        self.assertEqual(('::1', 0), ip_address)
+        ip_address = parseNodeAddress('[::1]', 500)
+        self.assertEqual(('::1', 500), ip_address)
+        self.assertRaises(ValueError, parseNodeAddress, ('[::1]'))
+        
     def testReadBufferRead(self):
         """ Append some chunk then consume the data """
         buf = ReadBuffer()

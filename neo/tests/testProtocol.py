@@ -16,9 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
+import socket
 from neo.lib.protocol import NodeTypes, NodeStates, CellStates, ClusterStates
 from neo.lib.protocol import ErrorCodes, Packets, Errors, LockState
-from neo.tests import NeoUnitTestBase
+from neo.tests import NeoUnitTestBase, IP_VERSION_FORMAT_DICT
 
 class ProtocolTests(NeoUnitTestBase):
 
@@ -71,14 +72,26 @@ class ProtocolTests(NeoUnitTestBase):
     def test_11_RequestIdentification(self):
         uuid = self.getNewUUID()
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
-                uuid, ("127.0.0.1", 9080), "unittest")
+                uuid, (self.local_ip, 9080), "unittest")
         (plow, phigh), node, p_uuid, (ip, port), name  = p.decode()
         self.assertEqual(node, NodeTypes.CLIENT)
         self.assertEqual(p_uuid, uuid)
-        self.assertEqual(ip, "127.0.0.1")
+        self.assertEqual(ip, self.local_ip)
         self.assertEqual(port, 9080)
         self.assertEqual(name, "unittest")
 
+    def test_11_bis_RequestIdentification_IPv6(self):
+        uuid = self.getNewUUID()
+        self.local_ip = IP_VERSION_FORMAT_DICT[socket.AF_INET6]
+        p = Packets.RequestIdentification(NodeTypes.CLIENT,
+                uuid, (self.local_ip, 9080), "unittest")
+        (plow, phigh), node, p_uuid, (ip, port), name  = p.decode()
+        self.assertEqual(node, NodeTypes.CLIENT)
+        self.assertEqual(p_uuid, uuid)
+        self.assertEqual(ip, self.local_ip)
+        self.assertEqual(port, 9080)
+        self.assertEqual(name, "unittest")   
+        
     def test_12_AcceptIdentification(self):
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
         p = Packets.AcceptIdentification(NodeTypes.CLIENT, uuid1,
@@ -107,6 +120,21 @@ class ProtocolTests(NeoUnitTestBase):
         self.assertEqual(primary_uuid, uuid)
         self.assertEqual(master_list, p_master_list)
 
+    def test_14_bis_answerPrimaryIPv6(self):
+        """ Try to get primary master through IPv6 """
+        self.address_type = socket.AF_INET6
+        uuid = self.getNewUUID()
+        uuid1 = self.getNewUUID()
+        uuid2 = self.getNewUUID()
+        uuid3 = self.getNewUUID()
+        master_list = [(("::1", 1), uuid1),
+                       (("::2", 2), uuid2),
+                       (("::3", 3), uuid3)]
+        p = Packets.AnswerPrimary(uuid, master_list)
+        primary_uuid, p_master_list  = p.decode()
+        self.assertEqual(primary_uuid, uuid)
+        self.assertEqual(master_list, p_master_list)
+        
     def test_15_announcePrimary(self):
         p = Packets.AnnouncePrimary()
         self.assertEqual(p.decode(), ())
@@ -119,9 +147,11 @@ class ProtocolTests(NeoUnitTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        node_list = [(NodeTypes.CLIENT, ("127.0.0.1", 1), uuid1, NodeStates.RUNNING),
-                       (NodeTypes.CLIENT, ("127.0.0.2", 2), uuid2, NodeStates.DOWN),
-                       (NodeTypes.CLIENT, ("127.0.0.3", 3), uuid3, NodeStates.BROKEN)]
+        node_list = \
+            [(NodeTypes.CLIENT, ("127.0.0.1", 1), uuid1, NodeStates.RUNNING),
+             (NodeTypes.CLIENT, ("127.0.0.2", 2), uuid2, NodeStates.DOWN),
+             (NodeTypes.CLIENT, ("127.0.0.3", 3), uuid3, NodeStates.BROKEN
+            )]
         p = Packets.NotifyNodeInformation(node_list)
         p_node_list = p.decode()[0]
         self.assertEqual(node_list, p_node_list)
@@ -549,13 +579,22 @@ class ProtocolTests(NeoUnitTestBase):
         self.assertEqual(p.decode(), (node_type, ))
 
     def test_AnswerNodeList(self):
-        node1 = (NodeTypes.CLIENT, ('127.0.0.1', 1000),
+        node1 = (NodeTypes.CLIENT, (self.local_ip, 1000),
                 self.getNewUUID(), NodeStates.DOWN)
-        node2 = (NodeTypes.MASTER, ('127.0.0.1', 2000),
+        node2 = (NodeTypes.MASTER, (self.local_ip, 2000),
                 self.getNewUUID(), NodeStates.RUNNING)
         p = Packets.AnswerNodeList((node1, node2))
         self.assertEqual(p.decode(), ([node1, node2], ))
 
+    def test_AnswerNodeListIPv6(self):
+        self.address_type = socket.AF_INET6
+        node1 = (NodeTypes.CLIENT, (self.local_ip, 1000),
+                self.getNewUUID(), NodeStates.DOWN)
+        node2 = (NodeTypes.MASTER, (self.local_ip, 2000),
+                self.getNewUUID(), NodeStates.RUNNING)
+        p = Packets.AnswerNodeList((node1, node2))
+        self.assertEqual(p.decode(), ([node1, node2], ))
+        
     def test_AskPartitionList(self):
         min_offset = 10
         max_offset = 20

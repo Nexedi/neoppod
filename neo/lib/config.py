@@ -17,7 +17,7 @@
 
 from ConfigParser import SafeConfigParser
 from neo.lib import util
-
+from neo.lib.util import parseNodeAddress
 
 class ConfigurationManager(object):
     """
@@ -48,20 +48,13 @@ class ConfigurationManager(object):
     def getMasters(self):
         """ Get the master node list except itself """
         masters = self.__get('masters')
-        if not masters:
-            return []
         # lod master node list except itself
         return util.parseMasterList(masters, except_node=self.getBind())
 
     def getBind(self):
         """ Get the address to bind to """
         bind = self.__get('bind')
-        if ':' in bind:
-            (ip, port) = bind.split(':')
-        else:
-            (ip, port) = (bind, 0)
-        ip = util.resolve(ip)
-        return (ip, int(port))
+        return parseNodeAddress(bind, 0)
 
     def getDatabase(self):
         return self.__get('database')

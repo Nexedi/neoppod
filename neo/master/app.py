@@ -45,9 +45,6 @@ class Application(object):
     last_transaction = ZERO_TID
 
     def __init__(self, config):
-        # always use default connector for now
-        self.connector_handler = getConnectorHandler()
-
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
@@ -57,10 +54,11 @@ class Application(object):
         self.server = config.getBind()
 
         self.storage_readiness = set()
-
-        for address in config.getMasters():
-            self.nm.createMaster(address=address)
-
+        master_addresses, connector_name = config.getMasters()
+        self.connector_handler = getConnectorHandler(connector_name)
+        for master_address in master_addresses :
+            self.nm.createMaster(address=master_address)
+            
         neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))
 
         # Partition table

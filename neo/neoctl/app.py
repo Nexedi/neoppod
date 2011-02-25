@@ -36,8 +36,8 @@ action_dict = {
 }
 
 class TerminalNeoCTL(object):
-    def __init__(self, ip, port, handler):
-        self.neoctl = NeoCTL(ip, port, handler)
+    def __init__(self, address):
+        self.neoctl = NeoCTL(address)
 
     # Utility methods (could be functions)
     def asNodeState(self, value):
@@ -187,8 +187,8 @@ class TerminalNeoCTL(object):
 class Application(object):
     """The storage node application."""
 
-    def __init__(self, ip, port, handler):
-        self.neoctl = TerminalNeoCTL(ip, port, handler)
+    def __init__(self, address):
+        self.neoctl = TerminalNeoCTL(address)
 
     def execute(self, args):
         """Execute the command given."""

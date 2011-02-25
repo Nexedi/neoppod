@@ -19,13 +19,13 @@ import unittest
 from cPickle import dumps
 from mock import Mock, ReturnValues
 from ZODB.POSException import StorageTransactionError, UndoError, ConflictError
-from neo.tests import NeoUnitTestBase
+from neo.tests import NeoUnitTestBase, buildUrlFromString, ADDRESS_TYPE
 from neo.client.app import Application, RevisionIndex
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
 from neo.lib.protocol import Packet, Packets, Errors, INVALID_TID, \
     INVALID_PARTITION
-from neo.lib.util import makeChecksum
+from neo.lib.util import makeChecksum, SOCKET_CONNECTORS_DICT
 import time
 
 def _getMasterConnection(self):
@@ -103,8 +103,10 @@ class ClientApplicationTests(NeoUnitTestBase):
             return packet.decode()
         return packet
 
-    def getApp(self, master_nodes='127.0.0.1:10010', name='test',
-               connector='SocketConnector', **kw):
+    def getApp(self, master_nodes=None, name='test', **kw):
+        connector = SOCKET_CONNECTORS_DICT[ADDRESS_TYPE]
+        if master_nodes is None:
+            master_nodes = '%s:10010' % buildUrlFromString(self.local_ip)
         app = Application(master_nodes, name, connector, **kw)
         self._to_stop_list.append(app)
         app.dispatcher = Mock({ })
@@ -999,7 +1001,7 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def test_askPrimary(self):
         """ _askPrimary is private but test it anyway """
-        app = self.getApp('')
+        app = self.getApp()
         conn = Mock()
         app.master_conn = conn
         app.primary_handler = Mock()

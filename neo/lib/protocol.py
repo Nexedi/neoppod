@@ -15,13 +15,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+import socket
 import sys
 import traceback
 from types import ClassType
 from socket import inet_ntoa, inet_aton
 from cStringIO import StringIO
 
-from neo.lib.util import Enum, Struct
+from neo.lib.util import Enum, Struct, getAddressType
 
 # The protocol version (major, minor).
 PROTOCOL_VERSION = (4, 1)
@@ -391,25 +392,60 @@ class PEnum(PStructItem):
             enum = self._enum.__class__.__name__
             raise ValueError, 'Invalid code for %s enum: %r' % (enum, code)
 
+class PAddressIPGeneric(PStructItem):
+    
+    def __init__(self, name, format):
+        PStructItem.__init__(self, name, format) 
+    
+    def encode(self, writer, address):
+        host, port = address
+        host = socket.inet_pton(self.af_type, host)
+        writer(self.pack(host, port))
+                
+    def decode(self, reader):
+        data = reader(self.size)
+        address = self.unpack(data)  
+        host, port = address
+        host =  socket.inet_ntop(self.af_type, host)
+        return (host, port)  
+
+class PAddressIPv4(PAddressIPGeneric):
+    af_type = socket.AF_INET
+    
+    def __init__(self, name):
+        PAddressIPGeneric.__init__(self, name, '!4sH')
+       
+class PAddressIPv6(PAddressIPGeneric):
+    af_type = socket.AF_INET6
+
+    def __init__(self, name):
+        PAddressIPGeneric.__init__(self, name, '!16sH')  
+    
 class PAddress(PStructItem):
     """
-        An host address (IPv4 for now)
+        An host address (IPv4/IPv6)
     """
+    
+    address_format_dict = {
+        socket.AF_INET: PAddressIPv4('ipv4'), 
+        socket.AF_INET6: PAddressIPv6('ipv6'),
+    }
+
     def __init__(self, name):
-        PStructItem.__init__(self, name, '!4sH')
+        PStructItem.__init__(self, name, '!L') 
 
     def _encode(self, writer, address):
         if address is None:
             address = INVALID_ADDRESS
-        assert len(address) == 2, address
-        host, port = address
-        host = inet_aton(host)
-        writer(self.pack(host, port))
-
+        af_type = getAddressType(address)
+        writer(self.pack(af_type))
+        encoder = self.address_format_dict[af_type]
+        encoder.encode(writer, address)
+        
     def _decode(self, reader):
-        data = reader(self.size)
-        host, port = self.unpack(data)
-        host = inet_ntoa(host)
+        af_type  = self.unpack(reader(self.size))[0]
+        decoder = self.address_format_dict[af_type]
+        host, port = decoder.decode(reader)
         if (host, port) == INVALID_ADDRESS:
             return None
         return (host, port)

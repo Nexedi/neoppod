@@ -56,18 +56,15 @@ class Application(object):
     """The storage node application."""
 
     def __init__(self, config):
-
-        # always use default connector for now
-        self.connector_handler = getConnectorHandler()
-
         # Internal attributes.
         self.em = EventManager()
         self.nm = NodeManager()
 
         self.name = config.getCluster()
         self.server = config.getBind()
-        self.master_addresses = config.getMasters()
 
+        self.master_addresses, connector_name = config.getMasters()
+        self.connector_handler = getConnectorHandler(connector_name)
         neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))
 
         # The partition table is initialized after getting the number of

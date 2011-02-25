@@ -77,7 +77,8 @@ class Application(object):
         # Internal Attributes common to all thread
         self._db = None
         self.name = name
-        self.connector_handler = getConnectorHandler(connector)
+        master_addresses, connector_name = parseMasterList(master_nodes)
+        self.connector_handler = getConnectorHandler(connector_name)
         self.dispatcher = Dispatcher(self.poll_thread)
         self.nm = NodeManager()
         self.cp = ConnectionPool(self)
@@ -87,7 +88,7 @@ class Application(object):
         self.trying_master_node = None
 
         # load master node list
-        for address in parseMasterList(master_nodes):
+        for address in master_addresses:
             self.nm.createMaster(address=address)
 
         # no self-assigned UUID, primary master will supply us one

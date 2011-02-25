@@ -22,6 +22,11 @@ from zlib import adler32
 from Queue import deque
 from struct import pack, unpack
 
+SOCKET_CONNECTORS_DICT = { 
+    socket.AF_INET : 'SocketConnectorIPv4',
+    socket.AF_INET6: 'SocketConnectorIPv6',
+}
+
 try:
     from struct import Struct
 except ImportError:
@@ -89,22 +94,65 @@ def resolve(hostname):
         return None
     return address_list[0]
 
+def getAddressType(address): 
+    "Return the type (IPv4 or IPv6) of an ip"
+    (host, port) = address
+    
+    for af_type in SOCKET_CONNECTORS_DICT.keys():
+        try :
+            socket.inet_pton(af_type, host)
+        except:
+            continue
+        else:
+            break
+    else:      
+        raise ValueError("Unknown type of host", host)        
+    return af_type
 
+def getConnectorFromAddress(address):
+    address_type = getAddressType(address)  
+    return SOCKET_CONNECTORS_DICT[address_type]
+     
+def parseNodeAddress(address, port_opt=None):
+    if ']' in address:
+       (ip, port) = address.split(']')
+       ip = ip.lstrip('[')
+       port = port.lstrip(':')
+       if port == '':
+           port = port_opt
+    elif ':' in address:
+        (ip, port) = address.split(':')
+        ip = resolve(ip)
+    else:
+        ip = address
+        port = port_opt
+           
+    if port is None:
+        raise ValueError
+    return (ip, int(port))
+           
 def parseMasterList(masters, except_node=None):
-    if not masters:
-        return []
+    assert masters, 'At least one master must be defined'
+    socket_connector = ''
     # load master node list
     master_node_list = []
     # XXX: support '/' and ' ' as separator
     masters = masters.replace('/', ' ')
     for node in masters.split(' '):
-        ip_address, port = node.split(':')
-        ip_address = resolve(ip_address)
-        address = (ip_address, int(port))
+        address = parseNodeAddress(node)
+
         if (address != except_node):
             master_node_list.append(address)
-    return tuple(master_node_list)
 
+        socket_connector_temp = getConnectorFromAddress(address)
+        if socket_connector == '':
+            socket_connector = socket_connector_temp
+        elif socket_connector == socket_connector_temp:
+           pass 
+        else:
+            return TypeError, (" Wrong connector type : you're trying to use ipv6 and ipv4 simultaneously")
+
+    return tuple(master_node_list), socket_connector         
 
 class Enum(dict):
     """

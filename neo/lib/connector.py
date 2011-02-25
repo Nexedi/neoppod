@@ -22,7 +22,7 @@ import errno
 # Fill by calling registerConnectorHandler.
 # Read by calling getConnectorHandler.
 connector_registry = {}
-DEFAULT_CONNECTOR = 'SocketConnector'
+DEFAULT_CONNECTOR = 'SocketConnectorIPv4'
 
 def registerConnectorHandler(connector_handler):
     connector_registry[connector_handler.__name__] = connector_handler
@@ -52,7 +52,7 @@ class SocketConnector:
             self.is_listening = False
             self.is_closed = False
         if s is None:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket = socket.socket(self.af_type, socket.SOCK_STREAM)  
         else:
             self.socket = s
         self.socket_fd = self.socket.fileno()
@@ -90,7 +90,7 @@ class SocketConnector:
         return self.socket.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
 
     def getAddress(self):
-        return self.socket.getsockname()
+        raise NotImplementedError
 
     def getDescriptor(self):
         # this descriptor must only be used by the event manager, where it
@@ -100,9 +100,9 @@ class SocketConnector:
 
     def getNewConnection(self):
         try:
-            new_s, addr =  self.socket.accept()
-            new_s = SocketConnector(new_s, accepted_from=addr)
-            return new_s, addr
+            (new_s, addr) = self._accept()
+            new_s = self.__class__(new_s, accepted_from=addr)
+            return (new_s, addr) 
         except socket.error, (err, errmsg):
             if err == errno.EAGAIN:
                 raise ConnectorTryAgainException
@@ -166,7 +166,35 @@ class SocketConnector:
                 result += ' %s' % (self.remote_addr, )
         return result + '>'
 
-registerConnectorHandler(SocketConnector)
+    def _accept(self):
+        raise NotImplementedError
+    
+class SocketConnectorIPv4(SocketConnector):
+   " Wrapper for IPv4 sockets"
+   af_type = socket.AF_INET
+
+   def _accept(self):
+       return self.socket.accept()
+
+   def getAddress(self):
+        return self.socket.getsockname()
+    
+class SocketConnectorIPv6(SocketConnector):
+    " Wrapper for IPv6 sockets"    
+    af_type = socket.AF_INET6 
+    
+    def _accept(self):
+        new_s, addr =  self.socket.accept()        
+        addr = (addr[0], addr[1])
+        return (new_s, addr)
+    
+    def getAddress(self):
+        addr = self.socket.getsockname()
+        addr = (addr[0], addr[1])
+        return addr
+    
+registerConnectorHandler(SocketConnectorIPv4)
+registerConnectorHandler(SocketConnectorIPv6)
 
 class ConnectorException(Exception):
     pass

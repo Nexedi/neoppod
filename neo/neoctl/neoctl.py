@@ -20,6 +20,7 @@ from neo.lib.connection import ClientConnection
 from neo.lib.event import EventManager
 from neo.neoctl.handler import CommandEventHandler
 from neo.lib.protocol import ClusterStates, NodeStates, ErrorCodes, Packets
+from neo.lib.util import getConnectorFromAddress
 
 class NotReadyException(Exception):
     pass
@@ -29,9 +30,10 @@ class NeoCTL(object):
     connection = None
     connected = False
 
-    def __init__(self, ip, port, handler):
-        self.connector_handler = getConnectorHandler(handler)
-        self.server = (ip, port)
+    def __init__(self, address):
+        connector_name = getConnectorFromAddress(address)
+        self.connector_handler = getConnectorHandler(connector_name)
+        self.server = address
         self.em = EventManager()
         self.handler = CommandEventHandler(self)
         self.response_queue = []

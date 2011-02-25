@@ -20,7 +20,8 @@ from mock import Mock
 from neo.lib import protocol
 from neo.tests import NeoUnitTestBase
 from neo.lib.protocol import Packet, NodeTypes, NodeStates
-from neo.master.handlers.election import ClientElectionHandler, ServerElectionHandler
+from neo.master.handlers.election import ClientElectionHandler, \
+        ServerElectionHandler
 from neo.master.app import Application
 from neo.lib.exception import ElectionFailure
 from neo.lib.connection import ClientConnection
@@ -41,7 +42,7 @@ class MasterClientElectionTests(NeoUnitTestBase):
         self.app.pt.clear()
         self.app.em = Mock()
         self.app.uuid = self._makeUUID('M')
-        self.app.server = ('127.0.0.1', 10000)
+        self.app.server = (self.local_ip, 10000)
         self.app.name = 'NEOCLUSTER'
         self.election = ClientElectionHandler(self.app)
         self.app.unconnected_master_node_set = set()
@@ -207,9 +208,9 @@ class MasterServerElectionTests(NeoUnitTestBase):
             self.app.unconnected_master_node_set.add(node.getAddress())
             node.setState(NodeStates.RUNNING)
         # define some variable to simulate client and storage node
-        self.client_address = ('127.0.0.1', 1000)
-        self.storage_address = ('127.0.0.1', 2000)
-        self.master_address = ('127.0.0.1', 3000)
+        self.client_address = (self.local_ip, 1000)
+        self.storage_address = (self.local_ip, 2000)
+        self.master_address = (self.local_ip, 3000)
         # apply monkey patches
         self._addPacket = ClientConnection._addPacket
         ClientConnection._addPacket = _addPacket

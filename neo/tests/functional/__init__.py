@@ -30,8 +30,9 @@ import threading
 
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
-from neo.lib.util import dump
-from neo.tests import DB_ADMIN, DB_PASSWD, NeoTestBase
+from neo.lib.util import dump, SOCKET_CONNECTORS_DICT
+from neo.tests import DB_ADMIN, DB_PASSWD, NeoTestBase, buildUrlFromString, \
+        ADDRESS_TYPE, IP_VERSION_FORMAT_DICT
 from neo.client.Storage import Storage
 
 NEO_MASTER = 'neomaster'
@@ -171,7 +172,9 @@ class NEOCluster(object):
                  db_super_user=DB_ADMIN, db_super_password=DB_PASSWD,
                  cleanup_on_delete=False, temp_dir=None,
                  clear_databases=True, adapter='MySQL',
-                 verbose=True):
+                 verbose=True,
+                 address_type=ADDRESS_TYPE,
+        ):
         self.zodb_storage_list = []
         self.cleanup_on_delete = cleanup_on_delete
         self.verbose = verbose
@@ -181,6 +184,8 @@ class NEOCluster(object):
         self.db_user = db_user
         self.db_password = db_password
         self.db_list = db_list
+        self.address_type = address_type
+        self.local_ip = IP_VERSION_FORMAT_DICT[self.address_type]
         if clear_databases:
             self.setupDB()
         self.process_dict = {}
@@ -192,12 +197,16 @@ class NEOCluster(object):
         admin_port = self.__allocatePort()
         self.cluster_name = 'neo_%s' % (random.randint(0, 100), )
         master_node_list = [self.__allocatePort() for i in xrange(master_node_count)]
-        self.master_nodes = '/'.join('127.0.0.1:%s' % (x, ) for x in master_node_list)
+        self.master_nodes = '/'.join('%s:%s' % (
+                buildUrlFromString(self.local_ip), x, ) 
+                for x in master_node_list)
+        
         # create admin node
         self.__newProcess(NEO_ADMIN, {
             '--cluster': self.cluster_name,
             '--name': 'admin',
-            '--bind': '127.0.0.1:%d' % (admin_port, ),
+            '--bind': '%s:%d' % (buildUrlFromString(
+                      self.local_ip), admin_port, ),
             '--masters': self.master_nodes,
         })
         # create master nodes
@@ -205,7 +214,8 @@ class NEOCluster(object):
             self.__newProcess(NEO_MASTER, {
                 '--cluster': self.cluster_name,
                 '--name': 'master_%d' % index,
-                '--bind': '127.0.0.1:%d' % (port, ),
+                '--bind': '%s:%d' % (buildUrlFromString(
+                          self.local_ip), port, ),
                 '--masters': self.master_nodes,
                 '--replicas': replicas,
                 '--partitions': partitions,
@@ -215,14 +225,16 @@ class NEOCluster(object):
             self.__newProcess(NEO_STORAGE, {
                 '--cluster': self.cluster_name,
                 '--name': 'storage_%d' % index,
+                '--bind': '%s:%d' % (buildUrlFromString(
+                                        self.local_ip),
+                                        0 ),
                 '--masters': self.master_nodes,
                 '--database': '%s:%s@%s' % (db_user, db_password, db),
                 '--adapter': adapter,
             })
         # create neoctl
-        self.neoctl = NeoCTL('127.0.0.1', admin_port,
-                             'SocketConnector')
-
+        
+        self.neoctl = NeoCTL((self.local_ip, admin_port))
     def __newProcess(self, command, arguments):
         uuid = self.__allocateUUID()
         arguments['--uuid'] = uuid
@@ -236,10 +248,10 @@ class NEOCluster(object):
 
     def __allocatePort(self):
         port_set = self.port_set
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s = socket.socket(self.address_type, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         while True:
-            s.bind(('127.0.0.1', 0))
+            s.bind((self.local_ip, 0))
             port = s.getsockname()[1]
             if port not in port_set:
                 break
@@ -343,12 +355,12 @@ class NEOCluster(object):
     def getNEOCTL(self):
         return self.neoctl
 
-    def getZODBStorage(self, **kw):
+    def getZODBStorage(self,connector = SOCKET_CONNECTORS_DICT[ADDRESS_TYPE], **kw):
         master_nodes = self.master_nodes.replace('/', ' ')
         result = Storage(
             master_nodes=master_nodes,
             name=self.cluster_name,
-            connector='SocketConnector',
+            connector=connector,
             logfile=os.path.join(self.temp_dir, 'client.log'),
             verbose=self.verbose,
             **kw

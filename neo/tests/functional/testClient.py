@@ -19,13 +19,17 @@ import os
 import unittest
 import transaction
 import ZODB
+import socket
+
 from struct import pack, unpack
+from neo.neoctl.neoctl import NeoCTL
 from ZODB.FileStorage import FileStorage
 from ZODB.POSException import ConflictError
 from ZODB.tests.StorageTestBase import zodb_pickle
 from persistent import Persistent
-
+from neo.lib.util import SOCKET_CONNECTORS_DICT
 from neo.tests.functional import NEOCluster, NEOFunctionalTest
+from neo.tests import IP_VERSION_FORMAT_DICT
 
 TREE_SIZE = 6
 
@@ -263,6 +267,23 @@ class ClientTests(NEOFunctionalTest):
             self.assertRaises(ConflictError, st2.tpc_vote, t2)
         self.runWithTimeout(40, test)
 
+    def testIPv6Client(self):
+        """ Test the connectivity of an IPv6 connection for neo client """
+        
+        def test():
+            """ 
+            Implement the IPv6Client test
+            """
+            self.neo = NEOCluster(['test_neo1'], replicas=0,
+                temp_dir = self.getTempDirectory(), 
+                address_type = socket.AF_INET6
+                )
+            neoctl = NeoCTL(('::1', 0))
+            self.neo.start()
+            db1, conn1 = self.neo.getZODBConnection()
+            db2, conn2 = self.neo.getZODBConnection()
+        self.runWithTimeout(40, test)
+        
     def testDelayedLocksCancelled(self):
         """
             Hold a lock on an object, try to get another lock on the same
