@@ -37,7 +37,7 @@ class UtilTests(NeoUnitTestBase):
         
     def test_getAddressType(self):
         """ Get the type on an IP Address """
-        self.assertRaises(ValueError, parseNodeAddress, '', 0)
+        self.assertRaises(ValueError, getAddressType, ('', 0))
         address_type = getAddressType(('::1', 0))
         self.assertEqual(address_type, socket.AF_INET6)
         address_type = getAddressType(('0.0.0.0', 0))
