@@ -111,7 +111,7 @@ INVALID_UUID = '\0' * 16
 INVALID_TID = '\xff' * 8
 INVALID_OID = '\xff' * 8
 INVALID_PARTITION = 0xffffffff
-INVALID_ADDRESS = ('0.0.0.0', 0)
+INVALID_ADDRESS_TYPE = socket.AF_UNSPEC
 ZERO_TID = '\0' * 8
 ZERO_OID = '\0' * 8
 OID_LEN = len(INVALID_OID)
@@ -436,7 +436,8 @@ class PAddress(PStructItem):
 
     def _encode(self, writer, address):
         if address is None:
-            address = INVALID_ADDRESS
+            writer(self.pack(INVALID_ADDRESS_TYPE))
+            return
         af_type = getAddressType(address)
         writer(self.pack(af_type))
         encoder = self.address_format_dict[af_type]
@@ -444,10 +445,10 @@ class PAddress(PStructItem):
 
     def _decode(self, reader):
         af_type  = self.unpack(reader(self.size))[0]
+        if af_type == INVALID_ADDRESS_TYPE:
+            return None
         decoder = self.address_format_dict[af_type]
         host, port = decoder.decode(reader)
-        if (host, port) == INVALID_ADDRESS:
-            return None
         return (host, port)
 
 class PString(PStructItem):
