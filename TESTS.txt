@@ -1,0 +1,18 @@
+In order to check the test-coverage of Neo, we used the figleaf tool. The usage
+(for a complete neo test suite) is :
+
+Download and install figleaf : http://darcs.idyll.org/~t/projects/figleaf/doc/
+$ figleaf neotestrunner -u (it will generate a .figleaf file)
+$figleaf2html .figleaf (to convert .figleaf file in html pages)
+$firefox html/ (to read the results)
+
+Each one of the page contains Neo code, which the following colours :
+Green : Executed code during test suite
+Red : Unexecuted code
+Black : Comments and "unused" lines
+
+In order to check only needed neo file, you should specify the following options:
+figleaf -i : ignore python libraries
+figleaf2html -f : allows to specify a list of check-needed files
+For stats, you can also check the index.html page, which indicated which
+percentage of test-coverage.
