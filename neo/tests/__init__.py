@@ -16,12 +16,12 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import os
-import sys
 import random
-import unittest
-import tempfile
-import MySQLdb
 import socket
+import sys
+import tempfile
+import unittest
+import MySQLdb
 import neo
 
 from mock import Mock
@@ -38,7 +38,7 @@ DB_USER = os.getenv('NEO_DB_USER', 'test')
 
 IP_VERSION_FORMAT_DICT = {
     socket.AF_INET:  '127.0.0.1',
-    socket.AF_INET6: '::1',                   
+    socket.AF_INET6: '::1',
 }
 
 ADDRESS_TYPE = socket.AF_INET
@@ -47,9 +47,8 @@ def buildUrlFromString(address):
     try:
         socket.inet_pton(socket.AF_INET6, address)
         address = '[%s]' % address
-    except:
+    except Exception:
         pass
-    
     return address
 
 class NeoTestBase(unittest.TestCase):
@@ -438,8 +437,9 @@ connector_cpt = 0
 class DoNothingConnector(Mock):
     def __init__(self, s=None):
         neo.lib.logging.info("initializing connector")
-        self.desc = globals()['connector_cpt']
-        globals()['connector_cpt'] = globals()['connector_cpt']+ 1
+        global connector_cpt
+        self.desc = connector_cpt
+        connector_cpt += 1
         self.packet_cpt = 0
         Mock.__init__(self)
 
