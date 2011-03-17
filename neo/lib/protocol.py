@@ -1339,12 +1339,13 @@ class NotifyReady(Packet):
     pass
 
 StaticRegistry = {}
-def register(code, request, answer=None, ignore_when_closed=None):
+def register(code, request, ignore_when_closed=None):
     """ Register a packet in the packet registry """
     # register the request
     assert code not in StaticRegistry, "Duplicate request packet code"
     request._code = code
     StaticRegistry[code] = request
+    answer = request._answer
     if ignore_when_closed is None:
         # By default, on a closed connection:
         # - request: ignore
@@ -1352,7 +1353,7 @@ def register(code, request, answer=None, ignore_when_closed=None):
         # - nofitication: keep
         ignore_when_closed = answer is not None
     request._ignore_when_closed = ignore_when_closed
-    if request._answer in (Error, None):
+    if answer in (Error, None):
         return request
     # build a class for the answer
     answer = ClassType('Answer%s' % (request.__name__, ), (Packet, ), {})
