@@ -22,6 +22,7 @@ import ZODB
 import socket
 import signal
 import random
+import weakref
 import MySQLdb
 import unittest
 import tempfile
