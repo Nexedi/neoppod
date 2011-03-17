@@ -19,7 +19,7 @@ Overview
     A NEO cluster is composed of the following types of nodes:
 
     - "master" nodes (mandatory, 1 or more)
-       Take care of transactionality. Only one master node is really active
+       Takes care of transactionality. Only one master node is really active
        (the active master node is called "primary master") at any given time,
        extra masters are spares (they are called "secondary masters").
 
@@ -40,7 +40,7 @@ Disclaimer
     released under, please consider the following.
 
     NEO does not implement any authentication mechanism between its nodes, and
-    does not encrypts data exchanged between nodes either.
+    does not encrypt data exchanged between nodes either.
     If you want to protect your cluster from malicious nodes, or your data from
     being snooped, please consider encrypted tunelling (such as openvpn).
 
