@@ -60,7 +60,7 @@ class NEOProcess(object):
     def __init__(self, command, uuid, arg_dict):
         path = os.getenv('PATH')
         split_path = path.split(":")
-       
+
         for elt_path in split_path:
             command_tmp = "%s/%s" % (elt_path, command)
             if os.path.exists(command_tmp):
@@ -68,7 +68,7 @@ class NEOProcess(object):
                 break
         else:
             raise NotFound, '%s not found' % (command)
-    
+
         self.arg_dict = arg_dict
         self.with_uuid = True
         self.setUUID(uuid)
@@ -198,9 +198,9 @@ class NEOCluster(object):
         self.cluster_name = 'neo_%s' % (random.randint(0, 100), )
         master_node_list = [self.__allocatePort() for i in xrange(master_node_count)]
         self.master_nodes = '/'.join('%s:%s' % (
-                buildUrlFromString(self.local_ip), x, ) 
+                buildUrlFromString(self.local_ip), x, )
                 for x in master_node_list)
-        
+
         # create admin node
         self.__newProcess(NEO_ADMIN, {
             '--cluster': self.cluster_name,
@@ -233,8 +233,8 @@ class NEOCluster(object):
                 '--adapter': adapter,
             })
         # create neoctl
-        
         self.neoctl = NeoCTL((self.local_ip, admin_port))
+
     def __newProcess(self, command, arguments):
         uuid = self.__allocateUUID()
         arguments['--uuid'] = uuid
