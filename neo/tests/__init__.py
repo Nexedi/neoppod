@@ -52,6 +52,24 @@ def buildUrlFromString(address):
         pass
     return address
 
+def getTempDirectory():
+    """get the current temp directory or a new one"""
+    try:
+        temp_dir = os.environ['TEMP']
+    except KeyError:
+        neo_dir = os.path.join(tempfile.gettempdir(), 'neo_tests')
+        while True:
+            temp_dir = os.path.join(neo_dir, repr(time()))
+            try:
+                os.makedirs(temp_dir)
+                break
+            except OSError, e:
+                if e.errno != errno.EEXIST:
+                    raise
+        os.environ['TEMP'] = temp_dir
+        print 'Using temp directory %r.' % temp_dir
+    return temp_dir
+
 class NeoTestBase(unittest.TestCase):
     def setUp(self):
         sys.stdout.write(' * %s ' % (self.id(), ))

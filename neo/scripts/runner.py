@@ -18,13 +18,13 @@
 
 import traceback
 import unittest
-import tempfile
 import logging
 import time
 import sys
 import neo
 import os
 
+from neo.tests import getTempDirectory
 from neo.tests.benchmark import BenchmarkRunner
 
 # list of test modules
@@ -111,8 +111,7 @@ class NeoTestRunner(unittest.TestResult):
         self.modulesStats = {}
         self.failedImports = {}
         self.lastStart = None
-        self.temp_directory = tempfile.mkdtemp(prefix='neo_')
-        print "Base directory : %s" % (self.temp_directory, )
+        self.temp_directory = getTempDirectory()
 
     def run(self, name, modules):
         print '\n', name

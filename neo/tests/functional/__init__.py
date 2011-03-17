@@ -33,7 +33,7 @@ from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
 from neo.lib.util import dump, SOCKET_CONNECTORS_DICT
 from neo.tests import DB_ADMIN, DB_PASSWD, NeoTestBase, buildUrlFromString, \
-        ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, SocketLock
+        ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, SocketLock, getTempDirectory
 from neo.client.Storage import Storage
 
 NEO_MASTER = 'neomaster'
@@ -613,14 +613,8 @@ class NEOCluster(object):
 class NEOFunctionalTest(NeoTestBase):
 
     def getTempDirectory(self):
-        # get the current temp directory or a new one
-        temp_dir = os.environ.get('TEMP', None)
-        if temp_dir is None:
-            temp_dir = tempfile.mkdtemp(prefix='neo_')
-            os.environ['TEMP'] = temp_dir
-            print 'Using temp directory %r.' % (temp_dir, )
         # build the full path based on test case and current test method
-        temp_dir = os.path.join(temp_dir, self.id())
+        temp_dir = os.path.join(getTempDirectory(), self.id())
         # build the path if needed
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
