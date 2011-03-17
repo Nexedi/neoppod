@@ -70,8 +70,17 @@ class PortAllocator(object):
             self.lock.acquire()
         self.allocator_set[self] = None
         self.socket_list.append(s)
-        s.bind((local_ip, 0))
-        return s.getsockname()[1]
+        while True:
+            # Do not let the system choose the port to avoid conflicts
+            # with other software. IOW, use a range different than:
+            # - /proc/sys/net/ipv4/ip_local_port_range on Linux
+            # - what IANA recommends (49152 to 65535)
+            try:
+                s.bind((local_ip, random.randint(16384, 32767)))
+                return s.getsockname()[1]
+            except socket.error, e:
+              if e.errno != errno.EADDRINUSE:
+                raise
 
     def release(self):
         for s in self.socket_list:
