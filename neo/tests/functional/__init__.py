@@ -57,7 +57,7 @@ class NotFound(Exception):
 class PortAllocator(object):
 
     lock = SocketLock('neo.PortAllocator')
-    allocator_set = set()
+    allocator_set = weakref.WeakKeyDictionary() # BBB: use WeakSet instead
 
     def __init__(self):
         self.socket_list = []
@@ -67,7 +67,7 @@ class PortAllocator(object):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         if not self.lock.locked():
             self.lock.acquire()
-        self.allocator_set.add(self)
+        self.allocator_set[self] = None
         self.socket_list.append(s)
         s.bind((local_ip, 0))
         return s.getsockname()[1]
@@ -79,13 +79,15 @@ class PortAllocator(object):
 
     def reset(self):
         if self.lock.locked():
-            self.allocator_set.discard(self)
+            self.allocator_set.pop(self, None)
             if not self.allocator_set:
                 self.lock.release()
             if self.socket_list:
                 for s in self.socket_list:
                     s.close()
             self.__init__()
+
+    __del__ = reset
 
 class NEOProcess(object):
     pid = 0
@@ -605,10 +607,6 @@ class NEOCluster(object):
     def __del__(self):
         if self.cleanup_on_delete:
             os.removedirs(self.temp_dir)
-        try:
-            self.port_allocator.reset()
-        except AttributeError:
-            pass
 
 
 class NEOFunctionalTest(NeoTestBase):
