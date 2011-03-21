@@ -494,7 +494,7 @@ class NEOCluster(object):
             current_try = None
         return current_try
 
-    def expectCondition(self, condition, timeout=0, delay=1, on_fail=None):
+    def expectCondition(self, condition, timeout=0, delay=.5, on_fail=None):
         end = time.time() + timeout + DELAY_SAFETY_MARGIN
         opaque = None
         opaque_history = []
