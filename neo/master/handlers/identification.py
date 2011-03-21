@@ -31,21 +31,20 @@ class IdentificationHandler(MasterHandler):
 
         self.checkClusterName(name)
         app = self.app
-        node_by_uuid = app.nm.getByUUID(uuid)
 
         # handle conflicts and broken nodes
-        node = node_by_uuid or app.nm.getByAddress(address)
+        node = app.nm.getByUUID(uuid)
         if node:
-            if node_by_uuid and node.getAddress() == address:
-                # the node is still alive
-                if node.isBroken():
-                    raise BrokenNodeDisallowedError
-            elif node.isRunning():
-                # still running, reject this new node
-                raise ProtocolError('invalid server address')
-            if node.isConnected():
-                # more than one connection from this node
+            if node.isBroken():
+                raise BrokenNodeDisallowedError
+        else:
+            node = app.nm.getByAddress(address)
+        if node:
+            if node.isRunning():
+                # cloned/evil/buggy node connecting to us
                 raise ProtocolError('already connected')
+            else:
+                assert not node.isConnected()
             node.setAddress(address)
             node.setRunning()
 
