@@ -26,7 +26,7 @@ import MySQLdb
 import neo
 
 from mock import Mock
-from neo.lib import protocol
+from neo.lib import live_debug, protocol
 from neo.lib.protocol import Packets
 from neo.lib.util import getAddressType
 from time import time, gmtime, sleep
@@ -43,6 +43,9 @@ IP_VERSION_FORMAT_DICT = {
 }
 
 ADDRESS_TYPE = socket.AF_INET
+
+live_debug.ENABLED = True
+live_debug.register()
 
 def buildUrlFromString(address):
     try:
