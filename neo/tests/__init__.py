@@ -505,8 +505,8 @@ class SocketLock(object):
                     self._socket = s
                     return True
         finally:
-          if self._socket is None:
-              s.close()
+            if self._socket is None:
+                s.close()
 
     def release(self):
         s = self._socket

@@ -158,19 +158,17 @@ class Packet(object):
     _id = None
 
     def __init__(self, *args, **kw):
-        args = list(args)
         assert self._code is not None, "Packet class not registered"
         if args or kw:
-            assert self._fmt is not None
+            args = list(args)
             buf = StringIO()
             # load named arguments
             for item in self._fmt._items[len(args):]:
                 args.append(kw.get(item._name))
             self._fmt.encode(buf.write, args)
-            body = buf.getvalue()
+            self._body = buf.getvalue()
         else:
-            body = ''
-        self._body = body
+            self._body = ''
 
     def decode(self):
         assert self._body is not None

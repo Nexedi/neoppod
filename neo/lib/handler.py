@@ -80,7 +80,7 @@ class EventHandler(object):
             self.connectionClosed(conn)
 
     def checkClusterName(self, name):
-        # raise an exception if the fiven name mismatch the current cluster name
+        # raise an exception if the given name mismatch the current cluster name
         if self.app.name != name:
             neo.lib.logging.error('reject an alien cluster')
             raise ProtocolError('invalid cluster name')

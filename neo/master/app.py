@@ -120,7 +120,7 @@ class Application(object):
         # Start a normal operation.
         while True:
             # (Re)elect a new primary master.
-            self.primary = not bool(self.nm.getMasterList())
+            self.primary = not self.nm.getMasterList()
             if not self.primary:
                 self.electPrimary(bootstrap=bootstrap)
                 bootstrap = False

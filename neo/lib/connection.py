@@ -614,7 +614,7 @@ class Connection(BaseConnection):
         if self.connector is None:
             return
 
-        was_empty = not bool(self.write_buf)
+        was_empty = not self.write_buf
 
         self.write_buf.extend(packet.encode())
 

@@ -1075,7 +1075,7 @@ class HandlerSwitcherTests(NeoUnitTestBase):
         self.assertEqual(markers[0], (3, self._connection, msg_id_3))
         # answer to msg_3 must not be expected anymore (and it was the last
         # expected message)
-        self.assertFalse(bool(self._handlers.isPending()))
+        self.assertFalse(self._handlers.isPending())
         del markers[:]
         self._handlers.emit(r4, msg_4_time, OnTimeout(msg_4_on_timeout))
         # msg_4 timeout will fire msg_4_on_timeout callback, which lets the
