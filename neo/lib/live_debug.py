@@ -19,8 +19,8 @@ import traceback
 import signal
 import ctypes
 import imp
+import os
 import neo
-import pdb
 
 # WARNING: This module should only be used for live application debugging.
 # It - by purpose - allows code injection in a running neo process.
@@ -61,9 +61,47 @@ def debugHandler(sig, frame):
         neo.__path__)
     imp.load_module('neo.debug', file, filename, (suffix, mode, type))
 
+_debugger = None
+
 @decorate
 def pdbHandler(sig, frame):
-    pdb.set_trace()
+    try:
+        import rpdb2
+    except ImportError:
+        global _debugger
+        if _debugger is None:
+            try: # try ipython if available
+                import IPython
+                IPython.Shell.IPShell(argv=[])
+                _debugger = IPython.Debugger.Tracer().debugger
+            except ImportError:
+                import pdb
+                _debugger = pdb.Pdb()
+        return debugger.set_trace(frame)
+    # WKRD: rpdb2 take an integer (depth) instead of a frame as parameter,
+    #       so we must hardcode the value, taking the decorator into account
+    if rpdb2.g_debugger is not None:
+        return rpdb2.setbreak(2)
+    script = rpdb2.calc_frame_path(frame)
+    pwd = os.getcwd().replace('/', '_').replace('-', '_')
+    pid = os.fork()
+    if pid:
+        try:
+            rpdb2.start_embedded_debugger(pwd, depth=2)
+        finally:
+            os.waitpid(pid, 0)
+    else:
+        try:
+            os.execlp('python', 'python', '-c', """import os\nif not os.fork():
+                import rpdb2, winpdb
+                rpdb2_raw_input = rpdb2._raw_input
+                rpdb2._raw_input = lambda s: \
+                    s == rpdb2.STR_PASSWORD_INPUT and %r or rpdb2_raw_input(s)
+                winpdb.g_ignored_warnings[winpdb.STR_EMBEDDED_WARNING] = True
+                winpdb.main()
+            """ % pwd, '-a', script)
+        finally:
+            os.abort()
 
 def register(on_log=None):
     if ENABLED:
