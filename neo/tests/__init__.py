@@ -46,6 +46,8 @@ ADDRESS_TYPE = socket.AF_INET
 
 live_debug.ENABLED = True
 live_debug.register()
+# prevent "signal only works in main thread" errors in subprocesses
+live_debug.ENABLED = False
 
 def buildUrlFromString(address):
     try:
