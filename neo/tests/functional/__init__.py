@@ -511,57 +511,55 @@ class NEOCluster(object):
             raise AssertionError, 'Timeout while expecting condition. ' \
                                 'History: %s' % (opaque_history, )
 
-    def expectAllMasters(self, node_count, state=None, timeout=0, delay=1):
+    def expectAllMasters(self, node_count, state=None, *args, **kw):
         def callback(last_try):
             current_try = len(self.getMasterList(state=state))
             if last_try is not None and current_try < last_try:
                 raise AssertionError, 'Regression: %s became %s' % \
                     (last_try, current_try)
             return (current_try == node_count, current_try)
-        self.expectCondition(callback, timeout, delay)
+        self.expectCondition(callback, *args, **kw)
 
-    def __expectNodeState(self, node_type, uuid, state, timeout=0, delay=1):
+    def __expectNodeState(self, node_type, uuid, state, *args, **kw):
         if not isinstance(state, (tuple, list)):
             state = (state, )
         def callback(last_try):
             current_try = self.__getNodeState(node_type, uuid)
             return current_try in state, current_try
-        self.expectCondition(callback, timeout, delay)
+        self.expectCondition(callback, *args, **kw)
 
-    def expectMasterState(self, uuid, state, timeout=0, delay=1):
-        self.__expectNodeState(NodeTypes.MASTER, uuid, state, timeout,
-                delay)
+    def expectMasterState(self, uuid, state, *args, **kw):
+        self.__expectNodeState(NodeTypes.MASTER, uuid, state, *args, **kw)
 
-    def expectStorageState(self, uuid, state, timeout=0, delay=1):
-        self.__expectNodeState(NodeTypes.STORAGE, uuid, state,
-                timeout, delay)
+    def expectStorageState(self, uuid, state, *args, **kw):
+        self.__expectNodeState(NodeTypes.STORAGE, uuid, state, *args, **kw)
 
-    def expectRunning(self, process, timeout=0, delay=1):
-        self.expectStorageState(process.getUUID(), NodeStates.RUNNING, timeout,
-                delay)
+    def expectRunning(self, process, *args, **kw):
+        self.expectStorageState(process.getUUID(), NodeStates.RUNNING,
+                                *args, **kw)
 
-    def expectPending(self, process, timeout=0, delay=1):
-        self.expectStorageState(process.getUUID(), NodeStates.PENDING, timeout,
-                delay)
+    def expectPending(self, process, *args, **kw):
+        self.expectStorageState(process.getUUID(), NodeStates.PENDING,
+                                *args, **kw)
 
-    def expectUnknown(self, process, timeout=0, delay=1):
-        self.expectStorageState(process.getUUID(), NodeStates.UNKNOWN, timeout,
-                delay)
+    def expectUnknown(self, process, *args, **kw):
+        self.expectStorageState(process.getUUID(), NodeStates.UNKNOWN,
+                                *args, **kw)
 
-    def expectUnavailable(self, process, timeout=0, delay=1):
+    def expectUnavailable(self, process, *args, **kw):
         self.expectStorageState(process.getUUID(),
-                NodeStates.TEMPORARILY_DOWN, timeout, delay)
+                NodeStates.TEMPORARILY_DOWN, *args, **kw)
 
-    def expectPrimary(self, uuid=None, timeout=0, delay=1):
+    def expectPrimary(self, uuid=None, *args, **kw):
         def callback(last_try):
             current_try = self.getPrimary()
             if None not in (uuid, current_try) and uuid != current_try:
                 raise AssertionError, 'An unexpected primary arised: %r, ' \
                     'expected %r' % (dump(current_try), dump(uuid))
             return uuid is None or uuid == current_try, current_try
-        self.expectCondition(callback, timeout, delay)
+        self.expectCondition(callback, *args, **kw)
 
-    def expectOudatedCells(self, number, timeout=0, delay=1):
+    def expectOudatedCells(self, number, *args, **kw):
         def callback(last_try):
             row_list = self.neoctl.getPartitionRowList()[1]
             number_of_oudated = 0
@@ -570,9 +568,9 @@ class NEOCluster(object):
                     if cell[1] == CellStates.OUT_OF_DATE:
                         number_of_oudated += 1
             return number_of_oudated == number, number_of_oudated
-        self.expectCondition(callback, timeout, delay)
+        self.expectCondition(callback, *args, **kw)
 
-    def expectAssignedCells(self, process, number, timeout=0, delay=1):
+    def expectAssignedCells(self, process, number, *args, **kw):
         def callback(last_try):
             row_list = self.neoctl.getPartitionRowList()[1]
             assigned_cells_number = 0
@@ -581,30 +579,30 @@ class NEOCluster(object):
                     if cell[0] == process.getUUID():
                         assigned_cells_number += 1
             return assigned_cells_number == number, assigned_cells_number
-        self.expectCondition(callback, timeout, delay)
+        self.expectCondition(callback, *args, **kw)
 
-    def expectClusterState(self, state, timeout=0, delay=1):
+    def expectClusterState(self, state, *args, **kw):
         def callback(last_try):
             current_try = self.neoctl.getClusterState()
             return current_try == state, current_try
-        self.expectCondition(callback, timeout, delay)
+        self.expectCondition(callback, *args, **kw)
 
-    def expectClusterRecovering(self, timeout=0, delay=1):
-        self.expectClusterState(ClusterStates.RECOVERING, timeout, delay)
+    def expectClusterRecovering(self, *args, **kw):
+        self.expectClusterState(ClusterStates.RECOVERING, *args, **kw)
 
-    def expectClusterVerifying(self, timeout=0, delay=1):
-        self.expectClusterState(ClusterStates.VERIFYING, timeout, delay)
+    def expectClusterVerifying(self, *args, **kw):
+        self.expectClusterState(ClusterStates.VERIFYING, *args, **kw)
 
-    def expectClusterRunning(self, timeout=0, delay=1):
-        self.expectClusterState(ClusterStates.RUNNING, timeout, delay)
+    def expectClusterRunning(self, *args, **kw):
+        self.expectClusterState(ClusterStates.RUNNING, *args, **kw)
 
-    def expectAlive(self, process, timeout=0, delay=1):
+    def expectAlive(self, process, *args, **kw):
         def callback(last_try):
             current_try = process.isAlive()
             return current_try, current_try
-        self.expectCondition(callback, timeout, delay)
+        self.expectCondition(callback, *args, **kw)
 
-    def expectStorageNotKnown(self, process, timeout=0, delay=1):
+    def expectStorageNotKnown(self, process, *args, **kw):
         # /!\ Not Known != Unknown
         process_uuid = process.getUUID()
         def expected_storage_not_known(last_try):
@@ -612,7 +610,7 @@ class NEOCluster(object):
                 if storage[2] == process_uuid:
                     return False, storage
             return True, None
-        self.expectCondition(expected_storage_not_known, timeout, delay)
+        self.expectCondition(expected_storage_not_known, *args, **kw)
 
     def __del__(self):
         if self.cleanup_on_delete:
