@@ -115,8 +115,7 @@ class MasterEventHandler(EventHandler):
         app = self.app
         assert app.master_conn in (conn, None)
         app.dispatcher.clear()
-        app.master_conn = None
-        app.master_node = None
+        app.reset()
         app.uuid = None
         raise PrimaryFailure
 

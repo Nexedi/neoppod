@@ -76,9 +76,12 @@ class Application(object):
         self.master_event_handler = MasterEventHandler(self)
         self.dispatcher = Dispatcher()
         self.cluster_state = None
+        self.reset()
+        registerLiveDebugger(on_log=self.log)
+
+    def reset(self):
         self.master_conn = None
         self.master_node = None
-        registerLiveDebugger(on_log=self.log)
 
     def log(self):
         self.em.log()
