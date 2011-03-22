@@ -146,10 +146,12 @@ class MasterEventHandler(EventHandler):
         neo.lib.logging.debug("answerNodeInformation")
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
-        self.app.pt.update(ptid, cell_list, self.app.nm)
+        if self.app.bootstrapped:
+            self.app.pt.update(ptid, cell_list, self.app.nm)
 
     def answerPartitionTable(self, conn, ptid, row_list):
         self.app.pt.load(ptid, row_list, self.app.nm)
+        self.app.bootstrapped = True
 
     def sendPartitionTable(self, conn, ptid, row_list):
         self.app.pt.load(ptid, row_list, self.app.nm)

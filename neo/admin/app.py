@@ -80,6 +80,7 @@ class Application(object):
         registerLiveDebugger(on_log=self.log)
 
     def reset(self):
+        self.bootstrapped = False
         self.master_conn = None
         self.master_node = None
 
