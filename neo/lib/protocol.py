@@ -21,8 +21,9 @@ import traceback
 from types import ClassType
 from socket import inet_ntoa, inet_aton
 from cStringIO import StringIO
+from struct import Struct
 
-from neo.lib.util import Enum, Struct, getAddressType
+from neo.lib.util import Enum, getAddressType
 
 # The protocol version (major, minor).
 PROTOCOL_VERSION = (4, 1)
