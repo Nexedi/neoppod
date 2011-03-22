@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from functools import wraps
 from time import time
 
 import neo.lib
@@ -44,7 +45,7 @@ def not_closed(func):
         if self.connector is None:
             raise ConnectorConnectionClosedException
         return func(self, *args, **kw)
-    return decorator
+    return wraps(func)(decorator)
 
 
 def lockCheckWrapper(func):
@@ -67,7 +68,7 @@ def lockCheckWrapper(func):
                 self.__class__.__name__, ''.join(traceback.format_stack()))
         # Call anyway
         return func(self, *args, **kw)
-    return wrapper
+    return wraps(func)(wrapper)
 
 class OnTimeout(object):
     """

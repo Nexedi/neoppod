@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from functools import wraps
 import neo
 
 from neo.lib import protocol
@@ -340,7 +341,7 @@ def thread_safe(method):
             return method(self, *args, **kwargs)
         finally:
             self.unlock()
-    return wrapper
+    return wraps(method)(wrapper)
 
 
 class MTPartitionTable(PartitionTable):

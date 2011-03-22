@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from functools import wraps
 from ZODB import BaseStorage, ConflictResolution, POSException
 from zope.interface import implements
 import ZODB.interfaces
@@ -32,7 +33,7 @@ def check_read_only(func):
         if self._is_read_only:
             raise POSException.ReadOnlyError()
         return func(self, *args, **kw)
-    return wrapped
+    return wraps(func)(wrapped)
 
 class DummyCache(object):
     def __init__(self, app):

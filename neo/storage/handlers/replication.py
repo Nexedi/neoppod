@@ -16,6 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from functools import wraps
 import neo.lib
 
 from neo.lib.handler import EventHandler
@@ -71,12 +72,9 @@ Both part follow the same mechanism:
 def checkConnectionIsReplicatorConnection(func):
     def decorator(self, conn, *args, **kw):
         if self.app.replicator.isCurrentConnection(conn):
-            result = func(self, conn, *args, **kw)
-        else:
-            # Should probably raise & close connection...
-            result = None
-        return result
-    return decorator
+            return func(self, conn, *args, **kw)
+        # Should probably raise & close connection...
+    return wraps(func)(decorator)
 
 class ReplicationHandler(EventHandler):
     """This class handles events for replications."""

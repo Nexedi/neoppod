@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from functools import wraps
 from neo.lib.locking import Lock, Empty
 from neo.lib.profiling import profiler_decorator
 EMPTY = {}
@@ -39,7 +40,7 @@ def giant_lock(func):
             return func(self, *args, **kw)
         finally:
             self.lock_release()
-    return wrapped
+    return wraps(func)(wrapped)
 
 class Dispatcher:
     """Register a packet, connection pair as expecting a response packet."""

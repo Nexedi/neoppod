@@ -20,6 +20,7 @@ import signal
 import ctypes
 import imp
 import os
+from functools import wraps
 import neo
 
 # WARNING: This module should only be used for live application debugging.
@@ -53,7 +54,7 @@ def decorate(func):
             # "debug" module don't kill process.
             traceback.print_exc()
         errno.value = old_errno
-    return decorator
+    return wraps(func)(decorator)
 
 @decorate
 def debugHandler(sig, frame):
