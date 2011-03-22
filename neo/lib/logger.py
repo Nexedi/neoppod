@@ -30,8 +30,12 @@ class PacketLogger(object):
         _temp = EventHandler(None)
         self.packet_dispatch_table = _temp.packet_dispatch_table
         self.error_dispatch_table = _temp.error_dispatch_table
+        self.enable(LOGGER_ENABLED)
 
-    def dispatch(self, conn, packet, direction):
+    def enable(self, enabled):
+        self.dispatch = enabled and self._dispatch or (lambda *args, **kw: None)
+
+    def _dispatch(self, conn, packet, direction):
         """This is a helper method to handle various packet types."""
         # default log message
         klass = packet.getType()
@@ -70,6 +74,3 @@ class PacketLogger(object):
             neo.lib.logging.debug(' ! %s | %8s | %22s | %s' % node)
 
 PACKET_LOGGER = PacketLogger()
-if not LOGGER_ENABLED:
-    # disable logger
-    PACKET_LOGGER.dispatch = lambda *args, **kw: None
