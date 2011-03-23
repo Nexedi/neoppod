@@ -153,10 +153,14 @@ class NEOProcess(object):
 
     def kill(self, sig=signal.SIGTERM):
         if self.pid:
+            delay = pdb.acquire()
             try:
-                os.kill(self.pid, sig)
-            except OSError:
-                traceback.print_last()
+                try:
+                    os.kill(self.pid, sig)
+                except OSError:
+                    traceback.print_last()
+            finally:
+                pdb.release(delay)
         else:
             raise AlreadyStopped
 
@@ -340,16 +344,14 @@ class NEOCluster(object):
                 if process not in except_storages:
                     process.start()
         # wait for the admin node availability
-        end_time = time.time() + MAX_START_TIME
-        while True:
-            if time.time() > end_time:
-                raise AssertionError, 'Timeout when starting cluster'
+        def test():
             try:
                 self.neoctl.getClusterState()
             except NotReadyException:
-                time.sleep(0.5)
-            else:
-                break
+                return False
+            return True
+        if not pdb.wait(test, MAX_START_TIME, 0.5):
+            raise AssertionError('Timeout when starting cluster')
         self.port_allocator.reset()
 
     def start(self, except_storages=()):
@@ -358,18 +360,16 @@ class NEOCluster(object):
         neoctl = self.neoctl
         neoctl.startCluster()
         target_count = len(self.db_list) - len(except_storages)
-        end_time = time.time() + MAX_START_TIME
-        while True:
-            storage_node_list = neoctl.getNodeList(
+        storage_node_list = []
+        def test():
+            storage_node_list[:] = neoctl.getNodeList(
                 node_type=NodeTypes.STORAGE)
             # wait at least number of started storages, admin node can know
             # more nodes when the cluster restart with an existing partition
             # table referencing non-running nodes
-            if len(storage_node_list) >= target_count:
-                break
-            time.sleep(0.5)
-            if time.time() > end_time:
-                raise AssertionError, 'Timeout when starting cluster'
+            return len(storage_node_list) >= target_count
+        if not pdb.wait(test, MAX_START_TIME, 0.5):
+            raise AssertionError('Timeout when starting cluster')
         if storage_node_list:
             self.expectClusterRunning()
             neoctl.enableStorageList([x[2] for x in storage_node_list])
@@ -497,20 +497,18 @@ class NEOCluster(object):
 
     def expectCondition(self, condition, timeout=0, delay=.5, on_fail=None):
         end = time.time() + timeout + DELAY_SAFETY_MARGIN
-        opaque = None
-        opaque_history = []
-        while time.time() < end:
-            reached, opaque = condition(opaque)
-            if reached:
-                break
-            else:
+        opaque_history = [None]
+        def test():
+            reached, opaque = condition(opaque_history[-1])
+            if not reached:
                 opaque_history.append(opaque)
-                time.sleep(delay)
-        else:
+            return reached
+        if not pdb.wait(test, timeout + DELAY_SAFETY_MARGIN, delay):
+            del opaque_history[0]
             if on_fail is not None:
                 on_fail(opaque_history)
-            raise AssertionError, 'Timeout while expecting condition. ' \
-                                'History: %s' % (opaque_history, )
+            raise AssertionError('Timeout while expecting condition. '
+                                 'History: %s' % opaque_history)
 
     def expectAllMasters(self, node_count, state=None, *args, **kw):
         def callback(last_try):

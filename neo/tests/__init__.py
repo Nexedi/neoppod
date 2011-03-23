@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+import __builtin__
 import errno
 import os
 import random
@@ -31,6 +32,7 @@ from neo.lib.protocol import Packets
 from neo.lib.util import getAddressType
 from time import time, gmtime, sleep
 from struct import pack, unpack
+from functools import wraps
 
 DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo_')
 DB_ADMIN = os.getenv('NEO_DB_ADMIN', 'root')
@@ -518,3 +520,51 @@ class SocketLock(object):
         s = self._socket
         del self._socket
         s.close()
+
+
+class ClusterPdb(object):
+    # TODO: monkey-patch normal code not to timeout
+    #       if another node is being debugged
+
+    def __init__(self):
+        self._r, self._w = os.pipe()
+        self.release(0)
+
+    def __getattr__(self, attr):
+        try:
+            debugger = self.__dict__['_debugger']
+        except KeyError:
+            self._debugger = debugger = debug.getPdb()
+            def hook(name):
+                hook = getattr(self, name)
+                hooked = getattr(debugger, name)
+                def wrapper(*args, **kw):
+                    return hook(hooked, *args, **kw)
+                setattr(debugger, name, wraps(hooked)(wrapper))
+            hook('interaction')
+        return getattr(debugger, attr)
+
+    def acquire(self):
+        return unpack('d', os.read(self._r, 8))[0]
+
+    def release(self, delay):
+        os.write(self._w, pack('d', delay))
+
+    def interaction(self, hooked, *args, **kw):
+        delay = self.acquire() - time()
+        try:
+            return hooked(*args, **kw)
+        finally:
+            self.release(delay + time())
+
+    def wait(self, test, timeout, period):
+        end_time = time() + timeout
+        while not test():
+            delay = self.acquire()
+            self.release(delay)
+            if time() > end_time + delay:
+                return False
+            sleep(period)
+        return True
+
+__builtin__.pdb = ClusterPdb()

@@ -62,6 +62,15 @@ def debugHandler(sig, frame):
         neo.__path__)
     imp.load_module('neo.debug', file, filename, (suffix, mode, type))
 
+def getPdb():
+    try: # try ipython if available
+        import IPython
+        IPython.Shell.IPShell(argv=[])
+        return IPython.Debugger.Tracer().debugger
+    except ImportError:
+        import pdb
+        return pdb.Pdb()
+
 _debugger = None
 
 @decorate
@@ -71,13 +80,7 @@ def pdbHandler(sig, frame):
     except ImportError:
         global _debugger
         if _debugger is None:
-            try: # try ipython if available
-                import IPython
-                IPython.Shell.IPShell(argv=[])
-                _debugger = IPython.Debugger.Tracer().debugger
-            except ImportError:
-                import pdb
-                _debugger = pdb.Pdb()
+            _debugger = getPdb()
         return debugger.set_trace(frame)
     # WKRD: rpdb2 take an integer (depth) instead of a frame as parameter,
     #       so we must hardcode the value, taking the decorator into account
