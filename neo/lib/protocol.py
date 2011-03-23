@@ -1535,26 +1535,16 @@ class Packets(dict):
     NotifyTransactionFinished = register(
             0x003E, NotifyTransactionFinished)
 
-def register_error(code):
-    def wrapper(registry, message=''):
-        return Error(code, message)
-    return wrapper
+def Errors():
+    registry_dict = {}
+    handler_method_name_dict = {}
+    def register_error(code):
+        return lambda self, message='': Error(code, message)
+    for code, error in ErrorCodes.iteritems():
+        name = ''.join(part.capitalize() for part in str(error).split('_'))
+        registry_dict[name] = register_error(error)
+        handler_method_name_dict[code] = name[0].lower() + name[1:]
+    return type('ErrorRegistry', (dict,),
+                registry_dict)(handler_method_name_dict)
 
-class ErrorRegistry(dict):
-    """
-        Error packet packet registry
-    """
-    def __init__(self):
-        dict.__init__(self)
-
-    Ack = register_error(ErrorCodes.ACK)
-    ProtocolError = register_error(ErrorCodes.PROTOCOL_ERROR)
-    TidNotFound = register_error(ErrorCodes.TID_NOT_FOUND)
-    OidNotFound = register_error(ErrorCodes.OID_NOT_FOUND)
-    OidDoesNotExist = register_error(ErrorCodes.OID_DOES_NOT_EXIST)
-    NotReady = register_error(ErrorCodes.NOT_READY)
-    Broken = register_error(ErrorCodes.BROKEN_NODE)
-    AlreadyPending = register_error(ErrorCodes.ALREADY_PENDING)
-
-Errors = ErrorRegistry()
-
+Errors = Errors()

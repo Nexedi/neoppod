@@ -44,7 +44,7 @@ class ProtocolTests(NeoUnitTestBase):
         self.assertEqual(error_msg, "wait")
 
     def test_06_brokenNodeDisallowedError(self):
-        p = Errors.Broken("broken")
+        p = Errors.BrokenNode("broken")
         error_code, error_msg = p.decode()
         self.assertEqual(error_code, ErrorCodes.BROKEN_NODE)
         self.assertEqual(error_msg, "broken")

@@ -27,8 +27,6 @@ class PacketLogger(object):
     """ Logger at packet level (for debugging purpose) """
 
     def __init__(self):
-        _temp = EventHandler(None)
-        self.error_dispatch_table = _temp.error_dispatch_table
         self.enable(LOGGER_ENABLED)
 
     def enable(self, enabled):
