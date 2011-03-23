@@ -30,6 +30,7 @@ import tempfile
 import traceback
 import threading
 
+import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
 from neo.lib.util import dump, SOCKET_CONNECTORS_DICT
@@ -104,17 +105,11 @@ class NEOProcess(object):
     pid = 0
 
     def __init__(self, command, uuid, arg_dict):
-        path = os.getenv('PATH')
-        split_path = path.split(":")
-
-        for elt_path in split_path:
-            command_tmp = "%s/%s" % (elt_path, command)
-            if os.path.exists(command_tmp):
-                self.command = command_tmp
-                break
-        else:
+        try:
+            __import__('neo.scripts.' + command)
+        except ImportError:
             raise NotFound, '%s not found' % (command)
-
+        self.command = command
         self.arg_dict = arg_dict
         self.with_uuid = True
         self.setUUID(uuid)
@@ -137,7 +132,7 @@ class NEOProcess(object):
             # Child
             try:
                 sys.argv = [command] + args
-                execfile(command, {"__name__": "__main__"})
+                getattr(neo.scripts,  command).main()
             except (SystemExit, KeyboardInterrupt):
                 self._exit()
             except:
