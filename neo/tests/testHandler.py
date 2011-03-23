@@ -28,22 +28,17 @@ class HandlerTests(NeoUnitTestBase):
         NeoUnitTestBase.setUp(self)
         app = Mock()
         self.handler = EventHandler(app)
-        self.fake_type = 'FAKE_PACKET_TYPE'
 
     def setFakeMethod(self, method):
-        self.handler.packet_dispatch_table[self.fake_type] = method
+        self.handler.fake_method = method
 
     def getFakePacket(self):
-        return Mock({
-            'getType': self.fake_type,
+        p = Mock({
             'decode': (),
             '__repr__': 'Fake Packet',
         })
-
-    def checkFakeCalled(self):
-        method = self.handler.packet_dispatch_table[self.fake_type]
-        calls = method.getNamedCalls('__call__')
-        self.assertEquals(len(calls), 1)
+        p.handler_method_name = 'fake_method'
+        return p
 
     def test_dispatch(self):
         conn = self.getFakeConnection()

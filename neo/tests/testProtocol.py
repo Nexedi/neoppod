@@ -73,7 +73,7 @@ class ProtocolTests(NeoUnitTestBase):
         uuid = self.getNewUUID()
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
                 uuid, (self.local_ip, 9080), "unittest")
-        (plow, phigh), node, p_uuid, (ip, port), name  = p.decode()
+        node, p_uuid, (ip, port), name  = p.decode()
         self.assertEqual(node, NodeTypes.CLIENT)
         self.assertEqual(p_uuid, uuid)
         self.assertEqual(ip, self.local_ip)
@@ -85,7 +85,7 @@ class ProtocolTests(NeoUnitTestBase):
         self.local_ip = IP_VERSION_FORMAT_DICT[socket.AF_INET6]
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
                 uuid, (self.local_ip, 9080), "unittest")
-        (plow, phigh), node, p_uuid, (ip, port), name  = p.decode()
+        node, p_uuid, (ip, port), name  = p.decode()
         self.assertEqual(node, NodeTypes.CLIENT)
         self.assertEqual(p_uuid, uuid)
         self.assertEqual(ip, self.local_ip)

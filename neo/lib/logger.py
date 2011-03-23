@@ -28,7 +28,6 @@ class PacketLogger(object):
 
     def __init__(self):
         _temp = EventHandler(None)
-        self.packet_dispatch_table = _temp.packet_dispatch_table
         self.error_dispatch_table = _temp.error_dispatch_table
         self.enable(LOGGER_ENABLED)
 
@@ -38,7 +37,6 @@ class PacketLogger(object):
     def _dispatch(self, conn, packet, direction):
         """This is a helper method to handle various packet types."""
         # default log message
-        klass = packet.getType()
         uuid = dump(conn.getUUID())
         ip, port = conn.getAddress()
         packet_name = packet.__class__.__name__
@@ -47,8 +45,7 @@ class PacketLogger(object):
         neo.lib.logging.debug('#0x%08x %-30s %s %s (%s:%d)', packet.getId(),
                 packet_name, direction, uuid, ip, port)
         # look for custom packet logger
-        logger = self.packet_dispatch_table.get(klass, None)
-        logger = logger and getattr(self, logger.im_func.__name__, None)
+        logger = getattr(self, packet.handler_method_name, None)
         if logger is None:
             return
         # enhanced log

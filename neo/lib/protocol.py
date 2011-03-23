@@ -18,7 +18,6 @@
 import socket
 import sys
 import traceback
-from types import ClassType
 from socket import inet_ntoa, inet_aton
 from cStringIO import StringIO
 from struct import Struct
@@ -672,6 +671,9 @@ class RequestIdentification(Packet):
             args = list(args)
             args.insert(0, PROTOCOL_VERSION)
         super(RequestIdentification, self).__init__(*args, **kw)
+
+    def decode(self):
+        return super(RequestIdentification, self).decode()[1:]
 
 class PrimaryMaster(Packet):
     """
@@ -1355,7 +1357,7 @@ def register(code, request, ignore_when_closed=None):
     if answer in (Error, None):
         return request
     # build a class for the answer
-    answer = ClassType('Answer%s' % (request.__name__, ), (Packet, ), {})
+    answer = type('Answer%s' % (request.__name__, ), (Packet, ), {})
     answer._fmt = request._answer
     # compute the answer code
     code = code | RESPONSE_MASK
@@ -1384,14 +1386,16 @@ class ParserState(object):
     def clear(self):
         self.payload = None
 
-class PacketRegistry(dict):
+class Packets(dict):
     """
     Packet registry that check packet code unicity and provide an index
     """
-    def __init__(self):
-        dict.__init__(self)
-        # load packet classes
-        self.update(StaticRegistry)
+    def __metaclass__(name, base, d):
+        for k, v in d.iteritems():
+            if isinstance(v, type) and issubclass(v, Packet):
+                v.handler_method_name = k[0].lower() + k[1:]
+        # this builds a "singleton"
+        return type('PacketRegistry', base, d)(StaticRegistry)
 
     def parse(self, buf, state_container):
         state = state_container.get()
@@ -1530,9 +1534,6 @@ class PacketRegistry(dict):
             0x0033, CheckCurrentSerial)
     NotifyTransactionFinished = register(
             0x003E, NotifyTransactionFinished)
-
-# build a "singleton"
-Packets = PacketRegistry()
 
 def register_error(code):
     def wrapper(registry, message=''):
