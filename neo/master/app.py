@@ -36,7 +36,7 @@ from neo.master.recovery import RecoveryManager
 from neo.lib.util import dump
 from neo.lib.connector import getConnectorHandler
 
-from neo.lib.live_debug import register as registerLiveDebugger
+from neo.lib.debug import register as registerLiveDebugger
 
 class Application(object):
     """The master node application."""

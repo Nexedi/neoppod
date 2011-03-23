@@ -35,7 +35,7 @@ from neo.lib.pt import PartitionTable
 from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
 
-from neo.lib.live_debug import register as registerLiveDebugger
+from neo.lib.debug import register as registerLiveDebugger
 
 class Application(object):
     """The storage node application."""

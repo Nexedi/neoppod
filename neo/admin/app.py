@@ -27,7 +27,7 @@ from neo.lib.connector import getConnectorHandler
 from neo.lib.bootstrap import BootstrapManager
 from neo.lib.pt import PartitionTable
 from neo.lib.protocol import NodeTypes, NodeStates, Packets, Errors
-from neo.lib.live_debug import register as registerLiveDebugger
+from neo.lib.debug import register as registerLiveDebugger
 
 class Dispatcher:
     """Dispatcher use to redirect master request to handler"""

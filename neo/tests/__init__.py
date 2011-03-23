@@ -26,7 +26,7 @@ import MySQLdb
 import neo
 
 from mock import Mock
-from neo.lib import live_debug, logger, protocol
+from neo.lib import debug, logger, protocol
 from neo.lib.protocol import Packets
 from neo.lib.util import getAddressType
 from time import time, gmtime, sleep
@@ -44,10 +44,10 @@ IP_VERSION_FORMAT_DICT = {
 
 ADDRESS_TYPE = socket.AF_INET
 
-live_debug.ENABLED = True
-live_debug.register()
+debug.ENABLED = True
+debug.register()
 # prevent "signal only works in main thread" errors in subprocesses
-live_debug.ENABLED = False
+debug.ENABLED = False
 logger.PACKET_LOGGER.enable(True)
 
 def buildUrlFromString(address):

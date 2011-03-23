@@ -29,7 +29,7 @@ import neo
 ENABLED = False
 
 # How to include in python code:
-#   from neo.live_debug import register
+#   from neo.debug import register
 #   register()
 #
 # How to trigger it:
