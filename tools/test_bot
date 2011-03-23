@@ -47,8 +47,9 @@ def main():
             bin = os.path.join(test_home, 'bin')
             if not subprocess.call((os.path.join(bin, 'buildout'), '-v'),
                                    cwd=test_home):
-                subprocess.call([os.path.join(bin, 'neotestrunner'), '-fuz']
-                                + sys.argv[1:arg_count])
+                subprocess.call([os.path.join(bin, 'neotestrunner'), '-fuz',
+                                 '--title', 'NEO tests (r%u)' % revision,
+                                ] + sys.argv[1:arg_count])
         clean()
 
 if __name__ == '__main__':
