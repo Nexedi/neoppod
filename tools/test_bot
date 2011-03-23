@@ -1,0 +1,55 @@
+#!/usr/bin/python
+import os, subprocess, sys, time
+import pysvn
+
+def clean():
+    for path, dir_list, file_list in os.walk('.'):
+        for file in file_list:
+            # delete *.pyc files so that deleted/moved files can not be imported
+            if file[-4:] in ('.pyc', '.pyo'):
+                os.remove(os.path.join(path, file))
+
+def main():
+    if 'LANG' in os.environ:
+      del os.environ['LANG']
+
+    arg_count = 1
+    while arg_count < len(sys.argv):
+        arg = sys.argv[arg_count]
+        if arg[:2] != '--':
+            break
+        arg_count += '=' in arg and 1 or 2
+
+    svn = pysvn.Client()
+    def getRevision(path):
+        return svn.info(path).commit_revision.number
+
+    test_bot = os.path.realpath(__file__).split(os.getcwd())[1][1:]
+    test_bot_revision = getRevision(test_bot)
+    revision = 0
+
+    clean()
+    delay = None
+    while True:
+        delay = delay and time.sleep(delay) or 1800
+        old_revision = revision
+        try:
+            svn.update('.')
+        except pysvn.ClientError, e:
+            continue
+        revision = getRevision('.')
+        if revision == old_revision:
+            continue
+        if test_bot_revision != getRevision(test_bot):
+            os.execvp(sys.argv[0], sys.argv)
+        delay = None
+        for test_home in sys.argv[arg_count:]:
+            bin = os.path.join(test_home, 'bin')
+            if not subprocess.call((os.path.join(bin, 'buildout'), '-v'),
+                                   cwd=test_home):
+                subprocess.call([os.path.join(bin, 'neotestrunner'), '-fuz']
+                                + sys.argv[1:arg_count])
+        clean()
+
+if __name__ == '__main__':
+    sys.exit(main())
