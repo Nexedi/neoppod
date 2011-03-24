@@ -121,19 +121,19 @@ class MasterVerificationTests(NeoUnitTestBase):
         uuid = self.identifyToMasterNode()
         # do nothing
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
-        self.assertEquals(len(self.verification._tid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._tid_set), 0)
         new_tid = self.getNextTID()
         verification.answerUnfinishedTransactions(conn, new_tid, [new_tid])
-        self.assertEquals(len(self.verification._tid_set), 0)
+        self.assertEqual(len(self.verification._tid_set), 0)
         # update dict
         conn = self.getFakeConnection(uuid, self.storage_address)
         self.verification._uuid_set.add(uuid)
-        self.assertEquals(len(self.verification._tid_set), 0)
+        self.assertEqual(len(self.verification._tid_set), 0)
         new_tid = self.getNextTID(new_tid)
         verification.answerUnfinishedTransactions(conn, new_tid, [new_tid])
         self.assertTrue(uuid not in self.verification._uuid_set)
-        self.assertEquals(len(self.verification._tid_set), 1)
+        self.assertEqual(len(self.verification._tid_set), 1)
         self.assertTrue(new_tid in self.verification._tid_set)
 
     def test_12_answerTransactionInformation(self):
@@ -141,36 +141,36 @@ class MasterVerificationTests(NeoUnitTestBase):
         uuid = self.identifyToMasterNode()
         # do nothing, as unfinished_oid_set is None
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
         self.verification._uuid_set.add(uuid)
         self.verification._oid_set  = None
         new_tid = self.getNextTID()
         new_oid = self.getOID(1)
         verification.answerTransactionInformation(conn, new_tid,
                 "user", "desc", "ext", False, [new_oid,])
-        self.assertEquals(self.verification._oid_set, None)
+        self.assertEqual(self.verification._oid_set, None)
         # do nothing as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
         self.verification._oid_set  = set()
-        self.assertEquals(len(self.verification._oid_set), 0)
+        self.assertEqual(len(self.verification._oid_set), 0)
         verification.answerTransactionInformation(conn, new_tid,
                 "user", "desc", "ext", False, [new_oid,])
-        self.assertEquals(len(self.verification._oid_set), 0)
+        self.assertEqual(len(self.verification._oid_set), 0)
         # do work
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
         self.verification._uuid_set.add(uuid)
-        self.assertEquals(len(self.verification._oid_set), 0)
+        self.assertEqual(len(self.verification._oid_set), 0)
         verification.answerTransactionInformation(conn, new_tid,
                 "user", "desc", "ext", False, [new_oid,])
-        self.assertEquals(len(self.verification._oid_set), 1)
+        self.assertEqual(len(self.verification._oid_set), 1)
         self.assertTrue(new_oid in self.verification._oid_set)
         # do not work as oid is diff
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
         self.verification._uuid_set.add(uuid)
-        self.assertEquals(len(self.verification._oid_set), 1)
+        self.assertEqual(len(self.verification._oid_set), 1)
         new_oid = self.getOID(2)
         self.assertRaises(ValueError, verification.answerTransactionInformation,
                 conn, new_tid, "user", "desc", "ext", False, [new_oid,])
@@ -180,13 +180,13 @@ class MasterVerificationTests(NeoUnitTestBase):
         uuid = self.identifyToMasterNode()
         # do nothing as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
         self.verification._oid_set  = []
         verification.tidNotFound(conn, "msg")
         self.assertNotEqual(self.verification._oid_set, None)
         # do work as asking_uuid_dict is False
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
         self.verification._uuid_set.add(uuid)
         self.verification._oid_set  = []
         verification.tidNotFound(conn, "msg")
@@ -199,11 +199,11 @@ class MasterVerificationTests(NeoUnitTestBase):
         new_tid = self.getNextTID()
         new_oid = self.getOID(1)
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
         verification.answerObjectPresent(conn, new_oid, new_tid)
         # do work
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
         self.verification._uuid_set.add(uuid)
         verification.answerObjectPresent(conn, new_oid, new_tid)
         self.assertTrue(uuid not in self.verification._uuid_set)
@@ -213,14 +213,14 @@ class MasterVerificationTests(NeoUnitTestBase):
         uuid = self.identifyToMasterNode()
         # do nothing as asking_uuid_dict is True
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
         self.app._object_present = True
         self.assertTrue(self.app._object_present)
         verification.oidNotFound(conn, "msg")
         self.assertTrue(self.app._object_present)
         # do work as asking_uuid_dict is False
         conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEquals(len(self.verification._uuid_set), 0)
+        self.assertEqual(len(self.verification._uuid_set), 0)
         self.verification._uuid_set.add(uuid)
         self.assertTrue(self.app._object_present)
         verification.oidNotFound(conn, "msg")

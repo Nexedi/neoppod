@@ -146,7 +146,7 @@ class StorageAppTests(NeoUnitTestBase):
         conn = Mock({'__repr__': 'conn', 'getPeerId': ReturnValues(msg_id, msg_id_2)})
         self.app.queueEvent(event, conn, ("test", ))
         self.app.executeQueuedEvents()
-        self.assertEquals(len(event.mockGetNamedCalls("__call__")), 1)
+        self.assertEqual(len(event.mockGetNamedCalls("__call__")), 1)
         call = event.mockGetNamedCalls("__call__")[0]
         params = call.getParam(1)
         self.assertEqual(params, "test")

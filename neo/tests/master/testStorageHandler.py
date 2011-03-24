@@ -160,8 +160,8 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         node2, conn2 = self.identifyToMasterNode()
         node1.setRunning()
         node2.setRunning()
-        self.assertEquals(node1.getState(), NodeStates.RUNNING)
-        self.assertEquals(node2.getState(), NodeStates.RUNNING)
+        self.assertEqual(node1.getState(), NodeStates.RUNNING)
+        self.assertEqual(node2.getState(), NodeStates.RUNNING)
         # filled the pt
         self.app.pt.make(self.app.nm.getStorageList())
         self.assertTrue(self.app.pt.filled())
@@ -169,14 +169,14 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         # drop one node
         lptid = self.app.pt.getID()
         method(conn1)
-        self.assertEquals(node1.getState(), state)
+        self.assertEqual(node1.getState(), state)
         self.assertTrue(lptid < self.app.pt.getID())
         # drop the second, no storage node left
         lptid = self.app.pt.getID()
-        self.assertEquals(node2.getState(), NodeStates.RUNNING)
+        self.assertEqual(node2.getState(), NodeStates.RUNNING)
         self.assertRaises(OperationFailure, method, conn2)
-        self.assertEquals(node2.getState(), state)
-        self.assertEquals(lptid, self.app.pt.getID())
+        self.assertEqual(node2.getState(), state)
+        self.assertEqual(lptid, self.app.pt.getID())
 
     def test_15_peerBroken(self):
         self._testWithMethod(self.service.peerBroken, NodeStates.BROKEN)

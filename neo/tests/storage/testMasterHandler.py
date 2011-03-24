@@ -83,12 +83,12 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         self.app.pt = Mock({'getID': 1})
         count = len(self.app.nm.getList())
         self.operation.notifyPartitionChanges(conn, 0, ())
-        self.assertEquals(self.app.pt.getID(), 1)
-        self.assertEquals(len(self.app.nm.getList()), count)
+        self.assertEqual(self.app.pt.getID(), 1)
+        self.assertEqual(len(self.app.nm.getList()), count)
         calls = self.app.replicator.mockGetNamedCalls('removePartition')
-        self.assertEquals(len(calls), 0)
+        self.assertEqual(len(calls), 0)
         calls = self.app.replicator.mockGetNamedCalls('addPartition')
-        self.assertEquals(len(calls), 0)
+        self.assertEqual(len(calls), 0)
 
     def test_14_notifyPartitionChanges2(self):
         # cases :
@@ -112,10 +112,10 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         app.replicator = Mock({})
         self.operation.notifyPartitionChanges(conn, ptid2, cells)
         # ptid set
-        self.assertEquals(app.pt.getID(), ptid2)
+        self.assertEqual(app.pt.getID(), ptid2)
         # dm call
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         calls[0].checkArgs(ptid2, cells)
 
     def test_16_stopOperation1(self):
@@ -181,7 +181,7 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
             lptid=INVALID_TID,
         )
         calls = self.app.replicator.mockGetNamedCalls('setCriticalTID')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         calls[0].checkArgs(INVALID_TID)
 
     def test_31_answerUnfinishedTransactions(self):
@@ -194,7 +194,7 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
             ttid_list=(INVALID_TID, ),
         )
         calls = self.app.replicator.mockGetNamedCalls('setUnfinishedTIDList')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         calls[0].checkArgs(INVALID_TID, (INVALID_TID, ))
 
     def test_askPack(self):

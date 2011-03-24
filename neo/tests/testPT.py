@@ -29,20 +29,20 @@ class PartitionTableTests(NeoUnitTestBase):
         server = ("127.0.0.1", 19001)
         sn = StorageNode(Mock(), server, uuid)
         cell = Cell(sn)
-        self.assertEquals(cell.node, sn)
-        self.assertEquals(cell.state, CellStates.UP_TO_DATE)
+        self.assertEqual(cell.node, sn)
+        self.assertEqual(cell.state, CellStates.UP_TO_DATE)
         cell = Cell(sn, CellStates.OUT_OF_DATE)
-        self.assertEquals(cell.node, sn)
-        self.assertEquals(cell.state, CellStates.OUT_OF_DATE)
+        self.assertEqual(cell.node, sn)
+        self.assertEqual(cell.state, CellStates.OUT_OF_DATE)
         # check getter
-        self.assertEquals(cell.getNode(), sn)
-        self.assertEquals(cell.getState(), CellStates.OUT_OF_DATE)
-        self.assertEquals(cell.getNodeState(), NodeStates.UNKNOWN)
-        self.assertEquals(cell.getUUID(), uuid)
-        self.assertEquals(cell.getAddress(), server)
+        self.assertEqual(cell.getNode(), sn)
+        self.assertEqual(cell.getState(), CellStates.OUT_OF_DATE)
+        self.assertEqual(cell.getNodeState(), NodeStates.UNKNOWN)
+        self.assertEqual(cell.getUUID(), uuid)
+        self.assertEqual(cell.getAddress(), server)
         # check state setter
         cell.setState(CellStates.FEEDING)
-        self.assertEquals(cell.getState(), CellStates.FEEDING)
+        self.assertEqual(cell.getState(), CellStates.FEEDING)
 
 
     def test_03_setCell(self):

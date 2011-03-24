@@ -140,9 +140,9 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
         self.verification.notifyPartitionChanges(conn, ptid, (cell, ))
         # check db update
         calls = self.app.dm.mockGetNamedCalls('changePartitionTable')
-        self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), ptid)
-        self.assertEquals(calls[0].getParam(1), (cell, ))
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0].getParam(0), ptid)
+        self.assertEqual(calls[0].getParam(1), (cell, ))
 
     def test_11_startOperation(self):
         conn = self.getMasterConnection()

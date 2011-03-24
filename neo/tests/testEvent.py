@@ -39,8 +39,8 @@ class EventTests(NeoUnitTestBase):
 
         # test register/unregister
         em.register(conn)
-        self.assertEquals(len(connector.mockGetNamedCalls("getDescriptor")), 1)
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("register")), 1)
+        self.assertEqual(len(connector.mockGetNamedCalls("getDescriptor")), 1)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("register")), 1)
         call = em.epoll.mockGetNamedCalls("register")[0]
         data = call.getParam(0)
         self.assertEqual(data, 1014)
@@ -49,8 +49,8 @@ class EventTests(NeoUnitTestBase):
         connector = self.getFakeConnector(descriptor=1014)
         conn = self.getFakeConnection(connector=connector)
         em.unregister(conn)
-        self.assertEquals(len(connector.mockGetNamedCalls("getDescriptor")), 1)
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("unregister")), 1)
+        self.assertEqual(len(connector.mockGetNamedCalls("getDescriptor")), 1)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("unregister")), 1)
         call = em.epoll.mockGetNamedCalls("unregister")[0]
         data = call.getParam(0)
         self.assertEqual(data, 1014)
@@ -61,32 +61,32 @@ class EventTests(NeoUnitTestBase):
         self.assertEqual(len(em.reader_set), 0)
         em.addReader(conn)
         self.assertEqual(len(em.reader_set), 1)
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("modify")), 1)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("modify")), 1)
         em.addReader(conn) # do not add if already present
         self.assertEqual(len(em.reader_set), 1)
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("modify")), 1)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("modify")), 1)
         em.removeReader(conn)
         self.assertEqual(len(em.reader_set), 0)
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("modify")), 2)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("modify")), 2)
         em.removeReader(conn)
         self.assertEqual(len(em.reader_set), 0)
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("modify")), 2)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("modify")), 2)
 
         # add/removeWriter
         conn = self.getFakeConnection()
         self.assertEqual(len(em.writer_set), 0)
         em.addWriter(conn)
         self.assertEqual(len(em.writer_set), 1)
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("modify")), 3)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("modify")), 3)
         em.addWriter(conn) # do not add if already present
         self.assertEqual(len(em.writer_set), 1)
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("modify")), 3)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("modify")), 3)
         em.removeWriter(conn)
         self.assertEqual(len(em.writer_set), 0)
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("modify")), 4)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("modify")), 4)
         em.removeWriter(conn)
         self.assertEqual(len(em.writer_set), 0)
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("modify")), 4)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("modify")), 4)
 
         # poll
         r_connector = self.getFakeConnector(descriptor=14515)
@@ -102,21 +102,21 @@ class EventTests(NeoUnitTestBase):
         )})
         em.poll(timeout=10)
         # check it called poll on epoll
-        self.assertEquals(len(em.epoll.mockGetNamedCalls("poll")), 1)
+        self.assertEqual(len(em.epoll.mockGetNamedCalls("poll")), 1)
         call = em.epoll.mockGetNamedCalls("poll")[0]
         data = call.getParam(0)
         self.assertEqual(data, 10)
         # need to rebuild completely this test and the the packet queue
         # check readable conn
-        #self.assertEquals(len(r_conn.mockGetNamedCalls("lock")), 1)
-        #self.assertEquals(len(r_conn.mockGetNamedCalls("unlock")), 1)
-        #self.assertEquals(len(r_conn.mockGetNamedCalls("readable")), 1)
-        #self.assertEquals(len(r_conn.mockGetNamedCalls("writable")), 0)
+        #self.assertEqual(len(r_conn.mockGetNamedCalls("lock")), 1)
+        #self.assertEqual(len(r_conn.mockGetNamedCalls("unlock")), 1)
+        #self.assertEqual(len(r_conn.mockGetNamedCalls("readable")), 1)
+        #self.assertEqual(len(r_conn.mockGetNamedCalls("writable")), 0)
         # check writable conn
-        #self.assertEquals(len(w_conn.mockGetNamedCalls("lock")), 1)
-        #self.assertEquals(len(w_conn.mockGetNamedCalls("unlock")), 1)
-        #self.assertEquals(len(w_conn.mockGetNamedCalls("readable")), 0)
-        #self.assertEquals(len(w_conn.mockGetNamedCalls("writable")), 1)
+        #self.assertEqual(len(w_conn.mockGetNamedCalls("lock")), 1)
+        #self.assertEqual(len(w_conn.mockGetNamedCalls("unlock")), 1)
+        #self.assertEqual(len(w_conn.mockGetNamedCalls("readable")), 0)
+        #self.assertEqual(len(w_conn.mockGetNamedCalls("writable")), 1)
 
 
 if __name__ == '__main__':

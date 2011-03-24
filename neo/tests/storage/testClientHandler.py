@@ -92,23 +92,23 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.app.dm = Mock()
         self.app.tm = Mock({'loadLocked': True})
         self.app.load_lock_dict[INVALID_OID] = object()
-        self.assertEquals(len(self.app.event_queue), 0)
+        self.assertEqual(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=INVALID_OID,
             serial=INVALID_TID, tid=INVALID_TID)
-        self.assertEquals(len(self.app.event_queue), 1)
+        self.assertEqual(len(self.app.event_queue), 1)
         self.checkNoPacketSent(conn)
-        self.assertEquals(len(self.app.dm.mockGetNamedCalls('getObject')), 0)
+        self.assertEqual(len(self.app.dm.mockGetNamedCalls('getObject')), 0)
 
     def test_24_askObject2(self):
         # invalid serial / tid / packet not found
         self.app.dm = Mock({'getObject': None})
         conn = self._getConnection()
-        self.assertEquals(len(self.app.event_queue), 0)
+        self.assertEqual(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=INVALID_OID,
             serial=INVALID_TID, tid=INVALID_TID)
         calls = self.app.dm.mockGetNamedCalls('getObject')
-        self.assertEquals(len(self.app.event_queue), 0)
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(self.app.event_queue), 0)
+        self.assertEqual(len(calls), 1)
         calls[0].checkArgs(INVALID_OID, INVALID_TID, INVALID_TID)
         self.checkErrorPacket(conn)
 
@@ -120,9 +120,9 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         tid = self.getNextTID()
         self.app.dm = Mock({'getObject': (serial, next_serial, 0, 0, '', None)})
         conn = self._getConnection()
-        self.assertEquals(len(self.app.event_queue), 0)
+        self.assertEqual(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=oid, serial=serial, tid=tid)
-        self.assertEquals(len(self.app.event_queue), 0)
+        self.assertEqual(len(self.app.event_queue), 0)
         self.checkAnswerObject(conn)
 
     def test_25_askTIDs1(self):
@@ -132,8 +132,8 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         app.dm = Mock()
         conn = self._getConnection()
         self.checkProtocolErrorRaised(self.operation.askTIDs, conn, 1, 1, None)
-        self.assertEquals(len(app.pt.mockGetNamedCalls('getCellList')), 0)
-        self.assertEquals(len(app.dm.mockGetNamedCalls('getTIDList')), 0)
+        self.assertEqual(len(app.pt.mockGetNamedCalls('getCellList')), 0)
+        self.assertEqual(len(app.dm.mockGetNamedCalls('getTIDList')), 0)
 
     def test_25_askTIDs2(self):
         # well case => answer
@@ -142,7 +142,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
         self.operation.askTIDs(conn, 1, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         calls[0].checkArgs(1, 1, 1, [1, ])
         self.checkAnswerTids(conn)
 
@@ -157,9 +157,9 @@ class StorageClientHandlerTests(NeoUnitTestBase):
             'getAssignedPartitionList': [0],
         })
         self.operation.askTIDs(conn, 1, 2, INVALID_PARTITION)
-        self.assertEquals(len(self.app.pt.mockGetNamedCalls('getAssignedPartitionList')), 1)
+        self.assertEqual(len(self.app.pt.mockGetNamedCalls('getAssignedPartitionList')), 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         calls[0].checkArgs(1, 1, 1, [0])
         self.checkAnswerTids(conn)
 
@@ -170,7 +170,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         conn = self._getConnection()
         self.checkProtocolErrorRaised(self.operation.askObjectHistory, conn,
             1, 1, None)
-        self.assertEquals(len(app.dm.mockGetNamedCalls('getObjectHistory')), 0)
+        self.assertEqual(len(app.dm.mockGetNamedCalls('getObjectHistory')), 0)
 
     def test_26_askObjectHistory2(self):
         oid1, oid2 = self.getOID(1), self.getOID(2)

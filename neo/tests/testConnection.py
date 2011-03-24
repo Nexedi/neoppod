@@ -78,10 +78,10 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(len(self.em.mockGetNamedCalls("removeWriter")), n)
 
     def _checkShutdown(self, n=1):
-        self.assertEquals(len(self.connector.mockGetNamedCalls("shutdown")), n)
+        self.assertEqual(len(self.connector.mockGetNamedCalls("shutdown")), n)
 
     def _checkClose(self, n=1):
-        self.assertEquals(len(self.connector.mockGetNamedCalls("close")), n)
+        self.assertEqual(len(self.connector.mockGetNamedCalls("close")), n)
 
     def _checkGetNewConnection(self, n=1):
         calls = self.connector.mockGetNamedCalls('getNewConnection')
@@ -92,7 +92,7 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(len(calls), n)
         if n > 1 and data is not None:
             data = calls[n-1].getParam(0)
-            self.assertEquals(data, "testdata")
+            self.assertEqual(data, "testdata")
 
     def _checkConnectionAccepted(self, n=1):
         calls = self.handler.mockGetNamedCalls('connectionAccepted')
@@ -125,7 +125,7 @@ class ConnectionTests(NeoUnitTestBase):
 
     def _checkPacketReceived(self, n=1):
         calls = self.handler.mockGetNamedCalls('packetReceived')
-        self.assertEquals(len(calls), n)
+        self.assertEqual(len(calls), n)
 
     def _checkReadBuf(self, bc, data):
         content = bc.read_buf.read(len(bc.read_buf))
@@ -414,7 +414,7 @@ class ConnectionTests(NeoUnitTestBase):
         bc.read_buf.append(p_data_2)
         bc.analyse()
         # check packet decoded
-        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
+        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
         self.assertEqual(data.getType(), p.getType())
@@ -455,7 +455,7 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(len(bc.read_buf), len(p1) + len(p2))
         bc.analyse()
         # check two packets decoded
-        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 2)
+        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 2)
         # packet 1
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
@@ -476,8 +476,8 @@ class ConnectionTests(NeoUnitTestBase):
         bc._queue = Mock()
         self._appendToReadBuf(bc, 'datadatadatadata')
         bc.analyse()
-        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 0)
-        self.assertEquals(
+        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 0)
+        self.assertEqual(
             len(self.handler.mockGetNamedCalls("_packetMalformed")), 1)
 
     def test_Connection_analyse4(self):
@@ -498,7 +498,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._appendPacketToReadBuf(bc, p)
         bc.analyse()
         # check packet decoded
-        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
+        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
         self.assertEqual(data.getType(), p.getType())
@@ -515,7 +515,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._appendPacketToReadBuf(bc, p)
         bc.analyse()
         # check no packet was queued
-        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 0)
+        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 0)
         # check pong answered
         parser_state = ParserState()
         buffer = ReadBuffer()
@@ -536,9 +536,9 @@ class ConnectionTests(NeoUnitTestBase):
         self._appendPacketToReadBuf(bc, p)
         bc.analyse()
         # check no packet was queued
-        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 0)
+        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 0)
         # check timeout has been refreshed
-        self.assertEquals(len(bc._timeout.mockGetNamedCalls("refresh")), 1)
+        self.assertEqual(len(bc._timeout.mockGetNamedCalls("refresh")), 1)
 
     def test_Connection_writable1(self):
         # with  pending operation after send
@@ -637,7 +637,7 @@ class ConnectionTests(NeoUnitTestBase):
         bc.readable()
         # check packet decoded
         self._checkReadBuf(bc, '')
-        self.assertEquals(len(bc._queue.mockGetNamedCalls("append")), 1)
+        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
         self.assertEqual(data.getType(), Packets.AnswerPrimary)

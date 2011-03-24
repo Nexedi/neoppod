@@ -94,11 +94,11 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def checkAskPacket(self, conn, packet_type, decode=False):
         calls = conn.mockGetNamedCalls('ask')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         # client connection got queue as first parameter
         packet = calls[0].getParam(0)
         self.assertTrue(isinstance(packet, Packet))
-        self.assertEquals(packet.getType(), packet_type)
+        self.assertEqual(packet.getType(), packet_type)
         if decode:
             return packet.decode()
         return packet
@@ -163,8 +163,8 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def checkDispatcherRegisterCalled(self, app, conn):
         calls = app.dispatcher.mockGetNamedCalls('register')
-        #self.assertEquals(len(calls), 1)
-        #self.assertEquals(calls[0].getParam(0), conn)
+        #self.assertEqual(len(calls), 1)
+        #self.assertEqual(calls[0].getParam(0), conn)
         #self.assertTrue(isinstance(calls[0].getParam(2), Queue))
 
     def test_registerDB(self):
@@ -247,7 +247,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             'fakeReceived': answer_barrier,
         })
         result = app.load(snapshot_tid, oid)[:2]
-        self.assertEquals(result, ('OBJ', tid1))
+        self.assertEqual(result, ('OBJ', tid1))
         self.checkAskObject(conn)
         self.assertTrue((oid, tid1) in mq)
         # object is now cached, try to reload it
@@ -256,7 +256,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         app.cp = Mock({ 'getConnForCell' : conn})
         result = app.load(snapshot_tid, oid)[:2]
-        self.assertEquals(result, ('OBJ', tid1))
+        self.assertEqual(result, ('OBJ', tid1))
         self.checkNoPacketSent(conn)
 
     def test_loadSerial(self):
@@ -296,7 +296,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         app.cp = self.getConnectionPool([(Mock(), conn)])
         result = loadSerial(oid, tid1)
-        self.assertEquals(result, 'RIGHT')
+        self.assertEqual(result, 'RIGHT')
         self.checkAskObject(conn)
         self.assertTrue((oid, tid2) in mq)
 
@@ -350,7 +350,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         })
         app.cp = self.getConnectionPool([(Mock(), conn)])
         result = loadBefore(oid, tid3)
-        self.assertEquals(result, ('RIGHT', tid2, tid3))
+        self.assertEqual(result, ('RIGHT', tid2, tid3))
         self.checkAskObject(conn)
         self.assertTrue((oid, tid1) in mq)
 
@@ -369,13 +369,13 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.tpc_begin(transaction=txn, tid=tid)
         txn_context = app._txn_container.get(txn)
         self.assertTrue(txn_context['txn'] is txn)
-        self.assertEquals(txn_context['ttid'], tid)
+        self.assertEqual(txn_context['ttid'], tid)
         # next, the transaction already begin -> raise
         self.assertRaises(StorageTransactionError, app.tpc_begin,
             transaction=txn, tid=None)
         txn_context = app._txn_container.get(txn)
         self.assertTrue(txn_context['txn'] is txn)
-        self.assertEquals(txn_context['ttid'], tid)
+        self.assertEqual(txn_context['ttid'], tid)
         # start a transaction without tid
         txn = Mock()
         # no connection -> NEOStorageError (wait until connected to primary)
@@ -393,7 +393,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # check attributes
         txn_context = app._txn_container.get(txn)
         self.assertTrue(txn_context['txn'] is txn)
-        self.assertEquals(txn_context['ttid'], tid)
+        self.assertEqual(txn_context['ttid'], tid)
 
     def test_store1(self):
         app = self.getApp()
@@ -410,8 +410,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None,
             txn)
         calls = app.pt.mockGetNamedCalls('getCellListForOID')
-        self.assertEquals(len(calls), 1)
-        self.assertEquals(calls[0].getParam(0), oid) # oid=11
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0].getParam(0), oid) # oid=11
 
     def test_store2(self):
         app = self.getApp()
@@ -439,7 +439,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertRaises(ConflictError, app.waitStoreResponses, txn_context,
             failing_tryToResolveConflict)
         self.assertTrue(oid not in data_dict)
-        self.assertEquals(txn_context['object_stored_counter_dict'][oid], {})
+        self.assertEqual(txn_context['object_stored_counter_dict'][oid], {})
         self.checkAskStoreObject(conn)
 
     def test_store3(self):
@@ -466,9 +466,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.checkAskStoreObject(conn)
         txn_context['queue'].put((conn, packet))
         app.waitStoreResponses(txn_context, resolving_tryToResolveConflict)
-        self.assertEquals(txn_context['object_stored_counter_dict'][oid],
+        self.assertEqual(txn_context['object_stored_counter_dict'][oid],
             {tid: set([uuid])})
-        self.assertEquals(txn_context['data_dict'].get(oid, None), 'DATA')
+        self.assertEqual(txn_context['data_dict'].get(oid, None), 'DATA')
         self.assertFalse(oid in txn_context['conflict_serial_dict'])
 
     def test_tpc_vote1(self):
@@ -517,7 +517,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.checkNoPacketSent(app.master_conn)
         txn_context = app._txn_container.get(old_txn)
         self.assertTrue(txn_context['txn'] is old_txn)
-        self.assertEquals(txn_context['ttid'], tid)
+        self.assertEqual(txn_context['ttid'], tid)
 
     def test_tpc_abort2(self):
         # 2 nodes : 1 transaction in the first, 2 objects in the second
@@ -641,7 +641,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         txn_context['txn_voted'] = True
         app.tpc_finish(txn, None, hook)
         self.assertTrue(self.f_called)
-        self.assertEquals(self.f_called_with_tid, tid)
+        self.assertEqual(self.f_called_with_tid, tid)
         self.checkAskFinishTransaction(app.master_conn)
         #self.checkDispatcherRegisterCalled(app, app.master_conn)
         self.assertEqual(app._txn_container.get(txn), None)
@@ -894,8 +894,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertEqual(pfirst, first)
         self.assertEqual(plast, last)
         self.assertEqual(ppartition, INVALID_PARTITION)
-        self.assertEquals(result[0]['id'], tid1)
-        self.assertEquals(result[1]['id'], tid2)
+        self.assertEqual(result[0]['id'], tid1)
+        self.assertEqual(result[1]['id'], tid2)
 
     def test_history(self):
         app = self.getApp()
@@ -935,11 +935,11 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.waitResponses = waitResponses
         # start test here
         result = app.history(oid)
-        self.assertEquals(len(result), 2)
-        self.assertEquals(result[0]['tid'], tid2)
-        self.assertEquals(result[1]['tid'], tid1)
-        self.assertEquals(result[0]['size'], 42)
-        self.assertEquals(result[1]['size'], 42)
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]['tid'], tid2)
+        self.assertEqual(result[1]['tid'], tid1)
+        self.assertEqual(result[0]['size'], 42)
+        self.assertEqual(result[1]['size'], 42)
 
     def test_connectToPrimaryNode(self):
         # here we have three master nodes :

@@ -106,9 +106,9 @@ class MasterRecoveryTests(NeoUnitTestBase):
         self.assertTrue(oid2 > self.app.tm.getLastOID())
         self.assertTrue(tid2 > self.app.tm.getLastTID())
         recovery.answerLastIDs(conn, oid2, tid2, ptid2)
-        self.assertEquals(oid2, self.app.tm.getLastOID())
-        self.assertEquals(tid2, self.app.tm.getLastTID())
-        self.assertEquals(ptid2, recovery.target_ptid)
+        self.assertEqual(oid2, self.app.tm.getLastOID())
+        self.assertEqual(tid2, self.app.tm.getLastTID())
+        self.assertEqual(ptid2, recovery.target_ptid)
 
 
     def test_10_answerPartitionTable(self):
@@ -121,23 +121,23 @@ class MasterRecoveryTests(NeoUnitTestBase):
         cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, CellStates.OUT_OF_DATE)
+            self.assertEqual(state, CellStates.OUT_OF_DATE)
         recovery.target_ptid = 2
         recovery.answerPartitionTable(conn, 1, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, CellStates.OUT_OF_DATE)
+            self.assertEqual(state, CellStates.OUT_OF_DATE)
         # from target node, taken into account
         conn = self.getFakeConnection(uuid, self.storage_port)
         offset = 1
         cell_list = [(offset, ((uuid, CellStates.UP_TO_DATE,),),)]
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, CellStates.OUT_OF_DATE)
+            self.assertEqual(state, CellStates.OUT_OF_DATE)
         recovery.answerPartitionTable(conn, None, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
-            self.assertEquals(state, CellStates.UP_TO_DATE)
+            self.assertEqual(state, CellStates.UP_TO_DATE)
         # give a bad offset, must send error
         self.recovery.target_uuid = uuid
         conn = self.getFakeConnection(uuid, self.storage_port)

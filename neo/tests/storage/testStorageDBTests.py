@@ -45,15 +45,15 @@ class StorageDBTests(NeoUnitTestBase):
         # check if a configuration entry is well written
         self.db.setConfiguration('a', 'c')
         result = self.db.getConfiguration('a')
-        self.assertEquals(result, 'c')
+        self.assertEqual(result, 'c')
 
     def checkConfigEntry(self, get_call, set_call, value):
         # generic test for all configuration entries accessors
         self.assertRaises(KeyError, get_call)
         set_call(value)
-        self.assertEquals(get_call(), value)
+        self.assertEqual(get_call(), value)
         set_call(value * 2)
-        self.assertEquals(get_call(), value * 2)
+        self.assertEqual(get_call(), value * 2)
 
     def test_UUID(self):
         self.checkConfigEntry(self.db.getUUID, self.db.setUUID, 'TEST_VALUE')
@@ -85,7 +85,7 @@ class StorageDBTests(NeoUnitTestBase):
         oid1 = self.getOID(1)
         self.db.setLastOID(oid1)
         result1 = self.db.getLastOID()
-        self.assertEquals(result1, oid1)
+        self.assertEqual(result1, oid1)
 
     def getOIDs(self, count):
         return [self.getOID(i) for i in xrange(count)]

@@ -267,23 +267,23 @@ class NeoUnitTestBase(NeoTestBase):
 
     def checkAborted(self, conn):
         """ Ensure the connection was aborted """
-        self.assertEquals(len(conn.mockGetNamedCalls('abort')), 1)
+        self.assertEqual(len(conn.mockGetNamedCalls('abort')), 1)
 
     def checkNotAborted(self, conn):
         """ Ensure the connection was not aborted """
-        self.assertEquals(len(conn.mockGetNamedCalls('abort')), 0)
+        self.assertEqual(len(conn.mockGetNamedCalls('abort')), 0)
 
     def checkClosed(self, conn):
         """ Ensure the connection was closed """
-        self.assertEquals(len(conn.mockGetNamedCalls('close')), 1)
+        self.assertEqual(len(conn.mockGetNamedCalls('close')), 1)
 
     def checkNotClosed(self, conn):
         """ Ensure the connection was not closed """
-        self.assertEquals(len(conn.mockGetNamedCalls('close')), 0)
+        self.assertEqual(len(conn.mockGetNamedCalls('close')), 0)
 
     def _checkNoPacketSend(self, conn, method_id):
         call_list = conn.mockGetNamedCalls(method_id)
-        self.assertEquals(len(call_list), 0, call_list)
+        self.assertEqual(len(call_list), 0, call_list)
 
     def checkNoPacketSent(self, conn, check_notify=True, check_answer=True,
             check_ask=True):
@@ -297,14 +297,14 @@ class NeoUnitTestBase(NeoTestBase):
 
     def checkNoUUIDSet(self, conn):
         """ ensure no UUID was set on the connection """
-        self.assertEquals(len(conn.mockGetNamedCalls('setUUID')), 0)
+        self.assertEqual(len(conn.mockGetNamedCalls('setUUID')), 0)
 
     def checkUUIDSet(self, conn, uuid=None):
         """ ensure no UUID was set on the connection """
         calls = conn.mockGetNamedCalls('setUUID')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         if uuid is not None:
-            self.assertEquals(calls[0].getParam(0), uuid)
+            self.assertEqual(calls[0].getParam(0), uuid)
 
     # in check(Ask|Answer|Notify)Packet we return the packet so it can be used
     # in tests if more accurates checks are required
@@ -312,10 +312,10 @@ class NeoUnitTestBase(NeoTestBase):
     def checkErrorPacket(self, conn, decode=False):
         """ Check if an error packet was answered """
         calls = conn.mockGetNamedCalls("answer")
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         packet = calls[0].getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
-        self.assertEquals(packet.getType(), Packets.Error)
+        self.assertEqual(packet.getType(), Packets.Error)
         if decode:
             return packet.decode()
             return protocol.decode_table[packet.getType()](packet._body)
@@ -324,10 +324,10 @@ class NeoUnitTestBase(NeoTestBase):
     def checkAskPacket(self, conn, packet_type, decode=False):
         """ Check if an ask-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('ask')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         packet = calls[0].getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
-        self.assertEquals(packet.getType(), packet_type)
+        self.assertEqual(packet.getType(), packet_type)
         if decode:
             return packet.decode()
         return packet
@@ -335,10 +335,10 @@ class NeoUnitTestBase(NeoTestBase):
     def checkAnswerPacket(self, conn, packet_type, decode=False):
         """ Check if an answer-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('answer')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         packet = calls[0].getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
-        self.assertEquals(packet.getType(), packet_type)
+        self.assertEqual(packet.getType(), packet_type)
         if decode:
             return packet.decode()
         return packet
@@ -349,7 +349,7 @@ class NeoUnitTestBase(NeoTestBase):
         self.assertTrue(len(calls) > packet_number, (len(calls), packet_number))
         packet = calls[packet_number].getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
-        self.assertEquals(packet.getType(), packet_type)
+        self.assertEqual(packet.getType(), packet_type)
         if decode:
             return packet.decode()
         return packet

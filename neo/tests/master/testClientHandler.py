@@ -105,7 +105,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.assertTrue(self.app.tm.getLastOID() > oid1)
         for node in self.app.nm.getStorageList():
             conn = node.getConnection()
-            self.assertEquals(self.checkNotifyLastOID(conn, decode=True), (oid2,))
+            self.assertEqual(self.checkNotifyLastOID(conn, decode=True), (oid2,))
 
     def test_09_askFinishTransaction(self):
         service = self.service
@@ -143,12 +143,12 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.assertTrue(self.app.isStorageReady(storage_uuid))
         service.askFinishTransaction(conn, ttid, oid_list)
         self.checkAskLockInformation(storage_conn)
-        self.assertEquals(len(self.app.tm.registerForNotification(storage_uuid)), 1)
+        self.assertEqual(len(self.app.tm.registerForNotification(storage_uuid)), 1)
         txn = self.app.tm[ttid]
         pending_ttid = list(self.app.tm.registerForNotification(storage_uuid))[0]
-        self.assertEquals(ttid, pending_ttid)
-        self.assertEquals(len(txn.getOIDList()), 0)
-        self.assertEquals(len(txn.getUUIDList()), 1)
+        self.assertEqual(ttid, pending_ttid)
+        self.assertEqual(len(txn.getOIDList()), 0)
+        self.assertEqual(len(txn.getUUIDList()), 1)
 
     def test_askNodeInformations(self):
         # check that only informations about master and storages nodes are
@@ -168,12 +168,12 @@ class MasterClientHandlerTests(NeoUnitTestBase):
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         lptid = self.app.pt.getID()
-        self.assertEquals(self.app.nm.getByUUID(client_uuid).getState(),
+        self.assertEqual(self.app.nm.getByUUID(client_uuid).getState(),
                 NodeStates.RUNNING)
         method(conn)
         # node must be have been remove, and no more transaction must remains
-        self.assertEquals(self.app.nm.getByUUID(client_uuid), None)
-        self.assertEquals(lptid, self.app.pt.getID())
+        self.assertEqual(self.app.nm.getByUUID(client_uuid), None)
+        self.assertEqual(lptid, self.app.pt.getID())
 
     def test_15_peerBroken(self):
         self.__testWithMethod(self.service.peerBroken, NodeStates.BROKEN)

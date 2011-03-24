@@ -47,8 +47,8 @@ class StorageMySQSLdbTests(StorageDBTests):
     def test_MySQLDatabaseManagerInit(self):
         db = MySQLDatabaseManager('%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE))
         # init
-        self.assertEquals(db.db, NEO_SQL_DATABASE)
-        self.assertEquals(db.user, NEO_SQL_USER)
+        self.assertEqual(db.db, NEO_SQL_DATABASE)
+        self.assertEqual(db.user, NEO_SQL_USER)
         # & connect
         self.assertTrue(isinstance(db.conn, MySQLdb.connection))
         self.assertFalse(db.isUnderTransaction())
@@ -65,7 +65,7 @@ class StorageMySQSLdbTests(StorageDBTests):
         self.db.conn = Mock()
         self.db.begin()
         self.db.commit()
-        self.assertEquals(len(self.db.conn.mockGetNamedCalls('commit')), 1)
+        self.assertEqual(len(self.db.conn.mockGetNamedCalls('commit')), 1)
         self.assertFalse(self.db.isUnderTransaction())
 
     def test_rollback(self):
@@ -73,7 +73,7 @@ class StorageMySQSLdbTests(StorageDBTests):
         self.db.conn = Mock({ })
         self.db.under_transaction = True
         self.db.rollback()
-        self.assertEquals(len(self.db.conn.mockGetNamedCalls('rollback')), 1)
+        self.assertEqual(len(self.db.conn.mockGetNamedCalls('rollback')), 1)
         self.assertFalse(self.db.isUnderTransaction())
 
     def test_query1(self):
@@ -89,9 +89,9 @@ class StorageMySQSLdbTests(StorageDBTests):
         )
         self.db.conn = Mock({ 'store_result': result_object })
         result = self.db.query('QUERY')
-        self.assertEquals(result, expected_result)
+        self.assertEqual(result, expected_result)
         calls = self.db.conn.mockGetNamedCalls('query')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         calls[0].checkArgs('QUERY')
 
     def test_query2(self):
@@ -126,8 +126,8 @@ class StorageMySQSLdbTests(StorageDBTests):
         self.assertRaises(DatabaseFailure, self.db.query, 'QUERY')
 
     def test_escape(self):
-        self.assertEquals(self.db.escape('a"b'), 'a\\"b')
-        self.assertEquals(self.db.escape("a'b"), "a\\'b")
+        self.assertEqual(self.db.escape('a"b'), 'a\\"b')
+        self.assertEqual(self.db.escape("a'b"), "a\\'b")
 
     def test_setup(self):
         # XXX: this test verifies irrelevant symptoms. It should instead check that
@@ -139,12 +139,12 @@ class StorageMySQSLdbTests(StorageDBTests):
         self.db.conn = Mock()
         self.db.setup()
         calls = self.db.conn.mockGetNamedCalls('query')
-        self.assertEquals(len(calls), 7)
+        self.assertEqual(len(calls), 7)
         # create all tables but drop them first
         self.db.conn = Mock()
         self.db.setup(reset=True)
         calls = self.db.conn.mockGetNamedCalls('query')
-        self.assertEquals(len(calls), 8)
+        self.assertEqual(len(calls), 8)
 
 del StorageDBTests
 

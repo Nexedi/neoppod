@@ -79,11 +79,11 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         self.app.dm = Mock()
         self.app.tm = Mock({'loadLocked': True})
         self.app.load_lock_dict[oid] = object()
-        self.assertEquals(len(self.app.event_queue), 0)
+        self.assertEqual(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=oid, serial=serial, tid=tid)
-        self.assertEquals(len(self.app.event_queue), 1)
+        self.assertEqual(len(self.app.event_queue), 1)
         self.checkNoPacketSent(conn)
-        self.assertEquals(len(self.app.dm.mockGetNamedCalls('getObject')), 0)
+        self.assertEqual(len(self.app.dm.mockGetNamedCalls('getObject')), 0)
 
     def test_24_askObject2(self):
         # invalid serial / tid / packet not found
@@ -92,11 +92,11 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         oid = self.getOID(1)
         tid = self.getNextTID()
         serial = self.getNextTID()
-        self.assertEquals(len(self.app.event_queue), 0)
+        self.assertEqual(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=oid, serial=serial, tid=tid)
         calls = self.app.dm.mockGetNamedCalls('getObject')
-        self.assertEquals(len(self.app.event_queue), 0)
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(self.app.event_queue), 0)
+        self.assertEqual(len(calls), 1)
         calls[0].checkArgs(oid, serial, tid, resolve_data=False)
         self.checkErrorPacket(conn)
 
@@ -108,9 +108,9 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         # object found => answer
         self.app.dm = Mock({'getObject': (serial, next_serial, 0, 0, '', None)})
         conn = self.getFakeConnection()
-        self.assertEquals(len(self.app.event_queue), 0)
+        self.assertEqual(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=oid, serial=serial, tid=tid)
-        self.assertEquals(len(self.app.event_queue), 0)
+        self.assertEqual(len(self.app.event_queue), 0)
         self.checkAnswerObject(conn)
 
     def test_25_askTIDsFrom(self):
@@ -122,7 +122,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         tid2 = self.getNextTID()
         self.operation.askTIDsFrom(conn, tid, tid2, 2, [1])
         calls = self.app.dm.mockGetNamedCalls('getReplicationTIDList')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         calls[0].checkArgs(tid, tid2, 2, 1, 1)
         self.checkAnswerTidsFrom(conn)
 
@@ -143,7 +143,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
             max_serial, length, partition)
         self.checkAnswerObjectHistoryFrom(conn)
         calls = self.app.dm.mockGetNamedCalls('getObjectHistoryFrom')
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         calls[0].checkArgs(min_oid, min_serial, max_serial, length,
             num_partitions, partition)
 
