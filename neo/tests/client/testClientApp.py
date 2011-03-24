@@ -359,8 +359,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         tid = self.makeTID()
         txn = Mock()
         # first, tid is supplied
-        self.assertNotEquals(getattr(app, 'tid', None), tid)
-        self.assertNotEquals(getattr(app, 'txn', None), txn)
+        self.assertTrue(app._txn_container.get(txn) is None)
         packet = Packets.AnswerBeginTransaction(tid=tid)
         packet.setId(0)
         app.master_conn = Mock({

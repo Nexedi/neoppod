@@ -145,9 +145,9 @@ class ConnectionTests(NeoUnitTestBase):
         # init with connector
         registerConnectorHandler(DoNothingConnector)
         connector = getConnectorHandler("DoNothingConnector")()
-        self.assertNotEqual(connector, None)
+        self.assertFalse(connector is None)
         bc = self._makeConnection()
-        self.assertNotEqual(bc.connector, None)
+        self.assertFalse(bc.connector is None)
         self._checkRegistered(1)
 
     def test_01_BaseConnection2(self):
@@ -659,12 +659,12 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertFalse(bc.isServer())
         self._checkMakeClientConnection(1)
         # check call to handler
-        self.assertNotEqual(bc.getHandler(), None)
+        self.assertFalse(bc.getHandler() is None)
         self._checkConnectionStarted(1)
         self._checkConnectionCompleted(1)
         self._checkConnectionFailed(0)
         # check call to event manager
-        self.assertNotEqual(bc.getEventManager(), None)
+        self.assertFalse(bc.getEventManager() is None)
         self._checkReaderAdded(1)
         self._checkWriterAdded(0)
 
@@ -683,12 +683,12 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertFalse(bc.isServer())
         self._checkMakeClientConnection(1)
         # check call to handler
-        self.assertNotEqual(bc.getHandler(), None)
+        self.assertFalse(bc.getHandler() is None)
         self._checkConnectionStarted(1)
         self._checkConnectionCompleted(0)
         self._checkConnectionFailed(0)
         # check call to event manager
-        self.assertNotEqual(bc.getEventManager(), None)
+        self.assertFalse(bc.getEventManager() is None)
         self._checkReaderAdded(1)
         self._checkWriterAdded(1)
 
