@@ -89,17 +89,17 @@ class NeoTestBase(unittest.TestCase):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
-    def failUnlessEqual(self, first, second, msg=None):
-        assert not (isinstance(first, Mock) or isinstance(second, Mock)), \
-          "Mock objects can't be compared with '==' or '!='"
-        return super(NeoTestBase, self).failUnlessEqual(first, second, msg=msg)
-    assertEqual = assertEquals = failUnlessEqual
+    failIfEqual = failUnlessEqual = assertEquals = assertNotEquals = None
 
-    def failIfEqual(self, first, second, msg=None):
+    def assertNotEqual(self, first, second, msg=None):
         assert not (isinstance(first, Mock) or isinstance(second, Mock)), \
           "Mock objects can't be compared with '==' or '!='"
-        return super(NeoTestBase, self).failIfEqual(first, second, msg=msg)
-    assertNotEqual = assertNotEquals = failIfEqual
+        return super(NeoTestBase, self).assertNotEqual(first, second, msg=msg)
+
+    def assertEqual(self, first, second, msg=None):
+        assert not (isinstance(first, Mock) or isinstance(second, Mock)), \
+          "Mock objects can't be compared with '==' or '!='"
+        return super(NeoTestBase, self).assertEqual(first, second, msg=msg)
 
 class NeoUnitTestBase(NeoTestBase):
     """ Base class for neo tests, implements common checks """
