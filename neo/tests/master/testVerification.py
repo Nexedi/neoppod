@@ -112,9 +112,9 @@ class MasterVerificationTests(NeoUnitTestBase):
         self.assertTrue(new_oid > self.app.loid)
         self.assertTrue(new_tid > self.app.tm.getLastTID())
         self.assertRaises(VerificationFailure, verification.answerLastIDs, conn, new_oid, new_tid, new_ptid)
-        self.assertNotEquals(new_oid, self.app.loid)
-        self.assertNotEquals(new_tid, self.app.tm.getLastTID())
-        self.assertNotEquals(new_ptid, self.app.pt.getID())
+        self.assertNotEqual(new_oid, self.app.loid)
+        self.assertNotEqual(new_tid, self.app.tm.getLastTID())
+        self.assertNotEqual(new_ptid, self.app.pt.getID())
 
     def test_11_answerUnfinishedTransactions(self):
         verification = self.verification

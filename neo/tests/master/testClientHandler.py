@@ -118,7 +118,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         storage2_conn = self.getFakeConnection(storage2_uuid,
             (self.storage_address[0], self.storage_address[1] + 1))
         self.app.setStorageReady(storage2_uuid)
-        self.assertNotEquals(uuid, client_uuid)
+        self.assertNotEqual(uuid, client_uuid)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.pt = Mock({
             'getPartition': 0,

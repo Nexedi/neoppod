@@ -106,7 +106,7 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         app.nm.createStorage(uuid=uuid2)
         app.nm.createStorage(uuid=uuid3)
         ptid1, ptid2 = (1, 2)
-        self.assertNotEquals(ptid1, ptid2)
+        self.assertNotEqual(ptid1, ptid2)
         app.pt = PartitionTable(3, 1)
         app.dm = Mock({ })
         app.replicator = Mock({})
