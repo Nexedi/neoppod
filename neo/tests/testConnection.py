@@ -195,7 +195,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkReadBuf(bc, '')
         self._checkWriteBuf(bc, '')
         self.assertEqual(bc.cur_id, 0)
-        self.assertEqual(bc.aborted, False)
+        self.assertFalse(bc.aborted)
         # test uuid
         self.assertEqual(bc.uuid, None)
         self.assertEqual(bc.getUUID(), None)
@@ -216,7 +216,7 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(next_id, 0)
         # test abort
         bc.abort()
-        self.assertEqual(bc.aborted, True)
+        self.assertTrue(bc.aborted)
         self.assertFalse(bc.isServer())
 
     def test_Connection_pending(self):
@@ -784,7 +784,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkReadBuf(bc, '')
         self._checkWriteBuf(bc, '')
         self.assertEqual(bc.cur_id, 0)
-        self.assertEqual(bc.aborted, False)
+        self.assertFalse(bc.aborted)
         # test uuid
         self.assertEqual(bc.uuid, None)
         self.assertEqual(bc.getUUID(), None)
@@ -805,7 +805,7 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(next_id, 0)
         # test abort
         bc.abort()
-        self.assertEqual(bc.aborted, True)
+        self.assertTrue(bc.aborted)
         self.assertTrue(bc.isServer())
 
 class MTConnectionTests(ConnectionTests):

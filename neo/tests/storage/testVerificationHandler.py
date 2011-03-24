@@ -202,7 +202,7 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
         self.assertEqual(user, 'u2')
         self.assertEqual(desc, 'd2')
         self.assertEqual(ext, 'e2')
-        self.assertEqual(packed, False)
+        self.assertFalse(packed)
         self.assertEqual(len(oid_list), 1)
         self.assertEqual(u64(oid_list[0]), 2)
 

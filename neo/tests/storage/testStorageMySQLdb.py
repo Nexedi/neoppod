@@ -51,22 +51,22 @@ class StorageMySQSLdbTests(StorageDBTests):
         self.assertEquals(db.user, NEO_SQL_USER)
         # & connect
         self.assertTrue(isinstance(db.conn, MySQLdb.connection))
-        self.assertEquals(db.isUnderTransaction(), False)
+        self.assertFalse(db.isUnderTransaction())
 
     def test_begin(self):
         # no current transaction
         self.db.conn = Mock({ })
-        self.assertEquals(self.db.isUnderTransaction(), False)
+        self.assertFalse(self.db.isUnderTransaction())
         self.db.begin()
         self.checkCalledQuery(query='COMMIT')
-        self.assertEquals(self.db.isUnderTransaction(), True)
+        self.assertTrue(self.db.isUnderTransaction())
 
     def test_commit(self):
         self.db.conn = Mock()
         self.db.begin()
         self.db.commit()
         self.assertEquals(len(self.db.conn.mockGetNamedCalls('commit')), 1)
-        self.assertEquals(self.db.isUnderTransaction(), False)
+        self.assertFalse(self.db.isUnderTransaction())
 
     def test_rollback(self):
         # rollback called and no current transaction
@@ -74,7 +74,7 @@ class StorageMySQSLdbTests(StorageDBTests):
         self.db.under_transaction = True
         self.db.rollback()
         self.assertEquals(len(self.db.conn.mockGetNamedCalls('rollback')), 1)
-        self.assertEquals(self.db.isUnderTransaction(), False)
+        self.assertFalse(self.db.isUnderTransaction())
 
     def test_query1(self):
         # fake result object

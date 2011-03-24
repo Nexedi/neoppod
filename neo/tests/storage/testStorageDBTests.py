@@ -367,7 +367,7 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(self.db.getObject(oid1, tid=tid1), None)
         self.assertEqual(self.db.getObject(oid1, tid=tid2), None)
         self.db.deleteObject(oid2, serial=tid1)
-        self.assertEqual(self.db.getObject(oid2, tid=tid1), False)
+        self.assertFalse(self.db.getObject(oid2, tid=tid1))
         self.assertEqual(self.db.getObject(oid2, tid=tid2), (tid2, None) + \
             objs2[1][1:])
 
@@ -391,8 +391,8 @@ class StorageDBTests(NeoUnitTestBase):
         # Right partition, below cutoff
         self.assertNotEqual(self.db.getObject(oid1, tid=tid1), None)
         # Right partition, above tid cutoff
-        self.assertEqual(self.db.getObject(oid1, tid=tid2), False)
-        self.assertEqual(self.db.getObject(oid1, tid=tid3), False)
+        self.assertFalse(self.db.getObject(oid1, tid=tid2))
+        self.assertFalse(self.db.getObject(oid1, tid=tid3))
         # Wrong partition, above cutoff
         self.assertNotEqual(self.db.getObject(oid2, tid=tid1), None)
         self.assertNotEqual(self.db.getObject(oid2, tid=tid2), None)
