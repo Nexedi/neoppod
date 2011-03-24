@@ -48,7 +48,8 @@ def main():
             if not subprocess.call((os.path.join(bin, 'buildout'), '-v'),
                                    cwd=test_home):
                 subprocess.call([os.path.join(bin, 'neotestrunner'), '-fuz',
-                                 '--title', 'NEO tests (r%u)' % revision,
+                                 '--title', 'NEO tests (r%u-%s)'
+                                 % (revision, os.path.basename(test_home)),
                                 ] + sys.argv[1:arg_count])
         clean()
 
