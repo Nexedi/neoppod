@@ -48,7 +48,7 @@ class Storage(BaseStorage.BaseStorage,
 
     _snapshot_tid = None
 
-    implements(
+    implements(*filter(None, (
         ZODB.interfaces.IStorage,
         # "restore" missing for the moment, but "store" implements this
         # interface.
@@ -59,9 +59,9 @@ class Storage(BaseStorage.BaseStorage,
         # ZODB.interfaces.IStorageIteration,
         ZODB.interfaces.IStorageUndoable,
         ZODB.interfaces.IExternalGC,
-        ZODB.interfaces.ReadVerifyingStorage,
+        getattr(ZODB.interfaces, 'ReadVerifyingStorage', None), # XXX ZODB 3.9
         ZODB.interfaces.IMVCCStorage,
-    )
+    )))
 
     def __init__(self, master_nodes, name, connector=None, read_only=False,
             compress=None, logfile=None, verbose=False,

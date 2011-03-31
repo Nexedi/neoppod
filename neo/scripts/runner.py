@@ -291,7 +291,12 @@ class TestRunner(BenchmarkRunner):
             if config.functional:
                 runner.run('Functional tests', FUNC_TEST_MODULES)
             if config.zodb:
-                runner.run('ZODB tests', ZODB_TEST_MODULES)
+                try:
+                    from ZODB.interfaces import ReadVerifyingStorage
+                except ImportError:
+                    logging.warn(" ZODB tests disabled on ZODB 3.9")
+                else:
+                    runner.run('ZODB tests', ZODB_TEST_MODULES)
         except KeyboardInterrupt:
             config['mail_to'] = None
             traceback.print_exc()
