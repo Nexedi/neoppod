@@ -21,6 +21,12 @@ import logging as logging_std
 PREFIX = '%(asctime)s %(levelname)-9s %(name)-10s'
 SUFFIX = ' [%(module)14s:%(lineno)3d] %(message)s'
 
+class Formatter(logging_std.Formatter):
+
+    def formatTime(self, record, datefmt=None):
+        return logging_std.Formatter.formatTime(self, record,
+           '%Y-%m-%d %H:%M:%S') + '.%04d' % (record.msecs * 10)
+
 def setupLog(name='NEO', filename=None, verbose=False):
     global logging
     if verbose:
@@ -35,7 +41,7 @@ def setupLog(name='NEO', filename=None, verbose=False):
         handler = logging_std.StreamHandler()
     else:
         handler = logging_std.FileHandler(filename)
-    handler.setFormatter(logging_std.Formatter(fmt))
+    handler.setFormatter(Formatter(fmt))
     logging.setLevel(level)
     logging.addHandler(handler)
     logging.propagate = 0
