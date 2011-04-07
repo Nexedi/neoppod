@@ -192,8 +192,8 @@ class Application(object):
         t = 0
         while True:
             current_time = time()
-            if current_time >= t + 1:
-                t = current_time
+            if current_time >= t:
+                t = current_time + 1
                 for node in self.nm.getMasterList():
                     if not node.isRunning() and node.getLastStateChange() + \
                             expiration < current_time:
@@ -203,16 +203,14 @@ class Application(object):
                                 node.getAddress())
 
                 # Try to connect to master nodes.
-                for addr in list(self.unconnected_master_node_set):
-                    current_connections = [x.getAddress() for x in
-                        self.em.getClientList()]
-                    if addr not in current_connections:
-                        ClientConnection(self.em, client_handler, addr=addr,
-                            connector=self.connector_handler())
+                for addr in self.unconnected_master_node_set.difference(
+                              x.getAddress() for x in self.em.getClientList()):
+                    ClientConnection(self.em, client_handler, addr=addr,
+                                     connector=self.connector_handler())
             self.em.poll(1)
 
-            if len(self.unconnected_master_node_set |
-                    self.negotiating_master_node_set) == 0:
+            if not (self.unconnected_master_node_set or
+                    self.negotiating_master_node_set):
                 break
 
     def _announcePrimary(self):
@@ -527,7 +525,6 @@ class Application(object):
     def identifyNode(self, node_type, uuid, node):
 
         state = NodeStates.RUNNING
-        handler = identification.IdentificationHandler(self)
 
         if node_type == NodeTypes.ADMIN:
             # always accept admin nodes
@@ -552,13 +549,14 @@ class Application(object):
             neo.lib.logging.info('Accept a client %s' % (dump(uuid), ))
         elif node_type == NodeTypes.STORAGE:
             node_ctor = self.nm.createStorage
-            if self._current_manager is not None:
-                identify = self._current_manager.identifyStorageNode
-                (uuid, state, handler) = identify(uuid, node)
-            else:
-                (uuid, state, handler) = self.identifyStorageNode(uuid, node)
+            manager = self._current_manager
+            if manager is None:
+                manager = self
+            (uuid, state, handler) = manager.identifyStorageNode(uuid, node)
             neo.lib.logging.info('Accept a storage %s (%s)' %
                             (dump(uuid), state))
+        else:
+            handler = identification.IdentificationHandler(self)
         return (uuid, node, state, handler, node_ctor)
 
     def onTransactionCommitted(self, txn):

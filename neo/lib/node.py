@@ -306,11 +306,10 @@ class NodeManager(object):
 
     def _updateIdentified(self, node):
         uuid = node.getUUID()
-        identified = node.isIdentified()
-        if not identified and uuid in self._identified_dict:
-            del self._identified_dict[uuid]
-        elif identified:
+        if node.isIdentified():
             self._identified_dict[uuid] = node
+        else:
+            self._identified_dict.pop(uuid, None)
 
     def _updateAddress(self, node, old_address):
         self.__update(self._address_dict, old_address, node.getAddress(), node)

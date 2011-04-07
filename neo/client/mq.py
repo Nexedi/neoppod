@@ -187,13 +187,11 @@ class MQ(object):
         if reindex:
             # Index existing entries
             add = index.add
-            for key in self._data.iterkeys():
+            for key in self._data:
                 add(key)
         self._index_list.append(index)
 
-    def _mapIndexes(self, method_id, args=(), kw=None):
-        if kw is None:
-            kw = {}
+    def _mapIndexes(self, method_id, args=(), kw={}):
         for index in self._index_list:
             getattr(index, method_id)(*args, **kw)
 

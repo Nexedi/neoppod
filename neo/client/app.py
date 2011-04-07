@@ -433,11 +433,9 @@ class Application(object):
         self._load_lock_acquire()
         try:
             try:
-                result = self._loadFromCache(oid, serial, tid)
+                return self._loadFromCache(oid, serial, tid)
             except KeyError:
                 pass
-            else:
-                return result
             data, start_serial, end_serial = self._loadFromStorage(oid, serial,
                 tid)
             self._cache_lock_acquire()
