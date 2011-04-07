@@ -175,8 +175,8 @@ class Application(object):
         """
             Start the election process:
                 - Try to connect to any known master node
-                - Wait a most for the timeout defined by bootstrap parameter
-            When done, the current process si defined either as primary or
+                - Wait at most for the timeout defined by bootstrap parameter
+            When done, the current process is defined either as primary or
             secondary master node
         """
         # Wait at most 20 seconds at bootstrap. Otherwise, wait at most

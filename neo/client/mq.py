@@ -152,7 +152,7 @@ class MQ(object):
 
       - The size calculation is not accurate.
 
-      Quick description of Multi-Queue algorythm:
+      Quick description of Multi-Queue algorithm:
       - There are multiple "regular" queues, plus a history queue
       - The queue to store an object in depends on its access frequency
       - The queue an object is in defines its lifespan (higher-index queue eq.

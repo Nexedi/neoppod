@@ -123,7 +123,7 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.load(self._getSnapshotTID(), *args, **kw)
 
     def load(self, oid, version=''):
-        # XXX: interface deifinition states that version parameter is
+        # XXX: interface definition states that version parameter is
         # mandatory, while some ZODB tests do not provide it. For now, make
         # it optional.
         assert version == '', 'Versions are not supported'

@@ -18,7 +18,7 @@ from neo.client.mq import MQIndex
 
 class RevisionIndex(MQIndex):
     """
-    This cache index allows accessing a specifig revision of a cached object.
+    This cache index allows accessing a specific revision of a cached object.
     It requires cache key to be a 2-tuple, composed of oid and revision.
 
     Note: it is expected that rather few revisions are held in cache, with few

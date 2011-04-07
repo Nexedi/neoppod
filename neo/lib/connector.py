@@ -147,7 +147,7 @@ class SocketConnector:
             fileno = '?'
         else:
             fileno = self.socket_fd
-        result = '<%s at 0x%x fileno %s %s>' % (self.__class__.__name__,
+        result = '<%s at 0x%x fileno %s %s, ' % (self.__class__.__name__,
                  id(self), fileno, self.socket.getsockname())
         if self.is_closed is None:
             result += 'never opened'

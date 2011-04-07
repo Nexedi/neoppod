@@ -29,7 +29,7 @@ class ClientServiceHandler(MasterHandler):
         pass
 
     def connectionLost(self, conn, new_state):
-        # cancel it's transactions and forgot the node
+        # cancel its transactions and forgot the node
         app = self.app
         node = app.nm.getByUUID(conn.getUUID())
         assert node is not None

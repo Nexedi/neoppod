@@ -25,7 +25,7 @@ from neo.client.exception import NEOStorageNotFoundError
 CHUNK_LENGTH = 100
 
 class Record(BaseStorage.DataRecord):
-    """ TBaseStorageransaction record yielded by the Transaction object """
+    """ BaseStorage Transaction record yielded by the Transaction object """
 
     def __init__(self, oid, tid, data, prev):
         BaseStorage.DataRecord.__init__(self, oid, tid, data, prev)
@@ -142,7 +142,7 @@ class Iterator(object):
         return txn
 
     def __str__(self):
-        return 'NEO transactions iteratpr'
+        return 'NEO transactions iterator'
 
     def close(self):
         self._closed = True
