@@ -562,6 +562,12 @@ class ClusterPdb(object):
     def release(self, delay):
         os.write(self._w, pack('d', delay))
 
+    def sync(self):
+        """Sleep as long as another process acquires the lock"""
+        delay = self.acquire()
+        self.release(delay)
+        return delay
+
     def interaction(self, hooked, *args, **kw):
         delay = self.acquire() - time()
         try:
@@ -572,9 +578,7 @@ class ClusterPdb(object):
     def wait(self, test, timeout, period):
         end_time = time() + timeout
         while not test():
-            delay = self.acquire()
-            self.release(delay)
-            if time() > end_time + delay:
+            if time() > end_time + self.sync():
                 return False
             sleep(period)
         return True
