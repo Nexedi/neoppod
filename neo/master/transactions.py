@@ -373,7 +373,7 @@ class TransactionManager(object):
         txn = Transaction(node, ttid)
         self._ttid_dict[ttid] = txn
         self._node_dict.setdefault(node, {})[ttid] = txn
-        neo.lib.logging.debug('Begin %s for %s', txn, node)
+        neo.lib.logging.debug('Begin %s', txn)
         return ttid
 
     def prepare(self, ttid, divisor, oid_list, uuid_list, msg_id):
