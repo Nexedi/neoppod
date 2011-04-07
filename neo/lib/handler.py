@@ -96,7 +96,8 @@ class EventHandler(object):
 
     def connectionCompleted(self, conn):
         """Called when a connection is completed."""
-        neo.lib.logging.debug('connection completed for %r', conn)
+        neo.lib.logging.debug('connection completed for %r (from %s:%u)',
+                              conn, *conn.getConnector().getAddress())
 
     def connectionFailed(self, conn):
         """Called when a connection failed."""
