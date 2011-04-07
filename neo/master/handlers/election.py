@@ -17,7 +17,7 @@
 
 import neo.lib
 
-from neo.lib.protocol import NodeTypes, Packets
+from neo.lib.protocol import NodeTypes, NodeStates, Packets
 from neo.lib.protocol import NotReadyError, ProtocolError, \
                               UnexpectedPacketError
 from neo.lib.protocol import BrokenNodeDisallowedError
@@ -64,26 +64,12 @@ class ClientElectionHandler(MasterHandler):
         conn.ask(Packets.AskPrimary())
         MasterHandler.connectionCompleted(self, conn)
 
-    def _connectionLost(self, conn):
+    def connectionLost(self, conn, new_state):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
-        node.setTemporarilyDown()
+        if new_state != NodeStates.BROKEN or node is not None:
+            node.setState(new_state)
         self.app.negotiating_master_node_set.discard(addr)
-        MasterHandler.connectionClosed(self, conn)
-
-    def connectionClosed(self, conn):
-        self._connectionLost(conn)
-
-    def timeoutExpired(self, conn):
-        self._connectionLost(conn)
-
-    def peerBroken(self, conn):
-        addr = conn.getAddress()
-        node = self.app.nm.getByAddress(addr)
-        if node is not None:
-            node.setDown()
-        self.app.negotiating_master_node_set.discard(addr)
-        MasterHandler.peerBroken(self, conn)
 
     def acceptIdentification(self, conn, node_type,
             uuid, num_partitions, num_replicas, your_uuid):
