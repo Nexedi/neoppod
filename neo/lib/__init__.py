@@ -18,8 +18,8 @@
 import neo.lib.python
 import logging as logging_std
 
-PREFIX = '%(asctime)s %(levelname)-9s %(name)-10s'
-SUFFIX = ' [%(module)14s:%(lineno)3d] %(message)s'
+FMT = ('%(asctime)s %(levelname)-9s %(name)-10s'
+       ' [%(module)14s:%(lineno)3d] \n%(message)s')
 
 class Formatter(logging_std.Formatter):
 
@@ -27,13 +27,17 @@ class Formatter(logging_std.Formatter):
         return logging_std.Formatter.formatTime(self, record,
            '%Y-%m-%d %H:%M:%S') + '.%04d' % (record.msecs * 10)
 
+    def format(self, record):
+        lines = iter(logging_std.Formatter.format(self, record).splitlines())
+        prefix = lines.next()
+        return '\n'.join(prefix + line for line in lines)
+
 def setupLog(name='NEO', filename=None, verbose=False):
     global logging
     if verbose:
         level = logging_std.DEBUG
     else:
         level = logging_std.INFO
-    fmt = PREFIX + SUFFIX
     logging = logging_std.getLogger(name.upper())
     for handler in logging.handlers[:]:
         logging.removeHandler(handler)
@@ -41,7 +45,7 @@ def setupLog(name='NEO', filename=None, verbose=False):
         handler = logging_std.StreamHandler()
     else:
         handler = logging_std.FileHandler(filename)
-    handler.setFormatter(Formatter(fmt))
+    handler.setFormatter(Formatter(FMT))
     logging.setLevel(level)
     logging.addHandler(handler)
     logging.propagate = 0
