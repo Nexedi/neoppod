@@ -255,6 +255,8 @@ class DatabaseManager(object):
         else:
             serial, next_serial, compression, checksum, data, data_serial = \
                 result
+            assert before_tid is None or next_serial is None or \
+                   before_tid <= next_serial
             if data is None and resolve_data:
                 try:
                     _, compression, checksum, data = self._getObjectData(oid,

@@ -275,37 +275,22 @@ class BTreeDatabaseManager(DatabaseManager):
 
     def _getObject(self, oid, tid=None, before_tid=None):
         tserial = self._obj.get(oid)
-        if tserial is None:
-            result = None
-        else:
+        if tserial is not None:
             if tid is None:
-                if before_tid is None:
-                    try:
+                try:
+                    if before_tid is None:
                         tid = tserial.maxKey()
-                    except ValueError:
-                        tid = None
-                else:
-                    before_tid -= 1
-                    try:
-                        tid = tserial.maxKey(before_tid)
-                    except ValueError:
-                        tid = None
-            if tid is None:
-                result = None
-            else:
-                result = tserial.get(tid, None)
+                    else:
+                        tid = tserial.maxKey(before_tid - 1)
+                except ValueError:
+                    return
+            result = tserial.get(tid)
             if result:
-                compression, checksum, data, value_serial = result
-                if before_tid is None:
+                try:
+                    next_serial = tserial.minKey(tid + 1)
+                except ValueError:
                     next_serial = None
-                else:
-                    try:
-                        next_serial = tserial.minKey(tid + 1)
-                    except ValueError:
-                        next_serial = None
-                result = (tid, next_serial, compression, checksum, data,
-                    value_serial)
-        return result
+                return (tid, next_serial) + result
 
     def doSetPartitionTable(self, ptid, cell_list, reset):
         pt = self._pt

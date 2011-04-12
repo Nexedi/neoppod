@@ -335,50 +335,30 @@ class MySQLDatabaseManager(DatabaseManager):
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
         partition = self._getPartition(oid)
+        sql = """SELECT serial, compression, checksum, value, value_serial
+                    FROM obj
+                    WHERE partition = %d
+                    AND oid = %d""" % (partition, oid)
         if tid is not None:
-            r = q("""SELECT serial, compression, checksum, value, value_serial
-                        FROM obj
-                        WHERE partition = %d AND oid = %d AND serial = %d""" \
-                    % (partition, oid, tid))
-            try:
-                serial, compression, checksum, data, value_serial = r[0]
-                next_serial = None
-            except IndexError:
-                return None
+            sql += ' AND serial = %d' % tid
         elif before_tid is not None:
-            r = q("""SELECT serial, compression, checksum, value, value_serial
-                        FROM obj
-                        WHERE partition = %d
-                        AND oid = %d AND serial < %d
-                        ORDER BY serial DESC LIMIT 1""" \
-                    % (partition, oid, before_tid))
-            try:
-                serial, compression, checksum, data, value_serial = r[0]
-            except IndexError:
-                return None
-            r = q("""SELECT serial FROM obj_short
-                        WHERE partition = %d
-                        AND oid = %d AND serial >= %d
-                        ORDER BY serial LIMIT 1""" \
-                    % (partition, oid, before_tid))
-            try:
-                next_serial = r[0][0]
-            except IndexError:
-                next_serial = None
+            sql += ' AND serial < %d ORDER BY serial DESC LIMIT 1' % before_tid
         else:
             # XXX I want to express "HAVING serial = MAX(serial)", but
             # MySQL does not use an index for a HAVING clause!
-            r = q("""SELECT serial, compression, checksum, value, value_serial
-                        FROM obj
-                        WHERE partition = %d AND oid = %d
-                        ORDER BY serial DESC LIMIT 1""" \
-                    % (partition, oid))
-            try:
-                serial, compression, checksum, data, value_serial = r[0]
-                next_serial = None
-            except IndexError:
-                return None
-
+            sql += ' ORDER BY serial DESC LIMIT 1'
+        r = q(sql)
+        try:
+            serial, compression, checksum, data, value_serial = r[0]
+        except IndexError:
+            return None
+        r = q("""SELECT serial FROM obj_short
+                    WHERE partition = %d AND oid = %d AND serial > %d
+                    ORDER BY serial LIMIT 1""" % (partition, oid, serial))
+        try:
+            next_serial = r[0][0]
+        except IndexError:
+            next_serial = None
         return serial, next_serial, compression, checksum, data, value_serial
 
     def doSetPartitionTable(self, ptid, cell_list, reset):

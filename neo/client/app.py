@@ -42,12 +42,11 @@ from neo.client.handlers import storage, master
 from neo.lib.dispatcher import Dispatcher, ForgottenPacket
 from neo.client.poll import ThreadedPoll, psThreadedPoll
 from neo.client.iterator import Iterator
-from neo.client.mq import MQ
+from neo.client.cache import ClientCache
 from neo.client.pool import ConnectionPool
 from neo.lib.util import u64, parseMasterList
 from neo.lib.profiling import profiler_decorator, PROFILING_ENABLED
 from neo.lib.debug import register as registerLiveDebugger
-from neo.client.mq_index import RevisionIndex
 from neo.client.container import ThreadContainer, TransactionContainer
 
 if PROFILING_ENABLED:
@@ -93,9 +92,7 @@ class Application(object):
 
         # no self-assigned UUID, primary master will supply us one
         self.uuid = None
-        self.mq_cache = MQ()
-        self.cache_revision_index = RevisionIndex()
-        self.mq_cache.addIndex(self.cache_revision_index)
+        self._cache = ClientCache()
         self.new_oid_list = []
         self.last_oid = '\0' * 8
         self.storage_event_handler = storage.StorageEventHandler(self)
@@ -432,20 +429,17 @@ class Application(object):
 
         self._load_lock_acquire()
         try:
-            try:
-                return self._loadFromCache(oid, serial, tid)
-            except KeyError:
-                pass
-            data, start_serial, end_serial = self._loadFromStorage(oid, serial,
-                tid)
-            self._cache_lock_acquire()
-            try:
-                self.mq_cache[(oid, start_serial)] = data, end_serial
-            finally:
-                self._cache_lock_release()
-            if data == '':
-                raise NEOStorageCreationUndoneError(dump(oid))
-            return data, start_serial, end_serial
+            result = self._loadFromCache(oid, serial, tid)
+            if not result:
+                result = self._loadFromStorage(oid, serial, tid)
+                self._cache_lock_acquire()
+                try:
+                    self._cache.store(oid, *result)
+                finally:
+                    self._cache_lock_release()
+                if result[0] == '':
+                    raise NEOStorageCreationUndoneError(dump(oid))
+            return result
         finally:
             self._load_lock_release()
 
@@ -479,24 +473,17 @@ class Application(object):
         return data, tid, next_tid
 
     @profiler_decorator
-    def _loadFromCache(self, oid, at_tid, before_tid):
+    def _loadFromCache(self, oid, at_tid=None, before_tid=None):
         """
-        Load from local cache, raising KeyError if not found.
+        Load from local cache, return None if not found.
         """
         self._cache_lock_acquire()
         try:
-            if at_tid is not None:
-                tid = at_tid
-            elif before_tid is not None:
-                tid = self.cache_revision_index.getSerialBefore(oid,
-                    before_tid)
-            else:
-                tid = self.cache_revision_index.getLatestSerial(oid)
-            if tid is None:
-                raise KeyError
-            # Raises KeyError on miss
-            data, next_tid = self.mq_cache[(oid, tid)]
-            return (data, tid, next_tid)
+            if at_tid:
+                result = self._cache.load(oid, at_tid + '*')
+                assert not result or result[1] == at_tid
+                return result
+            return self._cache.load(oid, before_tid)
         finally:
             self._cache_lock_release()
 
@@ -808,14 +795,7 @@ class Application(object):
             # Update cache
             self._cache_lock_acquire()
             try:
-                mq_cache = self.mq_cache
-                update = mq_cache.update
-                def updateNextSerial(value):
-                    data, next_tid = value
-                    assert next_tid is None, (dump(oid), dump(base_tid),
-                        dump(next_tid))
-                    return (data, tid)
-                get_baseTID = txn_context['object_base_serial_dict'].get
+                cache = self._cache
                 for oid, data in txn_context['data_dict'].iteritems():
                     if data is None:
                         # this is just a remain of
@@ -823,16 +803,10 @@ class Application(object):
                         # was modified).
                         continue
                     # Update ex-latest value in cache
-                    base_tid = get_baseTID(oid)
-                    try:
-                        update((oid, base_tid), updateNextSerial)
-                    except KeyError:
-                        pass
-                    if data == '':
-                        self.cache_revision_index.invalidate([oid], tid)
-                    else:
+                    cache.invalidate(oid, tid)
+                    if data:
                         # Store in cache with no next_tid
-                        mq_cache[(oid, tid)] = (data, None)
+                        cache.store(oid, data, tid, None)
             finally:
                 self._cache_lock_release()
             txn_container.delete(transaction)
@@ -1105,7 +1079,7 @@ class Application(object):
         # by a pack), so don't bother invalidating on other clients.
         self._cache_lock_acquire()
         try:
-            self.mq_cache.clear()
+            self._cache.clear()
         finally:
             self._cache_lock_release()
 
