@@ -229,6 +229,7 @@ class NeoUnitTestBase(NeoTestBase):
         return Mock({
             '__repr__': 'FakeConnector',
             'getDescriptor': descriptor,
+            'getAddress': ('', 0),
         })
 
     def getFakeConnection(self, uuid=None, address=('127.0.0.1', 10000),
