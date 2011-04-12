@@ -144,8 +144,10 @@ class ClientCache(object):
         self._remove(item)
         item.counter = counter = item.counter + 1
         # XXX It might be better to adjust the level according to the object
-        # size.
-        item.level = 1 + int(_log(counter, 2))
+        # size. See commented factor for example.
+        item.level = 1 + int(_log(counter, 2)
+                             # * (1.01 - float(len(item.data)) / self._max_size)
+                            )
         self._add(item)
 
         self._time = time = self._time + 1
