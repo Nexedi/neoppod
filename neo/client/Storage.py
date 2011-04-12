@@ -35,13 +35,6 @@ def check_read_only(func):
         return func(self, *args, **kw)
     return wraps(func)(wrapped)
 
-class DummyCache(object):
-    def __init__(self, app):
-        self.app = app
-
-    def clear(self):
-        self.app.mq_cache.clear()
-
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
@@ -64,9 +57,7 @@ class Storage(BaseStorage.BaseStorage,
     )))
 
     def __init__(self, master_nodes, name, connector=None, read_only=False,
-            compress=None, logfile=None, verbose=False,
-            _app=None, _cache=None,
-            **kw):
+            compress=None, logfile=None, verbose=False, _app=None, **kw):
         """
         Do not pass those parameters (used internally):
         _app
@@ -81,11 +72,7 @@ class Storage(BaseStorage.BaseStorage,
         if _app is None:
             _app = Application(master_nodes, name, connector,
                 compress=compress)
-            assert _cache is None
-            _cache = DummyCache(_app)
         self.app = _app
-        assert _cache is not None
-        self._cache = _cache
         # Used to clone self (see new_instance & IMVCCStorage definition).
         self._init_args = (master_nodes, name)
         self._init_kw = {
@@ -95,8 +82,11 @@ class Storage(BaseStorage.BaseStorage,
             'logfile': logfile,
             'verbose': verbose,
             '_app': _app,
-            '_cache': _cache,
         }
+
+    @property
+    def _cache(self):
+        return self.app._cache
 
     def _getSnapshotTID(self):
         """
