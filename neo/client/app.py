@@ -382,19 +382,16 @@ class Application(object):
         return int(u64(self.last_oid))
 
     @profiler_decorator
-    def load(self, snapshot_tid, oid, serial=None, tid=None):
+    def load(self, oid, tid=None, before_tid=None):
         """
         Internal method which manage load, loadSerial and loadBefore.
         OID and TID (serial) parameters are expected packed.
-        snapshot_tid
-            First TID not visible to current transaction.
-            Set to None for no limit.
         oid
             OID of object to get.
-        serial
-            If given, the exact serial at which OID is desired.
-            tid should be None.
         tid
+            If given, the exact serial at which OID is desired.
+            before_tid should be None.
+        before_tid
             If given, the excluded upper bound serial at which OID is desired.
             serial should be None.
 
@@ -413,25 +410,19 @@ class Application(object):
                 object doesn't exist
             NEOStorageCreationUndoneError
                 object existed, but its creation was undone
+
+        Note that loadSerial is used during conflict resolution to load
+        object's current version, which is not visible to us normaly (it was
+        committed after our snapshot was taken).
         """
         # TODO:
-        # - rename parameters (here and in handlers & packet definitions)
-        if snapshot_tid is not None:
-            if serial is None:
-                if tid is None:
-                    tid = snapshot_tid
-                else:
-                    tid = min(tid, snapshot_tid)
-            # XXX: we must not clamp serial with snapshot_tid, as loadSerial is
-            # used during conflict resolution to load object's current version,
-            # which is not visible to us normaly (it was committed after our
-            # snapshot was taken).
+        # - rename parameters (here? and in handlers & packet definitions)
 
         self._load_lock_acquire()
         try:
-            result = self._loadFromCache(oid, serial, tid)
+            result = self._loadFromCache(oid, tid, before_tid)
             if not result:
-                result = self._loadFromStorage(oid, serial, tid)
+                result = self._loadFromStorage(oid, tid, before_tid)
                 self._cache_lock_acquire()
                 try:
                     self._cache.store(oid, *result)
@@ -869,11 +860,9 @@ class Application(object):
                 # object. This is an undo conflict, try to resolve it.
                 try:
                     # Load the latest version we are supposed to see
-                    data = self.load(snapshot_tid, oid,
-                        serial=current_serial)[0]
+                    data = self.load(oid, current_serial, snapshot_tid)[0]
                     # Load the version we were undoing to
-                    undo_data = self.load(snapshot_tid, oid,
-                        serial=undo_serial)[0]
+                    undo_data = self.load(oid, undo_serial, snapshot_tid)[0]
                 except NEOStorageNotFoundError:
                     raise UndoError('Object not found while resolving undo '
                         'conflict')
@@ -1084,7 +1073,7 @@ class Application(object):
             self._cache_lock_release()
 
     def getLastTID(self, oid):
-        return self.load(None, oid)[1]
+        return self.load(oid)[1]
 
     def checkCurrentSerialInTransaction(self, oid, serial, transaction):
         txn_context = self._txn_container.get(transaction)

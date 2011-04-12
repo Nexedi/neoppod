@@ -119,16 +119,13 @@ class Storage(BaseStorage.BaseStorage,
             self._snapshot_tid = tid
         return tid
 
-    def _load(self, *args, **kw):
-        return self.app.load(self._getSnapshotTID(), *args, **kw)
-
     def load(self, oid, version=''):
         # XXX: interface definition states that version parameter is
         # mandatory, while some ZODB tests do not provide it. For now, make
         # it optional.
         assert version == '', 'Versions are not supported'
         try:
-            return self._load(oid)[:2]
+            return self.app.load(oid, None, self._getSnapshotTID())[:2]
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
@@ -174,13 +171,13 @@ class Storage(BaseStorage.BaseStorage,
     # mutliple revisions
     def loadSerial(self, oid, serial):
         try:
-            return self._load(oid, serial=serial)[0]
+            return self.app.load(oid, serial)[0]
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
 
     def loadBefore(self, oid, tid):
         try:
-            return self._load(oid, tid=tid)
+            return self.app.load(oid, None, tid)
         except NEOStorageDoesNotExistError:
             raise POSException.POSKeyError(oid)
         except NEOStorageNotFoundError:
@@ -222,7 +219,7 @@ class Storage(BaseStorage.BaseStorage,
 
     def loadEx(self, oid, version):
         try:
-            data, serial, _ = self._load(oid)
+            data, serial, _ = self.app.load(oid, None, self._getSnapshotTID())
         except NEOStorageNotFoundError:
             raise POSException.POSKeyError(oid)
         return data, serial, ''
