@@ -97,7 +97,6 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
             'getLastTID': p64(4),
         })
         self.verification.askLastIDs(conn)
-        self.checkAnswerLastIDs(conn)
         oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
         self.assertEqual(oid, last_oid)
         self.assertEqual(u64(tid), 4)

@@ -189,7 +189,7 @@ class StorageDBTests(NeoUnitTestBase):
         # two commited versions
         self.db.finishTransaction(tid2)
         self.assertEqual(self.db.getObject(oid1), OBJECT_T2)
-        self.assertEqual(self.db.getObject(oid1, tid1), OBJECT_T1_NO_NEXT)
+        self.assertEqual(self.db.getObject(oid1, tid1), OBJECT_T1_NEXT)
         self.assertEqual(self.db.getObject(oid1, before_tid=tid1),
             FOUND_BUT_NOT_VISIBLE)
         self.assertEqual(self.db.getObject(oid1, tid2), OBJECT_T2)

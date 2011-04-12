@@ -304,8 +304,9 @@ class NeoUnitTestBase(NeoTestBase):
         """ ensure no UUID was set on the connection """
         calls = conn.mockGetNamedCalls('setUUID')
         self.assertEqual(len(calls), 1)
+        call = calls.pop()
         if uuid is not None:
-            self.assertEqual(calls[0].getParam(0), uuid)
+            self.assertEqual(call.getParam(0), uuid)
 
     # in check(Ask|Answer|Notify)Packet we return the packet so it can be used
     # in tests if more accurates checks are required
@@ -314,7 +315,7 @@ class NeoUnitTestBase(NeoTestBase):
         """ Check if an error packet was answered """
         calls = conn.mockGetNamedCalls("answer")
         self.assertEqual(len(calls), 1)
-        packet = calls[0].getParam(0)
+        packet = calls.pop().getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(packet.getType(), Packets.Error)
         if decode:
@@ -326,7 +327,7 @@ class NeoUnitTestBase(NeoTestBase):
         """ Check if an ask-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('ask')
         self.assertEqual(len(calls), 1)
-        packet = calls[0].getParam(0)
+        packet = calls.pop().getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(packet.getType(), packet_type)
         if decode:
@@ -337,7 +338,7 @@ class NeoUnitTestBase(NeoTestBase):
         """ Check if an answer-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('answer')
         self.assertEqual(len(calls), 1)
-        packet = calls[0].getParam(0)
+        packet = calls.pop().getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(packet.getType(), packet_type)
         if decode:
@@ -347,8 +348,7 @@ class NeoUnitTestBase(NeoTestBase):
     def checkNotifyPacket(self, conn, packet_type, packet_number=0, decode=False):
         """ Check if a notify-packet with the right type is sent """
         calls = conn.mockGetNamedCalls('notify')
-        self.assertTrue(len(calls) > packet_number, (len(calls), packet_number))
-        packet = calls[packet_number].getParam(0)
+        packet = calls.pop(packet_number).getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
         self.assertEqual(packet.getType(), packet_type)
         if decode:
@@ -564,7 +564,7 @@ class ClusterPdb(object):
         os.write(self._w, pack('d', delay))
 
     def sync(self):
-        """Sleep as long as another process acquires the lock"""
+        """Sleep as long as another process owns the lock"""
         delay = self.acquire()
         self.release(delay)
         return delay
