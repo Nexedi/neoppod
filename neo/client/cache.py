@@ -53,7 +53,10 @@ class CacheItem(object):
 class ClientCache(object):
     """In-memory pickle cache based on Multi-Queue cache algorithm
 
-      Quick description of Multi-Queue algorithm:
+      Multi-Queue algorithm for Second Level Buffer Caches:
+      http://www.usenix.org/event/usenix01/full_papers/zhou/zhou_html/index.html
+
+      Quick description:
       - There are multiple "regular" queues, plus a history queue
       - The queue to store an object in depends on its access frequency
       - The queue an object is in defines its lifespan (higher-index queue eq.
