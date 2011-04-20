@@ -218,10 +218,12 @@ class NEOCluster(object):
                  db_user='neo', db_password='neo',
                  db_super_user=DB_ADMIN, db_super_password=DB_PASSWD,
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
-                 adapter=os.getenv('NEO_TESTS_ADAPTER', 'MySQL'),
+                 adapter=os.getenv('NEO_TESTS_ADAPTER'),
                  verbose=True,
                  address_type=ADDRESS_TYPE,
         ):
+        if not adapter:
+            adapter = 'MySQL'
         self.zodb_storage_list = []
         self.cleanup_on_delete = cleanup_on_delete
         self.verbose = verbose

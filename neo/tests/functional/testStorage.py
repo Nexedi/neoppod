@@ -58,6 +58,7 @@ class StorageTests(NEOFunctionalTest):
             partitions=partitions, replicas=replicas,
             temp_dir=self.getTempDirectory(),
             clear_databases=True,
+            adapter='MySQL',
         )
         # too many pending storage nodes requested
         assert pending_number <= storage_number

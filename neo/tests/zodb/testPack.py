@@ -29,7 +29,9 @@ from neo.tests.zodb import ZODBTestCase
 
 class PackableTests(ZODBTestCase, StorageTestBase,
         PackableStorageWithOptionalGC, PackableUndoStorage):
-    pass
+
+    def setUp(self):
+        super(PackableTests, self).setUp(cluster_kw={'adapter': 'MySQL'})
 
 if __name__ == "__main__":
     suite = unittest.makeSuite(PackableTests, 'check')

@@ -23,7 +23,7 @@ import neo.lib
 
 class ZODBTestCase(NEOFunctionalTest):
 
-    def setUp(self):
+    def setUp(self, cluster_kw={}):
         NEOFunctionalTest.setUp(self)
         masters = int(os.environ.get('NEO_TEST_ZODB_MASTERS', 1))
         storages = int(os.environ.get('NEO_TEST_ZODB_STORAGES', 1))
@@ -35,7 +35,7 @@ class ZODBTestCase(NEOFunctionalTest):
             replicas=replicas,
             master_node_count=masters,
             temp_dir=self.getTempDirectory(),
-        )
+            **cluster_kw)
         self.neo.start()
         self._storage = self.neo.getZODBStorage()
 

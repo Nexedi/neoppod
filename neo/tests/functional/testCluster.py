@@ -84,7 +84,7 @@ class ClusterTests(NEOFunctionalTest):
         class PObject(Persistent):
             pass
         self.neo = NEOCluster(['test_neo1'], replicas=0,
-            temp_dir=self.getTempDirectory())
+            temp_dir=self.getTempDirectory(), adapter='MySQL')
         neoctl = self.neo.getNEOCTL()
         self.neo.start()
         db, conn = self.neo.getZODBConnection()
