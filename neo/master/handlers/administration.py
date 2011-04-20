@@ -80,7 +80,7 @@ class AdministrationHandler(MasterHandler):
 
         if node.getState() == state:
             # no change, just notify admin node
-            p = Errors.Ack('node state changed')
+            p = Errors.Ack('node already in %s state' % state)
             conn.answer(p)
             return
 
