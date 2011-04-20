@@ -372,6 +372,7 @@ class NEOCluster(object):
             neoctl.enableStorageList([x[2] for x in storage_node_list])
 
     def stop(self, clients=True):
+        error_list = []
         for process_list in self.process_dict.itervalues():
             for process in process_list:
                 try:
@@ -379,11 +380,15 @@ class NEOCluster(object):
                     process.wait()
                 except AlreadyStopped:
                     pass
+                except NodeProcessError, e:
+                    error_list += e.args
         if clients:
             for zodb_storage in self.zodb_storage_list:
                 zodb_storage.close()
             self.zodb_storage_list = []
         time.sleep(0.5)
+        if error_list:
+            raise NodeProcessError('\n'.join(error_list))
 
     def getNEOCTL(self):
         return self.neoctl
