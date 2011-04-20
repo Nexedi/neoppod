@@ -172,13 +172,10 @@ class ServerElectionHandler(MasterHandler):
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 
-    def peerBroken(self, conn):
-        app = self.app
-        addr = conn.getAddress()
-        node = app.nm.getByAddress(addr)
-        if node is not None and node.getUUID() is not None:
-            node.setBroken()
-        MasterHandler.peerBroken(self, conn)
+    def connectionLost(self, conn, new_state):
+        node = self.app.nm.getByUUID(conn.getUUID())
+        if node is not None:
+            node.setState(new_state)
 
     def requestIdentification(self, conn, node_type,
                                         uuid, address, name):
