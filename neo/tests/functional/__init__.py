@@ -29,13 +29,15 @@ import unittest
 import tempfile
 import traceback
 import threading
+import psutil
 
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
 from neo.lib.util import dump, SOCKET_CONNECTORS_DICT
 from neo.tests import DB_ADMIN, DB_PASSWD, NeoTestBase, buildUrlFromString, \
-        ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, SocketLock, getTempDirectory
+        ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, getTempDirectory
+from neo.tests.cluster import SocketLock
 from neo.client.Storage import Storage
 
 NEO_MASTER = 'neomaster'
@@ -150,14 +152,10 @@ class NEOProcess(object):
 
     def kill(self, sig=signal.SIGTERM):
         if self.pid:
-            delay = pdb.acquire()
             try:
-                try:
-                    os.kill(self.pid, sig)
-                except OSError:
-                    traceback.print_last()
-            finally:
-                pdb.release(delay)
+                pdb.kill(self.pid, sig)
+            except OSError:
+                traceback.print_last()
         else:
             raise AlreadyStopped
 
@@ -202,15 +200,9 @@ class NEOProcess(object):
 
     def isAlive(self):
         try:
-            os.kill(self.pid, 0)
-        except OSError, (errno, msg):
-            if errno == 3: # No such process
-                result = False
-            else:
-                raise
-        else:
-            result = True
-        return result
+            return psutil.Process(self.pid).status != psutil.STATUS_ZOMBIE
+        except psutil.NoSuchProcess:
+            return False
 
 class NEOCluster(object):
 

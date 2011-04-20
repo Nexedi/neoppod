@@ -16,7 +16,6 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import __builtin__
-import errno
 import os
 import random
 import socket
@@ -30,9 +29,8 @@ from mock import Mock
 from neo.lib import debug, logger, protocol
 from neo.lib.protocol import Packets
 from neo.lib.util import getAddressType
-from time import time, gmtime, sleep
+from time import time, gmtime
 from struct import pack, unpack
-from functools import wraps
 
 DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo_')
 DB_ADMIN = os.getenv('NEO_DB_ADMIN', 'root')
@@ -507,93 +505,5 @@ class DoNothingConnector(Mock):
     def getDescriptor(self):
         return self.desc
 
-class SocketLock(object):
-    """Basic system-wide lock"""
 
-    _socket = None
-
-    def __init__(self, address, family=socket.AF_UNIX, type=socket.SOCK_DGRAM):
-        if family == socket.AF_UNIX:
-            address = '\0' + address
-        self.address = address
-        self.socket_args = family, type
-
-    def locked(self):
-        return self._socket is not None
-
-    def acquire(self, blocking=1):
-        assert self._socket is None
-        s = socket.socket(*self.socket_args)
-        try:
-            while True:
-                try:
-                    s.bind(self.address)
-                except socket.error, e:
-                    if e[0] != errno.EADDRINUSE:
-                        raise
-                    if not blocking:
-                        return False
-                    sleep(1)
-                else:
-                    self._socket = s
-                    return True
-        finally:
-            if self._socket is None:
-                s.close()
-
-    def release(self):
-        s = self._socket
-        del self._socket
-        s.close()
-
-
-class ClusterPdb(object):
-    # TODO: monkey-patch normal code not to timeout
-    #       if another node is being debugged
-
-    def __init__(self):
-        self._r, self._w = os.pipe()
-        self.release(0)
-
-    def __getattr__(self, attr):
-        try:
-            debugger = self.__dict__['_debugger']
-        except KeyError:
-            self._debugger = debugger = debug.getPdb()
-            def hook(name):
-                hook = getattr(self, name)
-                hooked = getattr(debugger, name)
-                def wrapper(*args, **kw):
-                    return hook(hooked, *args, **kw)
-                setattr(debugger, name, wraps(hooked)(wrapper))
-            hook('interaction')
-        return getattr(debugger, attr)
-
-    def acquire(self):
-        return unpack('d', os.read(self._r, 8))[0]
-
-    def release(self, delay):
-        os.write(self._w, pack('d', delay))
-
-    def sync(self):
-        """Sleep as long as another process owns the lock"""
-        delay = self.acquire()
-        self.release(delay)
-        return delay
-
-    def interaction(self, hooked, *args, **kw):
-        delay = self.acquire() - time()
-        try:
-            return hooked(*args, **kw)
-        finally:
-            self.release(delay + time())
-
-    def wait(self, test, timeout, period):
-        end_time = time() + timeout
-        while not test():
-            if time() > end_time + self.sync():
-                return False
-            sleep(period)
-        return True
-
-__builtin__.pdb = ClusterPdb()
+__builtin__.pdb = lambda: debug.getPdb().set_trace(sys._getframe(1))
