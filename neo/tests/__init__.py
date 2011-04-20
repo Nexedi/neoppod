@@ -52,6 +52,18 @@ debug.register()
 debug.ENABLED = False
 logger.PACKET_LOGGER.enable(True)
 
+def mockDefaultValue(name, function):
+    def method(self, *args, **kw):
+        if name in self.mockReturnValues:
+            return self.__getattr__(name)(*args, **kw)
+        return function(self, *args, **kw)
+    method.__name__ = name
+    setattr(Mock, name, method)
+
+mockDefaultValue('__repr__', lambda self:
+    '<%s object at 0x%x>' % (self.__class__.__name__, id(self)))
+mockDefaultValue('__str__', repr)
+
 def buildUrlFromString(address):
     try:
         socket.inet_pton(socket.AF_INET6, address)
