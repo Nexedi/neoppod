@@ -130,6 +130,8 @@ class NEOProcess(object):
         self.pid = os.fork()
         if self.pid == 0:
             # Child
+            # prevent child from killing anything
+            del self.__class__.__del__
             try:
                 sys.argv = [command] + args
                 getattr(neo.scripts,  command).main()
