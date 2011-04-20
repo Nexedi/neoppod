@@ -20,6 +20,7 @@ import signal
 import ctypes
 import imp
 import os
+import sys
 from functools import wraps
 import neo
 
@@ -73,25 +74,17 @@ def getPdb():
 
 _debugger = None
 
-@decorate
-def pdbHandler(sig, frame):
-    try:
-        import rpdb2
-    except ImportError:
-        global _debugger
-        if _debugger is None:
-            _debugger = getPdb()
-        return debugger.set_trace(frame)
-    # WKRD: rpdb2 take an integer (depth) instead of a frame as parameter,
-    #       so we must hardcode the value, taking the decorator into account
+def winpdb(depth=0):
+    import rpdb2
+    depth += 1
     if rpdb2.g_debugger is not None:
-        return rpdb2.setbreak(2)
-    script = rpdb2.calc_frame_path(frame)
-    pwd = os.getcwd().replace('/', '_').replace('-', '_')
+        return rpdb2.setbreak(depth)
+    script = rpdb2.calc_frame_path(sys._getframe(depth))
+    pwd = str(os.getpid()) + os.getcwd().replace('/', '_').replace('-', '_')
     pid = os.fork()
     if pid:
         try:
-            rpdb2.start_embedded_debugger(pwd, depth=2)
+            rpdb2.start_embedded_debugger(pwd, depth=depth)
         finally:
             os.waitpid(pid, 0)
     else:
@@ -106,6 +99,16 @@ def pdbHandler(sig, frame):
             """ % pwd, '-a', script)
         finally:
             os.abort()
+
+@decorate
+def pdbHandler(sig, frame):
+    try:
+        winpdb(2) # depth is 2, because of the decorator
+    except ImportError:
+        global _debugger
+        if _debugger is None:
+            _debugger = getPdb()
+        debugger.set_trace(frame)
 
 def register(on_log=None):
     if ENABLED:
