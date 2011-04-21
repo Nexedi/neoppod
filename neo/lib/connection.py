@@ -180,12 +180,10 @@ class HandlerSwitcher(object):
         else:
             neo.lib.logging.error(
                             'Unexpected answer %r in %r', packet, connection)
-            notification = Packets.Notify('Unexpected answer: %r' % packet)
-            try:
+            if not connection.isClosed():
+                notification = Packets.Notify('Unexpected answer: %r' % packet)
                 connection.notify(notification)
-            except ConnectorConnectionClosedException:
-                pass
-            connection.abort()
+                connection.abort()
             handler.peerBroken(connection)
         # apply a pending handler if no more answers are pending
         while len(self._pending) > 1 and not self._pending[0][0]:
@@ -476,6 +474,7 @@ class Connection(BaseConnection):
         """Abort dealing with this connection."""
         neo.lib.logging.debug('aborting a connector for %r', self)
         self.aborted = True
+        assert self.write_buf
 
     def writable(self):
         """Called when self is writable."""
