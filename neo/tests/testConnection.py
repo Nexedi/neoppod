@@ -214,10 +214,6 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(next_id, 0xffffffff)
         next_id = bc._getNextId()
         self.assertEqual(next_id, 0)
-        # test abort
-        bc.abort()
-        self.assertTrue(bc.aborted)
-        self.assertFalse(bc.isServer())
 
     def test_Connection_pending(self):
         bc = self._makeConnection()
@@ -803,10 +799,6 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(next_id, 0xffffffff)
         next_id = bc._getNextId()
         self.assertEqual(next_id, 0)
-        # test abort
-        bc.abort()
-        self.assertTrue(bc.aborted)
-        self.assertTrue(bc.isServer())
 
 class MTConnectionTests(ConnectionTests):
     # XXX: here we test non-client-connection-related things too, which
