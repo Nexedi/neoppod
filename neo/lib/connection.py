@@ -490,7 +490,6 @@ class Connection(BaseConnection):
         """Called when self is readable."""
         self._recv()
         self.analyse()
-
         if self.aborted:
             self.em.removeReader(self)
 
@@ -510,7 +509,8 @@ class Connection(BaseConnection):
             if packet_type == Packets.Ping:
                 # Send a pong notification
                 PACKET_LOGGER.dispatch(self, packet, 'from')
-                self.answer(Packets.Pong(), packet.getId())
+                if not self.aborted:
+                    self.answer(Packets.Pong(), packet.getId())
             elif packet_type == Packets.Pong:
                 # Skip PONG packets, its only purpose is refresh the timeout
                 # generated upong ping. But still log them.
