@@ -38,8 +38,6 @@ class PacketLogger(object):
         uuid = dump(conn.getUUID())
         ip, port = conn.getAddress()
         packet_name = packet.__class__.__name__
-        if packet.isResponse() and packet._request is not None:
-            packet_name += packet._request.__name__
         neo.lib.logging.debug('#0x%08x %-30s %s %s (%s:%d)', packet.getId(),
                 packet_name, direction, uuid, ip, port)
         # look for custom packet logger
