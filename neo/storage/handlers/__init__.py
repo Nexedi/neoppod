@@ -51,11 +51,6 @@ class BaseMasterHandler(EventHandler):
                 neo.lib.logging.info("I was told I'm %s" %(state))
                 if state in (NodeStates.DOWN, NodeStates.TEMPORARILY_DOWN,
                         NodeStates.BROKEN):
-                    try:
-                        conn.close()
-                        assert False
-                    except PrimaryFailure:
-                        pass
                     erase = state == NodeStates.DOWN
                     self.app.shutdown(erase=erase)
                 elif state == NodeStates.HIDDEN:
