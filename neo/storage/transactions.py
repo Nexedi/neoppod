@@ -266,7 +266,7 @@ class TransactionManager(object):
                 neo.lib.logging.info('Resolvable conflict on %r:%r', 
                     dump(oid), dump(ttid))
                 raise ConflictError(previous_serial)
-            neo.lib.logging.info('Transaction %s storing %s',
+            neo.lib.logging.debug('Transaction %s storing %s',
                             dump(ttid), dump(oid))
             self._store_lock_dict[oid] = ttid
         elif locking_tid > ttid:
