@@ -365,5 +365,5 @@ class Application(object):
             if not c.isListening():
                 c.close()
         # clear database to avoid polluting the cluster at restart
-        self.dm.setup(reset=True)
+        self.dm.setup(reset=erase)
         sys.exit("Application has been asked to shut down")
