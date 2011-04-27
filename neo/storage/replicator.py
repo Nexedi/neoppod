@@ -240,21 +240,19 @@ class Replicator(object):
             neo.lib.logging.error("no address known for the selected node %s" %
                     (dump(node.getUUID()), ))
             return
-        if self.current_connection is not None:
-            if self.current_connection.getAddress() != addr:
-                self.current_connection.close()
-                self.current_connection = None
 
-        if self.current_connection is None:
+        connection = self.current_connection
+        if connection is None or connection.getAddress() != addr:
             handler = replication.ReplicationHandler(app)
             self.current_connection = ClientConnection(app.em, handler,
                    addr=addr, connector=app.connector_handler())
             p = Packets.RequestIdentification(NodeTypes.STORAGE,
                     app.uuid, app.server, app.name)
             self.current_connection.ask(p)
+            if connection is not None:
+                connection.close()
         else:
-            self.current_connection.getHandler().startReplication(
-                self.current_connection)
+            connection.getHandler().startReplication(connection)
         self.replication_done = False
 
     def _finishReplication(self):
@@ -267,10 +265,10 @@ class Replicator(object):
             conn.notify(Packets.NotifyReplicationDone(offset))
         except KeyError:
             pass
-        self.current_partition = None
-        if not self.pending():
+        if self.pending():
+            self.current_partition = None
+        else:
             self.current_connection.close()
-            self.current_connection = None
 
     def act(self):
 

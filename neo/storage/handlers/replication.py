@@ -82,7 +82,9 @@ class ReplicationHandler(EventHandler):
     def connectionLost(self, conn, new_state):
         neo.lib.logging.error(
                         'replication is stopped due to a connection lost')
-        self.app.replicator.storageLost()
+        replicator = self.app.replicator
+        if replicator.isCurrentConnection(conn):
+            replicator.storageLost()
 
     def connectionFailed(self, conn):
         neo.lib.logging.error(
