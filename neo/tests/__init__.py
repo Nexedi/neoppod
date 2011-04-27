@@ -48,7 +48,6 @@ debug.ENABLED = True
 debug.register()
 # prevent "signal only works in main thread" errors in subprocesses
 debug.ENABLED = False
-logger.PACKET_LOGGER.enable(True)
 
 def mockDefaultValue(name, function):
     def method(self, *args, **kw):
@@ -90,6 +89,7 @@ def getTempDirectory():
 
 class NeoTestBase(unittest.TestCase):
     def setUp(self):
+        logger.PACKET_LOGGER.enable(True)
         sys.stdout.write(' * %s ' % (self.id(), ))
         sys.stdout.flush()
         unittest.TestCase.setUp(self)
