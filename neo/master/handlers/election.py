@@ -32,12 +32,6 @@ class ClientElectionHandler(MasterHandler):
     def askPrimary(self, conn):
         raise UnexpectedPacketError, "askPrimary on server connection"
 
-    def packetReceived(self, conn, packet):
-        node = self.app.nm.getByAddress(conn.getAddress())
-        if not node.isBroken():
-            node.setRunning()
-        MasterHandler.packetReceived(self, conn, packet)
-
     def connectionStarted(self, conn):
         addr = conn.getAddress()
         # connection in progress
@@ -57,18 +51,11 @@ class ClientElectionHandler(MasterHandler):
         MasterHandler.connectionFailed(self, conn)
 
     def connectionCompleted(self, conn):
-        addr = conn.getAddress()
-        node = self.app.nm.getByAddress(addr)
-        # connection successfull, set it as running
-        node.setRunning()
         conn.ask(Packets.AskPrimary())
         MasterHandler.connectionCompleted(self, conn)
 
     def connectionLost(self, conn, new_state):
         addr = conn.getAddress()
-        node = self.app.nm.getByAddress(addr)
-        if new_state != NodeStates.BROKEN or node is not None:
-            node.setState(new_state)
         self.app.negotiating_master_node_set.discard(addr)
 
     def acceptIdentification(self, conn, node_type,
@@ -79,7 +66,6 @@ class ClientElectionHandler(MasterHandler):
             # The peer is not a master node!
             neo.lib.logging.error('%r is not a master node', conn)
             app.nm.remove(node)
-            app.negotiating_master_node_set.discard(node.getAddress())
             conn.close()
             return
 
@@ -171,11 +157,6 @@ class ServerElectionHandler(MasterHandler):
 
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
-
-    def connectionLost(self, conn, new_state):
-        node = self.app.nm.getByUUID(conn.getUUID())
-        if node is not None:
-            node.setState(new_state)
 
     def requestIdentification(self, conn, node_type,
                                         uuid, address, name):

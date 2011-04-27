@@ -41,7 +41,7 @@ class EventHandler(object):
         neo.lib.logging.error(message)
         conn.answer(Errors.ProtocolError(message))
         conn.abort()
-        self.peerBroken(conn)
+        # self.peerBroken(conn)
 
     def dispatch(self, conn, packet):
         """This is a helper method to handle various packet types."""
@@ -59,23 +59,20 @@ class EventHandler(object):
             neo.lib.logging.error('malformed packet from %r', conn)
             conn.notify(Packets.Notify('Malformed packet: %r' % (packet, )))
             conn.abort()
-            self.peerBroken(conn)
+            # self.peerBroken(conn)
         except BrokenNodeDisallowedError:
             conn.answer(Errors.BrokenNode('go away'))
             conn.abort()
-            self.connectionClosed(conn)
         except NotReadyError, message:
             if not message.args:
                 message = 'Retry Later'
             message = str(message)
             conn.answer(Errors.NotReady(message))
             conn.abort()
-            self.connectionClosed(conn)
         except ProtocolError, message:
             message = str(message)
             conn.answer(Errors.ProtocolError(message))
             conn.abort()
-            self.connectionClosed(conn)
 
     def checkClusterName(self, name):
         # raise an exception if the given name mismatch the current cluster name
@@ -106,20 +103,15 @@ class EventHandler(object):
     def connectionAccepted(self, conn):
         """Called when a connection is accepted."""
 
-    def timeoutExpired(self, conn):
-        """Called when a timeout event occurs."""
-        neo.lib.logging.debug('timeout expired for %r', conn)
-        self.connectionLost(conn, NodeStates.TEMPORARILY_DOWN)
-
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
         neo.lib.logging.debug('connection closed for %r', conn)
         self.connectionLost(conn, NodeStates.TEMPORARILY_DOWN)
 
-    def peerBroken(self, conn):
-        """Called when a peer is broken."""
-        neo.lib.logging.error('%r is broken', conn)
-        self.connectionLost(conn, NodeStates.BROKEN)
+    #def peerBroken(self, conn):
+    #    """Called when a peer is broken."""
+    #    neo.lib.logging.error('%r is broken', conn)
+    #    # NodeStates.BROKEN
 
     def connectionLost(self, conn, new_state):
         """ this is a method to override in sub-handlers when there is no need

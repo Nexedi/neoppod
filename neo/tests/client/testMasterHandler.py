@@ -210,6 +210,15 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
         # connections closed
         self.checkClosed(conn1)
         self.checkClosed(conn2)
+        return conn2
+
+    def test_notifyNodeInformation_checkUnregisterStorage(self):
+        # XXX: This test fails because unregistering is done
+        #      by neo.client.handlers.storage.StorageEventHandler
+        #      which would require a connection to storage
+        #      with a proper handler (defined by Application).
+        #      It can be merged with previous one as soon as it passes.
+        conn2 = self.test_notifyNodeInformation()
         # storage removed from connection pool
         remove_calls = self.app.cp.mockGetNamedCalls('removeConnection')
         self.assertEqual(len(remove_calls), 1)

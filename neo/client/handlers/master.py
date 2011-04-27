@@ -68,10 +68,10 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
                 neo.lib.logging.warning('Unknown primary master UUID: %s. ' \
                                 'Ignoring.' % dump(primary_uuid))
             else:
-                app.primary_master_node = primary_node
                 if app.trying_master_node is not primary_node:
                     app.trying_master_node = None
                     conn.close()
+                app.primary_master_node = primary_node
         else:
             if app.primary_master_node is not None:
                 # The primary master node is not a primary master node
@@ -93,26 +93,13 @@ class PrimaryNotificationsHandler(BaseHandler):
 
     def connectionClosed(self, conn):
         app = self.app
-        neo.lib.logging.critical("connection to primary master node closed")
-        conn.close()
-        app.master_conn = None
-        app.primary_master_node = None
+        if app.master_conn is not None:
+            neo.lib.logging.critical("connection to primary master node closed")
+            app.master_conn = None
+            app.primary_master_node = None
+        else:
+            assert app.primary_master_node is None
         super(PrimaryNotificationsHandler, self).connectionClosed(conn)
-
-    def timeoutExpired(self, conn):
-        app = self.app
-        if app.master_conn is not None:
-            assert conn is app.master_conn
-            neo.lib.logging.critical(
-                        "connection timeout to primary master node expired")
-        BaseHandler.timeoutExpired(self, conn)
-
-    def peerBroken(self, conn):
-        app = self.app
-        if app.master_conn is not None:
-            assert conn is app.master_conn
-            neo.lib.logging.critical("primary master node is broken")
-        BaseHandler.peerBroken(self, conn)
 
     def stopOperation(self, conn):
         neo.lib.logging.critical("master node ask to stop operation")
@@ -139,19 +126,14 @@ class PrimaryNotificationsHandler(BaseHandler):
             self.app.pt.update(ptid, cell_list, self.app.nm)
 
     def notifyNodeInformation(self, conn, node_list):
-        app = self.app
-        self.app.nm.update(node_list)
+        nm = self.app.nm
+        nm.update(node_list)
         for node_type, addr, uuid, state in node_list:
             if state != NodeStates.RUNNING:
                 # close connection to this node if no longer running
-                node = self.app.nm.getByUUID(uuid)
+                node = nm.getByUUID(uuid)
                 if node and node.isConnected():
-                    conn = node.getConnection()
-                    conn.close()
-                    if node_type == NodeTypes.STORAGE:
-                        # Remove from pool connection
-                        app.cp.removeConnection(conn)
-                        self.dispatcher.unregister(conn)
+                    node.getConnection().close()
 
 
 class PrimaryAnswersHandler(AnswerBaseHandler):

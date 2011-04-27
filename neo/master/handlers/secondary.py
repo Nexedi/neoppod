@@ -28,9 +28,6 @@ class SecondaryMasterHandler(MasterHandler):
         node.setDown()
         self.app.broadcastNodesInformation([node])
 
-    def connectionCompleted(self, conn):
-        pass
-
     def announcePrimary(self, conn):
         raise ElectionFailure, 'another primary arises'
 

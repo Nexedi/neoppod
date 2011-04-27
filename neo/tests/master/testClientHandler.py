@@ -162,7 +162,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         (node_list, ) = packet.decode()
         self.assertEqual(len(node_list), 2)
 
-    def __testWithMethod(self, method, state):
+    def test_connectionClosed(self):
         # give a client uuid which have unfinished transactions
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port = self.client_port)
@@ -170,21 +170,10 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         lptid = self.app.pt.getID()
         self.assertEqual(self.app.nm.getByUUID(client_uuid).getState(),
                 NodeStates.RUNNING)
-        method(conn)
+        self.service.connectionClosed(conn)
         # node must be have been remove, and no more transaction must remains
         self.assertEqual(self.app.nm.getByUUID(client_uuid), None)
         self.assertEqual(lptid, self.app.pt.getID())
-
-    def test_15_peerBroken(self):
-        self.__testWithMethod(self.service.peerBroken, NodeStates.BROKEN)
-
-    def test_16_timeoutExpired(self):
-        self.__testWithMethod(self.service.timeoutExpired,
-                NodeStates.TEMPORARILY_DOWN)
-
-    def test_17_connectionClosed(self):
-        self.__testWithMethod(self.service.connectionClosed,
-            NodeStates.TEMPORARILY_DOWN)
 
     def test_askPack(self):
         self.assertEqual(self.app.packing, None)

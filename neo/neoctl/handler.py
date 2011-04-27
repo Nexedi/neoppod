@@ -42,14 +42,6 @@ class CommandEventHandler(EventHandler):
         super(CommandEventHandler, self).connectionFailed(conn)
         self.__disconnected()
 
-    def timeoutExpired(self, conn):
-        super(CommandEventHandler, self).timeoutExpired(conn)
-        self.__disconnected()
-
-    def peerBroken(self, conn):
-        super(CommandEventHandler, self).peerBroken(conn)
-        self.__disconnected()
-
     def ack(self, conn, msg):
         self.__respond((Packets.Error, ErrorCodes.ACK, msg))
 

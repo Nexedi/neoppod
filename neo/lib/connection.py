@@ -184,7 +184,7 @@ class HandlerSwitcher(object):
                 notification = Packets.Notify('Unexpected answer: %r' % packet)
                 connection.notify(notification)
                 connection.abort()
-            handler.peerBroken(connection)
+            # handler.peerBroken(connection)
         # apply a pending handler if no more answers are pending
         while len(self._pending) > 1 and not self._pending[0][0]:
             del self._pending[0]
@@ -290,13 +290,11 @@ class BaseConnection(object):
                 neo.lib.logging.info(
                                 'timeout for #0x%08x with %r', msg_id, self)
                 self.close()
-                self.getHandler().timeoutExpired(self)
             elif self._timeout.hardExpired(t):
                 # critical time reach or pong not received, abort
                 neo.lib.logging.info('timeout with %r', self)
                 self.notify(Packets.Notify('Timeout'))
                 self.abort()
-                self.getHandler().timeoutExpired(self)
             elif self._timeout.softExpired(t):
                 self._timeout.ping(t)
                 self.ping()
@@ -421,6 +419,8 @@ class ListeningConnection(BaseConnection):
 class Connection(BaseConnection):
     """A connection."""
 
+    connecting = False
+
     def __init__(self, event_manager, handler, connector, addr=None):
         BaseConnection.__init__(self, event_manager, handler,
                                 connector=connector, addr=addr)
@@ -459,16 +459,6 @@ class Connection(BaseConnection):
         next_id = self.cur_id
         self.cur_id = (next_id + 1) & 0xffffffff
         return next_id
-
-    def close(self):
-        neo.lib.logging.debug('closing a connector for %r', self)
-        BaseConnection.close(self)
-        if self._on_close is not None:
-            self._on_close()
-            self._on_close = None
-        del self.write_buf[:]
-        self.read_buf.clear()
-        self._handlers.clear()
 
     def abort(self):
         """Abort dealing with this connection."""
@@ -534,18 +524,33 @@ class Connection(BaseConnection):
     def pending(self):
         return self.connector is not None and self.write_buf
 
-    def _closure(self, was_connected=True):
-        assert self.connector is not None, self.whoSetConnector()
+    def close(self):
+        if self.connector is None:
+            assert self._on_close is None
+            assert not self.read_buf
+            assert not self.write_buf
+            assert not self.isPending()
+            return
         # process the network events with the last registered handler to
         # solve issues where a node is lost with pending handlers and
         # create unexpected side effects.
-        # XXX: This solution is being tested and should be approved or reverted
+        neo.lib.logging.debug('closing a connector for %r', self)
         handler = self._handlers.getLastHandler()
-        self.close()
-        if was_connected:
-            handler.connectionClosed(self)
-        else:
+        super(Connection, self).close()
+        if self._on_close is not None:
+            self._on_close()
+            self._on_close = None
+        del self.write_buf[:]
+        self.read_buf.clear()
+        self._handlers.clear()
+        if self.connecting:
             handler.connectionFailed(self)
+        else:
+            handler.connectionClosed(self)
+
+    def _closure(self):
+        assert self.connector is not None, self.whoSetConnector()
+        self.close()
 
     @profiler_decorator
     def _recv(self):
@@ -555,8 +560,8 @@ class Connection(BaseConnection):
         except ConnectorTryAgainException:
             pass
         except ConnectorConnectionRefusedException:
-            # should only occur while connecting
-            self._closure(was_connected=False)
+            assert self.connecting
+            self._closure()
         except ConnectorConnectionClosedException:
             # connection resetted by peer, according to the man, this error
             # should not occurs but it seems it's false
@@ -667,8 +672,9 @@ class Connection(BaseConnection):
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
 
+    connecting = True
+
     def __init__(self, event_manager, handler, addr, connector, **kw):
-        self.connecting = True
         Connection.__init__(self, event_manager, handler, addr=addr,
                             connector=connector)
         handler.connectionStarted(self)
@@ -681,10 +687,10 @@ class ClientConnection(Connection):
                 self.connecting = False
                 self.getHandler().connectionCompleted(self)
         except ConnectorConnectionRefusedException:
-            self._closure(was_connected=False)
+            self._closure()
         except ConnectorException:
             # unhandled connector exception
-            self._closure(was_connected=False)
+            self._closure()
             raise
 
     def writable(self):
@@ -692,7 +698,7 @@ class ClientConnection(Connection):
         if self.connecting:
             err = self.connector.getError()
             if err:
-                self._closure(was_connected=False)
+                self._closure()
                 return
             else:
                 self.connecting = False

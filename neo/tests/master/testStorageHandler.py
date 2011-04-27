@@ -154,7 +154,9 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         max_tid, tid_list = self.checkAnswerUnfinishedTransactions(conn, decode=True)
         self.assertEqual(len(tid_list), 1)
 
-    def _testWithMethod(self, method, state):
+    def test_connectionClosed(self):
+        method = self.service.connectionClosed
+        state = NodeStates.TEMPORARILY_DOWN
         # define two nodes
         node1, conn1 = self.identifyToMasterNode()
         node2, conn2 = self.identifyToMasterNode()
@@ -177,17 +179,6 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         self.assertRaises(OperationFailure, method, conn2)
         self.assertEqual(node2.getState(), state)
         self.assertEqual(lptid, self.app.pt.getID())
-
-    def test_15_peerBroken(self):
-        self._testWithMethod(self.service.peerBroken, NodeStates.BROKEN)
-
-    def test_16_timeoutExpired(self):
-        self._testWithMethod(self.service.timeoutExpired,
-                NodeStates.TEMPORARILY_DOWN)
-
-    def test_17_connectionClosed(self):
-        self._testWithMethod(self.service.connectionClosed,
-                NodeStates.TEMPORARILY_DOWN)
 
     def test_nodeLostAfterAskLockInformation(self):
         # 2 storage nodes, one will die

@@ -72,26 +72,6 @@ class MasterVerificationTests(NeoUnitTestBase):
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.TEMPORARILY_DOWN)
 
-    def test_02_timeoutExpired(self):
-        # test a storage, must raise as cluster no longer op
-        uuid = self.identifyToMasterNode()
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.UNKNOWN)
-        self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.TEMPORARILY_DOWN)
-
-    def test_03_peerBroken(self):
-        # test a storage, must raise as cluster no longer op
-        uuid = self.identifyToMasterNode()
-        conn = self.getFakeConnection(uuid, self.storage_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.UNKNOWN)
-        self.assertRaises(VerificationFailure, self.verification.connectionClosed,conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.TEMPORARILY_DOWN)
-
     def _test_09_answerLastIDs(self):
         # XXX: test disabled, should be an unexpected packet
         verification = self.verification

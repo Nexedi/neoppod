@@ -122,13 +122,7 @@ class MasterEventHandler(EventHandler):
     def connectionFailed(self, conn):
         self._connectionLost(conn)
 
-    def timeoutExpired(self, conn):
-        self._connectionLost(conn)
-
     def connectionClosed(self, conn):
-        self._connectionLost(conn)
-
-    def peerBroken(self, conn):
         self._connectionLost(conn)
 
     def dispatch(self, conn, packet):

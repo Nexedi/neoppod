@@ -81,7 +81,8 @@ class BaseServiceHandler(MasterHandler):
 
     def connectionLost(self, conn, new_state):
         node = self.app.nm.getByUUID(conn.getUUID())
-        assert node is not None
+        if node is None:
+            return # for example, when a storage is removed by an admin
         if new_state != NodeStates.BROKEN:
             new_state = DISCONNECTED_STATE_DICT.get(node.getType(),
                     NodeStates.DOWN)

@@ -68,26 +68,6 @@ class MasterRecoveryTests(NeoUnitTestBase):
         self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
                 NodeStates.TEMPORARILY_DOWN)
 
-    def test_02_timeoutExpired(self):
-        uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)
-        self.recovery.timeoutExpired(conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.TEMPORARILY_DOWN)
-
-
-    def test_03_peerBroken(self):
-        uuid = self.identifyToMasterNode(node_type=NodeTypes.MASTER, port=self.master_port)
-        conn = self.getFakeConnection(uuid, self.master_address)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.RUNNING)
-        self.recovery.peerBroken(conn)
-        self.assertEqual(self.app.nm.getByAddress(conn.getAddress()).getState(),
-                NodeStates.BROKEN)
-
-
     def test_09_answerLastIDs(self):
         recovery = self.recovery
         uuid = self.identifyToMasterNode()

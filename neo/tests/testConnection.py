@@ -599,7 +599,7 @@ class ConnectionTests(NeoUnitTestBase):
         # test send was called
         self._checkSend(1, "testdata")
         self._checkWriteBuf(bc, '')
-        self._checkConnectionClosed(0)
+        self._checkConnectionClosed(1)
         self._checkUnregistered(1)
         # nothing else pending, and aborted is false, so writer has been removed
         self.assertFalse(bc.pending())

@@ -57,22 +57,10 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         address = ("127.0.0.1", self.master_port)
         return self.getFakeConnection(uuid=self.master_uuid, address=address)
 
-    def test_06_timeoutExpired(self):
-        # client connection
-        conn = self.getMasterConnection()
-        self.assertRaises(PrimaryFailure, self.operation.timeoutExpired, conn)
-        self.checkNoPacketSent(conn)
-
     def test_07_connectionClosed2(self):
         # primary has closed the connection
         conn = self.getMasterConnection()
         self.assertRaises(PrimaryFailure, self.operation.connectionClosed, conn)
-        self.checkNoPacketSent(conn)
-
-    def test_08_peerBroken(self):
-        # client connection
-        conn = self.getMasterConnection()
-        self.assertRaises(PrimaryFailure, self.operation.peerBroken, conn)
         self.checkNoPacketSent(conn)
 
     def test_14_notifyPartitionChanges1(self):

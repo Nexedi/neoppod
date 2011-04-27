@@ -334,9 +334,7 @@ class Application(object):
                     if node.isStorage() or node.isClient():
                         node.notify(Packets.StopOperation())
                         if node.isClient():
-                            conn = node.getConnection()
-                            conn.abort()
-                            conn.getHandler().connectionClosed(conn)
+                            node.getConnection().abort()
 
                 # Then, go back, and restart.
                 return
@@ -351,18 +349,20 @@ class Application(object):
         self.listening_conn.setHandler(
                 identification.IdentificationHandler(self))
 
-        handler = secondary.SecondaryMasterHandler(self)
         em = self.em
         nm = self.nm
 
-        # Make sure that every connection has the secondary event handler.
+        # Close all remaining connections to other masters,
+        # for the same reason as in playSecondaryRole.
         for conn in em.getConnectionList():
             conn_uuid = conn.getUUID()
             if conn_uuid is not None:
                 node = nm.getByUUID(conn_uuid)
                 assert node is not None
-                assert node.isMaster()
-                conn.setHandler(handler)
+                assert node.isMaster() and not conn.isClient()
+                assert node._connection is None and node.isUnknown()
+                # this may trigger 'unexpected answer' warnings on remote side
+                conn.close()
 
         # If I know any storage node, make sure that they are not in the
         # running state, because they are not connected at this stage.
@@ -392,24 +392,16 @@ class Application(object):
                 # election timeout
                 raise ElectionFailure("Election timeout")
 
-        # Now I need only a connection to the primary master node.
+        # Restart completely. Non-optimized
+        # but lower level code needs to be stabilized first.
         addr = self.primary_master_node.getAddress()
-        for conn in self.em.getServerList():
+        for conn in self.em.getConnectionList():
             conn.close()
-        connected_to_master = False
 
+        # Reconnect to primary master node.
         primary_handler = secondary.PrimaryHandler(self)
-
-        for conn in self.em.getClientList():
-            if conn.getAddress() == addr:
-                connected_to_master = True
-                conn.setHandler(primary_handler)
-            else:
-                conn.close()
-
-        if not connected_to_master:
-            ClientConnection(self.em, primary_handler, addr=addr,
-                connector=self.connector_handler())
+        ClientConnection(self.em, primary_handler, addr=addr,
+            connector=self.connector_handler())
 
         # and another for the future incoming connections
         handler = identification.IdentificationHandler(self)
@@ -442,18 +434,20 @@ class Application(object):
         # change handlers
         notification_packet = Packets.NotifyClusterInformation(state)
         for node in self.nm.getIdentifiedList():
-            if not node.isMaster():
-                node.notify(notification_packet)
-            if node.isAdmin() or node.isMaster():
-                # those node types keep their own handler
+            if node.isMaster():
                 continue
             conn = node.getConnection()
+            if node.isClient() and conn.isAborted():
+                continue
+            node.notify(notification_packet)
             if node.isClient():
                 if state != ClusterStates.RUNNING:
                     conn.close()
                 handler = client_handler
             elif node.isStorage():
                 handler = storage_handler
+            else:
+                continue # keep handler
             conn.setHandler(handler)
             handler.connectionCompleted(conn)
         self.cluster_state = state

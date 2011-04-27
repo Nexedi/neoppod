@@ -51,21 +51,9 @@ class StorageInitializationHandlerTests(NeoUnitTestBase):
         address = ("127.0.0.1", self.client_port)
         return self.getFakeConnection(uuid=self.getNewUUID(), address=address)
 
-    def test_02_timeoutExpired(self):
-        conn = self.getClientConnection()
-        self.assertRaises(PrimaryFailure, self.verification.timeoutExpired, conn,)
-        # nothing happens
-        self.checkNoPacketSent(conn)
-
     def test_03_connectionClosed(self):
         conn = self.getClientConnection()
         self.assertRaises(PrimaryFailure, self.verification.connectionClosed, conn,)
-        # nothing happens
-        self.checkNoPacketSent(conn)
-
-    def test_04_peerBroken(self):
-        conn = self.getClientConnection()
-        self.assertRaises(PrimaryFailure, self.verification.peerBroken, conn,)
         # nothing happens
         self.checkNoPacketSent(conn)
 

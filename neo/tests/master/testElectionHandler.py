@@ -100,12 +100,11 @@ class MasterClientElectionTests(NeoUnitTestBase):
         self._checkUnconnected(node)
         self.election.connectionCompleted(conn)
         self._checkUnconnected(node)
-        self.assertTrue(node.isRunning())
+        self.assertTrue(node.isUnknown())
         self.checkAskPrimary(conn)
 
     def _setNegociating(self, node):
         self._checkUnconnected(node)
-        node.setRunning()
         addr = node.getAddress()
         self.app.negotiating_master_node_set.add(addr)
         self.app.unconnected_master_node_set.discard(addr)
@@ -115,16 +114,7 @@ class MasterClientElectionTests(NeoUnitTestBase):
         node, conn = self.identifyToMasterNode()
         self._setNegociating(node)
         self.election.connectionClosed(conn)
-        self.assertTrue(node.isTemporarilyDown())
-        addr = node.getAddress()
-        self.assertFalse(addr in self.app.unconnected_master_node_set)
-        self.assertFalse(addr in self.app.negotiating_master_node_set)
-
-    def test_timeoutExpired(self):
-        node, conn = self.identifyToMasterNode()
-        self._setNegociating(node)
-        self.election.timeoutExpired(conn)
-        self.assertTrue(node.isTemporarilyDown())
+        self.assertTrue(node.isUnknown())
         addr = node.getAddress()
         self.assertFalse(addr in self.app.unconnected_master_node_set)
         self.assertFalse(addr in self.app.negotiating_master_node_set)

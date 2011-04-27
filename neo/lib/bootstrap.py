@@ -77,8 +77,6 @@ class BootstrapManager(EventHandler):
         handle the client node.
         Close connection and restart.
         """
-        # master are still electing on of them
-        self.current = None
         conn.close()
 
     def answerPrimary(self, conn, primary_uuid, known_master_list):
@@ -102,7 +100,6 @@ class BootstrapManager(EventHandler):
             # - something goes wrong (unknown UUID)
             # - this master doesn't know who's the primary
             # - got the primary's uuid, so cut here
-            self.current = None
             conn.close()
             return
 
