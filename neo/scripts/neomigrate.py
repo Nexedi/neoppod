@@ -47,7 +47,7 @@ def main(args=None):
         raise RuntimeError('The NEO cluster name must be supplied')
 
     # set up logging
-    setupLog('neomigrate', None, options.verbose or False)
+    setupLog('NEOMIGRATE', None, options.verbose or False)
 
     # open storages
     from ZODB.FileStorage import FileStorage

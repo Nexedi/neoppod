@@ -33,6 +33,7 @@ import psutil
 
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
+from neo.lib import setupLog
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
 from neo.lib.util import dump, SOCKET_CONNECTORS_DICT
 from neo.tests import DB_ADMIN, DB_PASSWD, NeoTestBase, buildUrlFromString, \
@@ -634,6 +635,10 @@ class NEOCluster(object):
 
 
 class NEOFunctionalTest(NeoTestBase):
+
+    def setupLog(self):
+        log_file = os.path.join(self.getTempDirectory(), 'test.log')
+        setupLog('TEST', log_file, True)
 
     def getTempDirectory(self):
         # build the full path based on test case and current test method

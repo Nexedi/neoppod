@@ -26,7 +26,7 @@ import MySQLdb
 import neo
 
 from mock import Mock
-from neo.lib import debug, logger, protocol
+from neo.lib import debug, logger, protocol, setupLog
 from neo.lib.protocol import Packets
 from neo.lib.util import getAddressType
 from time import time, gmtime
@@ -92,7 +92,13 @@ class NeoTestBase(unittest.TestCase):
         logger.PACKET_LOGGER.enable(True)
         sys.stdout.write(' * %s ' % (self.id(), ))
         sys.stdout.flush()
+        self.setupLog()
         unittest.TestCase.setUp(self)
+
+    def setupLog(self):
+        test_case, test_method = self.id().rsplit('.', 1)
+        log_file = os.path.join(getTempDirectory(), test_case + '.log')
+        setupLog(test_method, log_file, True)
 
     def tearDown(self):
         unittest.TestCase.tearDown(self)

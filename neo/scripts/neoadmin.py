@@ -58,7 +58,7 @@ def main(args=None):
     )
 
     # setup custom logging
-    setupLog(config.getName(), options.logfile or None, options.verbose)
+    setupLog(config.getName().upper(), options.logfile or None, options.verbose)
 
     # and then, load and run the application
     from neo.admin.app import Application

@@ -38,7 +38,7 @@ def setupLog(name='NEO', filename=None, verbose=False):
         level = logging_std.DEBUG
     else:
         level = logging_std.INFO
-    logging = logging_std.getLogger(name.upper())
+    logging = logging_std.getLogger(name)
     for handler in logging.handlers[:]:
         logging.removeHandler(handler)
     if filename is None:

@@ -94,13 +94,6 @@ ZODB_TEST_MODULES = [
     ('neo.tests.zodb.testZODB', 'check'),
 ]
 
-# configuration 
-ATTACH_LOG = False # for ZODB test, only the client side is logged
-LOG_FILE = 'neo.log' 
-
-# override logging configuration to send all messages to a file
-for logger_name in ('NEO', 'CLIENT'):
-    neo.lib.setupLog(logger_name, filename=LOG_FILE)
 
 class NeoTestRunner(unittest.TestResult):
     """ Custom result class to build report with statistics per module """
