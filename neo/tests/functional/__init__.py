@@ -168,9 +168,12 @@ class NEOProcess(object):
                 sys.exit()
             except:
                 raise ChildException(*sys.exc_info())
+        neo.lib.logging.info('pid %u: %s %s',
+                             self.pid, command, ' '.join(map(repr, args)))
 
     def kill(self, sig=signal.SIGTERM):
         if self.pid:
+            neo.lib.logging.info('kill pid %u', self.pid)
             try:
                 pdb.kill(self.pid, sig)
             except OSError:
