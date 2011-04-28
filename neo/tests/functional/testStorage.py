@@ -474,7 +474,7 @@ class StorageTests(NEOFunctionalTest):
         self.neo.expectStorageNotKnown(started[0])
         self.neo.expectPending(stopped[0])
 
-    def testRestartWithMissingStorage(self):
+    def testRestartWithMissingStorage(self, fast_startup=False):
         # start a cluster with a replica
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
                 pending_number=0, partitions=10)
@@ -486,10 +486,14 @@ class StorageTests(NEOFunctionalTest):
         self.neo.stop()
 
         # restart it with one storage only
-        self.neo.start(except_storages=(started[1], ))
+        self.neo.start(except_storages=started[1:],
+                       delay_startup=not fast_startup and 1 or None)
         self.neo.expectRunning(started[0])
         self.neo.expectUnknown(started[1])
         self.neo.expectClusterRunning()
+
+    def testRestartWithMissingStorageFastStartup(self):
+        self.testRestartWithMissingStorage(True)
 
     def testRecoveryWithMultiplePT(self):
         # start a cluster with 2 storages and a replica
