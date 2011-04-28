@@ -42,8 +42,6 @@ class ZODBTestCase(NEOFunctionalTest):
     def tearDown(self):
         self._storage.cleanup()
         self.neo.stop()
-        # Deconfigure client logger
-        neo.lib.setupLog('CLIENT')
         NEOFunctionalTest.tearDown(self)
 
     assertEquals = failUnlessEqual = NEOFunctionalTest.assertEqual

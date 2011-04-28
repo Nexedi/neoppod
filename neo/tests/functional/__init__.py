@@ -165,12 +165,9 @@ class NEOProcess(object):
             try:
                 sys.argv = [command] + args
                 getattr(neo.scripts,  command).main()
+                sys.exit()
             except:
                 raise ChildException(*sys.exc_info())
-
-    def _exit(self, status=0):
-        sys.stdout = sys.stderr = open('/dev/null', 'w')
-        raise KeyboardInterrupt
 
     def kill(self, sig=signal.SIGTERM):
         if self.pid:
