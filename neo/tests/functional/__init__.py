@@ -363,7 +363,7 @@ class NEOCluster(object):
             except NotReadyException:
                 return False
             return True
-        if not pdb.wait(test, MAX_START_TIME, 0.5):
+        if not pdb.wait(test, MAX_START_TIME):
             raise AssertionError('Timeout when starting cluster')
         self.port_allocator.reset()
 
@@ -381,7 +381,7 @@ class NEOCluster(object):
             # more nodes when the cluster restart with an existing partition
             # table referencing non-running nodes
             return len(storage_node_list) >= target_count
-        if not pdb.wait(test, MAX_START_TIME, 0.5):
+        if not pdb.wait(test, MAX_START_TIME):
             raise AssertionError('Timeout when starting cluster')
         if storage_node_list:
             self.expectClusterRunning()
@@ -513,7 +513,7 @@ class NEOCluster(object):
             current_try = None
         return current_try
 
-    def expectCondition(self, condition, timeout=0, delay=.5, on_fail=None):
+    def expectCondition(self, condition, timeout=0, on_fail=None):
         end = time.time() + timeout + DELAY_SAFETY_MARGIN
         opaque_history = [None]
         def test():
@@ -521,7 +521,7 @@ class NEOCluster(object):
             if not reached:
                 opaque_history.append(opaque)
             return reached
-        if not pdb.wait(test, timeout + DELAY_SAFETY_MARGIN, delay):
+        if not pdb.wait(test, timeout + DELAY_SAFETY_MARGIN):
             del opaque_history[0]
             if on_fail is not None:
                 on_fail(opaque_history)

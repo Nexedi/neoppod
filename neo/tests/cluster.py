@@ -270,18 +270,25 @@ class ClusterPdb(object):
                     result = last_pdb
         return result
 
-    def wait(self, test, timeout, period):
+    def wait(self, test, timeout):
         end_time = time() + timeout
+        period = 0.1
         while not test():
             cluster_dict.acquire()
             try:
                 last_pdb = self._getLastPdb()
-                if last_pdb is not None and \
-                   time() > max(last_pdb + timeout, end_time):
-                    return False
+                if last_pdb is None:
+                    next_sleep = 1
+                else:
+                    next_sleep = max(last_pdb + timeout, end_time) - time()
+                    if next_sleep > period:
+                        next_sleep = period
+                        period *= 1.5
+                    elif next_sleep < 0:
+                        return False
             finally:
                 cluster_dict.release()
-            sleep(period)
+            sleep(next_sleep)
         return True
 
 __builtin__.pdb = ClusterPdb()
