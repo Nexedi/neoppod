@@ -162,7 +162,7 @@ class HandlerSwitcher(object):
     @profiler_decorator
     def _handle(self, connection, packet):
         assert len(self._pending) == 1 or self._pending[0][0]
-        PACKET_LOGGER.dispatch(connection, packet, 'from')
+        PACKET_LOGGER.dispatch(connection, packet, False)
         if connection.isClosed() and packet.ignoreOnClosedConnection():
             neo.lib.logging.debug('Ignoring packet %r on closed connection %r',
                 packet, connection)
@@ -497,13 +497,13 @@ class Connection(BaseConnection):
             packet_type = packet.getType()
             if packet_type == Packets.Ping:
                 # Send a pong notification
-                PACKET_LOGGER.dispatch(self, packet, 'from')
+                PACKET_LOGGER.dispatch(self, packet, False)
                 if not self.aborted:
                     self.answer(Packets.Pong(), packet.getId())
             elif packet_type == Packets.Pong:
                 # Skip PONG packets, its only purpose is refresh the timeout
                 # generated upong ping. But still log them.
-                PACKET_LOGGER.dispatch(self, packet, 'from')
+                PACKET_LOGGER.dispatch(self, packet, False)
             else:
                 self._queue.append(packet)
 
@@ -627,7 +627,7 @@ class Connection(BaseConnection):
         if was_empty:
             # enable polling for writing.
             self.em.addWriter(self)
-        PACKET_LOGGER.dispatch(self, packet, ' to ')
+        PACKET_LOGGER.dispatch(self, packet, True)
 
     @not_closed
     def notify(self, packet):
