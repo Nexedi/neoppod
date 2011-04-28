@@ -103,6 +103,33 @@ class PortAllocator(object):
 
     __del__ = reset
 
+
+class ChildException(KeyboardInterrupt):
+    """Wrap any exception into an exception that is not catched by TestCase.run
+
+    The exception is not wrapped and re-raised immediately if there is no need
+    to wrap.
+    """
+
+    def __init__(self, type, value, tb):
+        code = unittest.TestCase.run.im_func.func_code
+        f = tb.tb_frame
+        while f is not None:
+            if f.f_code is code:
+                break
+            f = f.f_back
+        else:
+            raise type, value, tb
+        super(ChildException, self).__init__(type, value, tb)
+
+    def __call__(self):
+        """Re-raise wrapped exception"""
+        type, value, tb = self.args
+        if type is KeyboardInterrupt:
+          sys.exit(1)
+        raise type, value, tb
+
+
 class NEOProcess(object):
     pid = 0
 
@@ -137,14 +164,8 @@ class NEOProcess(object):
             try:
                 sys.argv = [command] + args
                 getattr(neo.scripts,  command).main()
-            except (SystemExit, KeyboardInterrupt):
-                self._exit()
             except:
-                print traceback.format_exc()
-            # If we reach this line, exec call failed (is it possible to reach
-            # it without going through above "except" branch ?).
-            print 'Error executing %r.' % (command + ' ' + ' '.join(args), )
-            self._exit(-1)
+                raise ChildException(*sys.exc_info())
 
     def _exit(self, status=0):
         sys.stdout = sys.stderr = open('/dev/null', 'w')
@@ -621,6 +642,12 @@ class NEOFunctionalTest(NeoTestBase):
         if not os.path.exists(temp_dir):
             os.makedirs(temp_dir)
         return temp_dir
+
+    def run(self, *args, **kw):
+        try:
+            return super(NEOFunctionalTest, self).run(*args, **kw)
+        except ChildException, e:
+            e()
 
     def runWithTimeout(self, timeout, method, args=(), kwargs=None):
         if kwargs is None:
