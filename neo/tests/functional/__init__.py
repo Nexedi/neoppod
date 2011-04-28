@@ -120,7 +120,7 @@ class ChildException(KeyboardInterrupt):
             f = f.f_back
         else:
             raise type, value, tb
-        super(ChildException, self).__init__(type, value, tb)
+        KeyboardInterrupt.__init__(self, type, value, tb)
 
     def __call__(self):
         """Re-raise wrapped exception"""
