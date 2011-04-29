@@ -159,7 +159,7 @@ class ConnectionTests(NeoUnitTestBase):
     def test_02_ListeningConnection1(self):
         # test init part
         def getNewConnection(self):
-            return self, "127.0.0.1"
+            return self, ('', 0)
         DoNothingConnector.getNewConnection = getNewConnection
         addr = ("127.0.0.7", 93413)
         bc = self._makeListeningConnection(addr=addr)
@@ -368,7 +368,7 @@ class ConnectionTests(NeoUnitTestBase):
 
     def test_07_Connection_addPacket(self):
         # new packet
-        p = Mock({"encode" : "testdata"})
+        p = Mock({"encode" : "testdata", "getId": 0})
         p.handler_method_name = 'testmethod'
         bc = self._makeConnection()
         self._checkWriteBuf(bc, '')
