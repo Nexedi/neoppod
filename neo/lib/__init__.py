@@ -40,7 +40,11 @@ def setupLog(name='NEO', filename=None, verbose=False):
         level = logging_std.INFO
     if logging is not None:
         for handler in logging.handlers:
-            handler.close()
+            handler.acquire()
+            try:
+                handler.close()
+            finally:
+                handler.release()
         del logging.manager.loggerDict[logging.name]
     logging = logging_std.getLogger(name)
     for handler in logging.handlers[:]:
