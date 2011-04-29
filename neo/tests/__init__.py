@@ -57,6 +57,7 @@ def mockDefaultValue(name, function):
     method.__name__ = name
     setattr(Mock, name, method)
 
+mockDefaultValue('__nonzero__', lambda self: self.__len__() != 0)
 mockDefaultValue('__repr__', lambda self:
     '<%s object at 0x%x>' % (self.__class__.__name__, id(self)))
 mockDefaultValue('__str__', repr)
