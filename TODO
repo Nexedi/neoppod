@@ -202,6 +202,11 @@ RC  - Review output of pylint (CODE)
     - Make admin node able to monitor multiple clusters simultaneously
     - Send notifications (ie: mail) when a storage node is lost
 
+    Tests
+    - Use another mock library that is eggified and maintained.
+      See http://garybernhardt.github.com/python-mock-comparison/
+      for a comparison of available mocking libraries/frameworks.
+
   Later
     - Consider auto-generating cluster name upon initial startup (it might
       actualy be a partition property).
