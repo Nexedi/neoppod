@@ -22,7 +22,7 @@ from zlib import adler32
 from Queue import deque
 from struct import pack, unpack
 
-SOCKET_CONNECTORS_DICT = { 
+SOCKET_CONNECTORS_DICT = {
     socket.AF_INET : 'SocketConnectorIPv4',
     socket.AF_INET6: 'SocketConnectorIPv6',
 }
@@ -77,10 +77,10 @@ def resolve(hostname):
         return None
     return address_list[0]
 
-def getAddressType(address): 
+def getAddressType(address):
     "Return the type (IPv4 or IPv6) of an ip"
     (host, port) = address
-    
+
     for af_type in SOCKET_CONNECTORS_DICT.keys():
         try :
             socket.inet_pton(af_type, host)
@@ -88,14 +88,14 @@ def getAddressType(address):
             continue
         else:
             break
-    else:      
-        raise ValueError("Unknown type of host", host)        
+    else:
+        raise ValueError("Unknown type of host", host)
     return af_type
 
 def getConnectorFromAddress(address):
-    address_type = getAddressType(address)  
+    address_type = getAddressType(address)
     return SOCKET_CONNECTORS_DICT[address_type]
-     
+
 def parseNodeAddress(address, port_opt=None):
     if ']' in address:
        (ip, port) = address.split(']')
@@ -109,11 +109,11 @@ def parseNodeAddress(address, port_opt=None):
     else:
         ip = address
         port = port_opt
-           
+
     if port is None:
         raise ValueError
     return (ip, int(port))
-           
+
 def parseMasterList(masters, except_node=None):
     assert masters, 'At least one master must be defined'
     socket_connector = ''
@@ -131,11 +131,11 @@ def parseMasterList(masters, except_node=None):
         if socket_connector == '':
             socket_connector = socket_connector_temp
         elif socket_connector == socket_connector_temp:
-           pass 
+           pass
         else:
             return TypeError, (" Wrong connector type : you're trying to use ipv6 and ipv4 simultaneously")
 
-    return tuple(master_node_list), socket_connector         
+    return tuple(master_node_list), socket_connector
 
 class Enum(dict):
     """

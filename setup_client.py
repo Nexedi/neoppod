@@ -19,14 +19,14 @@ setup(name='neoclient',
      'neo.scripts.neomigrate',
       ],
 
-    packages=['neo.client','neo.client.handlers'],    
-    
+    packages=['neo.client','neo.client.handlers'],
+
     package_dir={
       'neo':'neo',
     },
 
-    namespace_packages=['neo','neo.client'],    
-    
+    namespace_packages=['neo','neo.client'],
+
     install_requires=[
       'neo',
       'ZODB3',

@@ -40,7 +40,7 @@ class NeoCTL(object):
 
     def __getConnection(self):
         if not self.connected:
-            self.connection = ClientConnection(self.em, self.handler, 
+            self.connection = ClientConnection(self.em, self.handler,
                     addr=self.server, connector=self.connector_handler())
             while self.connection is not None:
                 if self.connected:
@@ -140,7 +140,7 @@ class NeoCTL(object):
         """
           Set node into "down" state and remove it from partition table.
         """
-        return self.setNodeState(node, NodeStates.DOWN, 
+        return self.setNodeState(node, NodeStates.DOWN,
                 update_partition_table=1)
 
     def getPrimary(self):

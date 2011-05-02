@@ -272,7 +272,7 @@ class TransactionManager(object):
     def _nextTID(self, ttid, divisor):
         """
         Compute the next TID based on the current time and check collisions.
-        Also, adjust it so that 
+        Also, adjust it so that
             tid % divisor == ttid % divisor
         while preserving
             min_tid < tid

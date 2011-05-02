@@ -805,7 +805,7 @@ class MySQLDatabaseManager(DatabaseManager):
             self.rollback()
             raise
         self.commit()
-  
+
     def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
         # XXX: XOR is a lame checksum
         count, tid_checksum, max_tid = self.query('SELECT COUNT(*), '

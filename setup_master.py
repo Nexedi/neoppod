@@ -25,8 +25,8 @@ setup(name='neomaster',
       'neo':'neo',
     },
 
-    namespace_packages=['neo','neo.scripts'],    
-    
+    namespace_packages=['neo','neo.scripts'],
+
     install_requires=[
       'neo',
     ],
@@ -35,7 +35,7 @@ setup(name='neomaster',
         'console_scripts': [
           'neomaster=neo.scripts.neomaster:main',
         ],
-    }, 
+    },
     zip_safe=False,
 )
 

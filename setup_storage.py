@@ -21,13 +21,13 @@ setup(name='neostorage',
       ],
 
     packages=['neo.storage','neo.storage.database','neo.storage.handlers'],
-    
+
     package_dir={
       'neo':'neo',
     },
 
-    namespace_packages=['neo','neo.scripts'],    
-    
+    namespace_packages=['neo','neo.scripts'],
+
     install_requires=[
       'neo',
       'MySQL-python',
@@ -37,7 +37,7 @@ setup(name='neostorage',
         'console_scripts': [
           'neostorage=neo.scripts.neostorage:main',
         ],
-    }, 
+    },
     zip_safe=False,
 )
 

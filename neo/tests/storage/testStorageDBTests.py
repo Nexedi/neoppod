@@ -454,7 +454,7 @@ class StorageDBTests(NeoUnitTestBase):
         txn4, objs4 = self.getTransaction([oid2])
         txn5, objs5 = self.getTransaction([oid3])
         self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.storeTransaction(tid2, objs2, txn2)    
+        self.db.storeTransaction(tid2, objs2, txn2)
         self.db.storeTransaction(tid3, objs3, txn3)
         self.db.storeTransaction(tid4, objs4, txn4)
         self.db.storeTransaction(tid5, objs5, txn5)
@@ -524,7 +524,7 @@ class StorageDBTests(NeoUnitTestBase):
         result = self.db.getTIDList(0, 1, 2, [0])
         self.checkSet(result, [tid3]) # desc order
         result = self.db.getTIDList(1, 1, 2, [1])
-        self.checkSet(result, [tid2]) 
+        self.checkSet(result, [tid2])
         result = self.db.getTIDList(2, 2, 2, [0])
         self.checkSet(result, [])
 

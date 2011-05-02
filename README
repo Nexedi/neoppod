@@ -32,7 +32,7 @@ Overview
        primary master, and monitors cluster state.
 
     - "client" nodes
-       Well... Something needing to store/load data in a NEO cluster. 
+       Well... Something needing to store/load data in a NEO cluster.
 
 Disclaimer
 

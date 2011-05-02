@@ -3,7 +3,7 @@ PYTHON=python2.6
 INSTALL_DIR=eggs/
 
 cd dirname $0/..
-case "$1" in 
+case "$1" in
   "develop")
   MODE=develop
   PYTHONPATH=$PYTHONPATH:$INSTALL_DIR;;
@@ -17,4 +17,4 @@ $PYTHON setup_ctl.py $MODE --dist-dir=$INSTALL_DIR
 $PYTHON setup_tests.py $MODE --dist-dir=$INSTALL_DIR
 $PYTHON setup_storage.py $MODE --dist-dir=$INSTALL_DIR
 $PYTHON setup_master.py $MODE --dist-dir=$INSTALL_DIR
- 
+

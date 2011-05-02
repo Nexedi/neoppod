@@ -20,7 +20,7 @@ import unittest
 import socket
 from neo.tests import NeoUnitTestBase, IP_VERSION_FORMAT_DICT
 from neo.lib.util import ReadBuffer, getAddressType, parseNodeAddress, \
-    getConnectorFromAddress, SOCKET_CONNECTORS_DICT  
+    getConnectorFromAddress, SOCKET_CONNECTORS_DICT
 
 class UtilTests(NeoUnitTestBase):
 
@@ -34,7 +34,7 @@ class UtilTests(NeoUnitTestBase):
         self.assertEqual(connector, SOCKET_CONNECTORS_DICT[socket.AF_INET6])
         self.assertRaises(ValueError, getConnectorFromAddress, ('', 0))
         self.assertRaises(ValueError, getConnectorFromAddress, ('test', 0))
-        
+
     def test_getAddressType(self):
         """ Get the type on an IP Address """
         self.assertRaises(ValueError, getAddressType, ('', 0))
@@ -61,7 +61,7 @@ class UtilTests(NeoUnitTestBase):
         ip_address = parseNodeAddress('[::1]', 500)
         self.assertEqual(('::1', 500), ip_address)
         self.assertRaises(ValueError, parseNodeAddress, ('[::1]'))
-        
+
     def testReadBufferRead(self):
         """ Append some chunk then consume the data """
         buf = ReadBuffer()

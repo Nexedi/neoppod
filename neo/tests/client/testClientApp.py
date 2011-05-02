@@ -307,7 +307,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.pt = Mock({ 'getCellListForOID': (cell, cell)})
         app.cp = self.getConnectionPool([(node, conn)])
         class Dispatcher(object):
-            def pending(self, queue): 
+            def pending(self, queue):
                 return not queue.empty()
         app.dispatcher = Dispatcher()
         app.nm.createStorage(address=storage_address)
@@ -338,7 +338,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.cp = self.getConnectionPool([(node, conn)])
         app.pt = Mock({ 'getCellListForOID': (cell, cell, ) })
         class Dispatcher(object):
-            def pending(self, queue): 
+            def pending(self, queue):
                 return not queue.empty()
         app.dispatcher = Dispatcher()
         app.nm.createStorage(address=storage_address)
@@ -567,7 +567,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             'getConnForCell': conn,
         })
         class Dispatcher(object):
-            def pending(self, queue): 
+            def pending(self, queue):
                 return not queue.empty()
         app.dispatcher = Dispatcher()
         def load(oid, tid, before_tid):

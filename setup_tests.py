@@ -25,8 +25,8 @@ setup(name='neotests',
       'neo':'neo',
     },
 
-    namespace_packages=['neo','neo.scripts'],    
-    
+    namespace_packages=['neo','neo.scripts'],
+
     install_requires=[
       'neo',
       'neoadmin',
@@ -35,13 +35,13 @@ setup(name='neotests',
       'neomaster',
       'neoctl',
       'mock'
-    ], 
+    ],
 
     entry_points = {
         'console_scripts': [
                 'neotestrunner=neo.scripts.runner:main',
         ],
-    }, 
+    },
     zip_safe=False,
 )
 

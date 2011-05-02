@@ -90,8 +90,8 @@ class ProtocolTests(NeoUnitTestBase):
         self.assertEqual(p_uuid, uuid)
         self.assertEqual(ip, self.local_ip)
         self.assertEqual(port, 9080)
-        self.assertEqual(name, "unittest")   
-        
+        self.assertEqual(name, "unittest")
+
     def test_12_AcceptIdentification(self):
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
         p = Packets.AcceptIdentification(NodeTypes.CLIENT, uuid1,
@@ -134,7 +134,7 @@ class ProtocolTests(NeoUnitTestBase):
         primary_uuid, p_master_list  = p.decode()
         self.assertEqual(primary_uuid, uuid)
         self.assertEqual(master_list, p_master_list)
-        
+
     def test_15_announcePrimary(self):
         p = Packets.AnnouncePrimary()
         self.assertEqual(p.decode(), ())
@@ -594,7 +594,7 @@ class ProtocolTests(NeoUnitTestBase):
                 self.getNewUUID(), NodeStates.RUNNING)
         p = Packets.AnswerNodeList((node1, node2))
         self.assertEqual(p.decode(), ([node1, node2], ))
-        
+
     def test_AskPartitionList(self):
         min_offset = 10
         max_offset = 20

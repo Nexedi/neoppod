@@ -55,7 +55,7 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
         """ Non-master node """
         conn = self.getConnection()
         uuid = self.getNewUUID()
-        self.handler.acceptIdentification(conn, NodeTypes.CLIENT, 
+        self.handler.acceptIdentification(conn, NodeTypes.CLIENT,
             uuid, 100, 0, None)
         self.checkClosed(conn)
 
@@ -75,7 +75,7 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
         partitions = 100
         replicas = 2
         self.app.nm = Mock({'getByAddress': node})
-        self.handler.acceptIdentification(conn, NodeTypes.MASTER, uuid, 
+        self.handler.acceptIdentification(conn, NodeTypes.MASTER, uuid,
             partitions, replicas, your_uuid)
         self.assertEqual(self.app.uuid, your_uuid)
         self.checkUUIDSet(conn, uuid)
@@ -189,13 +189,13 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
         conn1 = self.getFakeConnection()
         conn2 = self.getFakeConnection()
         node1 = Mock({
-            'getConnection': conn1, 
+            'getConnection': conn1,
             '__nonzero__': 1,
             'isConnected': True,
             '__repr__': 'Fake Node',
         })
         node2 = Mock({
-            'getConnection': conn2, 
+            'getConnection': conn2,
             '__nonzero__': 1,
             'isConnected': True,
             '__repr__': 'Fake Node',
@@ -258,7 +258,7 @@ class MasterAnswersHandlerTests(MasterHandlerTests):
         calls = self.app.mockGetNamedCalls('setHandlerData')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(tid2)
-        
+
     def test_answerPack(self):
         self.assertRaises(NEOStorageError, self.handler.answerPack, None, False)
         # Check it doesn't raise

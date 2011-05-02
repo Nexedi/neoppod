@@ -226,7 +226,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         conn = self.getConnection()
         self.assertRaises(NEOStorageDoesNotExistError,
             self.handler.oidDoesNotExist, conn, 'message')
-        
+
     def test_tidNotFound(self):
         conn = self.getConnection()
         self.assertRaises(NEOStorageNotFoundError, self.handler.tidNotFound,

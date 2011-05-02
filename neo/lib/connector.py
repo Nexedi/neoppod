@@ -52,7 +52,7 @@ class SocketConnector:
             self.is_listening = False
             self.is_closed = False
         if s is None:
-            self.socket = socket.socket(self.af_type, socket.SOCK_STREAM)  
+            self.socket = socket.socket(self.af_type, socket.SOCK_STREAM)
         else:
             self.socket = s
         self.socket_fd = self.socket.fileno()
@@ -102,7 +102,7 @@ class SocketConnector:
         try:
             (new_s, addr) = self._accept()
             new_s = self.__class__(new_s, accepted_from=addr)
-            return (new_s, addr) 
+            return (new_s, addr)
         except socket.error, (err, errmsg):
             if err == errno.EAGAIN:
                 raise ConnectorTryAgainException
@@ -168,7 +168,7 @@ class SocketConnector:
 
     def _accept(self):
         raise NotImplementedError
-    
+
 class SocketConnectorIPv4(SocketConnector):
    " Wrapper for IPv4 sockets"
    af_type = socket.AF_INET
@@ -178,21 +178,21 @@ class SocketConnectorIPv4(SocketConnector):
 
    def getAddress(self):
         return self.socket.getsockname()
-    
+
 class SocketConnectorIPv6(SocketConnector):
-    " Wrapper for IPv6 sockets"    
-    af_type = socket.AF_INET6 
-    
+    " Wrapper for IPv6 sockets"
+    af_type = socket.AF_INET6
+
     def _accept(self):
-        new_s, addr =  self.socket.accept()        
+        new_s, addr =  self.socket.accept()
         addr = (addr[0], addr[1])
         return (new_s, addr)
-    
+
     def getAddress(self):
         addr = self.socket.getsockname()
         addr = (addr[0], addr[1])
         return addr
-    
+
 registerConnectorHandler(SocketConnectorIPv4)
 registerConnectorHandler(SocketConnectorIPv6)
 

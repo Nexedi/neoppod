@@ -193,7 +193,7 @@ class TransactionManager(object):
                     self._load_lock_dict.get(oid) != ttid:
                 raise ValueError, 'Some locks are not held'
         object_list = transaction.getObjectList()
-        # txn_info is None is the transaction information is not stored on 
+        # txn_info is None is the transaction information is not stored on
         # this storage.
         txn_info = transaction.getTransactionInformations()
         # store data from memory to temporary table
@@ -263,7 +263,7 @@ class TransactionManager(object):
                 if history_list:
                     previous_serial = history_list[0][0]
             if previous_serial is not None and previous_serial != serial:
-                neo.lib.logging.info('Resolvable conflict on %r:%r', 
+                neo.lib.logging.info('Resolvable conflict on %r:%r',
                     dump(oid), dump(ttid))
                 raise ConflictError(previous_serial)
             neo.lib.logging.debug('Transaction %s storing %s',

@@ -25,8 +25,8 @@ setup(name='neoctl',
       'neo':'neo',
     },
 
-    namespace_packages=['neo','neo.scripts'],    
-    
+    namespace_packages=['neo','neo.scripts'],
+
     install_requires=[
       'neo',
     ],
@@ -35,7 +35,7 @@ setup(name='neoctl',
         'console_scripts': [
           'neoctl=neo.scripts.neoctl:main',
         ],
-    }, 
+    },
     zip_safe=False,
 )
 

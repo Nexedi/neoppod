@@ -1,12 +1,12 @@
 #! /usr/bin/env python
 #
 # Copyright (C) 2009  Nexedi SA
-# 
+#
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -29,7 +29,7 @@ from neo.tests.benchmark import BenchmarkRunner
 
 # list of test modules
 # each of them have to import its TestCase classes
-UNIT_TEST_MODULES = [ 
+UNIT_TEST_MODULES = [
     # generic parts
     'neo.tests.testBootstrap',
     'neo.tests.testConnection',
@@ -138,7 +138,7 @@ class NeoTestRunner(unittest.TestResult):
         module = test.__class__.__module__
         module = tuple(module.split('.'))
         try:
-            return self.modulesStats[module] 
+            return self.modulesStats[module]
         except KeyError:
             self.modulesStats[module] = self.ModuleStats()
             return self.modulesStats[module]
@@ -186,7 +186,7 @@ class NeoTestRunner(unittest.TestResult):
         header       = "%25s |   run   | success |  errors |  fails  |   time   \n" % 'Test Module'
         separator    = "%25s-+---------+---------+---------+---------+----------\n" % ('-' * 25)
         format       = "%25s |   %3s   |   %3s   |   %3s   |   %3s   | %6.2fs   \n"
-        group_f      = "%25s |         |         |         |         |          \n" 
+        group_f      = "%25s |         |         |         |         |          \n"
         # header
         s = ' ' * 30 + ' NEO TESTS REPORT'
         s += '\n'

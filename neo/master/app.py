@@ -58,7 +58,7 @@ class Application(object):
         self.connector_handler = getConnectorHandler(connector_name)
         for master_address in master_addresses :
             self.nm.createMaster(address=master_address)
-            
+
         neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))
 
         # Partition table

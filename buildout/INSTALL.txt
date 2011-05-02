@@ -35,19 +35,19 @@ requirements :
 - python2.4 or higher
 - ctypes (http://python.net/crew/theller/ctypes/) (If you're using python2.5 or
 higher, ctypes is directly included with python)
-- mock (http://python-mock.sourceforge.net/) (Only if you plan to make the 
+- mock (http://python-mock.sourceforge.net/) (Only if you plan to make the
 neo tests)
 
 ############################
 ### 1.Quick installation ###
 ############################
 
-You're a neo-newbie ? You don't need neo sources ? You want a full version and 
-not just one or two modules ? Or, more commonly, you're in a hurry ? So type 
+You're a neo-newbie ? You don't need neo sources ? You want a full version and
+not just one or two modules ? Or, more commonly, you're in a hurry ? So type
 the following commands :
 
 $ svn checkout https//svn.erp5.org/repos/neo/trunk/buildout/software-profiles/neo.cfg
-When your bootstrap's done, check that you've got bin/buildout script. Then 
+When your bootstrap's done, check that you've got bin/buildout script. Then
 Edit your buildout.cfg file, and delete all the neo-eggs which corresponds
 to the parts you don't need. Then run :
 
@@ -80,25 +80,25 @@ Run neo tests :
 
 $ bin/neotestrunner -fzu (functional, unit tests and zodb tests)
 
-If this returns no errors or fails, it means that it's over for you ! Neo's 
+If this returns no errors or fails, it means that it's over for you ! Neo's
 correctly installed on your machine, congratulations !
 
 #############################
 ### 3. Building neo eggs ###
 #############################
 
-This part is recommended for experienced users, who wants to make a neo 
+This part is recommended for experienced users, who wants to make a neo
 installation from beginning. It explains how to make eggs from a
 precise neo part, instead of eggifying the whole project.
 
-Each part of neo (lib, admin, master, storage, neoctl, client) has its own 
-setup.py file, which is located on <download_neo>/trunk/setup_files, ans which 
-allows to build the linked egg. See VI. Setup files to check which setup.py 
+Each part of neo (lib, admin, master, storage, neoctl, client) has its own
+setup.py file, which is located on <download_neo>/trunk/setup_files, ans which
+allows to build the linked egg. See VI. Setup files to check which setup.py
 file you need. Then execute the following commands :
 
-$ svn checkout https://svn.erp5.org/repos/neo/trunk 
+$ svn checkout https://svn.erp5.org/repos/neo/trunk
 $ cd <download_neo>/trunk/neo
-(setup_cmn.py is the main part of neo, needed by all other processes) 
+(setup_cmn.py is the main part of neo, needed by all other processes)
 $ python setup.*.py bdist_egg
 
 Check in your trunk/bdist folder that you have an egg for each part of neo you
@@ -111,13 +111,13 @@ want to install. If it's ok, then go on to part II.
 Problem : The egg I need is not present in my trunk/bdist folder.
 Solution : Select the correct setup_<part>.py in trunk/setup_files
 
-Problem: bin/buildout is not present 
+Problem: bin/buildout is not present
 Solution: Launch the bootstrap command
 
 Problem : bootstrap command is not working
 Solution : Try to use another python version
- 
-Tests errors : 
+
+Tests errors :
   'neoadmin' not found
   'neomaster' not found
   'neostorage' not found

@@ -269,13 +269,13 @@ class ClientTests(NEOFunctionalTest):
 
     def testIPv6Client(self):
         """ Test the connectivity of an IPv6 connection for neo client """
-        
+
         def test():
-            """ 
+            """
             Implement the IPv6Client test
             """
             self.neo = NEOCluster(['test_neo1'], replicas=0,
-                temp_dir = self.getTempDirectory(), 
+                temp_dir = self.getTempDirectory(),
                 address_type = socket.AF_INET6
                 )
             neoctl = NeoCTL(('::1', 0))
@@ -283,7 +283,7 @@ class ClientTests(NEOFunctionalTest):
             db1, conn1 = self.neo.getZODBConnection()
             db2, conn2 = self.neo.getZODBConnection()
         self.runWithTimeout(40, test)
-        
+
     def testDelayedLocksCancelled(self):
         """
             Hold a lock on an object, try to get another lock on the same

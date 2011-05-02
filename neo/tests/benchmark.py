@@ -96,7 +96,7 @@ class BenchmarkRunner(object):
         if self._config.mail_to:
             self.send_report(subject, report)
         print subject
-        print 
+        print
         print report
 
     def was_successful(self):

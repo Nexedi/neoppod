@@ -22,7 +22,7 @@ from ZODB.tests.ConflictResolution import ConflictResolvingTransUndoStorage
 
 from neo.tests.zodb import ZODBTestCase
 
-class UndoTests(ZODBTestCase, StorageTestBase, TransactionalUndoStorage, 
+class UndoTests(ZODBTestCase, StorageTestBase, TransactionalUndoStorage,
         ConflictResolvingTransUndoStorage):
     pass
 

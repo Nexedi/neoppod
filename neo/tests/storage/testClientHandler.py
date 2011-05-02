@@ -152,7 +152,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         cell = Mock({'getUUID':self.app.uuid})
         self.app.dm = Mock({'getTIDList': (INVALID_TID, )})
         self.app.pt = Mock({
-            'getCellList': (cell, ), 
+            'getCellList': (cell, ),
             'getPartitions': 1,
             'getAssignedPartitionList': [0],
         })
@@ -215,7 +215,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         conn = self._getConnection(uuid=uuid)
         tid = self.getNextTID()
         oid, serial, comp, checksum, data = self._getObject()
-        self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
+        self.operation.askStoreObject(conn, oid, serial, comp, checksum,
                 data, None, tid, False)
         self._checkStoreObjectCalled(tid, serial, oid, comp,
                 checksum, data, None, False)
@@ -232,7 +232,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         tid = self.getNextTID()
         oid, serial, comp, checksum, data = self._getObject()
         data_tid = self.getNextTID()
-        self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
+        self.operation.askStoreObject(conn, oid, serial, comp, checksum,
                 '', data_tid, tid, False)
         self._checkStoreObjectCalled(tid, serial, oid, comp,
                 checksum, None, data_tid, False)
@@ -252,7 +252,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
             raise ConflictError(locking_tid)
         self.app.tm.storeObject = fakeStoreObject
         oid, serial, comp, checksum, data = self._getObject()
-        self.operation.askStoreObject(conn, oid, serial, comp, checksum, 
+        self.operation.askStoreObject(conn, oid, serial, comp, checksum,
                 data, None, tid, False)
         pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
             decode=True)

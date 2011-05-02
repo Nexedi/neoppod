@@ -123,7 +123,7 @@ class MasterClientElectionTests(NeoUnitTestBase):
         """ A non-master node accept identification """
         node, conn = self.identifyToMasterNode()
         args = (node.getUUID(), 0, 10, self.app.uuid)
-        self.election.acceptIdentification(conn, 
+        self.election.acceptIdentification(conn,
             NodeTypes.CLIENT, *args)
         self.assertFalse(node in self.app.unconnected_master_node_set)
         self.assertFalse(node in self.app.negotiating_master_node_set)
@@ -228,15 +228,15 @@ class MasterServerElectionTests(NeoUnitTestBase):
         """ A non-master node request identification """
         node, conn = self.identifyToMasterNode()
         args = (node.getUUID(), node.getAddress(), self.app.name)
-        self.assertRaises(protocol.NotReadyError, 
-            self.election.requestIdentification, 
+        self.assertRaises(protocol.NotReadyError,
+            self.election.requestIdentification,
             conn, NodeTypes.CLIENT, *args)
 
     def test_requestIdentification2(self):
         """ A unknown master node request identification """
         node, conn = self.identifyToMasterNode()
         args = (node.getUUID(), ('127.0.0.1', 1000), self.app.name)
-        self.checkProtocolErrorRaised(self.election.requestIdentification, 
+        self.checkProtocolErrorRaised(self.election.requestIdentification,
             conn, NodeTypes.MASTER, *args)
 
     def test_requestIdentification3(self):
@@ -244,8 +244,8 @@ class MasterServerElectionTests(NeoUnitTestBase):
         node, conn = self.identifyToMasterNode()
         node.setBroken()
         args = (node.getUUID(), node.getAddress(), self.app.name)
-        self.assertRaises(protocol.BrokenNodeDisallowedError, 
-            self.election.requestIdentification, 
+        self.assertRaises(protocol.BrokenNodeDisallowedError,
+            self.election.requestIdentification,
             conn, NodeTypes.MASTER, *args)
 
     def test_requestIdentification4(self):

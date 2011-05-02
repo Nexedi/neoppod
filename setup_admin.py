@@ -20,13 +20,13 @@ setup(name='neoadmin',
       ],
 
     packages=['neo.admin'],
-       
+
     package_dir={
       'neo':'neo',
     },
 
-    namespace_packages=['neo','neo.scripts'],    
-    
+    namespace_packages=['neo','neo.scripts'],
+
     install_requires=[
       'neo',
     ],
@@ -35,7 +35,7 @@ setup(name='neoadmin',
         'console_scripts': [
           'neoadmin=neo.scripts.neoadmin:main',
         ],
-    }, 
+    },
     zip_safe=False,
 )
 
