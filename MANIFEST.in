@@ -1,3 +1,0 @@
-graft tools
-include neoadmin neoctl neomaster neomigrate neostorage neo.conf README TODO
-global-exclude *~

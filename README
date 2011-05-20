@@ -9,6 +9,8 @@ Requirements
 
     - For python 2.4: ctypes http://python.net/crew/theller/ctypes/
       (packaged with later python versions)
+      Note that setup.py does not define any dependency to 'ctypes' so you will
+      have to install it explicitely.
 
     - MySQLdb http://sourceforge.net/projects/mysql-python
 
@@ -71,7 +73,7 @@ How to use
       replacing its filestorage subsection by a NEOStorage one.
       It should look like :
 
-      %import neo
+      %import neo.client
       <zodb_db main>
           # Main FileStorage database
           <NEOStorage>
