@@ -96,9 +96,7 @@ class PrimaryNotificationsHandler(BaseHandler):
         if app.master_conn is not None:
             neo.lib.logging.critical("connection to primary master node closed")
             app.master_conn = None
-            app.primary_master_node = None
-        else:
-            assert app.primary_master_node is None
+        app.primary_master_node = None
         super(PrimaryNotificationsHandler, self).connectionClosed(conn)
 
     def stopOperation(self, conn):
