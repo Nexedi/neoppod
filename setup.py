@@ -145,7 +145,8 @@ setup(
     extra_files = ['neo.conf'],
 )
 
-if setup_only in ('neotests', None) and not os.path.exists('mock.py'):
+if setup_only in ('neotests', None):
+  if not os.path.exists('mock.py'):
     import cStringIO, md5, urllib, zipfile
     mock_py = zipfile.ZipFile(cStringIO.StringIO(urllib.urlopen(
       'http://downloads.sf.net/sourceforge/python-mock/pythonmock-0.1.0.zip'
@@ -154,7 +155,7 @@ if setup_only in ('neotests', None) and not os.path.exists('mock.py'):
         raise EnvironmentError("MD5 checksum mismatch downloading 'mock.py'")
     open('mock.py', 'w').write(mock_py)
 
-setup(
+  setup(
     name = 'neotests',
     description = description + ' - Testing part',
     packages = ['neo', ('neo.tests', 'neo/tests')],
@@ -174,4 +175,4 @@ setup(
         ],
     },
     extra_files = ['TESTS.txt'] + findall('tools'),
-)
+  )
