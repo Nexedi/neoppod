@@ -64,7 +64,7 @@ setup(
     name = 'neoppod',
     description = description + ' - Common part',
     packages = ['neo', ('neo.lib', 'neo/lib')],
-    # Raah!!! I wish I could write something like (for 'neoppod'):
+    # Raah!!! I wish I could write something like:
     #  install_requires = ['python>=2.5|ctypes']
     install_requires = (),
     namespace_packages = ['neo'],
