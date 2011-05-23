@@ -92,7 +92,7 @@ setup(
     py_modules = ['neo.scripts.neomigrate'],
     entry_points = {
         'console_scripts': [
-            'neoadmin=neo.scripts.neomigrate:main',
+            'neomigrate=neo.scripts.neomigrate:main',
         ],
     },
     package_data = {
@@ -100,17 +100,17 @@ setup(
             'component.xml',
         ],
     },
-    zip_safe=False,
+    extra_files = ['neo/client/component.xml'], # required for Python < 2.7
 )
 
 setup(
     name = 'neoctl',
     description = description + ' - Controller part',
     packages = ['neo', ('neo.neoctl', 'neo/neoctl')],
-    py_modules = ['neo.scripts.neomigrate'],
+    py_modules = ['neo.scripts.neoctl'],
     entry_points = {
         'console_scripts': [
-            'neoctl=neo.scripts.neomigrate:main',
+            'neoctl=neo.scripts.neoctl:main',
         ],
     },
 )
