@@ -78,7 +78,7 @@ How to use
           # Main FileStorage database
           <NEOStorage>
                 master_nodes 127.0.0.1:10000
-                name main
+                name <cluster name>
           </NEOStorage>
           mount-point /
       </zodb_db>
