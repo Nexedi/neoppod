@@ -11,7 +11,10 @@ if not os.path.exists('mock.py'):
     open('mock.py', 'w').write(mock_py)
 
 extras_require = {
+    'admin': [],
     'client': ['ZODB3 >= 3.9'],
+    'ctl': [],
+    'master': [],
     'storage-btree': ['ZODB3'],
     'storage-mysqldb': ['MySQL-python'],
 }
