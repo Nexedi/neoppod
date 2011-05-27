@@ -147,6 +147,8 @@ class EpollEventManager(object):
                     conn.readable()
                 finally:
                     conn.unlock()
+            if conn.hasPendingMessages():
+                self._addPendingConnection(conn)
 
         t = time()
         for conn in self.connection_dict.values():
