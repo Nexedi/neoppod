@@ -32,9 +32,7 @@ from neo.lib import attributeTracker
 from neo.lib.util import ReadBuffer
 from neo.lib.profiling import profiler_decorator
 
-PING_DELAY = 6
-PING_TIMEOUT = 5
-INCOMING_TIMEOUT = 10
+KEEP_ALIVE = 60
 CRITICAL_TIMEOUT = 30
 
 class ConnectionClosed(Exception):
@@ -130,26 +128,19 @@ class HandlerSwitcher(object):
             self._next_on_timeout = on_timeout
         request_dict[msg_id] = (answer_class, timeout, on_timeout)
 
-    def checkTimeout(self, connection, t):
-        next_timeout = self._next_timeout
-        if next_timeout is not None and next_timeout < t:
-            msg_id = self._next_timeout_msg_id
-            if self._next_on_timeout is None:
-                result = msg_id
-            else:
-                if self._next_on_timeout(connection, msg_id):
-                    # Don't notify that a timeout occured, and forget about
-                    # this answer.
-                    for (request_dict, _) in self._pending:
-                        request_dict.pop(msg_id, None)
-                    self._updateNextTimeout()
-                    result = None
-                else:
-                    # Notify that a timeout occured
-                    result = msg_id
-        else:
-            result = None
-        return result
+    def getNextTimeout(self):
+        return self._next_timeout
+
+    def timeout(self, connection):
+        msg_id = self._next_timeout_msg_id
+        if self._next_on_timeout is not None:
+            self._next_on_timeout(connection, msg_id)
+            if self._next_timeout_msg_id != msg_id:
+                # on_timeout sent a packet with a smaller timeout
+                # so keep the connection open
+                return
+        # Notify that a timeout occured
+        return msg_id
 
     def handle(self, connection, packet):
         assert not self._is_handling
@@ -191,24 +182,18 @@ class HandlerSwitcher(object):
             neo.lib.logging.debug(
                             'Apply handler %r on %r', self._pending[0][1],
                     connection)
-        if timeout == self._next_timeout:
+        if msg_id == self._next_timeout_msg_id:
             self._updateNextTimeout()
 
     def _updateNextTimeout(self):
         # Find next timeout and its msg_id
-        timeout_list = []
-        extend = timeout_list.extend
-        for (request_dict, handler) in self._pending:
-            extend(((timeout, msg_id, on_timeout) \
-                for msg_id, (_, timeout, on_timeout) in \
-                request_dict.iteritems()))
-        if timeout_list:
-            timeout_list.sort(key=lambda x: x[0])
-            self._next_timeout, self._next_timeout_msg_id, \
-                self._next_on_timeout = timeout_list[0]
-        else:
-            self._next_timeout, self._next_timeout_msg_id, \
-                self._next_on_timeout = None, None, None
+        next_timeout = None
+        for pending in self._pending:
+            for msg_id, (_, timeout, on_timeout) in pending[0].iteritems():
+                if not next_timeout or timeout < next_timeout[0]:
+                    next_timeout = timeout, msg_id, on_timeout
+        self._next_timeout, self._next_timeout_msg_id, self._next_on_timeout = \
+            next_timeout or (None, None, None)
 
     @profiler_decorator
     def setHandler(self, handler):
@@ -222,53 +207,28 @@ class HandlerSwitcher(object):
         return can_apply
 
 
-class Timeout(object):
-    """ Keep track of connection-level timeouts """
-
-    def __init__(self):
-        self._ping_time = None
-        self._critical_time = None
-
-    def update(self, t, force=False):
-        """
-        Send occurred:
-        - set ping time if earlier than existing one
-        """
-        ping_time = self._ping_time
-        t += PING_DELAY
-        if force or ping_time is None or t < ping_time:
-            self._ping_time = t
-
-    def refresh(self, t):
-        """
-        Recv occured:
-        - reschedule next ping time
-        - as this is an evidence that node is alive, remove pong expectation
-        """
-        self._ping_time = t + PING_DELAY
-        self._critical_time = None
-
-    def ping(self, t):
-        """
-        Ping send occured:
-        - reschedule next ping time
-        - set pong expectation
-        """
-        self._ping_time = t + PING_DELAY
-        self._critical_time = t + PING_TIMEOUT
-
-    def softExpired(self, t):
-        """ Do we need to ping ? """
-        return self._ping_time < t
-
-    def hardExpired(self, t):
-        """ Have we reached pong latest arrival time, if set ? """
-        critical_time = self._critical_time
-        return critical_time is not None and critical_time < t
-
-
 class BaseConnection(object):
-    """A base connection."""
+    """A base connection
+
+    About timeouts:
+
+        Timeout are mainly per-connection instead of per-packet.
+        The idea is that most of time, packets are received and processed
+        sequentially, so if it takes a long for a peer to process a packet,
+        following packets would just be enqueued.
+        What really matters is that the peer makes progress in its work.
+        As long as we receive an answer, we consider it's still alive and
+        it may just have started to process the following request. So we reset
+        timeouts.
+        There is anyway nothing more we could do, because processing of a packet
+        may be delayed in a very unpredictable way depending of previously
+        received packets on peer side.
+        Even ourself may be slow to receive a packet. We must not timeout for
+        an answer that is already in our incoming buffer (read_buf or _queue).
+        Timeouts in HandlerSwitcher are only there to prioritize some packets.
+    """
+
+    _base_timeout = None
 
     def __init__(self, event_manager, handler, connector, addr=None):
         assert connector is not None, "Need a low-level connector"
@@ -276,28 +236,33 @@ class BaseConnection(object):
         self.connector = connector
         self.addr = addr
         self._handlers = HandlerSwitcher(handler)
-        self._timeout = Timeout()
         event_manager.register(self)
 
     def isPending(self):
         return self._handlers.isPending()
 
+    def updateTimeout(self, t=None):
+        if not self._queue:
+            if t:
+                self._base_timeout = t
+            self._timeout = self._handlers.getNextTimeout() or KEEP_ALIVE
+
     def checkTimeout(self, t):
-        handlers = self._handlers
-        if handlers.isPending():
-            msg_id = handlers.checkTimeout(self, t)
-            if msg_id is not None:
-                neo.lib.logging.info(
-                                'timeout for #0x%08x with %r', msg_id, self)
-                self.close()
-            elif self._timeout.hardExpired(t):
-                # critical time reach or pong not received, abort
-                neo.lib.logging.info('timeout with %r', self)
-                self.notify(Packets.Notify('Timeout'))
-                self.abort()
-            elif self._timeout.softExpired(t):
-                self._timeout.ping(t)
-                self.ping()
+        # first make sure we don't timeout on answers we already received
+        if self._base_timeout and not self._queue:
+            timeout = t - self._base_timeout
+            if self._timeout <= timeout:
+                handlers = self._handlers
+                if handlers.isPending():
+                    msg_id = handlers.timeout(self)
+                    if msg_id is None:
+                        self._base_timeout = t
+                    else:
+                        neo.lib.logging.info('timeout for #0x%08x with %r',
+                                             msg_id, self)
+                        self.close()
+                else:
+                    self.idle()
 
     def lock(self):
         return 1
@@ -381,6 +346,10 @@ class BaseConnection(object):
         """
         return attributeTracker.whoSet(self, 'connector')
 
+    def idle(self):
+        pass
+
+
 attributeTracker.track(BaseConnection)
 
 class ListeningConnection(BaseConnection):
@@ -400,8 +369,6 @@ class ListeningConnection(BaseConnection):
             handler = self.getHandler()
             new_conn = ServerConnection(self.getEventManager(), handler,
                 connector=new_s, addr=addr)
-            # A request for a node identification should arrive.
-            self._timeout.update(time())
             handler.connectionAccepted(new_conn)
         except ConnectorTryAgainException:
             pass
@@ -421,9 +388,8 @@ class Connection(BaseConnection):
 
     connecting = False
 
-    def __init__(self, event_manager, handler, connector, addr=None):
-        BaseConnection.__init__(self, event_manager, handler,
-                                connector=connector, addr=addr)
+    def __init__(self, event_manager, *args, **kw):
+        BaseConnection.__init__(self, event_manager, *args, **kw)
         self.read_buf = ReadBuffer()
         self.write_buf = []
         self.cur_id = 0
@@ -493,19 +459,7 @@ class Connection(BaseConnection):
             except PacketMalformedError, msg:
                 self.getHandler()._packetMalformed(self, msg)
                 return
-            self._timeout.refresh(time())
-            packet_type = type(packet)
-            if packet_type is Packets.Ping:
-                # Send a pong notification
-                PACKET_LOGGER.dispatch(self, packet, False)
-                if not self.aborted:
-                    self.answer(Packets.Pong(), packet.getId())
-            elif packet_type is Packets.Pong:
-                # Skip PONG packets, its only purpose is refresh the timeout
-                # generated upong ping. But still log them.
-                PACKET_LOGGER.dispatch(self, packet, False)
-            else:
-                self._queue.append(packet)
+            self._queue.append(packet)
 
     def hasPendingMessages(self):
         """
@@ -520,6 +474,7 @@ class Connection(BaseConnection):
         # check out packet and process it with current handler
         packet = self._queue.pop(0)
         self._handlers.handle(self, packet)
+        self.updateTimeout()
 
     def pending(self):
         return self.connector is not None and self.write_buf
@@ -580,6 +535,7 @@ class Connection(BaseConnection):
                     'Connection %r closed in recv', self.connector)
                 self._closure()
                 return
+            self._base_timeout = time() # last known remote activity
             self.read_buf.append(data)
 
     @profiler_decorator
@@ -646,11 +602,10 @@ class Connection(BaseConnection):
         msg_id = self._getNextId()
         packet.setId(msg_id)
         self._addPacket(packet)
-        t = time()
-        # If there is no pending request, initialise timeout values.
-        if not self._handlers.isPending():
-            self._timeout.update(t, force=True)
-        self._handlers.emit(packet, t + timeout, on_timeout)
+        handlers = self._handlers
+        t = not handlers.isPending() and time() or None
+        handlers.emit(packet, timeout, on_timeout)
+        self.updateTimeout(t)
         return msg_id
 
     @not_closed
@@ -662,21 +617,14 @@ class Connection(BaseConnection):
         assert packet.isResponse(), packet
         self._addPacket(packet)
 
-    @not_closed
-    def ping(self):
-        packet = Packets.Ping()
-        packet.setId(self._getNextId())
-        self._addPacket(packet)
-
 
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
 
     connecting = True
 
-    def __init__(self, event_manager, handler, addr, connector, **kw):
-        Connection.__init__(self, event_manager, handler, addr=addr,
-                            connector=connector)
+    def __init__(self, event_manager, handler, addr, connector):
+        Connection.__init__(self, event_manager, handler, connector, addr)
         handler.connectionStarted(self)
         try:
             try:
@@ -685,6 +633,7 @@ class ClientConnection(Connection):
                 event_manager.addWriter(self)
             else:
                 self.connecting = False
+                self.updateTimeout(time())
                 self.getHandler().connectionCompleted(self)
         except ConnectorConnectionRefusedException:
             self._closure()
@@ -702,6 +651,7 @@ class ClientConnection(Connection):
                 return
             else:
                 self.connecting = False
+                self.updateTimeout(time())
                 self.getHandler().connectionCompleted(self)
                 self.em.addReader(self)
         else:
@@ -710,9 +660,16 @@ class ClientConnection(Connection):
     def isClient(self):
         return True
 
+    def idle(self):
+        self.ask(Packets.Ping())
+
 
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
+
+    def __init__(self, *args, **kw):
+        Connection.__init__(self, *args, **kw)
+        self.updateTimeout(time())
 
     def isServer(self):
         return True
@@ -778,11 +735,10 @@ class MTClientConnection(ClientConnection):
             else:
                 self.dispatcher.register(self, msg_id, queue)
             self._addPacket(packet)
-            t = time()
-            # If there is no pending request, initialise timeout values.
-            if not self._handlers.isPending():
-                self._timeout.update(t)
-            self._handlers.emit(packet, t + timeout, on_timeout)
+            handlers = self._handlers
+            t = not handlers.isPending() and time() or None
+            handlers.emit(packet, timeout, on_timeout)
+            self.updateTimeout(t)
             return msg_id
         finally:
             self.unlock()

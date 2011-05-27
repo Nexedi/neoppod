@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2009-2010  Nexedi SA
 #
@@ -19,11 +20,12 @@ from time import time
 from mock import Mock
 from neo.lib.connection import ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, \
-     HandlerSwitcher, Timeout, PING_DELAY, PING_TIMEOUT, OnTimeout
+     HandlerSwitcher, CRITICAL_TIMEOUT
 from neo.lib.connector import getConnectorHandler, registerConnectorHandler
 from neo.tests import DoNothingConnector
 from neo.lib.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
+from neo.lib.handler import EventHandler
 from neo.lib.protocol import Packets, ParserState
 from neo.tests import NeoUnitTestBase
 from neo.lib.util import ReadBuffer
@@ -502,40 +504,6 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(data.decode(), p.decode())
         self._checkReadBuf(bc, '')
 
-    def test_Connection_analyse5(self):
-        # test ping handling
-        bc = self._makeConnection()
-        bc._queue = Mock()
-        p = Packets.Ping()
-        p.setId(1)
-        self._appendPacketToReadBuf(bc, p)
-        bc.analyse()
-        # check no packet was queued
-        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 0)
-        # check pong answered
-        parser_state = ParserState()
-        buffer = ReadBuffer()
-        for chunk in bc.write_buf:
-            buffer.append(chunk)
-        answer = Packets.parse(buffer, parser_state)
-        self.assertTrue(answer is not None)
-        self.assertTrue(type(answer) == Packets.Pong)
-        self.assertEqual(answer.getId(), p.getId())
-
-    def test_Connection_analyse6(self):
-        # test pong handling
-        bc = self._makeConnection()
-        bc._timeout = Mock()
-        bc._queue = Mock()
-        p = Packets.Pong()
-        p.setId(1)
-        self._appendPacketToReadBuf(bc, p)
-        bc.analyse()
-        # check no packet was queued
-        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 0)
-        # check timeout has been refreshed
-        self.assertEqual(len(bc._timeout.mockGetNamedCalls("refresh")), 1)
-
     def test_Connection_writable1(self):
         # with  pending operation after send
         def send(self, data):
@@ -800,6 +768,68 @@ class ConnectionTests(NeoUnitTestBase):
         next_id = bc._getNextId()
         self.assertEqual(next_id, 0)
 
+    def test_15_Timeout(self):
+        # NOTE: This method uses ping/pong packets only because MT connection
+        #       don't accept any other packet without specifying a queue.
+        self.handler = EventHandler(self.app)
+        conn = self._makeClientConnection()
+
+        use_case_list = (
+            # (a) For a single packet sent at T,
+            #     the limit time for the answer is T + (1 * CRITICAL_TIMEOUT)
+            ((), (1., 0)),
+            # (b) Same as (a), even if send another packet at (T + CT/2).
+            #     But receiving a packet (at T + CT - ε) resets the timeout
+            #     (which means the limit for the 2nd one is T + 2*CT)
+            ((.5, None), (1., 0, 2., 1)),
+            # (c) Same as (b) with a first answer at well before the limit
+            #     (T' = T + CT/2). The limit for the second one is T' + CT.
+            ((.1, None, .5, 1), (1.5, 0)),
+        )
+
+        from neo.lib import connection
+        def set_time(t):
+            connection.time = lambda: int(CRITICAL_TIMEOUT * (1000 + t))
+        closed = []
+        conn.close = lambda: closed.append(connection.time())
+        def answer(packet_id):
+            p = Packets.Pong()
+            p.setId(packet_id)
+            conn.connector.receive = [''.join(p.encode())].pop
+            conn.readable()
+            conn.checkTimeout(connection.time())
+            conn.process()
+        try:
+            for use_case, expected in use_case_list:
+                i = iter(use_case)
+                conn.cur_id = 0
+                set_time(0)
+                # No timeout when no pending request
+                self.assertEqual(conn._handlers.getNextTimeout(), None)
+                conn.ask(Packets.Ping())
+                for t in i:
+                    set_time(t)
+                    conn.checkTimeout(connection.time())
+                    packet_id = i.next()
+                    if packet_id is None:
+                        conn.ask(Packets.Ping())
+                    else:
+                        answer(packet_id)
+                i = iter(expected)
+                for t in i:
+                    set_time(t - .1)
+                    conn.checkTimeout(connection.time())
+                    set_time(t)
+                    # this test method relies on the fact that only
+                    # conn.close is called in case of a timeout
+                    conn.checkTimeout(connection.time())
+                    self.assertEqual(closed.pop(), connection.time())
+                    answer(i.next())
+                self.assertFalse(conn.isPending())
+                self.assertFalse(closed)
+        finally:
+            connection.time = time
+
 class MTConnectionTests(ConnectionTests):
     # XXX: here we test non-client-connection-related things too, which
     # duplicates test suite work... Should be fragmented into finer-grained
@@ -1005,142 +1035,6 @@ class HandlerSwitcherTests(NeoUnitTestBase):
         self._handlers.handle(self._connection, a2)
         self.checkAborted(self._connection)
 
-    def testTimeout(self):
-        """
-          This timeout happens when a request has not been answered for longer
-          than a duration defined at emit() time.
-        """
-        now = time()
-        # No timeout when no pending request
-        self.assertEqual(self._handlers.checkTimeout(self._connection, now),
-            None)
-        # Prepare some requests
-        msg_id_1 = 1
-        msg_id_2 = 2
-        msg_id_3 = 3
-        msg_id_4 = 4
-        r1 = self._makeRequest(msg_id_1)
-        a1 = self._makeAnswer(msg_id_1)
-        r2 = self._makeRequest(msg_id_2)
-        a2 = self._makeAnswer(msg_id_2)
-        r3 = self._makeRequest(msg_id_3)
-        r4 = self._makeRequest(msg_id_4)
-        msg_1_time = now + 5
-        msg_2_time = msg_1_time + 5
-        msg_3_time = msg_2_time + 5
-        msg_4_time = msg_3_time + 5
-        markers = []
-        def msg_3_on_timeout(conn, msg_id):
-            markers.append((3, conn, msg_id))
-            return True
-        def msg_4_on_timeout(conn, msg_id):
-            markers.append((4, conn, msg_id))
-            return False
-        # Emit r3 before all other, to test that it's time parameter value
-        # which is used, not the registration order.
-        self._handlers.emit(r3, msg_3_time, OnTimeout(msg_3_on_timeout))
-        self._handlers.emit(r1, msg_1_time, None)
-        self._handlers.emit(r2, msg_2_time, None)
-        # No timeout before msg_1_time
-        self.assertEqual(self._handlers.checkTimeout(self._connection, now),
-            None)
-        # Timeout for msg_1 after msg_1_time
-        self.assertEqual(self._handlers.checkTimeout(self._connection,
-            msg_1_time + 0.5), msg_id_1)
-        # If msg_1 met its answer, no timeout after msg_1_time
-        self._handlers.handle(self._connection, a1)
-        self.assertEqual(self._handlers.checkTimeout(self._connection,
-            msg_1_time + 0.5), None)
-        # Next timeout is after msg_2_time
-        self.assertEqual(self._handlers.checkTimeout(self._connection,
-            msg_2_time + 0.5), msg_id_2)
-        self._handlers.handle(self._connection, a2)
-        # Sanity check
-        self.assertEqual(self._handlers.checkTimeout(self._connection,
-            msg_2_time + 0.5), None)
-        # msg_3 timeout will fire msg_3_on_timeout callback, which causes the
-        # timeout to be ignored (it returns True)
-        self.assertEqual(self._handlers.checkTimeout(self._connection,
-            msg_3_time + 0.5), None)
-        # ...check that callback actually fired
-        self.assertEqual(len(markers), 1)
-        # ...with expected parameters
-        self.assertEqual(markers[0], (3, self._connection, msg_id_3))
-        # answer to msg_3 must not be expected anymore (and it was the last
-        # expected message)
-        self.assertFalse(self._handlers.isPending())
-        del markers[:]
-        self._handlers.emit(r4, msg_4_time, OnTimeout(msg_4_on_timeout))
-        # msg_4 timeout will fire msg_4_on_timeout callback, which lets the
-        # timeout be detected (it returns False)
-        self.assertEqual(self._handlers.checkTimeout(self._connection,
-            msg_4_time + 0.5), msg_id_4)
-        # ...check that callback actually fired
-        self.assertEqual(len(markers), 1)
-        # ...with expected parameters
-        self.assertEqual(markers[0], (4, self._connection, msg_id_4))
-
-class TestTimeout(NeoUnitTestBase):
-    def setUp(self):
-        NeoUnitTestBase.setUp(self)
-        self.current = time()
-        self.timeout = Timeout()
-        self._updateAt(0)
-        self.assertTrue(PING_DELAY > PING_TIMEOUT) # Sanity check
-
-    def _checkAt(self, n, soft, hard):
-        at = self.current + n
-        self.assertEqual(soft, self.timeout.softExpired(at))
-        self.assertEqual(hard, self.timeout.hardExpired(at))
-
-    def _updateAt(self, n, force=False):
-        self.timeout.update(self.current + n, force=force)
-
-    def _refreshAt(self, n):
-        self.timeout.refresh(self.current + n)
-
-    def _pingAt(self, n):
-        self.timeout.ping(self.current + n)
-
-    def testSoftTimeout(self):
-        """
-          Soft timeout is when a ping should be sent to peer to see if it's
-          still responsive, after seing no life sign for PING_DELAY.
-        """
-        # Before PING_DELAY, no timeout.
-        self._checkAt(PING_DELAY - 0.5, False, False)
-        # If nothing came to refresh the timeout, soft timeout will be asserted
-        # after PING_DELAY.
-        self._checkAt(PING_DELAY + 0.5, True, False)
-        # If something refreshes the timeout, soft timeout will not be asserted
-        # after PING_DELAY.
-        answer_time = PING_DELAY - 0.5
-        self._refreshAt(answer_time)
-        self._checkAt(PING_DELAY + 0.5, False, False)
-        # ...but it will happen again after PING_DELAY after that answer
-        self._checkAt(answer_time + PING_DELAY + 0.5, True, False)
-        # if there is no more pending requests, a clear will happen so next
-        # send doesn't immediately trigger a ping
-        new_request_time = answer_time + PING_DELAY * 2
-        self._updateAt(new_request_time, force=True)
-        self._checkAt(new_request_time + PING_DELAY - 0.5, False, False)
-        self._checkAt(new_request_time + PING_DELAY + 0.5, True, False)
-
-    def testHardTimeout(self):
-        """
-          Hard timeout is when a ping was sent, and any life sign must come
-          back to us before PING_TIMEOUT.
-        """
-        # A timeout triggered at PING_DELAY, so a ping was sent.
-        self._pingAt(PING_DELAY)
-        # Before PING_DELAY + PING_TIMEOUT, no timeout occurs.
-        self._checkAt(PING_DELAY + PING_TIMEOUT - 0.5, False, False)
-        # After PING_DELAY + PING_TIMEOUT, hard timeout occurs.
-        self._checkAt(PING_DELAY + PING_TIMEOUT + 0.5, False, True)
-        # If anything happened on the connection, there is no hard timeout
-        # anymore after PING_DELAY + PING_TIMEOUT.
-        self._refreshAt(PING_DELAY + PING_TIMEOUT - 0.5)
-        self._checkAt(PING_DELAY + PING_TIMEOUT + 0.5, False, False)
 
 if __name__ == '__main__':
     unittest.main()

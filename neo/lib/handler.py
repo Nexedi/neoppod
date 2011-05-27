@@ -121,6 +121,15 @@ class EventHandler(object):
 
     # Packet handlers.
 
+    def ping(self, conn):
+        if not conn.isAborted():
+            conn.answer(Packets.Pong())
+
+    def pong(self, conn):
+        # Ignore PONG packets. The only purpose of ping/pong packets is
+        # to test/maintain underlying connection.
+        pass
+
     def notify(self, conn, message):
         neo.lib.logging.info('notification from %r: %s', conn, message)
 

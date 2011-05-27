@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import ProtocolError
+from neo.lib.protocol import ProtocolError, Packets
 
 class BaseHandler(EventHandler):
     """Base class for client-side EventHandler implementations."""
@@ -37,10 +37,10 @@ class BaseHandler(EventHandler):
 
     def packetReceived(self, conn, packet):
         """Redirect all received packet to dispatcher thread."""
-        if packet.isResponse():
+        if packet.isResponse() and type(packet) is not Packets.Pong:
             if not self.dispatcher.dispatch(conn, packet.getId(), packet):
-                raise ProtocolError('Unexpected response packet from %r: %r',
-                        conn, packet)
+                raise ProtocolError('Unexpected response packet from %r: %r'
+                                    % (conn, packet))
         else:
             self.dispatch(conn, packet)
 

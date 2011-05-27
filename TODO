@@ -20,7 +20,7 @@ RC  - Clarify cell state signification
 RC  - Review XXX in the code (CODE)
 RC  - Review TODO in the code (CODE)
 RC  - Review output of pylint (CODE)
-    - Keep-alive (HIGH AVAILABILITY)
+    - Keep-alive (HIGH AVAILABILITY) (implemented, to be reviewed and tested)
       Consider the need to implement a keep-alive system (packets sent
       automatically when there is no activity on the connection for a period
       of time).
