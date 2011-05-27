@@ -141,21 +141,32 @@ class StorageAnswersHandler(AnswerBaseHandler):
         self.app.getHandlerData().update(object_tid_dict)
 
     def answerHasLock(self, conn, oid, status):
+        store_msg_id = self.app.getHandlerData()['timeout_dict'].pop(oid)
         if status == LockState.GRANTED_TO_OTHER:
+            # Stop expecting the timed-out store request.
+            self.app.dispatcher.forget(conn, store_msg_id)
             # Object is locked by another transaction, and we have waited until
             # timeout. To avoid a deadlock, abort current transaction (we might
             # be locking objects the other transaction is waiting for).
             raise ConflictError, 'Lock wait timeout for oid %s on %r' % (
                 dump(oid), conn)
-        elif status == LockState.GRANTED:
-            neo.lib.logging.info('Store of oid %s was successful, but after ' \
-                'timeout.', dump(oid))
-            # XXX: Not sure what to do in this case yet, for now do nothing.
-        else:
-            # Nobody has the lock, although we asked storage to lock. This
-            # means there is a software bug somewhere.
-            # XXX: Not sure what to do in this case yet
-            raise NotImplementedError
+        # HasLock design required that storage is multi-threaded so that
+        # it can answer to AskHasLock while processing store resquests.
+        # This means that the 2 cases (granted to us or nobody) are legitimate,
+        # either because it gave us the lock but is/was slow to store our data,
+        # or because the storage took a lot of time processing a previous
+        # store (and did not even considered our lock request).
+        # XXX: But storage nodes are still mono-threaded, so they should
+        #      only answer with GRANTED_TO_OTHER (if they reply!), except
+        #      maybe in very rare cases of race condition. Only log for now.
+        #      This also means that most of the time, if the storage is slow
+        #      to process some store requests, HasLock will timeout in turn
+        #      and the connector will be closed.
+        #      Anyway, it's not clear that HasLock requests are useful.
+        #      Are store requests potentially long to process ? If not,
+        #      we should simply raise a ConflictError on store timeout.
+        neo.lib.logging.info('Store of oid %s delayed (storage overload ?)',
+                             dump(oid))
 
     def alreadyPendingError(self, conn, message):
         pass

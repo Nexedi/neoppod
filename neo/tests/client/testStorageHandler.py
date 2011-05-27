@@ -269,17 +269,6 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
             oid2: [tid2, tid3],
         })
 
-    def test_answerHasLock(self):
-        uuid = self.getNewUUID()
-        conn = self.getFakeConnection(uuid=uuid)
-        oid = self.getOID(0)
-
-        self.assertRaises(ConflictError, self.handler.answerHasLock, conn, oid,
-            LockState.GRANTED_TO_OTHER)
-        # XXX: Just check that this doesn't raise for the moment.
-        self.handler.answerHasLock(conn, oid, LockState.GRANTED)
-        # TODO: Test LockState.NOT_LOCKED case when implemented.
-
 if __name__ == '__main__':
     unittest.main()
 

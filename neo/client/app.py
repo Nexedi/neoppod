@@ -527,7 +527,7 @@ class Application(object):
                 else:
                     compression = 1
         checksum = makeChecksum(compressed_data)
-        on_timeout = OnTimeout(self.onStoreTimeout, ttid, oid)
+        on_timeout = OnTimeout(self.onStoreTimeout, txn_context, oid)
         # Store object in tmp cache
         data_dict = txn_context['data_dict']
         if oid not in data_dict:
@@ -555,15 +555,15 @@ class Application(object):
 
         self._waitAnyTransactionMessage(txn_context, False)
 
-    def onStoreTimeout(self, conn, msg_id, ttid, oid):
+    def onStoreTimeout(self, conn, msg_id, txn_context, oid):
         # NOTE: this method is called from poll thread, don't use
-        # thread-specific value !
-        # Stop expecting the timed-out store request.
-        queue = self.dispatcher.forget(conn, msg_id)
+        #       thread-specific value !
+        txn_context.setdefault('timeout_dict', {})[oid] = msg_id
         # Ask the storage if someone locks the object.
-        # Shorten timeout to react earlier to an unresponding storage.
-        conn.ask(Packets.AskHasLock(ttid, oid), timeout=5, queue=queue)
-        return True
+        # By sending a message with a smaller timeout,
+        # the connection will be kept open.
+        conn.ask(Packets.AskHasLock(txn_context['ttid'], oid),
+                 timeout=5, queue=txn_context['queue'])
 
     @profiler_decorator
     def _handleConflicts(self, txn_context, tryToResolveConflict):
