@@ -121,7 +121,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         packet_list = [x.getParam(0) for x in conn.mockGetNamedCalls('ask')]
         packet_list, next_range = packet_list[:-1], packet_list[-1]
 
-        self.assertEqual(next_range.getType(), Packets.AskCheckTIDRange)
+        self.assertEqual(type(next_range), Packets.AskCheckTIDRange)
         pmin_tid, plength, ppartition = next_range.decode()
         self.assertEqual(pmin_tid, add64(next_tid, 1))
         self.assertEqual(plength, RANGE_LENGTH)
@@ -132,7 +132,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
 
         self.assertEqual(len(packet_list), len(tid_list))
         for packet in packet_list:
-            self.assertEqual(packet.getType(),
+            self.assertEqual(type(packet),
                 Packets.AskTransactionInformation)
             ptid = packet.decode()[0]
             for tid in tid_list:
@@ -147,7 +147,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         packet_list = [x.getParam(0) for x in conn.mockGetNamedCalls('ask')]
         packet_list, next_range = packet_list[:-1], packet_list[-1]
 
-        self.assertEqual(next_range.getType(), Packets.AskCheckSerialRange)
+        self.assertEqual(type(next_range), Packets.AskCheckSerialRange)
         pmin_oid, pmin_serial, plength, ppartition = next_range.decode()
         self.assertEqual(pmin_oid, next_oid)
         self.assertEqual(pmin_serial, add64(next_serial, 1))
@@ -422,7 +422,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         calls = conn.mockGetNamedCalls('ask')
         self.assertEqual(len(calls), 1)
         tid_packet = calls[0].getParam(0)
-        self.assertEqual(tid_packet.getType(), Packets.AskTIDsFrom)
+        self.assertEqual(type(tid_packet), Packets.AskTIDsFrom)
         pmin_tid, pmax_tid, plength, ppartition = tid_packet.decode()
         self.assertEqual(pmin_tid, min_tid)
         self.assertEqual(pmax_tid, critical_tid)
@@ -449,7 +449,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         calls = conn.mockGetNamedCalls('ask')
         self.assertEqual(len(calls), 2)
         tid_packet = calls[0].getParam(0)
-        self.assertEqual(tid_packet.getType(), Packets.AskTIDsFrom)
+        self.assertEqual(type(tid_packet), Packets.AskTIDsFrom)
         pmin_tid, pmax_tid, plength, ppartition = tid_packet.decode()
         self.assertEqual(pmin_tid, min_tid)
         self.assertEqual(pmax_tid, critical_tid)
@@ -577,7 +577,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         calls = conn.mockGetNamedCalls('ask')
         self.assertEqual(len(calls), 1)
         serial_packet = calls[0].getParam(0)
-        self.assertEqual(serial_packet.getType(), Packets.AskObjectHistoryFrom)
+        self.assertEqual(type(serial_packet), Packets.AskObjectHistoryFrom)
         pmin_oid, pmin_serial, pmax_serial, plength, ppartition = \
             serial_packet.decode()
         self.assertEqual(pmin_oid, min_oid)

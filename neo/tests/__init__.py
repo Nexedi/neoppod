@@ -334,10 +334,10 @@ class NeoUnitTestBase(NeoTestBase):
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
-        self.assertEqual(packet.getType(), Packets.Error)
+        self.assertEqual(type(packet), Packets.Error)
         if decode:
             return packet.decode()
-            return protocol.decode_table[packet.getType()](packet._body)
+            return protocol.decode_table[type(packet)](packet._body)
         return packet
 
     def checkAskPacket(self, conn, packet_type, decode=False):
@@ -346,7 +346,7 @@ class NeoUnitTestBase(NeoTestBase):
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
-        self.assertEqual(packet.getType(), packet_type)
+        self.assertEqual(type(packet), packet_type)
         if decode:
             return packet.decode()
         return packet
@@ -357,7 +357,7 @@ class NeoUnitTestBase(NeoTestBase):
         self.assertEqual(len(calls), 1)
         packet = calls.pop().getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
-        self.assertEqual(packet.getType(), packet_type)
+        self.assertEqual(type(packet), packet_type)
         if decode:
             return packet.decode()
         return packet
@@ -367,7 +367,7 @@ class NeoUnitTestBase(NeoTestBase):
         calls = conn.mockGetNamedCalls('notify')
         packet = calls.pop(packet_number).getParam(0)
         self.assertTrue(isinstance(packet, protocol.Packet))
-        self.assertEqual(packet.getType(), packet_type)
+        self.assertEqual(type(packet), packet_type)
         if decode:
             return packet.decode()
         return packet

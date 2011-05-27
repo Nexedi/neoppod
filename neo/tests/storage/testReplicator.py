@@ -115,7 +115,8 @@ class StorageReplicatorTests(NeoUnitTestBase):
         act()
         unfinished_tids = app.master_conn.mockGetNamedCalls('ask')[0].getParam(0)
         self.assertTrue(replicator.new_partition_set)
-        self.assertEqual(unfinished_tids.getType(), Packets.AskUnfinishedTransactions)
+        self.assertEqual(type(unfinished_tids),
+            Packets.AskUnfinishedTransactions)
         self.assertTrue(replicator.waiting_for_unfinished_tids)
         # nothing happens until waiting_for_unfinished_tids becomes False
         act()

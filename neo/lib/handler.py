@@ -33,7 +33,7 @@ class EventHandler(object):
     def __unexpectedPacket(self, conn, packet, message=None):
         """Handle an unexpected packet."""
         if message is None:
-            message = 'unexpected packet type %s in %s' % (packet.getType(),
+            message = 'unexpected packet type %s in %s' % (type(packet),
                     self.__class__.__name__)
         else:
             message = 'unexpected packet: %s in %s' % (message,

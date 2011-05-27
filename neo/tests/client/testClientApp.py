@@ -934,7 +934,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         now = time.time()
         app.pack(now)
         self.assertEqual(len(marker), 1)
-        self.assertEqual(marker[0].getType(), Packets.AskPack)
+        self.assertEqual(type(marker[0]), Packets.AskPack)
         # XXX: how to validate packet content ?
 
 if __name__ == '__main__':

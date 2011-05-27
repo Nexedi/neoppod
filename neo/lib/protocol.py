@@ -193,9 +193,6 @@ class Packet(object):
         assert self._id is not None, "No identifier applied on the packet"
         return self._id
 
-    def getType(self):
-        return self.__class__
-
     def encode(self):
         """ Encode a packet as a string to send it over the network """
         content = self._body

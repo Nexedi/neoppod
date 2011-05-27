@@ -413,7 +413,7 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
-        self.assertEqual(data.getType(), p.getType())
+        self.assertEqual(type(data), type(p))
         self.assertEqual(data.getId(), p.getId())
         self.assertEqual(data.decode(), p.decode())
         self._checkReadBuf(bc, '')
@@ -455,13 +455,13 @@ class ConnectionTests(NeoUnitTestBase):
         # packet 1
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
-        self.assertEqual(data.getType(), p1.getType())
+        self.assertEqual(type(data), type(p1))
         self.assertEqual(data.getId(), p1.getId())
         self.assertEqual(data.decode(), p1.decode())
         # packet 2
         call = bc._queue.mockGetNamedCalls("append")[1]
         data = call.getParam(0)
-        self.assertEqual(data.getType(), p2.getType())
+        self.assertEqual(type(data), type(p2))
         self.assertEqual(data.getId(), p2.getId())
         self.assertEqual(data.decode(), p2.decode())
         self._checkReadBuf(bc, '')
@@ -497,7 +497,7 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
-        self.assertEqual(data.getType(), p.getType())
+        self.assertEqual(type(data), type(p))
         self.assertEqual(data.getId(), p.getId())
         self.assertEqual(data.decode(), p.decode())
         self._checkReadBuf(bc, '')
@@ -519,7 +519,7 @@ class ConnectionTests(NeoUnitTestBase):
             buffer.append(chunk)
         answer = Packets.parse(buffer, parser_state)
         self.assertTrue(answer is not None)
-        self.assertTrue(answer.getType() == Packets.Pong)
+        self.assertTrue(type(answer) == Packets.Pong)
         self.assertEqual(answer.getId(), p.getId())
 
     def test_Connection_analyse6(self):
@@ -636,7 +636,7 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 1)
         call = bc._queue.mockGetNamedCalls("append")[0]
         data = call.getParam(0)
-        self.assertEqual(data.getType(), Packets.AnswerPrimary)
+        self.assertEqual(type(data), Packets.AnswerPrimary)
         self.assertEqual(data.getId(), 1)
         self._checkReadBuf(bc, '')
         # check not aborted

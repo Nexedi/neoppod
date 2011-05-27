@@ -494,13 +494,13 @@ class Connection(BaseConnection):
                 self.getHandler()._packetMalformed(self, msg)
                 return
             self._timeout.refresh(time())
-            packet_type = packet.getType()
-            if packet_type == Packets.Ping:
+            packet_type = type(packet)
+            if packet_type is Packets.Ping:
                 # Send a pong notification
                 PACKET_LOGGER.dispatch(self, packet, False)
                 if not self.aborted:
                     self.answer(Packets.Pong(), packet.getId())
-            elif packet_type == Packets.Pong:
+            elif packet_type is Packets.Pong:
                 # Skip PONG packets, its only purpose is refresh the timeout
                 # generated upong ping. But still log them.
                 PACKET_LOGGER.dispatch(self, packet, False)
@@ -772,7 +772,7 @@ class MTClientConnection(ClientConnection):
             msg_id = self._getNextId()
             packet.setId(msg_id)
             if queue is None:
-                if not isinstance(packet, Packets.Ping):
+                if type(packet) is not Packets.Ping:
                     raise TypeError, 'Only Ping packet can be asked ' \
                         'without a queue, got a %r.' % (packet, )
             else:

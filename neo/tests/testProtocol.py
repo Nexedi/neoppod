@@ -259,7 +259,7 @@ class ProtocolTests(NeoUnitTestBase):
         tid = self.getNextTID()
         oid_list = [self.getOID(1), self.getOID(2)]
         p = Packets.DeleteTransaction(tid, oid_list)
-        self.assertEqual(p.getType(), Packets.DeleteTransaction)
+        self.assertEqual(type(p), Packets.DeleteTransaction)
         self.assertEqual(p.decode(), (tid, oid_list))
 
     def test_31_commitTransaction(self):
