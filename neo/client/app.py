@@ -860,9 +860,9 @@ class Application(object):
                 # object. This is an undo conflict, try to resolve it.
                 try:
                     # Load the latest version we are supposed to see
-                    data = self.load(oid, current_serial, snapshot_tid)[0]
+                    data = self.load(oid, current_serial)[0]
                     # Load the version we were undoing to
-                    undo_data = self.load(oid, undo_serial, snapshot_tid)[0]
+                    undo_data = self.load(oid, undo_serial)[0]
                 except NEOStorageNotFoundError:
                     raise UndoError('Object not found while resolving undo '
                         'conflict')
@@ -877,6 +877,8 @@ class Application(object):
                         'transaction', oid)
                 undo_serial = None
             self._store(txn_context, oid, current_serial, data, undo_serial)
+
+        return None, () # required for ZODB < 3.10
 
     def _insertMetadata(self, txn_info, extension):
         for k, v in loads(extension).items():
