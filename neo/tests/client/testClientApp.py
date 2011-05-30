@@ -570,7 +570,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             def pending(self, queue):
                 return not queue.empty()
         app.dispatcher = Dispatcher()
-        def load(oid, tid, before_tid):
+        def load(oid, tid=None, before_tid=None):
             self.assertEqual(oid, oid0)
             return ({tid0: 'dummy', tid2: 'cdummy'}[tid], None, None)
         app.load = load
