@@ -66,8 +66,7 @@ else:
 class Application(object):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, connector=None, compress=True,
-            **kw):
+    def __init__(self, master_nodes, name, compress=True, **kw):
         # Start polling thread
         self.em = EventManager()
         self.poll_thread = ThreadedPoll(self.em, name=name)

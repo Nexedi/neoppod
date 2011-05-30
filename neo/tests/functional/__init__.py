@@ -35,7 +35,7 @@ import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib import setupLog
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
-from neo.lib.util import dump, SOCKET_CONNECTORS_DICT
+from neo.lib.util import dump
 from neo.tests import DB_ADMIN, DB_PASSWD, NeoTestBase, buildUrlFromString, \
         ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, getTempDirectory
 from neo.tests.cluster import SocketLock
@@ -419,16 +419,14 @@ class NEOCluster(object):
     def getNEOCTL(self):
         return self.neoctl
 
-    def getZODBStorage(self,connector = SOCKET_CONNECTORS_DICT[ADDRESS_TYPE], **kw):
+    def getZODBStorage(self, **kw):
         master_nodes = self.master_nodes.replace('/', ' ')
         result = Storage(
             master_nodes=master_nodes,
             name=self.cluster_name,
-            connector=connector,
             logfile=os.path.join(self.temp_dir, 'client.log'),
             verbose=self.verbose,
-            **kw
-        )
+            **kw)
         self.zodb_storage_list.append(result)
         return result
 

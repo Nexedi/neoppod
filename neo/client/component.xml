@@ -14,11 +14,6 @@
         Give the name of the cluster
       </description>
     </key>
-    <key name="connector">
-      <description>
-        Give the name of the connector used at low-level
-      </description>
-    </key>
     <key name="compress" datatype="boolean">
       <description>
         If true, enable automatic data compression (compression is only used

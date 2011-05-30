@@ -56,7 +56,7 @@ class Storage(BaseStorage.BaseStorage,
         ZODB.interfaces.IMVCCStorage,
     )))
 
-    def __init__(self, master_nodes, name, connector=None, read_only=False,
+    def __init__(self, master_nodes, name, read_only=False,
             compress=None, logfile=None, verbose=False, _app=None, **kw):
         """
         Do not pass those parameters (used internally):
@@ -70,13 +70,11 @@ class Storage(BaseStorage.BaseStorage,
         # Warning: _is_read_only is used in BaseStorage, do not rename it.
         self._is_read_only = read_only
         if _app is None:
-            _app = Application(master_nodes, name, connector,
-                compress=compress)
+            _app = Application(master_nodes, name, compress=compress)
         self.app = _app
         # Used to clone self (see new_instance & IMVCCStorage definition).
         self._init_args = (master_nodes, name)
         self._init_kw = {
-            'connector': connector,
             'read_only': read_only,
             'compress': compress,
             'logfile': logfile,
