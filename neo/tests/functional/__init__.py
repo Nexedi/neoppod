@@ -311,7 +311,7 @@ class NEOCluster(object):
             NEOProcess(command, uuid, arguments))
 
     def __allocateUUID(self):
-        uuid = os.urandom(16)
+        uuid = ('%032x' % random.getrandbits(128)).decode('hex')
         self.uuid_set.add(uuid)
         return uuid
 

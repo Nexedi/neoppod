@@ -41,6 +41,7 @@ setup(
             'neomigrate=neo.scripts.neomigrate:main',
             'neostorage=neo.scripts.neostorage:main',
             'neotestrunner=neo.scripts.runner:main',
+            'neosimple=neo.scripts.simple:main',
         ],
     },
     # Raah!!! I wish I could write something like:
