@@ -21,9 +21,6 @@ class NeoStorage(BaseConfig):
 
     def open(self):
         from neo.client.Storage import Storage
-        return Storage(master_nodes=self.config.master_nodes,
-                name=self.config.name, connector = self.config.connector,
-                compress=self.config.compress,
-        )
-
-
+        config = self.config
+        return Storage(**dict((k, getattr(config, k))
+                              for k in config.getSectionAttributes()))

@@ -1,29 +1,41 @@
 <component prefix="neo.client.config">
   <sectiontype name="NeoStorage" datatype=".NeoStorage"
                implements="ZODB.storage">
-     <description>
-       A scalable storage for Zope
-     </description>
-     <key name="master_nodes" required="yes">
+    <description>
+      A scalable storage for Zope
+    </description>
+    <key name="master_nodes" required="yes">
       <description>
-       Give the list of the master node like ip:port ip:port...
+        Give the list of the master node like ip:port ip:port...
       </description>
-     </key>
-     <key name="name" required="yes">
+    </key>
+    <key name="name" required="yes">
       <description>
-       Give the name of the cluster
+        Give the name of the cluster
       </description>
-     </key>
-     <key name="connector" required="no">
+    </key>
+    <key name="connector">
       <description>
-       Give the name of the connector used at low-level
+        Give the name of the connector used at low-level
       </description>
-     </key>
-     <key name="compress" required="no" default="true" datatype="boolean">
+    </key>
+    <key name="compress" datatype="boolean">
       <description>
-      true: enable automatic data compression (compression is only used when compressed size is smaller).
-      false: disable data compression.
+        If true, enable automatic data compression (compression is only used
+        when compressed size is smaller).
       </description>
-     </key>
+    </key>
+    <key name="read-only" datatype="boolean">
+      <description>
+        If true, only reads may be executed against the storage.  Note
+        that the "pack" operation is not considered a write operation
+        and is still allowed on a read-only neostorage.
+      </description>
+    </key>
+    <key name="verbose" datatype="boolean">
+      <description>
+        Log debugging information
+      </description>
+    </key>
   </sectiontype>
 </component>
