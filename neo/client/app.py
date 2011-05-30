@@ -18,7 +18,6 @@
 from cPickle import dumps, loads
 from zlib import compress as real_compress, decompress
 from neo.lib.locking import Empty
-from random import shuffle
 import time
 import os
 
@@ -833,7 +832,7 @@ class Application(object):
         ttid = txn_context['ttid']
         for partition, oid_list in partition_oid_dict.iteritems():
             cell_list = getCellList(partition, readable=True)
-            shuffle(cell_list)
+            # BBB: min(..., key=...) requires Python >= 2.5
             cell_list.sort(key=getCellSortKey)
             storage_conn = getConnForCell(cell_list[0])
             storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
