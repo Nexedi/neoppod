@@ -27,7 +27,6 @@ class EpollEventManager(object):
         self.connection_dict = {}
         self.reader_set = set([])
         self.writer_set = set([])
-        self.prev_time = time()
         self.epoll = Epoll()
         self._pending_processing = []
 

@@ -29,7 +29,6 @@ class EventTests(NeoUnitTestBase):
         self.assertEqual(len(em.connection_dict), 0)
         self.assertEqual(len(em.reader_set), 0)
         self.assertEqual(len(em.writer_set), 0)
-        self.assertTrue(em.prev_time <time)
         self.assertTrue(isinstance(em.epoll, Epoll))
         # use a mock object instead of epoll
         em.epoll = Mock()
