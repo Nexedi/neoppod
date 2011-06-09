@@ -429,7 +429,7 @@ class Application(object):
         elif self._current_manager is not None:
             storage_handler = self._current_manager.getHandler()
         else:
-            RuntimeError('Unexpected cluster state')
+            raise RuntimeError('Unexpected cluster state')
 
         # change handlers
         notification_packet = Packets.NotifyClusterInformation(state)
