@@ -126,9 +126,10 @@ class PrimaryNotificationsHandler(BaseHandler):
     def notifyNodeInformation(self, conn, node_list):
         nm = self.app.nm
         nm.update(node_list)
+        # XXX: 'update' automatically closes DOWN nodes. Do we really want
+        #      to do the same thing for nodes in other non-running states ?
         for node_type, addr, uuid, state in node_list:
             if state != NodeStates.RUNNING:
-                # close connection to this node if no longer running
                 node = nm.getByUUID(uuid)
                 if node and node.isConnected():
                     node.getConnection().close()
