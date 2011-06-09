@@ -15,17 +15,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from logging import DEBUG, ERROR
 from threading import Thread, Event, enumerate as thread_enum
 from neo.lib.locking import Lock
 import neo.lib
 
 class _ThreadedPoll(Thread):
     """Polling thread."""
-
-    # Garbage collector hint:
-    # Prevent logging module from being garbage-collected as it is needed for
-    # run method to cleanly exit.
-    neo = neo
 
     def __init__(self, em, **kw):
         Thread.__init__(self, **kw)
@@ -34,16 +30,23 @@ class _ThreadedPoll(Thread):
         self._stop = Event()
 
     def run(self):
-        neo.lib.logging.debug('Started %s', self)
-        while not self.stopping():
-            # First check if we receive any new message from other node
+        _log = neo.lib.logging.log
+        def log(*args, **kw):
+            # Ignore errors due to garbage collection on exit
             try:
-                # XXX: Delay cannot be infinite here, unless we have a way to
-                # interrupt this call when stopping.
+                _log(*args, **kw)
+            except:
+                if not self.stopping():
+                    raise
+        log(DEBUG, 'Started %s', self)
+        while not self.stopping():
+            try:
+                # XXX: Delay cannot be infinite here, because we need
+                #      to check connection timeout and thread shutdown.
                 self.em.poll(1)
             except:
-                self.neo.lib.logging.error('poll raised, retrying', exc_info=1)
-        self.neo.lib.logging.debug('Threaded poll stopped')
+                log(ERROR, 'poll raised, retrying', exc_info=1)
+        log(DEBUG, 'Threaded poll stopped')
         self._stop.clear()
 
     def stop(self):
