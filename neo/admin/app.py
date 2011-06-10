@@ -97,8 +97,8 @@ class Application(object):
 
         # Make a listening port.
         handler = AdminEventHandler(self)
-        ListeningConnection(self.em, handler, addr=self.server,
-                            connector=self.connector_handler())
+        self.listening_conn = ListeningConnection(self.em, handler,
+            addr=self.server, connector=self.connector_handler())
 
         while True:
             self.connectToPrimary()

@@ -513,4 +513,5 @@ class DoNothingConnector(Mock):
         return self.desc
 
 
-__builtin__.pdb = lambda: debug.getPdb().set_trace(sys._getframe(1))
+__builtin__.pdb = lambda depth=0: \
+    debug.getPdb().set_trace(sys._getframe(depth+1))

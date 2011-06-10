@@ -132,5 +132,8 @@ class Epoll(object):
             raise OSError(errno.value, 'epoll_ctl failed')
 
     def __del__(self):
-        if self.efd >= 0:
-            close(self.efd)
+        efd = self.efd
+        if efd >= 0:
+            del self.efd
+            close(efd)
+    close = __del__

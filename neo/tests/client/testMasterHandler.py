@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from mock import Mock, ReturnValues
+from mock import Mock
 from neo.tests import NeoUnitTestBase
 from neo.lib.pt import PartitionTable
 from neo.lib.protocol import NodeTypes, NodeStates
@@ -177,56 +177,6 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
         update_calls = self.app.pt.mockGetNamedCalls('update')
         self.assertEqual(len(update_calls), 1)
         update_calls[0].checkArgs(ptid, cell_list, self.app.nm)
-
-    def test_notifyNodeInformation(self):
-        conn = self.getConnection()
-        addr = ('127.0.0.1', 1000)
-        node_list = [
-            (NodeTypes.CLIENT, addr, self.getNewUUID(), NodeStates.UNKNOWN),
-            (NodeTypes.STORAGE, addr, self.getNewUUID(), NodeStates.DOWN),
-        ]
-        # XXX: it might be better to test with real node & node manager
-        conn1 = self.getFakeConnection()
-        conn2 = self.getFakeConnection()
-        node1 = Mock({
-            'getConnection': conn1,
-            '__nonzero__': 1,
-            'isConnected': True,
-            '__repr__': 'Fake Node',
-        })
-        node2 = Mock({
-            'getConnection': conn2,
-            '__nonzero__': 1,
-            'isConnected': True,
-            '__repr__': 'Fake Node',
-        })
-        self.app.nm = Mock({'getByUUID': ReturnValues(node1, node2)})
-        self.app.cp = Mock()
-        self.handler.notifyNodeInformation(conn, node_list)
-        # node manager updated
-        update_calls = self.app.nm.mockGetNamedCalls('update')
-        self.assertEqual(len(update_calls), 1)
-        update_calls[0].checkArgs(node_list)
-        # connections closed
-        self.checkClosed(conn1)
-        self.checkClosed(conn2)
-        return conn2
-
-    def test_notifyNodeInformation_checkUnregisterStorage(self):
-        # XXX: This test fails because unregistering is done
-        #      by neo.client.handlers.storage.StorageEventHandler
-        #      which would require a connection to storage
-        #      with a proper handler (defined by Application).
-        #      It can be merged with previous one as soon as it passes.
-        conn2 = self.test_notifyNodeInformation()
-        # storage removed from connection pool
-        remove_calls = self.app.cp.mockGetNamedCalls('removeConnection')
-        self.assertEqual(len(remove_calls), 1)
-        remove_calls[0].checkArgs(conn2)
-        # storage unregistered
-        unregister_calls = self.app.dispatcher.mockGetNamedCalls('unregister')
-        self.assertEqual(len(unregister_calls), 1)
-        unregister_calls[0].checkArgs(conn2)
 
 
 class MasterAnswersHandlerTests(MasterHandlerTests):

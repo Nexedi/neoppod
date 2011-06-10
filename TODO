@@ -74,6 +74,7 @@ RC  - Review output of pylint (CODE)
       Do the replication process, the verification stage, with or without
       unfinished transactions, cells have to set as outdated, if yes, should the
       partition table changes be broadcasted ? (BANDWITH, SPEED)
+    - Implement proper shutdown (ClusterStates.STOPPING)
     - Review PENDING/HIDDEN/SHUTDOWN states, don't use notifyNodeInformation()
       to do a state-switch, use a exception-based mechanism ? (CODE)
     - Split protocol.py in a 'protocol' module
@@ -206,6 +207,7 @@ RC  - Review output of pylint (CODE)
     - Use another mock library that is eggified and maintained.
       See http://garybernhardt.github.com/python-mock-comparison/
       for a comparison of available mocking libraries/frameworks.
+    - Fix epoll descriptor leak.
 
   Later
     - Consider auto-generating cluster name upon initial startup (it might
