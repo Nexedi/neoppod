@@ -401,9 +401,11 @@ class DatabaseManager(object):
         given oid."""
         raise NotImplementedError
 
-    def deleteObjectsAbove(self, num_partitions, partition, oid, serial):
+    def deleteObjectsAbove(self, num_partitions, partition, oid, serial,
+            max_tid):
         """Delete all objects above given OID and serial (inclued) in given
-        partition."""
+        partition, but never above max_tid (in case objects are stored during
+        replication)"""
         raise NotImplementedError
 
     def getTransaction(self, tid, all = False):

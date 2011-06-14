@@ -574,13 +574,16 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def deleteObjectsAbove(self, num_partitions, partition, oid, serial):
+    def deleteObjectsAbove(self, num_partitions, partition, oid, serial,
+                           max_tid):
         u64 = util.u64
         self.begin()
         try:
-            self.objQuery('DELETE FROM %%(table)s WHERE partition=%(partition)d AND ('
+            self.objQuery('DELETE FROM %%(table)s WHERE partition=%(partition)d'
+              ' AND serial <= %(max_tid)d AND ('
               'oid > %(oid)d OR (oid = %(oid)d AND serial >= %(serial)d))' % {
                 'partition': partition,
+                'max_tid': u64(max_tid),
                 'oid': u64(oid),
                 'serial': u64(serial),
             })

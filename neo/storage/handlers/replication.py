@@ -21,7 +21,7 @@ import neo.lib
 
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import Packets, ZERO_TID, ZERO_OID
-from neo.lib.util import add64
+from neo.lib.util import add64, u64
 
 # TODO: benchmark how different values behave
 RANGE_LENGTH = 4000
@@ -315,8 +315,16 @@ class ReplicationHandler(EventHandler):
             # Delete all objects we might have which are beyond what peer
             # knows.
             ((last_oid, last_serial), ) = params
+            offset = replicator.getCurrentOffset()
+            max_tid = replicator.getCurrentCriticalTID()
+            neo.lib.logging.debug("Serial range checked (offset=%s, min_oid=%x,"
+                " min_serial=%x, length=%s, count=%s, max_oid=%x,"
+                " max_serial=%x, last_oid=%x, last_serial=%x, critical_tid=%x)",
+                offset, u64(min_oid), u64(min_serial), length, count,
+                u64(max_oid), u64(max_serial), u64(last_oid), u64(last_serial),
+                u64(max_tid))
             app.dm.deleteObjectsAbove(app.pt.getPartitions(),
-              replicator.getCurrentOffset(), last_oid, last_serial)
+                offset, last_oid, last_serial, max_tid)
             # Nothing remains, so the replication for this partition is
             # finished.
             replicator.setReplicationDone()

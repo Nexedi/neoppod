@@ -453,11 +453,13 @@ class BTreeDatabaseManager(DatabaseManager):
                 prune(obj[oid])
                 del obj[oid]
 
-    def deleteObjectsAbove(self, num_partitions, partition, oid, serial):
+    def deleteObjectsAbove(self, num_partitions, partition, oid, serial,
+                           max_tid):
         obj = self._obj
         u64 = util.u64
         oid = u64(oid)
         serial = u64(serial)
+        max_tid = u64(max_tid)
         if oid % num_partitions == partition:
             try:
                 tserial = obj[oid]
@@ -465,11 +467,12 @@ class BTreeDatabaseManager(DatabaseManager):
                 pass
             else:
                 batchDelete(tserial, lambda _, __: True,
-                    iter_kw={'min': serial})
+                    iter_kw={'min': serial, 'max': max_tid})
         def same_partition(key, _):
             return key % num_partitions == partition
         batchDelete(obj, same_partition,
-            iter_kw={'min': oid, 'excludemin': True}, recycle_subtrees=True)
+            iter_kw={'min': oid, 'excludemin': True, 'max': max_tid},
+            recycle_subtrees=True)
 
     def getTransaction(self, tid, all=False):
         tid = util.u64(tid)
