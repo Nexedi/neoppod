@@ -380,7 +380,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         # ...and delete partition tail
         calls = app.dm.mockGetNamedCalls('deleteTransactionsAbove')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(num_partitions, rid, add64(max_tid, 1))
+        calls[0].checkArgs(num_partitions, rid, add64(max_tid, 1), ZERO_TID)
 
     def test_answerCheckTIDRangeDifferentBigChunk(self):
         min_tid = self.getNextTID()

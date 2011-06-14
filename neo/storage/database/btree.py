@@ -423,12 +423,11 @@ class BTreeDatabaseManager(DatabaseManager):
         except KeyError:
             pass
 
-    def deleteTransactionsAbove(self, num_partitions, partition, tid):
-        tid = util.u64(tid)
+    def deleteTransactionsAbove(self, num_partitions, partition, tid, max_tid):
         def same_partition(key, _):
             return key % num_partitions == partition
         batchDelete(self._trans, same_partition,
-            iter_kw={'min': tid})
+            iter_kw={'min': util.u64(tid), 'max': util.u64(max_tid)})
 
     def deleteObject(self, oid, serial=None):
         u64 = util.u64

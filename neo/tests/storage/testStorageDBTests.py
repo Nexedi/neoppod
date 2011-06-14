@@ -346,7 +346,7 @@ class StorageDBTests(NeoUnitTestBase):
             txn, objs = self.getTransaction([oid1])
             self.db.storeTransaction(tid, objs, txn)
             self.db.finishTransaction(tid)
-        self.db.deleteTransactionsAbove(2, 0, tid2)
+        self.db.deleteTransactionsAbove(2, 0, tid2, tid3)
         # Right partition, below cutoff
         self.assertNotEqual(self.db.getTransaction(tid1, True), None)
         # Wrong partition, above cutoff

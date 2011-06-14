@@ -256,6 +256,7 @@ class ReplicationHandler(EventHandler):
     @checkConnectionIsReplicatorConnection
     def answerCheckTIDRange(self, conn, min_tid, length, count, tid_checksum,
             max_tid):
+        pkt_min_tid = min_tid
         ask = conn.ask
         app = self.app
         replicator = app.replicator
@@ -264,6 +265,7 @@ class ReplicationHandler(EventHandler):
             replicator.getTIDCheckResult(min_tid, length) == (
             count, tid_checksum, max_tid), min_tid, next_tid, length,
             count)
+        critical_tid = replicator.getCurrentCriticalTID()
         if action == CHECK_REPLICATE:
             (min_tid, ) = params
             ask(self._doAskTIDsFrom(min_tid, count))
@@ -272,23 +274,26 @@ class ReplicationHandler(EventHandler):
                 params = (next_tid, )
         if action == CHECK_CHUNK:
             (min_tid, count) = params
-            if min_tid >= replicator.getCurrentCriticalTID():
+            if min_tid >= critical_tid:
                 # Stop if past critical TID
                 action = CHECK_DONE
                 params = (next_tid, )
             else:
-                max_tid = replicator.getCurrentCriticalTID()
-                ask(self._doAskCheckTIDRange(min_tid, max_tid, count))
+                ask(self._doAskCheckTIDRange(min_tid, critical_tid, count))
         if action == CHECK_DONE:
             # Delete all transactions we might have which are beyond what peer
             # knows.
             (last_tid, ) = params
+            offset = replicator.getCurrentOffset()
+            neo.lib.logging.debug("TID range checked (offset=%s, min_tid=%x,"
+                " length=%s, count=%s, max_tid=%x, last_tid=%x,"
+                " critical_tid=%x)", offset, u64(pkt_min_tid), length, count,
+                u64(max_tid), u64(last_tid), u64(critical_tid))
             app.dm.deleteTransactionsAbove(app.pt.getPartitions(),
-                replicator.getCurrentOffset(), last_tid)
+                offset, last_tid, critical_tid)
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
-            max_tid = replicator.getCurrentCriticalTID()
-            ask(self._doAskCheckSerialRange(ZERO_OID, ZERO_TID, max_tid))
+            ask(self._doAskCheckSerialRange(ZERO_OID, ZERO_TID, critical_tid))
 
     @checkConnectionIsReplicatorConnection
     def answerCheckSerialRange(self, conn, min_oid, min_serial, length, count,

@@ -541,13 +541,14 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def deleteTransactionsAbove(self, num_partitions, partition, tid):
+    def deleteTransactionsAbove(self, num_partitions, partition, tid, max_tid):
         self.begin()
         try:
             self.query('DELETE FROM trans WHERE partition=%(partition)d AND '
-              'tid >= %(tid)d' % {
+              '%(tid)d <= tid AND tid <= %(max_tid)d' % {
                 'partition': partition,
                 'tid': util.u64(tid),
+                'max_tid': util.u64(max_tid),
             })
         except:
             self.rollback()
