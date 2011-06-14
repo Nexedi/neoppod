@@ -74,7 +74,8 @@ class Test(NEOThreadedTest):
         cluster.reset()
         try:
             cluster.start(storage_list=(s1,), fast_startup=fast_startup)
-            self.assertEqual(NodeStates.UNKNOWN, cluster.getNodeState(s2))
+            self.assertEqual((NodeStates.UNKNOWN, None)[fast_startup],
+                             cluster.getNodeState(s2))
         finally:
             cluster.stop()
 
