@@ -383,7 +383,7 @@ class StorageDBTests(NeoUnitTestBase):
             txn, objs = self.getTransaction([oid1, oid2, oid3])
             self.db.storeTransaction(tid, objs, txn)
             self.db.finishTransaction(tid)
-        self.db.deleteObjectsAbove(2, 0, oid1, tid2)
+        self.db.deleteObjectsAbove(2, 0, oid1, tid2, tid3)
         # Check getObjectHistoryFrom because MySQL adapter use two tables
         # that must be synchronized
         self.assertEqual(self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID,
