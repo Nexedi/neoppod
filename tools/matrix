@@ -9,21 +9,16 @@ from time import time
 from neo.tests.benchmark import BenchmarkRunner
 from ZODB.FileStorage import FileStorage
 
-MIN_STORAGES = 1
-MAX_STORAGES = 2
-MIN_REPLICAS = 0
-MAX_REPLICAS = 1
-
 class MatrixImportBenchmark(BenchmarkRunner):
 
     error_log = ''
 
     def add_options(self, parser):
         parser.add_option('-d', '--datafs')
-        parser.add_option('', '--min-storages')
-        parser.add_option('', '--max-storages')
-        parser.add_option('', '--min-replicas')
-        parser.add_option('', '--max-replicas')
+        parser.add_option('', '--min-storages', type='int', default=1)
+        parser.add_option('', '--max-storages', type='int', default=2)
+        parser.add_option('', '--min-replicas', type='int', default=0)
+        parser.add_option('', '--max-replicas', type='int', default=1)
         parser.add_option('', '--threaded', action="store_true")
 
     def load_options(self, options, args):
@@ -31,10 +26,10 @@ class MatrixImportBenchmark(BenchmarkRunner):
             sys.exit('Missing or wrong data.fs argument')
         return dict(
             datafs = options.datafs,
-            min_s = int(options.min_storages or MIN_STORAGES),
-            max_s = int(options.max_storages or MAX_STORAGES),
-            min_r = int(options.min_replicas or MIN_REPLICAS),
-            max_r = int(options.max_replicas or MAX_REPLICAS),
+            min_s = options.min_storages,
+            max_s = options.max_storages,
+            min_r = options.min_replicas,
+            max_r = options.max_replicas,
             threaded = options.threaded,
         )
 
@@ -155,11 +150,8 @@ class MatrixImportBenchmark(BenchmarkRunner):
             report += sep
         report += self.error_log
         if failures:
-            info = '%d failures' % (failures, )
-        else:
-            info = '%.1f KB/s' % (sum(speedlist) / len(speedlist))
-        summary = 'Matrix : %s ' % (info, )
-        return (summary, report)
+            return '%d failures' % (failures, )
+        return '%.1f KB/s' % (sum(speedlist) / len(speedlist))
 
 def main(args=None):
     MatrixImportBenchmark().run()

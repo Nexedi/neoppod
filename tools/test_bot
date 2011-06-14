@@ -44,13 +44,24 @@ def main():
             os.execvp(sys.argv[0], sys.argv)
         delay = None
         for test_home in sys.argv[arg_count:]:
+            test_home, tasks = test_home.rsplit('=', 1)
+            tests = ''.join(x for x in tasks if x in 'fuz')
             bin = os.path.join(test_home, 'bin')
             if not subprocess.call((os.path.join(bin, 'buildout'), '-v'),
                                    cwd=test_home):
-                subprocess.call([os.path.join(bin, 'neotestrunner'), '-fuz',
-                                 '--title', 'NEO tests (r%u-%s)'
-                                 % (revision, os.path.basename(test_home)),
-                                ] + sys.argv[1:arg_count])
+                title = '(r%u-%s)' % (revision, os.path.basename(test_home))
+                if tests:
+                    subprocess.call([os.path.join(bin, 'neotestrunner'),
+                                     '-' + tests, '--title',
+                                     'NEO tests ' + title,
+                                    ] + sys.argv[1:arg_count])
+                if 'm' in tasks:
+                    subprocess.call([os.path.join(bin, 'python'),
+                                     'tools/matrix', '--repeat=3',
+                                     '--min-storages=1', '--max-storages=24',
+                                     '--min-replicas=0', '--max-replicas=3',
+                                     '--title', 'Matrix ' + title,
+                                    ] + sys.argv[1:arg_count])
         clean()
 
 if __name__ == '__main__':
