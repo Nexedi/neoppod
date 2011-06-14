@@ -93,7 +93,7 @@ How to use
 
    b. Just create the storage object and play with it:
 
-      from neo.client.Storare import Storage
+      from neo.client.Storage import Storage
           s = Storage(master_nodes="127.0.0.1:10010", name="main")
       ...
 

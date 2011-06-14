@@ -32,7 +32,7 @@ CHECK_REPLICATE = 1
 CHECK_DONE = 2
 
 """
-Replication algorythm
+Replication algorithm
 
 Purpose: replicate the content of a reference node into a replicating node,
 bringing it up-to-date.
@@ -46,7 +46,7 @@ partitions.
 - Transaction (metadata) replication
 - Object (data) replication
 
-Both part follow the same mechanism:
+Both parts follow the same mechanism:
 - On both sides (replicating and reference), compute a checksum of a chunk
   (RANGE_LENGTH number of entries). If there is a mismatch, chunk size is
   reduced, and scan restarts from same row, until it reaches a minimal length
