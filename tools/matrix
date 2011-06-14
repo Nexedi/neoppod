@@ -54,19 +54,31 @@ class MatrixImportBenchmark(BenchmarkRunner):
             from neo.tests.threaded import NEOCluster
             NEOCluster.patch() # XXX ugly
         try:
-            results = self.runMatrix(storages, replicas)
+            result_list = [self.runMatrix(storages, replicas)
+                           for x in xrange(self._config.repeat)]
         finally:
             if self._config.threaded:
                 from neo.tests.threaded import NEOCluster
                 NEOCluster.unpatch()# XXX ugly
+        results = {}
+        for s in storages:
+            results[s] = z = {}
+            for r in replicas:
+                if r < s:
+                    x = [x[s][r] for x in result_list if x[s][r] is not None]
+                    if x:
+                        z[r] = max(x)
+                    else:
+                        z[r] = None
         return self.buildReport(storages, replicas, results)
 
     def runMatrix(self, storages, replicas):
         stats = {}
         for s in storages:
-            for r in [r for r in replicas if r < s]:
-                stats.setdefault(s, {})
-                stats[s][r] = self.runImport(1, s, r, 100)
+            stats[s] = z = {}
+            for r in replicas:
+                if r < s:
+                    z[r] = self.runImport(1, s, r, 100)
         return stats
 
     def runImport(self, masters, storages, replicas, partitions):
@@ -77,7 +89,7 @@ class MatrixImportBenchmark(BenchmarkRunner):
             datafs = 'PROD1'
             import random, neo.tests.stat_zodb
             dfs_storage = getattr(neo.tests.stat_zodb, datafs)(
-                random.Random(0)).as_storage(100)
+                random.Random(0)).as_storage(10000)
         print "Import of %s with m=%s, s=%s, r=%s, p=%s" % (
                 datafs, masters, storages, replicas, partitions)
         # cluster

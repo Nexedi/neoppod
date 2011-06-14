@@ -32,6 +32,7 @@ class BenchmarkRunner(object):
         parser.add_option('', '--mail-to', action='append')
         parser.add_option('', '--mail-from')
         parser.add_option('', '--mail-server')
+        parser.add_option('-r', '--repeat', default=1)
         self.add_options(parser)
         # check common arguments
         options, self._args = parser.parse_args()
@@ -47,6 +48,7 @@ class BenchmarkRunner(object):
             mail_from = options.mail_from,
             mail_to = options.mail_to,
             mail_server = mail_server.split(':'),
+            repeat = options.repeat,
         )
 
     def add_status(self, key, value):
