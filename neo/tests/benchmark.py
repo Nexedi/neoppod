@@ -8,7 +8,7 @@ import datetime
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEText import MIMEText
 
-from neo.tests.functional import NEOCluster
+from neo.lib import logger
 
 MAIL_SERVER = '127.0.0.1:25'
 
@@ -41,13 +41,13 @@ class BenchmarkRunner(object):
         # check specifics arguments
         self._config = AttributeDict()
         self._config.update(self.load_options(options, self._args))
-        self._config.update(dict(
+        self._config.update(
             title = options.title or self.__class__.__name__,
-            verbose = options.verbose,
+            verbose = bool(options.verbose),
             mail_from = options.mail_from,
             mail_to = options.mail_to,
             mail_server = mail_server.split(':'),
-        ))
+        )
 
     def add_status(self, key, value):
         self._status.append((key, value))
@@ -91,6 +91,7 @@ class BenchmarkRunner(object):
         s.close()
 
     def run(self):
+        logger.PACKET_LOGGER.enable(self._config.verbose)
         subject, report = self.start()
         report = self.build_report(report)
         if self._config.mail_to:

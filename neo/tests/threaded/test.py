@@ -29,7 +29,7 @@ class Test(NEOThreadedTest):
 
     def test_commit(self):
         cluster = NEOCluster()
-        cluster.start(1)
+        cluster.start()
         try:
             t, c = cluster.getTransaction()
             c.root()['foo'] = PObject()
@@ -42,7 +42,8 @@ class Test(NEOThreadedTest):
         # (neo.tests.client.testMasterHandler)
         cluster = NEOCluster()
         try:
-            cluster.start(1)
+            cluster.start()
+            cluster.db # open DB
             cluster.client.setPoll(0)
             storage, = cluster.client.nm.getStorageList()
             conn = storage.getConnection()

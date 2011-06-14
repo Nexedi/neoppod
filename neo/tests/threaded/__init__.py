@@ -16,7 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import os, random, socket, sys, threading, time, types
+import os, random, socket, sys, tempfile, threading, time, types
 from collections import deque
 from functools import wraps
 from Queue import Queue, Empty
@@ -270,6 +270,20 @@ class NeoCTL(neo.neoctl.app.NeoCTL):
                       lambda self, address: setattr(self, '_server', address))
 
 
+class LoggerThreadName(object):
+
+    def __init__(self, default='TEST'):
+        self.__default = default
+
+    def __getattr__(self, attr):
+        return getattr(str(self), attr)
+
+    def __str__(self):
+        try:
+            return threading.currentThread().node_name
+        except AttributeError:
+            return self.__default
+
 class NEOCluster(object):
 
     BaseConnection_checkTimeout = staticmethod(BaseConnection.checkTimeout)
@@ -326,14 +340,21 @@ class NEOCluster(object):
 
     def __init__(self, master_count=1, partitions=1, replicas=0,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'BTree'),
-                       storage_count=None, db_list=None,
-                       db_user='neo', db_password='neo'):
+                       storage_count=None, db_list=None, clear_databases=True,
+                       db_user='neo', db_password='neo', verbose=None):
+        if verbose is not None:
+            temp_dir = os.getenv('TEMP') or \
+                os.path.join(tempfile.gettempdir(), 'neo_tests')
+            os.path.exists(temp_dir) or os.makedirs(temp_dir)
+            log_file = tempfile.mkstemp('.log', '', temp_dir)[1]
+            print 'Logging to %r' % log_file
+            setupLog(LoggerThreadName(), log_file, verbose)
         self.name = 'neo_%s' % random.randint(0, 100)
         ip = getVirtualIp('master')
         self.master_nodes = ' '.join('%s:%s' % (ip, i)
                                      for i in xrange(master_count))
         kw = dict(cluster=self, getReplicas=replicas, getPartitions=partitions,
-                  getAdapter=adapter, getReset=True)
+                  getAdapter=adapter, getReset=clear_databases)
         self.master_list = [MasterApplication(address=(ip, i), **kw)
                             for i in xrange(master_count)]
         ip = getVirtualIp('storage')
@@ -383,7 +404,7 @@ class NEOCluster(object):
         self.client = ClientApplication(self)
         self.neoctl = NeoCTL(self)
 
-    def start(self, client=False, storage_list=None, fast_startup=True):
+    def start(self, storage_list=None, fast_startup=True):
         self.__class__._cluster = weak_ref(self)
         for node_type in 'master', 'admin':
             for node in getattr(self, node_type + '_list'):
@@ -401,8 +422,6 @@ class NEOCluster(object):
             self.tic()
         assert self.neoctl.getClusterState() == ClusterStates.RUNNING
         self.enableStorageList(storage_list)
-        if client:
-            self.startClient()
 
     def enableStorageList(self, storage_list):
         self.neoctl.enableStorageList([x.uuid for x in storage_list])
@@ -410,13 +429,16 @@ class NEOCluster(object):
         for node in storage_list:
             assert self.getNodeState(node) == NodeStates.RUNNING
 
-    def startClient(self):
-        self.client.setPoll(True)
-        self.db = ZODB.DB(storage=self.getZODBStorage())
+    @property
+    def db(self):
+        try:
+            return self._db
+        except AttributeError:
+            self._db = db = ZODB.DB(storage=self.getZODBStorage())
+            return db
 
     def stop(self):
-        if hasattr(self, 'db'):
-            self.db.close()
+        getattr(self, '_db', self.client).close()
         #self.neoctl.setClusterState(ClusterStates.STOPPING) # TODO
         try:
             Serialized.release(stop=1)
@@ -446,23 +468,15 @@ class NEOCluster(object):
                      if cell[1] == CellStates.OUT_OF_DATE]
 
     def getZODBStorage(self, **kw):
+        # automatically put client in master mode
+        if self.client.em._timeout == 0:
+            self.client.setPoll(True)
         return Storage.Storage(None, self.name, _app=self.client, **kw)
 
     def getTransaction(self):
         txn = transaction.TransactionManager()
         return txn, self.db.open(txn)
 
-
-class LoggerThreadName(object):
-
-    def __getattr__(self, attr):
-        return getattr(str(self), attr)
-
-    def __str__(self):
-        try:
-            return threading.currentThread().node_name
-        except AttributeError:
-            return 'TEST'
 
 class NEOThreadedTest(NeoUnitTestBase):
 

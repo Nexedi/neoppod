@@ -24,7 +24,7 @@ class ImportBenchmark(BenchmarkRunner):
         parser.add_option('-r', '--replicas')
 
     def load_options(self, options, args):
-        if not options.datafs or not os.path.exists(options.datafs):
+        if options.datafs and not os.path.exists(options.datafs):
             sys.exit('Missing or wrong data.fs argument')
         return dict(
             datafs = options.datafs,
@@ -74,8 +74,12 @@ class ImportBenchmark(BenchmarkRunner):
         # open storages clients
         datafs = self._config.datafs
         neo_storage = neo.getZODBStorage()
-        dfs_storage = FileStorage(file_name=datafs)
-        dfs_size = os.path.getsize(datafs)
+        if datafs:
+            dfs_storage = FileStorage(file_name=datafs)
+        else:
+            from neo.tests.stat_zodb import PROD1
+            from random import Random
+            dfs_storage = PROD1(Random(0)).as_storage(10000)
 
         # monkey patch storage
         txn_dict, obj_dict = {}, {}
@@ -92,13 +96,13 @@ class ImportBenchmark(BenchmarkRunner):
             'Transactions': txn_dict.values(),
             'Objects': obj_dict.values(),
         }
-        return (dfs_size, elapsed, stats)
+        return (dfs_storage.getSize(), elapsed, stats)
 
     def buildReport(self, dfs_size, elapsed, stats):
         """ build a report for the given import data """
         config = self._config
-        dfs_size /= 1024
-        size = dfs_size / 1024
+        dfs_size /= 1e3
+        size = dfs_size / 1e3
         speed = dfs_size / elapsed
 
         # configuration

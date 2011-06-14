@@ -7,7 +7,6 @@ import traceback
 from time import time
 
 from neo.tests.benchmark import BenchmarkRunner
-from neo.tests.functional import NEOCluster
 from ZODB.FileStorage import FileStorage
 
 MIN_STORAGES = 1
@@ -25,9 +24,10 @@ class MatrixImportBenchmark(BenchmarkRunner):
         parser.add_option('', '--max-storages')
         parser.add_option('', '--min-replicas')
         parser.add_option('', '--max-replicas')
+        parser.add_option('', '--threaded', action="store_true")
 
     def load_options(self, options, args):
-        if not options.datafs or not os.path.exists(options.datafs):
+        if options.datafs and not os.path.exists(options.datafs):
             sys.exit('Missing or wrong data.fs argument')
         return dict(
             datafs = options.datafs,
@@ -35,6 +35,7 @@ class MatrixImportBenchmark(BenchmarkRunner):
             max_s = int(options.max_storages or MAX_STORAGES),
             min_r = int(options.min_replicas or MIN_REPLICAS),
             max_r = int(options.max_replicas or MAX_REPLICAS),
+            threaded = options.threaded,
         )
 
     def start(self):
@@ -49,42 +50,59 @@ class MatrixImportBenchmark(BenchmarkRunner):
         if storages[-1] < max_s:
             storages.append(max_s)
         replicas = range(min_r, max_r + 1)
-        results = self.runMatrix(storages, replicas)
+        if self._config.threaded:
+            from neo.tests.threaded import NEOCluster
+            NEOCluster.patch() # XXX ugly
+        try:
+            results = self.runMatrix(storages, replicas)
+        finally:
+            if self._config.threaded:
+                from neo.tests.threaded import NEOCluster
+                NEOCluster.unpatch()# XXX ugly
         return self.buildReport(storages, replicas, results)
 
     def runMatrix(self, storages, replicas):
         stats = {}
-        size = float(os.path.getsize(self._config.datafs))
         for s in storages:
             for r in [r for r in replicas if r < s]:
                 stats.setdefault(s, {})
-                result = self.runImport(1, s, r, 100)
-                if result is not None:
-                    result = size / result / 1024
-                stats[s][r] = result
+                stats[s][r] = self.runImport(1, s, r, 100)
         return stats
 
     def runImport(self, masters, storages, replicas, partitions):
+        datafs = self._config.datafs
+        if datafs:
+            dfs_storage = FileStorage(file_name=self._config.datafs)
+        else:
+            datafs = 'PROD1'
+            import random, neo.tests.stat_zodb
+            dfs_storage = getattr(neo.tests.stat_zodb, datafs)(
+                random.Random(0)).as_storage(100)
         print "Import of %s with m=%s, s=%s, r=%s, p=%s" % (
-                self._config.datafs, masters, storages, replicas, partitions)
+                datafs, masters, storages, replicas, partitions)
         # cluster
-        neo = NEOCluster(
+        kw = dict(
             db_list=['neot_matrix_%d' % i for i in xrange(storages)],
             clear_databases=True,
             partitions=partitions,
             replicas=replicas,
-            master_node_count=masters,
             verbose=self._config.verbose,
         )
-        # import
-        neo_storage = neo.getZODBStorage()
-        dfs_storage = FileStorage(file_name=self._config.datafs)
+        if self._config.threaded:
+            from neo.tests.threaded import NEOCluster
+            neo = NEOCluster(master_count=masters, **kw)
+        else:
+            from neo.tests.functional import NEOCluster
+            neo = NEOCluster(master_node_count=masters, **kw)
         neo.start()
+        neo_storage = neo.getZODBStorage()
+        # import
         start = time()
         try:
             try:
                 neo_storage.copyTransactionsFrom(dfs_storage)
-                return time() - start
+                end = time()
+                return dfs_storage.getSize() / ((end - start) * 1e3)
             except:
                 traceback.print_exc()
                 self.error_log += "Import with m=%s, s=%s, r=%s, p=%s:" % (
