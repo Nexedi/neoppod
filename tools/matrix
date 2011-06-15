@@ -150,8 +150,10 @@ class MatrixImportBenchmark(BenchmarkRunner):
             report += sep
         report += self.error_log
         if failures:
-            return '%d failures' % (failures, )
-        return '%.1f KB/s' % (sum(speedlist) / len(speedlist))
+            info = '%d failures' % (failures, )
+        else:
+            info = '%.1f KB/s' % (sum(speedlist) / len(speedlist))
+        return info, report
 
 def main(args=None):
     MatrixImportBenchmark().run()
