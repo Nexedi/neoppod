@@ -194,9 +194,11 @@ class Transaction(object):
         # XXX: We might loose information that a storage successfully locked
         # data but was later found to be disconnected. This loss has no impact
         # on current code, but it might be disturbing to reader or future code.
-        self._lock_wait_uuid_set.discard(uuid)
-        self._uuid_set.discard(uuid)
-        return self.locked()
+        if self._prepared:
+            self._lock_wait_uuid_set.discard(uuid)
+            self._uuid_set.discard(uuid)
+            return self.locked()
+        return False
 
     def lock(self, uuid):
         """
