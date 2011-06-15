@@ -76,7 +76,7 @@ class MatrixImportBenchmark(BenchmarkRunner):
             datafs = 'PROD1'
             import random, neo.tests.stat_zodb
             dfs_storage = getattr(neo.tests.stat_zodb, datafs)(
-                random.Random(0)).as_storage(10000)
+                random.Random(0)).as_storage(1000)
         print "Import of %s with m=%s, s=%s, r=%s, p=%s" % (
                 datafs, masters, storages, replicas, partitions)
         if self._config.threaded:
