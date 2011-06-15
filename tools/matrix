@@ -93,6 +93,9 @@ class MatrixImportBenchmark(BenchmarkRunner):
         )
         neo.start()
         neo_storage = neo.getZODBStorage()
+        if not self._config.threaded:
+            assert len(neo.getStorageList()) == storages
+            neo.expectOudatedCells(number=0)
         # import
         start = time()
         try:
