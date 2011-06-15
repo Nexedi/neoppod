@@ -57,7 +57,7 @@ def main():
                                     ] + sys.argv[1:arg_count])
                 if 'm' in tasks:
                     subprocess.call([os.path.join(bin, 'python'),
-                                     'tools/matrix', '--repeat=3',
+                                     'tools/matrix', '--repeat=2',
                                      '--min-storages=1', '--max-storages=24',
                                      '--min-replicas=0', '--max-replicas=3',
                                      '--title', 'Matrix ' + title,

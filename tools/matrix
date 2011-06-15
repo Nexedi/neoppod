@@ -12,6 +12,7 @@ from ZODB.FileStorage import FileStorage
 class MatrixImportBenchmark(BenchmarkRunner):
 
     error_log = ''
+    _size = None
 
     def add_options(self, parser):
         parser.add_option('-d', '--datafs')
@@ -54,7 +55,7 @@ class MatrixImportBenchmark(BenchmarkRunner):
                 if r < s:
                     x = [x[s][r] for x in result_list if x[s][r] is not None]
                     if x:
-                        z[r] = max(x)
+                        z[r] = min(x)
                     else:
                         z[r] = None
         return self.buildReport(storages, replicas, results)
@@ -76,7 +77,7 @@ class MatrixImportBenchmark(BenchmarkRunner):
             datafs = 'PROD1'
             import random, neo.tests.stat_zodb
             dfs_storage = getattr(neo.tests.stat_zodb, datafs)(
-                random.Random(0)).as_storage(1000)
+                random.Random(0)).as_storage(5000)
         print "Import of %s with m=%s, s=%s, r=%s, p=%s" % (
                 datafs, masters, storages, replicas, partitions)
         if self._config.threaded:
@@ -102,7 +103,12 @@ class MatrixImportBenchmark(BenchmarkRunner):
             try:
                 neo_storage.copyTransactionsFrom(dfs_storage)
                 end = time()
-                return dfs_storage.getSize() / ((end - start) * 1e3)
+                size = dfs_storage.getSize()
+                if self._size is None:
+                    self._size = size
+                else:
+                    assert self._size == size
+                return end - start
             except:
                 traceback.print_exc()
                 self.error_log += "Import with m=%s, s=%s, r=%s, p=%s:" % (
@@ -113,12 +119,10 @@ class MatrixImportBenchmark(BenchmarkRunner):
             neo.stop()
 
     def buildReport(self, storages, replicas, results):
-        config = self._config
-        self.add_status('Min storages', config.min_s)
-        self.add_status('Max storages', config.max_s)
-        self.add_status('Min replicas', config.min_r)
-        self.add_status('Max replicas', config.max_r)
         # draw an array with results
+        dfs_size = self._size
+        self.add_status('Input size',
+            dfs_size and '%-.1f MB' % (dfs_size / 1e6) or 'N/A')
         fmt = '|' + '|'.join(['  %8s  '] * (len(replicas) + 1)) + '|\n'
         sep = '+' + '+'.join(['-' * 12] * (len(replicas) + 1)) + '+\n'
         report = sep
@@ -131,12 +135,14 @@ class MatrixImportBenchmark(BenchmarkRunner):
             assert s in results
             for r in replicas:
                 if r in results[s]:
-                    if results[s][r] is None:
+                    result = results[s][r]
+                    if result is None:
                         values.append('FAIL')
                         failures += 1
                     else:
-                        values.append('%8.1f' % results[s][r])
-                        speedlist.append(results[s][r])
+                        result = dfs_size / (result * 1e3)
+                        values.append('%8.1f' % result)
+                        speedlist.append(result)
                 else:
                     values.append('N/A')
             report += fmt % (tuple([s] + values))
