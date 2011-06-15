@@ -72,7 +72,7 @@ class ReplicationBenchmark(BenchmarkRunner):
             clear_databases=True,
             partitions=config.partitions,
             replicas=1,
-            master_node_count=1,
+            master_count=1,
             verbose=False,
         )
         neo.start()

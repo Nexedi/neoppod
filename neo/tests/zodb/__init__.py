@@ -33,7 +33,7 @@ class ZODBTestCase(NEOFunctionalTest):
             db_list=['test_neo%d' % x for x in xrange(storages)],
             partitions=partitions,
             replicas=replicas,
-            master_node_count=masters,
+            master_count=masters,
             temp_dir=self.getTempDirectory(),
             **cluster_kw)
         self.neo.start()

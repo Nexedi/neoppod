@@ -26,7 +26,7 @@ class MasterTests(NEOFunctionalTest):
 
     def setUp(self):
         NEOFunctionalTest.setUp(self)
-        self.neo = NEOCluster([], master_node_count=MASTER_NODE_COUNT,
+        self.neo = NEOCluster([], master_count=MASTER_NODE_COUNT,
                 temp_dir=self.getTempDirectory())
         self.neo.stop()
         self.neo.start()

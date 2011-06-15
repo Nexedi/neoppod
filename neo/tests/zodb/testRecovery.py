@@ -33,7 +33,7 @@ class RecoveryTests(ZODBTestCase, StorageTestBase, RecoveryStorage):
         if not os.path.exists(dst_temp_dir):
             os.makedirs(dst_temp_dir)
         self.neo_dst = NEOCluster(['test_neo1-dst'], partitions=1, replicas=0,
-                master_node_count=1, temp_dir=dst_temp_dir)
+                master_count=1, temp_dir=dst_temp_dir)
         self.neo_dst.stop()
         self.neo_dst.setupDB()
         self.neo_dst.start()

@@ -73,7 +73,7 @@ class ClientTests(NEOFunctionalTest):
         self.neo = NEOCluster(
             ['test_neo1', 'test_neo2', 'test_neo3', 'test_neo4'],
             replicas=2,
-            master_node_count=1,
+            master_count=1,
             temp_dir=self.getTempDirectory()
         )
 

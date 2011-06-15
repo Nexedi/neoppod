@@ -228,7 +228,7 @@ class NEOProcess(object):
 
 class NEOCluster(object):
 
-    def __init__(self, db_list, master_node_count=1, partitions=1, replicas=0,
+    def __init__(self, db_list, master_count=1, partitions=1, replicas=0,
                  db_user='neo', db_password='neo',
                  db_super_user=DB_ADMIN, db_super_password=DB_PASSWD,
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
@@ -260,7 +260,7 @@ class NEOCluster(object):
         admin_port = self.port_allocator.allocate(address_type, local_ip)
         self.cluster_name = 'neo_%s' % (random.randint(0, 100), )
         master_node_list = [self.port_allocator.allocate(address_type, local_ip)
-                            for i in xrange(master_node_count)]
+                            for i in xrange(master_count)]
         self.master_nodes = '/'.join('%s:%s' % (
                 buildUrlFromString(self.local_ip), x, )
                 for x in master_node_list)

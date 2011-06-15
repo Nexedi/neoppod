@@ -51,10 +51,10 @@ class StorageTests(NEOFunctionalTest):
         return result
 
     def __setup(self, storage_number=2, pending_number=0, replicas=1,
-            partitions=10, master_node_count=2):
+            partitions=10, master_count=2):
         # create a neo cluster
         self.neo = NEOCluster(['test_neo%d' % i for i in xrange(storage_number)],
-            master_node_count=master_node_count,
+            master_count=master_count,
             partitions=partitions, replicas=replicas,
             temp_dir=self.getTempDirectory(),
             clear_databases=True,
@@ -409,7 +409,7 @@ class StorageTests(NEOFunctionalTest):
         """ Just tests that cluster can start with more than 1000 partitions.
         1000, because currently there is an arbitrary packet split at
         every 1000 partition when sending a partition table. """
-        self.__setup(storage_number=2, partitions=5000, master_node_count=1)
+        self.__setup(storage_number=2, partitions=5000, master_count=1)
         self.neo.expectClusterState(ClusterStates.RUNNING)
 
     def testDropNodeThenRestartCluster(self):
@@ -419,7 +419,7 @@ class StorageTests(NEOFunctionalTest):
 
         # start with two storage / one replica
         (started, stopped) = self.__setup(storage_number=2, replicas=1,
-                master_node_count=1, partitions=10)
+                master_count=1, partitions=10)
         self.neo.expectRunning(started[0])
         self.neo.expectRunning(started[1])
         self.neo.expectOudatedCells(number=0)

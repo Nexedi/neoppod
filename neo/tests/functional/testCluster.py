@@ -34,7 +34,7 @@ class ClusterTests(NEOFunctionalTest):
 
     def testClusterBreaks(self):
         self.neo = NEOCluster(['test_neo1'],
-                master_node_count=1, temp_dir=self.getTempDirectory())
+                master_count=1, temp_dir=self.getTempDirectory())
         neoctl = self.neo.getNEOCTL()
         self.neo.setupDB()
         self.neo.start()
@@ -45,7 +45,7 @@ class ClusterTests(NEOFunctionalTest):
 
     def testClusterBreaksWithTwoNodes(self):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
-                 partitions=2, master_node_count=1, replicas=0,
+                 partitions=2, master_count=1, replicas=0,
                  temp_dir=self.getTempDirectory())
         neoctl = self.neo.getNEOCTL()
         self.neo.setupDB()
@@ -57,7 +57,7 @@ class ClusterTests(NEOFunctionalTest):
 
     def testClusterDoesntBreakWithTwoNodesOneReplica(self):
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
-                         partitions=2, replicas=1, master_node_count=1,
+                         partitions=2, replicas=1, master_count=1,
                          temp_dir=self.getTempDirectory())
         neoctl = self.neo.getNEOCTL()
         self.neo.setupDB()
@@ -70,7 +70,7 @@ class ClusterTests(NEOFunctionalTest):
     def testElectionWithManyMasters(self):
         MASTER_COUNT = 20
         self.neo = NEOCluster(['test_neo1', 'test_neo2'],
-            partitions=10, replicas=0, master_node_count=MASTER_COUNT,
+            partitions=10, replicas=0, master_count=MASTER_COUNT,
             temp_dir=self.getTempDirectory())
         neoctl = self.neo.getNEOCTL()
         self.neo.start()
@@ -133,7 +133,7 @@ class ClusterTests(NEOFunctionalTest):
             connection and disconnection during recovery
         """
         self.neo = NEOCluster(['test_neo%d' % i for i in xrange(2)],
-            master_node_count=1, partitions=10, replicas=1,
+            master_count=1, partitions=10, replicas=1,
             temp_dir=self.getTempDirectory(), clear_databases=True,
         )
         storages  = self.neo.getStorageProcessList()
