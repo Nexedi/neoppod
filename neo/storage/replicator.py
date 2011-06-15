@@ -27,8 +27,13 @@ class Partition(object):
     """This class abstracts the state of a partition."""
 
     def __init__(self, offset, max_tid, ttid_list):
+        # Possible optimization:
+        #   _pending_ttid_list & _critical_tid can be shared amongst partitions
+        #   created at the same time (cf Replicator.setUnfinishedTIDList).
+        #   Replicator.transactionFinished would only have to iterate on these
+        #   different sets, instead of all partitions.
         self._offset = offset
-        self._pending_ttid_list = ttid_list
+        self._pending_ttid_list = set(ttid_list)
         # pending upper bound
         self._critical_tid = max_tid
 
@@ -212,8 +217,8 @@ class Replicator(object):
 
     def transactionFinished(self, ttid, max_tid):
         """ Callback from MasterOperationHandler """
-        partition = self.partition_dict[self.app.pt.getPartition(ttid)]
-        partition.transactionFinished(ttid, max_tid)
+        for partition in self.partition_dict.itervalues():
+            partition.transactionFinished(ttid, max_tid)
 
     def _askUnfinishedTIDs(self):
         conn = self.app.master_conn
