@@ -51,9 +51,9 @@ class Storage(BaseStorage.BaseStorage,
         # - transaction isolation is not done
         # ZODB.interfaces.IStorageIteration,
         ZODB.interfaces.IStorageUndoable,
-        ZODB.interfaces.IExternalGC,
+        getattr(ZODB.interfaces, 'IExternalGC', None), # XXX ZODB < 3.9
         getattr(ZODB.interfaces, 'ReadVerifyingStorage', None), # XXX ZODB 3.9
-        ZODB.interfaces.IMVCCStorage,
+        getattr(ZODB.interfaces, 'IMVCCStorage', None), # XXX ZODB < 3.9
     )))
 
     def __init__(self, master_nodes, name, read_only=False,

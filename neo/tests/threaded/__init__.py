@@ -471,7 +471,7 @@ class NEOCluster(object):
 
     def getTransaction(self):
         txn = transaction.TransactionManager()
-        return txn, self.db.open(txn)
+        return txn, self.db.open(transaction_manager=txn)
 
 
 class NEOThreadedTest(NeoUnitTestBase):

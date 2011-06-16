@@ -12,7 +12,7 @@ if not os.path.exists('mock.py'):
 
 extras_require = {
     'admin': [],
-    'client': ['ZODB3 >= 3.9'],
+    'client': ['ZODB3'], # ZODB3 >= 3.10
     'ctl': [],
     'master': [],
     'storage-btree': ['ZODB3'],
