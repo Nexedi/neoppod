@@ -219,7 +219,7 @@ class PartitionTable(object):
                 # the node must be known by the node manager
                 assert node is not None
                 self.setCell(offset, node, state)
-        neo.lib.logging.debug('partition table loaded')
+        neo.lib.logging.debug('partition table loaded (ptid=%s)', ptid)
         self.log()
 
     def update(self, ptid, cell_list, nm):
@@ -236,7 +236,7 @@ class PartitionTable(object):
             node = nm.getByUUID(uuid)
             assert node is not None, 'No node found for uuid %r' % (dump(uuid), )
             self.setCell(offset, node, state)
-        neo.lib.logging.debug('partition table updated')
+        neo.lib.logging.debug('partition table updated (ptid=%s)', ptid)
         self.log()
 
     def filled(self):
