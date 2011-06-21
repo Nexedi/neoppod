@@ -400,6 +400,7 @@ class TransactionManager(object):
         """
             Remove a transaction, commited or aborted
         """
+        neo.lib.logging.debug('Remove TXN %s', dump(ttid))
         try:
             # only in case of an import:
             self._queue.remove((uuid, ttid))
@@ -420,6 +421,7 @@ class TransactionManager(object):
             If transaction is completely locked, calls function given at
             instanciation time.
         """
+        neo.lib.logging.debug('Lock TXN %s for %s', dump(ttid), dump(uuid))
         assert ttid in self._ttid_dict, "Transaction not started"
         txn = self._ttid_dict[ttid]
         if txn.lock(uuid) and self._queue[0][1] == ttid:

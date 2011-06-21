@@ -150,6 +150,7 @@ class TransactionManager(object):
         """
             Register a transaction, it may be already registered
         """
+        neo.lib.logging.debug('Register TXN %s for %s', dump(ttid), dump(uuid))
         transaction = self._transaction_dict.get(ttid, None)
         if transaction is None:
             transaction = Transaction(uuid, ttid)
@@ -180,6 +181,7 @@ class TransactionManager(object):
         """
             Lock a transaction
         """
+        neo.lib.logging.debug('Lock TXN %s (ttid=%s)', dump(tid), dump(ttid))
         transaction = self._transaction_dict[ttid]
         # remember that the transaction has been locked
         transaction.lock()
@@ -208,6 +210,7 @@ class TransactionManager(object):
         """
             Unlock transaction
         """
+        neo.lib.logging.debug('Unlock TXN %s', dump(ttid))
         self._app.dm.finishTransaction(self.getTIDFromTTID(ttid))
         self.abort(ttid, even_if_locked=True)
 
@@ -314,6 +317,7 @@ class TransactionManager(object):
             # of the partition, even if no data was received (eg. conflict on
             # another node)
             return
+        neo.lib.logging.debug('Abort TXN %s', dump(ttid))
         transaction = self._transaction_dict[ttid]
         has_load_lock = transaction.isLocked()
         # if the transaction is locked, ensure we can drop it
@@ -344,6 +348,7 @@ class TransactionManager(object):
         """
             Abort any non-locked transaction of a node
         """
+        neo.lib.logging.debug('Abort for %s', dump(uuid))
         # abort any non-locked transaction of this node
         for ttid in [x.getTTID() for x in self._uuid_dict.get(uuid, [])]:
             self.abort(ttid)

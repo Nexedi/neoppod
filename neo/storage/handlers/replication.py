@@ -183,6 +183,9 @@ class ReplicationHandler(EventHandler):
             length=RANGE_LENGTH):
         replicator = self.app.replicator
         partition = replicator.getCurrentOffset()
+        neo.lib.logging.debug("Check serial range (offset=%s, min_oid=%x,"
+            " min_tid=%x, max_tid=%x, length=%s)", partition, u64(min_oid),
+            u64(min_tid), u64(max_tid), length)
         check_args = (min_oid, min_tid, max_tid, length, partition)
         replicator.checkSerialRange(*check_args)
         return Packets.AskCheckSerialRange(*check_args)
@@ -190,6 +193,9 @@ class ReplicationHandler(EventHandler):
     def _doAskCheckTIDRange(self, min_tid, max_tid, length=RANGE_LENGTH):
         replicator = self.app.replicator
         partition = replicator.getCurrentOffset()
+        neo.lib.logging.debug(
+            "Check TID range (offset=%s, min_tid=%x, max_tid=%x, length=%s)",
+            partition, u64(min_tid), u64(max_tid), length)
         replicator.checkTIDRange(min_tid, max_tid, length, partition)
         return Packets.AskCheckTIDRange(min_tid, max_tid, length, partition)
 
@@ -198,6 +204,8 @@ class ReplicationHandler(EventHandler):
         partition_id = replicator.getCurrentOffset()
         max_tid = replicator.getCurrentCriticalTID()
         replicator.getTIDsFrom(min_tid, max_tid, length, partition_id)
+        neo.lib.logging.debug("Ask TIDs (offset=%s, min_tid=%x, max_tid=%x,"
+            "length=%s)", partition_id, u64(min_tid), u64(max_tid), length)
         return Packets.AskTIDsFrom(min_tid, max_tid, length, [partition_id])
 
     def _doAskObjectHistoryFrom(self, min_oid, min_serial, length):
