@@ -24,7 +24,8 @@ if needs_patch:
         """Indicate confirmation that the transaction is done."""
 
         def callback(tid):
-            if self._mvcc_storage:
+            # BBB: _mvcc_storage not supported on older ZODB
+            if getattr(self, '_mvcc_storage', False):
                 # Inter-connection invalidation is not needed when the
                 # storage provides MVCC.
                 return
@@ -38,7 +39,11 @@ if needs_patch:
         serial = self._storage.tpc_finish(transaction, callback)
         if serial is not None:
             assert isinstance(serial, str), repr(serial)
-            for oid_iterator in (self._modified, self._creating.iterkeys()):
+            creating = self._creating
+            # BBB: List on older ZODB, dict on newer
+            if isinstance(creating, dict):
+              creating = self._creating.iterkeys()
+            for oid_iterator in (self._modified, creating):
                 for oid in oid_iterator:
                     obj = self._cache.get(oid, None)
                     # Ignore missing objects and don't update ghosts.
