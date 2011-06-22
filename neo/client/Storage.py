@@ -15,12 +15,12 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from functools import wraps
 from ZODB import BaseStorage, ConflictResolution, POSException
 from zope.interface import implements
 import ZODB.interfaces
 
-import neo
+import neo.lib
+from functools import wraps
 from neo.lib import setupLog
 from neo.lib.util import add64
 from neo.lib.protocol import ZERO_TID
