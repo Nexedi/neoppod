@@ -80,14 +80,15 @@ class ReplicationHandler(EventHandler):
     """This class handles events for replications."""
 
     def connectionLost(self, conn, new_state):
-        neo.lib.logging.error(
-                        'replication is stopped due to a connection lost')
         replicator = self.app.replicator
         if replicator.isCurrentConnection(conn):
+            if replicator.pending():
+                neo.lib.logging.warning(
+                    'replication is stopped due to a connection lost')
             replicator.storageLost()
 
     def connectionFailed(self, conn):
-        neo.lib.logging.error(
+        neo.lib.logging.warning(
                         'replication is stopped due to connection failure')
         self.app.replicator.storageLost()
 
