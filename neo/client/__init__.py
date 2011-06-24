@@ -84,3 +84,8 @@ if needs_patch:
     else: # old ZODB (e.g. ZODB 3.4)
         Connection._setDB = lambda self, odb, *args, **kw: \
             Connection_setDB(self, _DB(odb, self), *args, **kw)
+
+        from ZODB.DB import DB
+        DB_invalidate = DB.invalidate
+        DB.invalidate = lambda self, tid, oids, *args, **kw: \
+            DB_invalidate(self, tid, dict.fromkeys(oids, None), *args, **kw)
