@@ -360,7 +360,8 @@ class DatabaseManager(object):
         p64 = util.p64
         oid = u64(oid)
         tid = u64(tid)
-        ltid = u64(ltid)
+        if ltid:
+            ltid = u64(ltid)
         undone_tid = u64(undone_tid)
         _getDataTID = self._getDataTID
         if transaction_object is not None:

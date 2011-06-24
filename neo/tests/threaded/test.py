@@ -17,23 +17,58 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from persistent import Persistent
-from neo.lib.protocol import NodeStates
+from neo.lib.protocol import NodeStates, ZERO_TID
 from neo.tests.threaded import NEOCluster, NEOThreadedTest
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 
-class PObject(Persistent):
-    pass
+class PCounter(Persistent):
+    value = 0
 
+class PCounterWithResolution(PCounter):
+    def _p_resolveConflict(self, old, saved, new):
+        new['value'] += saved['value'] - old.get('value', 0)
+        return new
 
 class Test(NEOThreadedTest):
 
-    def test_commit(self):
+    def testConflictResolutionTriggered2(self):
+        """ Check that conflict resolution works """
         cluster = NEOCluster()
         cluster.start()
         try:
+            # create the initial object
             t, c = cluster.getTransaction()
-            c.root()['foo'] = PObject()
+            c.root()['with_resolution'] = ob = PCounterWithResolution()
             t.commit()
+            self.assertEqual(ob._p_changed, 0)
+            tid1 = ob._p_serial
+            self.assertNotEqual(tid1, ZERO_TID)
+            del ob, t, c
+
+            # then check resolution
+            t1, c1 = cluster.getTransaction()
+            t2, c2 = cluster.getTransaction()
+            o1 = c1.root()['with_resolution']
+            o2 = c2.root()['with_resolution']
+            self.assertEqual(o1.value, 0)
+            self.assertEqual(o2.value, 0)
+            o1.value += 1
+            o2.value += 2
+            t1.commit()
+            self.assertEqual(o1._p_changed, 0)
+            tid2 = o1._p_serial
+            self.assertTrue(tid1 < tid2)
+            self.assertEqual(o1.value, 1)
+            self.assertEqual(o2.value, 2)
+            t2.commit()
+            self.assertEqual(o2._p_changed, None)
+            t1.begin()
+            t2.begin()
+            self.assertEqual(o2.value, 3)
+            self.assertEqual(o1.value, 3)
+            tid3 = o1._p_serial
+            self.assertTrue(tid2 < tid3)
+            self.assertEqual(tid3, o2._p_serial)
         finally:
             cluster.stop()
 

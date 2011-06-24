@@ -118,33 +118,6 @@ class ClientTests(NEOFunctionalTest):
         self.assertEqual(o2.value(), 2)
         self.assertRaises(ConflictError, t2.commit)
 
-    def testConflictResolutionTriggered2(self):
-        """ Check that conflict resolution works """
-        # create the initial objects
-        self.__setup()
-        t, c = self.makeTransaction()
-        c.root()['with_resolution'] = PCounterWithResolution()
-        t.commit()
-
-        # then with resolution
-        t1, c1 = self.makeTransaction()
-        t2, c2 = self.makeTransaction()
-        o1 = c1.root()['with_resolution']
-        o2 = c2.root()['with_resolution']
-        self.assertEqual(o1.value(), 0)
-        self.assertEqual(o2.value(), 0)
-        o1.inc()
-        o2.inc()
-        o2.inc()
-        t1.commit()
-        self.assertEqual(o1.value(), 1)
-        self.assertEqual(o2.value(), 2)
-        t2.commit()
-        t1.begin()
-        t2.begin()
-        self.assertEqual(o2.value(), 3)
-        self.assertEqual(o1.value(), 3)
-
     def testIsolationAtZopeLevel(self):
         """ Check transaction isolation within zope connection """
         self.__setup()

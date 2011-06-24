@@ -53,7 +53,6 @@ class Storage(BaseStorage.BaseStorage,
         ZODB.interfaces.IStorageUndoable,
         getattr(ZODB.interfaces, 'IExternalGC', None), # XXX ZODB < 3.9
         getattr(ZODB.interfaces, 'ReadVerifyingStorage', None), # XXX ZODB 3.9
-        getattr(ZODB.interfaces, 'IMVCCStorage', None), # XXX ZODB < 3.9
     )))
 
     def __init__(self, master_nodes, name, read_only=False,
@@ -71,6 +70,8 @@ class Storage(BaseStorage.BaseStorage,
         self._is_read_only = read_only
         if _app is None:
             _app = Application(master_nodes, name, compress=compress)
+            # always read the last revision when not bound to a connection
+            self._getSnapshotTID = lambda: None
         self.app = _app
         # Used to clone self (see new_instance & IMVCCStorage definition).
         self._init_args = (master_nodes, name)
@@ -136,14 +137,11 @@ class Storage(BaseStorage.BaseStorage,
 
     @check_read_only
     def tpc_abort(self, transaction):
-        self.sync()
         return self.app.tpc_abort(transaction=transaction)
 
     def tpc_finish(self, transaction, f=None):
-        result = self.app.tpc_finish(transaction=transaction,
+        return self.app.tpc_finish(transaction=transaction,
             tryToResolveConflict=self.tryToResolveConflict, f=f)
-        self.sync()
-        return result
 
     @check_read_only
     def store(self, oid, serial, data, version, transaction):
@@ -281,12 +279,3 @@ class Storage(BaseStorage.BaseStorage,
 
     def new_instance(self):
         return Storage(*self._init_args, **self._init_kw)
-
-    def poll_invalidations(self):
-        """
-        Nothing to do, NEO doesn't need any polling.
-        """
-        pass
-
-    release = sync
-

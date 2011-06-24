@@ -881,7 +881,7 @@ class Application(object):
                 undo_serial = None
             self._store(txn_context, oid, current_serial, data, undo_serial)
 
-        return None, () # required for ZODB < 3.10
+        return None, txn_oid_list
 
     def _insertMetadata(self, txn_info, extension):
         for k, v in loads(extension).items():

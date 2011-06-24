@@ -50,3 +50,37 @@ if needs_patch:
 
     Connection.tpc_finish = tpc_finish
 
+    class _DB(object):
+        """
+        Wrapper to DB instance that properly initialize Connection objects
+        with NEO storages.
+        It forces the connection to always create a new instance of the
+        storage, for compatibility with ZODB 3.4, and because we don't
+        implement IMVCCStorage completely.
+        """
+
+        def __new__(cls, db, connection):
+            if db._storage.__class__.__module__ != 'neo.client.Storage':
+                return db
+            self = object.__new__(cls)
+            self._db = db
+            self._connection = connection
+            return self
+
+        def __getattr__(self, attr):
+            result = getattr(self._db, attr)
+            if attr in ('storage', '_storage'):
+                result = result.new_instance()
+                self._connection._db = self._db
+                setattr(self, attr, result)
+            return result
+
+    try:
+        Connection_setDB = Connection._setDB
+    except AttributeError: # recent ZODB
+        Connection_init = Connection.__init__
+        Connection.__init__ = lambda self, db, *args, **kw: \
+            Connection_init(self, _DB(db, self), *args, **kw)
+    else: # old ZODB (e.g. ZODB 3.4)
+        Connection._setDB = lambda self, odb, *args, **kw: \
+            Connection_setDB(self, _DB(odb, self), *args, **kw)
