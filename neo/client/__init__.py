@@ -18,7 +18,7 @@
 needs_patch = True
 
 if needs_patch:
-    from ZODB import Connection
+    from ZODB.Connection import Connection
 
     def tpc_finish(self, transaction):
         """Indicate confirmation that the transaction is done."""
