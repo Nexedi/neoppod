@@ -43,7 +43,7 @@ if needs_patch:
                 for oid in oid_iterator:
                     obj = self._cache.get(oid, None)
                     # Ignore missing objects and don't update ghosts.
-                    if obj is not None and obj._p_changed:
+                    if obj is not None and obj._p_changed is not None:
                         obj._p_changed = 0
                         obj._p_serial = serial
         self._tpc_cleanup()
