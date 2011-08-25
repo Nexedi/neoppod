@@ -238,6 +238,7 @@ class NEOCluster(object):
         ):
         if not adapter:
             adapter = 'MySQL'
+        self.adapter = adapter
         self.zodb_storage_list = []
         self.cleanup_on_delete = cleanup_on_delete
         self.verbose = verbose
@@ -324,17 +325,22 @@ class NEOCluster(object):
         return MySQLdb.Connect(**connect_arg_dict)
 
     def setupDB(self):
-        sql_connection = self.__getSuperSQLConnection()
-        cursor = sql_connection.cursor()
-        for database in self.db_list:
-            cursor.execute('DROP DATABASE IF EXISTS `%s`' % (database, ))
-            cursor.execute('CREATE DATABASE `%s`' % (database, ))
-            cursor.execute('GRANT ALL ON `%s`.* TO "%s"@"localhost" '\
-                           'IDENTIFIED BY "%s"' % (database, self.db_user,
-                           self.db_password))
-        cursor.close()
-        sql_connection.commit()
-        sql_connection.close()
+        if self.adapter == 'MySQL':
+            sql_connection = self.__getSuperSQLConnection()
+            cursor = sql_connection.cursor()
+            for database in self.db_list:
+                try:
+                    cursor.execute('DROP DATABASE `%s`' % database)
+                except MySQLdb.OperationalError, (code, _):
+                    if code != MySQLdb.constants.ER.DB_DROP_EXISTS:
+                        raise
+                cursor.execute('CREATE DATABASE `%s`' % database)
+                cursor.execute('GRANT ALL ON `%s`.* TO "%s"@"localhost" '
+                               'IDENTIFIED BY "%s"' % (database, self.db_user,
+                               self.db_password))
+            cursor.close()
+            sql_connection.commit()
+            sql_connection.close()
 
     def switchTables(self, database):
         sql_connection = self.__getSuperSQLConnection()
