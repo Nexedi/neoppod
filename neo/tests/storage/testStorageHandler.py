@@ -149,7 +149,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
 
     def test_askCheckTIDRange(self):
         count = 1
-        tid_checksum = 2
+        tid_checksum = self.getNewUUID()
         min_tid = self.getNextTID()
         num_partitions = 4
         length = 5
@@ -173,12 +173,12 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
 
     def test_askCheckSerialRange(self):
         count = 1
-        oid_checksum = 2
+        oid_checksum = self.getNewUUID()
         min_oid = self.getOID(1)
         num_partitions = 4
         length = 5
         partition = 6
-        serial_checksum = 7
+        serial_checksum = self.getNewUUID()
         min_serial = self.getNextTID()
         max_serial = self.getNextTID()
         max_oid = self.getOID(2)

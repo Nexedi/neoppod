@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from binascii import a2b_hex
 import MySQLdb
 from MySQLdb import OperationalError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
@@ -811,9 +812,8 @@ class MySQLDatabaseManager(DatabaseManager):
         self.commit()
 
     def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
-        # XXX: XOR is a lame checksum
         count, tid_checksum, max_tid = self.query('SELECT COUNT(*), '
-            'BIT_XOR(tid), MAX(tid) FROM ('
+            'MD5(GROUP_CONCAT(tid SEPARATOR ",")), MAX(tid) FROM ('
               'SELECT tid FROM trans '
               'WHERE partition = %(partition)s '
               'AND tid >= %(min_tid)d '
@@ -826,39 +826,37 @@ class MySQLDatabaseManager(DatabaseManager):
                 'length': length,
         })[0]
         if count == 0:
-            tid_checksum = 0
             max_tid = ZERO_TID
         else:
+            tid_checksum = a2b_hex(tid_checksum)
             max_tid = util.p64(max_tid)
         return count, tid_checksum, max_tid
 
     def checkSerialRange(self, min_oid, min_serial, max_tid, length,
             num_partitions, partition):
-        # XXX: XOR is a lame checksum
         u64 = util.u64
-        p64 = util.p64
-        r = self.query('SELECT oid, serial FROM obj_short WHERE '
-            'partition = %(partition)s AND '
-            'serial <= %(max_tid)d AND '
-            '(oid > %(min_oid)d OR '
-            '(oid = %(min_oid)d AND serial >= %(min_serial)d)) '
-            'ORDER BY oid ASC, serial ASC LIMIT %(length)d' % {
+        count, oid_checksum, max_oid, serial_checksum, max_serial = self.query(
+            """SELECT COUNT(*), MD5(GROUP_CONCAT(oid SEPARATOR ",")), MAX(oid),
+                      MD5(GROUP_CONCAT(serial SEPARATOR ",")), MAX(serial)
+               FROM obj_short
+               WHERE partition = %(partition)s
+                 AND serial <= %(max_tid)d
+                 AND (oid > %(min_oid)d OR
+                      oid = %(min_oid)d AND serial >= %(min_serial)d)
+               ORDER BY oid ASC, serial ASC LIMIT %(length)d""" % {
                 'min_oid': u64(min_oid),
                 'min_serial': u64(min_serial),
                 'max_tid': u64(max_tid),
                 'length': length,
                 'partition': partition,
-        })
-        count = len(r)
-        oid_checksum = serial_checksum = 0
-        if count == 0:
+        })[0]
+        if count:
+            oid_checksum = a2b_hex(oid_checksum)
+            serial_checksum = a2b_hex(serial_checksum)
+            max_oid = util.p64(max_oid)
+            max_serial = util.p64(max_serial)
+        else:
             max_oid = ZERO_OID
             max_serial = ZERO_TID
-        else:
-            for max_oid, max_serial in r:
-                oid_checksum ^= max_oid
-                serial_checksum ^= max_serial
-            max_oid = p64(max_oid)
-            max_serial = p64(max_serial)
         return count, oid_checksum, max_oid, serial_checksum, max_serial
 

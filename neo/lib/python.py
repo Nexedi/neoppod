@@ -39,6 +39,11 @@ if sys.version_info < (2, 5):
       return False
     __builtin__.any = any
 
+    import md5, sha
+    sys.modules['hashlib'] = hashlib = imp.new_module('hashlib')
+    hashlib.md5 = md5.new
+    hashlib.sha1 = sha.new
+
     import struct
 
     class Struct(object):

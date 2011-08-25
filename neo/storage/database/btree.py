@@ -22,9 +22,10 @@ Not persistent ! (no data retained after process exit)
 
 from BTrees.OOBTree import OOBTree as _OOBTree
 import neo.lib
+from hashlib import md5
 
 from neo.storage.database import DatabaseManager
-from neo.lib.protocol import CellStates
+from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID
 from neo.lib import util
 
 # The only purpose of this value (and code using it) is to avoid creating
@@ -672,50 +673,51 @@ class BTreeDatabaseManager(DatabaseManager):
         batchDelete(self._obj, obj_callback, recycle_subtrees=True)
 
     def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
-        # XXX: XOR is a lame checksum
-        count = 0
-        tid_checksum = 0
-        tid = 0
-        upper_bound = util.u64(max_tid)
-        max_tid = 0
-        for tid in safeIter(self._trans.keys, min=util.u64(min_tid),
-                max=upper_bound):
-            if tid % num_partitions == partition:
-                if count >= length:
-                    break
-                max_tid = tid
-                tid_checksum ^= tid
-                count += 1
-        return count, tid_checksum, util.p64(max_tid)
+        if length:
+            tid_list = []
+            for tid in safeIter(self._trans.keys, min=util.u64(min_tid),
+                                                  max=util.u64(max_tid)):
+                if tid % num_partitions == partition:
+                    tid_list.append(tid)
+                    if len(tid_list) >= length:
+                        break
+            if tid_list:
+                return (len(tid_list),
+                        md5(','.join(map(str, tid_list))).digest(),
+                        util.p64(tid_list[-1]))
+        return 0, None, ZERO_TID
 
     def checkSerialRange(self, min_oid, min_serial, max_tid, length,
             num_partitions, partition):
-        # XXX: XOR is a lame checksum
-        u64 = util.u64
-        p64 = util.p64
-        min_oid = u64(min_oid)
-        count = 0
-        oid_checksum = serial_checksum = 0
-        max_oid = oid = max_serial = serial = 0
-        for oid, tserial in safeIter(self._obj.items, min=min_oid):
-            if oid % num_partitions == partition:
-                if oid == min_oid:
+        if length:
+            u64 = util.u64
+            min_oid = u64(min_oid)
+            max_tid = u64(max_tid)
+            oid_list = []
+            serial_list = []
+            for oid, tserial in safeIter(self._obj.items, min=min_oid):
+                if oid % num_partitions == partition:
                     try:
-                        serial_iter = tserial.keys(min=u64(min_serial),
-                            max=u64(max_tid))
+                        if oid == min_oid:
+                            tserial = tserial.keys(min=u64(min_serial),
+                                                   max=max_tid)
+                        else:
+                            tserial = tserial.keys(max=max_tid)
                     except ValueError:
                         continue
-                else:
-                    serial_iter = tserial.keys()
-                for serial in serial_iter:
-                    if count >= length:
-                        break
-                    oid_checksum ^= oid
-                    serial_checksum ^= serial
-                    max_serial = serial
-                    max_oid = oid
-                    count += 1
-                if count >= length:
+                    for serial in tserial:
+                        oid_list.append(oid)
+                        serial_list.append(serial)
+                        if len(oid_list) >= length:
+                            break
+                    else:
+                        continue
                     break
-        return count, oid_checksum, p64(max_oid), serial_checksum, p64(max_serial)
-
+            if oid_list:
+                p64 = util.p64
+                return (len(oid_list),
+                        md5(','.join(map(str, oid_list))).digest(),
+                        p64(oid_list[-1]),
+                        md5(','.join(map(str, serial_list))).digest(),
+                        p64(serial_list[-1]))
+        return 0, None, ZERO_OID, None, ZERO_TID

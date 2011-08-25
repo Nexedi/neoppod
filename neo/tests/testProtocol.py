@@ -686,7 +686,7 @@ class ProtocolTests(NeoUnitTestBase):
         min_tid = self.getNextTID()
         length = 2
         count = 1
-        tid_checksum = 42
+        tid_checksum = self.getNewUUID()
         max_tid = self.getNextTID()
         p = Packets.AnswerCheckTIDRange(min_tid, length, count, tid_checksum,
             max_tid)
@@ -717,9 +717,9 @@ class ProtocolTests(NeoUnitTestBase):
         min_serial = self.getNextTID()
         length = 2
         count = 1
-        oid_checksum = 24
+        oid_checksum = self.getNewUUID()
         max_oid = self.getOID(5)
-        tid_checksum = 42
+        tid_checksum = self.getNewUUID()
         max_serial = self.getNextTID()
         p = Packets.AnswerCheckSerialRange(min_oid, min_serial, length, count,
             oid_checksum, max_oid, tid_checksum, max_serial)

@@ -481,13 +481,6 @@ class PNumber(PStructItem):
     def __init__(self, name):
         PStructItem.__init__(self, name, '!L')
 
-class PChecksum(PStructItem):
-    """
-        A checksum
-    """
-    def __init__(self, name):
-        PStructItem.__init__(self, name, '!Q')
-
 class PIndex(PStructItem):
     """
         A big integer to defined indexes in a huge list.
@@ -563,6 +556,7 @@ class PTID(PItem):
 
 # same definition, for now
 POID = PTID
+PChecksum = PUUID # (md5 is same length as uuid)
 
 # common definitions
 
