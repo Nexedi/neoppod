@@ -137,18 +137,6 @@ class StorageTests(NEOFunctionalTest):
             return replicate_count == target_count, replicate_count
         self.neo.expectCondition(callback, timeout, delay)
 
-    def testReplicationWithoutBreak(self):
-        """ Start a cluster with two storage, one replicas, the two databasqes
-        must have the same content """
-
-        # populate the cluster then check the databases
-        (started, _) = self.__setup(storage_number=2, replicas=1)
-        self.neo.expectRunning(started[0])
-        self.neo.expectRunning(started[1])
-        self.neo.expectOudatedCells(number=0)
-        self.__populate()
-        self.__checkReplicationDone()
-
     def testNewNodesInPendingState(self):
         """ Check that new storage nodes are set as pending, the cluster remains
         running """
