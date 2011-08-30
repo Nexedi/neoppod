@@ -250,8 +250,7 @@ class NEOCluster(object):
         self.db_list = db_list
         self.address_type = address_type
         self.local_ip = local_ip = IP_VERSION_FORMAT_DICT[self.address_type]
-        if clear_databases:
-            self.setupDB()
+        self.setupDB(clear_databases)
         self.process_dict = {}
         if temp_dir is None:
             temp_dir = tempfile.mkdtemp(prefix='neo_')
@@ -324,17 +323,22 @@ class NEOCluster(object):
             connect_arg_dict['passwd'] = password
         return MySQLdb.Connect(**connect_arg_dict)
 
-    def setupDB(self):
+    def setupDB(self, clear_databases=True):
         if self.adapter == 'MySQL':
+            from MySQLdb.constants.ER import DB_CREATE_EXISTS
             sql_connection = self.__getSuperSQLConnection()
             cursor = sql_connection.cursor()
             for database in self.db_list:
+                create = 'CREATE DATABASE `%s`' % database
                 try:
-                    cursor.execute('DROP DATABASE `%s`' % database)
-                except MySQLdb.OperationalError, (code, _):
-                    if code != MySQLdb.constants.ER.DB_DROP_EXISTS:
+                    cursor.execute(create)
+                except MySQLdb.ProgrammingError, (code, _):
+                    if code != DB_CREATE_EXISTS:
                         raise
-                cursor.execute('CREATE DATABASE `%s`' % database)
+                    if clear_databases:
+                        cursor.execute('DROP DATABASE `%s`' % database)
+                        cursor.execute(create)
+                    continue
                 cursor.execute('GRANT ALL ON `%s`.* TO "%s"@"localhost" '
                                'IDENTIFIED BY "%s"' % (database, self.db_user,
                                self.db_password))
