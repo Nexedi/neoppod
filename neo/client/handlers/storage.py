@@ -20,7 +20,7 @@ from ZODB.POSException import ConflictError
 
 import neo.lib
 from neo.client.handlers import BaseHandler, AnswerBaseHandler
-from neo.lib.protocol import NodeTypes, ProtocolError, LockState
+from neo.lib.protocol import NodeTypes, ProtocolError, LockState, ZERO_TID
 from neo.lib.util import dump
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
@@ -77,20 +77,22 @@ class StorageAnswersHandler(AnswerBaseHandler):
         object_stored_counter_dict = txn_context[
             'object_stored_counter_dict'][oid]
         if conflicting:
+            # Warning: if a storage (S1) is much faster than another (S2), then
+            # we may process entirely a conflict with S1 (i.e. we received the
+            # answer to the store of the resolved object on S1) before we
+            # receive the conflict answer from the first store on S2.
             neo.lib.logging.info('%r report a conflict for %r with %r', conn,
                         dump(oid), dump(serial))
-            conflict_serial_dict = txn_context['conflict_serial_dict']
-            if serial in object_stored_counter_dict:
-                raise NEOStorageError, 'Storages %s accepted object %s for ' \
-                    'serial %s but %s reports a conflict for it.' % (
-                    [dump(uuid) for uuid in object_stored_counter_dict[serial]],
-                    dump(oid), dump(serial),
-                    dump(conn.getUUID()),
-                )
             # If this conflict is not already resolved, mark it for
             # resolution.
             if serial not in txn_context[
                     'resolved_conflict_serial_dict'].get(oid, ()):
+                if serial in object_stored_counter_dict and serial != ZERO_TID:
+                    raise NEOStorageError('Storages %s accepted object %s'
+                        ' for serial %s but %s reports a conflict for it.' % (
+                        map(dump, object_stored_counter_dict[serial]),
+                        dump(oid), dump(serial), dump(conn.getUUID())))
+                conflict_serial_dict = txn_context['conflict_serial_dict']
                 conflict_serial_dict.setdefault(oid, set()).add(serial)
         else:
             uuid_set = object_stored_counter_dict.setdefault(serial, set())
