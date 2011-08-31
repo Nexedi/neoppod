@@ -581,6 +581,11 @@ class Application(object):
             serial = object_serial_dict[oid]
             data = data_dict[oid]
             if ZERO_TID in conflict_serial_set:
+              if 1:
+                # XXX: disable deadlock avoidance code until it is fixed
+                neo.lib.logging.info('Deadlock avoidance on %r:%r',
+                    dump(oid), dump(serial))
+              else:
                 # Storage refused us from taking object lock, to avoid a
                 # possible deadlock. TID is actually used for some kind of
                 # "locking priority": when a higher value has the lock,
