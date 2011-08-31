@@ -577,18 +577,11 @@ class Application(object):
         resolved_conflict_serial_dict = txn_context[
             'resolved_conflict_serial_dict']
         for oid, conflict_serial_set in conflict_serial_dict.iteritems():
-            resolved_serial_set = resolved_conflict_serial_dict.setdefault(
-                oid, set())
             conflict_serial = max(conflict_serial_set)
-            if resolved_serial_set and conflict_serial <= max(
-                    resolved_serial_set):
-                # A later serial has already been resolved, skip.
-                resolved_serial_set.update(conflict_serial_set)
-                continue
             serial = object_serial_dict[oid]
             data = data_dict[oid]
             resolved = False
-            if conflict_serial == ZERO_TID:
+            if ZERO_TID in conflict_serial_set:
                 # Storage refused us from taking object lock, to avoid a
                 # possible deadlock. TID is actually used for some kind of
                 # "locking priority": when a higher value has the lock,
@@ -612,12 +605,20 @@ class Application(object):
                             neo.lib.logging.warning('Deadlock avoidance cannot'
                                 ' reliably work with undo, this must be '
                                 'implemented.')
+                            conflict_serial = ZERO_TID
                             break
                         self._store(txn_context, store_oid, store_serial,
                             store_data, unlock=True)
                 else:
                     resolved = True
             elif data is not None:
+                resolved_serial_set = resolved_conflict_serial_dict.setdefault(
+                    oid, set())
+                if resolved_serial_set and conflict_serial <= max(
+                        resolved_serial_set):
+                    # A later serial has already been resolved, skip.
+                    resolved_serial_set.update(conflict_serial_set)
+                    continue
                 new_data = tryToResolveConflict(oid, conflict_serial,
                     serial, data)
                 if new_data is not None:
