@@ -580,7 +580,6 @@ class Application(object):
             conflict_serial = max(conflict_serial_set)
             serial = object_serial_dict[oid]
             data = data_dict[oid]
-            resolved = False
             if ZERO_TID in conflict_serial_set:
                 # Storage refused us from taking object lock, to avoid a
                 # possible deadlock. TID is actually used for some kind of
@@ -610,7 +609,7 @@ class Application(object):
                         self._store(txn_context, store_oid, store_serial,
                             store_data, unlock=True)
                 else:
-                    resolved = True
+                    continue
             elif data is not None:
                 resolved_serial_set = resolved_conflict_serial_dict.setdefault(
                     oid, set())
@@ -632,22 +631,19 @@ class Application(object):
                     # Try to store again
                     self._store(txn_context, oid, conflict_serial, new_data)
                     append(oid)
-                    resolved = True
+                    continue
                 else:
                     neo.lib.logging.info('Conflict resolution failed for ' \
                         '%r:%r with %r', dump(oid), dump(serial),
                         dump(conflict_serial))
-            if not resolved:
-                # XXX: Is it really required to remove from data_dict ?
-                del data_dict[oid]
-                txn_context['data_list'].remove(oid)
-                if data is None:
-                    exc = ReadConflictError(oid=oid, serials=(conflict_serial,
-                        serial))
-                else:
-                    exc = ConflictError(oid=oid, serials=(txn_context['ttid'],
-                        serial), data=data)
-                raise exc
+            # XXX: Is it really required to remove from data_dict ?
+            del data_dict[oid]
+            txn_context['data_list'].remove(oid)
+            if data is None:
+                raise ReadConflictError(oid=oid, serials=(conflict_serial,
+                    serial))
+            raise ConflictError(oid=oid, serials=(txn_context['ttid'],
+                serial), data=data)
         return result
 
     @profiler_decorator
