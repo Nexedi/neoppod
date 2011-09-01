@@ -51,10 +51,10 @@ if needs_patch:
     Connection.tpc_finish = tpc_finish
 
     try:
-        if Connection._nexedi_fix != 1:
+        if Connection._nexedi_fix != 2:
             raise Exception("A different ZODB fix is already applied")
     except AttributeError:
-        Connection._nexedi_fix = 1
+        Connection._nexedi_fix = 2
 
         # Whenever an connection is opened (and there's usually an existing one
         # in DB pool that can be reused) whereas the transaction is already
@@ -87,6 +87,16 @@ if needs_patch:
         except AttributeError: # recent ZODB
             Connection_open = Connection.open
             Connection.open = open
+
+        # Storage.sync usually implements a "network barrier" (at least
+        # in NEO, but ZEO should be fixed to do the same), which is quite
+        # slow so we prefer to not call it where it's not useful.
+        # I don't know any legitimate use of DB access outside a transaction.
+
+        def afterCompletion(self, *ignored):
+            self._readCurrent.clear()
+            self._flush_invalidations()
+        Connection.afterCompletion = afterCompletion
 
 
     class _DB(object):

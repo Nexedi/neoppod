@@ -126,8 +126,10 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.tpc_abort(transaction=transaction)
 
     def tpc_finish(self, transaction, f=None):
-        return self.app.tpc_finish(transaction=transaction,
+        tid = self.app.tpc_finish(transaction=transaction,
             tryToResolveConflict=self.tryToResolveConflict, f=f)
+        self._snapshot_tid = add64(tid, 1)
+        return tid
 
     @check_read_only
     def store(self, oid, serial, data, version, transaction):
@@ -209,9 +211,6 @@ class Storage(BaseStorage.BaseStorage,
             raise KeyError
 
     def sync(self, force=True):
-        # XXX: Unfortunately, we're quite slow (lastTransaction) and
-        #      we're also called at the end of each transaction by ZODB
-        #      (see Connection.afterCompletion), probably for no useful reason.
         # Increment by one, as we will use this as an excluded upper
         # bound (loadBefore).
         self._snapshot_tid = add64(self.lastTransaction(), 1)
