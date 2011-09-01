@@ -30,6 +30,7 @@ import tempfile
 import traceback
 import threading
 import psutil
+import transaction
 
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
@@ -653,6 +654,13 @@ class NEOCluster(object):
 
 
 class NEOFunctionalTest(NeoTestBase):
+
+    def tearDown(self):
+        # Kill all unfinished transactions for next test.
+        # Note we don't even abort them because it may require a valid
+        # connection to a master node (see Storage.sync()).
+        transaction.manager.__init__()
+        NeoTestBase.tearDown(self)
 
     def setupLog(self):
         log_file = os.path.join(self.getTempDirectory(), 'test.log')
