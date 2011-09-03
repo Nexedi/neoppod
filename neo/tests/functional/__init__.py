@@ -347,18 +347,6 @@ class NEOCluster(object):
             sql_connection.commit()
             sql_connection.close()
 
-    def switchTables(self, database):
-        sql_connection = self.__getSuperSQLConnection()
-        cursor = sql_connection.cursor()
-        cursor.execute('use %s' % (database, ))
-        for table in ('trans', 'obj'):
-            cursor.execute('rename table %s to tmp' % (table, ))
-            cursor.execute('rename table t%s to %s' % (table, table))
-            cursor.execute('rename table tmp to t%s' % (table, ))
-        cursor.execute('truncate table obj_short')
-        sql_connection.commit()
-        sql_connection.close()
-
     def run(self, except_storages=()):
         """ Start cluster processes except some storage nodes """
         assert len(self.process_dict)

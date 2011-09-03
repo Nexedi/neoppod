@@ -116,3 +116,35 @@ class Test(NEOThreadedTest):
 
     def testRestartWithMissingStorageFastStartup(self):
         self.testRestartWithMissingStorage(True)
+
+    def testVerificationCommitUnfinishedTransactions(self, fast_startup=False):
+        # translated from neo.tests.functional.testCluster.ClusterTests
+        """ Verification step should commit unfinished transactions """
+        # XXX: this kind of definition should be defined in base test class
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            c.root()[0] = 'ok'
+            t.commit()
+        finally:
+            cluster.stop()
+        cluster.reset()
+        # XXX: (obj|trans) become t(obj|trans)
+        cluster.storage.switchTables()
+        try:
+            cluster.start(fast_startup=fast_startup)
+            t, c = cluster.getTransaction()
+            # transaction should be verified and commited
+            self.assertEqual(c.root()[0], 'ok')
+        finally:
+            cluster.stop()
+
+    def testVerificationCommitUnfinishedTransactionsFastStartup(self):
+        # XXX: This test fails because if the admin starts the cluster without
+        #      any storage node, the master (which is still in recovery stage)
+        #      does not handle properly incoming non-empty storage nodes.
+        #      In particular, it does not ask the last ids to the storage,
+        #      and the client will ask objects at tid 0.
+        #      See also RecoveryManager.identifyStorageNode
+        self.testVerificationCommitUnfinishedTransactions(True)

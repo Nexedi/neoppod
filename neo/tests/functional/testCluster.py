@@ -78,26 +78,6 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.expectAllMasters(MASTER_COUNT)
         self.neo.expectOudatedCells(0)
 
-    def testVerificationCommitUnfinishedTransactions(self):
-        """ Verification step should commit unfinished transactions """
-        # XXX: this kind of definition should be defined in base test class
-        class PObject(Persistent):
-            pass
-        self.neo = NEOCluster(['test_neo1'], replicas=0,
-            temp_dir=self.getTempDirectory(), adapter='MySQL')
-        neoctl = self.neo.getNEOCTL()
-        self.neo.start()
-        db, conn = self.neo.getZODBConnection()
-        conn.root()[0] = 'ok'
-        transaction.commit()
-        self.neo.stop(clients=False)
-        # XXX: (obj|trans) become t(obj|trans)
-        self.neo.switchTables('test_neo1')
-        self.neo.start()
-        db, conn = self.neo.getZODBConnection()
-        # transaction should be verified and commited
-        self.assertEqual(conn.root()[0], 'ok')
-
     def testLeavingOperationalStateDropClientNodes(self):
         """
             Check that client nodes are dropped where the cluster leaves the

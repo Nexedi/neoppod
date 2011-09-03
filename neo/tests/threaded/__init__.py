@@ -235,6 +235,24 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         except StandardError: # AttributeError & ProgrammingError
             pass
 
+    def switchTables(self):
+        adapter = self._init_args[1]['getAdapter']
+        dm = self.dm
+        if adapter == 'BTree':
+            dm._obj, dm._tobj = dm._tobj, dm._obj
+            dm._trans, dm._ttrans = dm._ttrans, dm._trans
+        elif adapter == 'MySQL':
+            q = dm.query
+            dm.begin()
+            for table in ('trans', 'obj'):
+                q('RENAME TABLE %s to tmp' % table)
+                q('RENAME TABLE t%s to %s' % (table, table))
+                q('RENAME TABLE tmp to t%s' % table)
+            q('TRUNCATE obj_short')
+            dm.commit()
+        else:
+            assert False
+
 class ClientApplication(neo.client.app.Application):
 
     @SerializedEventManager.decorate
@@ -434,7 +452,7 @@ class NEOCluster(object):
             return db
 
     def stop(self):
-        getattr(self, '_db', self.client).close()
+        self.__dict__.pop('_db', self.client).close()
         #self.neoctl.setClusterState(ClusterStates.STOPPING) # TODO
         try:
             Serialized.release(stop=1)

@@ -42,6 +42,10 @@ class RecoveryManager(MasterHandler):
         """
             Returns the handler for storage nodes
         """
+        # XXX: Looking at 'uuid' is not a good criteria to know if the storage
+        #      is empty. Empty node should be accepted here.
+        #      This is also the first step to fix handling of incoming
+        #      non-empty storage nodes, whereas startup was already allowed.
         if uuid is None and not self.app._startup_allowed:
             neo.lib.logging.info('reject empty storage node')
             raise NotReadyError
