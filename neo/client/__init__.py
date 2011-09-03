@@ -94,7 +94,10 @@ if needs_patch:
         # I don't know any legitimate use of DB access outside a transaction.
 
         def afterCompletion(self, *ignored):
-            self._readCurrent.clear()
+            try:
+                self._readCurrent.clear()
+            except AttributeError: # old ZODB (e.g. ZODB 3.4)
+                pass
             self._flush_invalidations()
         Connection.afterCompletion = afterCompletion
 
