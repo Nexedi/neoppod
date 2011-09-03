@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from base64 import b64encode
 import neo
 from neo.lib.protocol import PacketMalformedError
 from neo.lib.util import dump
@@ -38,8 +39,9 @@ class PacketLogger(object):
         uuid = dump(conn.getUUID())
         ip, port = conn.getAddress()
         packet_name = packet.__class__.__name__
-        neo.lib.logging.debug('#0x%04x %-30s %s %s (%s:%d)', packet.getId(),
-                packet_name, outgoing and '>' or '<', uuid, ip, port)
+        neo.lib.logging.debug('#0x%04x %-30s %s %s (%s:%d) %s', packet.getId(),
+                packet_name, outgoing and '>' or '<', uuid, ip, port,
+                b64encode(packet._body[:96]))
         # look for custom packet logger
         logger = getattr(self, packet.handler_method_name, None)
         if logger is None:

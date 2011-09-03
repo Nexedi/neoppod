@@ -371,6 +371,7 @@ class ConnectionTests(NeoUnitTestBase):
     def test_07_Connection_addPacket(self):
         # new packet
         p = Mock({"encode" : "testdata", "getId": 0})
+        p._body = ''
         p.handler_method_name = 'testmethod'
         bc = self._makeConnection()
         self._checkWriteBuf(bc, '')
