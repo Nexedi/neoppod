@@ -32,7 +32,6 @@ from neo.lib import attributeTracker
 from neo.lib.util import ReadBuffer
 from neo.lib.profiling import profiler_decorator
 
-KEEP_ALIVE = 60
 CRITICAL_TIMEOUT = 30
 
 class ConnectionClosed(Exception):
@@ -228,6 +227,7 @@ class BaseConnection(object):
         Timeouts in HandlerSwitcher are only there to prioritize some packets.
     """
 
+    KEEP_ALIVE = 60
     _base_timeout = None
 
     def __init__(self, event_manager, handler, connector, addr=None):
@@ -245,7 +245,7 @@ class BaseConnection(object):
         if not self._queue:
             if t:
                 self._base_timeout = t
-            self._timeout = self._handlers.getNextTimeout() or KEEP_ALIVE
+            self._timeout = self._handlers.getNextTimeout() or self.KEEP_ALIVE
 
     def checkTimeout(self, t):
         # first make sure we don't timeout on answers we already received
@@ -617,6 +617,9 @@ class Connection(BaseConnection):
         assert packet.isResponse(), packet
         self._addPacket(packet)
 
+    def idle(self):
+        self.ask(Packets.Ping())
+
 
 class ClientConnection(Connection):
     """A connection from this node to a remote node."""
@@ -660,12 +663,16 @@ class ClientConnection(Connection):
     def isClient(self):
         return True
 
-    def idle(self):
-        self.ask(Packets.Ping())
-
 
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
+
+    # Both server and client must check the connection, in case:
+    # - the remote crashed brutally (i.e. without closing TCP connections)
+    # - or packets sent by the remote are dropped (network failure)
+    # Use different timeout so that in normal condition, server never has to
+    # ping the client. Otherwise, it would do it about half of the time.
+    KEEP_ALIVE = Connection.KEEP_ALIVE + 5
 
     def __init__(self, *args, **kw):
         Connection.__init__(self, *args, **kw)
