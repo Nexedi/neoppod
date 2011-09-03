@@ -21,6 +21,7 @@ from MySQLdb import OperationalError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 import neo.lib
 from array import array
+from hashlib import md5
 import string
 
 from neo.storage.database import DatabaseManager
@@ -74,6 +75,7 @@ class MySQLDatabaseManager(DatabaseManager):
                      self.db, self.user)
         self.conn = MySQLdb.connect(**kwd)
         self.conn.autocommit(False)
+        self.conn.query("SET SESSION group_concat_max_len = -1")
 
     def _begin(self):
         self.query("""BEGIN""")
@@ -812,18 +814,17 @@ class MySQLDatabaseManager(DatabaseManager):
         self.commit()
 
     def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
-        count, tid_checksum, max_tid = self.query('SELECT COUNT(*), '
-            'MD5(GROUP_CONCAT(tid SEPARATOR ",")), MAX(tid) FROM ('
-              'SELECT tid FROM trans '
-              'WHERE partition = %(partition)s '
-              'AND tid >= %(min_tid)d '
-              'AND tid <= %(max_tid)d '
-              'ORDER BY tid ASC LIMIT %(length)d'
-            ') AS foo' % {
-                'partition': partition,
-                'min_tid': util.u64(min_tid),
-                'max_tid': util.u64(max_tid),
-                'length': length,
+        count, tid_checksum, max_tid = self.query(
+            """SELECT COUNT(*), MD5(GROUP_CONCAT(tid SEPARATOR ",")), MAX(tid)
+               FROM (SELECT tid FROM trans
+                     WHERE partition = %(partition)s
+                       AND tid >= %(min_tid)d
+                       AND tid <= %(max_tid)d
+                     ORDER BY tid ASC LIMIT %(length)d) AS t""" % {
+            'partition': partition,
+            'min_tid': util.u64(min_tid),
+            'max_tid': util.u64(max_tid),
+            'length': length,
         })[0]
         if count == 0:
             max_tid = ZERO_TID
@@ -835,28 +836,29 @@ class MySQLDatabaseManager(DatabaseManager):
     def checkSerialRange(self, min_oid, min_serial, max_tid, length,
             num_partitions, partition):
         u64 = util.u64
-        count, oid_checksum, max_oid, serial_checksum, max_serial = self.query(
-            """SELECT COUNT(*), MD5(GROUP_CONCAT(oid SEPARATOR ",")), MAX(oid),
-                      MD5(GROUP_CONCAT(serial SEPARATOR ",")), MAX(serial)
+        # We don't ask MySQL to compute everything (like in checkTIDRange)
+        # because it's difficult to get the last serial _for the last oid_.
+        # We would need a function (that be named 'LAST') that return the
+        # last grouped value, instead of the greatest one.
+        r = self.query(
+            """SELECT oid, serial
                FROM obj_short
                WHERE partition = %(partition)s
                  AND serial <= %(max_tid)d
                  AND (oid > %(min_oid)d OR
                       oid = %(min_oid)d AND serial >= %(min_serial)d)
                ORDER BY oid ASC, serial ASC LIMIT %(length)d""" % {
-                'min_oid': u64(min_oid),
-                'min_serial': u64(min_serial),
-                'max_tid': u64(max_tid),
-                'length': length,
-                'partition': partition,
-        })[0]
-        if count:
-            oid_checksum = a2b_hex(oid_checksum)
-            serial_checksum = a2b_hex(serial_checksum)
-            max_oid = util.p64(max_oid)
-            max_serial = util.p64(max_serial)
-        else:
-            max_oid = ZERO_OID
-            max_serial = ZERO_TID
-        return count, oid_checksum, max_oid, serial_checksum, max_serial
-
+            'min_oid': u64(min_oid),
+            'min_serial': u64(min_serial),
+            'max_tid': u64(max_tid),
+            'length': length,
+            'partition': partition,
+        })
+        if r:
+            p64 = util.p64
+            return (len(r),
+                    md5(','.join(str(x[0]) for x in r)).digest(),
+                    p64(r[-1][0]),
+                    md5(','.join(str(x[1]) for x in r)).digest(),
+                    p64(r[-1][1]))
+        return 0, None, ZERO_OID, None, ZERO_TID
