@@ -31,6 +31,19 @@ class NEOZODBTests(ZODBTestCase, testZODB.ZODBTests):
         self._db.close()
         super(NEOZODBTests, self).tearDown()
 
+    def checkMultipleUndoInOneTransaction(self):
+        # XXX: Upstream test accesses a persistent object outside a transaction
+        #      (it should call transaction.begin() after the last commit)
+        #      so disable our Connection.afterCompletion optimization.
+        #      This should really be discussed on zodb-dev ML.
+        from ZODB.Connection import Connection
+        afterCompletion = Connection.__dict__['afterCompletion']
+        try:
+            Connection.afterCompletion = Connection.__dict__['newTransaction']
+            super(NEOZODBTests, self).checkMultipleUndoInOneTransaction()
+        finally:
+            Connection.afterCompletion = afterCompletion
+
 if __name__ == "__main__":
     suite = unittest.makeSuite(NEOZODBTests, 'check')
     unittest.main(defaultTest='suite')

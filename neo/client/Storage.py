@@ -128,6 +128,9 @@ class Storage(BaseStorage.BaseStorage,
     def tpc_finish(self, transaction, f=None):
         tid = self.app.tpc_finish(transaction=transaction,
             tryToResolveConflict=self.tryToResolveConflict, f=f)
+        # XXX: Note that when undoing changes, the following is useless because
+        #      a temporary Storage object is used to commit.
+        #      See also testZODB.NEOZODBTests.checkMultipleUndoInOneTransaction
         if self._snapshot_tid:
             self._snapshot_tid = add64(tid, 1)
         return tid

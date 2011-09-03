@@ -198,6 +198,8 @@ RC  - Review output of pylint (CODE)
       imports.
     - tpc_finish failures (FUNCTIONALITY)
       New failure cases during tpc_finish must be handled.
+    - Fix and reenable deadlock avoidance (SPEED). This is required for
+      neo.tests.zodb.testBasic.BasicTests.check_checkCurrentSerialInTransaction
 
     Admin
     - Make admin node able to monitor multiple clusters simultaneously
