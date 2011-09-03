@@ -128,7 +128,8 @@ class Storage(BaseStorage.BaseStorage,
     def tpc_finish(self, transaction, f=None):
         tid = self.app.tpc_finish(transaction=transaction,
             tryToResolveConflict=self.tryToResolveConflict, f=f)
-        self._snapshot_tid = add64(tid, 1)
+        if self._snapshot_tid:
+            self._snapshot_tid = add64(tid, 1)
         return tid
 
     @check_read_only
