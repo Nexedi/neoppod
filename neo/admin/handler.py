@@ -113,11 +113,12 @@ class MasterEventHandler(EventHandler):
 
     def _connectionLost(self, conn):
         app = self.app
-        assert app.master_conn in (conn, None)
-        app.dispatcher.clear()
-        app.reset()
-        app.uuid = None
-        raise PrimaryFailure
+        if app.listening_conn: # if running
+            assert app.master_conn in (conn, None)
+            app.dispatcher.clear()
+            app.reset()
+            app.uuid = None
+            raise PrimaryFailure
 
     def connectionFailed(self, conn):
         self._connectionLost(conn)

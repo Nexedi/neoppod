@@ -79,6 +79,12 @@ class Application(object):
         self.reset()
         registerLiveDebugger(on_log=self.log)
 
+    def close(self):
+        self.listening_conn = None
+        self.nm.close()
+        self.em.close()
+        del self.__dict__
+
     def reset(self):
         self.bootstrapped = False
         self.master_conn = None

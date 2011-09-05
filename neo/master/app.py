@@ -94,6 +94,12 @@ class Application(object):
 
         registerLiveDebugger(on_log=self.log)
 
+    def close(self):
+        self.listening_conn = None
+        self.nm.close()
+        self.em.close()
+        del self.__dict__
+
     def log(self):
         self.em.log()
         self.nm.log()

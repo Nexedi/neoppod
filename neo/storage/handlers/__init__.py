@@ -26,7 +26,8 @@ from neo.lib.protocol import NodeStates, NodeTypes, Packets, Errors
 class BaseMasterHandler(EventHandler):
 
     def connectionLost(self, conn, new_state):
-        raise PrimaryFailure('connection lost')
+        if self.app.listening_conn: # if running
+            raise PrimaryFailure('connection lost')
 
     def stopOperation(self, conn):
         raise OperationFailure('operation stopped')

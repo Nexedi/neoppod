@@ -38,6 +38,10 @@ class NeoCTL(object):
         self.handler = CommandEventHandler(self)
         self.response_queue = []
 
+    def close(self):
+        self.em.close()
+        del self.__dict__
+
     def __getConnection(self):
         if not self.connected:
             self.connection = ClientConnection(self.em, self.handler,

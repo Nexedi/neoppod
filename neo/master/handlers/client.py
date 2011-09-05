@@ -31,12 +31,13 @@ class ClientServiceHandler(MasterHandler):
     def connectionLost(self, conn, new_state):
         # cancel its transactions and forgot the node
         app = self.app
-        node = app.nm.getByUUID(conn.getUUID())
-        assert node is not None
-        app.tm.abortFor(node)
-        node.setState(NodeStates.DOWN)
-        app.broadcastNodesInformation([node])
-        app.nm.remove(node)
+        if app.listening_conn: # if running
+            node = app.nm.getByUUID(conn.getUUID())
+            assert node is not None
+            app.tm.abortFor(node)
+            node.setState(NodeStates.DOWN)
+            app.broadcastNodesInformation([node])
+            app.nm.remove(node)
 
     def askNodeInformation(self, conn):
         # send informations about master and storages only

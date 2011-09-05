@@ -16,7 +16,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import os, random, socket, sys, tempfile, threading, time, types
+import os, random, socket, sys, tempfile, threading, time, types, weakref
 from collections import deque
 from functools import wraps
 from Queue import Queue, Empty
@@ -367,8 +367,9 @@ class NEOCluster(object):
         ip = getVirtualIp('master')
         self.master_nodes = ' '.join('%s:%s' % (ip, i)
                                      for i in xrange(master_count))
-        kw = dict(cluster=self, getReplicas=replicas, getPartitions=partitions,
-                  getAdapter=adapter, getReset=clear_databases)
+        weak_self = weakref.proxy(self)
+        kw = dict(cluster=weak_self, getReplicas=replicas, getAdapter=adapter,
+                  getPartitions=partitions, getReset=clear_databases)
         self.master_list = [MasterApplication(address=(ip, i), **kw)
                             for i in xrange(master_count)]
         ip = getVirtualIp('storage')
@@ -383,8 +384,8 @@ class NEOCluster(object):
                              for i, x in enumerate(db_list)]
         ip = getVirtualIp('admin')
         self.admin_list = [AdminApplication(address=(ip, 0), **kw)]
-        self.client = ClientApplication(self)
-        self.neoctl = NeoCTL(self)
+        self.client = ClientApplication(weak_self)
+        self.neoctl = NeoCTL(weak_self)
 
     # A few shortcuts that work when there's only 1 master/storage/admin
     @property
@@ -492,6 +493,13 @@ class NEOCluster(object):
     def getTransaction(self):
         txn = transaction.TransactionManager()
         return txn, self.db.open(transaction_manager=txn)
+
+    def __del__(self):
+        self.neoctl.close()
+        for node_type in 'admin', 'storage', 'master':
+            for node in getattr(self, node_type + '_list'):
+                node.close()
+        self.client.em.close()
 
 
 class NEOThreadedTest(NeoTestBase):

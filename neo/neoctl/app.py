@@ -39,6 +39,9 @@ class TerminalNeoCTL(object):
     def __init__(self, address):
         self.neoctl = NeoCTL(address)
 
+    def __del__(self):
+        self.neoctl.close()
+
     # Utility methods (could be functions)
     def asNodeState(self, value):
         return NodeStates.getByName(value.upper())

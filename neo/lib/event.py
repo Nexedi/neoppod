@@ -30,6 +30,11 @@ class EpollEventManager(object):
         self.epoll = Epoll()
         self._pending_processing = []
 
+    def close(self):
+        for c in self.connection_dict.values():
+            c.close()
+        del self.__dict__
+
     def getConnectionList(self):
         # XXX: use index
         return [x for x in self.connection_dict.values() if not x.isAborted()]

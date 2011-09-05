@@ -26,6 +26,8 @@ from neo.lib import attributeTracker
 class Node(object):
     """This class represents a node."""
 
+    _connection = None
+
     def __init__(self, manager, address=None, uuid=None,
             state=NodeStates.UNKNOWN):
         self._state = state
@@ -33,7 +35,6 @@ class Node(object):
         self._uuid = uuid
         self._manager = manager
         self._last_state_change = time()
-        self._connection = None
         manager.add(self)
 
     def notify(self, packet):
@@ -88,7 +89,7 @@ class Node(object):
             Callback from node's connection when closed
         """
         assert self._connection is not None
-        self._connection = None
+        del self._connection
         self._manager._updateIdentified(self)
 
     def setConnection(self, connection):
@@ -260,6 +261,8 @@ class NodeManager(object):
         self._type_dict = {}
         self._state_dict = {}
         self._identified_dict = {}
+
+    close = __init__
 
     def add(self, node):
         if node in self._node_set:
