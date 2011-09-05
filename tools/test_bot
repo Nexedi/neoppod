@@ -12,6 +12,7 @@ def clean():
 def main():
     if 'LANG' in os.environ:
       del os.environ['LANG']
+    os.environ.setdefault('NEO_TEST_ZODB_FUNCTIONAL', '1')
 
     arg_count = 1
     while arg_count < len(sys.argv):

@@ -16,36 +16,40 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import os
-import unittest
 
-from neo.tests.functional import NEOCluster, NEOFunctionalTest
-import neo.lib
+from neo.tests import DB_PREFIX
+functional = int(os.getenv('NEO_TEST_ZODB_FUNCTIONAL', 0))
+if functional:
+    from neo.tests.functional import NEOCluster, NEOFunctionalTest as TestCase
+else:
+    from neo.tests.threaded import NEOCluster, NEOThreadedTest as TestCase
 
-class ZODBTestCase(NEOFunctionalTest):
+class ZODBTestCase(TestCase):
 
     def setUp(self, cluster_kw={}):
-        NEOFunctionalTest.setUp(self)
-        masters = int(os.environ.get('NEO_TEST_ZODB_MASTERS', 1))
-        storages = int(os.environ.get('NEO_TEST_ZODB_STORAGES', 1))
-        replicas = int(os.environ.get('NEO_TEST_ZODB_REPLICAS', 0))
-        partitions = int(os.environ.get('NEO_TEST_ZODB_PARTITIONS', 1))
-        self.neo = NEOCluster(
-            db_list=['test_neo%d' % x for x in xrange(storages)],
-            partitions=partitions,
-            replicas=replicas,
-            master_count=masters,
-            temp_dir=self.getTempDirectory(),
-            **cluster_kw)
+        super(ZODBTestCase, self).setUp()
+        storages = int(os.getenv('NEO_TEST_ZODB_STORAGES', 1))
+        kw = {
+            'master_count': int(os.getenv('NEO_TEST_ZODB_MASTERS', 1)),
+            'replicas': int(os.getenv('NEO_TEST_ZODB_REPLICAS', 0)),
+            'partitions': int(os.getenv('NEO_TEST_ZODB_PARTITIONS', 1)),
+            'db_list': ['%s%u' % (DB_PREFIX, i) for i in xrange(storages)],
+        }
+        kw.update(cluster_kw)
+        if functional:
+            kw['temp_dir'] = self.getTempDirectory()
+        self.neo = NEOCluster(**kw)
         self.neo.start()
         self._storage = self.neo.getZODBStorage()
 
     def tearDown(self):
         self._storage.cleanup()
         self.neo.stop()
-        NEOFunctionalTest.tearDown(self)
+        del self.neo, self._storage
+        super(ZODBTestCase, self).tearDown()
 
-    assertEquals = failUnlessEqual = NEOFunctionalTest.assertEqual
-    assertNotEquals = failIfEqual = NEOFunctionalTest.assertNotEqual
+    assertEquals = failUnlessEqual = TestCase.assertEqual
+    assertNotEquals = failIfEqual = TestCase.assertNotEqual
 
     def open(self, read_only=False):
         # required for some tests (see PersitentTests), no-op for NEO ?
