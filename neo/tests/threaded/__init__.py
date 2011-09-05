@@ -32,8 +32,8 @@ from neo.lib.connector import SocketConnector, \
 from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import SOCKET_CONNECTORS_DICT, parseMasterList
-from neo.tests import NeoUnitTestBase, getTempDirectory, \
-    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT
+from neo.tests import NeoUnitTestBase, getTempDirectory, setupMySQLdb, \
+    ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_USER
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
 LOCAL_IP = socket.inet_pton(ADDRESS_TYPE, IP_VERSION_FORMAT_DICT[ADDRESS_TYPE])
@@ -354,7 +354,7 @@ class NEOCluster(object):
     def __init__(self, master_count=1, partitions=1, replicas=0,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'BTree'),
                        storage_count=None, db_list=None, clear_databases=True,
-                       db_user='neo', db_password='neo', verbose=None):
+                       db_user=DB_USER, db_password='', verbose=None):
         if verbose is not None:
             temp_dir = os.getenv('TEMP') or \
                 os.path.join(tempfile.gettempdir(), 'neo_tests')
@@ -374,7 +374,8 @@ class NEOCluster(object):
         if db_list is None:
             if storage_count is None:
                 storage_count = replicas + 1
-            db_list = ['test_neo%u' % i for i in xrange(storage_count)]
+            db_list = ['%s%u' % (DB_PREFIX, i) for i in xrange(storage_count)]
+        setupMySQLdb(db_list, db_user, db_password, clear_databases)
         db = '%s:%s@%%s' % (db_user, db_password)
         self.storage_list = [StorageApplication(address=(ip, i),
                                                 getDatabase=db % x, **kw)

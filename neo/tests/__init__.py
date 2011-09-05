@@ -32,9 +32,9 @@ from neo.lib.util import getAddressType
 from time import time, gmtime
 from struct import pack, unpack
 
-DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo_')
+DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo')
 DB_ADMIN = os.getenv('NEO_DB_ADMIN', 'root')
-DB_PASSWD = os.getenv('NEO_DB_PASSWD', None)
+DB_PASSWD = os.getenv('NEO_DB_PASSWD', '')
 DB_USER = os.getenv('NEO_DB_USER', 'test')
 
 IP_VERSION_FORMAT_DICT = {
@@ -88,6 +88,26 @@ def getTempDirectory():
         print 'Using temp directory %r.' % temp_dir
     return temp_dir
 
+def setupMySQLdb(db_list, user=DB_USER, password='', clear_databases=True):
+    from MySQLdb.constants.ER import BAD_DB_ERROR
+    conn = MySQLdb.Connect(user=DB_ADMIN, passwd=DB_PASSWD)
+    cursor = conn.cursor()
+    for database in db_list:
+        try:
+            conn.select_db(database)
+            if not clear_databases:
+                continue
+            cursor.execute('DROP DATABASE `%s`' % database)
+        except MySQLdb.OperationalError, (code, _):
+            if code != BAD_DB_ERROR:
+                raise
+            cursor.execute('GRANT ALL ON `%s`.* TO "%s"@"localhost" IDENTIFIED'
+                           ' BY "%s"' % (database, user, password))
+        cursor.execute('CREATE DATABASE `%s`' % database)
+    cursor.close()
+    conn.commit()
+    conn.close()
+
 class NeoTestBase(unittest.TestCase):
     def setUp(self):
         logger.PACKET_LOGGER.enable(True)
@@ -123,24 +143,9 @@ class NeoUnitTestBase(NeoTestBase):
 
     local_ip = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE]
 
-    def prepareDatabase(self, number, admin=DB_ADMIN, password=DB_PASSWD,
-            user=DB_USER, prefix=DB_PREFIX, address_type = ADDRESS_TYPE):
+    def prepareDatabase(self, number, prefix='test_neo'):
         """ create empties databases """
-        # SQL connection
-        connect_arg_dict = {'user': admin}
-        if password is not None:
-            connect_arg_dict['passwd'] = password
-        sql_connection = MySQLdb.Connect(**connect_arg_dict)
-        cursor = sql_connection.cursor()
-        # drop and create each database
-        for i in xrange(number):
-            database = "%s%d" % (prefix, i)
-            cursor.execute('DROP DATABASE IF EXISTS %s' % (database, ))
-            cursor.execute('CREATE DATABASE %s' % (database, ))
-            cursor.execute('GRANT ALL ON %s.* TO "%s"@"localhost" IDENTIFIED BY ""' %
-                (database, user))
-        cursor.close()
-        sql_connection.close()
+        setupMySQLdb(['%s%u' % (prefix, i) for i in xrange(number)])
 
     def getMasterConfiguration(self, cluster='main', master_number=2,
             replicas=2, partitions=1009, uuid=None):

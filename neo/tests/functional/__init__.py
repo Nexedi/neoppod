@@ -37,7 +37,7 @@ from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib import setupLog
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
 from neo.lib.util import dump
-from neo.tests import DB_ADMIN, DB_PASSWD, NeoTestBase, buildUrlFromString, \
+from neo.tests import DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
         ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, getTempDirectory
 from neo.tests.cluster import SocketLock
 from neo.client.Storage import Storage
@@ -230,8 +230,7 @@ class NEOProcess(object):
 class NEOCluster(object):
 
     def __init__(self, db_list, master_count=1, partitions=1, replicas=0,
-                 db_user='neo', db_password='neo',
-                 db_super_user=DB_ADMIN, db_super_password=DB_PASSWD,
+                 db_user=DB_USER, db_password='',
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
                  adapter=os.getenv('NEO_TESTS_ADAPTER'),
                  verbose=True,
@@ -244,8 +243,6 @@ class NEOCluster(object):
         self.cleanup_on_delete = cleanup_on_delete
         self.verbose = verbose
         self.uuid_set = set()
-        self.db_super_user = db_super_user
-        self.db_super_password = db_super_password
         self.db_user = db_user
         self.db_password = db_password
         self.db_list = db_list
@@ -316,36 +313,10 @@ class NEOCluster(object):
         self.uuid_set.add(uuid)
         return uuid
 
-    def __getSuperSQLConnection(self):
-        # Cleanup or bootstrap databases
-        connect_arg_dict = {'user': self.db_super_user}
-        password = self.db_super_password
-        if password is not None:
-            connect_arg_dict['passwd'] = password
-        return MySQLdb.Connect(**connect_arg_dict)
-
     def setupDB(self, clear_databases=True):
         if self.adapter == 'MySQL':
-            from MySQLdb.constants.ER import DB_CREATE_EXISTS
-            sql_connection = self.__getSuperSQLConnection()
-            cursor = sql_connection.cursor()
-            for database in self.db_list:
-                create = 'CREATE DATABASE `%s`' % database
-                try:
-                    cursor.execute(create)
-                except MySQLdb.ProgrammingError, (code, _):
-                    if code != DB_CREATE_EXISTS:
-                        raise
-                    if clear_databases:
-                        cursor.execute('DROP DATABASE `%s`' % database)
-                        cursor.execute(create)
-                    continue
-                cursor.execute('GRANT ALL ON `%s`.* TO "%s"@"localhost" '
-                               'IDENTIFIED BY "%s"' % (database, self.db_user,
-                               self.db_password))
-            cursor.close()
-            sql_connection.commit()
-            sql_connection.close()
+            setupMySQLdb(self.db_list, self.db_user, self.db_password,
+                         clear_databases)
 
     def run(self, except_storages=()):
         """ Start cluster processes except some storage nodes """
