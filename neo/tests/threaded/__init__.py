@@ -32,7 +32,7 @@ from neo.lib.connector import SocketConnector, \
 from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import SOCKET_CONNECTORS_DICT, parseMasterList
-from neo.tests import NeoUnitTestBase, getTempDirectory, setupMySQLdb, \
+from neo.tests import NeoTestBase, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_USER
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0
@@ -327,7 +327,8 @@ class NEOCluster(object):
                 self.remote_addr = addr
         def send(self, msg):
             result = cls.SocketConnector_send(self, msg)
-            Serialized.pending = 1
+            if Serialized.pending is not None:
+                Serialized.pending = 1
             return result
         # TODO: 'sleep' should 'tic' in a smart way, so that storages can be
         #       safely started even if the cluster isn't.
@@ -493,7 +494,7 @@ class NEOCluster(object):
         return txn, self.db.open(transaction_manager=txn)
 
 
-class NEOThreadedTest(NeoUnitTestBase):
+class NEOThreadedTest(NeoTestBase):
 
     def setupLog(self):
         log_file = os.path.join(getTempDirectory(), self.id() + '.log')

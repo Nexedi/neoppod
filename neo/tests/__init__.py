@@ -24,6 +24,7 @@ import tempfile
 import unittest
 import MySQLdb
 import neo
+import transaction
 
 from mock import Mock
 from neo.lib import debug, logger, protocol, setupLog
@@ -122,6 +123,10 @@ class NeoTestBase(unittest.TestCase):
         setupLog(test_method, log_file, True)
 
     def tearDown(self):
+        # Kill all unfinished transactions for next test.
+        # Note we don't even abort them because it may require a valid
+        # connection to a master node (see Storage.sync()).
+        transaction.manager.__init__()
         unittest.TestCase.tearDown(self)
         sys.stdout.write('\n')
         sys.stdout.flush()
