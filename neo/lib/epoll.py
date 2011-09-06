@@ -86,7 +86,8 @@ class Epoll(object):
                            timeout)
             if n == -1:
                 e = errno.value
-                if e in (EINTR, EAGAIN):
+                # XXX: Why 0 ? Maybe due to partial workaround in neo.lib.debug.
+                if e in (0, EINTR, EAGAIN):
                     continue
                 else:
                     raise OSError(e, 'epoll_wait failed')
