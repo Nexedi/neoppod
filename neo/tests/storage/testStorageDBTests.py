@@ -29,23 +29,49 @@ class StorageDBTests(NeoUnitTestBase):
 
     def setUp(self):
         NeoUnitTestBase.setUp(self)
-        self.db = self.getDB()
+
+    @property
+    def db(self):
+        try:
+            return self._db
+        except AttributeError:
+            self.setNumPartitions(1)
+            return self._db
 
     def tearDown(self):
-        self.closeDB()
+        try:
+            del self._db
+        except AttributeError:
+            pass
         NeoUnitTestBase.tearDown(self)
 
     def getDB(self):
         raise NotImplementedError
 
-    def closeDB(self):
-        pass
-
-    def test_configuration(self):
-        # check if a configuration entry is well written
-        self.db.setConfiguration('a', 'c')
-        result = self.db.getConfiguration('a')
-        self.assertEqual(result, 'c')
+    def setNumPartitions(self, num_partitions, reset=0):
+        try:
+            db = self._db
+        except AttributeError:
+            self._db = db = self.getDB(reset)
+        else:
+            if reset:
+                db.setup(reset)
+            else:
+                try:
+                    n = db.getNumPartitions()
+                except KeyError:
+                    n = 0
+                if num_partitions == n:
+                    return
+                if num_partitions < n:
+                    db.dropPartitions(n, range(num_partitions, n))
+        db.setNumPartitions(num_partitions)
+        self.assertEqual(num_partitions, db.getNumPartitions())
+        uuid = self.getNewUUID()
+        db.setUUID(uuid)
+        self.assertEqual(uuid, db.getUUID())
+        db.setPartitionTable(1,
+            [(i, uuid, CellStates.UP_TO_DATE) for i in xrange(num_partitions)])
 
     def checkConfigEntry(self, get_call, set_call, value):
         # generic test for all configuration entries accessors
@@ -56,39 +82,36 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(get_call(), value * 2)
 
     def test_UUID(self):
-        self.checkConfigEntry(self.db.getUUID, self.db.setUUID, 'TEST_VALUE')
-
-    def test_NumPartitions(self):
-        self.db.setup(reset=True)
-        self.checkConfigEntry(self.db.getNumPartitions,
-                self.db.setNumPartitions, 10)
+        db = self.getDB()
+        self.checkConfigEntry(db.getUUID, db.setUUID, 'TEST_VALUE')
 
     def test_Name(self):
-        self.checkConfigEntry(self.db.getName, self.db.setName, 'TEST_NAME')
+        db = self.getDB()
+        self.checkConfigEntry(db.getName, db.setName, 'TEST_NAME')
 
     def test_15_PTID(self):
-        self.checkConfigEntry(
-            get_call=self.db.getPTID,
-            set_call=self.db.setPTID,
-            value=self.getPTID(1))
+        db = self.getDB()
+        self.checkConfigEntry(db.getPTID, db.setPTID, self.getPTID(1))
 
     def test_getPartitionTable(self):
+        db = self.getDB()
         ptid = self.getPTID(1)
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
         cell1 = (0, uuid1, CellStates.OUT_OF_DATE)
         cell2 = (1, uuid1, CellStates.UP_TO_DATE)
-        self.db.setPartitionTable(ptid, [cell1, cell2])
-        result = self.db.getPartitionTable()
+        db.setPartitionTable(ptid, [cell1, cell2])
+        result = db.getPartitionTable()
         self.assertEqual(set(result), set([cell1, cell2]))
 
     def test_getLastOID(self):
+        db = self.getDB()
         oid1 = self.getOID(1)
-        self.db.setLastOID(oid1)
-        result1 = self.db.getLastOID()
+        db.setLastOID(oid1)
+        result1 = db.getLastOID()
         self.assertEqual(result1, oid1)
 
     def getOIDs(self, count):
-        return [self.getOID(i) for i in xrange(count)]
+        return map(self.getOID, xrange(count))
 
     def getTIDs(self, count):
         tid_list = [self.getNextTID()]
@@ -197,45 +220,47 @@ class StorageDBTests(NeoUnitTestBase):
             OBJECT_T1_NEXT)
 
     def test_setPartitionTable(self):
+        db = self.getDB()
         ptid = self.getPTID(1)
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
         cell1 = (0, uuid1, CellStates.OUT_OF_DATE)
         cell2 = (1, uuid1, CellStates.UP_TO_DATE)
         cell3 = (1, uuid1, CellStates.DISCARDED)
         # no partition table
-        self.assertEqual(self.db.getPartitionTable(), [])
+        self.assertEqual(db.getPartitionTable(), [])
         # set one
-        self.db.setPartitionTable(ptid, [cell1])
-        result = self.db.getPartitionTable()
+        db.setPartitionTable(ptid, [cell1])
+        result = db.getPartitionTable()
         self.assertEqual(result, [cell1])
         # then another
-        self.db.setPartitionTable(ptid, [cell2])
-        result = self.db.getPartitionTable()
+        db.setPartitionTable(ptid, [cell2])
+        result = db.getPartitionTable()
         self.assertEqual(result, [cell2])
         # drop discarded cells
-        self.db.setPartitionTable(ptid, [cell2, cell3])
-        result = self.db.getPartitionTable()
+        db.setPartitionTable(ptid, [cell2, cell3])
+        result = db.getPartitionTable()
         self.assertEqual(result, [])
 
     def test_changePartitionTable(self):
+        db = self.getDB()
         ptid = self.getPTID(1)
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
         cell1 = (0, uuid1, CellStates.OUT_OF_DATE)
         cell2 = (1, uuid1, CellStates.UP_TO_DATE)
         cell3 = (1, uuid1, CellStates.DISCARDED)
         # no partition table
-        self.assertEqual(self.db.getPartitionTable(), [])
+        self.assertEqual(db.getPartitionTable(), [])
         # set one
-        self.db.changePartitionTable(ptid, [cell1])
-        result = self.db.getPartitionTable()
+        db.changePartitionTable(ptid, [cell1])
+        result = db.getPartitionTable()
         self.assertEqual(result, [cell1])
         # add more entries
-        self.db.changePartitionTable(ptid, [cell2])
-        result = self.db.getPartitionTable()
+        db.changePartitionTable(ptid, [cell2])
+        result = db.getPartitionTable()
         self.assertEqual(set(result), set([cell1, cell2]))
         # drop discarded cells
-        self.db.changePartitionTable(ptid, [cell2, cell3])
-        result = self.db.getPartitionTable()
+        db.changePartitionTable(ptid, [cell2, cell3])
+        result = db.getPartitionTable()
         self.assertEqual(result, [cell1])
 
     def test_dropUnfinishedData(self):
@@ -337,7 +362,7 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(self.db.getTransaction(tid2, True), None)
 
     def test_deleteTransactionsAbove(self):
-        self.db.setNumPartitions(2)
+        self.setNumPartitions(2)
         tid1 = self.getOID(0)
         tid2 = self.getOID(1)
         tid3 = self.getOID(2)
@@ -372,7 +397,7 @@ class StorageDBTests(NeoUnitTestBase):
             objs2[1][1:])
 
     def test_deleteObjectsAbove(self):
-        self.db.setNumPartitions(2)
+        self.setNumPartitions(2)
         tid1 = self.getOID(1)
         tid2 = self.getOID(2)
         tid3 = self.getOID(3)
@@ -442,8 +467,7 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(result, None)
 
     def test_getObjectHistoryFrom(self):
-        self.db.setup()
-        self.db.setNumPartitions(2)
+        self.setNumPartitions(2)
         oid1 = self.getOID(0)
         oid2 = self.getOID(2)
         oid3 = self.getOID(1)
@@ -508,8 +532,7 @@ class StorageDBTests(NeoUnitTestBase):
         return tid_list
 
     def test_getTIDList(self):
-        self.db.setup(True)
-        self.db.setNumPartitions(2)
+        self.setNumPartitions(2, True)
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # get tids
         # - all partitions
@@ -529,8 +552,7 @@ class StorageDBTests(NeoUnitTestBase):
         self.checkSet(result, [])
 
     def test_getReplicationTIDList(self):
-        self.db.setup(True)
-        self.db.setNumPartitions(2)
+        self.setNumPartitions(2, True)
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # get tids
         # - all
@@ -553,9 +575,8 @@ class StorageDBTests(NeoUnitTestBase):
         self.checkSet(result, [tid1])
 
     def test__getObjectData(self):
+        self.setNumPartitions(4, True)
         db = self.db
-        db.setup(reset=True)
-        self.db.setNumPartitions(4)
         tid0 = self.getNextTID()
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
@@ -640,9 +661,8 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(sum(call_counter), 1)
 
     def test__getDataTIDFromData(self):
+        self.setNumPartitions(4, True)
         db = self.db
-        db.setup(reset=True)
-        self.db.setNumPartitions(4)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         oid1 = self.getOID(1)
@@ -665,9 +685,8 @@ class StorageDBTests(NeoUnitTestBase):
             (u64(tid2), u64(tid1)))
 
     def test__getDataTID(self):
+        self.setNumPartitions(4, True)
         db = self.db
-        db.setup(reset=True)
-        self.db.setNumPartitions(4)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         oid1 = self.getOID(1)
@@ -688,9 +707,8 @@ class StorageDBTests(NeoUnitTestBase):
             (u64(tid2), u64(tid1)))
 
     def test_findUndoTID(self):
+        self.setNumPartitions(4, True)
         db = self.db
-        db.setup(reset=True)
-        self.db.setNumPartitions(4)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()

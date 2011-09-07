@@ -45,6 +45,10 @@ def splitOIDField(tid, oids):
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
+    # Disabled even on MySQL 5.1 & 5.5 because 'select count(*) from obj'
+    # sometimes returns incorrect values.
+    _use_partition = False
+
     def __init__(self, database):
         super(MySQLDatabaseManager, self).__init__()
         self.user, self.passwd, self.db = self._parse(database)
@@ -151,6 +155,9 @@ class MySQLDatabaseManager(DatabaseManager):
                  PRIMARY KEY (rid, uuid)
              ) ENGINE = InnoDB""")
 
+        p = self._use_partition and """ PARTITION BY LIST (partition) (
+            PARTITION dummy VALUES IN (NULL))""" or ''
+
         # The table "trans" stores information on committed transactions.
         q("""CREATE TABLE IF NOT EXISTS trans (
                  partition SMALLINT UNSIGNED NOT NULL,
@@ -161,7 +168,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
                  PRIMARY KEY (partition, tid)
-             ) ENGINE = InnoDB""")
+             ) ENGINE = InnoDB""" + p)
 
         # The table "obj" stores committed object data.
         q("""CREATE TABLE IF NOT EXISTS obj (
@@ -173,7 +180,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  value LONGBLOB NULL,
                  value_serial BIGINT UNSIGNED NULL,
                  PRIMARY KEY (partition, oid, serial)
-             ) ENGINE = InnoDB""")
+             ) ENGINE = InnoDB""" + p)
 
         # The table "obj_short" contains columns which are accessed in queries
         # which don't need to access object data. This is needed because InnoDB
@@ -183,7 +190,7 @@ class MySQLDatabaseManager(DatabaseManager):
             'oid BIGINT UNSIGNED NOT NULL,'
             'serial BIGINT UNSIGNED NOT NULL,'
             'PRIMARY KEY (partition, oid, serial)'
-            ') ENGINE = InnoDB')
+            ') ENGINE = InnoDB' + p)
 
         # The table "ttrans" stores information on uncommitted transactions.
         q("""CREATE TABLE IF NOT EXISTS ttrans (
@@ -367,6 +374,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def doSetPartitionTable(self, ptid, cell_list, reset):
         q = self.query
         e = self.escape
+        offset_list = []
         self.begin()
         try:
             if reset:
@@ -379,6 +387,7 @@ class MySQLDatabaseManager(DatabaseManager):
                     q("""DELETE FROM pt WHERE rid = %d AND uuid = '%s'""" \
                             % (offset, uuid))
                 else:
+                    offset_list.append(offset)
                     q("""INSERT INTO pt VALUES (%d, '%s', %d)
                             ON DUPLICATE KEY UPDATE state = %d""" \
                                     % (offset, uuid, state, state))
@@ -387,6 +396,16 @@ class MySQLDatabaseManager(DatabaseManager):
             self.rollback()
             raise
         self.commit()
+        if self._use_partition:
+            for offset in offset_list:
+                add = """ALTER TABLE %%s ADD PARTITION (
+                    PARTITION p%u VALUES IN (%u))""" % (offset, offset)
+                for table in 'trans', 'obj', 'obj_short':
+                    try:
+                        self.conn.query(add % table)
+                    except OperationalError, (code, _):
+                        if code != 1517: # duplicate partition name
+                            raise
 
     def changePartitionTable(self, ptid, cell_list):
         self.doSetPartitionTable(ptid, cell_list, False)
@@ -396,6 +415,16 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def dropPartitions(self, num_partitions, offset_list):
         q = self.query
+        if self._use_partition:
+            drop = "ALTER TABLE %s DROP PARTITION" + \
+                ','.join(' p%u' % i for i in offset_list)
+            for table in 'trans', 'obj', 'obj_short':
+                try:
+                    self.conn.query(drop % table)
+                except OperationalError, (code, _):
+                    if code != 1508: # already dropped
+                        raise
+            return
         e = self.escape
         offset_list = ', '.join((str(i) for i in offset_list))
         self.begin()

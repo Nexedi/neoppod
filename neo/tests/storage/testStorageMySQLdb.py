@@ -27,17 +27,13 @@ NEO_SQL_USER = 'test'
 
 class StorageMySQSLdbTests(StorageDBTests):
 
-    def getDB(self):
+    def getDB(self, reset=0):
         self.prepareDatabase(number=1, prefix=NEO_SQL_DATABASE[:-1])
         # db manager
         database = '%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE)
         db = MySQLDatabaseManager(database)
-        db.setup()
-        db.setNumPartitions(1)
+        db.setup(reset)
         return db
-
-    def closeDB(self):
-        self.db.close()
 
     def checkCalledQuery(self, query=None, call=0):
         self.assertTrue(len(self.db.conn.mockGetNamedCalls('query')) > call)

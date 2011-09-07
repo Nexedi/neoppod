@@ -22,10 +22,10 @@ from neo.storage.database.btree import BTreeDatabaseManager
 
 class StorageBTreeTests(StorageDBTests):
 
-    def getDB(self):
+    def getDB(self, reset=0):
         # db manager
         db = BTreeDatabaseManager('')
-        db.setup()
+        db.setup(reset)
         return db
 
 del StorageDBTests
