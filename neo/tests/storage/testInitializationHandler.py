@@ -53,6 +53,7 @@ class StorageInitializationHandlerTests(NeoUnitTestBase):
 
     def test_03_connectionClosed(self):
         conn = self.getClientConnection()
+        self.app.listening_conn = object() # mark as running
         self.assertRaises(PrimaryFailure, self.verification.connectionClosed, conn,)
         # nothing happens
         self.checkNoPacketSent(conn)

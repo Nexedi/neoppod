@@ -167,6 +167,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT,
                                                 port = self.client_port)
         conn = self.getFakeConnection(client_uuid, self.client_address)
+        self.app.listening_conn = object() # mark as running
         lptid = self.app.pt.getID()
         self.assertEqual(self.app.nm.getByUUID(client_uuid).getState(),
                 NodeStates.RUNNING)

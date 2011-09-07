@@ -60,6 +60,7 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
     def test_07_connectionClosed2(self):
         # primary has closed the connection
         conn = self.getMasterConnection()
+        self.app.listening_conn = object() # mark as running
         self.assertRaises(PrimaryFailure, self.operation.connectionClosed, conn)
         self.checkNoPacketSent(conn)
 
