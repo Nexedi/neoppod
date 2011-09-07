@@ -92,6 +92,8 @@ class Application(object):
         self.listening_conn = None
         self.nm.close()
         self.em.close()
+        if self.dm is not None:
+            self.dm.close()
         del self.__dict__
 
     def _poll(self):

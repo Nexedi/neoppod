@@ -418,7 +418,7 @@ class NEOCluster(object):
             for node in getattr(self, node_type + '_list'):
                 node.resetNode(**kw)
         self.client = ClientApplication(self)
-        self.neoctl = NeoCTL(self)
+        self.neoctl = NeoCTL(weakref.proxy(self))
 
     def start(self, storage_list=None, fast_startup=True):
         self._patch()
