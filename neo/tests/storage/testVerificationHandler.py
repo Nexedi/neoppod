@@ -44,6 +44,11 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
         self.app.load_lock_dict = {}
         self.app.pt = PartitionTable(self.num_partitions, self.num_replicas)
 
+    def tearDown(self):
+        self.app.close()
+        del self.app
+        super(StorageVerificationHandlerTests, self).tearDown()
+
     # Common methods
     def getLastUUID(self):
         return self.uuid

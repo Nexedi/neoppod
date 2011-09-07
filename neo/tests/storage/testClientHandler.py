@@ -56,6 +56,11 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.app.primary_master_node = pmn
         self.master_port = 10010
 
+    def tearDown(self):
+        self.app.close()
+        del self.app
+        super(StorageClientHandlerTests, self).tearDown()
+
     def _getConnection(self, uuid=None):
         return self.getFakeConnection(uuid=uuid, address=('127.0.0.1', 1000))
 

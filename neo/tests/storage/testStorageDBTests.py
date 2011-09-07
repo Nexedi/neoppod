@@ -40,7 +40,7 @@ class StorageDBTests(NeoUnitTestBase):
 
     def tearDown(self):
         try:
-            del self._db
+            self.__dict__.pop('_db', None).close()
         except AttributeError:
             pass
         NeoUnitTestBase.tearDown(self)
