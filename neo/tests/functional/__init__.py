@@ -163,6 +163,9 @@ class NEOProcess(object):
             # prevent child from killing anything
             del self.__class__.__del__
             try:
+                # release system-wide lock
+                for allocator in PortAllocator.allocator_set.copy():
+                    allocator.reset()
                 sys.argv = [command] + args
                 getattr(neo.scripts,  command).main()
                 sys.exit()
