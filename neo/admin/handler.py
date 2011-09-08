@@ -157,11 +157,6 @@ class MasterEventHandler(EventHandler):
     def notifyNodeInformation(self, conn, node_list):
         app = self.app
         app.nm.update(node_list)
-        if not app.pt.filled():
-            # Re-ask partition table, in case node change filled it.
-            # XXX: we should only ask it if received states indicates it is
-            # possible (ignore TEMPORARILY_DOWN for example)
-            conn.ask(Packets.AskPartitionTable())
 
 class MasterRequestEventHandler(EventHandler):
     """ This class handle all answer from primary master node"""

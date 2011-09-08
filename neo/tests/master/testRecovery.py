@@ -97,12 +97,14 @@ class MasterRecoveryTests(NeoUnitTestBase):
         # not from target node, ignore
         uuid = self.identifyToMasterNode(NodeTypes.STORAGE, port=self.storage_port)
         conn = self.getFakeConnection(uuid, self.storage_port)
+        node = self.app.nm.getByUUID(conn.getUUID())
         offset = 1
         cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEqual(state, CellStates.OUT_OF_DATE)
         recovery.target_ptid = 2
+        node.setPending()
         recovery.answerPartitionTable(conn, 1, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
@@ -114,6 +116,7 @@ class MasterRecoveryTests(NeoUnitTestBase):
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
             self.assertEqual(state, CellStates.OUT_OF_DATE)
+        node.setPending()
         recovery.answerPartitionTable(conn, None, cell_list)
         cells = self.app.pt.getRow(offset)
         for cell, state in cells:
@@ -124,6 +127,7 @@ class MasterRecoveryTests(NeoUnitTestBase):
         offset = 1000000
         self.assertFalse(self.app.pt.hasOffset(offset))
         cell_list = [(offset, ((uuid, NodeStates.DOWN,),),)]
+        node.setPending()
         self.checkProtocolErrorRaised(recovery.answerPartitionTable, conn,
             2, cell_list)
 
