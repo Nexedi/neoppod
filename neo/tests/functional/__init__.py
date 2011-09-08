@@ -336,21 +336,11 @@ class NEOCluster(object):
             raise AssertionError('Timeout when starting cluster')
         self.port_allocator.reset()
 
-    def start(self, except_storages=(), delay_startup=0):
+    def start(self, except_storages=()):
         """ Do a complete start of a cluster """
-        if delay_startup is None:
-            storage_list = self.getStorageProcessList()
-            self.run(except_storages=storage_list)
-            storage_list = set(storage_list).difference(except_storages)
-        else:
-            storage_list = ()
-            self.run(except_storages=except_storages)
-            if delay_startup:
-                time.sleep(delay_startup)
+        self.run(except_storages=except_storages)
         neoctl = self.neoctl
         neoctl.startCluster()
-        for storage in storage_list:
-            storage.start()
         target_count = len(self.db_list) - len(except_storages)
         storage_node_list = []
         def test():
