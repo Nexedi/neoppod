@@ -118,9 +118,8 @@ class Test(NEOThreadedTest):
         self.testRestartWithMissingStorage(True)
 
     def testVerificationCommitUnfinishedTransactions(self, fast_startup=False):
-        # translated from neo.tests.functional.testCluster.ClusterTests
         """ Verification step should commit unfinished transactions """
-        # XXX: this kind of definition should be defined in base test class
+        # translated from neo.tests.functional.testCluster.ClusterTests
         cluster = NEOCluster()
         try:
             cluster.start()
