@@ -30,9 +30,6 @@ class DatabaseManager(object):
         """
         self._under_transaction = False
 
-    def close(self):
-        pass
-
     def isUnderTransaction(self):
         return self._under_transaction
 

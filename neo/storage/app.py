@@ -92,8 +92,10 @@ class Application(object):
         self.listening_conn = None
         self.nm.close()
         self.em.close()
-        if self.dm is not None:
+        try:
             self.dm.close()
+        except AttributeError:
+            pass
         del self.__dict__
 
     def _poll(self):
