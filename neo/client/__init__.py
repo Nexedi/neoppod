@@ -51,10 +51,10 @@ if needs_patch:
     Connection.tpc_finish = tpc_finish
 
     try:
-        if Connection._nexedi_fix != 2:
+        if Connection._nexedi_fix != 3:
             raise Exception("A different ZODB fix is already applied")
     except AttributeError:
-        Connection._nexedi_fix = 2
+        Connection._nexedi_fix = 3
 
         # Whenever an connection is opened (and there's usually an existing one
         # in DB pool that can be reused) whereas the transaction is already
@@ -93,13 +93,18 @@ if needs_patch:
         # slow so we prefer to not call it where it's not useful.
         # I don't know any legitimate use of DB access outside a transaction.
 
+        # But old versions of ERP5 (before 2010-10-29 17:15:34) and maybe other
+        # applications do not always call 'transaction.begin()' when they should
+        # so this patch disabled as a precaution, at least as long as we support
+        # old software. This should also be discussed on zodb-dev ML first.
+
         def afterCompletion(self, *ignored):
             try:
                 self._readCurrent.clear()
             except AttributeError: # old ZODB (e.g. ZODB 3.4)
                 pass
             self._flush_invalidations()
-        Connection.afterCompletion = afterCompletion
+        #Connection.afterCompletion = afterCompletion
 
 
     class _DB(object):
