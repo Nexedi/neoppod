@@ -1,125 +1,136 @@
 NEO is a distributed, redundant and scalable implementation of ZODB API.
 NEO stands for Nexedi Enterprise Object.
 
-Requirements
-
-    - Linux 2.6 or later
-
-    - Python 2.4 or later
-
-    - For python 2.4: ctypes http://python.net/crew/theller/ctypes/
-      (packaged with later python versions)
-      Note that setup.py does not define any dependency to 'ctypes' so you will
-      have to install it explicitely.
-
-    - MySQLdb http://sourceforge.net/projects/mysql-python
-
-    - ZODB 3.10 or later (requires python 2.5 or later, only for client nodes)
-
 Overview
+========
 
-    A NEO cluster is composed of the following types of nodes:
+A NEO cluster is composed of the following types of nodes:
 
-    - "master" nodes (mandatory, 1 or more)
-       Takes care of transactionality. Only one master node is really active
-       (the active master node is called "primary master") at any given time,
-       extra masters are spares (they are called "secondary masters").
+- "master" nodes (mandatory, 1 or more)
 
-    - "storage" nodes (mandatory, 1 or more)
-       Stores data in a MySQL database. All available storage nodes are in use
-       simultaneously. This offers redundancy and data distribution.
+  Takes care of transactionality. Only one master node is really active
+  (the active master node is called "primary master") at any given time,
+  extra masters are spares (they are called "secondary masters").
 
-    - "admin" nodes (mandatory for startup, optional after)
-       Accepts commands from neoctl tool and transmits them to the
-       primary master, and monitors cluster state.
+- "storage" nodes (mandatory, 1 or more)
 
-    - "client" nodes
-       Well... Something needing to store/load data in a NEO cluster.
+  Stores data in a MySQL database. All available storage nodes are in use
+  simultaneously. This offers redundancy and data distribution.
+
+- "admin" nodes (mandatory for startup, optional after)
+
+  Accepts commands from neoctl tool and transmits them to the
+  primary master, and monitors cluster state.
+
+- "client" nodes
+
+  Well... Something needing to store/load data in a NEO cluster.
 
 Disclaimer
+==========
 
-    In addition of the disclaimer contained in the licence this code is
-    released under, please consider the following.
+In addition of the disclaimer contained in the licence this code is
+released under, please consider the following.
 
-    NEO does not implement any authentication mechanism between its nodes, and
-    does not encrypt data exchanged between nodes either.
-    If you want to protect your cluster from malicious nodes, or your data from
-    being snooped, please consider encrypted tunelling (such as openvpn).
+NEO does not implement any authentication mechanism between its nodes, and
+does not encrypt data exchanged between nodes either.
+If you want to protect your cluster from malicious nodes, or your data from
+being snooped, please consider encrypted tunelling (such as openvpn).
+
+Requirements
+============
+
+- Linux 2.6 or later
+
+- Python 2.4 or later
+
+- For python 2.4: ctypes http://python.net/crew/theller/ctypes/
+  (packaged with later python versions)
+  Note that setup.py does not define any dependency to 'ctypes' so you will
+  have to install it explicitely.
+
+- MySQLdb http://sourceforge.net/projects/mysql-python
+
+- ZODB 3.10 or later (requires python 2.5 or later, only for client nodes)
 
 Installation
+============
 
-    a. Make neo directory available for python to import (for example, by
-       adding its container directory to the PYTHONPATH environment variable).
+a. Make neo directory available for python to import (for example, by
+   adding its container directory to the PYTHONPATH environment variable).
 
-    b. Choose a cluster name and setup a MySQL database
+b. Choose a cluster name and setup a MySQL database
 
-    c. Start all required nodes :
+c. Start all required nodes::
 
-       neomaster --cluster=<cluster name>
-       neostorage --cluster=<cluster name> --database=user:passwd@host
-       neoadmin --cluster=<cluster name>
+    neomaster --cluster=<cluster name>
+    neostorage --cluster=<cluster name> --database=user:passwd@host
+    neoadmin --cluster=<cluster name>
 
-    d. Tell the cluster it can provide service.
+d. Tell the cluster it can provide service::
 
-       neoctl start
+    neoctl start
 
 How to use
+==========
 
-1. In zope:
+In zope
+-------
 
-   a. Copy neo directory to /path/to/your/zope/lib/python
+a. Copy neo directory to /path/to/your/zope/lib/python
 
-   b. Edit your zope.conf, add a neo import and edit the `zodb_db` section by
-      replacing its filestorage subsection by a NEOStorage one.
-      It should look like :
+b. Edit your zope.conf, add a neo import and edit the `zodb_db` section by
+   replacing its filestorage subsection by a NEOStorage one.
+   It should look like::
 
-      %import neo.client
-      <zodb_db main>
-          # Main FileStorage database
-          <NEOStorage>
-                master_nodes 127.0.0.1:10000
-                name <cluster name>
-          </NEOStorage>
-          mount-point /
-      </zodb_db>
+    %import neo.client
+    <zodb_db main>
+        # Main FileStorage database
+        <NEOStorage>
+            master_nodes 127.0.0.1:10000
+            name <cluster name>
+        </NEOStorage>
+        mount-point /
+    </zodb_db>
 
-   c. Start zope
+c. Start zope
 
-2. In a python script:
+In a Python script
+------------------
 
-   a. Set your PYTHONPATH in order to be able to import Zope lib:
+a. Set your PYTHONPATH in order to be able to import Zope lib::
 
-      $ export PYTHONPATH=/path/to/your/zope/lib/python:$PYTHONPATH
+    $ export PYTHONPATH=/path/to/your/zope/lib/python:$PYTHONPATH
 
-   b. Just create the storage object and play with it:
+b. Just create the storage object and play with it::
 
-      from neo.client.Storage import Storage
-          s = Storage(master_nodes="127.0.0.1:10010", name="main")
-      ...
+    from neo.client.Storage import Storage
+    s = Storage(master_nodes="127.0.0.1:10010", name="main")
+    ...
 
-      "name" and "master_nodes" parameters have the same meaning as in
-      configuration file.
+  "name" and "master_nodes" parameters have the same meaning as in
+  configuration file.
 
-Deployment:
+Deployment
+==========
 
 NEO has no built-in deployment features such as process daemonization. We use
-supervisor with configuration like below:
+supervisor with configuration like below::
 
-[group:neo]
-programs=master_01,storage_01,admin
+  [group:neo]
+  programs=master_01,storage_01,admin
 
-[program:master_01]
-priority=1
-command=neomaster -c neo -s master_01 -f /neo/neo.conf
-user=neo
+  [program:master_01]
+  priority=1
+  command=neomaster -c neo -s master_01 -f /neo/neo.conf
+  user=neo
 
-[program:storage_01]
-priority=2
-command=neostorage -c neo -s storage_01 -f /neo/neo.conf
-user=neo
+  [program:storage_01]
+  priority=2
+  command=neostorage -c neo -s storage_01 -f /neo/neo.conf
+  user=neo
 
-[program:admin]
-priority=3
-command=neoadmin -c neo -s admin -f /neo/neo.conf
-user=neo
-
+  [program:admin]
+  priority=3
+  command=neoadmin -c neo -s admin -f /neo/neo.conf
+  user=neo
