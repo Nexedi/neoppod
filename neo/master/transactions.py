@@ -191,7 +191,7 @@ class Transaction(object):
             for it.
             Does nothing if the node was not part of the transaction.
         """
-        # XXX: We might loose information that a storage successfully locked
+        # XXX: We might lose information that a storage successfully locked
         # data but was later found to be disconnected. This loss has no impact
         # on current code, but it might be disturbing to reader or future code.
         if self._prepared:

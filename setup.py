@@ -1,3 +1,6 @@
+"""Distributed, redundant and transactional storage for ZODB
+"""
+
 from setuptools import setup, find_packages
 import os
 
@@ -34,12 +37,14 @@ extras_require['tests'] = ['zope.testing', 'psutil',
 setup(
     name = 'neoppod',
     version = '1.0a1',
-    description = 'Distributed, redundant and transactional storage for ZODB',
+    description = __doc__.strip(),
     author = 'NEOPPOD',
     author_email = 'neo-dev@erp5.org',
     url = 'http://www.neoppod.org/',
     license = 'GPL 2+',
+    platforms = ["any"],
     classifiers=classifiers.splitlines(),
+    long_description = ".. contents::\n\n" + open('README').read(),
     packages = find_packages(),
     py_modules = ['mock'],
     entry_points = {

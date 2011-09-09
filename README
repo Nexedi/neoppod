@@ -46,12 +46,15 @@ Requirements
 
 - For python 2.4: ctypes http://python.net/crew/theller/ctypes/
   (packaged with later python versions)
+
   Note that setup.py does not define any dependency to 'ctypes' so you will
   have to install it explicitely.
 
-- MySQLdb http://sourceforge.net/projects/mysql-python
+- For storage nodes:
 
-- ZODB 3.10 or later (requires python 2.5 or later, only for client nodes)
+  - MySQLdb: http://sourceforge.net/projects/mysql-python
+
+- For client nodes: ZODB 3.10.x but it should work with ZODB >= 3.4
 
 Installation
 ============
@@ -74,12 +77,12 @@ d. Tell the cluster it can provide service::
 How to use
 ==========
 
+First make sure Python can import 'neo.client' package.
+
 In zope
 -------
 
-a. Copy neo directory to /path/to/your/zope/lib/python
-
-b. Edit your zope.conf, add a neo import and edit the `zodb_db` section by
+a. Edit your zope.conf, add a neo import and edit the `zodb_db` section by
    replacing its filestorage subsection by a NEOStorage one.
    It should look like::
 
@@ -93,23 +96,31 @@ b. Edit your zope.conf, add a neo import and edit the `zodb_db` section by
         mount-point /
     </zodb_db>
 
-c. Start zope
+b. Start zope
 
 In a Python script
 ------------------
 
-a. Set your PYTHONPATH in order to be able to import Zope lib::
+Just create the storage object and play with it::
 
-    $ export PYTHONPATH=/path/to/your/zope/lib/python:$PYTHONPATH
+  from neo.client.Storage import Storage
+  s = Storage(master_nodes="127.0.0.1:10010", name="main")
+  ...
 
-b. Just create the storage object and play with it::
+"name" and "master_nodes" parameters have the same meaning as in
+configuration file.
 
-    from neo.client.Storage import Storage
-    s = Storage(master_nodes="127.0.0.1:10010", name="main")
-    ...
+Shutting down
+-------------
 
-  "name" and "master_nodes" parameters have the same meaning as in
-  configuration file.
+There no administration command yet to stop properly a running cluster.
+So following manual actions should be done:
+
+a. Make sure all clients like Zope instances are stopped, so that cluster
+   become idle.
+b. Stop all master nodes first with a SIGINT or SIGTERM, so that storage nodes
+   don't become in OUT_OF_DATE state.
+c. At last stop remaining nodes with a SIGINT or SIGTERM.
 
 Deployment
 ==========

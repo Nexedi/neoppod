@@ -69,7 +69,7 @@ RC  - Review output of pylint (CODE)
       many places.
     - Clarify handler methods to call when a connection is accepted from a
       listening conenction and when remote node is identified
-      (cf. neo/bootstrap.py).
+      (cf. neo/lib/bootstrap.py).
     - Choose how to handle a storage integrity verification when it comes back.
       Do the replication process, the verification stage, with or without
       unfinished transactions, cells have to set as outdated, if yes, should the
@@ -77,7 +77,7 @@ RC  - Review output of pylint (CODE)
     - Implement proper shutdown (ClusterStates.STOPPING)
     - Review PENDING/HIDDEN/SHUTDOWN states, don't use notifyNodeInformation()
       to do a state-switch, use a exception-based mechanism ? (CODE)
-    - Split protocol.py in a 'protocol' module
+    - Split protocol.py in a 'protocol' module ?
     - Review handler split (CODE)
       The current handler split is the result of small incremental changes. A
       global review is required to make them square.
@@ -98,7 +98,7 @@ RC  - Review output of pylint (CODE)
       committed by future transactions.
 
     Storage
-    - Use Kyoto Cabinet instead of a stand-alone MySQL server.
+    - Use HailDB instead of a stand-alone MySQL server.
     - Notify master when storage becomes available for clients (LATENCY)
       Currently, storage presence is broadcasted to client nodes too early, as
       the storage node would refuse them until it has only up-to-date data (not
@@ -163,7 +163,7 @@ RC  - Review output of pylint (CODE)
     - Master node data redundancy (HIGH AVAILABILITY)
       Secondary master nodes should replicate primary master data (ie, primary
       master should inform them of such changes).
-      This data takes too long to extract from storage nodes, and loosing it
+      This data takes too long to extract from storage nodes, and losing it
       increases the risk of starting from underestimated values.
       This risk is (currently) unavoidable when all nodes stop running, but this
       case must be avoided.
@@ -223,8 +223,6 @@ RC  - Review output of pylint (CODE)
       distributed lock mechanisms, ...)
     - Choose how to compute the storage size
     - Make storage check if the OID match with it's partitions during a store
-    - Consider using out-of-band TCP feature.
-    - IPv6 support (address field, bind, name resolution)
     - Investigate delta compression for stored data
       Idea would be to have a few most recent revisions being stored fully, and
       older revision delta-compressed, in order to save space.
