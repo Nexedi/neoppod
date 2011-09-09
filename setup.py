@@ -1,6 +1,16 @@
 from setuptools import setup, find_packages
 import os
 
+classifiers = """\
+Framework :: ZODB
+Intended Audience :: Developers
+License :: OSI Approved :: GNU General Public License (GPL)
+Operating System :: POSIX :: Linux
+Programming Language :: Python
+Topic :: Database
+Topic :: Software Development :: Libraries :: Python Modules
+"""
+
 if not os.path.exists('mock.py'):
     import cStringIO, md5, urllib, zipfile
     mock_py = zipfile.ZipFile(cStringIO.StringIO(urllib.urlopen(
@@ -29,6 +39,7 @@ setup(
     author_email = 'neo-dev@erp5.org',
     url = 'http://www.neoppod.org/',
     license = 'GPL 2+',
+    classifiers=classifiers.splitlines(),
     packages = find_packages(),
     py_modules = ['mock'],
     entry_points = {
