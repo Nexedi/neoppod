@@ -6,6 +6,7 @@ import math
 import traceback
 from time import time
 
+from neo.tests import DB_PREFIX
 from neo.tests.benchmark import BenchmarkRunner
 from ZODB.FileStorage import FileStorage
 
@@ -85,7 +86,7 @@ class MatrixImportBenchmark(BenchmarkRunner):
         else:
             from neo.tests.functional import NEOCluster
         neo = NEOCluster(
-            db_list=['neot_matrix_%d' % i for i in xrange(storages)],
+            db_list=['%s_matrix_%u' % (DB_PREFIX, i) for i in xrange(storages)],
             clear_databases=True,
             master_count=masters,
             partitions=partitions,

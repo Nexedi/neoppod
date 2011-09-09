@@ -8,6 +8,7 @@ import traceback
 from time import time
 from ZODB.FileStorage import FileStorage
 
+from neo.tests import DB_PREFIX
 from neo.tests.benchmark import BenchmarkRunner
 from neo.tests.functional import NEOCluster
 from neo.lib.profiling import PROFILING_ENABLED, profiler_decorator, \
@@ -38,7 +39,8 @@ class ImportBenchmark(BenchmarkRunner):
         config = self._config
         # start neo
         neo = NEOCluster(
-            db_list=['neot_perfs_%d' % i for i in xrange(config.storages)],
+            db_list=['%s_perfs_%u' % (DB_PREFIX, i)
+                     for i in xrange(config.storages)],
             clear_databases=True,
             partitions=config.partitions,
             replicas=config.replicas,
