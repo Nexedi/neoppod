@@ -1,0 +1,7 @@
+*.pyc
+*.pyo
+*.swp
+*~
+/build/
+/dist/
+/neoppod.egg-info/
