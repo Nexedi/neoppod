@@ -14,8 +14,9 @@ A NEO cluster is composed of the following types of nodes:
 
 - "storage" nodes (mandatory, 1 or more)
 
-  Stores data in a MySQL database. All available storage nodes are in use
-  simultaneously. This offers redundancy and data distribution.
+  Stores data in a MySQL database, preserving history. All available storage
+  nodes are in use simultaneously. This offers redundancy and data distribution.
+  Other storage backends than MySQL are considered for future release.
 
 - "admin" nodes (mandatory for startup, optional after)
 
@@ -25,6 +26,17 @@ A NEO cluster is composed of the following types of nodes:
 - "client" nodes
 
   Well... Something needing to store/load data in a NEO cluster.
+
+ZODB API is fully implemented except:
+
+- pack: only old revisions of objects are removed for the moment
+        (full implementation is considered)
+- blobs: not implemented (not considered yet)
+
+There is a simple way to convert FileStorage to NEO and back again.
+
+See also http://www.neoppod.org/links for more detailed information about
+features related to scalability.
 
 Disclaimer
 ==========
@@ -113,7 +125,7 @@ configuration file.
 Shutting down
 -------------
 
-There no administration command yet to stop properly a running cluster.
+There is no administration command yet to stop properly a running cluster.
 So following manual actions should be done:
 
 a. Make sure all clients like Zope instances are stopped, so that cluster
@@ -126,7 +138,7 @@ Deployment
 ==========
 
 NEO has no built-in deployment features such as process daemonization. We use
-supervisor with configuration like below::
+`supervisor <http://supervisord.org/>`_ with configuration like below::
 
   [group:neo]
   programs=master_01,storage_01,admin
@@ -145,3 +157,22 @@ supervisor with configuration like below::
   priority=3
   command=neoadmin -c neo -s admin -f /neo/neo.conf
   user=neo
+
+Developers
+==========
+
+Developers interested in NEO may refer to
+`NEO Web site <http://www.neoppod.org/>`_ and subscribe to following mailing
+lists:
+
+- `neo-users <http://mail.tiolive.com/mailman/listinfo/neo-users>`_:
+  users discussion
+- `neo-dev <http://mail.tiolive.com/mailman/listinfo/neo-dev>`_:
+  developers discussion
+- `neo-report <http://mail.tiolive.com/mailman/listinfo/neo-report>`_:
+  automated test results (read-only list)
+
+Commercial Support
+==================
+
+Nexedi provides commercial support for NEO: http://www.nexedi.com/
