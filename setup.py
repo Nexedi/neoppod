@@ -36,7 +36,7 @@ extras_require['tests'] = ['zope.testing', 'psutil',
 
 setup(
     name = 'neoppod',
-    version = '1.0a1',
+    version = '0.9',
     description = __doc__.strip(),
     author = 'NEOPPOD',
     author_email = 'neo-dev@erp5.org',
@@ -44,7 +44,8 @@ setup(
     license = 'GPL 2+',
     platforms = ["any"],
     classifiers=classifiers.splitlines(),
-    long_description = ".. contents::\n\n" + open('README').read(),
+    long_description = ".. contents::\n\n" + open('README').read()
+                     + "\n" + open('CHANGES').read(),
     packages = find_packages(),
     py_modules = ['mock'],
     entry_points = {
