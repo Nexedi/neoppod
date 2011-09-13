@@ -63,7 +63,7 @@ def main(args=None):
     # do the job
     print "Migrating from %s to %s" % (source, destination)
     start = time.time()
-    dst.copyTransactionsFrom(src, verbose=0)
+    dst.copyTransactionsFrom(src)
     elapsed = time.time() - start
     print "Migration done in %3.5f" % (elapsed, )
 
