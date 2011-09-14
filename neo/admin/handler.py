@@ -61,9 +61,12 @@ class AdminEventHandler(EventHandler):
 
 
     def askNodeList(self, conn, node_type):
-        neo.lib.logging.info("ask node list for %s" %(node_type))
-        def node_filter(n):
-            return n.getType() is node_type
+        if node_type is None:
+            node_type = 'all'
+            node_filter = None
+        else:
+            node_filter = lambda n: n.getType() is node_type
+        neo.lib.logging.info("ask list of %s nodes", node_type)
         node_list = self.app.nm.getList(node_filter)
         node_information_list = [node.asTuple() for node in node_list ]
         p = Packets.AnswerNodeList(node_information_list)

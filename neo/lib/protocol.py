@@ -281,7 +281,7 @@ class PItem(object):
     def decode(self, reader):
         return self._trace(self._decode, reader)
 
-    def _encode(self, writer):
+    def _encode(self, writer, items):
         raise NotImplementedError, self.__class__.__name__
 
     def _decode(self, reader):
@@ -372,15 +372,20 @@ class PEnum(PStructItem):
         Encapsulate an enumeration value
     """
     def __init__(self, name, enum):
-        PStructItem.__init__(self, name, '!L')
+        PStructItem.__init__(self, name, '!l')
         self._enum = enum
 
     def _encode(self, writer, item):
-        assert isinstance(item, int), item
+        if item is None:
+            item = -1
+        else:
+            assert isinstance(item, int), item
         writer(self.pack(item))
 
     def _decode(self, reader):
         code = self.unpack(reader(self.size))[0]
+        if code == -1:
+            return None
         try:
             return self._enum[code]
         except KeyError:
