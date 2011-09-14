@@ -57,6 +57,9 @@ def main(args=None):
         src = FileStorage(file_name=source)
         dst = NEOStorage(master_nodes=destination, name=cluster)
     else:
+        print("WARNING: due to a bug in FileStorage (at least up to ZODB trunk"
+              "@121629), output database may be corrupted if input database is"
+              " not packed.")
         src = NEOStorage(master_nodes=source, name=cluster)
         dst = FileStorage(file_name=destination)
 

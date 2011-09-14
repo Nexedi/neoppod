@@ -173,10 +173,18 @@ class ClientTests(NEOFunctionalTest):
         db = ZODB.DB(storage=storage)
         return (db, storage)
 
-    def __populate(self, db, tree_size=TREE_SIZE):
+    def __populate(self, db, tree_size=TREE_SIZE, filestorage_bug=True):
         conn = db.open()
         root = conn.root()
         root['trees'] = Tree(tree_size)
+        if filestorage_bug:
+            ob = root['trees'].right
+            left = ob.left
+            del ob.left
+            transaction.commit()
+            ob._p_changed = 1
+            transaction.commit()
+            ob.left = left
         transaction.commit()
         conn.close()
 
@@ -197,12 +205,12 @@ class ClientTests(NEOFunctionalTest):
         (neo_db, neo_conn) = self.neo.getZODBConnection()
         self.__checkTree(neo_conn.root()['trees'])
 
-    def testExport(self):
+    def testExport(self, filestorage_bug=False):
 
         # create a neo storage
         self.neo.start()
         (neo_db, neo_conn) = self.neo.getZODBConnection()
-        self.__populate(neo_db)
+        self.__populate(neo_db, filestorage_bug=filestorage_bug)
 
         # copy neo to data fs
         dfs_db, dfs_storage  = self.__getDataFS(reset=True)
@@ -214,6 +222,10 @@ class ClientTests(NEOFunctionalTest):
         root = conn.root()
 
         self.__checkTree(root['trees'])
+
+    def testExportFileStorageBug(self):
+        # currently fails due to a bug in ZODB.FileStorage
+        self.testExport(True)
 
     def testLockTimeout(self):
         """ Hold a lock on an object to block a second transaction """
