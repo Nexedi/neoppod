@@ -981,7 +981,7 @@ class Application(object):
             append(txn_info)
         return (tid, txn_list)
 
-    def history(self, oid, version=None, size=1, filter=None):
+    def history(self, oid, size=1, filter=None):
         queue = self._getThreadQueue()
         # Get history informations for object first
         packet = Packets.AskObjectHistory(oid, 0, size)

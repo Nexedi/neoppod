@@ -35,6 +35,18 @@ def check_read_only(func):
         return func(self, *args, **kw)
     return wraps(func)(wrapped)
 
+def old_history_api(func):
+    try:
+        if ZODB.interfaces.IStorage['history'].positional[1] != 'version':
+            return func # ZODB >= 3.9
+    except KeyError: # ZODB < 3.8
+        pass
+    def history(self, oid, version=None, *args, **kw):
+        if version is None:
+            return func(self, oid, *args, **kw)
+        raise ValueError('Versions are not supported')
+    return wraps(func)(history)
+
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
@@ -215,9 +227,10 @@ class Storage(BaseStorage.BaseStorage,
     def registerDB(self, db, limit=None):
         self.app.registerDB(db, limit)
 
-    def history(self, oid, version=None, size=1, filter=None):
+    @old_history_api
+    def history(self, *args, **kw):
         try:
-            return self.app.history(oid, version, size, filter)
+            return self.app.history(*args, **kw)
         except NEOStorageNotFoundError:
             raise KeyError
 
