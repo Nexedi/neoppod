@@ -982,33 +982,29 @@ class Application(object):
         return (tid, txn_list)
 
     def history(self, oid, size=1, filter=None):
-        queue = self._getThreadQueue()
         # Get history informations for object first
         packet = Packets.AskObjectHistory(oid, 0, size)
         for node, conn in self.cp.iterateForObject(oid, readable=True):
             try:
-                conn.ask(packet, queue=queue)
+                history_list = self._askStorage(conn, packet)
             except ConnectionClosed:
                 continue
-        history_dict = {}
-        self.waitResponses(queue, history_dict)
-        # Now that we have object informations, get txn informations
-        history_list = []
-        append = history_list.append
-        for serial in sorted(history_dict.keys(), reverse=True):
-            size = history_dict[serial]
-            txn_info, txn_ext = self._getTransactionInformation(serial)
-            # create history dict
-            txn_info.pop('id')
-            txn_info.pop('oids')
-            txn_info.pop('packed')
-            txn_info['tid'] = serial
-            txn_info['version'] = ''
-            txn_info['size'] = size
-            if filter is None or filter(txn_info):
-                append(txn_info)
-            self._insertMetadata(txn_info, txn_ext)
-        return history_list
+            # Now that we have object informations, get txn informations
+            result = []
+            # history_list is already sorted descending (by the storage)
+            for serial, size in history_list:
+                txn_info, txn_ext = self._getTransactionInformation(serial)
+                # create history dict
+                txn_info.pop('id')
+                txn_info.pop('oids')
+                txn_info.pop('packed')
+                txn_info['tid'] = serial
+                txn_info['version'] = ''
+                txn_info['size'] = size
+                if filter is None or filter(txn_info):
+                    result.append(txn_info)
+                self._insertMetadata(txn_info, txn_ext)
+            return result
 
     @profiler_decorator
     def importFrom(self, source, start, stop, tryToResolveConflict):

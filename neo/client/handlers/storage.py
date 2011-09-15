@@ -122,7 +122,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     def answerObjectHistory(self, conn, _, history_list):
         # history_list is a list of tuple (serial, size)
-        self.app.getHandlerData().update(history_list)
+        self.app.setHandlerData(history_list)
 
     def oidNotFound(self, conn, message):
         # This can happen either when :
