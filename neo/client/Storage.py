@@ -228,11 +228,11 @@ class Storage(BaseStorage.BaseStorage,
         self.app.registerDB(db, limit)
 
     @old_history_api
-    def history(self, *args, **kw):
+    def history(self, oid, *args, **kw):
         try:
-            return self.app.history(*args, **kw)
+            return self.app.history(oid, *args, **kw)
         except NEOStorageNotFoundError:
-            raise KeyError
+            raise POSException.POSKeyError(oid)
 
     def sync(self, force=True):
         # Increment by one, as we will use this as an excluded upper
