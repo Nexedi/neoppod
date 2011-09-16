@@ -147,3 +147,42 @@ class Test(NEOThreadedTest):
 
     def testVerificationCommitUnfinishedTransactionsFastStartup(self):
         self.testVerificationCommitUnfinishedTransactions(True)
+
+    def testStorageReconnectDuringStore(self):
+        cluster = NEOCluster(replicas=1)
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            c.root()[0] = 'ok'
+            while cluster.client.cp.connection_dict:
+                cluster.client.cp._dropConnections()
+            t.commit() # store request
+        finally:
+            cluster.stop()
+
+    # The following 2 tests fail because the same queue is used for
+    # AskTIDs(From) requests and reconnections. The same bug affected
+    # history() before df47e5b1df8eabbff1383348b6b8c476bca0c328
+
+    def testStorageReconnectDuringTransactionLog(self):
+        cluster = NEOCluster(storage_count=2, partitions=2)
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            while cluster.client.cp.connection_dict:
+                cluster.client.cp._dropConnections()
+            tid, (t1,) = cluster.client.transactionLog(
+                ZERO_TID, c.root()._p_serial, 10)
+        finally:
+            cluster.stop()
+
+    def testStorageReconnectDuringUndoLog(self):
+        cluster = NEOCluster(storage_count=2, partitions=2)
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            while cluster.client.cp.connection_dict:
+                cluster.client.cp._dropConnections()
+            t1, = cluster.client.undoLog(0, 10)
+        finally:
+            cluster.stop()

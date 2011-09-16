@@ -904,6 +904,10 @@ class Application(object):
             raise NEOStorageError('Transaction %r not found' % (tid, ))
         return (txn_info, txn_ext)
 
+    # XXX: The following 2 methods fail when they reconnect to a storage after
+    #      they already sent a request to a previous storage.
+    #      See also testStorageReconnectDuringXxx
+
     def undoLog(self, first, last, filter=None, block=0):
         # XXX: undoLog is broken
         if last < 0:
