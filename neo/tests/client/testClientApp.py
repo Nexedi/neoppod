@@ -777,50 +777,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         self.assertEqual(result[0]['id'], tid1)
         self.assertEqual(result[1]['id'], tid2)
 
-    def test_history(self):
-        app = self.getApp()
-        oid = self.makeOID(1)
-        tid1, tid2 = self.makeTID(1), self.makeTID(2)
-        object_history = ( (tid1, 42), (tid2, 42),)
-        # object history, first is a wrong oid, second is valid
-        p2 = Packets.AnswerObjectHistory(oid, object_history)
-        extension = dumps({'k': 'v'})
-        # transaction history
-        p3 = Packets.AnswerTransactionInformation(tid2, 'u', 'd',
-                extension, False, (oid, ))
-        p4 = Packets.AnswerTransactionInformation(tid1, 'u', 'd',
-                extension, False, (oid, ))
-        p2.setId(0)
-        p3.setId(1)
-        p4.setId(2)
-        # faked environnement
-        conn = Mock({
-            'getNextId': 1,
-            'fakeGetApp': app,
-            'fakeReceived': ReturnValues(p3, p4),
-            'getAddress': ('127.0.0.1', 10010),
-        })
-        object_cells = [ Mock({}), ]
-        history_cells = [ Mock({}), Mock({}) ]
-        app.pt = Mock({
-            'getCellListForOID': object_cells,
-            'getCellListForTID': ReturnValues(history_cells, history_cells),
-        })
-        app.cp = Mock({
-            'iterateForObject': [(Mock(), conn)],
-        })
-        def waitResponses(queue, handler_data):
-            app.setHandlerData(handler_data)
-            app._handlePacket(Mock(), p2, handler=app.storage_handler)
-        app.waitResponses = waitResponses
-        # start test here
-        result = app.history(oid)
-        self.assertEqual(len(result), 2)
-        self.assertEqual(result[0]['tid'], tid2)
-        self.assertEqual(result[1]['tid'], tid1)
-        self.assertEqual(result[0]['size'], 42)
-        self.assertEqual(result[1]['size'], 42)
-
     def test_connectToPrimaryNode(self):
         # here we have three master nodes :
         # the connection to the first will fail

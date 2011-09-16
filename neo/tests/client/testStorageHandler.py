@@ -205,18 +205,6 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
             'packed': packed,
         }, ext))
 
-    def test_answerObjectHistory(self):
-        conn = self.getConnection()
-        oid = self.getOID(0)
-        history_list = [self.getNextTID(), self.getNextTID()]
-        history_set = set()
-        app = Mock({
-            'getHandlerData': history_set,
-        })
-        handler = StorageAnswersHandler(app)
-        handler.answerObjectHistory(conn, oid, history_list)
-        self.assertEqual(history_set, set(history_list))
-
     def test_oidNotFound(self):
         conn = self.getConnection()
         self.assertRaises(NEOStorageNotFoundError, self.handler.oidNotFound,

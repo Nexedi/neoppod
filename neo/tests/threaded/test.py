@@ -41,6 +41,7 @@ class Test(NEOThreadedTest):
             c.root()['with_resolution'] = ob = PCounterWithResolution()
             t.commit()
             self.assertEqual(ob._p_changed, 0)
+            oid = ob._p_oid
             tid1 = ob._p_serial
             self.assertNotEqual(tid1, ZERO_TID)
             del ob, t, c
@@ -69,6 +70,12 @@ class Test(NEOThreadedTest):
             tid3 = o1._p_serial
             self.assertTrue(tid2 < tid3)
             self.assertEqual(tid3, o2._p_serial)
+
+            # check history
+            history = c1.db().history
+            self.assertEqual([x['tid'] for x in history(oid, size=1)], [tid3])
+            self.assertEqual([x['tid'] for x in history(oid, size=10)],
+                             [tid3, tid2, tid1])
         finally:
             cluster.stop()
 
