@@ -56,7 +56,7 @@ Requirements
 
 - Python 2.4 or later
 
-- For python 2.4: ctypes http://python.net/crew/theller/ctypes/
+- For python 2.4: `ctypes <http://python.net/crew/theller/ctypes/>`_
   (packaged with later python versions)
 
   Note that setup.py does not define any dependency to 'ctypes' so you will
@@ -79,7 +79,7 @@ b. Choose a cluster name and setup a MySQL database
 c. Start all required nodes::
 
     neomaster --cluster=<cluster name>
-    neostorage --cluster=<cluster name> --database=user:passwd@host
+    neostorage --cluster=<cluster name> --database=user:passwd@db
     neoadmin --cluster=<cluster name>
 
 d. Tell the cluster it can provide service::
