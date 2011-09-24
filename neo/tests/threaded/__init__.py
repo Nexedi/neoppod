@@ -19,7 +19,6 @@
 import os, random, socket, sys, tempfile, threading, time, types, weakref
 from collections import deque
 from functools import wraps
-from Queue import Queue, Empty
 from mock import Mock
 import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
@@ -51,9 +50,8 @@ class Serialized(object):
     def init(cls):
         cls._global_lock = threading.Lock()
         cls._global_lock.acquire()
-        # TODO: use something else than Queue, for inspection or editing
-        #       (e.g. we'd like to suspend nodes temporarily)
-        cls._lock_list = Queue()
+        cls._lock_list = deque()
+        cls._lock_lock = threading.Lock()
         cls._pdb = False
         cls.pending = 0
 
@@ -72,9 +70,14 @@ class Serialized(object):
         except AttributeError:
             pass
         q = cls._lock_list
-        q.put(lock)
-        if wake_other:
-            q.get().release()
+        l = cls._lock_lock
+        l.acquire()
+        try:
+            q.append(lock)
+            if wake_other:
+                q.popleft().release()
+        finally:
+            l.release()
 
     @classmethod
     def acquire(cls, lock=None):
@@ -103,10 +106,12 @@ class Serialized(object):
 
     @classmethod
     def background(cls):
+        cls._lock_lock.acquire()
         try:
-            cls._lock_list.get(0).release()
-        except Empty:
-            pass
+            if cls._lock_list:
+                cls._lock_list.popleft().release()
+        finally:
+            cls._lock_lock.release()
 
 class SerializedEventManager(EventManager):
 
