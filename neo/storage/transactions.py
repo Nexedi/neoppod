@@ -272,18 +272,20 @@ class TransactionManager(object):
             neo.lib.logging.debug('Transaction %s storing %s',
                             dump(ttid), dump(oid))
             self._store_lock_dict[oid] = ttid
-        elif locking_tid > ttid:
-            # We have a smaller TID than locking transaction, so we are older:
+        elif locking_tid < ttid:
+            # We have a bigger TTID than locking transaction, so we are younger:
             # enter waiting queue so we are handled when lock gets released.
+            # We also want to delay (instead of conflict) if the client is
+            # so faster that it is committing another transaction before we
+            # processed UnlockInformation from the master.
             neo.lib.logging.info('Store delayed for %r:%r by %r', dump(oid),
                     dump(ttid), dump(locking_tid))
             raise DelayedError
         else:
-            # We have a bigger TTID than locking transaction, so we are
-            # younger: this is a possible deadlock case, as we might already
-            # hold locks that older transaction is waiting upon. Make client
-            # release locks & reacquire them by notifying it of the possible
-            # deadlock.
+            # We have a smaller TTID than locking transaction, so we are older:
+            # this is a possible deadlock case, as we might already hold locks
+            # the younger transaction is waiting upon. Make client release
+            # locks & reacquire them by notifying it of the possible deadlock.
             neo.lib.logging.info('Possible deadlock on %r:%r with %r',
                 dump(oid), dump(ttid), dump(locking_tid))
             raise ConflictError(ZERO_TID)

@@ -144,8 +144,8 @@ class TransactionManagerTests(NeoUnitTestBase):
     def testDelayed(self):
         """ Two transactions, the first cause the second to be delayed """
         uuid = self.getNewUUID()
-        ttid2 = self.getNextTID()
         ttid1 = self.getNextTID()
+        ttid2 = self.getNextTID()
         tid1, txn1 = self._getTransaction()
         tid2, txn2 = self._getTransaction()
         serial, obj = self._getObject(1)
@@ -165,8 +165,8 @@ class TransactionManagerTests(NeoUnitTestBase):
     def testUnresolvableConflict(self):
         """ A newer transaction has already modified an object """
         uuid = self.getNewUUID()
-        ttid2 = self.getNextTID()
         ttid1 = self.getNextTID()
+        ttid2 = self.getNextTID()
         tid1, txn1 = self._getTransaction()
         tid2, txn2 = self._getTransaction()
         serial, obj = self._getObject(1)
@@ -201,8 +201,8 @@ class TransactionManagerTests(NeoUnitTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         self.assertNotEqual(uuid1, uuid2)
-        ttid2 = self.getNextTID()
         ttid1 = self.getNextTID()
+        ttid2 = self.getNextTID()
         tid1, txn1 = self._getTransaction()
         tid2, txn2 = self._getTransaction()
         serial1, obj1 = self._getObject(1)
@@ -228,8 +228,8 @@ class TransactionManagerTests(NeoUnitTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         self.assertNotEqual(uuid1, uuid2)
-        ttid2 = self.getNextTID()
         ttid1 = self.getNextTID()
+        ttid2 = self.getNextTID()
         tid1, txn1 = self._getTransaction()
         tid2, txn2 = self._getTransaction()
         serial1, obj1 = self._getObject(1)

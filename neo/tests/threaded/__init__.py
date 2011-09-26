@@ -25,7 +25,7 @@ import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
 from neo.client import Storage
 from neo.lib import bootstrap, setupLog
-from neo.lib.connection import BaseConnection
+from neo.lib.connection import BaseConnection, Connection
 from neo.lib.connector import SocketConnector, \
     ConnectorConnectionRefusedException
 from neo.lib.event import EventManager
@@ -161,19 +161,31 @@ class SerializedEventManager(EventManager):
         EventManager._poll(self, timeout)
 
 
-class ServerNode(object):
+class Node(object):
+
+    def filterConnection(self, *peers):
+        addr = lambda c: c and (c.accepted_from or c.getAddress())
+        addr_set = set(addr(c.connector) for peer in peers
+            for c in peer.em.connection_dict.itervalues()
+            if isinstance(c, Connection))
+        addr_set.discard(None)
+        conn_list = (c for c in self.em.connection_dict.itervalues()
+            if isinstance(c, Connection) and addr(c.connector) in addr_set)
+        return ConnectionFilter(*conn_list)
+
+class ServerNode(Node):
 
     class __metaclass__(type):
         def __init__(cls, name, bases, d):
             type.__init__(cls, name, bases, d)
-            if object not in bases and threading.Thread not in cls.__mro__:
+            if Node not in bases and threading.Thread not in cls.__mro__:
                 cls.__bases__ = bases + (threading.Thread,)
 
     @SerializedEventManager.decorate
     def __init__(self, cluster, address, **kw):
         self._init_args = (cluster, address), dict(kw)
         threading.Thread.__init__(self)
-        self.daemon = True
+        self.setDaemon(True)
         h, p = address
         self.node_type = getattr(NodeTypes,
             SERVER_TYPE[VIRTUAL_IP.index(h)].upper())
@@ -258,7 +270,7 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         else:
             assert False
 
-class ClientApplication(neo.client.app.Application):
+class ClientApplication(Node, neo.client.app.Application):
 
     @SerializedEventManager.decorate
     def __init__(self, cluster):
@@ -281,6 +293,17 @@ class ClientApplication(neo.client.app.Application):
         finally:
             Serialized.background()
     close = __del__
+
+    def filterConnection(self, *peers):
+        conn_list = []
+        for peer in peers:
+            if isinstance(peer, MasterApplication):
+                conn = self._getMasterConnection()
+            else:
+                assert isinstance(peer, StorageApplication)
+                conn = self.cp.getConnForNode(self.nm.getByUUID(peer.uuid))
+            conn_list.append(conn)
+        return ConnectionFilter(*conn_list)
 
 class NeoCTL(neo.neoctl.app.NeoCTL):
 
@@ -307,6 +330,100 @@ class LoggerThreadName(object):
             return threading.currentThread().node_name
         except AttributeError:
             return self.__default
+
+
+class Patch(object):
+
+    def __init__(self, patched, **patch):
+        (name, patch), = patch.iteritems()
+        wrapped = getattr(patched, name)
+        wrapper = lambda *args, **kw: patch(wrapped, *args, **kw)
+        orig = patched.__dict__.get(name)
+        setattr(patched, name, wraps(wrapped)(wrapper))
+        if orig is None:
+            self._revert = lambda: delattr(patched, name)
+        else:
+            self._revert = lambda: setattr(patched, name, orig)
+
+    def __del__(self):
+        self._revert()
+
+
+class ConnectionFilter(object):
+
+    def __init__(self, *conns):
+        self.filter_dict = {}
+        self.lock = threading.Lock()
+        self.conn_list = [(conn, self._patch(conn)) for conn in conns]
+
+    def _patch(self, conn):
+        assert '_addPacket' not in conn.__dict__
+        lock = self.lock
+        filter_dict = self.filter_dict
+        orig = conn.__class__._addPacket
+        queue = deque()
+        def _addPacket(packet):
+            lock.acquire()
+            try:
+                if not queue:
+                    for filter in filter_dict:
+                        if filter(conn, packet):
+                            break
+                    else:
+                        return orig(conn, packet)
+                queue.append(packet)
+            finally:
+                lock.release()
+        conn._addPacket = _addPacket
+        return queue
+
+    def __call__(self, revert=1):
+        self.lock.acquire()
+        try:
+            self.filter_dict.clear()
+            self._retry()
+            if revert:
+                for conn, queue in self.conn_list:
+                    assert not queue
+                    del conn._addPacket
+                del self.conn_list[:]
+        finally:
+            self.lock.release()
+
+    def _retry(self):
+        for conn, queue in self.conn_list:
+            while queue:
+                packet = queue.popleft()
+                for filter in self.filter_dict:
+                    if filter(conn, packet):
+                        queue.appendleft(packet)
+                        break
+                else:
+                    conn.__class__._addPacket(conn, packet)
+                    continue
+                break
+
+    def clear(self):
+        self(0)
+
+    def add(self, filter, *patches):
+        self.lock.acquire()
+        try:
+            self.filter_dict[filter] = patches
+        finally:
+            self.lock.release()
+
+    def remove(self, *filters):
+        self.lock.acquire()
+        try:
+            for filter in filters:
+                del self.filter_dict[filter]
+            self._retry()
+        finally:
+            self.lock.release()
+
+    def __contains__(self, filter):
+        return filter in self.filter_dict
 
 class NEOCluster(object):
 
@@ -512,3 +629,25 @@ class NEOThreadedTest(NeoTestBase):
     def setupLog(self):
         log_file = os.path.join(getTempDirectory(), self.id() + '.log')
         setupLog(LoggerThreadName(), log_file, True)
+
+    class newThread(threading.Thread):
+
+        def __init__(self, func, *args, **kw):
+            threading.Thread.__init__(self)
+            self.__target = func, args, kw
+            self.setDaemon(True)
+            self.start()
+
+        def run(self):
+            try:
+                apply(*self.__target)
+                self.__exc_info = None
+            except:
+                self.__exc_info = sys.exc_info()
+
+        def join(self, timeout=None):
+            threading.Thread.join(self, timeout)
+            if not self.isAlive() and self.__exc_info:
+                etype, value, tb = self.__exc_info
+                del self.__exc_info
+                raise etype, value, tb

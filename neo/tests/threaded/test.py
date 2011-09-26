@@ -16,9 +16,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+import threading
+from thread import get_ident
 from persistent import Persistent
-from neo.lib.protocol import NodeStates, ZERO_TID
-from neo.tests.threaded import NEOCluster, NEOThreadedTest
+from neo.storage.transactions import TransactionManager, \
+    DelayedError, ConflictError
+from neo.lib.connection import MTClientConnection
+from neo.lib.protocol import NodeStates, Packets, ZERO_TID
+from neo.tests.threaded import NEOCluster, NEOThreadedTest, \
+    Patch, ConnectionFilter
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 
 class PCounter(Persistent):
@@ -30,6 +36,121 @@ class PCounterWithResolution(PCounter):
         return new
 
 class Test(NEOThreadedTest):
+
+    def testDelayedUnlockInformation(self):
+        except_list = []
+        def delayUnlockInformation(conn, packet):
+            return isinstance(packet, Packets.NotifyUnlockInformation)
+        def onStoreObject(orig, tm, ttid, serial, oid, *args):
+            if oid == resume_oid and delayUnlockInformation in master_storage:
+                master_storage.remove(delayUnlockInformation)
+            try:
+                return orig(tm, ttid, serial, oid, *args)
+            except Exception, e:
+                except_list.append(e.__class__)
+                raise
+        cluster = NEOCluster(storage_count=1)
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            c.root()[0] = ob = PCounter()
+            master_storage = cluster.master.filterConnection(cluster.storage)
+            try:
+                resume_oid = None
+                master_storage.add(delayUnlockInformation,
+                    Patch(TransactionManager, storeObject=onStoreObject))
+                t.commit()
+                resume_oid = ob._p_oid
+                ob._p_changed = 1
+                t.commit()
+                self.assertFalse(delayUnlockInformation in master_storage)
+            finally:
+                master_storage()
+        finally:
+            cluster.stop()
+        self.assertEqual(except_list, [DelayedError])
+
+    def _testDeadlockAvoidance(self, scenario):
+        except_list = []
+        delay = threading.Event(), threading.Event()
+        ident = get_ident()
+        def onStoreObject(orig, tm, ttid, serial, oid, *args):
+            if oid == counter_oid:
+                scenario[1] -= 1
+                if not scenario[1]:
+                    delay[0].set()
+            try:
+                return orig(tm, ttid, serial, oid, *args)
+            except Exception, e:
+                except_list.append(e.__class__)
+                raise
+        def onAsk(orig, conn, packet, *args, **kw):
+            c2 = get_ident() == ident
+            switch = isinstance(packet, Packets.AskBeginTransaction)
+            if switch:
+                if c2:
+                    delay[1].wait()
+            elif isinstance(packet, (Packets.AskStoreObject,
+                                     Packets.AskFinishTransaction)):
+                delay[c2].wait()
+                scenario[0] -= 1
+                switch = not scenario[0]
+            try:
+                return orig(conn, packet, *args, **kw)
+            finally:
+                if switch:
+                    delay[c2].clear()
+                    delay[1-c2].set()
+
+        cluster = NEOCluster(storage_count=2, replicas=1)
+        try:
+            cluster.start()
+            t, c = cluster.getTransaction()
+            c.root()[0] = ob = PCounterWithResolution()
+            t.commit()
+            counter_oid = ob._p_oid
+            del ob, t, c
+
+            t1, c1 = cluster.getTransaction()
+            t2, c2 = cluster.getTransaction()
+            o1 = c1.root()[0]
+            o2 = c2.root()[0]
+            o1.value += 1
+            o2.value += 2
+
+            p = (Patch(TransactionManager, storeObject=onStoreObject),
+                 Patch(MTClientConnection, ask=onAsk))
+            try:
+                t = self.newThread(t1.commit)
+                t2.commit()
+                t.join()
+            finally:
+                del p
+            t1.begin()
+            t2.begin()
+            self.assertEqual(o1.value, 3)
+            self.assertEqual(o2.value, 3)
+        finally:
+            cluster.stop()
+        return except_list
+
+    def testDelayedStore(self):
+        # 0: C1 -> S1, S2
+        # 1: C2 -> S1, S2 (delayed)
+        # 2: C1 commits
+        # 3: C2 resolves conflict
+        self.assertEqual(self._testDeadlockAvoidance([2, 4]),
+            [DelayedError, DelayedError, ConflictError, ConflictError])
+
+    def testDeadlockAvoidance(self):
+        # This test fail because deadlock avoidance is not fully implemented.
+        # 0: C1 -> S1
+        # 1: C2 -> S1, S2 (delayed)
+        # 2: C1 -> S2 (deadlock)
+        # 3: C2 commits
+        # 4: C1 resolves conflict
+        self.assertEqual(self._testDeadlockAvoidance([1, 3]),
+            [DelayedError, ConflictError, "???" ])
 
     def testConflictResolutionTriggered2(self):
         """ Check that conflict resolution works """
