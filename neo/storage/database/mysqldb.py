@@ -45,8 +45,9 @@ def splitOIDField(tid, oids):
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
 
-    # Disabled even on MySQL 5.1 & 5.5 because 'select count(*) from obj'
-    # sometimes returns incorrect values.
+    # Disabled even on MySQL 5.1-5.5 and MariaDB 5.2-5.3 because
+    # 'select count(*) from obj' sometimes returns incorrect values
+    # (tested with testOudatedCellsOnDownStorage).
     _use_partition = False
 
     def __init__(self, database):
