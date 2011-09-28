@@ -357,7 +357,7 @@ class TransactionManager(object):
         # will be finished
         for txn in self._ttid_dict.itervalues():
             txn.registerForNotification(uuid)
-        return set(self._ttid_dict.keys())
+        return set(self._ttid_dict)
 
     def begin(self, node, tid=None):
         """

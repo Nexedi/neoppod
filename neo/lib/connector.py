@@ -170,13 +170,13 @@ class SocketConnector:
         raise NotImplementedError
 
 class SocketConnectorIPv4(SocketConnector):
-   " Wrapper for IPv4 sockets"
-   af_type = socket.AF_INET
+    " Wrapper for IPv4 sockets"
+    af_type = socket.AF_INET
 
-   def _accept(self):
-       return self.socket.accept()
+    def _accept(self):
+        return self.socket.accept()
 
-   def getAddress(self):
+    def getAddress(self):
         return self.socket.getsockname()
 
 class SocketConnectorIPv6(SocketConnector):
@@ -185,13 +185,10 @@ class SocketConnectorIPv6(SocketConnector):
 
     def _accept(self):
         new_s, addr =  self.socket.accept()
-        addr = (addr[0], addr[1])
-        return (new_s, addr)
+        return new_s, addr[:2]
 
     def getAddress(self):
-        addr = self.socket.getsockname()
-        addr = (addr[0], addr[1])
-        return addr
+        return self.socket.getsockname()[:2]
 
 registerConnectorHandler(SocketConnectorIPv4)
 registerConnectorHandler(SocketConnectorIPv6)

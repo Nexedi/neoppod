@@ -187,7 +187,7 @@ class Replicator(object):
 
     def pending(self):
         """Return whether there is any pending partition."""
-        return len(self.partition_dict) or len(self.new_partition_set)
+        return bool(self.partition_dict or self.new_partition_set)
 
     def getCurrentOffset(self):
         assert self.current_partition is not None

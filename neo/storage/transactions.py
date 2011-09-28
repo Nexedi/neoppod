@@ -247,31 +247,17 @@ class TransactionManager(object):
             self._app.executeQueuedEvents()
             # Attemp to acquire lock again.
             locking_tid = self._store_lock_dict.get(oid)
-        if locking_tid in (None, ttid):
-            # check if this is generated from the latest revision.
-            if locking_tid == ttid:
-                # If previous store was an undo, next store must be based on
-                # undo target.
-                _, _, _, _, previous_serial = self._transaction_dict[
-                    ttid].getObject(oid)
-                if previous_serial is None:
-                    # XXX: use some special serial when previous store was not
-                    # an undo ? Maybe it should just not happen.
-                    neo.lib.logging.info('Transaction %s storing %s more than '
-                        'once', dump(ttid), dump(oid))
-            else:
-                previous_serial = None
+        if locking_tid is None:
+            previous_serial = None
+        elif locking_tid == ttid:
+            # If previous store was an undo, next store must be based on
+            # undo target.
+            previous_serial = self._transaction_dict[ttid].getObject(oid)[4]
             if previous_serial is None:
-                history_list = self._app.dm.getObjectHistory(oid)
-                if history_list:
-                    previous_serial = history_list[0][0]
-            if previous_serial is not None and previous_serial != serial:
-                neo.lib.logging.info('Resolvable conflict on %r:%r',
-                    dump(oid), dump(ttid))
-                raise ConflictError(previous_serial)
-            neo.lib.logging.debug('Transaction %s storing %s',
-                            dump(ttid), dump(oid))
-            self._store_lock_dict[oid] = ttid
+                # XXX: use some special serial when previous store was not
+                # an undo ? Maybe it should just not happen.
+                neo.lib.logging.info('Transaction %s storing %s more than '
+                    'once', dump(ttid), dump(oid))
         elif locking_tid < ttid:
             # We have a bigger TTID than locking transaction, so we are younger:
             # enter waiting queue so we are handled when lock gets released.
@@ -289,6 +275,17 @@ class TransactionManager(object):
             neo.lib.logging.info('Possible deadlock on %r:%r with %r',
                 dump(oid), dump(ttid), dump(locking_tid))
             raise ConflictError(ZERO_TID)
+        if previous_serial is None:
+            history_list = self._app.dm.getObjectHistory(oid)
+            if history_list:
+                previous_serial = history_list[0][0]
+        if previous_serial is not None and previous_serial != serial:
+            neo.lib.logging.info('Resolvable conflict on %r:%r',
+                dump(oid), dump(ttid))
+            raise ConflictError(previous_serial)
+        neo.lib.logging.debug('Transaction %s storing %s',
+            dump(ttid), dump(oid))
+        self._store_lock_dict[oid] = ttid
 
     def checkCurrentSerial(self, ttid, serial, oid):
         self.lockObject(ttid, serial, oid, unlock=True)

@@ -78,11 +78,8 @@ class EpollEventManager(object):
         del self.connection_dict[fd]
 
     def _getPendingConnection(self):
-        if len(self._pending_processing):
-            result = self._pending_processing.pop(0)
-        else:
-            result = None
-        return result
+        if self._pending_processing:
+            return self._pending_processing.pop(0)
 
     def _addPendingConnection(self, conn):
         pending_processing = self._pending_processing
