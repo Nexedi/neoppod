@@ -19,6 +19,7 @@
 import os, random, socket, sys, tempfile, threading, time, types, weakref
 from collections import deque
 from functools import wraps
+from zlib import decompress
 from mock import Mock
 import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
@@ -623,12 +624,26 @@ class NEOCluster(object):
                 node.close()
         self.client.em.close()
 
+    def extraCellSortKey(self, key):
+        return Patch(self.client.cp, _getCellSortKey=lambda orig, *args:
+            (orig(*args), key(*args)))
+
 
 class NEOThreadedTest(NeoTestBase):
 
     def setupLog(self):
         log_file = os.path.join(getTempDirectory(), self.id() + '.log')
         setupLog(LoggerThreadName(), log_file, True)
+
+    def getUnpickler(self, conn):
+        reader = conn._reader
+        def unpickler(data, compression=False):
+            if compression:
+                data = decompress(data)
+            obj = reader.getGhost(data)
+            reader.setGhostState(obj, data)
+            return obj
+        return unpickler
 
     class newThread(threading.Thread):
 
