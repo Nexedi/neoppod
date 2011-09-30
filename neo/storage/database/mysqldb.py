@@ -22,6 +22,7 @@ from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 import neo.lib
 from array import array
 from hashlib import md5
+import re
 import string
 
 from neo.storage.database import DatabaseManager
@@ -52,21 +53,16 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def __init__(self, database):
         super(MySQLDatabaseManager, self).__init__()
-        self.user, self.passwd, self.db = self._parse(database)
+        self.user, self.passwd, self.db, self.socket = self._parse(database)
         self.conn = None
         self._config = {}
         self._connect()
 
     def _parse(self, database):
         """ Get the database credentials (username, password, database) """
-        # expected pattern : [user[:password]@]database
-        username = None
-        password = None
-        if '@' in database:
-            (username, database) = database.split('@')
-            if ':' in username:
-                (username, password) = username.split(':')
-        return (username, password, database)
+        # expected pattern : [user[:password]@]database[unix_socket]
+        return re.match('(?:([^:]+)(?::(.*))?@)?([^./]+)(.+)?$',
+                        database).groups()
 
     def close(self):
         self.conn.close()
@@ -75,6 +71,8 @@ class MySQLDatabaseManager(DatabaseManager):
         kwd = {'db' : self.db, 'user' : self.user}
         if self.passwd is not None:
             kwd['passwd'] = self.passwd
+        if self.socket:
+            kwd['unix_socket'] = self.socket
         neo.lib.logging.info(
                         'connecting to MySQL on the database %s with user %s',
                      self.db, self.user)
