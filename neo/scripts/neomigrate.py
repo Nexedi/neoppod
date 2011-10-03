@@ -23,8 +23,6 @@ import logging
 import time
 import os
 
-from neo.lib import setupLog
-
 # register options
 parser = OptionParser()
 parser.add_option('-v', '--verbose', action = 'store_true',
@@ -46,21 +44,20 @@ def main(args=None):
     if cluster is None:
         raise RuntimeError('The NEO cluster name must be supplied')
 
-    # set up logging
-    setupLog('NEOMIGRATE', None, options.verbose or False)
-
     # open storages
     from ZODB.FileStorage import FileStorage
     #from ZEO.ClientStorage import ClientStorage as ZEOStorage
     from neo.client.Storage import Storage as NEOStorage
     if os.path.exists(source):
         src = FileStorage(file_name=source)
-        dst = NEOStorage(master_nodes=destination, name=cluster)
+        dst = NEOStorage(master_nodes=destination, name=cluster,
+                         verbose=options.verbose)
     else:
         print("WARNING: due to a bug in FileStorage (at least up to ZODB trunk"
               "@121629), output database may be corrupted if input database is"
               " not packed.")
-        src = NEOStorage(master_nodes=source, name=cluster)
+        src = NEOStorage(master_nodes=source, name=cluster,
+                         verbose=options.verbose)
         dst = FileStorage(file_name=destination)
 
     # do the job
