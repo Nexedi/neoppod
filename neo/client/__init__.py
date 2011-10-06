@@ -51,10 +51,10 @@ if needs_patch:
     Connection.tpc_finish = tpc_finish
 
     try:
-        if Connection._nexedi_fix != 3:
+        if Connection._nexedi_fix != 4:
             raise Exception("A different ZODB fix is already applied")
     except AttributeError:
-        Connection._nexedi_fix = 3
+        Connection._nexedi_fix = 4
 
         # Whenever an connection is opened (and there's usually an existing one
         # in DB pool that can be reused) whereas the transaction is already
@@ -62,6 +62,8 @@ if needs_patch:
         # calling Connection.newTransaction.
         # For example, there's no open transaction when a ZPublisher/Publish
         # transaction begins.
+
+        import thread
 
         def open(self, *args, **kw):
             def _flush_invalidations():
