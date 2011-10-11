@@ -411,14 +411,15 @@ class BTreeDatabaseManager(DatabaseManager):
             recycle_subtrees=recycle_subtrees)
 
     def deleteTransaction(self, tid, oid_list=()):
-        tid = util.u64(tid)
+        u64 = util.u64
+        tid = u64(tid)
         self._popTransactionFromTObj(tid, False)
         try:
             del self._ttrans[tid]
         except KeyError:
             pass
         for oid in oid_list:
-            self._deleteObject(oid, serial=tid)
+            self._deleteObject(u64(oid), tid)
         try:
             del self._trans[tid]
         except KeyError:
@@ -432,10 +433,7 @@ class BTreeDatabaseManager(DatabaseManager):
 
     def deleteObject(self, oid, serial=None):
         u64 = util.u64
-        oid = u64(oid)
-        if serial is not None:
-            serial = u64(serial)
-        self._deleteObject(oid, serial=serial)
+        self._deleteObject(u64(oid), serial and u64(serial))
 
     def _deleteObject(self, oid, serial=None):
         obj = self._obj
