@@ -7,6 +7,7 @@ Change History
 - storage: a specific socket can be given to MySQL backend
 - storage: a ConflictError could happen when client is much faster than master
 - 'verbose' command line option of 'neomigrate' did not work
+- client: ZODB monkey-patch randomly raised a NameError
 
 0.9.1 (2011-09-24)
 ------------------
