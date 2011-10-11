@@ -259,6 +259,10 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         if adapter == 'BTree':
             dm._obj, dm._tobj = dm._tobj, dm._obj
             dm._trans, dm._ttrans = dm._ttrans, dm._trans
+            uncommitted_data = dm._uncommitted_data
+            for checksum, (_, _, index) in dm._data.iteritems():
+                uncommitted_data[checksum] = len(index)
+                index.clear()
         elif adapter == 'MySQL':
             q = dm.query
             dm.begin()
@@ -266,10 +270,21 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
                 q('RENAME TABLE %s to tmp' % table)
                 q('RENAME TABLE t%s to %s' % (table, table))
                 q('RENAME TABLE tmp to t%s' % table)
-            q('TRUNCATE obj_short')
             dm.commit()
         else:
             assert False
+
+    def getDataLockInfo(self):
+        adapter = self._init_args[1]['getAdapter']
+        dm = self.dm
+        if adapter == 'BTree':
+            checksum_list = dm._data
+        elif adapter == 'MySQL':
+            checksum_list = [x for x, in dm.query("SELECT hash FROM data")]
+        else:
+            assert False
+        assert set(dm._uncommitted_data).issubset(checksum_list)
+        return dict((x, dm._uncommitted_data.get(x, 0)) for x in checksum_list)
 
 class ClientApplication(Node, neo.client.app.Application):
 

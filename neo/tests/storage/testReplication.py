@@ -128,8 +128,11 @@ class ReplicationTests(NeoUnitTestBase):
             transaction = ([ZERO_OID], 'user', 'desc', '', False)
             storage.storeTransaction(makeid(tid), [], transaction, False)
         # store object history
+        H = "0" * 20
+        storage.storeData(H, '', 0)
+        storage.unlockData((H,))
         for tid, oid_list in objects.iteritems():
-            object_list = [(makeid(oid), False, 0, '', None) for oid in oid_list]
+            object_list = [(makeid(oid), H, None) for oid in oid_list]
             storage.storeTransaction(makeid(tid), object_list, None, False)
         return storage
 

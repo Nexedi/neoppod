@@ -112,6 +112,7 @@ INVALID_TID = '\xff' * 8
 INVALID_OID = '\xff' * 8
 INVALID_PARTITION = 0xffffffff
 INVALID_ADDRESS_TYPE = socket.AF_UNSPEC
+ZERO_HASH = '\0' * 20
 ZERO_TID = '\0' * 8
 ZERO_OID = '\0' * 8
 OID_LEN = len(INVALID_OID)
@@ -527,6 +528,17 @@ class PProtocol(PStructItem):
             raise ProtocolError('protocol version mismatch')
         return (major, minor)
 
+class PChecksum(PItem):
+    """
+        A hash (SHA1)
+    """
+    def _encode(self, writer, checksum):
+        assert len(checksum) == 20, (len(checksum), checksum)
+        writer(checksum)
+
+    def _decode(self, reader):
+        return reader(20)
+
 class PUUID(PItem):
     """
         An UUID (node identifier)
@@ -561,7 +573,6 @@ class PTID(PItem):
 
 # same definition, for now
 POID = PTID
-PChecksum = PUUID # (md5 is same length as uuid)
 
 # common definitions
 
@@ -908,7 +919,7 @@ class StoreObject(Packet):
         POID('oid'),
         PTID('serial'),
         PBoolean('compression'),
-        PNumber('checksum'),
+        PChecksum('checksum'),
         PString('data'),
         PTID('data_serial'),
         PTID('tid'),
@@ -964,7 +975,7 @@ class GetObject(Packet):
         PTID('serial_start'),
         PTID('serial_end'),
         PBoolean('compression'),
-        PNumber('checksum'),
+        PChecksum('checksum'),
         PString('data'),
         PTID('data_serial'),
     )

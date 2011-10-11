@@ -28,7 +28,8 @@ from ZODB.ConflictResolution import ResolvedSerial
 from persistent.TimeStamp import TimeStamp
 
 import neo.lib
-from neo.lib.protocol import NodeTypes, Packets, INVALID_PARTITION, ZERO_TID
+from neo.lib.protocol import NodeTypes, Packets, \
+    INVALID_PARTITION, ZERO_HASH, ZERO_TID
 from neo.lib.event import EventManager
 from neo.lib.util import makeChecksum as real_makeChecksum, dump
 from neo.lib.locking import Lock
@@ -444,7 +445,7 @@ class Application(object):
             except ConnectionClosed:
                 continue
 
-            if data or checksum:
+            if data or checksum != ZERO_HASH:
                 if checksum != makeChecksum(data):
                     neo.lib.logging.error('wrong checksum from %s for oid %s',
                               conn, dump(oid))
@@ -509,7 +510,7 @@ class Application(object):
             # an older object revision).
             compressed_data = ''
             compression = 0
-            checksum = 0
+            checksum = ZERO_HASH
         else:
             assert data_serial is None
             compression = self.compress

@@ -268,15 +268,15 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         serial_start = self.getNextTID()
         serial_end = self.getNextTID()
         compression = 1
-        checksum = 2
+        checksum = "0" * 20
         data = 'foo'
         data_serial = None
         ReplicationHandler(app).answerObject(conn, oid, serial_start,
             serial_end, compression, checksum, data, data_serial)
         calls = app.dm.mockGetNamedCalls('storeTransaction')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(serial_start, [(oid, compression, checksum, data,
-            data_serial)], None, False)
+        calls[0].checkArgs(serial_start, [(oid, checksum, data_serial)],
+            None, False)
 
     # CheckTIDRange
     def test_answerCheckTIDFullRangeIdenticalChunkWithNext(self):

@@ -23,9 +23,8 @@ from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.transactions import ConflictError, DelayedError
 from neo.storage.handlers.client import ClientOperationHandler
-from neo.lib.protocol import INVALID_PARTITION
-from neo.lib.protocol import INVALID_TID, INVALID_OID
-from neo.lib.protocol import Packets, LockState
+from neo.lib.protocol import INVALID_PARTITION, INVALID_TID, INVALID_OID
+from neo.lib.protocol import Packets, LockState, ZERO_HASH
 
 class StorageClientHandlerTests(NeoUnitTestBase):
 
@@ -124,7 +123,8 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         next_serial = self.getNextTID()
         oid = self.getOID(1)
         tid = self.getNextTID()
-        self.app.dm = Mock({'getObject': (serial, next_serial, 0, 0, '', None)})
+        H = "0" * 20
+        self.app.dm = Mock({'getObject': (serial, next_serial, 0, H, '', None)})
         conn = self._getConnection()
         self.assertEqual(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=oid, serial=serial, tid=tid)
@@ -239,7 +239,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         tid = self.getNextTID()
         oid, serial, comp, checksum, data = self._getObject()
         data_tid = self.getNextTID()
-        self.operation.askStoreObject(conn, oid, serial, comp, 0,
+        self.operation.askStoreObject(conn, oid, serial, comp, ZERO_HASH,
                 '', data_tid, tid, False)
         self._checkStoreObjectCalled(tid, serial, oid, comp,
                 None, None, data_tid, False)

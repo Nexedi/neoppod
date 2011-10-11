@@ -97,7 +97,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         calls = self.app.dm.mockGetNamedCalls('getObject')
         self.assertEqual(len(self.app.event_queue), 0)
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(oid, serial, tid, resolve_data=False)
+        calls[0].checkArgs(oid, serial, tid)
         self.checkErrorPacket(conn)
 
     def test_24_askObject3(self):
@@ -105,8 +105,9 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         tid = self.getNextTID()
         serial = self.getNextTID()
         next_serial = self.getNextTID()
+        H = "0" * 20
         # object found => answer
-        self.app.dm = Mock({'getObject': (serial, next_serial, 0, 0, '', None)})
+        self.app.dm = Mock({'getObject': (serial, next_serial, 0, H, '', None)})
         conn = self.getFakeConnection()
         self.assertEqual(len(self.app.event_queue), 0)
         self.operation.askObject(conn, oid=oid, serial=serial, tid=tid)
@@ -149,7 +150,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
 
     def test_askCheckTIDRange(self):
         count = 1
-        tid_checksum = self.getNewUUID()
+        tid_checksum = "1" * 20
         min_tid = self.getNextTID()
         num_partitions = 4
         length = 5
@@ -173,12 +174,12 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
 
     def test_askCheckSerialRange(self):
         count = 1
-        oid_checksum = self.getNewUUID()
+        oid_checksum = "2" * 20
         min_oid = self.getOID(1)
         num_partitions = 4
         length = 5
         partition = 6
-        serial_checksum = self.getNewUUID()
+        serial_checksum = "3" * 20
         min_serial = self.getNextTID()
         max_serial = self.getNextTID()
         max_oid = self.getOID(2)

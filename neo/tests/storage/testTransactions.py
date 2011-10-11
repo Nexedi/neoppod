@@ -63,8 +63,8 @@ class TransactionTests(NeoUnitTestBase):
     def testObjects(self):
         txn = Transaction(self.getNewUUID(), self.getNextTID())
         oid1, oid2 = self.getOID(1), self.getOID(2)
-        object1 = (oid1, 1, '1', 'O1', None)
-        object2 = (oid2, 1, '2', 'O2', None)
+        object1 = oid1, "0" * 20, None
+        object2 = oid2, "1" * 20, None
         self.assertEqual(txn.getObjectList(), [])
         self.assertEqual(txn.getOIDList(), [])
         txn.addObject(*object1)
@@ -78,9 +78,9 @@ class TransactionTests(NeoUnitTestBase):
         oid_1 = self.getOID(1)
         oid_2 = self.getOID(2)
         txn = Transaction(self.getNewUUID(), self.getNextTID())
-        object_info = (oid_1, None, None, None, None)
+        object_info = oid_1, None, None
         txn.addObject(*object_info)
-        self.assertEqual(txn.getObject(oid_2), None)
+        self.assertRaises(KeyError, txn.getObject, oid_2)
         self.assertEqual(txn.getObject(oid_1), object_info)
 
 class TransactionManagerTests(NeoUnitTestBase):
@@ -102,12 +102,12 @@ class TransactionManagerTests(NeoUnitTestBase):
     def _storeTransactionObjects(self, tid, txn):
         for i, oid in enumerate(txn[0]):
             self.manager.storeObject(tid, None,
-                    oid, 1, str(i), '0' + str(i), None)
+                    oid, 1, '%020d' % i, '0' + str(i), None)
 
     def _getObject(self, value):
         oid = self.getOID(value)
         serial = self.getNextTID()
-        return (serial, (oid, 1, str(value), 'O' + str(value), None))
+        return (serial, (oid, 1, '%020d' % value, 'O' + str(value), None))
 
     def _checkTransactionStored(self, *args):
         calls = self.app.dm.mockGetNamedCalls('storeTransaction')
@@ -136,7 +136,10 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.manager.storeObject(ttid, serial2, *object2)
         self.assertTrue(ttid in self.manager)
         self.manager.lock(ttid, tid, txn[0])
-        self._checkTransactionStored(tid, [object1, object2], txn)
+        self._checkTransactionStored(tid, [
+            (object1[0], object1[2], object1[4]),
+            (object2[0], object2[2], object2[4]),
+            ], txn)
         self.manager.unlock(ttid)
         self.assertFalse(ttid in self.manager)
         self._checkTransactionFinished(tid)
@@ -340,7 +343,7 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.assertEqual(self.manager.getObjectFromTransaction(tid1, obj2[0]),
             None)
         self.assertEqual(self.manager.getObjectFromTransaction(tid1, obj1[0]),
-            obj1)
+            (obj1[0], obj1[2], obj1[4]))
 
     def test_getLockingTID(self):
         uuid = self.getNewUUID()
@@ -360,26 +363,24 @@ class TransactionManagerTests(NeoUnitTestBase):
         locking_serial = self.getNextTID()
         other_serial = self.getNextTID()
         new_serial = self.getNextTID()
-        compression = 1
-        checksum = 42
-        value = 'foo'
+        checksum = "2" * 20
         self.manager.register(uuid, locking_serial)
-        def getObjectData():
-            return (compression, checksum, value)
         # Object not known, nothing happens
         self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
             oid), None)
-        self.manager.updateObjectDataForPack(oid, orig_serial, None, None)
+        self.manager.updateObjectDataForPack(oid, orig_serial, None, checksum)
         self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
             oid), None)
         self.manager.abort(locking_serial, even_if_locked=True)
         # Object known, but doesn't point at orig_serial, it is not updated
         self.manager.register(uuid, locking_serial)
-        self.manager.storeObject(locking_serial, ram_serial, oid, 0, 512,
+        self.manager.storeObject(locking_serial, ram_serial, oid, 0, "3" * 20,
             'bar', None)
+        storeData = self.app.dm.mockGetNamedCalls('storeData')
+        self.assertEqual(storeData.pop(0).params, ("3" * 20, 'bar', 0))
         orig_object = self.manager.getObjectFromTransaction(locking_serial,
             oid)
-        self.manager.updateObjectDataForPack(oid, orig_serial, None, None)
+        self.manager.updateObjectDataForPack(oid, orig_serial, None, checksum)
         self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
             oid), orig_object)
         self.manager.abort(locking_serial, even_if_locked=True)
@@ -389,29 +390,29 @@ class TransactionManagerTests(NeoUnitTestBase):
             None, other_serial)
         orig_object = self.manager.getObjectFromTransaction(locking_serial,
             oid)
-        self.manager.updateObjectDataForPack(oid, orig_serial, None, None)
+        self.manager.updateObjectDataForPack(oid, orig_serial, None, checksum)
         self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
             oid), orig_object)
         self.manager.abort(locking_serial, even_if_locked=True)
         # Object known and points at undone data it gets updated
-        # ...with data_serial: getObjectData must not be called
         self.manager.register(uuid, locking_serial)
         self.manager.storeObject(locking_serial, ram_serial, oid, None, None,
             None, orig_serial)
         self.manager.updateObjectDataForPack(oid, orig_serial, new_serial,
-            None)
+            checksum)
         self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
-            oid), (oid, None, None, None, new_serial))
+            oid), (oid, None, new_serial))
         self.manager.abort(locking_serial, even_if_locked=True)
-        # with data
+
         self.manager.register(uuid, locking_serial)
         self.manager.storeObject(locking_serial, ram_serial, oid, None, None,
             None, orig_serial)
-        self.manager.updateObjectDataForPack(oid, orig_serial, None,
-            getObjectData)
+        self.manager.updateObjectDataForPack(oid, orig_serial, None, checksum)
+        self.assertEqual(storeData.pop(0).params, (checksum,))
         self.assertEqual(self.manager.getObjectFromTransaction(locking_serial,
-            oid), (oid, compression, checksum, value, None))
+            oid), (oid, checksum, None))
         self.manager.abort(locking_serial, even_if_locked=True)
+        self.assertFalse(storeData)
 
 if __name__ == "__main__":
     unittest.main()

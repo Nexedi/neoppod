@@ -17,18 +17,19 @@
 
 from binascii import a2b_hex
 import MySQLdb
-from MySQLdb import OperationalError
+from MySQLdb import IntegrityError, OperationalError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
+from MySQLdb.constants.ER import DUP_ENTRY
 import neo.lib
 from array import array
-from hashlib import md5
+from hashlib import sha1
 import re
 import string
 
 from neo.storage.database import DatabaseManager
 from neo.storage.database.manager import CreationUndone
 from neo.lib.exception import DatabaseFailure
-from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID
+from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
 from neo.lib import util
 
 LOG_QUERIES = False
@@ -45,6 +46,9 @@ def splitOIDField(tid, oids):
 
 class MySQLDatabaseManager(DatabaseManager):
     """This class manages a database on MySQL."""
+
+    # WARNING: some parts are not concurrent safe (ex: storeData)
+    # (there must be only 1 writable connection per DB)
 
     # Disabled even on MySQL 5.1-5.5 and MariaDB 5.2-5.3 because
     # 'select count(*) from obj' sometimes returns incorrect values
@@ -136,8 +140,7 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
 
         if reset:
-            q('DROP TABLE IF EXISTS config, pt, trans, obj, obj_short, '
-                'ttrans, tobj')
+            q('DROP TABLE IF EXISTS config, pt, trans, obj, data, ttrans, tobj')
 
         # The table "config" stores configuration parameters which affect the
         # persistent data.
@@ -174,22 +177,18 @@ class MySQLDatabaseManager(DatabaseManager):
                  partition SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
                  serial BIGINT UNSIGNED NOT NULL,
-                 compression TINYINT UNSIGNED NULL,
-                 checksum INT UNSIGNED NULL,
-                 value LONGBLOB NULL,
+                 hash BINARY(20) NULL,
                  value_serial BIGINT UNSIGNED NULL,
-                 PRIMARY KEY (partition, oid, serial)
+                 PRIMARY KEY (partition, oid, serial),
+                 KEY (hash(4))
              ) ENGINE = InnoDB""" + p)
 
-        # The table "obj_short" contains columns which are accessed in queries
-        # which don't need to access object data. This is needed because InnoDB
-        # loads a whole row even when it only needs columns in primary key.
-        q('CREATE TABLE IF NOT EXISTS obj_short ('
-            'partition SMALLINT UNSIGNED NOT NULL,'
-            'oid BIGINT UNSIGNED NOT NULL,'
-            'serial BIGINT UNSIGNED NOT NULL,'
-            'PRIMARY KEY (partition, oid, serial)'
-            ') ENGINE = InnoDB' + p)
+        #
+        q("""CREATE TABLE IF NOT EXISTS data (
+                 hash BINARY(20) NOT NULL PRIMARY KEY,
+                 compression TINYINT UNSIGNED NULL,
+                 value LONGBLOB NULL
+             ) ENGINE = InnoDB""")
 
         # The table "ttrans" stores information on uncommitted transactions.
         q("""CREATE TABLE IF NOT EXISTS ttrans (
@@ -207,21 +206,13 @@ class MySQLDatabaseManager(DatabaseManager):
                  partition SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
                  serial BIGINT UNSIGNED NOT NULL,
-                 compression TINYINT UNSIGNED NULL,
-                 checksum INT UNSIGNED NULL,
-                 value LONGBLOB NULL,
-                 value_serial BIGINT UNSIGNED NULL
+                 hash BINARY(20) NULL,
+                 value_serial BIGINT UNSIGNED NULL,
+                 PRIMARY KEY (serial, oid)
              ) ENGINE = InnoDB""")
 
-    def objQuery(self, query):
-        """
-        Execute given query for both obj and obj_short tables.
-        query: query string, must contain "%(table)s" where obj table name is
-        needed.
-        """
-        q = self.query
-        for table in ('obj', 'obj_short'):
-          q(query % {'table': table})
+        self._uncommitted_data = dict(q("SELECT hash, count(*)"
+            " FROM tobj WHERE hash IS NOT NULL GROUP BY hash") or ())
 
     def getConfiguration(self, key):
         if key in self._config:
@@ -309,45 +300,22 @@ class MySQLDatabaseManager(DatabaseManager):
         tid = util.u64(tid)
         partition = self._getPartition(oid)
         self.begin()
-        r = q("SELECT oid FROM obj_short WHERE partition=%d AND oid=%d AND "
+        r = q("SELECT oid FROM obj WHERE partition=%d AND oid=%d AND "
               "serial=%d" % (partition, oid, tid))
         if not r and all:
-            r = q("""SELECT oid FROM tobj WHERE oid = %d AND serial = %d""" \
-                    % (oid, tid))
+            r = q("SELECT oid FROM tobj WHERE serial=%d AND oid=%d"
+                    % (tid, oid))
         self.commit()
         if r:
             return True
         return False
 
-    def _getObjectData(self, oid, value_serial, tid):
-        if value_serial is None:
-            raise CreationUndone
-        if value_serial >= tid:
-            raise ValueError, "Incorrect value reference found for " \
-                "oid %d at tid %d: reference = %d" % (oid, value_serial, tid)
-        r = self.query("""SELECT compression, checksum, value, """ \
-            """value_serial FROM obj WHERE partition = %(partition)d """
-            """AND oid = %(oid)d AND serial = %(serial)d""" % {
-                'partition': self._getPartition(oid),
-                'oid': oid,
-                'serial': value_serial,
-            })
-        compression, checksum, value, next_value_serial = r[0]
-        if value is None:
-            neo.lib.logging.info("Multiple levels of indirection when " \
-                "searching for object data for oid %d at tid %d. This " \
-                "causes suboptimal performance." % (oid, value_serial))
-            value_serial, compression, checksum, value = self._getObjectData(
-                oid, next_value_serial, value_serial)
-        return value_serial, compression, checksum, value
-
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
         partition = self._getPartition(oid)
-        sql = """SELECT serial, compression, checksum, value, value_serial
-                    FROM obj
-                    WHERE partition = %d
-                    AND oid = %d""" % (partition, oid)
+        sql = ('SELECT serial, compression, obj.hash, value, value_serial'
+               ' FROM obj LEFT JOIN data ON (obj.hash = data.hash)'
+               ' WHERE partition = %d AND oid = %d') % (partition, oid)
         if tid is not None:
             sql += ' AND serial = %d' % tid
         elif before_tid is not None:
@@ -361,7 +329,7 @@ class MySQLDatabaseManager(DatabaseManager):
             serial, compression, checksum, data, value_serial = r[0]
         except IndexError:
             return None
-        r = q("""SELECT serial FROM obj_short
+        r = q("""SELECT serial FROM obj
                     WHERE partition = %d AND oid = %d AND serial > %d
                     ORDER BY serial LIMIT 1""" % (partition, oid, serial))
         try:
@@ -399,7 +367,7 @@ class MySQLDatabaseManager(DatabaseManager):
             for offset in offset_list:
                 add = """ALTER TABLE %%s ADD PARTITION (
                     PARTITION p%u VALUES IN (%u))""" % (offset, offset)
-                for table in 'trans', 'obj', 'obj_short':
+                for table in 'trans', 'obj':
                     try:
                         self.conn.query(add % table)
                     except OperationalError, (code, _):
@@ -414,42 +382,45 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def dropPartitions(self, num_partitions, offset_list):
         q = self.query
-        if self._use_partition:
-            drop = "ALTER TABLE %s DROP PARTITION" + \
-                ','.join(' p%u' % i for i in offset_list)
-            for table in 'trans', 'obj', 'obj_short':
-                try:
-                    self.conn.query(drop % table)
-                except OperationalError, (code, _):
-                    if code != 1508: # already dropped
-                        raise
-            return
-        e = self.escape
-        offset_list = ', '.join((str(i) for i in offset_list))
         self.begin()
         try:
             # XXX: these queries are inefficient (execution time increase with
             # row count, although we use indexes) when there are rows to
             # delete. It should be done as an idle task, by chunks.
-            self.objQuery('DELETE FROM %%(table)s WHERE partition IN (%s)' %
-                (offset_list, ))
-            q("""DELETE FROM trans WHERE partition IN (%s)""" %
-                (offset_list, ))
+            for partition in offset_list:
+                where = " WHERE partition=%d" % partition
+                checksum_list = [x for x, in
+                    q("SELECT DISTINCT hash FROM obj" + where) if x]
+                if not self._use_partition:
+                    q("DELETE FROM obj" + where)
+                    q("DELETE FROM trans" + where)
+                self._pruneData(checksum_list)
         except:
             self.rollback()
             raise
         self.commit()
+        if self._use_partition:
+            drop = "ALTER TABLE %s DROP PARTITION" + \
+                ','.join(' p%u' % i for i in offset_list)
+            for table in 'trans', 'obj':
+                try:
+                    self.conn.query(drop % table)
+                except OperationalError, (code, _):
+                    if code != 1508: # already dropped
+                        raise
 
     def dropUnfinishedData(self):
         q = self.query
         self.begin()
         try:
+            checksum_list = [x for x, in q("SELECT hash FROM tobj") if x]
             q("""TRUNCATE tobj""")
             q("""TRUNCATE ttrans""")
         except:
             self.rollback()
             raise
         self.commit()
+        self.unlockData(checksum_list, True)
 
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
         q = self.query
@@ -466,30 +437,24 @@ class MySQLDatabaseManager(DatabaseManager):
 
         self.begin()
         try:
-            for oid, compression, checksum, data, value_serial in object_list:
+            for oid, checksum, value_serial in object_list:
                 oid = u64(oid)
-                if data is None:
-                    compression = checksum = data = 'NULL'
-                else:
-                    # TODO: unit-test this raise
-                    if value_serial is not None:
-                        raise ValueError, 'Either data or value_serial ' \
-                            'must be None (oid %d, tid %d)' % (oid, tid)
-                    compression = '%d' % (compression, )
-                    checksum = '%d' % (checksum, )
-                    data = "'%s'" % (e(data), )
-                if value_serial is None:
-                    value_serial = 'NULL'
-                else:
-                    value_serial = '%d' % (u64(value_serial), )
                 partition = self._getPartition(oid)
-                q("""REPLACE INTO %s VALUES (%d, %d, %d, %s, %s, %s, %s)""" \
-                    % (obj_table, partition, oid, tid, compression, checksum,
-                        data, value_serial))
-                if obj_table == 'obj':
-                    # Update obj_short too
-                    q('REPLACE INTO obj_short VALUES (%d, %d, %d)' % (
-                        partition, oid, tid))
+                if value_serial:
+                    value_serial = u64(value_serial)
+                    (checksum,), = q("SELECT hash FROM obj"
+                        " WHERE partition=%d AND oid=%d AND serial=%d"
+                        % (partition, oid, value_serial))
+                    if temporary:
+                        self.storeData(checksum)
+                else:
+                    value_serial = 'NULL'
+                if checksum:
+                    checksum = "'%s'" % e(checksum)
+                else:
+                    checksum = 'NULL'
+                q("REPLACE INTO %s VALUES (%d, %d, %d, %s, %s)" %
+                  (obj_table, partition, oid, tid, checksum, value_serial))
 
             if transaction is not None:
                 oid_list, user, desc, ext, packed = transaction
@@ -507,66 +472,95 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def _getDataTIDFromData(self, oid, result):
-        tid, next_serial, compression, checksum, data, value_serial = result
-        if data is None:
+    def _pruneData(self, checksum_list):
+        checksum_list = set(checksum_list).difference(self._uncommitted_data)
+        if checksum_list:
+            self.query("DELETE data FROM data"
+                " LEFT JOIN obj ON (data.hash = obj.hash)"
+                " WHERE data.hash IN ('%s') AND obj.hash IS NULL"
+                % "','".join(map(self.escape, checksum_list)))
+
+    def _storeData(self, checksum, data, compression):
+        e = self.escape
+        checksum = e(checksum)
+        self.begin()
+        try:
             try:
-                data_serial = self._getObjectData(oid, value_serial, tid)[0]
-            except CreationUndone:
-                data_serial = None
-        else:
-            data_serial = tid
-        return tid, data_serial
+                self.query("INSERT INTO data VALUES ('%s', %d, '%s')" %
+                    (checksum, compression,  e(data)))
+            except IntegrityError, (code, _):
+                if code != DUP_ENTRY:
+                    raise
+                r, = self.query("SELECT compression, value FROM data"
+                                " WHERE hash='%s'" % checksum)
+                if r != (compression, data):
+                    raise
+        except:
+            self.rollback()
+            raise
+        self.commit()
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
-        result = self._getObject(oid, tid=tid, before_tid=before_tid)
-        if result is None:
-            result = (None, None)
+        sql = ('SELECT serial, hash, value_serial FROM obj'
+               ' WHERE partition = %d AND oid = %d'
+              ) % (self._getPartition(oid), oid)
+        if tid is not None:
+            sql += ' AND serial = %d' % tid
+        elif before_tid is not None:
+            sql += ' AND serial < %d ORDER BY serial DESC LIMIT 1' % before_tid
         else:
-            result = self._getDataTIDFromData(oid, result)
-        return result
+            # XXX I want to express "HAVING serial = MAX(serial)", but
+            # MySQL does not use an index for a HAVING clause!
+            sql += ' ORDER BY serial DESC LIMIT 1'
+        r = self.query(sql)
+        if r:
+            (serial, checksum, value_serial), = r
+            if value_serial is None and checksum:
+                return serial, serial
+            return serial, value_serial
+        return None, None
 
     def finishTransaction(self, tid):
         q = self.query
         tid = util.u64(tid)
         self.begin()
         try:
-            q("""INSERT INTO obj SELECT * FROM tobj WHERE tobj.serial = %d""" \
-                    % tid)
-            q('INSERT INTO obj_short SELECT partition, oid, serial FROM tobj'
-                ' WHERE tobj.serial = %d' % (tid, ))
-            q("""DELETE FROM tobj WHERE serial = %d""" % tid)
-            q("""INSERT INTO trans SELECT * FROM ttrans WHERE ttrans.tid = %d"""
-                    % tid)
-            q("""DELETE FROM ttrans WHERE tid = %d""" % tid)
+            sql = " FROM tobj WHERE serial=%d" % tid
+            checksum_list = [x for x, in q("SELECT hash" + sql) if x]
+            q("INSERT INTO obj SELECT *" + sql)
+            q("DELETE FROM tobj WHERE serial=%d" % tid)
+            q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
+            q("DELETE FROM ttrans WHERE tid=%d" % tid)
         except:
             self.rollback()
             raise
         self.commit()
+        self.unlockData(checksum_list)
 
     def deleteTransaction(self, tid, oid_list=()):
         q = self.query
-        objQuery = self.objQuery
         u64 = util.u64
         tid = u64(tid)
         getPartition = self._getPartition
         self.begin()
         try:
-            q("""DELETE FROM tobj WHERE serial = %d""" % tid)
+            sql = " FROM tobj WHERE serial=%d" % tid
+            checksum_list = [x for x, in q("SELECT hash" + sql) if x]
+            self.unlockData(checksum_list)
+            q("DELETE" + sql)
             q("""DELETE FROM ttrans WHERE tid = %d""" % tid)
             q("""DELETE FROM trans WHERE partition = %d AND tid = %d""" %
                 (getPartition(tid), tid))
             # delete from obj using indexes
+            checksum_set = set()
             for oid in oid_list:
                 oid = u64(oid)
-                partition = getPartition(oid)
-                objQuery('DELETE FROM %%(table)s WHERE '
-                    'partition=%(partition)d '
-                    'AND oid = %(oid)d AND serial = %(serial)d' % {
-                    'partition': partition,
-                    'oid': oid,
-                    'serial': tid,
-                })
+                sql = " FROM obj WHERE partition=%d AND oid=%d AND serial=%d" \
+                   % (getPartition(oid), oid, tid)
+                checksum_set.update(*q("SELECT hash" + sql))
+                q("DELETE" + sql)
+            checksum_set.discard(None)
+            self._pruneData(checksum_set)
         except:
             self.rollback()
             raise
@@ -587,20 +581,18 @@ class MySQLDatabaseManager(DatabaseManager):
         self.commit()
 
     def deleteObject(self, oid, serial=None):
+        q = self.query
         u64 = util.u64
         oid = u64(oid)
-        query_param_dict = {
-            'partition': self._getPartition(oid),
-            'oid': oid,
-        }
-        query_fmt = 'DELETE FROM %%(table)s WHERE ' \
-            'partition = %(partition)d AND oid = %(oid)d'
-        if serial is not None:
-            query_param_dict['serial'] = u64(serial)
-            query_fmt = query_fmt + ' AND serial = %(serial)d'
+        sql = " FROM obj WHERE partition=%d AND oid=%d" \
+            % (self._getPartition(oid), oid)
+        if serial:
+            sql += ' AND serial=%d' % u64(serial)
         self.begin()
         try:
-            self.objQuery(query_fmt % query_param_dict)
+            checksum_list = [x for x, in q("SELECT DISTINCT hash" + sql) if x]
+            q("DELETE" + sql)
+            self._pruneData(checksum_list)
         except:
             self.rollback()
             raise
@@ -608,17 +600,17 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def deleteObjectsAbove(self, num_partitions, partition, oid, serial,
                            max_tid):
+        q = self.query
         u64 = util.u64
+        oid = u64(oid)
+        sql = (" FROM obj WHERE partition=%d AND serial <= %d"
+            " AND (oid > %d OR (oid = %d AND serial >= %d))" %
+            (partition, u64(max_tid), oid, oid, u64(serial)))
         self.begin()
         try:
-            self.objQuery('DELETE FROM %%(table)s WHERE partition=%(partition)d'
-              ' AND serial <= %(max_tid)d AND ('
-              'oid > %(oid)d OR (oid = %(oid)d AND serial >= %(serial)d))' % {
-                'partition': partition,
-                'max_tid': u64(max_tid),
-                'oid': u64(oid),
-                'serial': u64(serial),
-            })
+            checksum_list = [x for x, in q("SELECT DISTINCT hash" + sql) if x]
+            q("DELETE" + sql)
+            self._pruneData(checksum_list)
         except:
             self.rollback()
             raise
@@ -645,8 +637,9 @@ class MySQLDatabaseManager(DatabaseManager):
     def _getObjectLength(self, oid, value_serial):
         if value_serial is None:
             raise CreationUndone
-        r = self.query("""SELECT LENGTH(value), value_serial FROM obj """ \
-            """WHERE partition = %d AND oid = %d AND serial = %d""" %
+        r = self.query("""SELECT LENGTH(value), value_serial
+                    FROM obj LEFT JOIN data ON (obj.hash = data.hash)
+                    WHERE partition = %d AND oid = %d AND serial = %d""" %
             (self._getPartition(oid), oid, value_serial))
         length, value_serial = r[0]
         if length is None:
@@ -660,11 +653,11 @@ class MySQLDatabaseManager(DatabaseManager):
         # FIXME: This method doesn't take client's current ransaction id as
         # parameter, which means it can return transactions in the future of
         # client's transaction.
-        q = self.query
         oid = util.u64(oid)
         p64 = util.p64
         pack_tid = self._getPackTID()
-        r = q("""SELECT serial, LENGTH(value), value_serial FROM obj
+        r = self.query("""SELECT serial, LENGTH(value), value_serial
+                    FROM obj LEFT JOIN data ON (obj.hash = data.hash)
                     WHERE partition = %d AND oid = %d AND serial >= %d
                     ORDER BY serial DESC LIMIT %d, %d""" \
                 % (self._getPartition(oid), oid, pack_tid, offset, length))
@@ -689,7 +682,7 @@ class MySQLDatabaseManager(DatabaseManager):
         min_oid = u64(min_oid)
         min_serial = u64(min_serial)
         max_serial = u64(max_serial)
-        r = q('SELECT oid, serial FROM obj_short '
+        r = q('SELECT oid, serial FROM obj '
                 'WHERE partition = %(partition)s '
                 'AND serial <= %(max_serial)d '
                 'AND ((oid = %(min_oid)d AND serial >= %(min_serial)d) '
@@ -735,71 +728,37 @@ class MySQLDatabaseManager(DatabaseManager):
         })
         return [p64(t[0]) for t in r]
 
-    def _updatePackFuture(self, oid, orig_serial, max_serial,
-            updateObjectDataForPack):
+    def _updatePackFuture(self, oid, orig_serial, max_serial):
         q = self.query
-        p64 = util.p64
-        getPartition = self._getPartition
         # Before deleting this objects revision, see if there is any
         # transaction referencing its value at max_serial or above.
         # If there is, copy value to the first future transaction. Any further
         # reference is just updated to point to the new data location.
         value_serial = None
-        for table in ('obj', 'tobj'):
-            for (serial, ) in q('SELECT serial FROM %(table)s WHERE '
-                    'partition = %(partition)d AND oid = %(oid)d '
-                    'AND serial >= %(max_serial)d AND '
-                    'value_serial = %(orig_serial)d ORDER BY serial ASC' % {
-                        'table': table,
-                        'partition': getPartition(oid),
-                        'oid': oid,
-                        'orig_serial': orig_serial,
-                        'max_serial': max_serial,
-                    }):
+        kw = {
+          'partition': self._getPartition(oid),
+          'oid': oid,
+          'orig_serial': orig_serial,
+          'max_serial': max_serial,
+          'new_serial': 'NULL',
+        }
+        for kw['table'] in 'obj', 'tobj':
+            for kw['serial'], in q('SELECT serial FROM %(table)s'
+                  ' WHERE partition=%(partition)d AND oid=%(oid)d'
+                  ' AND serial>=%(max_serial)d AND value_serial=%(orig_serial)d'
+                  ' ORDER BY serial ASC' % kw):
+                q('UPDATE %(table)s SET value_serial=%(new_serial)s'
+                  ' WHERE partition=%(partition)d AND oid=%(oid)d'
+                  ' AND serial=%(serial)d' % kw)
                 if value_serial is None:
-                    # First found, copy data to it and mark its serial for
-                    # future reference.
-                    value_serial = serial
-                    q('REPLACE INTO %(table)s (partition, oid, serial, compression, '
-                        'checksum, value, value_serial) SELECT partition, oid, '
-                        '%(serial)d, compression, checksum, value, NULL FROM '
-                        'obj WHERE partition = %(partition)d AND oid = %(oid)d '
-                        'AND serial = %(orig_serial)d' \
-                        % {
-                            'table': table,
-                            'partition': getPartition(oid),
-                            'oid': oid,
-                            'serial': serial,
-                            'orig_serial': orig_serial,
-                    })
-                else:
-                    q('REPLACE INTO %(table)s (partition, oid, serial, value_serial) '
-                        'VALUES (%(partition)d, %(oid)d, %(serial)d, '
-                        '%(value_serial)d)' % {
-                            'table': table,
-                            'partition': getPartition(oid),
-                            'oid': oid,
-                            'serial': serial,
-                            'value_serial': value_serial,
-                    })
-        def getObjectData():
-            assert value_serial is None
-            return q('SELECT compression, checksum, value FROM obj WHERE '
-                'partition = %(partition)d AND oid = %(oid)d '
-                'AND serial = %(orig_serial)d' % {
-                    'partition': getPartition(oid),
-                    'oid': oid,
-                    'orig_serial': orig_serial,
-                })[0]
-        if value_serial:
-            value_serial = p64(value_serial)
-        updateObjectDataForPack(p64(oid), p64(orig_serial), value_serial,
-            getObjectData)
+                    # First found, mark its serial for future reference.
+                    kw['new_serial'] = value_serial = kw['serial']
+        return value_serial
 
     def pack(self, tid, updateObjectDataForPack):
         # TODO: unit test (along with updatePackFuture)
         q = self.query
-        objQuery = self.objQuery
+        p64 = util.p64
         tid = util.u64(tid)
         updatePackFuture = self._updatePackFuture
         getPartition = self._getPartition
@@ -807,35 +766,29 @@ class MySQLDatabaseManager(DatabaseManager):
         try:
             self._setPackTID(tid)
             for count, oid, max_serial in q('SELECT COUNT(*) - 1, oid, '
-                    'MAX(serial) FROM obj_short WHERE serial <= %(tid)d '
-                    'GROUP BY oid' % {'tid': tid}):
-                if q('SELECT 1 FROM obj WHERE partition ='
-                        '%(partition)s AND oid = %(oid)d AND '
-                        'serial = %(max_serial)d AND checksum IS NULL' % {
-                            'oid': oid,
-                            'partition': getPartition(oid),
-                            'max_serial': max_serial,
-                        }):
-                    count += 1
+                    'MAX(serial) FROM obj WHERE serial <= %d GROUP BY oid'
+                    % tid):
+                partition = getPartition(oid)
+                if q("SELECT 1 FROM obj WHERE partition = %d"
+                     " AND oid = %d AND serial = %d AND hash IS NULL"
+                     % (partition, oid, max_serial)):
                     max_serial += 1
-                if count:
-                    # There are things to delete for this object
-                    for (serial, ) in q('SELECT serial FROM obj_short WHERE '
-                            'partition=%(partition)d AND oid=%(oid)d AND '
-                            'serial < %(max_serial)d' % {
-                                'oid': oid,
-                                'partition': getPartition(oid),
-                                'max_serial': max_serial,
-                            }):
-                        updatePackFuture(oid, serial, max_serial,
-                            updateObjectDataForPack)
-                        objQuery('DELETE FROM %%(table)s WHERE '
-                            'partition=%(partition)d '
-                            'AND oid=%(oid)d AND serial=%(serial)d' % {
-                                'partition': getPartition(oid),
-                                'oid': oid,
-                                'serial': serial
-                        })
+                elif not count:
+                    continue
+                # There are things to delete for this object
+                checksum_set = set()
+                sql = ' FROM obj WHERE partition=%d AND oid=%d' \
+                    ' AND serial<%d' % (partition, oid, max_serial)
+                for serial, checksum in q('SELECT serial, hash' + sql):
+                    checksum_set.add(checksum)
+                    new_serial = updatePackFuture(oid, serial, max_serial)
+                    if new_serial:
+                        new_serial = p64(new_serial)
+                    updateObjectDataForPack(p64(oid), p64(serial),
+                                            new_serial, checksum)
+                q('DELETE' + sql)
+                checksum_set.discard(None)
+                self._pruneData(checksum_set)
         except:
             self.rollback()
             raise
@@ -843,7 +796,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
         count, tid_checksum, max_tid = self.query(
-            """SELECT COUNT(*), MD5(GROUP_CONCAT(tid SEPARATOR ",")), MAX(tid)
+            """SELECT COUNT(*), SHA1(GROUP_CONCAT(tid SEPARATOR ",")), MAX(tid)
                FROM (SELECT tid FROM trans
                      WHERE partition = %(partition)s
                        AND tid >= %(min_tid)d
@@ -854,12 +807,9 @@ class MySQLDatabaseManager(DatabaseManager):
             'max_tid': util.u64(max_tid),
             'length': length,
         })[0]
-        if count == 0:
-            max_tid = ZERO_TID
-        else:
-            tid_checksum = a2b_hex(tid_checksum)
-            max_tid = util.p64(max_tid)
-        return count, tid_checksum, max_tid
+        if count:
+            return count, a2b_hex(tid_checksum), util.p64(max_tid)
+        return 0, ZERO_HASH, ZERO_TID
 
     def checkSerialRange(self, min_oid, min_serial, max_tid, length,
             num_partitions, partition):
@@ -870,7 +820,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # last grouped value, instead of the greatest one.
         r = self.query(
             """SELECT oid, serial
-               FROM obj_short
+               FROM obj
                WHERE partition = %(partition)s
                  AND serial <= %(max_tid)d
                  AND (oid > %(min_oid)d OR
@@ -885,8 +835,8 @@ class MySQLDatabaseManager(DatabaseManager):
         if r:
             p64 = util.p64
             return (len(r),
-                    md5(','.join(str(x[0]) for x in r)).digest(),
+                    sha1(','.join(str(x[0]) for x in r)).digest(),
                     p64(r[-1][0]),
-                    md5(','.join(str(x[1]) for x in r)).digest(),
+                    sha1(','.join(str(x[1]) for x in r)).digest(),
                     p64(r[-1][1]))
-        return 0, None, ZERO_OID, None, ZERO_TID
+        return 0, ZERO_HASH, ZERO_OID, ZERO_HASH, ZERO_TID

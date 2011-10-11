@@ -4,6 +4,8 @@ Change History
 0.10 (unreleased)
 -----------------
 
+- Storage was unable or slow to process large-sized transactions.
+  This required to change protocol and MySQL tables format.
 - NEO learned to store empty values (although it's useless when managed by
   a ZODB Connection).
 

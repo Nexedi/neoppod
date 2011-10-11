@@ -21,7 +21,7 @@ from neo.lib.handler import EventHandler
 from neo.lib import protocol
 from neo.lib.util import dump
 from neo.lib.exception import PrimaryFailure, OperationFailure
-from neo.lib.protocol import NodeStates, NodeTypes, Packets, Errors
+from neo.lib.protocol import NodeStates, NodeTypes, Packets, Errors, ZERO_HASH
 
 class BaseMasterHandler(EventHandler):
 
@@ -97,7 +97,7 @@ class BaseClientAndStorageOperationHandler(EventHandler):
             neo.lib.logging.debug('oid = %s, serial = %s, next_serial = %s',
                           dump(oid), dump(serial), dump(next_serial))
             if checksum is None:
-                checksum = 0
+                checksum = ZERO_HASH
                 data = ''
             p = Packets.AnswerObject(oid, serial, next_serial,
                 compression, checksum, data, data_serial)

@@ -18,7 +18,7 @@
 import neo.lib
 from neo.lib import protocol
 from neo.lib.util import dump, makeChecksum
-from neo.lib.protocol import Packets, LockState, Errors
+from neo.lib.protocol import Packets, LockState, Errors, ZERO_HASH
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
 from neo.storage.transactions import ConflictError, DelayedError
 from neo.storage.exception import AlreadyPendingError
@@ -88,7 +88,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             compression, checksum, data, data_serial, ttid, unlock):
         # register the transaction
         self.app.tm.register(conn.getUUID(), ttid)
-        if data or checksum:
+        if data or checksum != ZERO_HASH:
             # TODO: return an appropriate error packet
             assert makeChecksum(data) == checksum
             assert data_serial is None

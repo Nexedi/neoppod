@@ -387,7 +387,8 @@ class ProtocolTests(NeoUnitTestBase):
         tid = self.getNextTID()
         tid2 = self.getNextTID()
         unlock = False
-        p = Packets.AskStoreObject(oid, serial, 1, 55, "to", tid2, tid, unlock)
+        H = "1" * 20
+        p = Packets.AskStoreObject(oid, serial, 1, H, "to", tid2, tid, unlock)
         poid, pserial, compression, checksum, data, ptid2, ptid, punlock = \
             p.decode()
         self.assertEqual(oid, poid)
@@ -395,7 +396,7 @@ class ProtocolTests(NeoUnitTestBase):
         self.assertEqual(tid, ptid)
         self.assertEqual(tid2, ptid2)
         self.assertEqual(compression, 1)
-        self.assertEqual(checksum, 55)
+        self.assertEqual(checksum, H)
         self.assertEqual(data, "to")
         self.assertEqual(unlock, punlock)
 
@@ -423,7 +424,8 @@ class ProtocolTests(NeoUnitTestBase):
         serial_start = self.getNextTID()
         serial_end = self.getNextTID()
         data_serial = self.getNextTID()
-        p = Packets.AnswerObject(oid, serial_start, serial_end, 1, 55, "to",
+        H = "2" * 20
+        p = Packets.AnswerObject(oid, serial_start, serial_end, 1, H, "to",
             data_serial)
         poid, pserial_start, pserial_end, compression, checksum, data, \
             pdata_serial = p.decode()
@@ -431,7 +433,7 @@ class ProtocolTests(NeoUnitTestBase):
         self.assertEqual(serial_start, pserial_start)
         self.assertEqual(serial_end, pserial_end)
         self.assertEqual(compression, 1)
-        self.assertEqual(checksum, 55)
+        self.assertEqual(checksum, H)
         self.assertEqual(data, "to")
         self.assertEqual(pdata_serial, data_serial)
 
@@ -686,7 +688,7 @@ class ProtocolTests(NeoUnitTestBase):
         min_tid = self.getNextTID()
         length = 2
         count = 1
-        tid_checksum = self.getNewUUID()
+        tid_checksum = "3" * 20
         max_tid = self.getNextTID()
         p = Packets.AnswerCheckTIDRange(min_tid, length, count, tid_checksum,
             max_tid)
@@ -717,9 +719,9 @@ class ProtocolTests(NeoUnitTestBase):
         min_serial = self.getNextTID()
         length = 2
         count = 1
-        oid_checksum = self.getNewUUID()
+        oid_checksum = "4" * 20
         max_oid = self.getOID(5)
-        tid_checksum = self.getNewUUID()
+        tid_checksum = "5" * 20
         max_serial = self.getNextTID()
         p = Packets.AnswerCheckSerialRange(min_oid, min_serial, length, count,
             oid_checksum, max_oid, tid_checksum, max_serial)

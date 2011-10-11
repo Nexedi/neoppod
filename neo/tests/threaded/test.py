@@ -26,6 +26,7 @@ from neo.lib.connection import MTClientConnection
 from neo.lib.protocol import NodeStates, Packets, ZERO_TID
 from neo.tests.threaded import NEOCluster, NEOThreadedTest, \
     Patch, ConnectionFilter
+from neo.lib.util import makeChecksum
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 
 class PCounter(Persistent):
@@ -43,17 +44,68 @@ class Test(NEOThreadedTest):
         try:
             cluster.start()
             storage = cluster.getZODBStorage()
-            for data in 'foo', '':
+            data_info = {}
+            for data in 'foo', '', 'foo':
+                checksum = makeChecksum(data)
                 oid = storage.new_oid()
                 txn = transaction.Transaction()
                 storage.tpc_begin(txn)
                 r1 = storage.store(oid, None, data, '', txn)
                 r2 = storage.tpc_vote(txn)
+                data_info[checksum] = 1
+                self.assertEqual(data_info, cluster.storage.getDataLockInfo())
                 serial = storage.tpc_finish(txn)
+                data_info[checksum] = 0
+                self.assertEqual(data_info, cluster.storage.getDataLockInfo())
                 self.assertEqual((data, serial), storage.load(oid, ''))
                 storage._cache.clear()
                 self.assertEqual((data, serial), storage.load(oid, ''))
                 self.assertEqual((data, serial), storage.load(oid, ''))
+        finally:
+            cluster.stop()
+
+    def testStorageDataLock(self):
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            storage = cluster.getZODBStorage()
+            data_info = {}
+
+            data = 'foo'
+            checksum = makeChecksum(data)
+            oid = storage.new_oid()
+            txn = transaction.Transaction()
+            storage.tpc_begin(txn)
+            r1 = storage.store(oid, None, data, '', txn)
+            r2 = storage.tpc_vote(txn)
+            tid = storage.tpc_finish(txn)
+            data_info[checksum] = 0
+            storage.sync()
+
+            txn = [transaction.Transaction() for x in xrange(3)]
+            for t in txn:
+                storage.tpc_begin(t)
+                storage.store(tid and oid or storage.new_oid(),
+                              tid, data, '', t)
+                tid = None
+            for t in txn:
+                storage.tpc_vote(t)
+            data_info[checksum] = 3
+            self.assertEqual(data_info, cluster.storage.getDataLockInfo())
+
+            storage.tpc_abort(txn[1])
+            storage.sync()
+            data_info[checksum] -= 1
+            self.assertEqual(data_info, cluster.storage.getDataLockInfo())
+
+            tid1 = storage.tpc_finish(txn[2])
+            data_info[checksum] -= 1
+            self.assertEqual(data_info, cluster.storage.getDataLockInfo())
+
+            storage.tpc_abort(txn[0])
+            storage.sync()
+            data_info[checksum] -= 1
+            self.assertEqual(data_info, cluster.storage.getDataLockInfo())
         finally:
             cluster.stop()
 
@@ -273,16 +325,21 @@ class Test(NEOThreadedTest):
             t, c = cluster.getTransaction()
             c.root()[0] = 'ok'
             t.commit()
+            data_info = cluster.storage.getDataLockInfo()
+            self.assertEqual(data_info.values(), [0, 0])
+            # (obj|trans) become t(obj|trans)
+            cluster.storage.switchTables()
         finally:
             cluster.stop()
         cluster.reset()
-        # XXX: (obj|trans) become t(obj|trans)
-        cluster.storage.switchTables()
+        self.assertEqual(dict.fromkeys(data_info, 1),
+                         cluster.storage.getDataLockInfo())
         try:
             cluster.start(fast_startup=fast_startup)
             t, c = cluster.getTransaction()
             # transaction should be verified and commited
             self.assertEqual(c.root()[0], 'ok')
+            self.assertEqual(data_info, cluster.storage.getDataLockInfo())
         finally:
             cluster.stop()
 

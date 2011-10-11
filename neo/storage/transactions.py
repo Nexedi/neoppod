@@ -98,22 +98,21 @@ class Transaction(object):
         # assert self._transaction is not None
         self._transaction = (oid_list, user, desc, ext, packed)
 
-    def addObject(self, oid, compression, checksum, data, value_serial):
+    def addObject(self, oid, checksum, value_serial):
         """
             Add an object to the transaction
         """
         assert oid not in self._checked_set, dump(oid)
-        self._object_dict[oid] = (oid, compression, checksum, data,
-            value_serial)
+        self._object_dict[oid] = oid, checksum, value_serial
 
     def delObject(self, oid):
         try:
-            del self._object_dict[oid]
+            return self._object_dict.pop(oid)[1]
         except KeyError:
             self._checked_set.remove(oid)
 
     def getObject(self, oid):
-        return self._object_dict.get(oid)
+        return self._object_dict[oid]
 
     def getObjectList(self):
         return self._object_dict.values()
@@ -163,10 +162,10 @@ class TransactionManager(object):
             Return object data for given running transaction.
             Return None if not found.
         """
-        result = self._transaction_dict.get(ttid)
-        if result is not None:
-            result = result.getObject(oid)
-        return result
+        try:
+            return self._transaction_dict[ttid].getObject(oid)
+        except KeyError:
+            return None
 
     def reset(self):
         """
@@ -242,7 +241,9 @@ class TransactionManager(object):
             # drop the lock it held on this object, and drop object data for
             # consistency.
             del self._store_lock_dict[oid]
-            self._transaction_dict[ttid].delObject(oid)
+            checksum = self._transaction_dict[ttid].delObject(oid)
+            if checksum:
+                self._app.dm.pruneData((checksum,))
             # Give a chance to pending events to take that lock now.
             self._app.executeQueuedEvents()
             # Attemp to acquire lock again.
@@ -252,7 +253,7 @@ class TransactionManager(object):
         elif locking_tid == ttid:
             # If previous store was an undo, next store must be based on
             # undo target.
-            previous_serial = self._transaction_dict[ttid].getObject(oid)[4]
+            previous_serial = self._transaction_dict[ttid].getObject(oid)[2]
             if previous_serial is None:
                 # XXX: use some special serial when previous store was not
                 # an undo ? Maybe it should just not happen.
@@ -301,8 +302,11 @@ class TransactionManager(object):
         self.lockObject(ttid, serial, oid, unlock=unlock)
         # store object
         assert ttid in self, "Transaction not registered"
-        transaction = self._transaction_dict[ttid]
-        transaction.addObject(oid, compression, checksum, data, value_serial)
+        if data is None:
+            checksum = None
+        else:
+            self._app.dm.storeData(checksum, data, compression)
+        self._transaction_dict[ttid].addObject(oid, checksum, value_serial)
 
     def abort(self, ttid, even_if_locked=False):
         """
@@ -320,8 +324,13 @@ class TransactionManager(object):
         transaction = self._transaction_dict[ttid]
         has_load_lock = transaction.isLocked()
         # if the transaction is locked, ensure we can drop it
-        if not even_if_locked and has_load_lock:
-            return
+        if has_load_lock:
+            if not even_if_locked:
+                return
+        else:
+            self._app.dm.unlockData([checksum
+                for oid, checksum, value_serial in transaction.getObjectList()
+                if checksum], True)
         # unlock any object
         for oid in transaction.getLockedOIDList():
             if has_load_lock:
@@ -370,19 +379,13 @@ class TransactionManager(object):
         for oid, ttid in self._store_lock_dict.items():
             neo.lib.logging.info('    %r by %r', dump(oid), dump(ttid))
 
-    def updateObjectDataForPack(self, oid, orig_serial, new_serial,
-            getObjectData):
+    def updateObjectDataForPack(self, oid, orig_serial, new_serial, checksum):
         lock_tid = self.getLockingTID(oid)
         if lock_tid is not None:
             transaction = self._transaction_dict[lock_tid]
-            oid, compression, checksum, data, value_serial = \
-                transaction.getObject(oid)
-            if value_serial == orig_serial:
+            if transaction.getObject(oid)[2] == orig_serial:
                 if new_serial:
-                    value_serial = new_serial
+                    checksum = None
                 else:
-                    compression, checksum, data = getObjectData()
-                    value_serial = None
-                transaction.addObject(oid, compression, checksum, data,
-                    value_serial)
-
+                    self._app.dm.storeData(checksum)
+                transaction.addObject(oid, checksum, new_serial)

@@ -21,7 +21,10 @@ from neo.lib.protocol import Packets
 class StorageOperationHandler(BaseClientAndStorageOperationHandler):
 
     def _askObject(self, oid, serial, tid):
-        return self.app.dm.getObject(oid, serial, tid, resolve_data=False)
+        result = self.app.dm.getObject(oid, serial, tid)
+        if result and result[5]:
+            return result[:2] + (None, None, None) + result[4:]
+        return result
 
     def askLastIDs(self, conn):
         app = self.app

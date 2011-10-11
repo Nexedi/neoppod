@@ -20,7 +20,7 @@ from functools import wraps
 import neo.lib
 
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import Packets, ZERO_TID, ZERO_OID
+from neo.lib.protocol import Packets, ZERO_HASH, ZERO_TID, ZERO_OID
 from neo.lib.util import add64, u64
 
 # TODO: benchmark how different values behave
@@ -173,12 +173,14 @@ class ReplicationHandler(EventHandler):
     @checkConnectionIsReplicatorConnection
     def answerObject(self, conn, oid, serial_start,
             serial_end, compression, checksum, data, data_serial):
-        app = self.app
+        dm = self.app.dm
+        if data or checksum != ZERO_HASH:
+            dm.storeData(checksum, data, compression)
+        else:
+            checksum = None
         # Directly store the transaction.
-        obj = (oid, compression, checksum, data, data_serial)
-        app.dm.storeTransaction(serial_start, [obj], None, False)
-        del obj
-        del data
+        obj = oid, checksum, data_serial
+        dm.storeTransaction(serial_start, [obj], None, False)
 
     def _doAskCheckSerialRange(self, min_oid, min_tid, max_tid,
             length=RANGE_LENGTH):

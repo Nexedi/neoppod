@@ -18,7 +18,7 @@
 
 import re
 import socket
-from zlib import adler32
+from hashlib import sha1
 from Queue import deque
 from struct import pack, unpack
 
@@ -62,8 +62,8 @@ def bin(s):
 
 
 def makeChecksum(s):
-    """Return a 4-byte integer checksum against a string."""
-    return adler32(s) & 0xffffffff
+    """Return a 20-byte checksum against a string."""
+    return sha1(s).digest()
 
 
 def resolve(hostname):

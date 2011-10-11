@@ -121,7 +121,10 @@ class StorageDBTests(NeoUnitTestBase):
 
     def getTransaction(self, oid_list):
         transaction = (oid_list, 'user', 'desc', 'ext', False)
-        object_list = [(oid, 1, 0, '', None) for oid in oid_list]
+        H = "0" * 20
+        for _ in oid_list:
+            self.db.storeData(H, '', 1)
+        object_list = [(oid, H, None) for oid in oid_list]
         return (transaction, object_list)
 
     def checkSet(self, list1, list2):
@@ -180,9 +183,9 @@ class StorageDBTests(NeoUnitTestBase):
         oid1, = self.getOIDs(1)
         tid1, tid2 = self.getTIDs(2)
         FOUND_BUT_NOT_VISIBLE = False
-        OBJECT_T1_NO_NEXT = (tid1, None, 1, 0, '', None)
-        OBJECT_T1_NEXT = (tid1, tid2, 1, 0, '', None)
-        OBJECT_T2 = (tid2, None, 1, 0, '', None)
+        OBJECT_T1_NO_NEXT = (tid1, None, 1, "0"*20, '', None)
+        OBJECT_T1_NEXT = (tid1, tid2, 1, "0"*20, '', None)
+        OBJECT_T2 = (tid2, None, 1, "0"*20, '', None)
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid1])
         # non-present
@@ -277,14 +280,14 @@ class StorageDBTests(NeoUnitTestBase):
         self.db.storeTransaction(tid2, objs2, txn2)
         self.db.finishTransaction(tid1)
         result = self.db.getObject(oid1)
-        self.assertEqual(result, (tid1, None, 1, 0, '', None))
+        self.assertEqual(result, (tid1, None, 1, "0"*20, '', None))
         self.assertEqual(self.db.getObject(oid2), None)
         self.assertEqual(self.db.getUnfinishedTIDList(), [tid2])
         # drop it
         self.db.dropUnfinishedData()
         self.assertEqual(self.db.getUnfinishedTIDList(), [])
         result = self.db.getObject(oid1)
-        self.assertEqual(result, (tid1, None, 1, 0, '', None))
+        self.assertEqual(result, (tid1, None, 1, "0"*20, '', None))
         self.assertEqual(self.db.getObject(oid2), None)
 
     def test_storeTransaction(self):
@@ -393,8 +396,8 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(self.db.getObject(oid1, tid=tid2), None)
         self.db.deleteObject(oid2, serial=tid1)
         self.assertFalse(self.db.getObject(oid2, tid=tid1))
-        self.assertEqual(self.db.getObject(oid2, tid=tid2), (tid2, None) + \
-            objs2[1][1:])
+        self.assertEqual(self.db.getObject(oid2, tid=tid2),
+            (tid2, None, 1, "0" * 20, '', None))
 
     def test_deleteObjectsAbove(self):
         self.setNumPartitions(2)
@@ -574,138 +577,6 @@ class StorageDBTests(NeoUnitTestBase):
         result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 1, 2, 0)
         self.checkSet(result, [tid1])
 
-    def test__getObjectData(self):
-        self.setNumPartitions(4, True)
-        db = self.db
-        tid0 = self.getNextTID()
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID()
-        tid3 = self.getNextTID()
-        assert tid0 < tid1 < tid2 < tid3
-        oid1 = self.getOID(1)
-        oid2 = self.getOID(2)
-        oid3 = self.getOID(3)
-        db.storeTransaction(
-            tid1, (
-                (oid1, 0, 0, 'foo', None),
-                (oid2, None, None, None, tid0),
-                (oid3, None, None, None, tid2),
-            ), None, temporary=False)
-        db.storeTransaction(
-            tid2, (
-                (oid1, None, None, None, tid1),
-                (oid2, None, None, None, tid1),
-                (oid3, 0, 0, 'bar', None),
-            ), None, temporary=False)
-
-        original_getObjectData = db._getObjectData
-        def _getObjectData(*args, **kw):
-            call_counter.append(1)
-            return original_getObjectData(*args, **kw)
-        db._getObjectData = _getObjectData
-
-        # NOTE: all tests are done as if values were fetched by _getObject, so
-        # there is already one indirection level.
-
-        # oid1 at tid1: data is immediately found
-        call_counter = []
-        self.assertEqual(
-            db._getObjectData(u64(oid1), u64(tid1), u64(tid3)),
-            (u64(tid1), 0, 0, 'foo'))
-        self.assertEqual(sum(call_counter), 1)
-
-        # oid2 at tid1: missing data in table, raise IndexError on next
-        # recursive call
-        call_counter = []
-        self.assertRaises(IndexError, db._getObjectData, u64(oid2), u64(tid1),
-            u64(tid3))
-        self.assertEqual(sum(call_counter), 2)
-
-        # oid3 at tid1: data_serial grater than row's tid, raise ValueError
-        # on next recursive call - even if data does exist at that tid (see
-        # "oid3 at tid2" case below)
-        call_counter = []
-        self.assertRaises(ValueError, db._getObjectData, u64(oid3), u64(tid1),
-            u64(tid3))
-        self.assertEqual(sum(call_counter), 2)
-        # Same with wrong parameters (tid0 < tid1)
-        call_counter = []
-        self.assertRaises(ValueError, db._getObjectData, u64(oid3), u64(tid1),
-            u64(tid0))
-        self.assertEqual(sum(call_counter), 1)
-        # Same with wrong parameters (tid1 == tid1)
-        call_counter = []
-        self.assertRaises(ValueError, db._getObjectData, u64(oid3), u64(tid1),
-            u64(tid1))
-        self.assertEqual(sum(call_counter), 1)
-
-        # oid1 at tid2: data is found after ons recursive call
-        call_counter = []
-        self.assertEqual(
-            db._getObjectData(u64(oid1), u64(tid2), u64(tid3)),
-            (u64(tid1), 0, 0, 'foo'))
-        self.assertEqual(sum(call_counter), 2)
-
-        # oid2 at tid2: missing data in table, raise IndexError after two
-        # recursive calls
-        call_counter = []
-        self.assertRaises(IndexError, db._getObjectData, u64(oid2), u64(tid2),
-            u64(tid3))
-        self.assertEqual(sum(call_counter), 3)
-
-        # oid3 at tid2: data is immediately found
-        call_counter = []
-        self.assertEqual(
-            db._getObjectData(u64(oid3), u64(tid2), u64(tid3)),
-            (u64(tid2), 0, 0, 'bar'))
-        self.assertEqual(sum(call_counter), 1)
-
-    def test__getDataTIDFromData(self):
-        self.setNumPartitions(4, True)
-        db = self.db
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID()
-        oid1 = self.getOID(1)
-        db.storeTransaction(
-            tid1, (
-                (oid1, 0, 0, 'foo', None),
-            ), None, temporary=False)
-        db.storeTransaction(
-            tid2, (
-                (oid1, None, None, None, tid1),
-            ), None, temporary=False)
-
-        self.assertEqual(
-            db._getDataTIDFromData(u64(oid1),
-                db._getObject(u64(oid1), tid=u64(tid1))),
-            (u64(tid1), u64(tid1)))
-        self.assertEqual(
-            db._getDataTIDFromData(u64(oid1),
-                db._getObject(u64(oid1), tid=u64(tid2))),
-            (u64(tid2), u64(tid1)))
-
-    def test__getDataTID(self):
-        self.setNumPartitions(4, True)
-        db = self.db
-        tid1 = self.getNextTID()
-        tid2 = self.getNextTID()
-        oid1 = self.getOID(1)
-        db.storeTransaction(
-            tid1, (
-                (oid1, 0, 0, 'foo', None),
-            ), None, temporary=False)
-        db.storeTransaction(
-            tid2, (
-                (oid1, None, None, None, tid1),
-            ), None, temporary=False)
-
-        self.assertEqual(
-            db._getDataTID(u64(oid1), tid=u64(tid1)),
-            (u64(tid1), u64(tid1)))
-        self.assertEqual(
-            db._getDataTID(u64(oid1), tid=u64(tid2)),
-            (u64(tid2), u64(tid1)))
-
     def test_findUndoTID(self):
         self.setNumPartitions(4, True)
         db = self.db
@@ -715,9 +586,14 @@ class StorageDBTests(NeoUnitTestBase):
         tid4 = self.getNextTID()
         tid5 = self.getNextTID()
         oid1 = self.getOID(1)
+        foo = "3" * 20
+        bar = "4" * 20
+        db.storeData(foo, 'foo', 0)
+        db.storeData(bar, 'bar', 0)
+        db.unlockData((foo, bar))
         db.storeTransaction(
             tid1, (
-                (oid1, 0, 0, 'foo', None),
+                (oid1, foo, None),
             ), None, temporary=False)
 
         # Undoing oid1 tid1, OK: tid1 is latest
@@ -730,7 +606,7 @@ class StorageDBTests(NeoUnitTestBase):
         # Store a new transaction
         db.storeTransaction(
             tid2, (
-                (oid1, 0, 0, 'bar', None),
+                (oid1, bar, None),
             ), None, temporary=False)
 
         # Undoing oid1 tid2, OK: tid2 is latest
@@ -753,13 +629,13 @@ class StorageDBTests(NeoUnitTestBase):
         # to tid1
         self.assertEqual(
             db.findUndoTID(oid1, tid5, tid4, tid1,
-                (u64(oid1), None, None, None, tid1)),
+                (u64(oid1), None, tid1)),
             (tid1, None, True))
 
         # Store a new transaction
         db.storeTransaction(
             tid3, (
-                (oid1, None, None, None, tid1),
+                (oid1, None, tid1),
             ), None, temporary=False)
 
         # Undoing oid1 tid1, OK: tid3 is latest with tid1 data

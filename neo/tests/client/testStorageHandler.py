@@ -88,10 +88,6 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         the_object = (oid, tid1, tid2, 0, '', 'DATA', None)
         self.handler.answerObject(conn, *the_object)
         self._checkHandlerData(the_object[:-1])
-        # Check handler raises on non-None data_serial.
-        the_object = (oid, tid1, tid2, 0, '', 'DATA', self.getNextTID())
-        self.assertRaises(NEOStorageError, self.handler.answerObject, conn,
-            *the_object)
 
     def _getAnswerStoreObjectHandler(self, object_stored_counter_dict,
             conflict_serial_dict, resolved_conflict_serial_dict):

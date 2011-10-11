@@ -66,9 +66,6 @@ class StorageAnswersHandler(AnswerBaseHandler):
 
     def answerObject(self, conn, oid, start_serial, end_serial,
             compression, checksum, data, data_serial):
-        if data_serial is not None:
-            raise NEOStorageError, 'Storage should never send non-None ' \
-                'data_serial to clients, got %s' % (dump(data_serial), )
         self.app.setHandlerData((oid, start_serial, end_serial,
                 compression, checksum, data))
 

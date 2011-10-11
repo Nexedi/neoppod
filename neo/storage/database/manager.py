@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+import neo.lib
 from neo.lib import util
 from neo.lib.exception import DatabaseFailure
 
@@ -23,6 +24,8 @@ class CreationUndone(Exception):
 
 class DatabaseManager(object):
     """This class only describes an interface for database managers."""
+
+
 
     def __init__(self):
         """
@@ -59,8 +62,17 @@ class DatabaseManager(object):
         self._under_transaction = False
 
     def setup(self, reset = 0):
-        """Set up a database. If reset is true, existing data must be
-        discarded."""
+        """Set up a database
+
+        It must recover self._uncommitted_data from temporary object table.
+        _uncommitted_data is a dict containing refcounts to data of
+        write-locked objects, except in case of undo, where the refcount is
+        increased later, when the object is read-locked.
+        Keys are checksums and values are number of references.
+
+        If reset is true, existing data must be discarded and
+        self._uncommitted_data must be an empty dict.
+        """
         raise NotImplementedError
 
     def _begin(self):
@@ -213,7 +225,7 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def getObject(self, oid, tid=None, before_tid=None, resolve_data=True):
+    def getObject(self, oid, tid=None, before_tid=None):
         """
         oid (packed)
             Identifier of object to retrieve.
@@ -222,9 +234,6 @@ class DatabaseManager(object):
         before_tid (packed, None)
             Serial to retrieve is the highest existing one strictly below this
             value.
-        resolve_data (bool, True)
-            If actual object data is desired, or raw record content.
-            This is different in case retrieved line undoes a transaction.
 
         Return value:
             None: Given oid doesn't exist in database.
@@ -237,7 +246,6 @@ class DatabaseManager(object):
                 - data (binary string, None)
                 - data_serial (packed, None)
         """
-        # TODO: resolve_data must be unit-tested
         u64 = util.u64
         p64 = util.p64
         oid = u64(oid)
@@ -246,32 +254,20 @@ class DatabaseManager(object):
         if before_tid is not None:
             before_tid = u64(before_tid)
         result = self._getObject(oid, tid, before_tid)
-        if result is None:
-            # See if object exists at all
-            result = self._getObject(oid)
-            if result is not None:
-                # Object exists
-                result = False
-        else:
+        if result:
             serial, next_serial, compression, checksum, data, data_serial = \
                 result
             assert before_tid is None or next_serial is None or \
                    before_tid <= next_serial
-            if data is None and resolve_data:
-                try:
-                    _, compression, checksum, data = self._getObjectData(oid,
-                        data_serial, serial)
-                except CreationUndone:
-                    pass
-                data_serial = None
             if serial is not None:
                 serial = p64(serial)
             if next_serial is not None:
                 next_serial = p64(next_serial)
             if data_serial is not None:
                 data_serial = p64(data_serial)
-            result = serial, next_serial, compression, checksum, data, data_serial
-        return result
+            return serial, next_serial, compression, checksum, data, data_serial
+        # See if object exists at all
+        return self._getObject(oid) and False
 
     def changePartitionTable(self, ptid, cell_list):
         """Change a part of a partition table. The list of cells is
@@ -298,12 +294,68 @@ class DatabaseManager(object):
         """Store a transaction temporarily, if temporary is true. Note
         that this transaction is not finished yet. The list of objects
         contains tuples, each of which consists of an object ID,
-        a compression specification, a checksum and object data.
+        a checksum and object serial.
         The transaction is either None or a tuple of the list of OIDs,
         user information, a description, extension information and transaction
         pack state (True for packed)."""
         raise NotImplementedError
 
+    def _pruneData(self, checksum_list):
+        """To be overriden by the backend to delete any unreferenced data
+
+        'unreferenced' means:
+        - not in self._uncommitted_data
+        - and not referenced by a fully-committed object (storage should have
+          an index or a refcound of all data checksums of all objects)
+        """
+        raise NotImplementedError
+
+    def _storeData(self, checksum, data, compression):
+        """To be overriden by the backend to store object raw data
+
+        If same data was already stored, the storage only has to check there's
+        no hash collision.
+        """
+        raise NotImplementedError
+
+    def storeData(self, checksum, data=None, compression=None):
+        """Store object raw data
+
+        'checksum' must be the result of neo.lib.util.makeChecksum(data)
+        'compression' indicates if 'data' is compressed.
+        A volatile reference is set to this data until 'unlockData' is called
+        with this checksum.
+        If called with only a checksum, it only increment the volatile
+        reference to the data matching the checksum.
+        """
+        refcount = self._uncommitted_data
+        refcount[checksum] = 1 + refcount.get(checksum, 0)
+        if data is not None:
+            self._storeData(checksum, data, compression)
+
+    def unlockData(self, checksum_list, prune=False):
+        """Release 1 volatile reference to given list of checksums
+
+        If 'prune' is true, any data that is not referenced anymore (either by
+        a volatile reference or by a fully-committed object) is deleted.
+        """
+        refcount = self._uncommitted_data
+        for checksum in checksum_list:
+            count = refcount[checksum] - 1
+            if count:
+                refcount[checksum] = count
+            else:
+                del refcount[checksum]
+        if prune:
+            self.begin()
+            try:
+                self._pruneData(checksum_list)
+            except:
+                self.rollback()
+                raise
+            self.commit()
+
+    __getDataTID = set()
     def _getDataTID(self, oid, tid=None, before_tid=None):
         """
         Return a 2-tuple:
@@ -321,7 +373,17 @@ class DatabaseManager(object):
         Otherwise, it's an undo transaction which did not involve conflict
         resolution.
         """
-        raise NotImplementedError
+        if self.__class__ not in self.__getDataTID:
+            self.__getDataTID.add(self.__class__)
+            neo.lib.logging.warning("Fallback to generic/slow implementation"
+                " of _getDataTID. It should be overriden by backend storage.")
+        r = self._getObject(oid, tid, before_tid)
+        if r:
+            serial, _, _, checksum, _, value_serial = r
+            if value_serial is None and checksum:
+                return serial, serial
+            return serial, value_serial
+        return None, None
 
     def findUndoTID(self, oid, tid, ltid, undone_tid, transaction_object):
         """
@@ -360,21 +422,31 @@ class DatabaseManager(object):
         if ltid:
             ltid = u64(ltid)
         undone_tid = u64(undone_tid)
-        _getDataTID = self._getDataTID
-        if transaction_object is not None:
-            _, _, _, _, tvalue_serial = transaction_object
-            current_tid = current_data_tid = u64(tvalue_serial)
+        def getDataTID(tid=None, before_tid=None):
+            tid, value_serial = self._getDataTID(oid, tid, before_tid)
+            if value_serial not in (None, tid):
+                if value_serial >= tid:
+                    raise ValueError("Incorrect value reference found for"
+                                     " oid %d at tid %d: reference = %d"
+                                     % (oid, value_serial, tid))
+                if value_serial != getDataTID(value_serial)[1]:
+                    neo.lib.logging.warning("Multiple levels of indirection"
+                        " when getting data serial for oid %d at tid %d."
+                        " This causes suboptimal performance." % (oid, tid))
+            return tid, value_serial
+        if transaction_object:
+            current_tid = current_data_tid = u64(transaction_object[2])
         else:
-            current_tid, current_data_tid = _getDataTID(oid, before_tid=ltid)
+            current_tid, current_data_tid = getDataTID(before_tid=ltid)
         if current_tid is None:
             return (None, None, False)
-        found_undone_tid, undone_data_tid = _getDataTID(oid, tid=undone_tid)
+        found_undone_tid, undone_data_tid = getDataTID(tid=undone_tid)
         assert found_undone_tid is not None, (oid, undone_tid)
         is_current = undone_data_tid in (current_data_tid, tid)
         # Load object data as it was before given transaction.
         # It can be None, in which case it means we are undoing object
         # creation.
-        _, data_tid = _getDataTID(oid, before_tid=undone_tid)
+        _, data_tid = getDataTID(before_tid=undone_tid)
         if data_tid is not None:
             data_tid = p64(data_tid)
         return p64(current_tid), data_tid, is_current
@@ -471,8 +543,8 @@ class DatabaseManager(object):
 
         Returns a 3-tuple:
             - number of records actually found
-            - a XOR computed from record's TID
-              0 if no record found
+            - a SHA1 computed from record's TID
+              ZERO_HASH if no record found
             - biggest TID found (ie, TID of last record read)
               ZERO_TID if not record found
         """
@@ -493,12 +565,12 @@ class DatabaseManager(object):
 
         Returns a 5-tuple:
             - number of records actually found
-            - a XOR computed from record's OID
-              0 if no record found
+            - a SHA1 computed from record's OID
+              ZERO_HASH if no record found
             - biggest OID found (ie, OID of last record read)
               ZERO_OID if no record found
-            - a XOR computed from record's serial
-              0 if no record found
+            - a SHA1 computed from record's serial
+              ZERO_HASH if no record found
             - biggest serial found for biggest OID found (ie, serial of last
               record read)
               ZERO_TID if no record found
