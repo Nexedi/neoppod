@@ -262,10 +262,7 @@ class DatabaseManager(object):
                     _, compression, checksum, data = self._getObjectData(oid,
                         data_serial, serial)
                 except CreationUndone:
-                    compression = 0
-                    # XXX: this is the valid checksum for empty string
-                    checksum = 1
-                    data = ''
+                    pass
                 data_serial = None
             if serial is not None:
                 serial = p64(serial)

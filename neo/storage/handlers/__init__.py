@@ -96,6 +96,9 @@ class BaseClientAndStorageOperationHandler(EventHandler):
             serial, next_serial, compression, checksum, data, data_serial = o
             neo.lib.logging.debug('oid = %s, serial = %s, next_serial = %s',
                           dump(oid), dump(serial), dump(next_serial))
+            if checksum is None:
+                checksum = 0
+                data = ''
             p = Packets.AnswerObject(oid, serial, next_serial,
                 compression, checksum, data, data_serial)
         conn.answer(p)

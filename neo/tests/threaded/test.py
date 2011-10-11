@@ -17,6 +17,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import threading
+import transaction
 from thread import get_ident
 from persistent import Persistent
 from neo.storage.transactions import TransactionManager, \
@@ -36,6 +37,25 @@ class PCounterWithResolution(PCounter):
         return new
 
 class Test(NEOThreadedTest):
+
+    def testBasicStore(self):
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            storage = cluster.getZODBStorage()
+            for data in 'foo', '':
+                oid = storage.new_oid()
+                txn = transaction.Transaction()
+                storage.tpc_begin(txn)
+                r1 = storage.store(oid, None, data, '', txn)
+                r2 = storage.tpc_vote(txn)
+                serial = storage.tpc_finish(txn)
+                self.assertEqual((data, serial), storage.load(oid, ''))
+                storage._cache.clear()
+                self.assertEqual((data, serial), storage.load(oid, ''))
+                self.assertEqual((data, serial), storage.load(oid, ''))
+        finally:
+            cluster.stop()
 
     def testDelayedUnlockInformation(self):
         except_list = []

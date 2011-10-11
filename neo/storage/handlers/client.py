@@ -17,7 +17,7 @@
 
 import neo.lib
 from neo.lib import protocol
-from neo.lib.util import dump
+from neo.lib.util import dump, makeChecksum
 from neo.lib.protocol import Packets, LockState, Errors
 from neo.storage.handlers import BaseClientAndStorageOperationHandler
 from neo.storage.transactions import ConflictError, DelayedError
@@ -88,11 +88,12 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             compression, checksum, data, data_serial, ttid, unlock):
         # register the transaction
         self.app.tm.register(conn.getUUID(), ttid)
-        if data_serial is not None:
-            assert data == '', repr(data)
-            # Change data to None here, to do it only once, even if store gets
-            # delayed.
-            data = None
+        if data or checksum:
+            # TODO: return an appropriate error packet
+            assert makeChecksum(data) == checksum
+            assert data_serial is None
+        else:
+            checksum = data = None
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
             data_serial, ttid, unlock, time.time())
 

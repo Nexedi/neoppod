@@ -18,6 +18,7 @@
 import unittest
 from mock import Mock, ReturnValues
 from collections import deque
+from neo.lib.util import makeChecksum
 from neo.tests import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.transactions import ConflictError, DelayedError
@@ -207,7 +208,8 @@ class StorageClientHandlerTests(NeoUnitTestBase):
     def _getObject(self):
         oid = self.getOID(0)
         serial = self.getNextTID()
-        return (oid, serial, 1, '1', 'DATA')
+        data = 'DATA'
+        return (oid, serial, 1, makeChecksum(data), data)
 
     def _checkStoreObjectCalled(self, *args):
         calls = self.app.tm.mockGetNamedCalls('storeObject')
@@ -237,10 +239,10 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         tid = self.getNextTID()
         oid, serial, comp, checksum, data = self._getObject()
         data_tid = self.getNextTID()
-        self.operation.askStoreObject(conn, oid, serial, comp, checksum,
+        self.operation.askStoreObject(conn, oid, serial, comp, 0,
                 '', data_tid, tid, False)
         self._checkStoreObjectCalled(tid, serial, oid, comp,
-                checksum, None, data_tid, False)
+                None, None, data_tid, False)
         pconflicting, poid, pserial = self.checkAnswerStoreObject(conn,
             decode=True)
         self.assertEqual(pconflicting, 0)

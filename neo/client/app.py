@@ -64,6 +64,9 @@ else:
     compress = real_compress
     makeChecksum = real_makeChecksum
 
+CHECKED_SERIAL = object()
+
+
 class Application(object):
     """The client node application."""
 
@@ -427,15 +430,12 @@ class Application(object):
                     self._cache.store(oid, *result)
                 finally:
                     self._cache_lock_release()
-                if result[0] == '':
-                    raise NEOStorageCreationUndoneError(dump(oid))
             return result
         finally:
             self._load_lock_release()
 
     @profiler_decorator
     def _loadFromStorage(self, oid, at_tid, before_tid):
-        data = None
         packet = Packets.AskObject(oid, at_tid, before_tid)
         for node, conn in self.cp.iterateForObject(oid, readable=True):
             try:
@@ -444,23 +444,18 @@ class Application(object):
             except ConnectionClosed:
                 continue
 
-            if checksum != makeChecksum(data):
-                # Warning: see TODO file.
-                # Check checksum.
-                neo.lib.logging.error('wrong checksum from %s for oid %s',
+            if data or checksum:
+                if checksum != makeChecksum(data):
+                    neo.lib.logging.error('wrong checksum from %s for oid %s',
                               conn, dump(oid))
-                data = None
-                continue
-            break
-        if data is None:
-            # We didn't got any object from all storage node because of
-            # connection error
-            raise NEOStorageError('connection failure')
-
-        # Uncompress data
-        if compression:
-            data = decompress(data)
-        return data, tid, next_tid
+                    continue
+                if compression:
+                    data = decompress(data)
+                return data, tid, next_tid
+            raise NEOStorageCreationUndoneError(dump(oid))
+        # We didn't got any object from all storage node because of
+        # connection error
+        raise NEOStorageError('connection failure')
 
     @profiler_decorator
     def _loadFromCache(self, oid, at_tid=None, before_tid=None):
@@ -512,8 +507,9 @@ class Application(object):
             # This is some undo: either a no-data object (undoing object
             # creation) or a back-pointer to an earlier revision (going back to
             # an older object revision).
-            data = compressed_data = ''
+            compressed_data = ''
             compression = 0
+            checksum = 0
         else:
             assert data_serial is None
             compression = self.compress
@@ -525,7 +521,7 @@ class Application(object):
                     compression = 0
                 else:
                     compression = 1
-        checksum = makeChecksum(compressed_data)
+            checksum = makeChecksum(compressed_data)
         on_timeout = OnTimeout(self.onStoreTimeout, txn_context, oid)
         # Store object in tmp cache
         data_dict = txn_context['data_dict']
@@ -600,11 +596,11 @@ class Application(object):
                     dump(oid), dump(serial))
                 for store_oid, store_data in data_dict.iteritems():
                     store_serial = object_serial_dict[store_oid]
-                    if store_data is None:
+                    if store_data is CHECKED_SERIAL:
                         self._checkCurrentSerialInTransaction(txn_context,
                             store_oid, store_serial)
                     else:
-                        if store_data is '':
+                        if store_data is None:
                             # Some undo
                             neo.lib.logging.warning('Deadlock avoidance cannot'
                                 ' reliably work with undo, this must be '
@@ -615,7 +611,7 @@ class Application(object):
                             store_data, unlock=True)
                 else:
                     continue
-            elif data is not None:
+            elif data is not CHECKED_SERIAL:
                 resolved_serial_set = resolved_conflict_serial_dict.setdefault(
                     oid, set())
                 if resolved_serial_set and conflict_serial <= max(
@@ -644,7 +640,7 @@ class Application(object):
             # XXX: Is it really required to remove from data_dict ?
             del data_dict[oid]
             txn_context['data_list'].remove(oid)
-            if data is None:
+            if data is CHECKED_SERIAL:
                 raise ReadConflictError(oid=oid, serials=(conflict_serial,
                     serial))
             raise ConflictError(oid=oid, serials=(txn_context['ttid'],
@@ -789,14 +785,14 @@ class Application(object):
             try:
                 cache = self._cache
                 for oid, data in txn_context['data_dict'].iteritems():
-                    if data is None:
+                    if data is CHECKED_SERIAL:
                         # this is just a remain of
                         # checkCurrentSerialInTransaction call, ignore (no data
                         # was modified).
                         continue
                     # Update ex-latest value in cache
                     cache.invalidate(oid, tid)
-                    if data:
+                    if data is not None:
                         # Store in cache with no next_tid
                         cache.store(oid, data, tid, None)
             finally:
@@ -1097,7 +1093,7 @@ class Application(object):
         data_dict = txn_context['data_dict']
         if oid not in data_dict:
             # Marker value so we don't try to resolve conflicts.
-            data_dict[oid] = None
+            data_dict[oid] = CHECKED_SERIAL
             txn_context['data_list'].append(oid)
         packet = Packets.AskCheckCurrentSerial(ttid, serial, oid)
         for node, conn in self.cp.iterateForObject(oid, writable=True):

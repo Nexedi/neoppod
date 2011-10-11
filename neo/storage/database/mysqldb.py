@@ -809,13 +809,13 @@ class MySQLDatabaseManager(DatabaseManager):
             for count, oid, max_serial in q('SELECT COUNT(*) - 1, oid, '
                     'MAX(serial) FROM obj_short WHERE serial <= %(tid)d '
                     'GROUP BY oid' % {'tid': tid}):
-                if q('SELECT LENGTH(value) FROM obj WHERE partition ='
+                if q('SELECT 1 FROM obj WHERE partition ='
                         '%(partition)s AND oid = %(oid)d AND '
-                        'serial = %(max_serial)d' % {
+                        'serial = %(max_serial)d AND checksum IS NULL' % {
                             'oid': oid,
                             'partition': getPartition(oid),
                             'max_serial': max_serial,
-                        })[0][0] == 0:
+                        }):
                     count += 1
                     max_serial += 1
                 if count:

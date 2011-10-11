@@ -25,6 +25,7 @@ import neo.lib
 from hashlib import md5
 
 from neo.storage.database import DatabaseManager
+from neo.storage.database.manager import CreationUndone
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID
 from neo.lib import util
 
@@ -111,9 +112,6 @@ def _noPrune(_):
     pass
 
 prune = _prune
-
-class CreationUndone(Exception):
-    pass
 
 def iterObjSerials(obj):
     for tserial in obj.values():
@@ -658,7 +656,7 @@ class BTreeDatabaseManager(DatabaseManager):
                 # No entry before pack TID, nothing to pack on this object.
                 pass
             else:
-                if tserial[max_serial][2] == '':
+                if tserial[max_serial][1] is None:
                     # Last version before/at pack TID is a creation undo, drop
                     # it too.
                     max_serial += 1
