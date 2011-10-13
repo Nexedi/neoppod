@@ -49,7 +49,7 @@ def main(args=None):
     #from ZEO.ClientStorage import ClientStorage as ZEOStorage
     from neo.client.Storage import Storage as NEOStorage
     if os.path.exists(source):
-        src = FileStorage(file_name=source)
+        src = FileStorage(file_name=source, read_only=True)
         dst = NEOStorage(master_nodes=destination, name=cluster,
                          verbose=options.verbose)
     else:
