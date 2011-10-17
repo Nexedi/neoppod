@@ -1,7 +1,7 @@
 Change History
 ==============
 
-0.9.2 (unreleased)
+0.9.2 (2011-10-17)
 ------------------
 
 - storage: a specific socket can be given to MySQL backend
