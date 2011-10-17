@@ -12,13 +12,17 @@
 #
 ##############################################################################
 
-# NEO requires ZODB to allow TID to be returned as late as tpc_finish.
-# At the moment, no ZODB release include this patch.
+# At the moment, no ZODB release include the following patches.
 # Later, this must be replaced by some detection mechanism.
-needs_patch = True
+if 1:
 
-if needs_patch:
     from ZODB.Connection import Connection
+
+    # Allow serial to be returned as late as tpc_finish
+    #
+    # This makes possible for storage to allocate serial inside tpc_finish,
+    # removing the requirement to serialise second commit phase (tpc_vote
+    # to tpc_finish/tpc_abort).
 
     def tpc_finish(self, transaction):
         """Indicate confirmation that the transaction is done."""
@@ -49,6 +53,8 @@ if needs_patch:
         self._tpc_cleanup()
 
     Connection.tpc_finish = tpc_finish
+
+    ###
 
     try:
         if Connection._nexedi_fix != 4:

@@ -143,20 +143,17 @@ NEO has no built-in deployment features such as process daemonization. We use
   [group:neo]
   programs=master_01,storage_01,admin
 
-  [program:master_01]
-  priority=1
-  command=neomaster -c neo -s master_01 -f /neo/neo.conf
-  user=neo
-
   [program:storage_01]
-  priority=2
+  priority=10
   command=neostorage -c neo -s storage_01 -f /neo/neo.conf
-  user=neo
+
+  [program:master_01]
+  priority=20
+  command=neomaster -c neo -s master_01 -f /neo/neo.conf
 
   [program:admin]
-  priority=3
+  priority=20
   command=neoadmin -c neo -s admin -f /neo/neo.conf
-  user=neo
 
 Developers
 ==========
