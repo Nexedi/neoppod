@@ -1,0 +1,19 @@
+NEO 0.10
+========
+
+The format of MySQL tables has changed in NEO 0.10 and there is no backward
+compatibility or transparent migration, so you will have to use the following
+SQL commands to migrate each storage from NEO < 0.10::
+
+  -- make sure 'tobj' is empty first
+  DROP TABLE obj_short, tobj;
+  ALTER TABLE obj CHANGE checksum hash BINARY(20) NULL;
+  UPDATE obj SET value=NULL WHERE value='';
+  UPDATE obj SET hash=UNHEX(SHA1(value));
+  ALTER TABLE obj ADD KEY (hash(4));
+  CREATE TABLE data (hash BINARY(20) NOT NULL PRIMARY KEY, compression TINYINT UNSIGNED NULL, value LONGBLOB NULL) ENGINE = InnoDB SELECT DISTINCT hash, compression, value FROM obj WHERE hash IS NOT NULL;
+  ALTER TABLE obj DROP compression, DROP value;
+  UPDATE obj, obj as undone SET obj.hash=undone.hash WHERE obj.value_serial IS NOT NULL AND obj.partition=undone.partition AND obj.oid=undone.oid AND obj.value_serial=undone.serial;
+
+If 'tobj' is not empty, this means your cluster was not shutdown properly.
+Restart it to flush the last committed transaction.
