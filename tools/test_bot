@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import os, subprocess, sys, time
+import errno, os, socket, subprocess, sys, time
 
 def clean():
     for path, dir_list, file_list in os.walk('.'):
@@ -49,24 +49,35 @@ def main():
     delay = None
     while True:
         delay = delay and time.sleep(delay) or 1800
-        old_revision = revision
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         try:
-            _git('fetch')
-            _git('reset', '--merge', '@{u}')
-        except GitError, e:
-            continue
-        revision = getRevision()
-        if revision == old_revision:
-            continue
-        if test_bot_revision != getRevision(test_bot):
-            os.execvp(sys.argv[0], sys.argv)
-        delay = None
-        for test_home in sys.argv[arg_count:]:
-            test_home, tasks = test_home.rsplit('=', 1)
-            tests = ''.join(x for x in tasks if x in 'fuz')
-            bin = os.path.join(test_home, 'bin')
-            if not subprocess.call((os.path.join(bin, 'buildout'), '-v'),
+            while True:
+                try:
+                    s.bind("\0neo.tools.test_bot")
+                    break
+                except socket.error, e:
+                    if e.errno != errno.EADDRINUSE:
+                        raise
+                    time.sleep(60)
+            old_revision = revision
+            try:
+                _git('fetch')
+                _git('reset', '--merge', '@{u}')
+            except GitError, e:
+                continue
+            revision = getRevision()
+            if revision == old_revision:
+                continue
+            if test_bot_revision != getRevision(test_bot):
+                break
+            delay = None
+            for test_home in sys.argv[arg_count:]:
+                test_home, tasks = test_home.rsplit('=', 1)
+                tests = ''.join(x for x in tasks if x in 'fuz')
+                bin = os.path.join(test_home, 'bin')
+                if subprocess.call((os.path.join(bin, 'buildout'), '-v'),
                                    cwd=test_home):
+                    continue
                 title = '[%s:%s-g%s:%s]' % (branch,
                   git('rev-list', '--topo-order', '--count', revision),
                   revision[:7], os.path.basename(test_home))
@@ -82,7 +93,10 @@ def main():
                                      '--min-replicas=0', '--max-replicas=3',
                                      '--title', 'Matrix ' + title,
                                     ] + sys.argv[1:arg_count])
+        finally:
+            s.close()
         clean()
+    os.execvp(sys.argv[0], sys.argv)
 
 if __name__ == '__main__':
     sys.exit(main())
