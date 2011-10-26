@@ -18,6 +18,7 @@
 
 import re
 import socket
+from binascii import a2b_hex, b2a_hex
 from hashlib import sha1
 from Queue import deque
 from struct import pack, unpack
@@ -39,26 +40,15 @@ def add64(packed, offset):
 
 def dump(s):
     """Dump a binary string in hex."""
-    if s is None:
-        return None
-    if isinstance(s, str):
-        ret = []
-        for c in s:
-            ret.append('%02x' % ord(c))
-        return ''.join(ret)
-    else:
+    if s is not None:
+        if isinstance(s, str):
+            return b2a_hex(s)
         return repr(s)
-
 
 def bin(s):
     """Inverse of dump method."""
-    if s is None:
-        return None
-    ret = []
-    while len(s):
-        ret.append(chr(int(s[:2], 16)))
-        s = s[2:]
-    return ''.join(ret)
+    if s is not None:
+        return a2b_hex(s)
 
 
 def makeChecksum(s):
