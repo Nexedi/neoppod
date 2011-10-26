@@ -107,12 +107,9 @@ class Serialized(object):
 
     @classmethod
     def background(cls):
-        cls._lock_lock.acquire()
-        try:
+        with cls._lock_lock:
             if cls._lock_list:
                 cls._lock_list.popleft().release()
-        finally:
-            cls._lock_lock.release()
 
 class SerializedEventManager(EventManager):
 
@@ -186,7 +183,7 @@ class ServerNode(Node):
     def __init__(self, cluster, address, **kw):
         self._init_args = (cluster, address), dict(kw)
         threading.Thread.__init__(self)
-        self.setDaemon(True)
+        self.daemon = True
         h, p = address
         self.node_type = getattr(NodeTypes,
             SERVER_TYPE[VIRTUAL_IP.index(h)].upper())
@@ -394,8 +391,7 @@ class ConnectionFilter(object):
         return queue
 
     def __call__(self, revert=1):
-        self.lock.acquire()
-        try:
+        with self.lock:
             self.filter_dict.clear()
             self._retry()
             if revert:
@@ -403,8 +399,6 @@ class ConnectionFilter(object):
                     assert not queue
                     del conn._addPacket
                 del self.conn_list[:]
-        finally:
-            self.lock.release()
 
     def _retry(self):
         for conn, queue in self.conn_list:
@@ -423,20 +417,14 @@ class ConnectionFilter(object):
         self(0)
 
     def add(self, filter, *patches):
-        self.lock.acquire()
-        try:
+        with self.lock:
             self.filter_dict[filter] = patches
-        finally:
-            self.lock.release()
 
     def remove(self, *filters):
-        self.lock.acquire()
-        try:
+        with self.lock:
             for filter in filters:
                 del self.filter_dict[filter]
             self._retry()
-        finally:
-            self.lock.release()
 
     def __contains__(self, filter):
         return filter in self.filter_dict
@@ -665,7 +653,7 @@ class NEOThreadedTest(NeoTestBase):
         def __init__(self, func, *args, **kw):
             threading.Thread.__init__(self)
             self.__target = func, args, kw
-            self.setDaemon(True)
+            self.daemon = True
             self.start()
 
         def run(self):

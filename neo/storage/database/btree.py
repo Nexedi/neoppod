@@ -263,8 +263,7 @@ class BTreeDatabaseManager(DatabaseManager):
         uncommitted_data = self._uncommitted_data
         def deleter_callback(tree, key_list):
             for tid in key_list:
-                checksum = tree[tid][0] # BBB: recent ZODB provides pop()
-                del tree[tid]           #
+                checksum = tree.pop(tid)[0]
                 if checksum:
                     index = data[checksum][2]
                     index.remove((oid, tid))
@@ -277,7 +276,7 @@ class BTreeDatabaseManager(DatabaseManager):
         checksum_list = []
         checksum_set = set()
         for oid in key_list:
-            tserial = tree[oid]; del tree[oid] # BBB: recent ZODB provides pop()
+            tserial = tree.pop(oid)
             for tid, (checksum, _) in tserial.items():
                 if checksum:
                     index = data[checksum][2]

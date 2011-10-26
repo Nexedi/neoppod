@@ -151,11 +151,9 @@ class ConnectionPool(object):
     def getConnForNode(self, node):
         """Return a locked connection object to a given node
         If no connection exists, create a new one"""
-        if not node.isRunning():
-            return None
-        uuid = node.getUUID()
-        self.connection_lock_acquire()
-        try:
+        if node.isRunning():
+            uuid = node.getUUID()
+            self.connection_lock_acquire()
             try:
                 # Already connected to node
                 return self.connection_dict[uuid]
@@ -164,15 +162,12 @@ class ConnectionPool(object):
                     # must drop some unused connections
                     self._dropConnections()
                 # Create new connection to node
-                while True:
-                    conn = self._initNodeConnection(node)
-                    if conn is not None:
-                        self.connection_dict[uuid] = conn
-                        return conn
-                    else:
-                        return None
-        finally:
-            self.connection_lock_release()
+                conn = self._initNodeConnection(node)
+                if conn is not None:
+                    self.connection_dict[uuid] = conn
+                return conn
+            finally:
+                self.connection_lock_release()
 
     @profiler_decorator
     def removeConnection(self, node):

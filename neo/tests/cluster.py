@@ -81,13 +81,10 @@ class ClusterDict(dict):
         self._r, self._w = os.pipe()
         # shm_open(3) would be better but Python doesn't provide it.
         # See also http://nikitathespider.com/python/shm/
-        f = tempfile.TemporaryFile()
-        try:
+        with tempfile.TemporaryFile() as f:
             f.write(dumps(self.copy(), -1))
             f.flush()
             self._shared = mmap.mmap(f.fileno(), f.tell())
-        finally:
-            f.close()
         self.release()
 
     def __del__(self):

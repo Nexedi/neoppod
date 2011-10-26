@@ -54,19 +54,13 @@ Requirements
 
 - Linux 2.6 or later
 
-- Python 2.4 or later
-
-- For python 2.4: `ctypes <http://python.net/crew/theller/ctypes/>`_
-  (packaged with later python versions)
-
-  Note that setup.py does not define any dependency to 'ctypes' so you will
-  have to install it explicitely.
+- Python 2.6.x or 2.7.x
 
 - For storage nodes:
 
   - MySQLdb: http://sourceforge.net/projects/mysql-python
 
-- For client nodes: ZODB 3.10.x but it should work with ZODB >= 3.4
+- For client nodes: ZODB 3.10.x but it should work with ZODB 3.9.x
 
 Installation
 ============

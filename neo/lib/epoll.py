@@ -15,25 +15,17 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-r"""This is an epoll(4) interface available in Linux 2.6. This requires
-ctypes <http://python.net/crew/theller/ctypes/>."""
+"""This is an epoll(4) interface available in Linux 2.6."""
 
-from ctypes import cdll, Union, Structure, \
-        c_void_p, c_int, byref
-try:
-    from ctypes import c_uint32, c_uint64
-except ImportError:
-    from ctypes import c_uint, c_ulonglong
-    c_uint32 = c_uint
-    c_uint64 = c_ulonglong
+from ctypes import CDLL, get_errno, Union, Structure
+from ctypes import c_void_p, c_int, byref, c_uint32, c_uint64
 from os import close
 from errno import EINTR, EAGAIN
 
-libc = cdll.LoadLibrary('libc.so.6')
+libc = CDLL('libc.so.6', use_errno=True)
 epoll_create = libc.epoll_create
 epoll_wait = libc.epoll_wait
 epoll_ctl = libc.epoll_ctl
-errno = c_int.in_dll(libc, 'errno')
 
 EPOLLIN = 0x001
 EPOLLPRI = 0x002
@@ -69,7 +61,7 @@ class Epoll(object):
     def __init__(self):
         self.efd = epoll_create(10)
         if self.efd == -1:
-            raise OSError(errno.value, 'epoll_create failed')
+            raise OSError(get_errno(), 'epoll_create failed')
 
         self.maxevents = 1024 # XXX arbitrary
         epoll_event_array = EpollEvent * self.maxevents
@@ -85,8 +77,8 @@ class Epoll(object):
             n = epoll_wait(self.efd, byref(self.events), self.maxevents,
                            timeout)
             if n == -1:
-                e = errno.value
-                # XXX: Why 0 ? Maybe due to partial workaround in neo.lib.debug.
+                e = get_errno()
+                # XXX: Why 0 ?
                 if e in (0, EINTR, EAGAIN):
                     continue
                 else:
@@ -111,7 +103,7 @@ class Epoll(object):
         ev.data.fd = fd
         ret = epoll_ctl(self.efd, EPOLL_CTL_ADD, fd, byref(ev))
         if ret == -1:
-            raise OSError(errno.value, 'epoll_ctl failed')
+            raise OSError(get_errno(), 'epoll_ctl failed')
 
     def modify(self, fd, readable, writable):
         ev = EpollEvent()
@@ -124,13 +116,13 @@ class Epoll(object):
         ev.events = events
         ret = epoll_ctl(self.efd, EPOLL_CTL_MOD, fd, byref(ev))
         if ret == -1:
-            raise OSError(errno.value, 'epoll_ctl failed')
+            raise OSError(get_errno(), 'epoll_ctl failed')
 
     def unregister(self, fd):
         ev = EpollEvent()
         ret = epoll_ctl(self.efd, EPOLL_CTL_DEL, fd, byref(ev))
         if ret == -1:
-            raise OSError(errno.value, 'epoll_ctl failed')
+            raise OSError(get_errno(), 'epoll_ctl failed')
 
     def __del__(self):
         efd = self.efd

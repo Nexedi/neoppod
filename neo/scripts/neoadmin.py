@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+#
 # neoadmin - run an administrator  node of NEO
 #
 # Copyright (C) 2009  Nexedi SA

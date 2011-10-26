@@ -634,7 +634,7 @@ class NEOFunctionalTest(NeoTestBase):
             except:
                 exc_list.append(sys.exc_info())
         thread = threading.Thread(None, excWrapper, args=args, kwargs=kwargs)
-        thread.setDaemon(True)
+        thread.daemon = True
         thread.start()
         thread.join(timeout)
         self.assertFalse(thread.isAlive(), 'Run timeout')

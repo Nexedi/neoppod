@@ -35,18 +35,6 @@ def check_read_only(func):
         return func(self, *args, **kw)
     return wraps(func)(wrapped)
 
-def old_history_api(func):
-    try:
-        if ZODB.interfaces.IStorage['history'].positional[1] != 'version':
-            return func # ZODB >= 3.9
-    except KeyError: # ZODB < 3.8
-        pass
-    def history(self, oid, version=None, *args, **kw):
-        if version is None:
-            return func(self, oid, *args, **kw)
-        raise ValueError('Versions are not supported')
-    return wraps(func)(history)
-
 class Storage(BaseStorage.BaseStorage,
               ConflictResolution.ConflictResolvingStorage):
     """Wrapper class for neoclient."""
@@ -72,8 +60,8 @@ class Storage(BaseStorage.BaseStorage,
         # - transaction isolation is not done
         # ZODB.interfaces.IStorageIteration,
         ZODB.interfaces.IStorageUndoable,
-        getattr(ZODB.interfaces, 'IExternalGC', None), # XXX ZODB < 3.9
-        getattr(ZODB.interfaces, 'ReadVerifyingStorage', None), # XXX ZODB 3.9
+        ZODB.interfaces.IExternalGC,
+        getattr(ZODB.interfaces, 'ReadVerifyingStorage', None), # BBB ZODB 3.9
     )))
 
     def __init__(self, master_nodes, name, read_only=False,
@@ -227,7 +215,6 @@ class Storage(BaseStorage.BaseStorage,
     def registerDB(self, db, limit=None):
         self.app.registerDB(db, limit)
 
-    @old_history_api
     def history(self, oid, *args, **kw):
         try:
             return self.app.history(oid, *args, **kw)

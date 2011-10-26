@@ -1,4 +1,4 @@
-#! /usr/bin/env python2.4
+#!/usr/bin/env python
 #
 # neomaster - run a master node of NEO
 #

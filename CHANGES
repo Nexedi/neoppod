@@ -1,6 +1,11 @@
 Change History
 ==============
 
+1.0 (unreleased)
+----------------
+
+- Drop compatibility with Python < 2.6 and ZODB < 3.9
+
 0.10 (2011-10-17)
 -----------------
 

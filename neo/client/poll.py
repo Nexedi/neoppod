@@ -26,7 +26,7 @@ class _ThreadedPoll(Thread):
     def __init__(self, em, **kw):
         Thread.__init__(self, **kw)
         self.em = em
-        self.setDaemon(True)
+        self.daemon = True
         self._stop = Event()
 
     def run(self):

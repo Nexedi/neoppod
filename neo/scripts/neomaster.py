@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+#
 # neomaster - run a master node of NEO
 #
 # Copyright (C) 2006  Nexedi SA

@@ -835,9 +835,7 @@ class Application(object):
             # key, so that all cells with the same (smallest) key has
             # identical chance to be chosen.
             shuffle(cell_list)
-            # BBB: min(..., key=...) requires Python >= 2.5
-            cell_list.sort(key=getCellSortKey)
-            storage_conn = getConnForCell(cell_list[0])
+            storage_conn = getConnForCell(min(cell_list, key=getCellSortKey))
             storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
                 snapshot_tid, undone_tid, oid_list), queue=queue)
 

@@ -9,17 +9,18 @@ Framework :: ZODB
 Intended Audience :: Developers
 License :: OSI Approved :: GNU General Public License (GPL)
 Operating System :: POSIX :: Linux
-Programming Language :: Python
+Programming Language :: Python :: 2.6
+Programming Language :: Python :: 2.7
 Topic :: Database
 Topic :: Software Development :: Libraries :: Python Modules
 """
 
 if not os.path.exists('mock.py'):
-    import cStringIO, md5, urllib, zipfile
+    import cStringIO, hashlib, urllib, zipfile
     mock_py = zipfile.ZipFile(cStringIO.StringIO(urllib.urlopen(
         'http://downloads.sf.net/sourceforge/python-mock/pythonmock-0.1.0.zip'
         ).read())).read('mock.py')
-    if md5.md5(mock_py).hexdigest() != '79f42f390678e5195d9ce4ae43bd18ec':
+    if hashlib.md5(mock_py).hexdigest() != '79f42f390678e5195d9ce4ae43bd18ec':
         raise EnvironmentError("MD5 checksum mismatch downloading 'mock.py'")
     open('mock.py', 'w').write(mock_py)
 
@@ -36,7 +37,7 @@ extras_require['tests'] = ['zope.testing', 'psutil',
 
 setup(
     name = 'neoppod',
-    version = '0.10',
+    version = '1.0-dev',
     description = __doc__.strip(),
     author = 'NEOPPOD',
     author_email = 'neo-dev@erp5.org',
@@ -62,8 +63,6 @@ setup(
             'stat_zodb=neo.tests.stat_zodb:main',
         ],
     },
-    # Raah!!! I wish I could write something like:
-    #  install_requires = ['python>=2.5|ctypes'],
     extras_require = extras_require,
     package_data = {
         'neo.client': [

@@ -17,7 +17,6 @@
 
 import traceback
 import signal
-import ctypes
 import imp
 import os
 import sys
@@ -41,20 +40,14 @@ ENABLED = False
 #     SIGUSR2:
 #       Triggers a pdb prompt on process' controlling TTY.
 
-libc = ctypes.cdll.LoadLibrary('libc.so.6')
-errno = ctypes.c_int.in_dll(libc, 'errno')
-
 def decorate(func):
     def decorator(sig, frame):
-        # Save errno value, to restore it after sig handler returns
-        old_errno = errno.value
         try:
             func(sig, frame)
         except:
             # Prevent exception from exiting signal handler, so mistakes in
             # "debug" module don't kill process.
             traceback.print_exc()
-        errno.value = old_errno
     return wraps(func)(decorator)
 
 @decorate

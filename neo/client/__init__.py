@@ -28,8 +28,7 @@ if 1:
         """Indicate confirmation that the transaction is done."""
 
         def callback(tid):
-            # BBB: _mvcc_storage not supported on older ZODB
-            if getattr(self, '_mvcc_storage', False):
+            if self._mvcc_storage:
                 # Inter-connection invalidation is not needed when the
                 # storage provides MVCC.
                 return
@@ -73,8 +72,8 @@ if 1:
             def _flush_invalidations():
                 acquire = self._db._a
                 try:
-                    self._db._r()                      # this is a RLock
-                except (AssertionError, RuntimeError): # old Python uses assert
+                    self._db._r() # this is a RLock
+                except RuntimeError:
                     acquire = lambda: None
                 try:
                     del self._flush_invalidations
@@ -87,12 +86,9 @@ if 1:
                 Connection_open(self, *args, **kw)
             finally:
                 del self._flush_invalidations
-        try:
-            Connection_open = Connection._setDB
-            Connection._setDB = open
-        except AttributeError: # recent ZODB
-            Connection_open = Connection.open
-            Connection.open = open
+
+        Connection_open = Connection.open
+        Connection.open = open
 
         # Storage.sync usually implements a "network barrier" (at least
         # in NEO, but ZEO should be fixed to do the same), which is quite
@@ -107,7 +103,7 @@ if 1:
         def afterCompletion(self, *ignored):
             try:
                 self._readCurrent.clear()
-            except AttributeError: # old ZODB (e.g. ZODB 3.4)
+            except AttributeError: # BBB: ZODB < 3.10
                 pass
             self._flush_invalidations()
         #Connection.afterCompletion = afterCompletion
@@ -118,8 +114,7 @@ if 1:
         Wrapper to DB instance that properly initialize Connection objects
         with NEO storages.
         It forces the connection to always create a new instance of the
-        storage, for compatibility with ZODB 3.4, and because we don't
-        implement IMVCCStorage completely.
+        storage, because we don't implement IMVCCStorage completely.
         """
 
         def __new__(cls, db, connection):
@@ -132,23 +127,11 @@ if 1:
 
         def __getattr__(self, attr):
             result = getattr(self._db, attr)
-            if attr in ('storage', '_storage'):
-                result = result.new_instance()
+            if attr == 'storage':
+                self.storage = result = result.new_instance()
                 self._connection._db = self._db
-                setattr(self, attr, result)
             return result
 
-    try:
-        Connection_setDB = Connection._setDB
-    except AttributeError: # recent ZODB
-        Connection_init = Connection.__init__
-        Connection.__init__ = lambda self, db, *args, **kw: \
-            Connection_init(self, _DB(db, self), *args, **kw)
-    else: # old ZODB (e.g. ZODB 3.4)
-        Connection._setDB = lambda self, odb, *args, **kw: \
-            Connection_setDB(self, _DB(odb, self), *args, **kw)
-
-        from ZODB.DB import DB
-        DB_invalidate = DB.invalidate
-        DB.invalidate = lambda self, tid, oids, *args, **kw: \
-            DB_invalidate(self, tid, dict.fromkeys(oids, None), *args, **kw)
+    Connection_init = Connection.__init__
+    Connection.__init__ = lambda self, db, *args, **kw: \
+        Connection_init(self, _DB(db, self), *args, **kw)
