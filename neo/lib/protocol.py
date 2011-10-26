@@ -1245,15 +1245,6 @@ class CheckCurrentSerial(Packet):
         PTID('serial'),
     )
 
-class Barrier(Packet):
-    """
-    Initates a "network barrier", allowing the node sending this packet to know
-    when all packets sent previously on the same connection have been handled
-    by its peer.
-    """
-
-    _answer = PFEmpty
-
 class Pack(Packet):
     """
     Request a pack at given TID.
@@ -1525,8 +1516,7 @@ class Packets(dict):
             0x002B, TIDListFrom)
     AskObjectHistoryFrom, AnswerObjectHistoryFrom = register(
             0x002C, ObjectHistoryFrom)
-    AskBarrier, AnswerBarrier = register(
-            0x002D, Barrier)
+    # 2D
     AskPack, AnswerPack = register(
             0x002E, Pack, ignore_when_closed=False)
     AskCheckTIDRange, AnswerCheckTIDRange = register(

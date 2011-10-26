@@ -133,12 +133,6 @@ class EventHandler(object):
     def notify(self, conn, message):
         neo.lib.logging.info('notification from %r: %s', conn, message)
 
-    def askBarrier(self, conn):
-        conn.answer(Packets.AnswerBarrier())
-
-    def answerBarrier(self, conn):
-        pass
-
     # Error packet handlers.
 
     def error(self, conn, code, message):

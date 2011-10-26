@@ -1058,9 +1058,6 @@ class Application(object):
         psThreadedPoll()
     close = __del__
 
-    def invalidationBarrier(self):
-        self._askPrimary(Packets.AskBarrier())
-
     def pack(self, t):
         tid = repr(TimeStamp(*time.gmtime(t)[:5] + (t % 60, )))
         if tid == ZERO_TID:
