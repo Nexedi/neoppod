@@ -19,7 +19,7 @@ import unittest
 from ZODB.tests.MTStorage import MTStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from neo.tests.zodb import ZODBTestCase
+from . import ZODBTestCase
 
 class MTTests(ZODBTestCase, StorageTestBase, MTStorage):
     pass

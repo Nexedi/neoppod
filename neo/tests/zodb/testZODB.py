@@ -19,7 +19,7 @@ import unittest
 from ZODB.tests import testZODB
 import ZODB
 
-from neo.tests.zodb import ZODBTestCase
+from . import ZODBTestCase
 
 class NEOZODBTests(ZODBTestCase, testZODB.ZODBTests):
 

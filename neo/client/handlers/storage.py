@@ -19,12 +19,12 @@ from ZODB.TimeStamp import TimeStamp
 from ZODB.POSException import ConflictError
 
 import neo.lib
-from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.lib.protocol import NodeTypes, ProtocolError, LockState, ZERO_TID
 from neo.lib.util import dump
-from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
-from neo.client.exception import NEOStorageDoesNotExistError
 from neo.lib.exception import NodeNotReady
+from . import BaseHandler, AnswerBaseHandler
+from ..exception import NEOStorageError, NEOStorageNotFoundError
+from ..exception import NEOStorageDoesNotExistError
 
 class StorageEventHandler(BaseHandler):
 

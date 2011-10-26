@@ -28,8 +28,8 @@ from ZODB.POSException import ConflictError
 from ZODB.tests.StorageTestBase import zodb_pickle
 from persistent import Persistent
 from neo.lib.util import SOCKET_CONNECTORS_DICT
-from neo.tests.functional import NEOCluster, NEOFunctionalTest
-from neo.tests import IP_VERSION_FORMAT_DICT
+from . import NEOCluster, NEOFunctionalTest
+from .. import IP_VERSION_FORMAT_DICT
 
 TREE_SIZE = 6
 

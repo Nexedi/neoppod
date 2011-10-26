@@ -22,9 +22,9 @@ import neo.lib
 from neo.lib.locking import RLock
 from neo.lib.protocol import NodeTypes, Packets
 from neo.lib.connection import MTClientConnection, ConnectionClosed
-from neo.client.exception import NEOStorageError
 from neo.lib.profiling import profiler_decorator
 from neo.lib.exception import NodeNotReady
+from .exception import NEOStorageError
 
 # How long before we might retry a connection to a node to which connection
 # failed in the past.

@@ -18,10 +18,10 @@
 from functools import wraps
 import neo
 
-from neo.lib import protocol
-from neo.lib.protocol import CellStates
-from neo.lib.util import dump, u64
-from neo.lib.locking import RLock
+from . import protocol
+from .protocol import CellStates
+from .util import dump, u64
+from .locking import RLock
 
 class PartitionTableException(Exception):
     """

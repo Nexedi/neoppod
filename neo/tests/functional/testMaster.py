@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from neo.tests.functional import NEOCluster, NEOFunctionalTest
+from . import NEOCluster, NEOFunctionalTest
 from neo.lib.protocol import NodeStates
 
 MASTER_NODE_COUNT = 3

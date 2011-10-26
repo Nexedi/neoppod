@@ -21,7 +21,7 @@ from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import PrimaryFailure
-from neo.admin.handler import AdminEventHandler, MasterEventHandler, \
+from .handler import AdminEventHandler, MasterEventHandler, \
     MasterRequestEventHandler
 from neo.lib.connector import getConnectorHandler
 from neo.lib.bootstrap import BootstrapManager

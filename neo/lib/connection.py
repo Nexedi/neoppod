@@ -19,18 +19,15 @@ from functools import wraps
 from time import time
 
 import neo.lib
-from neo.lib.locking import RLock
-
-from neo.lib.protocol import PacketMalformedError, Packets, ParserState
-from neo.lib.connector import ConnectorException, ConnectorTryAgainException, \
+from . import attributeTracker
+from .connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
         ConnectorConnectionClosedException
-from neo.lib.util import dump
-from neo.lib.logger import PACKET_LOGGER
-
-from neo.lib import attributeTracker
-from neo.lib.util import ReadBuffer
-from neo.lib.profiling import profiler_decorator
+from .locking import RLock
+from .logger import PACKET_LOGGER
+from .profiling import profiler_decorator
+from .protocol import PacketMalformedError, Packets, ParserState
+from .util import dump, ReadBuffer
 
 CRITICAL_TIMEOUT = 30
 

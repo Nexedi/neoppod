@@ -18,10 +18,10 @@
 from time import time
 
 import neo.lib
-from neo.lib.util import dump
-from neo.lib.protocol import NodeTypes, NodeStates
+from .util import dump
+from .protocol import NodeTypes, NodeStates
 
-from neo.lib import attributeTracker
+from . import attributeTracker
 
 class Node(object):
     """This class represents a node."""

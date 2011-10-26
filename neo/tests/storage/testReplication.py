@@ -20,7 +20,7 @@ from mock import Mock
 from struct import pack
 from collections import deque
 
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.storage.database import buildDatabaseManager
 from neo.storage.handlers.replication import ReplicationHandler
 from neo.storage.handlers.replication import RANGE_LENGTH

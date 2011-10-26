@@ -36,19 +36,19 @@ from neo.lib.locking import Lock
 from neo.lib.connection import MTClientConnection, OnTimeout, ConnectionClosed
 from neo.lib.node import NodeManager
 from neo.lib.connector import getConnectorHandler
-from neo.client.exception import NEOStorageError, NEOStorageCreationUndoneError
-from neo.client.exception import NEOStorageNotFoundError
+from .exception import NEOStorageError, NEOStorageCreationUndoneError
+from .exception import NEOStorageNotFoundError
 from neo.lib.exception import NeoException
-from neo.client.handlers import storage, master
+from .handlers import storage, master
 from neo.lib.dispatcher import Dispatcher, ForgottenPacket
-from neo.client.poll import ThreadedPoll, psThreadedPoll
-from neo.client.iterator import Iterator
-from neo.client.cache import ClientCache
-from neo.client.pool import ConnectionPool
+from .poll import ThreadedPoll, psThreadedPoll
+from .iterator import Iterator
+from .cache import ClientCache
+from .pool import ConnectionPool
 from neo.lib.util import u64, parseMasterList
 from neo.lib.profiling import profiler_decorator, PROFILING_ENABLED
 from neo.lib.debug import register as registerLiveDebugger
-from neo.client.container import ThreadContainer, TransactionContainer
+from .container import ThreadContainer, TransactionContainer
 
 if PROFILING_ENABLED:
     # Those functions require a "real" python function wrapper before they can

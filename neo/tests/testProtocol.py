@@ -19,7 +19,7 @@ import unittest
 import socket
 from neo.lib.protocol import NodeTypes, NodeStates, CellStates, ClusterStates
 from neo.lib.protocol import ErrorCodes, Packets, Errors, LockState
-from neo.tests import NeoUnitTestBase, IP_VERSION_FORMAT_DICT
+from . import NeoUnitTestBase, IP_VERSION_FORMAT_DICT
 
 class ProtocolTests(NeoUnitTestBase):
 

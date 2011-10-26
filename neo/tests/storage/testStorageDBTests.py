@@ -19,7 +19,7 @@ import unittest
 from mock import Mock
 from neo.lib.util import dump, p64, u64
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.lib.exception import DatabaseFailure
 from neo.storage.database.mysqldb import MySQLDatabaseManager
 

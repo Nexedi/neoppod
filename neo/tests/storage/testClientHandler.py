@@ -19,7 +19,7 @@ import unittest
 from mock import Mock, ReturnValues
 from collections import deque
 from neo.lib.util import makeChecksum
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.transactions import ConflictError, DelayedError
 from neo.storage.handlers.client import ClientOperationHandler

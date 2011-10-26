@@ -17,7 +17,7 @@
 
 import neo.lib
 from neo.lib import protocol
-from neo.master.handlers import BaseServiceHandler
+from . import BaseServiceHandler
 
 class ShutdownHandler(BaseServiceHandler):
     """This class deals with events for a shutting down phase."""

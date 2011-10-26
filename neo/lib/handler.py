@@ -16,9 +16,9 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import neo.lib
-from neo.lib.protocol import NodeStates, ErrorCodes, Packets, Errors
-from neo.lib.protocol import PacketMalformedError, UnexpectedPacketError, \
-        BrokenNodeDisallowedError, NotReadyError, ProtocolError
+from .protocol import (
+    NodeStates, Packets, ErrorCodes, Errors, BrokenNodeDisallowedError,
+    NotReadyError, PacketMalformedError, ProtocolError, UnexpectedPacketError)
 
 
 class EventHandler(object):

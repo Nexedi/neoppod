@@ -17,12 +17,12 @@
 
 import os
 
-from neo.tests import DB_PREFIX
+from .. import DB_PREFIX
 functional = int(os.getenv('NEO_TEST_ZODB_FUNCTIONAL', 0))
 if functional:
-    from neo.tests.functional import NEOCluster, NEOFunctionalTest as TestCase
+    from ..functional import NEOCluster, NEOFunctionalTest as TestCase
 else:
-    from neo.tests.threaded import NEOCluster, NEOThreadedTest as TestCase
+    from ..threaded import NEOCluster, NEOThreadedTest as TestCase
 
 class ZODBTestCase(TestCase):
 

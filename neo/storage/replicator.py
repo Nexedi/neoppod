@@ -18,7 +18,7 @@
 import neo.lib
 from random import choice
 
-from neo.storage.handlers import replication
+from .handlers import replication
 from neo.lib.protocol import NodeTypes, NodeStates, Packets
 from neo.lib.connection import ClientConnection
 from neo.lib.util import dump

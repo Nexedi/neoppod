@@ -18,7 +18,7 @@
 import unittest
 
 import socket
-from neo.tests import NeoUnitTestBase, IP_VERSION_FORMAT_DICT
+from . import NeoUnitTestBase, IP_VERSION_FORMAT_DICT
 from neo.lib.util import ReadBuffer, getAddressType, parseNodeAddress, \
     getConnectorFromAddress, SOCKET_CONNECTORS_DICT
 

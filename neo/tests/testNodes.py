@@ -21,7 +21,7 @@ from neo.lib import protocol
 from neo.lib.protocol import NodeTypes, NodeStates
 from neo.lib.node import Node, MasterNode, StorageNode, \
     ClientNode, AdminNode, NodeManager
-from neo.tests import NeoUnitTestBase
+from . import NeoUnitTestBase
 from time import time
 
 class NodesTests(NeoUnitTestBase):

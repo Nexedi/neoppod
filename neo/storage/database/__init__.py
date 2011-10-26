@@ -16,19 +16,19 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from neo.lib.exception import DatabaseFailure
-from neo.storage.database.manager import DatabaseManager
+from .manager import DatabaseManager
 
 DATABASE_MANAGER_DICT = {}
 
 try:
-    from neo.storage.database.mysqldb import MySQLDatabaseManager
+    from .mysqldb import MySQLDatabaseManager
 except ImportError:
     pass
 else:
     DATABASE_MANAGER_DICT['MySQL'] = MySQLDatabaseManager
 
 try:
-    from neo.storage.database.btree import BTreeDatabaseManager
+    from .btree import BTreeDatabaseManager
 except ImportError:
     pass
 else:

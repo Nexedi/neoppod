@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from mock import Mock
-from neo.tests import NeoTestBase
+from . import NeoTestBase
 from neo.lib.dispatcher import Dispatcher, ForgottenPacket
 from Queue import Queue
 import unittest

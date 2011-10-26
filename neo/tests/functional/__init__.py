@@ -36,9 +36,9 @@ from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib import setupLog
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
 from neo.lib.util import dump
-from neo.tests import DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
+from .. import DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
         ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, getTempDirectory
-from neo.tests.cluster import SocketLock
+from ..cluster import SocketLock
 from neo.client.Storage import Storage
 
 NEO_MASTER = 'neomaster'

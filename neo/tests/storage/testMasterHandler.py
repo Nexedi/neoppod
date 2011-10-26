@@ -18,7 +18,7 @@
 import unittest
 from mock import Mock
 from collections import deque
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.master import MasterOperationHandler
 from neo.lib.exception import PrimaryFailure, OperationFailure

@@ -16,14 +16,12 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import neo.lib
-
-from neo.lib.protocol import ProtocolError
-from neo.lib.protocol import Packets
-from neo.master.handlers import BaseServiceHandler
+from neo.lib.protocol import Packets, ProtocolError
 from neo.lib.exception import OperationFailure
 from neo.lib.util import dump
 from neo.lib.connector import ConnectorConnectionClosedException
 from neo.lib.pt import PartitionTableException
+from . import BaseServiceHandler
 
 
 class StorageServiceHandler(BaseServiceHandler):

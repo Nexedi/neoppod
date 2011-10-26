@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 import unittest
 from mock import Mock
-from neo.tests import NeoUnitTestBase
+from . import NeoUnitTestBase
 from neo.lib.epoll import Epoll
 from neo.lib.event import EpollEventManager
 

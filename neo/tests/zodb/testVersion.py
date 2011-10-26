@@ -21,7 +21,7 @@ from ZODB.tests.TransactionalUndoVersionStorage import \
          TransactionalUndoVersionStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from neo.tests.zodb import ZODBTestCase
+from . import ZODBTestCase
 
 class VersionTests(ZODBTestCase, StorageTestBase, VersionStorage,
         TransactionalUndoVersionStorage):

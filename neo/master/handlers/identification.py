@@ -19,7 +19,7 @@ import neo
 
 from neo.lib.protocol import NodeTypes, Packets
 from neo.lib.protocol import BrokenNodeDisallowedError, ProtocolError
-from neo.master.handlers import MasterHandler
+from . import MasterHandler
 
 class IdentificationHandler(MasterHandler):
 

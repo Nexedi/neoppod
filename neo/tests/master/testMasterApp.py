@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.master.app import Application
 from neo.lib.util import p64, u64
 

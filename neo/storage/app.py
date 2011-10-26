@@ -24,16 +24,16 @@ from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
 from neo.lib.connection import ListeningConnection
 from neo.lib.exception import OperationFailure, PrimaryFailure
-from neo.storage.handlers import identification, verification, initialization
-from neo.storage.handlers import master, hidden
-from neo.storage.replicator import Replicator
-from neo.storage.database import buildDatabaseManager
-from neo.storage.transactions import TransactionManager
-from neo.storage.exception import AlreadyPendingError
 from neo.lib.connector import getConnectorHandler
 from neo.lib.pt import PartitionTable
 from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
+from .database import buildDatabaseManager
+from .exception import AlreadyPendingError
+from .handlers import identification, verification, initialization
+from .handlers import master, hidden
+from .replicator import Replicator
+from .transactions import TransactionManager
 
 from neo.lib.debug import register as registerLiveDebugger
 

@@ -18,9 +18,9 @@
 from neo.lib.connector import getConnectorHandler
 from neo.lib.connection import ClientConnection
 from neo.lib.event import EventManager
-from neo.neoctl.handler import CommandEventHandler
 from neo.lib.protocol import ClusterStates, NodeStates, ErrorCodes, Packets
 from neo.lib.util import getConnectorFromAddress
+from .handler import CommandEventHandler
 
 class NotReadyException(Exception):
     pass

@@ -19,7 +19,7 @@ import unittest
 from ZODB.tests.RevisionStorage import RevisionStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from neo.tests.zodb import ZODBTestCase
+from . import ZODBTestCase
 
 class RevisionTests(ZODBTestCase, StorageTestBase, RevisionStorage):
     pass

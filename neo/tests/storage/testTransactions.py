@@ -18,7 +18,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.storage.transactions import Transaction, TransactionManager
 from neo.storage.transactions import ConflictError, DelayedError
 

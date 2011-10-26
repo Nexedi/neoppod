@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.lib.pt import PartitionTable
 from neo.storage.app import Application
 from neo.storage.handlers.verification import VerificationHandler

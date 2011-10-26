@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeTypes, LockState
 from neo.client.handlers.storage import StorageBootstrapHandler, \
        StorageAnswersHandler

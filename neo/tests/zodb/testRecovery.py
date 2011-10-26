@@ -22,8 +22,8 @@ import ZODB
 from ZODB.tests.RecoveryStorage import RecoveryStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from neo.tests.functional import NEOCluster
-from neo.tests.zodb import ZODBTestCase
+from ..functional import NEOCluster
+from . import ZODBTestCase
 
 class RecoveryTests(ZODBTestCase, StorageTestBase, RecoveryStorage):
 

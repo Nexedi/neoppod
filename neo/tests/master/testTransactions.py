@@ -18,7 +18,7 @@
 import unittest
 from mock import Mock
 from struct import pack, unpack
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.lib.protocol import ZERO_TID
 
 from neo.master.transactions import Transaction, TransactionManager

@@ -17,7 +17,7 @@
 
 import neo.lib
 
-from neo.storage.handlers import BaseMasterHandler
+from . import BaseMasterHandler
 from neo.lib.protocol import CellStates
 
 class HiddenHandler(BaseMasterHandler):

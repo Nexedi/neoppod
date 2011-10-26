@@ -16,8 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from functools import wraps
-from neo.lib.locking import Lock, Empty
-from neo.lib.profiling import profiler_decorator
+from .locking import Lock, Empty
+from .profiling import profiler_decorator
 EMPTY = {}
 NOBODY = []
 

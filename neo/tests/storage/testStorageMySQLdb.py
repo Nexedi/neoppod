@@ -19,7 +19,7 @@ import unittest
 import MySQLdb
 from mock import Mock
 from neo.lib.exception import DatabaseFailure
-from neo.tests.storage.testStorageDBTests import StorageDBTests
+from .testStorageDBTests import StorageDBTests
 from neo.storage.database.mysqldb import MySQLDatabaseManager
 
 NEO_SQL_DATABASE = 'test_mysqldb0'

@@ -18,7 +18,7 @@
 import unittest
 from mock import Mock
 from collections import deque
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.storage.handlers.storage import StorageOperationHandler
 from neo.lib.protocol import INVALID_PARTITION, Packets

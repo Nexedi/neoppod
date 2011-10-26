@@ -21,7 +21,7 @@ import neo
 from neo.lib.util import dump
 from neo.lib.protocol import Packets, ProtocolError, ClusterStates, NodeStates
 from neo.lib.protocol import NotReadyError, ZERO_OID, ZERO_TID
-from neo.master.handlers import MasterHandler
+from .handlers import MasterHandler
 
 
 class RecoveryManager(MasterHandler):

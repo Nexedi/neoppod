@@ -19,7 +19,7 @@ import unittest
 import transaction
 from persistent import Persistent
 
-from neo.tests.functional import NEOCluster, NEOFunctionalTest
+from . import NEOCluster, NEOFunctionalTest
 
 class ClusterTests(NEOFunctionalTest):
 

@@ -18,7 +18,7 @@
 import neo.lib
 from neo.lib.util import dump
 from neo.lib.protocol import CellStates, Packets, ProtocolError
-from neo.storage.handlers import BaseMasterHandler
+from . import BaseMasterHandler
 
 
 class MasterOperationHandler(BaseMasterHandler):

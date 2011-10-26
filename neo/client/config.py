@@ -20,7 +20,7 @@ from ZODB.config import BaseConfig
 class NeoStorage(BaseConfig):
 
     def open(self):
-        from neo.client.Storage import Storage
+        from .Storage import Storage
         config = self.config
         return Storage(**dict((k, getattr(config, k))
                               for k in config.getSectionAttributes()))

@@ -18,10 +18,10 @@
 import neo
 from time import sleep
 
-from neo.lib.handler import EventHandler
-from neo.lib.protocol import Packets
-from neo.lib.util import dump
-from neo.lib.connection import ClientConnection
+from .handler import EventHandler
+from .protocol import Packets
+from .util import dump
+from .connection import ClientConnection
 
 NO_SERVER = ('0.0.0.0', 0)
 

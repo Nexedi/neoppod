@@ -15,7 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-from neo.master.handlers import MasterHandler
+from . import MasterHandler
 from neo.lib.exception import ElectionFailure, PrimaryFailure
 from neo.lib.protocol import NodeTypes, Packets
 

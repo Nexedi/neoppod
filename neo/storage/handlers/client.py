@@ -19,9 +19,9 @@ import neo.lib
 from neo.lib import protocol
 from neo.lib.util import dump, makeChecksum
 from neo.lib.protocol import Packets, LockState, Errors, ZERO_HASH
-from neo.storage.handlers import BaseClientAndStorageOperationHandler
-from neo.storage.transactions import ConflictError, DelayedError
-from neo.storage.exception import AlreadyPendingError
+from . import BaseClientAndStorageOperationHandler
+from ..transactions import ConflictError, DelayedError
+from ..exception import AlreadyPendingError
 import time
 
 # Log stores taking (incl. lock delays) more than this many seconds.

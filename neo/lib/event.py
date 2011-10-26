@@ -17,8 +17,8 @@
 
 from time import time
 import neo.lib
-from neo.lib.epoll import Epoll
-from neo.lib.profiling import profiler_decorator
+from .epoll import Epoll
+from .profiling import profiler_decorator
 
 class EpollEventManager(object):
     """This class manages connections and events based on epoll(5)."""

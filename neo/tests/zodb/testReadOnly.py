@@ -19,7 +19,7 @@ import unittest
 from ZODB.tests.ReadOnlyStorage import ReadOnlyStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from neo.tests.zodb import ZODBTestCase
+from . import ZODBTestCase
 
 class ReadOnlyTests(ZODBTestCase, StorageTestBase, ReadOnlyStorage):
     pass

@@ -20,7 +20,7 @@ import unittest
 import transaction
 from persistent import Persistent
 
-from neo.tests.functional import NEOCluster, NEOFunctionalTest
+from . import NEOCluster, NEOFunctionalTest
 from neo.lib.protocol import ClusterStates, NodeStates
 from ZODB.tests.StorageTestBase import zodb_pickle
 from MySQLdb import ProgrammingError

@@ -20,7 +20,7 @@ from mock import Mock
 from neo.lib.protocol import NodeStates, CellStates
 from neo.lib.pt import Cell, PartitionTable, PartitionTableException
 from neo.lib.node import StorageNode
-from neo.tests import NeoUnitTestBase
+from . import NeoUnitTestBase
 
 class PartitionTableTests(NeoUnitTestBase):
 

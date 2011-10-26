@@ -19,7 +19,7 @@ import unittest
 from ZODB.tests.HistoryStorage import HistoryStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from neo.tests.zodb import ZODBTestCase
+from . import ZODBTestCase
 
 class HistoryTests(ZODBTestCase, StorageTestBase, HistoryStorage):
     pass

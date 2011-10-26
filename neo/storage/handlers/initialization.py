@@ -17,7 +17,7 @@
 
 import neo.lib
 
-from neo.storage.handlers import BaseMasterHandler
+from . import BaseMasterHandler
 from neo.lib import protocol
 
 class InitializationHandler(BaseMasterHandler):

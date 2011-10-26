@@ -16,12 +16,11 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import neo.lib
-
-from neo.client.handlers import BaseHandler, AnswerBaseHandler
 from neo.lib.pt import MTPartitionTable as PartitionTable
 from neo.lib.protocol import NodeTypes, NodeStates, ProtocolError
 from neo.lib.util import dump
-from neo.client.exception import NEOStorageError
+from . import BaseHandler, AnswerBaseHandler
+from ..exception import NEOStorageError
 
 class PrimaryBootstrapHandler(AnswerBaseHandler):
     """ Bootstrap handler used when looking for the primary master """

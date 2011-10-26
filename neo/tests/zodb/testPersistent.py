@@ -19,7 +19,7 @@ import unittest
 from ZODB.tests.PersistentStorage import PersistentStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from neo.tests.zodb import ZODBTestCase
+from . import ZODBTestCase
 
 class PersistentTests(ZODBTestCase, StorageTestBase, PersistentStorage):
     pass

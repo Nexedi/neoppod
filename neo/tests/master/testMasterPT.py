@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeStates, CellStates
 from neo.master.pt import PartitionTable
 from neo.lib.node import StorageNode

@@ -17,7 +17,7 @@
 
 ATTRIBUTE_TRACKER_ENABLED = False
 
-from neo.lib.locking import LockUser
+from .locking import LockUser
 
 """
   Usage example:

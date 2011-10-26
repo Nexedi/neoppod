@@ -19,7 +19,7 @@ import unittest
 from ZODB.tests.ConflictResolution import ConflictResolvingStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from neo.tests.zodb import ZODBTestCase
+from . import ZODBTestCase
 
 class ConflictTests(ZODBTestCase, StorageTestBase, ConflictResolvingStorage):
     pass

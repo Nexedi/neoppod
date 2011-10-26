@@ -26,8 +26,8 @@ from hashlib import sha1
 import re
 import string
 
-from neo.storage.database import DatabaseManager
-from neo.storage.database.manager import CreationUndone
+from . import DatabaseManager
+from .manager import CreationUndone
 from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
 from neo.lib import util

@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoUnitTestBase
+from . import NeoUnitTestBase
 from neo.storage.app import Application
 from neo.lib.bootstrap import BootstrapManager
 from neo.lib.protocol import NodeTypes

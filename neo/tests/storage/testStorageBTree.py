@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests.storage.testStorageDBTests import StorageDBTests
+from .testStorageDBTests import StorageDBTests
 from neo.storage.database.btree import BTreeDatabaseManager
 
 class StorageBTreeTests(StorageDBTests):

@@ -17,10 +17,10 @@
 
 from base64 import b64encode
 import neo
-from neo.lib.protocol import PacketMalformedError
-from neo.lib.util import dump
-from neo.lib.handler import EventHandler
-from neo.lib.profiling import profiler_decorator
+from .protocol import PacketMalformedError
+from .util import dump
+from .handler import EventHandler
+from .profiling import profiler_decorator
 
 LOGGER_ENABLED = False
 

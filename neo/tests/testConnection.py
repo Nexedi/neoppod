@@ -22,12 +22,12 @@ from neo.lib.connection import ListeningConnection, Connection, \
      ClientConnection, ServerConnection, MTClientConnection, \
      HandlerSwitcher, CRITICAL_TIMEOUT
 from neo.lib.connector import getConnectorHandler, registerConnectorHandler
-from neo.tests import DoNothingConnector
+from . import DoNothingConnector
 from neo.lib.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import Packets, ParserState
-from neo.tests import NeoUnitTestBase
+from . import NeoUnitTestBase
 from neo.lib.util import ReadBuffer
 from neo.lib.locking import Queue
 

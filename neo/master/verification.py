@@ -18,7 +18,7 @@
 import neo
 from neo.lib.util import dump
 from neo.lib.protocol import ClusterStates, Packets, NodeStates
-from neo.master.handlers import BaseServiceHandler
+from .handlers import BaseServiceHandler
 
 
 class VerificationFailure(Exception):

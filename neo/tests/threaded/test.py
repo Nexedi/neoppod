@@ -24,7 +24,7 @@ from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import MTClientConnection
 from neo.lib.protocol import NodeStates, Packets, ZERO_TID
-from neo.tests.threaded import NEOCluster, NEOThreadedTest, \
+from . import NEOCluster, NEOThreadedTest, \
     Patch, ConnectionFilter
 from neo.lib.util import makeChecksum
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD

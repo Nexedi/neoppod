@@ -21,9 +21,9 @@ from neo.lib.protocol import NodeTypes, NodeStates, Packets
 from neo.lib.protocol import NotReadyError, ProtocolError, \
                               UnexpectedPacketError
 from neo.lib.protocol import BrokenNodeDisallowedError
-from neo.master.handlers import MasterHandler
 from neo.lib.exception import ElectionFailure
 from neo.lib.util import dump
+from . import MasterHandler
 
 class ClientElectionHandler(MasterHandler):
 

@@ -25,7 +25,7 @@ except ImportError:
 from ZODB.tests.PackableStorage import PackableUndoStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from neo.tests.zodb import ZODBTestCase
+from . import ZODBTestCase
 
 class PackableTests(ZODBTestCase, StorageTestBase,
         PackableStorageWithOptionalGC, PackableUndoStorage):

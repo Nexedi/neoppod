@@ -24,9 +24,8 @@ from functools import wraps
 from neo.lib import setupLog
 from neo.lib.util import add64
 from neo.lib.protocol import ZERO_TID
-from neo.client.app import Application
-from neo.client.exception import NEOStorageNotFoundError
-from neo.client.exception import NEOStorageDoesNotExistError
+from .app import Application
+from .exception import NEOStorageNotFoundError, NEOStorageDoesNotExistError
 
 def check_read_only(func):
     def wrapped(self, *args, **kw):

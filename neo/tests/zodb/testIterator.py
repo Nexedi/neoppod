@@ -20,7 +20,7 @@ from ZODB.tests.IteratorStorage import IteratorStorage
 from ZODB.tests.IteratorStorage import ExtendedIteratorStorage
 from ZODB.tests.StorageTestBase import StorageTestBase
 
-from neo.tests.zodb import ZODBTestCase
+from . import ZODBTestCase
 
 class IteratorTests(ZODBTestCase, StorageTestBase, IteratorStorage,
         ExtendedIteratorStorage):

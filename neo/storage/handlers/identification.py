@@ -41,7 +41,7 @@ class IdentificationHandler(EventHandler):
             raise BrokenNodeDisallowedError
         # choose the handler according to the node type
         if node_type == NodeTypes.CLIENT:
-            from neo.storage.handlers.client import ClientOperationHandler
+            from .client import ClientOperationHandler
             handler = ClientOperationHandler
             if node is None:
                 node = app.nm.createClient()
@@ -51,7 +51,7 @@ class IdentificationHandler(EventHandler):
                 assert not node.isConnected()
             node.setRunning()
         elif node_type == NodeTypes.STORAGE:
-            from neo.storage.handlers.storage import StorageOperationHandler
+            from .storage import StorageOperationHandler
             handler = StorageOperationHandler
             if node is None:
                 neo.lib.logging.error('reject an unknown storage node %s',

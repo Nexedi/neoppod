@@ -32,7 +32,7 @@ from neo.lib.connector import SocketConnector, \
 from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import SOCKET_CONNECTORS_DICT, parseMasterList
-from neo.tests import NeoTestBase, getTempDirectory, setupMySQLdb, \
+from .. import NeoTestBase, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_USER
 
 BIND = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE], 0

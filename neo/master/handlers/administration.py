@@ -17,7 +17,7 @@
 
 import neo
 
-from neo.master.handlers import MasterHandler
+from . import MasterHandler
 from neo.lib.protocol import ClusterStates, NodeStates, Packets, ProtocolError
 from neo.lib.protocol import Errors
 from neo.lib.util import dump

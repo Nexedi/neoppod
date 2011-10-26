@@ -20,23 +20,22 @@ import os, sys
 from time import time
 
 from neo.lib import protocol
+from neo.lib.connector import getConnectorHandler
+from neo.lib.debug import register as registerLiveDebugger
 from neo.lib.protocol import UUID_NAMESPACES, ZERO_TID
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
 from neo.lib.connection import ListeningConnection, ClientConnection
 from neo.lib.exception import ElectionFailure, PrimaryFailure, OperationFailure
-from neo.master.handlers import election, identification, secondary
-from neo.master.handlers import storage, client, shutdown
-from neo.master.handlers import administration
-from neo.master.pt import PartitionTable
-from neo.master.transactions import TransactionManager
-from neo.master.verification import VerificationManager
-from neo.master.recovery import RecoveryManager
 from neo.lib.util import dump
-from neo.lib.connector import getConnectorHandler
+from .handlers import election, identification, secondary
+from .handlers import administration, client, storage, shutdown
+from .pt import PartitionTable
+from .recovery import RecoveryManager
+from .transactions import TransactionManager
+from .verification import VerificationManager
 
-from neo.lib.debug import register as registerLiveDebugger
 
 class Application(object):
     """The master node application."""

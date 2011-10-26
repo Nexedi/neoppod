@@ -17,7 +17,7 @@
 
 import unittest
 from mock import Mock
-from neo.tests import NeoUnitTestBase
+from .. import NeoUnitTestBase
 from neo.lib.protocol import NodeTypes, NotReadyError, \
         BrokenNodeDisallowedError
 from neo.lib.pt import PartitionTable

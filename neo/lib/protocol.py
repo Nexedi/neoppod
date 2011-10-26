@@ -22,7 +22,7 @@ from socket import inet_ntoa, inet_aton
 from cStringIO import StringIO
 from struct import Struct
 
-from neo.lib.util import Enum, getAddressType
+from .util import Enum, getAddressType
 
 # The protocol version (major, minor).
 PROTOCOL_VERSION = (4, 1)

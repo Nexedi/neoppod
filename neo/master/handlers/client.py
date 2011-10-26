@@ -16,11 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import neo.lib
-
 from neo.lib.protocol import NodeStates, Packets, ProtocolError
-from neo.master.handlers import MasterHandler
 from neo.lib.util import dump
-from neo.master.transactions import DelayedError
+from . import MasterHandler
+from ..transactions import DelayedError
 
 class ClientServiceHandler(MasterHandler):
     """ Handler dedicated to client during service state """
