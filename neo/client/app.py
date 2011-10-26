@@ -931,8 +931,7 @@ class Application(object):
 
         # Reorder tids
         ordered_tids = sorted(tid_set, reverse=True)
-        neo.lib.logging.debug(
-                        "UndoLog tids %s", [dump(x) for x in ordered_tids])
+        neo.lib.logging.debug("UndoLog tids %s", map(dump, ordered_tids))
         # For each transaction, get info
         undo_info = []
         append = undo_info.append

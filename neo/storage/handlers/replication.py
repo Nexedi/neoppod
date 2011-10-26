@@ -165,7 +165,7 @@ class ReplicationHandler(EventHandler):
         for oid, serial in missing_object_set:
             if not app.dm.objectPresent(oid, serial):
                 ask(Packets.AskObject(oid, serial, None), timeout=300)
-        if sum((len(x) for x in object_dict.itervalues())) == MIN_RANGE_LENGTH:
+        if sum(map(len, object_dict.itervalues())) == MIN_RANGE_LENGTH:
             max_tid = self.app.replicator.getCurrentCriticalTID()
             ask(self._doAskCheckSerialRange(max_oid, add64(max_serial, 1),
                 max_tid, RANGE_LENGTH))

@@ -114,8 +114,8 @@ class Transaction(object):
                 self.__class__.__name__,
                 self._node,
                 dump(self._tid),
-                [dump(x) for x in self._oid_list or ()],
-                [dump(x) for x in self._uuid_set or ()],
+                map(dump, self._oid_list or ()),
+                map(dump, self._uuid_set or ()),
                 time() - self._birth,
                 id(self),
         )

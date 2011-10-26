@@ -140,8 +140,8 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
                     tid_list.remove(tid)
                     break
             else:
-                raise AssertionFailed, '%s not found in %r' % (dump(ptid),
-                    [dump(x) for x in tid_list])
+                raise AssertionFailed('%s not found in %r'
+                                      % (dump(ptid), map(dump, tid_list)))
 
     def _checkPacketSerialList(self, conn, object_list, next_oid, next_serial, app):
         packet_list = [x.getParam(0) for x in conn.mockGetNamedCalls('ask')]
@@ -228,7 +228,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         oid_3 = self.getOID(3)
         oid_4 = self.getOID(4)
         oid_5 = self.getOID(5)
-        tid_list = [self.getOID(x) for x in xrange(7)]
+        tid_list = map(self.getOID, xrange(7))
         oid_dict = FakeDict((
             (oid_1, [tid_list[0], tid_list[1]]),
             (oid_2, [tid_list[2], tid_list[3]]),

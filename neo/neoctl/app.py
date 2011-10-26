@@ -167,7 +167,7 @@ class TerminalNeoCTL(object):
             node_list = self.neoctl.getNodeList(NodeTypes.STORAGE)
             uuid_list = [node[2] for node in node_list]
         else:
-            uuid_list = [self.asNode(x) for x in params]
+            uuid_list = map(self.asNode, params)
         return self.neoctl.enableStorageList(uuid_list)
 
     def dropNode(self, params):

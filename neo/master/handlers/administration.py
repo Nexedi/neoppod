@@ -118,7 +118,7 @@ class AdministrationHandler(MasterHandler):
         app.broadcastNodesInformation([node])
 
     def addPendingNodes(self, conn, uuid_list):
-        uuids = ', '.join([dump(uuid) for uuid in uuid_list])
+        uuids = ', '.join(map(dump, uuid_list))
         neo.lib.logging.debug('Add nodes %s' % uuids)
         app = self.app
         nm = app.nm
@@ -139,10 +139,10 @@ class AdministrationHandler(MasterHandler):
             neo.lib.logging.warning('No nodes added')
             conn.answer(Errors.Ack('No nodes added'))
             return
-        uuids = ', '.join([dump(uuid) for uuid in uuid_set])
+        uuids = ', '.join(map(dump, uuid_set))
         neo.lib.logging.info('Adding nodes %s' % uuids)
         # switch nodes to running state
-        node_list = [nm.getByUUID(uuid) for uuid in uuid_set]
+        node_list = map(nm.getByUUID, uuid_set)
         for node in node_list:
             new_cells = pt.addNode(node)
             cell_list.extend(new_cells)

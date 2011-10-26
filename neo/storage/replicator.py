@@ -207,7 +207,7 @@ class Replicator(object):
     def setUnfinishedTIDList(self, max_tid, ttid_list):
         """This is a callback from MasterOperationHandler."""
         neo.lib.logging.debug('setting unfinished TTIDs %s',
-                      ','.join([dump(tid) for tid in ttid_list]))
+                              ','.join(map(dump, ttid_list)))
         # all new outdated partition must wait those ttid
         new_partition_set = self.new_partition_set
         while new_partition_set:

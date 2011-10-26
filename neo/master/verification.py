@@ -198,7 +198,7 @@ class VerificationManager(BaseServiceHandler):
     def answerUnfinishedTransactions(self, conn, max_tid, tid_list):
         uuid = conn.getUUID()
         neo.lib.logging.info('got unfinished transactions %s from %r',
-            [dump(tid) for tid in tid_list], conn)
+                             map(dump, tid_list), conn)
         if not self._gotAnswerFrom(uuid):
             return
         self._tid_set.update(tid_list)
