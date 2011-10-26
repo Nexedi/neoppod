@@ -557,7 +557,9 @@ class MySQLDatabaseManager(DatabaseManager):
                 oid = u64(oid)
                 sql = " FROM obj WHERE partition=%d AND oid=%d AND serial=%d" \
                    % (getPartition(oid), oid, tid)
-                checksum_set.update(*q("SELECT hash" + sql))
+                hash_list = q("SELECT hash" + sql)
+                if hash_list: # BBB: Python < 2.6
+                    checksum_set.update(*hash_list)
                 q("DELETE" + sql)
             checksum_set.discard(None)
             self._pruneData(checksum_set)
