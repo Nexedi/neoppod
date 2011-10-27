@@ -100,10 +100,15 @@ class VerboseLockBase(object):
             self._note('[%r]%s.acquire(%s) Lock granted. Waiting: %r',
                     me, self, blocking, self.waiting)
 
+    __enter__ = acquire
+
     def release(self):
         me = LockUser()
         self._note('[%r]%s.release() Waiting: %r', me, self, self.waiting)
         return self.lock.release()
+
+    def __exit__(self, t, v, tb):
+        self.release()
 
     def _locked(self):
         raise NotImplementedError
