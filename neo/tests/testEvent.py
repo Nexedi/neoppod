@@ -17,7 +17,7 @@
 import unittest
 from mock import Mock
 from . import NeoUnitTestBase
-from neo.lib.epoll import Epoll
+from select import epoll, EPOLLIN, EPOLLOUT
 from neo.lib.event import EpollEventManager
 
 class EventTests(NeoUnitTestBase):
@@ -28,7 +28,7 @@ class EventTests(NeoUnitTestBase):
         self.assertEqual(len(em.connection_dict), 0)
         self.assertEqual(len(em.reader_set), 0)
         self.assertEqual(len(em.writer_set), 0)
-        self.assertTrue(isinstance(em.epoll, Epoll))
+        self.assertTrue(isinstance(em.epoll, epoll))
         # use a mock object instead of epoll
         em.epoll = Mock()
         connector = self.getFakeConnector(descriptor=1014)
@@ -94,9 +94,8 @@ class EventTests(NeoUnitTestBase):
         w_conn = self.getFakeConnection(connector=w_connector)
         em.register(w_conn)
         em.epoll = Mock({"poll":(
-          (r_connector.getDescriptor(),),
-          (w_connector.getDescriptor(),),
-          (),
+          (r_connector.getDescriptor(), EPOLLIN),
+          (w_connector.getDescriptor(), EPOLLOUT),
         )})
         em.poll(timeout=10)
         # check it called poll on epoll

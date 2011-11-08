@@ -138,7 +138,7 @@ class SerializedEventManager(EventManager):
 
     def _poll(self, timeout=1):
         if self._pending_processing:
-            assert not timeout
+            assert timeout <= 0
         elif 0 == self._timeout == timeout == Serialized.pending == len(
             self.writer_set):
             return
@@ -324,7 +324,7 @@ class NeoCTL(neo.neoctl.app.NeoCTL):
     def __init__(self, cluster, address=(getVirtualIp('admin'), 0)):
         self._cluster = cluster
         super(NeoCTL, self).__init__(address)
-        self.em._timeout = None
+        self.em._timeout = -1
 
     server = property(lambda self: self._cluster.resolv(self._server),
                       lambda self, address: setattr(self, '_server', address))

@@ -17,7 +17,8 @@
 
 from time import time
 import neo.lib
-from .epoll import Epoll
+from select import epoll, EPOLLIN, EPOLLOUT, EPOLLERR, EPOLLHUP
+from errno import EINTR, EAGAIN
 from .profiling import profiler_decorator
 
 class EpollEventManager(object):
@@ -27,7 +28,7 @@ class EpollEventManager(object):
         self.connection_dict = {}
         self.reader_set = set([])
         self.writer_set = set([])
-        self.epoll = Epoll()
+        self.epoll = epoll()
         self._pending_processing = []
 
     def close(self):
@@ -111,18 +112,33 @@ class EpollEventManager(object):
             self._poll(timeout=0)
 
     def _poll(self, timeout=1):
-        rlist, wlist, elist = self.epoll.poll(timeout)
-        for fd in frozenset(rlist):
-            conn = self.connection_dict[fd]
-            conn.lock()
-            try:
-                conn.readable()
-            finally:
-                conn.unlock()
-            if conn.hasPendingMessages():
-                self._addPendingConnection(conn)
+        try:
+            event_list = self.epoll.poll(timeout)
+        except IOError, exc:
+            if exc.errno in (0, EAGAIN):
+                neo.lib.logging.info('epoll.poll triggered undocumented '
+                  'error %r', exc.errno)
+            elif exc.errno != EINTR:
+                raise
+            event_list = ()
+        wlist = []
+        elist = []
+        for fd, event in event_list:
+            if event & EPOLLIN:
+                conn = self.connection_dict[fd]
+                conn.lock()
+                try:
+                    conn.readable()
+                finally:
+                    conn.unlock()
+                if conn.hasPendingMessages():
+                    self._addPendingConnection(conn)
+            if event & EPOLLOUT:
+                wlist.append(fd)
+            if event & (EPOLLERR | EPOLLHUP):
+                elist.append(fd)
 
-        for fd in frozenset(wlist):
+        for fd in wlist:
             # This can fail, if a connection is closed in readable().
             try:
                 conn = self.connection_dict[fd]
@@ -135,7 +151,7 @@ class EpollEventManager(object):
                 finally:
                     conn.unlock()
 
-        for fd in frozenset(elist):
+        for fd in elist:
             # This can fail, if a connection is closed in previous calls to
             # readable() or writable().
             try:
@@ -165,7 +181,8 @@ class EpollEventManager(object):
         fd = connector.getDescriptor()
         if fd not in self.reader_set:
             self.reader_set.add(fd)
-            self.epoll.modify(fd, 1, fd in self.writer_set)
+            self.epoll.modify(fd, EPOLLIN | (
+                fd in self.writer_set and EPOLLOUT))
 
     def removeReader(self, conn):
         connector = conn.getConnector()
@@ -173,7 +190,7 @@ class EpollEventManager(object):
         fd = connector.getDescriptor()
         if fd in self.reader_set:
             self.reader_set.remove(fd)
-            self.epoll.modify(fd, 0, fd in self.writer_set)
+            self.epoll.modify(fd, fd in self.writer_set and EPOLLOUT)
 
     @profiler_decorator
     def addWriter(self, conn):
@@ -182,7 +199,8 @@ class EpollEventManager(object):
         fd = connector.getDescriptor()
         if fd not in self.writer_set:
             self.writer_set.add(fd)
-            self.epoll.modify(fd, fd in self.reader_set, 1)
+            self.epoll.modify(fd, EPOLLOUT | (
+                fd in self.reader_set and EPOLLIN))
 
     def removeWriter(self, conn):
         connector = conn.getConnector()
@@ -190,7 +208,7 @@ class EpollEventManager(object):
         fd = connector.getDescriptor()
         if fd in self.writer_set:
             self.writer_set.remove(fd)
-            self.epoll.modify(fd, fd in self.reader_set, 0)
+            self.epoll.modify(fd, fd in self.reader_set and EPOLLIN)
 
     def log(self):
         neo.lib.logging.info('Event Manager:')
