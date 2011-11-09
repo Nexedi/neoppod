@@ -70,7 +70,7 @@ class testTransactionManager(NeoUnitTestBase):
         callback = Mock()
         txnman = TransactionManager(on_commit=callback)
         self.assertFalse(txnman.hasPending())
-        self.assertEqual(txnman.registerForNotification(uuid1), set())
+        self.assertEqual(txnman.registerForNotification(uuid1), [])
         # begin the transaction
         ttid = txnman.begin(node)
         self.assertTrue(ttid is not None)
@@ -79,7 +79,7 @@ class testTransactionManager(NeoUnitTestBase):
         # prepare the transaction
         tid = txnman.prepare(ttid, 1, oid_list, uuid_list, msg_id)
         self.assertTrue(txnman.hasPending())
-        self.assertEqual(txnman.registerForNotification(uuid1), set([ttid]))
+        self.assertEqual(txnman.registerForNotification(uuid1), [ttid])
         txn = txnman[ttid]
         self.assertEqual(txn.getTID(), tid)
         self.assertEqual(txn.getUUIDList(), list(uuid_list))
@@ -91,7 +91,7 @@ class testTransactionManager(NeoUnitTestBase):
         self.assertEqual(len(callback.getNamedCalls('__call__')), 1)
         # transaction finished
         txnman.remove(client_uuid, ttid)
-        self.assertEqual(txnman.registerForNotification(uuid1), set())
+        self.assertEqual(txnman.registerForNotification(uuid1), [])
 
     def testAbortFor(self):
         oid_list = [self.makeOID(1), ]
@@ -100,18 +100,18 @@ class testTransactionManager(NeoUnitTestBase):
         client_uuid, client = self.makeNode(3)
         txnman = TransactionManager(lambda tid, txn: None)
         # register 4 transactions made by two nodes
-        self.assertEqual(txnman.registerForNotification(storage_1_uuid), set())
+        self.assertEqual(txnman.registerForNotification(storage_1_uuid), [])
         ttid1 = txnman.begin(client)
         tid1 = txnman.prepare(ttid1, 1, oid_list, [storage_1_uuid], 1)
-        self.assertEqual(txnman.registerForNotification(storage_1_uuid), set([ttid1]))
+        self.assertEqual(txnman.registerForNotification(storage_1_uuid), [ttid1])
         # abort transactions of another node, transaction stays
         txnman.abortFor(node2)
-        self.assertEqual(txnman.registerForNotification(storage_1_uuid), set([ttid1]))
+        self.assertEqual(txnman.registerForNotification(storage_1_uuid), [ttid1])
         # abort transactions of requesting node, transaction is not removed
         # because the transaction is prepared and must remains until the end of
         # the 2PC
         txnman.abortFor(node1)
-        self.assertEqual(txnman.registerForNotification(storage_1_uuid), set([ttid1]))
+        self.assertEqual(txnman.registerForNotification(storage_1_uuid), [ttid1])
         self.assertTrue(txnman.hasPending())
         # ...and the lock is available
         txnman.begin(client, self.getNextTID())

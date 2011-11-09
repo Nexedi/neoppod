@@ -55,7 +55,7 @@ class Application(object):
         self.storage_readiness = set()
         master_addresses, connector_name = config.getMasters()
         self.connector_handler = getConnectorHandler(connector_name)
-        for master_address in master_addresses :
+        for master_address in master_addresses:
             self.nm.createMaster(address=master_address)
 
         neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))

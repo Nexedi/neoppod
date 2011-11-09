@@ -330,7 +330,6 @@ class Application(object):
                 neo.lib.logging.error('Connection to %s lost',
                     self.trying_master_node)
                 self.primary_master_node = None
-                continue
         neo.lib.logging.info("Connected and ready")
         return conn
 

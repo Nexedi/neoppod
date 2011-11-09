@@ -140,7 +140,6 @@ class PartitionTable(PartitionTable):
 
         # update the partition table
         cell_list = [self.setCell(offset, node, CellStates.UP_TO_DATE)]
-        cell_list = [(offset, uuid, CellStates.UP_TO_DATE)]
 
         # If the partition contains a feeding cell, drop it now.
         for feeding_cell in self.getCellList(offset):

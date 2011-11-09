@@ -143,13 +143,12 @@ class EpollEventManager(object):
             try:
                 conn = self.connection_dict[fd]
             except KeyError:
-                pass
-            else:
-                conn.lock()
-                try:
-                    conn.writable()
-                finally:
-                    conn.unlock()
+                continue
+            conn.lock()
+            try:
+                conn.writable()
+            finally:
+                conn.unlock()
 
         for fd in elist:
             # This can fail, if a connection is closed in previous calls to
@@ -157,13 +156,12 @@ class EpollEventManager(object):
             try:
                 conn = self.connection_dict[fd]
             except KeyError:
-                pass
-            else:
-                conn.lock()
-                try:
-                    conn.readable()
-                finally:
-                    conn.unlock()
+                continue
+            conn.lock()
+            try:
+                conn.readable()
+            finally:
+                conn.unlock()
             if conn.hasPendingMessages():
                 self._addPendingConnection(conn)
 
