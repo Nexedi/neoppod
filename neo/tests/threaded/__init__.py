@@ -318,19 +318,22 @@ class NeoCTL(neo.neoctl.app.NeoCTL):
                       lambda self, address: setattr(self, '_server', address))
 
 
-class LoggerThreadName(object):
+class LoggerThreadName(str):
 
-    def __init__(self, default='TEST'):
-        self.__default = default
+    def __new__(cls, default='TEST'):
+        return str.__new__(cls, default)
 
-    def __getattr__(self, attr):
+    def __getattribute__(self, attr):
         return getattr(str(self), attr)
+
+    def __hash__(self):
+        return id(self)
 
     def __str__(self):
         try:
             return threading.currentThread().node_name
         except AttributeError:
-            return self.__default
+            return str.__str__(self)
 
 
 class Patch(object):
