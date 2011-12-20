@@ -18,6 +18,7 @@
 
 import threading
 import transaction
+import unittest
 from thread import get_ident
 from persistent import Persistent
 from neo.storage.transactions import TransactionManager, \
@@ -384,3 +385,6 @@ class Test(NEOThreadedTest):
             t1, = cluster.client.undoLog(0, 10)
         finally:
             cluster.stop()
+
+if __name__ == "__main__":
+    unittest.main()
