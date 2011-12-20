@@ -232,13 +232,6 @@ class MasterServerElectionTests(NeoUnitTestBase):
             self.election.requestIdentification,
             conn, NodeTypes.CLIENT, *args)
 
-    def test_requestIdentification2(self):
-        """ A unknown master node request identification """
-        node, conn = self.identifyToMasterNode()
-        args = (node.getUUID(), ('127.0.0.1', 1000), self.app.name)
-        self.checkProtocolErrorRaised(self.election.requestIdentification,
-            conn, NodeTypes.MASTER, *args)
-
     def test_requestIdentification3(self):
         """ A broken master node request identification """
         node, conn = self.identifyToMasterNode()
@@ -300,18 +293,6 @@ class MasterServerElectionTests(NeoUnitTestBase):
             uuid=conn.getUUID(),
             address=conn.getAddress(),
             name=self.app.name
-        )
-
-    def testRequestIdentification2(self):
-        """ Check with an unknown master node """
-        conn = self.__getMaster(register=False)
-        self.checkProtocolErrorRaised(
-            self.election.requestIdentification,
-            conn=conn,
-            node_type=NodeTypes.MASTER,
-            uuid=conn.getUUID(),
-            address=conn.getAddress(),
-            name=self.app.name,
         )
 
     def testAnnouncePrimary1(self):

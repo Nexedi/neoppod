@@ -93,8 +93,8 @@ class ClientElectionHandler(MasterHandler):
                 # This is self.
                 continue
             n = app.nm.getByAddress(address)
-            # master node must be known
-            assert n is not None, 'Unknown master node: %s' % (address, )
+            if n is None:
+                n = app.nm.createMaster(address=address)
             if uuid is not None:
                 # If I don't know the UUID yet, believe what the peer
                 # told me at the moment.
@@ -167,8 +167,7 @@ class ServerElectionHandler(MasterHandler):
             raise NotReadyError
         node = app.nm.getByAddress(address)
         if node is None:
-            neo.lib.logging.error('unknown master node: %s' % (address, ))
-            raise ProtocolError('unknown master node')
+            node = app.nm.createMaster(address=address)
         # If this node is broken, reject it.
         if node.getUUID() == uuid:
             if node.isBroken():

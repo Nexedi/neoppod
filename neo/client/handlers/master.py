@@ -56,6 +56,8 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         # Register new master nodes.
         for address, uuid in known_master_list:
             n = app.nm.getByAddress(address)
+            if n is None:
+                app.nm.createMaster(address=address)
             if uuid is not None and n.getUUID() != uuid:
                 n.setUUID(uuid)
 

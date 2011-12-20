@@ -531,9 +531,6 @@ class Application(object):
             handler = administration.AdministrationHandler(self)
             neo.lib.logging.info('Accept an admin %s' % (dump(uuid), ))
         elif node_type == NodeTypes.MASTER:
-            if node is None:
-                # unknown master, rejected
-                raise protocol.ProtocolError('Reject an unknown master node')
             # always put other master in waiting state
             node_ctor = self.nm.createMaster
             handler = secondary.SecondaryMasterHandler(self)
