@@ -518,7 +518,7 @@ class ConnectionTests(NeoUnitTestBase):
         bc.writable()
         # test send was called
         self._checkSend(1, "testdata")
-        self.assertEqual(''.join(bc.write_buf), "data")
+        self._checkWriteBuf(bc, "data")
         self._checkConnectionClosed(0)
         self._checkUnregistered(0)
         # pending, so nothing called
