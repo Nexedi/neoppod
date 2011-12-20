@@ -506,7 +506,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkReadBuf(bc, '')
 
     def test_Connection_writable1(self):
-        # with  pending operation after send
+        # with pending operation after send
         def send(self, data):
             return len(data)/2
         DoNothingConnector.send = send
@@ -530,7 +530,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkClose(0)
 
     def test_Connection_writable2(self):
-        # with no longer pending operation after send
+        # without pending operation after send
         def send(self, data):
             return len(data)
         DoNothingConnector.send = send
@@ -554,7 +554,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkClose(0)
 
     def test_Connection_writable3(self):
-        # with no longer pending operation after send and aborted set to true
+        # without pending operation after send and aborted set to true
         def send(self, data):
             return len(data)
         DoNothingConnector.send = send
