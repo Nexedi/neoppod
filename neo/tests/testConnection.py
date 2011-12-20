@@ -524,7 +524,6 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkUnregistered(0)
         # pending, so nothing called
         self.assertTrue(bc.pending())
-        self.assertFalse(bc.aborted)
         self._checkWriterRemoved(0)
         self._checkReaderRemoved(0)
         self._checkShutdown(0)
@@ -547,9 +546,8 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkConnectionClosed(0)
         self._checkClose(0)
         self._checkUnregistered(0)
-        # nothing else pending, and aborted is false, so writer has been removed
+        # nothing else pending, so writer has been removed
         self.assertFalse(bc.pending())
-        self.assertFalse(bc.aborted)
         self._checkWriterRemoved(1)
         self._checkReaderRemoved(0)
         self._checkShutdown(0)
@@ -573,9 +571,8 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkConnectionClosed(1)
         self._checkClose(1)
         self._checkUnregistered(1)
-        # nothing else pending, and aborted is false, so writer has been removed
+        # nothing else pending, so writer has been removed
         self.assertFalse(bc.pending())
-        self.assertTrue(bc.aborted)
         self._checkWriterRemoved(1)
         self._checkReaderRemoved(1)
         self._checkShutdown(1)

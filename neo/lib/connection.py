@@ -289,6 +289,7 @@ class BaseConnection(object):
             self.connector.shutdown()
             self.connector.close()
             self.connector = None
+            self.aborted = False
 
     def __repr__(self):
         address = self.addr and '%s:%d' % self.addr or '?'
