@@ -110,6 +110,12 @@ class RecoveryManager(MasterHandler):
         # ask the last IDs to perform the recovery
         conn.ask(Packets.AskLastIDs())
 
+    def _lastIDsCompleted(self, conn):
+        node = self.app.nm.getByUUID(conn.getUUID())
+        assert node.isPending()
+        node.setRunning()
+        self.app.broadcastNodesInformation([node])
+
     def answerLastIDs(self, conn, loid, ltid, lptid):
         # Get max values.
         if loid is not None:
@@ -121,22 +127,16 @@ class RecoveryManager(MasterHandler):
             self.target_ptid = lptid
             conn.ask(Packets.AskPartitionTable())
         else:
-            node = self.app.nm.getByUUID(conn.getUUID())
-            assert node.isPending()
-            node.setRunning()
-            self.app.broadcastNodesInformation([node])
+            self._lastIDsCompleted(conn)
 
     def answerPartitionTable(self, conn, ptid, row_list):
-        node = self.app.nm.getByUUID(conn.getUUID())
-        assert node.isPending()
-        node.setRunning()
         if ptid != self.target_ptid:
             # If this is not from a target node, ignore it.
             neo.lib.logging.warn('Got %s while waiting %s', dump(ptid),
                     dump(self.target_ptid))
         else:
             self._broadcastPartitionTable(ptid, row_list)
-        self.app.broadcastNodesInformation([node])
+        self._lastIDsCompleted(conn)
 
     def _broadcastPartitionTable(self, ptid, row_list):
         try:
