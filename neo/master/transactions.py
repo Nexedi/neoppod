@@ -266,7 +266,7 @@ class TransactionManager(object):
         return False
 
     def setLastOID(self, oid):
-        self._last_oid = oid
+        self._last_oid = max(oid, self._last_oid)
 
     def getLastOID(self):
         return self._last_oid

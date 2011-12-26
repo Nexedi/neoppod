@@ -55,7 +55,6 @@ class RecoveryManager(MasterHandler):
         self.app.changeClusterState(ClusterStates.RECOVERING)
         em = self.app.em
 
-        self.app.tm.setLastOID(None)
         self.app.pt.setID(None)
 
         # collect the last partition table available
@@ -119,7 +118,7 @@ class RecoveryManager(MasterHandler):
     def answerLastIDs(self, conn, loid, ltid, lptid):
         # Get max values.
         if loid is not None:
-            self.app.tm.setLastOID(max(loid, self.app.tm.getLastOID()))
+            self.app.tm.setLastOID(loid)
         if ltid is not None:
             self.app.tm.setLastTID(ltid)
         if lptid > self.target_ptid:
