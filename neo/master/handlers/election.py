@@ -37,7 +37,7 @@ class ClientElectionHandler(MasterHandler):
         # connection in progress
         self.app.unconnected_master_node_set.remove(addr)
         self.app.negotiating_master_node_set.add(addr)
-        MasterHandler.connectionStarted(self, conn)
+        super(ClientElectionHandler, self).connectionStarted(conn)
 
     def connectionFailed(self, conn):
         addr = conn.getAddress()
@@ -48,11 +48,11 @@ class ClientElectionHandler(MasterHandler):
         # connection never success, node is still in unknown state
         self.app.negotiating_master_node_set.discard(addr)
         self.app.unconnected_master_node_set.add(addr)
-        MasterHandler.connectionFailed(self, conn)
+        super(ClientElectionHandler, self).connectionFailed(conn)
 
     def connectionCompleted(self, conn):
         conn.ask(Packets.AskPrimary())
-        MasterHandler.connectionCompleted(self, conn)
+        super(ClientElectionHandler, self).connectionCompleted(conn)
 
     def connectionLost(self, conn, new_state):
         addr = conn.getAddress()
