@@ -559,7 +559,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         conn = Mock({
             'getNextId': 1,
             'fakeReceived': transaction_info,
-            'getAddress': ('127.0.0.1', 10010),
+            'getAddress': ('127.0.0.1', 10020),
         })
         node = app.nm.createStorage(address=conn.getAddress())
         app.cp = Mock({
@@ -742,7 +742,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             'getUUID': ReturnValues(uuid1, uuid2),
             'fakeGetApp': app,
             'fakeReceived': ReturnValues(p3, p4),
-            'getAddress': ('127.0.0.1', 10010),
+            'getAddress': ('127.0.0.1', 10021),
         })
         storage_1_conn = Mock()
         storage_2_conn = Mock()

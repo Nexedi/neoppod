@@ -159,7 +159,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         state = NodeStates.TEMPORARILY_DOWN
         # define two nodes
         node1, conn1 = self.identifyToMasterNode()
-        node2, conn2 = self.identifyToMasterNode()
+        node2, conn2 = self.identifyToMasterNode(port=10022)
         node1.setRunning()
         node2.setRunning()
         self.assertEqual(node1.getState(), NodeStates.RUNNING)

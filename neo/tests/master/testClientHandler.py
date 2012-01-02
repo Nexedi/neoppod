@@ -43,9 +43,12 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.master_address = ('127.0.0.1', self.master_port)
         self.client_address = ('127.0.0.1', self.client_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
+        self.storage_uuid = self.getNewUUID()
         # register the storage
-        kw = {'uuid':self.getNewUUID(), 'address': self.master_address}
-        self.app.nm.createStorage(**kw)
+        self.app.nm.createStorage(
+            uuid=self.storage_uuid,
+            address=self.storage_address,
+        )
 
     def getLastUUID(self):
         return self.uuid
@@ -109,16 +112,14 @@ class MasterClientHandlerTests(NeoUnitTestBase):
 
     def test_09_askFinishTransaction(self):
         service = self.service
-        uuid = self.identifyToMasterNode()
         # do the right job
         client_uuid = self.identifyToMasterNode(node_type=NodeTypes.CLIENT, port=self.client_port)
-        storage_uuid = self.identifyToMasterNode()
+        storage_uuid = self.storage_uuid
         storage_conn = self.getFakeConnection(storage_uuid, self.storage_address)
-        storage2_uuid = self.identifyToMasterNode()
+        storage2_uuid = self.identifyToMasterNode(port=10022)
         storage2_conn = self.getFakeConnection(storage2_uuid,
             (self.storage_address[0], self.storage_address[1] + 1))
         self.app.setStorageReady(storage2_uuid)
-        self.assertNotEqual(uuid, client_uuid)
         conn = self.getFakeConnection(client_uuid, self.client_address)
         self.app.pt = Mock({
             'getPartition': 0,
@@ -182,7 +183,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         tid = self.getNextTID()
         peer_id = 42
         conn = self.getFakeConnection(peer_id=peer_id)
-        storage_uuid = self.identifyToMasterNode()
+        storage_uuid = self.storage_uuid
         storage_conn = self.getFakeConnection(storage_uuid,
             self.storage_address)
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
@@ -195,7 +196,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.assertEqual(self.app.packing[1], peer_id)
         self.assertEqual(self.app.packing[2], set([storage_uuid, ]))
         # Asking again to pack will cause an immediate error
-        storage_uuid = self.identifyToMasterNode()
+        storage_uuid = self.identifyToMasterNode(port=10022)
         storage_conn = self.getFakeConnection(storage_uuid,
             self.storage_address)
         self.app.nm.getByUUID(storage_uuid).setConnection(storage_conn)
