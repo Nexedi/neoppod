@@ -401,8 +401,36 @@ class NodeManager(object):
     def hasUUID(self, uuid):
         return uuid in self._uuid_dict
 
-    def _createNode(self, klass, **kw):
-        return klass(self, **kw)
+    def _createNode(self, klass, address=None, uuid=None, **kw):
+        by_address = self.getByAddress(address)
+        by_uuid = self.getByUUID(uuid)
+        if by_address is None and by_uuid is None:
+            node = klass(self, address=address, uuid=uuid, **kw)
+        else:
+            if by_uuid is None or by_address is by_uuid:
+                node = by_address
+            elif by_address is None:
+                node = by_uuid
+            else:
+                raise ValueError('Got different nodes for uuid %r: %r and '
+                    'address %r: %r.' % (dump(uuid), by_uuid, address,
+                    by_address))
+            if uuid is not None:
+                node_uuid = node.getUUID()
+                if node_uuid is None:
+                    node.setUUID(uuid)
+                elif node_uuid != uuid:
+                    raise ValueError('Expected uuid %r on node %r' % (
+                        dump(uuid), node))
+            if address is not None:
+                node_address = node.getAddress()
+                if node_address is None:
+                    node.setAddress(address)
+                elif node_address != address:
+                    raise ValueError('Expected address %r on node %r' % (
+                        address, node))
+            assert node.__class__ is klass, (node.__class__, klass)
+        return node
 
     def createMaster(self, **kw):
         """ Create and register a new master """
