@@ -68,7 +68,6 @@ class Storage(BaseStorage.BaseStorage,
         """
         Do not pass those parameters (used internally):
         _app
-        _cache
         """
         if compress is None:
             compress = True
