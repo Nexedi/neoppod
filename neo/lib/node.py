@@ -305,6 +305,8 @@ class NodeManager(object):
                 new_key)
             del index_dict[old_key]
         if new_key is not None:
+            assert index_dict.get(new_key, node) is node, 'Adding %r at %r ' \
+                'would overwrite %r' % (node, new_key, index_dict[new_key])
             index_dict[new_key] = node
 
     def _updateIdentified(self, node):
