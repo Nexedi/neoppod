@@ -110,6 +110,8 @@ def parseMasterList(masters, except_node=None):
     socket_connector = None
     master_node_list = []
     for node in masters.split(' '):
+        if not node:
+            continue
         address = parseNodeAddress(node)
 
         if (address != except_node):
