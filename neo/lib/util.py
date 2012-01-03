@@ -125,7 +125,7 @@ def parseMasterList(masters, except_node=None):
         else:
             return TypeError, (" Wrong connector type : you're trying to use ipv6 and ipv4 simultaneously")
 
-    return tuple(master_node_list), socket_connector
+    return master_node_list, socket_connector
 
 class Enum(dict):
     """
