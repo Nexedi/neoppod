@@ -116,8 +116,6 @@ class Application(object):
 
     def _run(self):
         """Make sure that the status is sane and start a loop."""
-        bootstrap = True
-
         # Make a listening port.
         self.listening_conn = ListeningConnection(self.em, None,
             addr=self.server, connector=self.connector_handler())
@@ -127,8 +125,7 @@ class Application(object):
             # (Re)elect a new primary master.
             self.primary = not self.nm.getMasterList()
             if not self.primary:
-                self.electPrimary(bootstrap=bootstrap)
-                bootstrap = False
+                self.electPrimary()
             try:
                 if self.primary:
                     self.playPrimaryRole()
@@ -141,7 +138,7 @@ class Application(object):
                     conn.close()
 
 
-    def electPrimary(self, bootstrap = True):
+    def electPrimary(self):
         """Elect a primary master node.
 
         The difficulty is that a master node must accept connections from
@@ -166,34 +163,13 @@ class Application(object):
             self.primary = None
             self.primary_master_node = None
             try:
-                # Wait at most 20 seconds at bootstrap. Otherwise, wait at most
-                # 10 seconds to avoid stopping the whole cluster for a long time.
-                # Note that even if not all master are up in the first 20 seconds
-                # this is not an issue because the first up will timeout and take
-                # the primary role.
-                if bootstrap:
-                    expiration = 20
-                else:
-                    expiration = 10
-                t = 0
                 while (self.unconnected_master_node_set or
                         self.negotiating_master_node_set):
-                    current_time = time()
-                    if current_time >= t:
-                        t = current_time + 1
-                        for node in self.nm.getMasterList():
-                            if not node.isRunning() and node.getLastStateChange() + \
-                                    expiration < current_time:
-                                neo.lib.logging.info('%s is down' % (node, ))
-                                node.setDown()
-                                self.unconnected_master_node_set.discard(
-                                        node.getAddress())
-
-                        # Try to connect to master nodes.
-                        for addr in self.unconnected_master_node_set.difference(
-                                      x.getAddress() for x in self.em.getClientList()):
-                            ClientConnection(self.em, client_handler, addr=addr,
-                                             connector=self.connector_handler())
+                    for addr in self.unconnected_master_node_set:
+                        ClientConnection(self.em, client_handler, addr=addr,
+                            connector=self.connector_handler())
+                        self.negotiating_master_node_set.add(addr)
+                    self.unconnected_master_node_set.clear()
                     self.em.poll(1)
             except ElectionFailure, m:
                 # something goes wrong, clean then restart
@@ -217,7 +193,6 @@ class Application(object):
                 # Close all connections.
                 for conn in self.em.getClientList() + self.em.getServerList():
                     conn.close()
-                bootstrap = False
             else:
                 # election succeed, stop the process
                 self.primary = self.primary is None

@@ -47,8 +47,6 @@ class MasterClientElectionTests(NeoUnitTestBase):
         self.election = ClientElectionHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
-        for node in self.app.nm.getMasterList():
-            self.app.unconnected_master_node_set.add(node.getAddress())
         # define some variable to simulate client and storage node
         self.storage_port = 10021
         self.master_port = 10011
@@ -70,21 +68,7 @@ class MasterClientElectionTests(NeoUnitTestBase):
 
     def _checkUnconnected(self, node):
         addr = node.getAddress()
-        self.assertTrue(addr in self.app.unconnected_master_node_set)
         self.assertFalse(addr in self.app.negotiating_master_node_set)
-
-    def _checkNegociating(self, node):
-        addr = node.getAddress()
-        self.assertTrue(addr in self.app.negotiating_master_node_set)
-        self.assertFalse(addr in self.app.unconnected_master_node_set)
-
-    def test_connectionStarted(self):
-        node, conn = self.identifyToMasterNode()
-        self.assertTrue(node.isUnknown())
-        self._checkUnconnected(node)
-        self.election.connectionStarted(conn)
-        self.assertTrue(node.isUnknown())
-        self._checkNegociating(node)
 
     def test_connectionFailed(self):
         node, conn = self.identifyToMasterNode()
@@ -107,7 +91,6 @@ class MasterClientElectionTests(NeoUnitTestBase):
         self._checkUnconnected(node)
         addr = node.getAddress()
         self.app.negotiating_master_node_set.add(addr)
-        self.app.unconnected_master_node_set.discard(addr)
 
     def test_connectionClosed(self):
         node, conn = self.identifyToMasterNode()
@@ -115,7 +98,6 @@ class MasterClientElectionTests(NeoUnitTestBase):
         self.election.connectionClosed(conn)
         self.assertTrue(node.isUnknown())
         addr = node.getAddress()
-        self.assertFalse(addr in self.app.unconnected_master_node_set)
         self.assertFalse(addr in self.app.negotiating_master_node_set)
 
     def test_acceptIdentification1(self):
@@ -124,7 +106,6 @@ class MasterClientElectionTests(NeoUnitTestBase):
         args = (node.getUUID(), 0, 10, self.app.uuid)
         self.election.acceptIdentification(conn,
             NodeTypes.CLIENT, *args)
-        self.assertFalse(node in self.app.unconnected_master_node_set)
         self.assertFalse(node in self.app.negotiating_master_node_set)
         self.checkClosed(conn)
 
@@ -173,7 +154,6 @@ class MasterClientElectionTests(NeoUnitTestBase):
         node, conn = self.identifyToMasterNode()
         master_list = self._getMasterList()
         self.election.answerPrimary(conn, node.getUUID(), master_list)
-        self.assertEqual(len(self.app.unconnected_master_node_set), 0)
         self.assertEqual(len(self.app.negotiating_master_node_set), 0)
         self.assertFalse(self.app.primary)
         self.assertEqual(self.app.primary_master_node, node)
@@ -194,7 +174,6 @@ class MasterServerElectionTests(NeoUnitTestBase):
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
         for node in self.app.nm.getMasterList():
-            self.app.unconnected_master_node_set.add(node.getAddress())
             node.setState(NodeStates.RUNNING)
         # define some variable to simulate client and storage node
         self.client_address = (self.local_ip, 1000)

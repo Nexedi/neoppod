@@ -32,13 +32,6 @@ class ClientElectionHandler(MasterHandler):
     def askPrimary(self, conn):
         raise UnexpectedPacketError, "askPrimary on server connection"
 
-    def connectionStarted(self, conn):
-        addr = conn.getAddress()
-        # connection in progress
-        self.app.unconnected_master_node_set.remove(addr)
-        self.app.negotiating_master_node_set.add(addr)
-        super(ClientElectionHandler, self).connectionStarted(conn)
-
     def connectionFailed(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
@@ -47,7 +40,6 @@ class ClientElectionHandler(MasterHandler):
           node.getState())
         # connection never success, node is still in unknown state
         self.app.negotiating_master_node_set.discard(addr)
-        self.app.unconnected_master_node_set.add(addr)
         super(ClientElectionHandler, self).connectionFailed(conn)
 
     def connectionCompleted(self, conn):
@@ -120,7 +112,6 @@ class ClientElectionHandler(MasterHandler):
                 app.primary_master_node = primary_node
                 # Stop waiting for connections than primary master's to
                 # complete to exit election phase ASAP.
-                app.unconnected_master_node_set.clear()
                 app.negotiating_master_node_set.clear()
 
         primary_node = app.primary_master_node
@@ -200,7 +191,6 @@ class ServerElectionHandler(MasterHandler):
         node = app.nm.getByUUID(uuid)
         app.primary = False
         app.primary_master_node = node
-        app.unconnected_master_node_set.clear()
         app.negotiating_master_node_set.clear()
         neo.lib.logging.info('%s is the primary', node)
 
