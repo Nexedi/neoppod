@@ -109,8 +109,6 @@ def parseMasterList(masters, except_node=None):
     # load master node list
     socket_connector = None
     master_node_list = []
-    # XXX: support '/' and ' ' as separator
-    masters = masters.replace('/', ' ')
     for node in masters.split(' '):
         address = parseNodeAddress(node)
 
