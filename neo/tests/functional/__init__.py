@@ -261,7 +261,7 @@ class NEOCluster(object):
         self.cluster_name = 'neo_%s' % (random.randint(0, 100), )
         master_node_list = [self.port_allocator.allocate(address_type, local_ip)
                             for i in xrange(master_count)]
-        self.master_nodes = '/'.join('%s:%s' % (
+        self.master_nodes = ' '.join('%s:%s' % (
                 buildUrlFromString(self.local_ip), x, )
                 for x in master_node_list)
 
