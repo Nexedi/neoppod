@@ -106,8 +106,8 @@ def parseNodeAddress(address, port_opt=None):
 
 def parseMasterList(masters, except_node=None):
     assert masters, 'At least one master must be defined'
-    socket_connector = ''
     # load master node list
+    socket_connector = None
     master_node_list = []
     # XXX: support '/' and ' ' as separator
     masters = masters.replace('/', ' ')
@@ -118,7 +118,7 @@ def parseMasterList(masters, except_node=None):
             master_node_list.append(address)
 
         socket_connector_temp = getConnectorFromAddress(address)
-        if socket_connector == '':
+        if socket_connector is None:
             socket_connector = socket_connector_temp
         elif socket_connector == socket_connector_temp:
            pass
