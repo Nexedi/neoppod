@@ -150,6 +150,7 @@ class Application(object):
         to self as well as master nodes."""
         neo.lib.logging.info('begin the election of a primary master')
 
+        client_handler = election.ClientElectionHandler(self)
         self.unconnected_master_node_set.clear()
         self.negotiating_master_node_set.clear()
         self.listening_conn.setHandler(election.ServerElectionHandler(self))
@@ -165,58 +166,66 @@ class Application(object):
             self.primary = None
             self.primary_master_node = None
             try:
-                self._doElection(bootstrap)
+                # Wait at most 20 seconds at bootstrap. Otherwise, wait at most
+                # 10 seconds to avoid stopping the whole cluster for a long time.
+                # Note that even if not all master are up in the first 20 seconds
+                # this is not an issue because the first up will timeout and take
+                # the primary role.
+                if bootstrap:
+                    expiration = 20
+                else:
+                    expiration = 10
+                t = 0
+                while True:
+                    current_time = time()
+                    if current_time >= t:
+                        t = current_time + 1
+                        for node in self.nm.getMasterList():
+                            if not node.isRunning() and node.getLastStateChange() + \
+                                    expiration < current_time:
+                                neo.lib.logging.info('%s is down' % (node, ))
+                                node.setDown()
+                                self.unconnected_master_node_set.discard(
+                                        node.getAddress())
+
+                        # Try to connect to master nodes.
+                        for addr in self.unconnected_master_node_set.difference(
+                                      x.getAddress() for x in self.em.getClientList()):
+                            ClientConnection(self.em, client_handler, addr=addr,
+                                             connector=self.connector_handler())
+                    self.em.poll(1)
+
+                    if not (self.unconnected_master_node_set or
+                            self.negotiating_master_node_set):
+                        break
             except ElectionFailure, m:
                 # something goes wrong, clean then restart
-                self._electionFailed(m)
+                neo.lib.logging.error('election failed: %s', (m, ))
+
+                # Ask all connected nodes to reelect a single primary master.
+                for conn in self.em.getClientList():
+                    conn.notify(Packets.ReelectPrimary())
+                    conn.abort()
+
+                # Wait until the connections are closed.
+                self.primary = None
+                self.primary_master_node = None
+                t = time() + 10
+                while self.em.getClientList() and time() < t:
+                    try:
+                        self.em.poll(1)
+                    except ElectionFailure:
+                        pass
+
+                # Close all connections.
+                for conn in self.em.getClientList() + self.em.getServerList():
+                    conn.close()
                 bootstrap = False
             else:
                 # election succeed, stop the process
                 self.primary = self.primary is None
                 break
 
-
-    def _doElection(self, bootstrap):
-        """
-            Start the election process:
-                - Try to connect to any known master node
-                - Wait at most for the timeout defined by bootstrap parameter
-            When done, the current process is defined either as primary or
-            secondary master node
-        """
-        # Wait at most 20 seconds at bootstrap. Otherwise, wait at most
-        # 10 seconds to avoid stopping the whole cluster for a long time.
-        # Note that even if not all master are up in the first 20 seconds
-        # this is not an issue because the first up will timeout and take
-        # the primary role.
-        if bootstrap:
-            expiration = 20
-        else:
-            expiration = 10
-        client_handler = election.ClientElectionHandler(self)
-        t = 0
-        while True:
-            current_time = time()
-            if current_time >= t:
-                t = current_time + 1
-                for node in self.nm.getMasterList():
-                    if not node.isRunning() and node.getLastStateChange() + \
-                            expiration < current_time:
-                        neo.lib.logging.info('%s is down' % (node, ))
-                        node.setDown()
-                        self.unconnected_master_node_set.discard(
-                                node.getAddress())
-
-                # Try to connect to master nodes.
-                for addr in self.unconnected_master_node_set.difference(
-                              x.getAddress() for x in self.em.getClientList()):
-                    ClientConnection(self.em, client_handler, addr=addr,
-                                     connector=self.connector_handler())
-            self.em.poll(1)
-
-            if not (self.unconnected_master_node_set or
-                    self.negotiating_master_node_set):
-                break
 
     def _announcePrimary(self):
         """
@@ -234,32 +243,6 @@ class Application(object):
                 for conn in self.em.getClientList():
                     conn.close()
                 break
-
-
-    def _electionFailed(self, m):
-        """
-            Ask other masters to reelect a primary after an election failure.
-        """
-        neo.lib.logging.error('election failed: %s', (m, ))
-
-        # Ask all connected nodes to reelect a single primary master.
-        for conn in self.em.getClientList():
-            conn.notify(Packets.ReelectPrimary())
-            conn.abort()
-
-        # Wait until the connections are closed.
-        self.primary = None
-        self.primary_master_node = None
-        t = time() + 10
-        while self.em.getClientList() and time() < t:
-            try:
-                self.em.poll(1)
-            except ElectionFailure:
-                pass
-
-        # Close all connections.
-        for conn in self.em.getClientList() + self.em.getServerList():
-            conn.close()
 
 
     def broadcastNodesInformation(self, node_list):
