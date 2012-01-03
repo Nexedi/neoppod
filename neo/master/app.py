@@ -176,7 +176,8 @@ class Application(object):
                 else:
                     expiration = 10
                 t = 0
-                while True:
+                while (self.unconnected_master_node_set or
+                        self.negotiating_master_node_set):
                     current_time = time()
                     if current_time >= t:
                         t = current_time + 1
@@ -194,10 +195,6 @@ class Application(object):
                             ClientConnection(self.em, client_handler, addr=addr,
                                              connector=self.connector_handler())
                     self.em.poll(1)
-
-                    if not (self.unconnected_master_node_set or
-                            self.negotiating_master_node_set):
-                        break
             except ElectionFailure, m:
                 # something goes wrong, clean then restart
                 neo.lib.logging.error('election failed: %s', (m, ))
