@@ -108,7 +108,6 @@ class MasterClientElectionTests(NeoUnitTestBase):
         addr = node.getAddress()
         self.app.negotiating_master_node_set.add(addr)
         self.app.unconnected_master_node_set.discard(addr)
-        self._checkNegociating(node)
 
     def test_connectionClosed(self):
         node, conn = self.identifyToMasterNode()
