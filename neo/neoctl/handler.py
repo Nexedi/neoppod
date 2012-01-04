@@ -45,6 +45,9 @@ class CommandEventHandler(EventHandler):
     def ack(self, conn, msg):
         self.__respond((Packets.Error, ErrorCodes.ACK, msg))
 
+    def protocolError(self, conn, msg):
+        self.__respond((Packets.Error, ErrorCodes.PROTOCOL_ERROR, msg))
+
     def notReady(self, conn, msg):
         self.__respond((Packets.Error, ErrorCodes.NOT_READY, msg))
 
