@@ -51,7 +51,6 @@ class AdministrationHandler(MasterHandler):
 
         # change state
         if state == ClusterStates.VERIFYING:
-            # XXX: /!\ this allow leave the first phase of recovery
             self.app._startup_allowed = True
         else:
             self.app.changeClusterState(state)
