@@ -29,7 +29,7 @@ class MasterTests(NEOFunctionalTest):
         self.neo = NEOCluster([], master_count=MASTER_NODE_COUNT,
                 temp_dir=self.getTempDirectory())
         self.neo.stop()
-        self.neo.start()
+        self.neo.run()
         self.storage = self.neo.getZODBStorage()
         self.neoctl = self.neo.getNEOCTL()
 
