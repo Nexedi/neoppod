@@ -228,8 +228,8 @@ class Test(NEOThreadedTest):
     def testConflictResolutionTriggered2(self):
         """ Check that conflict resolution works """
         cluster = NEOCluster()
-        cluster.start()
         try:
+            cluster.start()
             # create the initial object
             t, c = cluster.getTransaction()
             c.root()['with_resolution'] = ob = PCounterWithResolution()
