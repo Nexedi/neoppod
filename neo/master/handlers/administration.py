@@ -43,7 +43,7 @@ class AdministrationHandler(MasterHandler):
 
     def setClusterState(self, conn, state):
         # check request
-        if not state in CLUSTER_STATE_WORKFLOW.keys():
+        if state not in CLUSTER_STATE_WORKFLOW:
             raise ProtocolError('Invalid state requested')
         valid_current_states = CLUSTER_STATE_WORKFLOW[state]
         if self.app.cluster_state not in valid_current_states:
