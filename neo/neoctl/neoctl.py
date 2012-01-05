@@ -78,8 +78,8 @@ class NeoCTL(object):
         """
         packet = Packets.AddPendingNodes(uuid_list)
         response = self.__ask(packet)
-        assert response[0] == Packets.Error
-        assert response[1] == ErrorCodes.ACK
+        if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
+            raise RuntimeError(response)
         return response[2]
 
     def setClusterState(self, state):
@@ -88,8 +88,8 @@ class NeoCTL(object):
         """
         packet = Packets.SetClusterState(state)
         response = self.__ask(packet)
-        assert response[0] == Packets.Error
-        assert response[1] == ErrorCodes.ACK
+        if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
+            raise RuntimeError(response)
         return response[2]
 
     def setNodeState(self, node, state, update_partition_table=False):
@@ -102,8 +102,8 @@ class NeoCTL(object):
             update_partition_table = 0
         packet = Packets.SetNodeState(node, state, update_partition_table)
         response = self.__ask(packet)
-        assert response[0] == Packets.Error
-        assert response[1] == ErrorCodes.ACK
+        if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
+            raise RuntimeError(response)
         return response[2]
 
     def getClusterState(self):
@@ -112,7 +112,8 @@ class NeoCTL(object):
         """
         packet = Packets.AskClusterState()
         response = self.__ask(packet)
-        assert response[0] == Packets.AnswerClusterState
+        if response[0] != Packets.AnswerClusterState:
+            raise RuntimeError(response)
         return response[1]
 
     def getNodeList(self, node_type=None):
@@ -121,7 +122,8 @@ class NeoCTL(object):
         """
         packet = Packets.AskNodeList(node_type)
         response = self.__ask(packet)
-        assert response[0] == Packets.AnswerNodeList
+        if response[0] != Packets.AnswerNodeList:
+            raise RuntimeError(response)
         return response[1] # node_list
 
     def getPartitionRowList(self, min_offset=0, max_offset=0, node=None):
@@ -131,7 +133,8 @@ class NeoCTL(object):
         """
         packet = Packets.AskPartitionList(min_offset, max_offset, node)
         response = self.__ask(packet)
-        assert response[0] == Packets.AnswerPartitionList
+        if response[0] != Packets.AnswerPartitionList:
+            raise RuntimeError(response)
         return response[1:3] # ptid, row_list
 
     def startCluster(self):
@@ -153,6 +156,7 @@ class NeoCTL(object):
         """
         packet = Packets.AskPrimary()
         response = self.__ask(packet)
-        assert response[0] == Packets.AnswerPrimary
+        if response[0] != Packets.AnswerPrimary:
+            raise RuntimeError(response)
         return response[1]
 
