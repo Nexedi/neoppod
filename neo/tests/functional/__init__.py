@@ -90,17 +90,14 @@ class PortAllocator(object):
     def release(self):
         for s in self.socket_list:
             s.close()
-        self.socket_list = None
+        self.__init__()
 
     def reset(self):
         if self.lock.locked():
             self.allocator_set.pop(self, None)
             if not self.allocator_set:
                 self.lock.release()
-            if self.socket_list:
-                for s in self.socket_list:
-                    s.close()
-            self.__init__()
+            self.release()
 
     __del__ = reset
 
