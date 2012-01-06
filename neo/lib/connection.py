@@ -167,9 +167,10 @@ class HandlerSwitcher(object):
             return
         # checkout the expected answer class
         try:
-            klass, timeout, _, kw = request_dict.pop(msg_id)
+            klass, _, _, kw = request_dict.pop(msg_id)
         except KeyError:
             klass = None
+            kw = {}
         if klass and isinstance(packet, klass) or packet.isError():
             handler.packetReceived(connection, packet, kw)
         else:
