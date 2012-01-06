@@ -25,7 +25,7 @@ from struct import Struct
 from .util import Enum, getAddressType
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (4, 1)
+PROTOCOL_VERSION = (5, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -1338,12 +1338,16 @@ class NotifyReady(Packet):
     pass
 
 StaticRegistry = {}
-def register(code, request, ignore_when_closed=None):
+def register(request, ignore_when_closed=None):
     """ Register a packet in the packet registry """
+    code = len(StaticRegistry)
+    if request is Error:
+        code |= RESPONSE_MASK
     # register the request
-    assert code not in StaticRegistry, "Duplicate request packet code"
-    request._code = code
     StaticRegistry[code] = request
+    if request is None:
+        return # None registered only to skip a code number (for compatibility)
+    request._code = code
     answer = request._answer
     if ignore_when_closed is None:
         # By default, on a closed connection:
@@ -1427,110 +1431,109 @@ class Packets(dict):
 
     # notifications
     Error = register(
-            0x8000, Error)
+                    Error)
     Ping, Pong = register(
-            0x0001, Ping)
+                    Ping)
     Notify = register(
-            0x0002, Notify)
+                    Notify)
     RequestIdentification, AcceptIdentification = register(
-            0x0003, RequestIdentification)
+                    RequestIdentification)
     AskPrimary, AnswerPrimary = register(
-            0x0004, PrimaryMaster)
+                    PrimaryMaster)
     AnnouncePrimary = register(
-            0x0005, AnnouncePrimary)
+                    AnnouncePrimary)
     ReelectPrimary = register(
-            0x0006, ReelectPrimary)
+                    ReelectPrimary)
     NotifyNodeInformation = register(
-            0x0007, NotifyNodeInformation)
+                    NotifyNodeInformation)
     AskLastIDs, AnswerLastIDs = register(
-            0x0008, LastIDs)
+                    LastIDs)
     AskPartitionTable, AnswerPartitionTable = register(
-            0x0009, PartitionTable)
+                    PartitionTable)
     SendPartitionTable = register(
-            0x000A, NotifyPartitionTable)
+                    NotifyPartitionTable)
     NotifyPartitionChanges = register(
-            0x000B, PartitionChanges)
+                    PartitionChanges)
     StartOperation = register(
-            0x000C, StartOperation)
+                    StartOperation)
     StopOperation = register(
-            0x000D, StopOperation)
+                    StopOperation)
     AskUnfinishedTransactions, AnswerUnfinishedTransactions = register(
-            0x000E, UnfinishedTransactions)
+                    UnfinishedTransactions)
     AskObjectPresent, AnswerObjectPresent = register(
-            0x000F, ObjectPresent)
+                    ObjectPresent)
     DeleteTransaction = register(
-            0x0010, DeleteTransaction)
+                    DeleteTransaction)
     CommitTransaction = register(
-            0x0011, CommitTransaction)
+                    CommitTransaction)
     AskBeginTransaction, AnswerBeginTransaction = register(
-            0x0012, BeginTransaction)
+                    BeginTransaction)
     AskFinishTransaction, AnswerTransactionFinished = register(
-            0x0013, FinishTransaction, ignore_when_closed=False)
+                    FinishTransaction, ignore_when_closed=False)
     AskLockInformation, AnswerInformationLocked = register(
-            0x0014, LockInformation, ignore_when_closed=False)
+                    LockInformation, ignore_when_closed=False)
     InvalidateObjects = register(
-            0x0015, InvalidateObjects)
+                    InvalidateObjects)
     NotifyUnlockInformation = register(
-            0x0016, UnlockInformation)
+                    UnlockInformation)
     AskNewOIDs, AnswerNewOIDs = register(
-            0x0017, GenerateOIDs)
+                    GenerateOIDs)
     AskStoreObject, AnswerStoreObject = register(
-            0x0018, StoreObject)
+                    StoreObject)
     AbortTransaction = register(
-            0x0019, AbortTransaction)
+                    AbortTransaction)
     AskStoreTransaction, AnswerStoreTransaction = register(
-            0x001A, StoreTransaction)
+                    StoreTransaction)
     AskObject, AnswerObject = register(
-            0x001B, GetObject)
+                    GetObject)
     AskTIDs, AnswerTIDs = register(
-            0x001C, TIDList)
+                    TIDList)
     AskTransactionInformation, AnswerTransactionInformation = register(
-            0x001D, TransactionInformation)
+                    TransactionInformation)
     AskObjectHistory, AnswerObjectHistory = register(
-            0x001E, ObjectHistory)
+                    ObjectHistory)
     AskPartitionList, AnswerPartitionList = register(
-            0x001F, PartitionList)
+                    PartitionList)
     AskNodeList, AnswerNodeList = register(
-            0x0020, NodeList)
+                    NodeList)
     SetNodeState = register(
-            0x0021, SetNodeState, ignore_when_closed=False)
+                    SetNodeState, ignore_when_closed=False)
     AddPendingNodes = register(
-            0x0022, AddPendingNodes, ignore_when_closed=False)
+                    AddPendingNodes, ignore_when_closed=False)
     AskNodeInformation, AnswerNodeInformation = register(
-            0x0023, NodeInformation)
+                    NodeInformation)
     SetClusterState = register(
-            0x0024, SetClusterState, ignore_when_closed=False)
+                    SetClusterState, ignore_when_closed=False)
     NotifyClusterInformation = register(
-            0x0025, ClusterInformation)
+                    ClusterInformation)
     AskClusterState, AnswerClusterState = register(
-            0x0026, ClusterState)
+                    ClusterState)
     NotifyLastOID = register(
-            0x0027, NotifyLastOID)
+                    NotifyLastOID)
     NotifyReplicationDone = register(
-            0x0028, ReplicationDone)
+                    ReplicationDone)
     AskObjectUndoSerial, AnswerObjectUndoSerial = register(
-            0x0029, ObjectUndoSerial)
+                    ObjectUndoSerial)
     AskHasLock, AnswerHasLock = register(
-            0x002A, HasLock)
+                    HasLock)
     AskTIDsFrom, AnswerTIDsFrom = register(
-            0x002B, TIDListFrom)
+                    TIDListFrom)
     AskObjectHistoryFrom, AnswerObjectHistoryFrom = register(
-            0x002C, ObjectHistoryFrom)
-    # 2D
+                    ObjectHistoryFrom)
     AskPack, AnswerPack = register(
-            0x002E, Pack, ignore_when_closed=False)
+                    Pack, ignore_when_closed=False)
     AskCheckTIDRange, AnswerCheckTIDRange = register(
-            0x002F, CheckTIDRange)
+                    CheckTIDRange)
     AskCheckSerialRange, AnswerCheckSerialRange = register(
-            0x0030, CheckSerialRange)
+                    CheckSerialRange)
     NotifyReady = register(
-            0x0031, NotifyReady)
+                    NotifyReady)
     AskLastTransaction, AnswerLastTransaction = register(
-            0x0032, LastTransaction)
+                    LastTransaction)
     AskCheckCurrentSerial, AnswerCheckCurrentSerial = register(
-            0x0033, CheckCurrentSerial)
+                    CheckCurrentSerial)
     NotifyTransactionFinished = register(
-            0x003E, NotifyTransactionFinished)
+                    NotifyTransactionFinished)
 
 def Errors():
     registry_dict = {}
