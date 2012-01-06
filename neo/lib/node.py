@@ -58,10 +58,14 @@ class Node(object):
     def setState(self, new_state):
         if self._state == new_state:
             return
-        old_state = self._state
-        self._state = new_state
+        if new_state == NodeStates.DOWN:
+            self._manager.remove(self)
+            self._state = new_state
+        else:
+            old_state = self._state
+            self._state = new_state
+            self._manager._updateState(self, old_state)
         self._last_state_change = time()
-        self._manager._updateState(self, old_state)
 
     def setAddress(self, address):
         if self._address == address:
@@ -268,6 +272,7 @@ class NodeManager(object):
         if node in self._node_set:
             neo.lib.logging.warning('adding a known node %r, ignoring', node)
             return
+        assert not node.isDown(), node
         self._node_set.add(node)
         self._updateAddress(node, None)
         self._updateUUID(node, None)
@@ -334,6 +339,7 @@ class NodeManager(object):
             set_dict.setdefault(new_key, set()).add(node)
 
     def _updateState(self, node, old_state):
+        assert not node.isDown(), node
         self.__updateSet(self._state_dict, old_state, node.getState(), node)
 
     def getList(self, node_filter=None):
