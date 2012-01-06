@@ -403,6 +403,7 @@ class Application(object):
             if node.isClient():
                 if state != ClusterStates.RUNNING:
                     conn.close()
+                    continue
                 handler = client_handler
             elif node.isStorage():
                 handler = storage_handler
