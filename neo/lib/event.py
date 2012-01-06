@@ -78,38 +78,32 @@ class EpollEventManager(object):
         self.epoll.unregister(fd)
         del self.connection_dict[fd]
 
-    def _getPendingConnection(self):
-        if self._pending_processing:
-            return self._pending_processing.pop(0)
-
     def _addPendingConnection(self, conn):
         pending_processing = self._pending_processing
         if conn not in pending_processing:
             pending_processing.append(conn)
 
     def poll(self, timeout=1):
-        to_process = self._getPendingConnection()
-        if to_process is None:
+        if not self._pending_processing:
             # Fetch messages from polled file descriptors
             self._poll(timeout=timeout)
-            # See if there is anything to process
-            to_process = self._getPendingConnection()
-        if to_process is not None:
-            to_process.lock()
+            if not self._pending_processing:
+                return
+        to_process = self._pending_processing.pop(0)
+        to_process.lock()
+        try:
             try:
-                try:
-                    # Process
-                    to_process.process()
-                finally:
-                    # ...and requeue if there are pending messages
-                    if to_process.hasPendingMessages():
-                        self._addPendingConnection(to_process)
+                to_process.process()
             finally:
-                to_process.unlock()
-            # Non-blocking call: as we handled a packet, we should just offer
-            # poll a chance to fetch & send already-available data, but it must
-            # not delay us.
-            self._poll(timeout=0)
+                # ...and requeue if there are pending messages
+                if to_process.hasPendingMessages():
+                    self._addPendingConnection(to_process)
+        finally:
+            to_process.unlock()
+        # Non-blocking call: as we handled a packet, we should just offer
+        # poll a chance to fetch & send already-available data, but it must
+        # not delay us.
+        self._poll(timeout=0)
 
     def _poll(self, timeout=1):
         try:
