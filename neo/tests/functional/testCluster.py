@@ -32,6 +32,47 @@ class ClusterTests(NEOFunctionalTest):
             self.neo.stop()
         NEOFunctionalTest.tearDown(self)
 
+    def testClusterStartup(self):
+        neo = NEOCluster(['test_neo1', 'test_neo2'], replicas=1,
+            adapter='MySQL')
+        neoctl = neo.getNEOCTL()
+        neo.run()
+        # Runing a new cluster doesn't exit Recovery state.
+        s1, s2 = neo.getStorageProcessList()
+        neo.expectPending(s1)
+        neo.expectPending(s2)
+        neo.expectClusterRecovering()
+        # When allowing cluster to exit Recovery, it reaches Running state and
+        # all present storage nodes reach running state.
+        neoctl.startCluster()
+        neo.expectRunning(s1)
+        neo.expectRunning(s2)
+        neo.expectClusterRunning()
+        # Re-running cluster with a missing storage doesn't exit Recovery
+        # state.
+        neo.stop()
+        neo.run(except_storages=(s2, ))
+        neo.expectPending(s1)
+        neo.expectUnknown(s2)
+        neo.expectClusterRecovering()
+        # Starting missing storage allows cluster to exit Recovery without
+        # neoctl action.
+        s2.start()
+        neo.expectRunning(s1)
+        neo.expectRunning(s2)
+        neo.expectClusterRunning()
+        # Re-running cluster with a missing storage and allowing startup exits
+        # recovery.
+        neo.stop()
+        neo.run(except_storages=(s2, ))
+        neo.expectPending(s1)
+        neo.expectUnknown(s2)
+        neo.expectClusterRecovering()
+        neoctl.startCluster()
+        neo.expectRunning(s1)
+        neo.expectUnknown(s2)
+        neo.expectClusterRunning()
+
     def testClusterBreaks(self):
         self.neo = NEOCluster(['test_neo1'],
                 master_count=1, temp_dir=self.getTempDirectory())
@@ -121,14 +162,14 @@ class ClusterTests(NEOFunctionalTest):
         self.neo.expectStorageNotKnown(storages[0])
         self.neo.expectStorageNotKnown(storages[1])
         storages[0].start()
-        self.neo.expectRunning(storages[0])
+        self.neo.expectPending(storages[0])
         self.neo.expectStorageNotKnown(storages[1])
         storages[1].start()
-        self.neo.expectRunning(storages[0])
-        self.neo.expectRunning(storages[1])
+        self.neo.expectPending(storages[0])
+        self.neo.expectPending(storages[1])
         storages[0].stop()
         self.neo.expectUnavailable(storages[0])
-        self.neo.expectRunning(storages[1])
+        self.neo.expectPending(storages[1])
         storages[1].stop()
         self.neo.expectUnavailable(storages[0])
         self.neo.expectUnavailable(storages[1])

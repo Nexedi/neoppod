@@ -51,50 +51,59 @@ class RecoveryManager(MasterHandler):
         if this is the first time.
         """
         neo.lib.logging.info('begin the recovery of the status')
-
-        self.app.changeClusterState(ClusterStates.RECOVERING)
-        em = self.app.em
-
-        self.app.pt.setID(None)
+        app = self.app
+        pt = app.pt
+        app.changeClusterState(ClusterStates.RECOVERING)
+        pt.setID(None)
 
         # collect the last partition table available
+        poll = app.em.poll
         while 1:
-            em.poll(1)
-            if self.app._startup_allowed:
-                allowed_node_set = set()
-                for node in self.app.nm.getStorageList():
-                    if node.isPending():
-                        break # waiting for an answer
-                    if node.isRunning():
-                        allowed_node_set.add(node)
+            poll(1)
+            allowed_node_set = set()
+            if pt.filled():
+                # A partition table exists, we are starting an existing
+                # cluster.
+                partition_node_set = pt.getUpToDateCellNodeSet()
+                pending_node_set = set(x for x in partition_node_set
+                    if x.isPending())
+                if app._startup_allowed or \
+                        partition_node_set == pending_node_set:
+                    allowed_node_set = pending_node_set
+                    extra_node_set = pt.getOutOfDateCellNodeSet()
+            elif app._startup_allowed:
+                # No partition table and admin allowed startup, we are
+                # creating a new cluster out of all pending nodes.
+                allowed_node_set = set(app.nm.getStorageList(
+                    only_identified=True))
+                extra_node_set = set()
+            if allowed_node_set:
+                for node in allowed_node_set:
+                    assert node.isPending(), node
+                    if node.getConnection().isPending():
+                        break
                 else:
-                    if allowed_node_set:
-                        break # no ready storage node
+                    allowed_node_set |= extra_node_set
+                    break
 
         neo.lib.logging.info('startup allowed')
 
-        if self.app.pt.getID() is None:
+        for node in allowed_node_set:
+            node.setRunning()
+        app.broadcastNodesInformation(allowed_node_set)
+
+        if pt.getID() is None:
             neo.lib.logging.info('creating a new partition table')
             # reset IDs generators & build new partition with running nodes
-            self.app.tm.setLastOID(ZERO_OID)
-            self.app.pt.make(allowed_node_set)
-            self._broadcastPartitionTable(self.app.pt.getID(),
-                                          self.app.pt.getRowList())
+            app.tm.setLastOID(ZERO_OID)
+            pt.make(allowed_node_set)
+            self._broadcastPartitionTable(pt.getID(), pt.getRowList())
 
-        # collect node that are connected but not in the selected partition
-        # table and set them in pending state
-        refused_node_set = allowed_node_set.difference(
-            self.app.pt.getNodeList())
-        if refused_node_set:
-            for node in refused_node_set:
-                node.setPending()
-            self.app.broadcastNodesInformation(refused_node_set)
-
-        self.app.setLastTransaction(self.app.tm.getLastTID())
+        app.setLastTransaction(app.tm.getLastTID())
         neo.lib.logging.debug(
                         'cluster starts with loid=%s and this partition ' \
-                        'table :', dump(self.app.tm.getLastOID()))
-        self.app.pt.log()
+                        'table :', dump(app.tm.getLastOID()))
+        pt.log()
 
     def connectionLost(self, conn, new_state):
         node = self.app.nm.getByUUID(conn.getUUID())
@@ -109,12 +118,6 @@ class RecoveryManager(MasterHandler):
         # ask the last IDs to perform the recovery
         conn.ask(Packets.AskLastIDs())
 
-    def _lastIDsCompleted(self, conn):
-        node = self.app.nm.getByUUID(conn.getUUID())
-        assert node.isPending()
-        node.setRunning()
-        self.app.broadcastNodesInformation([node])
-
     def answerLastIDs(self, conn, loid, ltid, lptid):
         # Get max values.
         if loid is not None:
@@ -125,8 +128,6 @@ class RecoveryManager(MasterHandler):
             # something newer
             self.target_ptid = lptid
             conn.ask(Packets.AskPartitionTable())
-        else:
-            self._lastIDsCompleted(conn)
 
     def answerPartitionTable(self, conn, ptid, row_list):
         if ptid != self.target_ptid:
@@ -135,7 +136,6 @@ class RecoveryManager(MasterHandler):
                     dump(self.target_ptid))
         else:
             self._broadcastPartitionTable(ptid, row_list)
-        self._lastIDsCompleted(conn)
 
     def _broadcastPartitionTable(self, ptid, row_list):
         try:

@@ -297,7 +297,7 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
-    def testRestartWithMissingStorage(self, fast_startup=False):
+    def testRestartWithMissingStorage(self):
         # translated from neo.tests.functional.testStorage.StorageTest
         cluster = NEOCluster(replicas=1, partitions=10)
         s1, s2 = cluster.storage_list
@@ -309,15 +309,12 @@ class Test(NEOThreadedTest):
         # restart it with one storage only
         cluster.reset()
         try:
-            cluster.start(storage_list=(s1,), fast_startup=fast_startup)
+            cluster.start(storage_list=(s1,))
             self.assertEqual(NodeStates.UNKNOWN, cluster.getNodeState(s2))
         finally:
             cluster.stop()
 
-    def testRestartWithMissingStorageFastStartup(self):
-        self.testRestartWithMissingStorage(True)
-
-    def testVerificationCommitUnfinishedTransactions(self, fast_startup=False):
+    def testVerificationCommitUnfinishedTransactions(self):
         """ Verification step should commit unfinished transactions """
         # translated from neo.tests.functional.testCluster.ClusterTests
         cluster = NEOCluster()
@@ -336,16 +333,13 @@ class Test(NEOThreadedTest):
         self.assertEqual(dict.fromkeys(data_info, 1),
                          cluster.storage.getDataLockInfo())
         try:
-            cluster.start(fast_startup=fast_startup)
+            cluster.start()
             t, c = cluster.getTransaction()
             # transaction should be verified and commited
             self.assertEqual(c.root()[0], 'ok')
             self.assertEqual(data_info, cluster.storage.getDataLockInfo())
         finally:
             cluster.stop()
-
-    def testVerificationCommitUnfinishedTransactionsFastStartup(self):
-        self.testVerificationCommitUnfinishedTransactions(True)
 
     def testStorageReconnectDuringStore(self):
         cluster = NEOCluster(replicas=1)
@@ -385,6 +379,42 @@ class Test(NEOThreadedTest):
             t1, = cluster.client.undoLog(0, 10)
         finally:
             cluster.stop()
+
+    def testDropNodeThenRestartCluster(self):
+        """ Start a cluster with more than one storage, down one, shutdown the
+        cluster then restart it. The partition table recovered must not include
+        the dropped node """
+        def checkNodeState(state):
+            self.assertEqual(cluster.getNodeState(s1), state)
+            self.assertEqual(cluster.getNodeState(s2), NodeStates.RUNNING)
+
+        # start with two storage / one replica
+        cluster = NEOCluster(storage_count=2, replicas=1)
+        s1, s2 = cluster.storage_list
+        try:
+            cluster.start()
+            checkNodeState(NodeStates.RUNNING)
+            self.assertEqual([], cluster.getOudatedCells())
+            # drop one
+            cluster.neoctl.dropNode(s1.uuid)
+            checkNodeState(None)
+            cluster.tic() # Let node state update reach remaining storage
+            checkNodeState(None)
+            self.assertEqual([], cluster.getOudatedCells())
+            # restart with s2 only
+        finally:
+            cluster.stop()
+        cluster.reset()
+        try:
+            cluster.start(storage_list=[s2])
+            checkNodeState(None)
+            # then restart it, it must be in pending state
+            s1.start()
+            cluster.tic()
+            checkNodeState(NodeStates.PENDING)
+        finally:
+            cluster.stop()
+
 
 if __name__ == "__main__":
     unittest.main()

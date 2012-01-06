@@ -340,16 +340,24 @@ class NEOCluster(object):
         """ Do a complete start of a cluster """
         self.run(except_storages=except_storages)
         neoctl = self.neoctl
-        neoctl.startCluster()
         target_count = len(self.db_list) - len(except_storages)
         storage_node_list = []
         def test():
-            storage_node_list[:] = neoctl.getNodeList(
-                node_type=NodeTypes.STORAGE)
+            storage_node_list[:] = [x
+                for x in neoctl.getNodeList(node_type=NodeTypes.STORAGE)
+                if x[3] == NodeStates.PENDING]
             # wait at least number of started storages, admin node can know
             # more nodes when the cluster restart with an existing partition
             # table referencing non-running nodes
-            return len(storage_node_list) >= target_count
+            result = len(storage_node_list) >= target_count
+            if result:
+                try:
+                    neoctl.startCluster()
+                except RuntimeError, exc:
+                    result = False
+                else:
+                    result = True
+            return result
         if not pdb.wait(test, MAX_START_TIME):
             raise AssertionError('Timeout when starting cluster')
         if storage_node_list:

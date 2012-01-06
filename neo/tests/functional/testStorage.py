@@ -400,51 +400,6 @@ class StorageTests(NEOFunctionalTest):
         self.__setup(storage_number=2, partitions=5000, master_count=1)
         self.neo.expectClusterState(ClusterStates.RUNNING)
 
-    def testDropNodeThenRestartCluster(self):
-        """ Start a cluster with more than one storage, down one, shutdown the
-        cluster then restart it. The partition table recovered must not include
-        the dropped node """
-
-        # start with two storage / one replica
-        (started, stopped) = self.__setup(storage_number=2, replicas=1,
-                master_count=1, partitions=10)
-        self.neo.expectRunning(started[0])
-        self.neo.expectRunning(started[1])
-        self.neo.expectOudatedCells(number=0)
-
-        # drop one
-        self.neo.neoctl.dropNode(started[0].getUUID())
-        self.neo.expectStorageNotKnown(started[0])
-        self.neo.expectRunning(started[1])
-
-        # wait for running storage to store new partition table
-        self.__checkReplicateCount(self.neo.db_list[1], 1)
-
-        # restart all nodes except the dropped, it must not be known
-        self.neo.stop()
-        self.neo.start(except_storages=[started[0]])
-        self.neo.expectStorageNotKnown(started[0])
-        self.neo.expectRunning(started[1])
-
-        # then restart it, it must be in pending state
-        started[0].start()
-        self.neo.expectPending(started[0])
-        self.neo.expectRunning(started[1])
-
-    def testAcceptFirstEmptyStorageAfterStartupAllowed(self):
-        """ Create a new cluster with no storage node, allow it to starts
-        then run the first empty storage, it must be accepted """
-        (started, stopped) = self.__setup(storage_number=1, replicas=0,
-                pending_number=1, partitions=10)
-        # start without storage
-        self.neo.expectClusterRecovering()
-        self.neo.expectStorageNotKnown(stopped[0])
-        # start the empty storage, it must be accepted
-        stopped[0].start(with_uuid=False)
-        self.neo.expectClusterRunning()
-        self.assertEqual(len(self.neo.getStorageList()), 1)
-        self.neo.expectOudatedCells(number=0)
-
     def testDropNodeWithOtherPending(self):
         """ Ensure we can drop a node """
         # start with one storage
@@ -486,15 +441,16 @@ class StorageTests(NEOFunctionalTest):
 
         # restart the cluster with the first storage killed
         self.neo.run(except_storages=[started[1]])
-        self.neo.expectRunning(started[0])
+        self.neo.expectPending(started[0])
         self.neo.expectUnknown(started[1])
         self.neo.expectClusterRecovering()
+        # Cluster doesn't know there are outdated cells
         self.neo.expectOudatedCells(number=0)
         started[1].start()
         self.neo.expectRunning(started[0])
         self.neo.expectRunning(started[1])
-        self.neo.expectClusterRecovering()
-        self.neo.expectOudatedCells(number=10)
+        self.neo.expectClusterRunning()
+        self.neo.expectOudatedCells(number=0)
 
     def testReplicationBlockedByUnfinished(self):
         # start a cluster with 1 of 2 storages and a replica

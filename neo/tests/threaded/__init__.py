@@ -549,7 +549,7 @@ class NEOCluster(object):
         self.client = ClientApplication(self)
         self.neoctl = NeoCTL(weakref.proxy(self))
 
-    def start(self, storage_list=None, fast_startup=True):
+    def start(self, storage_list=None, fast_startup=False):
         self._patch()
         Serialized.init()
         for node_type in 'master', 'admin':
@@ -557,17 +557,28 @@ class NEOCluster(object):
                 node.start()
         self.tic()
         if fast_startup:
-            self.neoctl.startCluster()
+            self._startCluster()
         if storage_list is None:
             storage_list = self.storage_list
         for node in storage_list:
             node.start()
         self.tic()
         if not fast_startup:
-            self.neoctl.startCluster()
+            self._startCluster()
             self.tic()
         assert self.neoctl.getClusterState() == ClusterStates.RUNNING
         self.enableStorageList(storage_list)
+
+    def _startCluster(self):
+        try:
+            self.neoctl.startCluster()
+        except RuntimeError:
+            self.tic()
+            if self.neoctl.getClusterState() not in (
+                      ClusterStates.RUNNING,
+                      ClusterStates.VERIFYING,
+                  ):
+                raise
 
     def enableStorageList(self, storage_list):
         self.neoctl.enableStorageList([x.uuid for x in storage_list])

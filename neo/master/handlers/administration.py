@@ -51,6 +51,15 @@ class AdministrationHandler(MasterHandler):
 
         # change state
         if state == ClusterStates.VERIFYING:
+            storage_list = self.app.nm.getStorageList(only_identified=True)
+            if not storage_list:
+                raise ProtocolError('Cannot exit recovery without any '
+                    'storage node')
+            for node in storage_list:
+                assert node.isPending(), node
+                if node.getConnection().isPending():
+                    raise ProtocolError('Cannot exit recovery now: node %r is '
+                        'entering cluster' % (node, ))
             self.app._startup_allowed = True
         else:
             self.app.changeClusterState(state)

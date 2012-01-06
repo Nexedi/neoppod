@@ -302,3 +302,24 @@ class PartitionTable(PartitionTable):
                         CellStates.OUT_OF_DATE))
         return cell_list
 
+    def getUpToDateCellNodeSet(self):
+        """
+        Return a set of all nodes which are part of at least one UP TO DATE
+        partition.
+        """
+        return set(cell.getNode()
+            for row in self.partition_list
+            for cell in row
+            if cell.isUpToDate() or cell.isFeeding()
+        )
+
+    def getOutOfDateCellNodeSet(self):
+        """
+        Return a set of all nodes which are part of at least one OUT OF DATE
+        partition.
+        """
+        return set(cell.getNode()
+            for row in self.partition_list
+            for cell in row if cell.isOutOfDate()
+        )
+
