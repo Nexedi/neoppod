@@ -911,7 +911,7 @@ class HandlerSwitcherTests(NeoUnitTestBase):
         self.assertFalse(applied)
         self._checkCurrentHandler(self._handler)
         call_tracker = []
-        def packetReceived(conn, packet):
+        def packetReceived(conn, packet, kw):
             self._handlers.emit(self._makeRequest(2), 0, None)
             call_tracker.append(True)
         self._handler.packetReceived = packetReceived

@@ -43,7 +43,7 @@ class EventHandler(object):
         conn.abort()
         # self.peerBroken(conn)
 
-    def dispatch(self, conn, packet):
+    def dispatch(self, conn, packet, kw={}):
         """This is a helper method to handle various packet types."""
         try:
             try:
@@ -52,7 +52,7 @@ class EventHandler(object):
                 raise UnexpectedPacketError('no handler found')
             args = packet.decode() or ()
             conn.setPeerId(packet.getId())
-            method(conn, *args)
+            method(conn, *args, **kw)
         except UnexpectedPacketError, e:
             self.__unexpectedPacket(conn, packet, *e.args)
         except PacketMalformedError:
@@ -83,9 +83,9 @@ class EventHandler(object):
 
     # Network level handlers
 
-    def packetReceived(self, conn, packet):
+    def packetReceived(self, *args):
         """Called when a packet is received."""
-        self.dispatch(conn, packet)
+        self.dispatch(*args)
 
     def connectionStarted(self, conn):
         """Called when a connection is started."""

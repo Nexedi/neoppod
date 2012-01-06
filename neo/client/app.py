@@ -149,7 +149,7 @@ class Application(object):
             self.pt.log()
 
     @profiler_decorator
-    def _handlePacket(self, conn, packet, handler=None):
+    def _handlePacket(self, conn, packet, kw={}, handler=None):
         """
           conn
             The connection which received the packet (forwarded to handler).
@@ -174,7 +174,7 @@ class Application(object):
                 raise ValueError, 'Unknown node type: %r' % (node.__class__, )
         conn.lock()
         try:
-            handler.dispatch(conn, packet)
+            handler.dispatch(conn, packet, kw)
         finally:
             conn.unlock()
 
@@ -191,7 +191,7 @@ class Application(object):
         _handlePacket = self._handlePacket
         while pending(queue):
             try:
-                conn, packet = get(block)
+                conn, packet, kw = get(block)
             except Empty:
                 break
             if packet is None or isinstance(packet, ForgottenPacket):
@@ -199,7 +199,7 @@ class Application(object):
                 continue
             block = False
             try:
-                _handlePacket(conn, packet)
+                _handlePacket(conn, packet, kw)
             except ConnectionClosed:
                 pass
 
@@ -224,7 +224,7 @@ class Application(object):
         get = queue.get
         _handlePacket = self._handlePacket
         while True:
-            qconn, qpacket = get(True)
+            qconn, qpacket, kw = get(True)
             is_forgotten = isinstance(qpacket, ForgottenPacket)
             if conn is qconn:
                 # check fake packet
@@ -234,7 +234,7 @@ class Application(object):
                     if is_forgotten:
                         raise ValueError, 'ForgottenPacket for an ' \
                             'explicitely expected packet.'
-                    _handlePacket(qconn, qpacket, handler=handler)
+                    _handlePacket(qconn, qpacket, kw, handler)
                     break
             if not is_forgotten and qpacket is not None:
                 _handlePacket(qconn, qpacket)

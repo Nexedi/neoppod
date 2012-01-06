@@ -129,14 +129,14 @@ class MasterEventHandler(EventHandler):
     def connectionClosed(self, conn):
         self._connectionLost(conn)
 
-    def dispatch(self, conn, packet):
+    def dispatch(self, conn, packet, kw={}):
         if packet.isResponse() and \
            self.app.dispatcher.registered(packet.getId()):
             # expected answer
-            self.app.request_handler.dispatch(conn, packet)
+            self.app.request_handler.dispatch(conn, packet, kw)
         else:
             # unexpectexd answers and notifications
-            super(MasterEventHandler, self).dispatch(conn, packet)
+            super(MasterEventHandler, self).dispatch(conn, packet, kw)
 
     def answerNodeInformation(self, conn):
         # XXX: This will no more exists when the initialization module will be

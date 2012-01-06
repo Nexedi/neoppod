@@ -55,7 +55,7 @@ class Dispatcher:
 
     @giant_lock
     @profiler_decorator
-    def dispatch(self, conn, msg_id, packet):
+    def dispatch(self, conn, msg_id, packet, kw):
         """
         Retrieve register-time provided queue, and put conn and packet in it.
         """
@@ -65,7 +65,7 @@ class Dispatcher:
         elif queue is NOBODY:
             return True
         self._decrefQueue(queue)
-        queue.put((conn, packet))
+        queue.put((conn, packet, kw))
         return True
 
     def _decrefQueue(self, queue):
@@ -112,7 +112,7 @@ class Dispatcher:
                 continue
             queue_id = id(queue)
             if queue_id not in notified_set:
-                queue.put((conn, None))
+                queue.put((conn, None, None))
                 notified_set.add(queue_id)
             _decrefQueue(queue)
 
@@ -127,7 +127,7 @@ class Dispatcher:
         if queue is NOBODY:
             raise KeyError, 'Already expected by NOBODY: %r, %r' % (
                 conn, msg_id)
-        queue.put((conn, ForgottenPacket(msg_id)))
+        queue.put((conn, ForgottenPacket(msg_id), None))
         self.queue_dict[id(queue)] -= 1
         message_table[msg_id] = NOBODY
         return queue

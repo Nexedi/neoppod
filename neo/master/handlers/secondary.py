@@ -37,12 +37,12 @@ class SecondaryMasterHandler(MasterHandler):
 class PrimaryHandler(MasterHandler):
     """ Handler used by secondaries to handle primary master"""
 
-    def packetReceived(self, conn, packet):
+    def packetReceived(self, conn, packet, kw):
         if not conn.isServer():
             node = self.app.nm.getByAddress(conn.getAddress())
             if not node.isBroken():
                 node.setRunning()
-        MasterHandler.packetReceived(self, conn, packet)
+        super(PrimaryHandler, self).packetReceived(conn, packet, kw)
 
     def connectionLost(self, conn, new_state):
         self.app.primary_master_node.setDown()

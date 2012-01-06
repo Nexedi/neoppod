@@ -25,24 +25,24 @@ class BaseHandler(EventHandler):
         super(BaseHandler, self).__init__(app)
         self.dispatcher = app.dispatcher
 
-    def dispatch(self, conn, packet):
+    def dispatch(self, conn, packet, kw={}):
         # Before calling superclass's dispatch method, lock the connection.
         # This covers the case where handler sends a response to received
         # packet.
         conn.lock()
         try:
-            super(BaseHandler, self).dispatch(conn, packet)
+            super(BaseHandler, self).dispatch(conn, packet, kw)
         finally:
             conn.release()
 
-    def packetReceived(self, conn, packet):
+    def packetReceived(self, conn, packet, kw={}):
         """Redirect all received packet to dispatcher thread."""
         if packet.isResponse() and type(packet) is not Packets.Pong:
-            if not self.dispatcher.dispatch(conn, packet.getId(), packet):
+            if not self.dispatcher.dispatch(conn, packet.getId(), packet, kw):
                 raise ProtocolError('Unexpected response packet from %r: %r'
                                     % (conn, packet))
         else:
-            self.dispatch(conn, packet)
+            self.dispatch(conn, packet, kw)
 
 
     def connectionLost(self, conn, new_state):

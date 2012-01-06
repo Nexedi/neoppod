@@ -34,11 +34,11 @@ class DispatcherTests(NeoTestBase):
         MARKER = object()
         self.dispatcher.register(conn, 1, queue)
         self.assertTrue(queue.empty())
-        self.assertTrue(self.dispatcher.dispatch(conn, 1, MARKER))
+        self.assertTrue(self.dispatcher.dispatch(conn, 1, MARKER, {}))
         self.assertFalse(queue.empty())
-        self.assertEqual(queue.get(block=False), (conn, MARKER))
+        self.assertEqual(queue.get(block=False), (conn, MARKER, {}))
         self.assertTrue(queue.empty())
-        self.assertFalse(self.dispatcher.dispatch(conn, 2, None))
+        self.assertFalse(self.dispatcher.dispatch(conn, 2, None, {}))
         self.assertEqual(len(self.fake_thread.mockGetNamedCalls('start')), 1)
 
     def testUnregister(self):
@@ -47,7 +47,7 @@ class DispatcherTests(NeoTestBase):
         self.dispatcher.register(conn, 2, queue)
         self.dispatcher.unregister(conn)
         self.assertEqual(len(queue.mockGetNamedCalls('put')), 1)
-        self.assertFalse(self.dispatcher.dispatch(conn, 2, None))
+        self.assertFalse(self.dispatcher.dispatch(conn, 2, None, {}))
 
     def testRegistered(self):
         conn1 = object()
@@ -88,10 +88,10 @@ class DispatcherTests(NeoTestBase):
         self.assertTrue(self.dispatcher.pending(queue1))
         self.assertTrue(self.dispatcher.pending(queue2))
 
-        self.dispatcher.dispatch(conn1, 1, None)
+        self.dispatcher.dispatch(conn1, 1, None, {})
         self.assertTrue(self.dispatcher.pending(queue1))
         self.assertTrue(self.dispatcher.pending(queue2))
-        self.dispatcher.dispatch(conn2, 2, None)
+        self.dispatcher.dispatch(conn2, 2, None, {})
         self.assertFalse(self.dispatcher.pending(queue1))
         self.assertTrue(self.dispatcher.pending(queue2))
 
@@ -121,7 +121,7 @@ class DispatcherTests(NeoTestBase):
         forgotten_queue = self.dispatcher.forget(conn, 1)
         self.assertTrue(queue is forgotten_queue, (queue, forgotten_queue))
         # A ForgottenPacket must have been put in the queue
-        queue_conn, packet = queue.get(block=False)
+        queue_conn, packet, kw = queue.get(block=False)
         self.assertTrue(isinstance(packet, ForgottenPacket), packet)
         # ...with appropriate packet id
         self.assertEqual(packet.getId(), 1)
@@ -130,7 +130,7 @@ class DispatcherTests(NeoTestBase):
         # If forgotten twice, it must raise a KeyError
         self.assertRaises(KeyError, self.dispatcher.forget, conn, 1)
         # Event arrives, return value must be True (it was expected)
-        self.assertTrue(self.dispatcher.dispatch(conn, 1, MARKER))
+        self.assertTrue(self.dispatcher.dispatch(conn, 1, MARKER, {}))
         # ...but must not have reached the queue
         self.assertTrue(queue.empty())
 

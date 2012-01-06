@@ -107,7 +107,7 @@ class HandlerSwitcher(object):
         return self._pending[-1][1]
 
     @profiler_decorator
-    def emit(self, request, timeout, on_timeout):
+    def emit(self, request, timeout, on_timeout, kw={}):
         # register the request in the current handler
         _pending = self._pending
         if self._is_handling:
@@ -127,7 +127,7 @@ class HandlerSwitcher(object):
             self._next_timeout = timeout
             self._next_timeout_msg_id = msg_id
             self._next_on_timeout = on_timeout
-        request_dict[msg_id] = (answer_class, timeout, on_timeout)
+        request_dict[msg_id] = answer_class, timeout, on_timeout, kw
 
     def getNextTimeout(self):
         return self._next_timeout
@@ -166,9 +166,12 @@ class HandlerSwitcher(object):
             handler.packetReceived(connection, packet)
             return
         # checkout the expected answer class
-        (klass, timeout, _) = request_dict.pop(msg_id, (None, None, None))
+        try:
+            klass, timeout, _, kw = request_dict.pop(msg_id)
+        except KeyError:
+            klass = None
         if klass and isinstance(packet, klass) or packet.isError():
-            handler.packetReceived(connection, packet)
+            handler.packetReceived(connection, packet, kw)
         else:
             neo.lib.logging.error(
                             'Unexpected answer %r in %r', packet, connection)
@@ -190,7 +193,7 @@ class HandlerSwitcher(object):
         # Find next timeout and its msg_id
         next_timeout = None
         for pending in self._pending:
-            for msg_id, (_, timeout, on_timeout) in pending[0].iteritems():
+            for msg_id, (_, timeout, on_timeout, _) in pending[0].iteritems():
                 if not next_timeout or timeout < next_timeout[0]:
                     next_timeout = timeout, msg_id, on_timeout
         self._next_timeout, self._next_timeout_msg_id, self._next_on_timeout = \
@@ -598,7 +601,7 @@ class Connection(BaseConnection):
 
     @profiler_decorator
     @not_closed
-    def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None):
+    def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None, **kw):
         """
         Send a packet with a new ID and register the expectation of an answer
         """
@@ -607,7 +610,7 @@ class Connection(BaseConnection):
         self._addPacket(packet)
         handlers = self._handlers
         t = not handlers.isPending() and time() or None
-        handlers.emit(packet, timeout, on_timeout)
+        handlers.emit(packet, timeout, on_timeout, kw)
         self.updateTimeout(t)
         return msg_id
 
@@ -728,7 +731,7 @@ class MTClientConnection(ClientConnection):
 
     @profiler_decorator
     def ask(self, packet, timeout=CRITICAL_TIMEOUT, on_timeout=None,
-            queue=None):
+            queue=None, **kw):
         self.lock()
         try:
             if self.isClosed():
@@ -747,7 +750,7 @@ class MTClientConnection(ClientConnection):
             self._addPacket(packet)
             handlers = self._handlers
             t = not handlers.isPending() and time() or None
-            handlers.emit(packet, timeout, on_timeout)
+            handlers.emit(packet, timeout, on_timeout, kw)
             self.updateTimeout(t)
             return msg_id
         finally:

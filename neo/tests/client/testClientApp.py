@@ -315,7 +315,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         data_dict[oid] = 'BEFORE'
         txn_context['data_list'].append(oid)
         app.store(oid, tid, '', None, txn)
-        txn_context['queue'].put((conn, packet))
+        txn_context['queue'].put((conn, packet, {}))
         self.assertRaises(ConflictError, app.waitStoreResponses, txn_context,
             failing_tryToResolveConflict)
         self.assertTrue(oid not in data_dict)
@@ -344,7 +344,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.nm.createStorage(address=storage_address)
         app.store(oid, tid, 'DATA', None, txn)
         self.checkAskStoreObject(conn)
-        txn_context['queue'].put((conn, packet))
+        txn_context['queue'].put((conn, packet, {}))
         app.waitStoreResponses(txn_context, resolving_tryToResolveConflict)
         self.assertEqual(txn_context['object_stored_counter_dict'][oid],
             {tid: set([uuid])})
@@ -481,8 +481,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.store(oid1, tid, 'DATA', None, txn)
         app.store(oid2, tid, 'DATA', None, txn)
         queue = txn_context['queue']
-        queue.put((conn2, packet2))
-        queue.put((conn3, packet3))
+        queue.put((conn2, packet2, {}))
+        queue.put((conn3, packet3, {}))
         # vote fails as the conflict is not resolved, nothing is sent to storage 3
         self.assertRaises(ConflictError, app.tpc_vote, txn, failing_tryToResolveConflict)
         # abort must be sent to storage 1 and 2
@@ -600,7 +600,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         undo_serial = Packets.AnswerObjectUndoSerial({
             oid0: (tid2, tid0, False)})
         undo_serial.setId(2)
-        app._getThreadQueue().put((conn, undo_serial))
+        app._getThreadQueue().put((conn, undo_serial, {}))
         marker = []
         def tryToResolveConflict(oid, conflict_serial, serial, data,
                 committedData=''):
@@ -641,7 +641,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         undo_serial.setId(2)
         app, conn, store_marker = self._getAppForUndoTests(oid0, tid0, tid1,
             tid2)
-        app._getThreadQueue().put((conn, undo_serial))
+        app._getThreadQueue().put((conn, undo_serial, {}))
         marker = []
         def tryToResolveConflict(oid, conflict_serial, serial, data,
                 committedData=''):
@@ -667,7 +667,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             marker.append((oid, conflict_serial, serial, data, committedData))
             raise ConflictError
         # The undo
-        app._getThreadQueue().put((conn, undo_serial))
+        app._getThreadQueue().put((conn, undo_serial, {}))
         self.assertRaises(UndoError, app.undo, snapshot_tid, tid1, txn,
             tryToResolveConflict)
         # Checking what happened
@@ -700,7 +700,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         undo_serial.setId(2)
         app, conn, store_marker = self._getAppForUndoTests(oid0, tid0, tid1,
             tid2)
-        app._getThreadQueue().put((conn, undo_serial))
+        app._getThreadQueue().put((conn, undo_serial, {}))
         def tryToResolveConflict(oid, conflict_serial, serial, data,
                 committedData=''):
             raise Exception, 'Test called conflict resolution, but there ' \
