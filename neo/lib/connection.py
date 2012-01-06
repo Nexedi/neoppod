@@ -88,8 +88,13 @@ class HandlerSwitcher(object):
         self._is_handling = False
 
     def clear(self):
-        handler = self._pending[0][1]
-        self._pending = [[{}, handler]]
+        self.__init__(self.getLastHandler())
+        try:
+            del (self._next_timeout,
+                 self._next_timeout_msg_id,
+                 self._next_on_timeout)
+        except AttributeError:
+            pass
 
     def isPending(self):
         return bool(self._pending[0][0])
