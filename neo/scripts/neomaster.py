@@ -35,6 +35,8 @@ parser.add_option('-m', '--masters', help = 'master node list')
 parser.add_option('-r', '--replicas', help = 'replicas number')
 parser.add_option('-p', '--partitions', help = 'partitions number')
 parser.add_option('-l', '--logfile', help = 'specify a logging file')
+parser.add_option('-D', '--dynamic-master-list', help='path of the file '
+    'containing dynamic master node list')
 
 defaults = dict(
     name = 'master',

@@ -46,7 +46,7 @@ class Application(object):
     def __init__(self, config):
         # Internal attributes.
         self.em = EventManager()
-        self.nm = NodeManager()
+        self.nm = NodeManager(config.getDynamicMasterList())
         self.tm = TransactionManager(self.onTransactionCommitted)
 
         self.name = config.getCluster()

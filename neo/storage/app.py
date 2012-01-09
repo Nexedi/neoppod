@@ -46,7 +46,7 @@ class Application(object):
 
         # Internal attributes.
         self.em = EventManager()
-        self.nm = NodeManager()
+        self.nm = NodeManager(config.getDynamicMasterList())
         self.tm = TransactionManager(self)
         self.dm = buildDatabaseManager(config.getAdapter(), config.getDatabase())
 

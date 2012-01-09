@@ -16,6 +16,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from time import time
+from os.path import exists, getsize
+import json
 
 import neo.lib
 from .util import dump
@@ -251,20 +253,67 @@ NODE_CLASS_MAPPING = {
     AdminNode: NodeTypes.ADMIN,
 }
 
+class MasterDB(object):
+    """
+    Manages accesses to master's address database.
+    """
+    def __init__(self, path):
+        self._path = path
+        try_load = exists(path) and getsize(path)
+        if try_load:
+            db = open(path, 'r')
+            init_set = map(tuple, json.load(db))
+        else:
+            db = open(path, 'w+')
+            init_set = []
+        self._set = set(init_set)
+        db.close()
+
+    def _save(self):
+        try:
+            db = open(self._path, 'w')
+        except IOError:
+            neo.lib.logging.warning('failed opening master database at %r '
+                'for writing, update skipped', self._path)
+        else:
+            json.dump(list(self._set), db)
+            db.close()
+
+    def add(self, addr):
+        self._set.add(addr)
+        self._save()
+
+    def discard(self, addr):
+        self._set.discard(addr)
+        self._save()
+
+    def __iter__(self):
+        return iter(self._set)
+
 class NodeManager(object):
     """This class manages node status."""
+    _master_db = None
 
     # TODO: rework getXXXList() methods, filter first by node type
     # - getStorageList(identified=True, connected=True, )
     # - getList(...)
 
-    def __init__(self):
+    def __init__(self, master_db=None):
+        """
+        master_db (string)
+        Path to a file containing master nodes's addresses. Used to automate
+        master list updates. If not provided, no automation will happen.
+        """
         self._node_set = set()
         self._address_dict = {}
         self._uuid_dict = {}
         self._type_dict = {}
         self._state_dict = {}
         self._identified_dict = {}
+        if master_db is not None:
+            self._master_db = db = MasterDB(master_db)
+            for addr in db:
+                self.createMaster(addr)
 
     close = __init__
 
@@ -279,6 +328,8 @@ class NodeManager(object):
         self.__updateSet(self._type_dict, None, node.__class__, node)
         self.__updateSet(self._state_dict, None, node.getState(), node)
         self._updateIdentified(node)
+        if node.isMaster() and self._master_db is not None:
+            self._master_db.add(node.getAddress())
 
     def remove(self, node):
         if node not in self._node_set:
@@ -292,6 +343,8 @@ class NodeManager(object):
         uuid = node.getUUID()
         if uuid in self._identified_dict:
             del self._identified_dict[uuid]
+        if node.isMaster() and self._master_db is not None:
+            self._master_db.discard(node.getAddress())
 
     def __drop(self, index_dict, key):
         try:

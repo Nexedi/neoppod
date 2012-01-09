@@ -58,7 +58,7 @@ class Application(object):
     def __init__(self, config):
         # Internal attributes.
         self.em = EventManager()
-        self.nm = NodeManager()
+        self.nm = NodeManager(config.getDynamicMasterList())
 
         self.name = config.getCluster()
         self.server = config.getBind()

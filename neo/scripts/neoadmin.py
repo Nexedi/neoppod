@@ -34,6 +34,8 @@ parser.add_option('-c', '--cluster', help = 'the cluster name')
 parser.add_option('-m', '--masters', help = 'master node list')
 parser.add_option('-b', '--bind', help = 'the local address to bind to')
 parser.add_option('-n', '--name', help = 'the node name (improve logging)')
+parser.add_option('-D', '--dynamic-master-list', help='path of the file '
+    'containing dynamic master node list')
 
 defaults = dict(
     name = 'admin',

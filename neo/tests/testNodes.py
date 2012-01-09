@@ -20,9 +20,11 @@ from mock import Mock
 from neo.lib import protocol
 from neo.lib.protocol import NodeTypes, NodeStates
 from neo.lib.node import Node, MasterNode, StorageNode, \
-    ClientNode, AdminNode, NodeManager
-from . import NeoUnitTestBase
+    ClientNode, AdminNode, NodeManager, MasterDB
+from . import NeoUnitTestBase, getTempDirectory
 from time import time
+from os import chmod, mkdir, rmdir, unlink
+from os.path import join, exists
 
 class NodesTests(NeoUnitTestBase):
 
@@ -313,6 +315,85 @@ class NodeManagerTests(NeoUnitTestBase):
         self.checkIdentified([self.master, self.storage], pool_set=[
                 self.master.getUUID(), self.storage.getUUID()])
 
+class MasterDBTests(NeoUnitTestBase):
+    def _checkMasterDB(self, path, expected_master_list):
+        db = list(MasterDB(path))
+        db_set = set(db)
+        # Generic sanity check
+        self.assertEqual(len(db), len(db_set))
+        self.assertEqual(db_set, set(expected_master_list))
+
+    def testInitialAccessRights(self):
+        """
+        Verify MasterDB raises immediately on instanciation if it cannot
+        create a non-existing database. This does not guarantee any later
+        open will succeed, but makes the simple error case obvious.
+        """
+        temp_dir = getTempDirectory()
+        directory = join(temp_dir, 'read_only')
+        assert not exists(directory), db_file
+        db_file = join(directory, 'not_created')
+        mkdir(directory)
+        try:
+            chmod(directory, 0400)
+            self.assertRaises(IOError, MasterDB, db_file)
+        finally:
+            rmdir(directory)
+
+    def testLaterAccessRights(self):
+        """
+        Verify MasterDB does not raise when modifying database.
+        """
+        temp_dir = getTempDirectory()
+        directory = join(temp_dir, 'read_write')
+        assert not exists(directory), db_file
+        db_file = join(directory, 'db')
+        mkdir(directory)
+        try:
+            db = MasterDB(db_file)
+            self.assertTrue(exists(db_file), db_file)
+            chmod(db_file, 0400)
+            address = ('example.com', 1024)
+            # Must not raise
+            db.add(address)
+            # Value is stored
+            self.assertTrue(address in db, [x for x in db])
+            # But not visible to a new db instance (write access restored so
+            # it can be created)
+            chmod(db_file, 0600)
+            db2 = MasterDB(db_file)
+            self.assertFalse(address in db2, [x for x in db2])
+        finally:
+            if exists(db_file):
+                unlink(db_file)
+            rmdir(directory)
+
+    def testPersistence(self):
+        temp_dir = getTempDirectory()
+        directory = join(temp_dir, 'read_write')
+        assert not exists(directory), db_file
+        db_file = join(directory, 'db')
+        mkdir(directory)
+        try:
+            db = MasterDB(db_file)
+            self.assertTrue(exists(db_file), db_file)
+            address = ('example.com', 1024)
+            db.add(address)
+            address2 = ('example.org', 1024)
+            db.add(address2)
+            # Values are visible to a new db instance
+            db2 = MasterDB(db_file)
+            self.assertTrue(address in db2, [x for x in db2])
+            self.assertTrue(address2 in db2, [x for x in db2])
+            db.discard(address)
+            # Create yet another instance (file is not supposed to be shared)
+            db3 = MasterDB(db_file)
+            self.assertFalse(address in db3, [x for x in db3])
+            self.assertTrue(address2 in db3, [x for x in db3])
+        finally:
+            if exists(db_file):
+                unlink(db_file)
+            rmdir(directory)
 
 if __name__ == '__main__':
     unittest.main()

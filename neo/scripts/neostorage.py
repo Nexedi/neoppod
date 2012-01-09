@@ -40,6 +40,8 @@ parser.add_option('-c', '--cluster', help = 'the cluster name')
 parser.add_option('-m', '--masters', help = 'master node list')
 parser.add_option('-a', '--adapter', help = 'database adapter to use')
 parser.add_option('-d', '--database', help = 'database connections string')
+parser.add_option('-D', '--dynamic-master-list', help='path of the file '
+    'containing dynamic master node list')
 
 defaults = dict(
     name = 'storage',

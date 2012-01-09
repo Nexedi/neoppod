@@ -32,5 +32,12 @@
         Log debugging information
       </description>
     </key>
+    <key name="dynamic_master_list" datatype="path">
+      <description>
+        The file designated by this option contains an updated list of master
+        nodes which are known to be part of current cluster, so new nodes can
+        be added/removed without requiring a config change each time.
+      </description>
+    </key>
   </sectiontype>
 </component>

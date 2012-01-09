@@ -71,7 +71,8 @@ CHECKED_SERIAL = object()
 class Application(object):
     """The client node application."""
 
-    def __init__(self, master_nodes, name, compress=True, **kw):
+    def __init__(self, master_nodes, name, compress=True,
+            dynamic_master_list=None, **kw):
         # Start polling thread
         self.em = EventManager()
         self.poll_thread = ThreadedPoll(self.em, name=name)
@@ -82,7 +83,7 @@ class Application(object):
         master_addresses, connector_name = parseMasterList(master_nodes)
         self.connector_handler = getConnectorHandler(connector_name)
         self.dispatcher = Dispatcher(self.poll_thread)
-        self.nm = NodeManager()
+        self.nm = NodeManager(dynamic_master_list)
         self.cp = ConnectionPool(self)
         self.pt = None
         self.master_conn = None
