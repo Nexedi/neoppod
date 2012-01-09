@@ -47,9 +47,6 @@ class MasterClientElectionTests(NeoUnitTestBase):
         self.election = ClientElectionHandler(self.app)
         self.app.unconnected_master_node_set = set()
         self.app.negotiating_master_node_set = set()
-        # define some variable to simulate client and storage node
-        self.storage_port = 10021
-        self.master_port = 10011
         # apply monkey patches
         self._addPacket = ClientConnection._addPacket
         ClientConnection._addPacket = _addPacket
