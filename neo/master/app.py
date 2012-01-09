@@ -259,7 +259,7 @@ class Application(object):
                 node.notify(packet)
 
     def outdateAndBroadcastPartition(self):
-        " Outdate cell of non-working nodes and broadcast changes """
+        """ Outdate cell of non-working nodes and broadcast changes """
         self.broadcastPartitionChanges(self.pt.outdate())
 
     def broadcastLastOID(self):
