@@ -238,7 +238,7 @@ class Application(object):
                     _handlePacket(qconn, qpacket, kw, handler)
                     break
             if not is_forgotten and qpacket is not None:
-                _handlePacket(qconn, qpacket)
+                _handlePacket(qconn, qpacket, kw)
         return self.getHandlerData()
 
     @profiler_decorator
