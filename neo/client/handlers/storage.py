@@ -100,11 +100,10 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerStoreTransaction(self, conn, _):
         pass
 
-    def answerTIDsFrom(self, conn, tid_list):
+    def answerTIDsFrom(self, conn, tid_list, tid_set):
         neo.lib.logging.debug('Get %d TIDs from %r', len(tid_list), conn)
-        tids_from = self.app.getHandlerData()
-        assert not tids_from.intersection(set(tid_list))
-        tids_from.update(tid_list)
+        assert not tid_set.intersection(tid_list)
+        tid_set.update(tid_list)
 
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, packed, oid_list):
@@ -134,11 +133,12 @@ class StorageAnswersHandler(AnswerBaseHandler):
         # This can happen when requiring txn informations
         raise NEOStorageNotFoundError(message)
 
-    def answerTIDs(self, conn, tid_list):
-        self.app.getHandlerData().update(tid_list)
+    def answerTIDs(self, conn, tid_list, tid_set):
+        tid_set.update(tid_list)
 
-    def answerObjectUndoSerial(self, conn, object_tid_dict):
-        self.app.getHandlerData().update(object_tid_dict)
+    def answerObjectUndoSerial(self, conn, object_tid_dict,
+                               undo_object_tid_dict):
+        undo_object_tid_dict.update(object_tid_dict)
 
     def answerHasLock(self, conn, oid, status):
         store_msg_id = self.app.getHandlerData()['timeout_dict'].pop(oid)

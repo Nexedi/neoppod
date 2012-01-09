@@ -223,12 +223,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         tid_list = [tid1, tid2]
         conn = self.getFakeConnection(uuid=uuid)
         tid_set = set()
-        app = Mock({
-            'getHandlerData': tid_set,
-        })
-        handler = StorageAnswersHandler(app)
-
-        handler.answerTIDs(conn, tid_list)
+        StorageAnswersHandler(Mock()).answerTIDs(conn, tid_list, tid_set)
         self.assertEqual(tid_set, set(tid_list))
 
     def test_answerObjectUndoSerial(self):
@@ -241,13 +236,10 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         tid2 = self.getNextTID()
         tid3 = self.getNextTID()
         undo_dict = {}
-        app = Mock({
-            'getHandlerData': undo_dict,
-        })
-        handler = StorageAnswersHandler(app)
-        handler.answerObjectUndoSerial(conn, {oid1: [tid0, tid1]})
+        handler = StorageAnswersHandler(Mock())
+        handler.answerObjectUndoSerial(conn, {oid1: [tid0, tid1]}, undo_dict)
         self.assertEqual(undo_dict, {oid1: [tid0, tid1]})
-        handler.answerObjectUndoSerial(conn, {oid2: [tid2, tid3]})
+        handler.answerObjectUndoSerial(conn, {oid2: [tid2, tid3]}, undo_dict)
         self.assertEqual(undo_dict, {
             oid1: [tid0, tid1],
             oid2: [tid2, tid3],

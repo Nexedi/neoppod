@@ -649,12 +649,11 @@ class Application(object):
         return result
 
     @profiler_decorator
-    def waitResponses(self, queue, handler_data):
+    def waitResponses(self, queue):
         """Wait for all requests to be answered (or their connection to be
         detected as closed)"""
         pending = self.dispatcher.pending
         _waitAnyMessage = self._waitAnyMessage
-        self.setHandlerData(handler_data)
         while pending(queue):
             _waitAnyMessage(queue)
 
@@ -829,6 +828,7 @@ class Application(object):
         getConnForCell = self.cp.getConnForCell
         queue = self._getThreadQueue()
         ttid = txn_context['ttid']
+        undo_object_tid_dict = {}
         for partition, oid_list in partition_oid_dict.iteritems():
             cell_list = getCellList(partition, readable=True)
             # We do want to shuffle before getting one with the smallest
@@ -837,15 +837,15 @@ class Application(object):
             shuffle(cell_list)
             storage_conn = getConnForCell(min(cell_list, key=getCellSortKey))
             storage_conn.ask(Packets.AskObjectUndoSerial(ttid,
-                snapshot_tid, undone_tid, oid_list), queue=queue)
+                snapshot_tid, undone_tid, oid_list),
+                queue=queue, undo_object_tid_dict=undo_object_tid_dict)
 
         # Wait for all AnswerObjectUndoSerial. We might get OidNotFoundError,
         # meaning that objects in transaction's oid_list do not exist any
         # longer. This is the symptom of a pack, so forbid undoing transaction
         # when it happens.
-        undo_object_tid_dict = {}
         try:
-            self.waitResponses(queue, undo_object_tid_dict)
+            self.waitResponses(queue)
         except NEOStorageNotFoundError:
             self.dispatcher.forget_queue(queue)
             raise UndoError('non-undoable transaction')
@@ -899,10 +899,6 @@ class Application(object):
             raise NEOStorageError('Transaction %r not found' % (tid, ))
         return (txn_info, txn_ext)
 
-    # XXX: The following 2 methods fail when they reconnect to a storage after
-    #      they already sent a request to a previous storage.
-    #      See also testStorageReconnectDuringXxx
-
     def undoLog(self, first, last, filter=None, block=0):
         # XXX: undoLog is broken
         if last < 0:
@@ -917,15 +913,15 @@ class Application(object):
 
         queue = self._getThreadQueue()
         packet = Packets.AskTIDs(first, last, INVALID_PARTITION)
+        tid_set = set()
         for storage_node in storage_node_list:
             conn = self.cp.getConnForNode(storage_node)
             if conn is None:
                 continue
-            conn.ask(packet, queue=queue)
+            conn.ask(packet, queue=queue, tid_set=tid_set)
 
         # Wait for answers from all storages.
-        tid_set = set()
-        self.waitResponses(queue, tid_set)
+        self.waitResponses(queue)
 
         # Reorder tids
         ordered_tids = sorted(tid_set, reverse=True)
@@ -955,6 +951,7 @@ class Application(object):
         node_list.sort(key=self.cp.getCellSortKey)
         partition_set = set(range(self.pt.getPartitions()))
         queue = self._getThreadQueue()
+        tid_set = set()
         # request a tid list for each partition
         for node in node_list:
             conn = self.cp.getConnForNode(node)
@@ -963,12 +960,11 @@ class Application(object):
                 continue
             partition_set -= set(request_set)
             packet = Packets.AskTIDsFrom(start, stop, limit, request_set)
-            conn.ask(packet, queue=queue)
+            conn.ask(packet, queue=queue, tid_set=tid_set)
             if not partition_set:
                 break
         assert not partition_set
-        tid_set = set()
-        self.waitResponses(queue, tid_set)
+        self.waitResponses(queue)
         # request transactions informations
         txn_list = []
         append = txn_list.append

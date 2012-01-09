@@ -28,6 +28,14 @@ from neo.lib.protocol import Packet, Packets, Errors, INVALID_TID, \
 from neo.lib.util import makeChecksum, SOCKET_CONNECTORS_DICT
 import time
 
+class Dispatcher(object):
+
+    def pending(self, queue):
+        return not queue.empty()
+
+    def forget_queue(self, queue, flush_queue=True):
+        pass
+
 def _getMasterConnection(self):
     if self.master_conn is None:
         self.uuid = 'C' * 16
@@ -306,9 +314,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         node, cell, conn = self.getNodeCellConn(address=storage_address)
         app.pt = Mock({ 'getCellListForOID': (cell, cell)})
         app.cp = self.getConnectionPool([(node, conn)])
-        class Dispatcher(object):
-            def pending(self, queue):
-                return not queue.empty()
         app.dispatcher = Dispatcher()
         app.nm.createStorage(address=storage_address)
         data_dict = txn_context['data_dict']
@@ -337,9 +342,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             uuid=uuid)
         app.cp = self.getConnectionPool([(node, conn)])
         app.pt = Mock({ 'getCellListForOID': (cell, cell, ) })
-        class Dispatcher(object):
-            def pending(self, queue):
-                return not queue.empty()
         app.dispatcher = Dispatcher()
         app.nm.createStorage(address=storage_address)
         app.store(oid, tid, 'DATA', None, txn)
@@ -470,12 +472,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.master_conn = Mock({'__hash__': 0})
         txn = self.makeTransactionObject()
         txn_context = self._begin(app, txn, tid)
-        class Dispatcher(object):
-            def pending(self, queue):
-                return not queue.empty()
-
-            def forget_queue(self, queue, flush_queue=True):
-                pass
         app.dispatcher = Dispatcher()
         # conflict occurs on storage 2
         app.store(oid1, tid, 'DATA', None, txn)
@@ -566,9 +562,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             'iterateForObject': [(node, conn)],
             'getConnForCell': conn,
         })
-        class Dispatcher(object):
-            def pending(self, queue):
-                return not queue.empty()
         app.dispatcher = Dispatcher()
         def load(oid, tid=None, before_tid=None):
             self.assertEqual(oid, oid0)
@@ -599,8 +592,10 @@ class ClientApplicationTests(NeoUnitTestBase):
             tid2)
         undo_serial = Packets.AnswerObjectUndoSerial({
             oid0: (tid2, tid0, False)})
+        conn.ask = lambda p, queue=None, **kw: \
+            isinstance(p, Packets.AskObjectUndoSerial) and \
+            queue.put((conn, undo_serial, kw))
         undo_serial.setId(2)
-        app._getThreadQueue().put((conn, undo_serial, {}))
         marker = []
         def tryToResolveConflict(oid, conflict_serial, serial, data,
                 committedData=''):
@@ -641,7 +636,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         undo_serial.setId(2)
         app, conn, store_marker = self._getAppForUndoTests(oid0, tid0, tid1,
             tid2)
-        app._getThreadQueue().put((conn, undo_serial, {}))
+        conn.ask = lambda p, queue=None, **kw: \
+            type(p) is Packets.AskObjectUndoSerial and \
+            queue.put((conn, undo_serial, kw))
         marker = []
         def tryToResolveConflict(oid, conflict_serial, serial, data,
                 committedData=''):
@@ -667,7 +664,6 @@ class ClientApplicationTests(NeoUnitTestBase):
             marker.append((oid, conflict_serial, serial, data, committedData))
             raise ConflictError
         # The undo
-        app._getThreadQueue().put((conn, undo_serial, {}))
         self.assertRaises(UndoError, app.undo, snapshot_tid, tid1, txn,
             tryToResolveConflict)
         # Checking what happened
@@ -700,7 +696,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         undo_serial.setId(2)
         app, conn, store_marker = self._getAppForUndoTests(oid0, tid0, tid1,
             tid2)
-        app._getThreadQueue().put((conn, undo_serial, {}))
+        conn.ask = lambda p, queue=None, **kw: \
+            type(p) is Packets.AskObjectUndoSerial and \
+            queue.put((conn, undo_serial, kw))
         def tryToResolveConflict(oid, conflict_serial, serial, data,
                 committedData=''):
             raise Exception, 'Test called conflict resolution, but there ' \
@@ -720,8 +718,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.num_partitions = 2
         uuid1, uuid2 = '\x00' * 15 + '\x01', '\x00' * 15 + '\x02'
         # two nodes, two partition, two transaction, two objects :
-        node1, node2 = Mock({}), Mock({})
-        cell1, cell2 = Mock({}), Mock({})
         tid1, tid2 = self.makeTID(1), self.makeTID(2)
         oid1, oid2 = self.makeOID(1), self.makeOID(2)
         # TIDs packets supplied by _ask hook
@@ -744,38 +740,40 @@ class ClientApplicationTests(NeoUnitTestBase):
             'fakeReceived': ReturnValues(p3, p4),
             'getAddress': ('127.0.0.1', 10021),
         })
-        storage_1_conn = Mock()
-        storage_2_conn = Mock()
+        asked = []
+        def answerTIDs(packet):
+            conn = Mock({'getAddress': packet})
+            app.nm.createStorage(address=conn.getAddress())
+            def ask(p, queue, **kw):
+                asked.append(p)
+                queue.put((conn, packet, kw))
+            conn.ask = ask
+            return conn
+        app.dispatcher = Dispatcher()
         app.pt = Mock({
-            'getNodeList': (node1, node2, ),
-            'getCellListForTID': ReturnValues([cell1], [cell2]),
+            'getNodeList': (Mock(), Mock()),
+            'getCellListForTID': ReturnValues([Mock()], [Mock()]),
         })
         app.cp = Mock({
-            'getConnForNode': ReturnValues(storage_1_conn, storage_2_conn),
+            'getConnForNode': ReturnValues(answerTIDs(p1), answerTIDs(p2)),
             'iterateForObject': [(Mock(), conn)]
         })
-        def waitResponses(queue, handler_data):
-            app.setHandlerData(handler_data)
-            for p in (p1, p2):
-                app._handlePacket(Mock(), p, handler=app.storage_handler)
-        app.waitResponses = waitResponses
         def txn_filter(info):
             return info['id'] > '\x00' * 8
         first = 0
         last = 4
         result = app.undoLog(first, last, filter=txn_filter)
-        pfirst, plast, ppartition = self.checkAskPacket(storage_1_conn,
-            Packets.AskTIDs, decode=True)
+        pfirst, plast, ppartition = asked.pop().decode()
         self.assertEqual(pfirst, first)
         self.assertEqual(plast, last)
         self.assertEqual(ppartition, INVALID_PARTITION)
-        pfirst, plast, ppartition = self.checkAskPacket(storage_2_conn,
-            Packets.AskTIDs, decode=True)
+        pfirst, plast, ppartition = asked.pop().decode()
         self.assertEqual(pfirst, first)
         self.assertEqual(plast, last)
         self.assertEqual(ppartition, INVALID_PARTITION)
         self.assertEqual(result[0]['id'], tid1)
         self.assertEqual(result[1]['id'], tid2)
+        self.assertFalse(asked)
 
     def test_connectToPrimaryNode(self):
         # here we have three master nodes :
