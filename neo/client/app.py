@@ -19,6 +19,7 @@ from cPickle import dumps, loads
 from zlib import compress as real_compress, decompress
 from neo.lib.locking import Empty
 from random import shuffle
+import heapq
 import time
 import os
 
@@ -946,30 +947,28 @@ class Application(object):
         return undo_info
 
     def transactionLog(self, start, stop, limit):
-        node_map = self.pt.getNodeMap()
-        node_list = node_map.keys()
-        node_list.sort(key=self.cp.getCellSortKey)
-        partition_set = set(range(self.pt.getPartitions()))
-        queue = self._getThreadQueue()
-        tid_set = set()
+        tid_list = []
         # request a tid list for each partition
-        for node in node_list:
-            conn = self.cp.getConnForNode(node)
-            request_set = set(node_map[node]) & partition_set
-            if conn is None or not request_set:
-                continue
-            partition_set -= set(request_set)
-            packet = Packets.AskTIDsFrom(start, stop, limit, request_set)
-            conn.ask(packet, queue=queue, tid_set=tid_set)
-            if not partition_set:
-                break
-        assert not partition_set
-        self.waitResponses(queue)
+        for offset in xrange(self.pt.getPartitions()):
+            p = Packets.AskTIDsFrom(start, stop, limit, [offset])
+            for node, conn in self.cp.iterateForObject(offset, readable=True):
+                try:
+                    r = self._askStorage(conn, p)
+                    break
+                except ConnectionClosed:
+                    pass
+            else:
+                raise NEOStorageError('transactionLog failed')
+            if r:
+                tid_list = list(heapq.merge(tid_list, r))
+                if len(tid_list) >= limit:
+                    del tid_list[limit:]
+                    stop = tid_list[-1]
         # request transactions informations
         txn_list = []
         append = txn_list.append
         tid = None
-        for tid in sorted(tid_set):
+        for tid in tid_list:
             (txn_info, txn_ext) = self._getTransactionInformation(tid)
             txn_info['ext'] = loads(txn_ext)
             append(txn_info)

@@ -126,7 +126,9 @@ class ConnectionPool(object):
     def iterateForObject(self, object_id, readable=False, writable=False):
         """ Iterate over nodes managing an object """
         pt = self.app.getPartitionTable()
-        cell_list = pt.getCellListForOID(object_id, readable, writable)
+        if type(object_id) is str:
+            object_id = pt.getPartition(object_id)
+        cell_list = pt.getCellList(object_id, readable, writable)
         if not cell_list:
             raise NEOStorageError('no storage available')
         getConnForNode = self.getConnForNode

@@ -100,10 +100,9 @@ class StorageAnswersHandler(AnswerBaseHandler):
     def answerStoreTransaction(self, conn, _):
         pass
 
-    def answerTIDsFrom(self, conn, tid_list, tid_set):
+    def answerTIDsFrom(self, conn, tid_list):
         neo.lib.logging.debug('Get %d TIDs from %r', len(tid_list), conn)
-        assert not tid_set.intersection(tid_list)
-        tid_set.update(tid_list)
+        self.app.setHandlerData(tid_list)
 
     def answerTransactionInformation(self, conn, tid,
                                            user, desc, ext, packed, oid_list):

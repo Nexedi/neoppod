@@ -41,10 +41,7 @@ def _getMasterConnection(self):
         self.uuid = 'C' * 16
         self.num_partitions = 10
         self.num_replicas = 1
-        self.pt = Mock({
-            'getCellListForOID': (),
-            'getCellListForTID': (),
-        })
+        self.pt = Mock({'getCellList': ()})
         self.master_conn = Mock()
     return self.master_conn
 
@@ -293,13 +290,12 @@ class ClientApplicationTests(NeoUnitTestBase):
             None, txn)
         # check partition_id and an empty cell list -> NEOStorageError
         self._begin(app, txn, self.makeTID())
-        app.pt = Mock({ 'getCellListForOID': (), })
+        app.pt = Mock({'getCellList': ()})
         app.num_partitions = 2
         self.assertRaises(NEOStorageError, app.store, oid, tid, '',  None,
             txn)
-        calls = app.pt.mockGetNamedCalls('getCellListForOID')
+        calls = app.pt.mockGetNamedCalls('getCellList')
         self.assertEqual(len(calls), 1)
-        self.assertEqual(calls[0].getParam(0), oid) # oid=11
 
     def test_store2(self):
         app = self.getApp()
@@ -312,7 +308,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         packet.setId(0)
         storage_address = ('127.0.0.1', 10020)
         node, cell, conn = self.getNodeCellConn(address=storage_address)
-        app.pt = Mock({ 'getCellListForOID': (cell, cell)})
+        app.pt = Mock()
         app.cp = self.getConnectionPool([(node, conn)])
         app.dispatcher = Dispatcher()
         app.nm.createStorage(address=storage_address)
@@ -341,7 +337,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         node, cell, conn = self.getNodeCellConn(address=storage_address,
             uuid=uuid)
         app.cp = self.getConnectionPool([(node, conn)])
-        app.pt = Mock({ 'getCellListForOID': (cell, cell, ) })
+        app.pt = Mock()
         app.dispatcher = Dispatcher()
         app.nm.createStorage(address=storage_address)
         app.store(oid, tid, 'DATA', None, txn)
@@ -391,7 +387,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.master_conn = Mock()
         conn = Mock()
         cell = Mock()
-        app.pt = Mock({'getCellListForTID': (cell, cell)})
         app.cp = Mock({'getConnForCell': ReturnValues(None, cell)})
         app.tpc_abort(txn)
         # no packet sent
@@ -456,14 +451,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         node1 = Mock({'__repr__': 'node1', '__hash__': 1, 'getConnection': conn1})
         node2 = Mock({'__repr__': 'node2', '__hash__': 2, 'getConnection': conn2})
         node3 = Mock({'__repr__': 'node3', '__hash__': 3, 'getConnection': conn3})
-        cell1 = Mock({ 'getNode': node1, '__hash__': 1, 'getConnection': conn1})
-        cell2 = Mock({ 'getNode': node2, '__hash__': 2, 'getConnection': conn2})
-        cell3 = Mock({ 'getNode': node3, '__hash__': 3, 'getConnection': conn3})
         # fake environment
-        app.pt = Mock({
-            'getCellListForTID': [cell1],
-            'getCellListForOID': ReturnValues([cell2], [cell3]),
-        })
         app.cp = Mock({'getConnForCell': ReturnValues(conn2, conn3, conn1)})
         app.cp = Mock({
             'getConnForNode': ReturnValues(conn2, conn3, conn1),
@@ -544,11 +532,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             'getAddress': 'FakeServer',
             'getState': 'FakeState',
         })
-        app.pt = Mock({
-            'getCellListForTID': [cell, ],
-            'getCellListForOID': [cell, ],
-            'getCellList': [cell, ],
-        })
+        app.pt = Mock({'getCellList': [cell]})
         transaction_info = Packets.AnswerTransactionInformation(tid1, '', '',
             '', False, (oid0, ))
         transaction_info.setId(1)
@@ -752,7 +736,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.dispatcher = Dispatcher()
         app.pt = Mock({
             'getNodeList': (Mock(), Mock()),
-            'getCellListForTID': ReturnValues([Mock()], [Mock()]),
         })
         app.cp = Mock({
             'getConnForNode': ReturnValues(answerTIDs(p1), answerTIDs(p2)),

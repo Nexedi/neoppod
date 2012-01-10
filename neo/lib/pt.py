@@ -140,12 +140,6 @@ class PartitionTable(object):
         except (TypeError, KeyError):
             return []
 
-    def getCellListForTID(self, tid, readable=False, writable=False):
-        return self.getCellList(self.getPartition(tid), readable, writable)
-
-    def getCellListForOID(self, oid, readable=False, writable=False):
-        return self.getCellList(self.getPartition(oid), readable, writable)
-
     def getPartition(self, oid_or_tid):
         return u64(oid_or_tid) % self.getPartitions()
 
@@ -326,14 +320,6 @@ class PartitionTable(object):
         getRow = self.getRow
         return [(x, getRow(x)) for x in xrange(self.np)]
 
-    def getNodeMap(self):
-        """ Return a list of 2-tuple: (uuid, partition_list) """
-        uuid_map = {}
-        for index, row in enumerate(self.partition_list):
-            for cell in row:
-                uuid_map.setdefault(cell.getNode(), []).append(index)
-        return uuid_map
-
 def thread_safe(method):
     def wrapper(self, *args, **kwargs):
         self.lock()
@@ -359,14 +345,6 @@ class MTPartitionTable(PartitionTable):
         self._lock.release()
 
     @thread_safe
-    def getCellListForTID(self, *args, **kwargs):
-        return PartitionTable.getCellListForTID(self, *args, **kwargs)
-
-    @thread_safe
-    def getCellListForOID(self, *args, **kwargs):
-        return PartitionTable.getCellListForOID(self, *args, **kwargs)
-
-    @thread_safe
     def setCell(self, *args, **kwargs):
         return PartitionTable.setCell(self, *args, **kwargs)
 
@@ -381,8 +359,3 @@ class MTPartitionTable(PartitionTable):
     @thread_safe
     def getNodeList(self, *args, **kwargs):
         return PartitionTable.getNodeList(self, *args, **kwargs)
-
-    @thread_safe
-    def getNodeMap(self, *args, **kwargs):
-        return PartitionTable.getNodeMap(self, *args, **kwargs)
-

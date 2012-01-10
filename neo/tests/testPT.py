@@ -421,35 +421,6 @@ class PartitionTableTests(NeoUnitTestBase):
         # unknwon row
         self.assertRaises(IndexError,  pt.getRow, 5)
 
-    def test_getNodeMap(self):
-        num_partitions = 5
-        num_replicas = 2
-        pt = PartitionTable(num_partitions, num_replicas)
-        uuid1 = self.getNewUUID()
-        uuid2 = self.getNewUUID()
-        uuid3 = self.getNewUUID()
-        sn1 = StorageNode(Mock(),("127.0.0.1", 19001) , uuid1)
-        pt.setCell(0, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(1, sn1, CellStates.UP_TO_DATE)
-        pt.setCell(2, sn1, CellStates.UP_TO_DATE)
-        self.assertEqual(pt.getNodeMap(), {
-            sn1: [0, 1, 2],
-        })
-        sn2 = StorageNode(Mock(), ("127.0.0.2", 19001), uuid2)
-        pt.setCell(0, sn2, CellStates.UP_TO_DATE)
-        pt.setCell(1, sn2, CellStates.UP_TO_DATE)
-        self.assertEqual(pt.getNodeMap(), {
-            sn1: [0, 1, 2],
-            sn2: [0, 1],
-        })
-        sn3 = StorageNode(Mock(), ("127.0.0.3", 19001), uuid3)
-        pt.setCell(0, sn3, CellStates.UP_TO_DATE)
-        self.assertEqual(pt.getNodeMap(), {
-            sn1: [0, 1, 2],
-            sn2: [0, 1],
-            sn3: [0],
-        })
-
 if __name__ == '__main__':
     unittest.main()
 
