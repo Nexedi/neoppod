@@ -198,25 +198,6 @@ class Application(object):
                 self.primary = self.primary is None
                 break
 
-
-    def _announcePrimary(self):
-        """
-            Broadcast the announce that I'm the primary
-        """
-        # I am the primary.
-        neo.lib.logging.debug('I am the primary, sending an announcement')
-        for conn in self.em.getClientList():
-            conn.notify(Packets.AnnouncePrimary())
-            conn.abort()
-        t = time()
-        while self.em.getClientList():
-            self.em.poll(1)
-            if t + 10 < time():
-                for conn in self.em.getClientList():
-                    conn.close()
-                break
-
-
     def broadcastNodesInformation(self, node_list):
         """
           Broadcast changes for a set a nodes
@@ -298,10 +279,10 @@ class Application(object):
     def playPrimaryRole(self):
         neo.lib.logging.info(
                         'play the primary role with %r', self.listening_conn)
-
-        # i'm the primary, send the announcement
-        self._announcePrimary()
-        # all incoming connections identify through this handler
+        packet = Packets.AnnouncePrimary()
+        for conn in self.em.getClientList():
+            conn.notify(packet)
+            conn.abort()
         self.listening_conn.setHandler(
                 identification.IdentificationHandler(self))
 
