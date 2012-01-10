@@ -364,8 +364,8 @@ class Application(object):
             connector=self.connector_handler())
 
         # and another for the future incoming connections
-        handler = identification.IdentificationHandler(self)
-        self.listening_conn.setHandler(handler)
+        self.listening_conn.setHandler(
+            identification.IdentificationHandler(self))
 
         while True:
             self.em.poll(1)
