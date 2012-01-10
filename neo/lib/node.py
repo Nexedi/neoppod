@@ -115,11 +115,12 @@ class Node(object):
         assert self._connection is not None
         return self._connection
 
-    def isConnected(self):
+    def isConnected(self, connecting=False):
         """
             Returns True is a connection is established with the node
         """
-        return self._connection is not None
+        return self._connection is not None and (connecting or
+            not self._connection.connecting)
 
     def isIdentified(self):
         """

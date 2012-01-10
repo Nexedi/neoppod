@@ -263,7 +263,7 @@ class NeoUnitTestBase(NeoTestBase):
             is_server=False, connector=None, peer_id=None):
         if connector is None:
             connector = self.getFakeConnector()
-        return Mock({
+        conn = Mock({
             'getUUID': uuid,
             'getAddress': address,
             'isServer': is_server,
@@ -272,6 +272,8 @@ class NeoUnitTestBase(NeoTestBase):
             'getConnector': connector,
             'getPeerId': peer_id,
         })
+        conn.connecting = False
+        return conn
 
     def checkProtocolErrorRaised(self, method, *args, **kwargs):
         """ Check if the ProtocolError exception was raised """
