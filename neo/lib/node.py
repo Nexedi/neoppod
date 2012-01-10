@@ -103,7 +103,7 @@ class Node(object):
             Define the connection that is currently available to this node.
         """
         assert connection is not None
-        assert self._connection is None
+        assert self._connection is None, attributeTracker.whoSet(self, '_connection')
         self._connection = connection
         connection.setOnClose(self.onConnectionClosed)
         self._manager._updateIdentified(self)
@@ -128,11 +128,12 @@ class Node(object):
         return self._connection is not None and self._uuid is not None
 
     def __repr__(self):
-        return '<%s(uuid=%s, address=%s, state=%s) at %x>' % (
+        return '<%s(uuid=%s, address=%s, state=%s, connection=%r) at %x>' % (
             self.__class__.__name__,
             dump(self._uuid),
             self._address,
             self._state,
+            self._connection,
             id(self),
         )
 
