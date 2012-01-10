@@ -345,10 +345,10 @@ class Application(object):
 
         # Wait for an announcement. If this is too long, probably
         # the primary master is down.
-        t = time()
+        t = time() + 10
         while self.primary_master_node is None:
             self.em.poll(1)
-            if t + 10 < time():
+            if t < time():
                 # election timeout
                 raise ElectionFailure("Election timeout")
 
