@@ -189,18 +189,25 @@ class StorageTests(NEOFunctionalTest):
         down, the cluster remains up since there is a replica """
 
         # populate the two storages
-        (started, _) = self.__setup(storage_number=2, replicas=1)
+        started, _ = self.__setup(partitions=3, replicas=1, storage_number=3)
         self.neo.expectRunning(started[0])
         self.neo.expectRunning(started[1])
+        self.neo.expectRunning(started[2])
         self.neo.expectOudatedCells(number=0)
-        self.__populate()
-        self.__checkReplicationDone()
+
+        started[0].stop()
+        # Cluster still operational. All cells of first storage should be
+        # outdated.
+        self.neo.expectUnavailable(started[0])
+        self.neo.expectOudatedCells(2)
         self.neo.expectClusterRunning()
 
-        # stop one storage and check outdated cells
-        started[0].stop()
-        self.neo.expectOudatedCells(number=10)
-        self.neo.expectClusterRunning()
+        started[1].stop()
+        # Cluster not operational anymore. Only cells of second storage that
+        # were shared with the third one should become outdated.
+        self.neo.expectUnavailable(started[1])
+        self.neo.expectClusterVerifying()
+        self.neo.expectOudatedCells(3)
 
     def testVerificationTriggered(self):
         """ Check that the verification stage is executed when a storage node

@@ -258,10 +258,6 @@ class Application(object):
             if selector(node):
                 node.notify(packet)
 
-    def outdateAndBroadcastPartition(self):
-        """ Outdate cell of non-working nodes and broadcast changes """
-        self.broadcastPartitionChanges(self.pt.outdate())
-
     def broadcastLastOID(self):
         oid = self.tm.getLastOID()
         neo.lib.logging.debug(

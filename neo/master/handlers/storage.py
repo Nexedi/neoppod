@@ -40,14 +40,12 @@ class StorageServiceHandler(BaseServiceHandler):
     def nodeLost(self, conn, node):
         neo.lib.logging.info('storage node lost')
         assert not node.isRunning(), node.getState()
-
-        if not self.app.pt.operational():
+        app = self.app
+        app.broadcastPartitionChanges(app.pt.outdate(node))
+        if not app.pt.operational():
             raise OperationFailure, 'cannot continue operation'
-        # this is intentionaly placed after the raise because the last cell in a
-        # partition must not oudated to allows a cluster restart.
-        self.app.outdateAndBroadcastPartition()
-        self.app.tm.forget(conn.getUUID())
-        if self.app.packing is not None:
+        app.tm.forget(conn.getUUID())
+        if app.packing is not None:
             self.answerPack(conn, False)
 
     def askLastIDs(self, conn):

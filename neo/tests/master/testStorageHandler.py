@@ -192,7 +192,6 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
 
         # Some shortcuts to simplify test code
         self.app.pt = Mock({'operational': True})
-        self.app.outdateAndBroadcastPartition = lambda: None
 
         # Register some transactions
         tm = self.app.tm

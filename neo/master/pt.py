@@ -291,16 +291,28 @@ class PartitionTable(PartitionTable):
         self.log()
         return changed_cell_list
 
-    def outdate(self):
-        """Outdate all non-working nodes."""
-        cell_list = []
+    def outdate(self, lost_node=None):
+        """Outdate all non-working nodes
+
+        Do not outdate cells of 'lost_node' for partitions it was the last node
+        to serve. This allows a cluster restart.
+        """
+        change_list = []
         for offset, row in enumerate(self.partition_list):
+            lost = lost_node
+            cell_list = []
             for cell in row:
-                if not cell.getNode().isRunning() and not cell.isOutOfDate():
+                if cell.isUpToDate() or cell.isFeeding():
+                    if cell.getNode().isRunning():
+                        lost = None
+                    else :
+                        cell_list.append(cell)
+            for cell in cell_list:
+                if cell.getNode() is not lost:
                     cell.setState(CellStates.OUT_OF_DATE)
-                    cell_list.append((offset, cell.getUUID(),
+                    change_list.append((offset, cell.getUUID(),
                         CellStates.OUT_OF_DATE))
-        return cell_list
+        return change_list
 
     def getUpToDateCellNodeSet(self):
         """
