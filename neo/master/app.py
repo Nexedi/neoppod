@@ -403,10 +403,7 @@ class Application(object):
 
     def isValidUUID(self, uuid, addr):
         node = self.nm.getByUUID(uuid)
-        if node is not None and node.getAddress() is not None \
-                and node.getAddress() != addr:
-            return False
-        return uuid != self.uuid and uuid is not None
+        return node is None or node.getAddress() in (None, addr)
 
     def getClusterState(self):
         return self.cluster_state
