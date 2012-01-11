@@ -23,10 +23,6 @@ from . import MasterHandler
 
 class IdentificationHandler(MasterHandler):
 
-    def nodeLost(self, conn, node):
-        neo.lib.logging.warning(
-            'lost a node in IdentificationHandler : %s' % node)
-
     def requestIdentification(self, conn, node_type, uuid, address, name):
 
         self.checkClusterName(name)

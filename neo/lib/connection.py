@@ -496,7 +496,6 @@ class Connection(BaseConnection):
         # process the network events with the last registered handler to
         # solve issues where a node is lost with pending handlers and
         # create unexpected side effects.
-        neo.lib.logging.debug('closing a connector for %r', self)
         handler = self._handlers.getLastHandler()
         super(Connection, self).close()
         if self._on_close is not None:

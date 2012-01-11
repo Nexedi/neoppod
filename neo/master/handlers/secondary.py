@@ -37,13 +37,6 @@ class SecondaryMasterHandler(MasterHandler):
 class PrimaryHandler(MasterHandler):
     """ Handler used by secondaries to handle primary master"""
 
-    def packetReceived(self, conn, packet, kw):
-        if not conn.isServer():
-            node = self.app.nm.getByAddress(conn.getAddress())
-            if not node.isBroken():
-                node.setRunning()
-        super(PrimaryHandler, self).packetReceived(conn, packet, kw)
-
     def connectionLost(self, conn, new_state):
         self.app.primary_master_node.setDown()
         raise PrimaryFailure, 'primary master is dead'
@@ -110,5 +103,3 @@ class PrimaryHandler(MasterHandler):
             app.name
         ))
 
-    def notifyClusterInformation(self, conn, state):
-        pass
