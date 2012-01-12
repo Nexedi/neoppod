@@ -411,6 +411,21 @@ class Test(NEOThreadedTest):
         finally:
             cluster.stop()
 
+    def test2Clusters(self):
+        cluster1 = NEOCluster()
+        cluster2 = NEOCluster()
+        try:
+            cluster1.start()
+            cluster2.start()
+            t1, c1 = cluster1.getTransaction()
+            t2, c2 = cluster2.getTransaction()
+            c1.root()['1'] = c2.root()['2'] = ''
+            t1.commit()
+            t2.commit()
+        finally:
+            cluster1.stop()
+            cluster2.stop()
+
 
 if __name__ == "__main__":
     unittest.main()
