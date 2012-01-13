@@ -18,6 +18,7 @@
 import unittest
 import transaction
 from persistent import Persistent
+from lib.protocol import NodeStates
 
 from . import NEOCluster, NEOFunctionalTest
 
@@ -116,7 +117,7 @@ class ClusterTests(NEOFunctionalTest):
         neoctl = self.neo.getNEOCTL()
         self.neo.start()
         self.neo.expectClusterRunning()
-        self.neo.expectAllMasters(MASTER_COUNT)
+        self.neo.expectAllMasters(MASTER_COUNT, NodeStates.RUNNING)
         self.neo.expectOudatedCells(0)
 
     def testLeavingOperationalStateDropClientNodes(self):
