@@ -329,7 +329,7 @@ class BaseConnection(object):
         return None
 
     def isClosed(self):
-        return self.connector is None
+        return self.connector is None or self.isAborted()
 
     def isAborted(self):
         return False

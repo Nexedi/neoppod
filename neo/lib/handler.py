@@ -122,8 +122,7 @@ class EventHandler(object):
     # Packet handlers.
 
     def ping(self, conn):
-        if not conn.isAborted():
-            conn.answer(Packets.Pong())
+        conn.answer(Packets.Pong())
 
     def pong(self, conn):
         # Ignore PONG packets. The only purpose of ping/pong packets is

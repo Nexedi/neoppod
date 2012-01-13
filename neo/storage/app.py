@@ -354,7 +354,7 @@ class Application(object):
                 event_queue_dict[key] -= 1
                 if event_queue_dict[key] == 0:
                     del event_queue_dict[key]
-            if conn.isAborted() or conn.isClosed():
+            if conn.isClosed():
                 continue
             orig_msg_id = conn.getPeerId()
             conn.setPeerId(msg_id)
