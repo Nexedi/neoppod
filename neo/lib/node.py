@@ -410,7 +410,7 @@ class NodeManager(object):
         if pool_set is not None:
             identified_nodes = self._identified_dict.items()
             return [v for k, v in identified_nodes if k in pool_set]
-        return list(self._identified_dict.values())
+        return self._identified_dict.values()
 
     def getConnectedList(self):
         """

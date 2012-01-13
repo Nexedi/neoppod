@@ -26,8 +26,8 @@ class EpollEventManager(object):
 
     def __init__(self):
         self.connection_dict = {}
-        self.reader_set = set([])
-        self.writer_set = set([])
+        self.reader_set = set()
+        self.writer_set = set()
         self.epoll = epoll()
         self._pending_processing = []
 
@@ -38,7 +38,8 @@ class EpollEventManager(object):
 
     def getConnectionList(self):
         # XXX: use index
-        return [x for x in self.connection_dict.values() if not x.isAborted()]
+        return [x for x in self.connection_dict.itervalues()
+            if not x.isAborted()]
 
     def getClientList(self):
         # XXX: use index
