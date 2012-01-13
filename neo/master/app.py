@@ -402,6 +402,8 @@ class Application(object):
         return prefix + uuid
 
     def isValidUUID(self, uuid, addr):
+        if uuid == self.uuid:
+            return False
         node = self.nm.getByUUID(uuid)
         return node is None or node.getAddress() in (None, addr)
 
