@@ -23,7 +23,7 @@ from neo.lib import protocol
 class InitializationHandler(BaseMasterHandler):
 
     def answerNodeInformation(self, conn):
-        self.app.has_node_information = True
+        pass
 
     def notifyNodeInformation(self, conn, node_list):
         # the whole node list is received here
@@ -53,11 +53,9 @@ class InitializationHandler(BaseMasterHandler):
             app.dm.dropPartitions(num_partitions, unassigned_set)
 
         app.dm.setPartitionTable(ptid, cell_list)
-        self.app.has_partition_table = True
 
     def answerLastIDs(self, conn, loid, ltid, lptid):
         self.app.dm.setLastOID(loid)
-        self.app.has_last_ids = True
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         # XXX: This is safe to ignore those notifications because all of the

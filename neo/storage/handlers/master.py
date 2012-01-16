@@ -24,9 +24,6 @@ from . import BaseMasterHandler
 class MasterOperationHandler(BaseMasterHandler):
     """ This handler is used for the primary master """
 
-    def answerLastIDs(self, conn, loid, ltid, lptid):
-        self.app.replicator.setCriticalTID(ltid)
-
     def answerUnfinishedTransactions(self, conn, max_tid, ttid_list):
         self.app.replicator.setUnfinishedTIDList(max_tid, ttid_list)
 

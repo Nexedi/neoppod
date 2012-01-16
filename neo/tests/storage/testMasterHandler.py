@@ -164,20 +164,6 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         calls[0].checkArgs(tid)
         self.checkNoPacketSent(conn)
 
-    def test_30_answerLastIDs(self):
-        # set critical TID on replicator
-        conn = self.getFakeConnection()
-        self.app.replicator = Mock()
-        self.operation.answerLastIDs(
-            conn=conn,
-            loid=INVALID_OID,
-            ltid=INVALID_TID,
-            lptid=INVALID_TID,
-        )
-        calls = self.app.replicator.mockGetNamedCalls('setCriticalTID')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(INVALID_TID)
-
     def test_31_answerUnfinishedTransactions(self):
         # set unfinished TID on replicator
         conn = self.getFakeConnection()

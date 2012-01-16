@@ -76,8 +76,6 @@ class Application(object):
 
         # ready is True when operational and got all informations
         self.ready = False
-        self.has_node_information = False
-        self.has_partition_table = False
 
         self.dm.setup(reset=config.getReset())
         self.loadConfiguration()
@@ -278,15 +276,11 @@ class Application(object):
         self.master_conn.setHandler(handler)
 
         # ask node list and partition table
-        self.has_node_information = False
-        self.has_partition_table = False
-        self.has_last_ids = False
         self.pt.clear()
         self.master_conn.ask(Packets.AskLastIDs())
         self.master_conn.ask(Packets.AskNodeInformation())
         self.master_conn.ask(Packets.AskPartitionTable())
-        while not self.has_node_information or not self.has_partition_table \
-                or not self.has_last_ids:
+        while self.master_conn.isPending():
             _poll()
         self.ready = True
         self.replicator.populate()
