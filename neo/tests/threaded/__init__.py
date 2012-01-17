@@ -655,6 +655,15 @@ class NEOCluster(object):
             self.client.setPoll(True)
         return Storage.Storage(None, self.name, _app=self.client, **kw)
 
+    def populate(self, dummy_zodb=None):
+        if dummy_zodb is None:
+            from ..stat_zodb import PROD1
+            dummy_zodb = PROD1()
+        importFrom = self.getZODBStorage().importFrom
+        preindex = {}
+        as_storage = dummy_zodb.as_storage
+        return lambda count: importFrom(as_storage(count), preindex=preindex)
+
     def getTransaction(self):
         txn = transaction.TransactionManager()
         return txn, self.db.open(transaction_manager=txn)

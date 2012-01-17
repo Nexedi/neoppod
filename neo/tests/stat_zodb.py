@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import math, os, random, sys
+import math, os, random, sys, time
 from cStringIO import StringIO
-from ZODB.utils import p64
+from persistent.TimeStamp import TimeStamp
+from ZODB.utils import p64, newTid
 from ZODB.BaseStorage import TransactionRecord
 from ZODB.FileStorage import FileStorage
 
@@ -96,8 +97,10 @@ class DummyZODB(object):
             size = 0
             def iterator(storage, *args):
                 args = ' ', '', '', {}
+                tid = None
                 for i in xrange(1, transaction_count+1):
-                    t =  dummy_transaction(p64(i), *args)
+                    tid = newTid(tid)
+                    t =  dummy_transaction(tid, *args)
                     storage.size += t.size
                     yield t
             def getSize(self):

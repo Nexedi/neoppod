@@ -232,10 +232,10 @@ class Storage(BaseStorage.BaseStorage,
         return self.app.importFrom(source, None, None,
                 self.tryToResolveConflict)
 
-    def importFrom(self, source, start=None, stop=None):
+    def importFrom(self, source, start=None, stop=None, preindex=None):
         """ Allow import only a part of the source storage """
         return self.app.importFrom(source, start, stop,
-                self.tryToResolveConflict)
+                self.tryToResolveConflict, preindex)
 
     def restore(self, oid, serial, data, version, prev_txn, transaction):
         raise NotImplementedError

@@ -1000,18 +1000,20 @@ class Application(object):
             return result
 
     @profiler_decorator
-    def importFrom(self, source, start, stop, tryToResolveConflict):
-        serials = {}
+    def importFrom(self, source, start, stop, tryToResolveConflict,
+            preindex=None):
+        if preindex is None:
+            preindex = {}
         transaction_iter = source.iterator(start, stop)
         for transaction in transaction_iter:
             tid = transaction.tid
             self.tpc_begin(transaction, tid, transaction.status)
             for r in transaction:
                 oid = r.oid
-                pre = serials.get(oid, None)
+                pre = preindex.get(oid)
                 # TODO: bypass conflict resolution, locks...
                 self.store(oid, pre, r.data, r.version, transaction)
-                serials[oid] = tid
+                preindex[oid] = tid
             conflicted = self.tpc_vote(transaction, tryToResolveConflict)
             assert not conflicted, conflicted
             real_tid = self.tpc_finish(transaction, tryToResolveConflict)
