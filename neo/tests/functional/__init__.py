@@ -505,7 +505,10 @@ class NEOCluster(object):
 
     def expectAllMasters(self, node_count, state=None, *args, **kw):
         def callback(last_try):
-            current_try = len(self.getMasterList(state=state))
+            try:
+                current_try = len(self.getMasterList(state=state))
+            except NotReadyException:
+                current_try = 0
             if last_try is not None and current_try < last_try:
                 raise AssertionError, 'Regression: %s became %s' % \
                     (last_try, current_try)
@@ -516,7 +519,10 @@ class NEOCluster(object):
         if not isinstance(state, (tuple, list)):
             state = (state, )
         def callback(last_try):
-            current_try = self.__getNodeState(node_type, uuid)
+            try:
+                current_try = self.__getNodeState(node_type, uuid)
+            except NotReadyException:
+                current_try = None
             return current_try in state, current_try
         self.expectCondition(callback, *args, **kw)
 

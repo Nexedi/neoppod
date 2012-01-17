@@ -23,11 +23,17 @@ from neo.lib.protocol import Packets, Errors
 from neo.lib.exception import PrimaryFailure
 from neo.lib.util import dump
 
+def check_primary_master(func):
+    def wrapper(self, *args, **kw):
+        if self.app.master_conn is None:
+            raise protocol.NotReadyError('Not connected to a primary master.')
+        return func(self, *args, **kw)
+    return wrapper
+
 def forward_ask(klass):
+    @check_primary_master
     def wrapper(self, conn, *args, **kw):
         app = self.app
-        if app.master_conn is None:
-            raise protocol.NotReadyError('Not connected to a primary master.')
         msg_id = app.master_conn.ask(klass(*args, **kw))
         app.dispatcher.register(msg_id, conn, {'msg_id': conn.getPeerId()})
     return wrapper
@@ -41,15 +47,13 @@ def forward_answer(klass):
 class AdminEventHandler(EventHandler):
     """This class deals with events for administrating cluster."""
 
+    @check_primary_master
     def askPartitionList(self, conn, min_offset, max_offset, uuid):
         neo.lib.logging.info("ask partition list from %s to %s for %s" %
                 (min_offset, max_offset, dump(uuid)))
         app = self.app
         # check we have one pt otherwise ask it to PMN
         if app.pt is None:
-            if self.app.master_conn is None:
-                raise protocol.NotReadyError('Not connected to a primary ' \
-                        'master.')
             msg_id = self.app.master_conn.ask(Packets.AskPartitionTable())
             app.dispatcher.register(msg_id, conn,
                                     {'min_offset' : min_offset,
@@ -60,6 +64,7 @@ class AdminEventHandler(EventHandler):
             app.sendPartitionTable(conn, min_offset, max_offset, uuid)
 
 
+    @check_primary_master
     def askNodeList(self, conn, node_type):
         if node_type is None:
             node_type = 'all'
@@ -72,6 +77,7 @@ class AdminEventHandler(EventHandler):
         p = Packets.AnswerNodeList(node_information_list)
         conn.answer(p)
 
+    @check_primary_master
     def setNodeState(self, conn, uuid, state, modify_partition_table):
         neo.lib.logging.info("set node state for %s-%s" %(dump(uuid), state))
         node = self.app.nm.getByUUID(uuid)
@@ -83,17 +89,13 @@ class AdminEventHandler(EventHandler):
             conn.answer(p)
             return
         # forward to primary master node
-        if self.app.master_conn is None:
-            raise protocol.NotReadyError('Not connected to a primary master.')
         p = Packets.SetNodeState(uuid, state, modify_partition_table)
         msg_id = self.app.master_conn.ask(p)
         self.app.dispatcher.register(msg_id, conn, {'msg_id' : conn.getPeerId()})
 
+    @check_primary_master
     def askClusterState(self, conn):
         if self.app.cluster_state is None:
-            if self.app.master_conn is None:
-                raise protocol.NotReadyError('Not connected to a primary ' \
-                        'master.')
             # required it from PMN first
             msg_id = self.app.master_conn.ask(Packets.AskClusterState())
             self.app.dispatcher.register(msg_id, conn,
@@ -101,9 +103,8 @@ class AdminEventHandler(EventHandler):
         else:
             conn.answer(Packets.AnswerClusterState(self.app.cluster_state))
 
+    @check_primary_master
     def askPrimary(self, conn):
-        if self.app.master_conn is None:
-            raise protocol.NotReadyError('Not connected to a primary master.')
         master_node = self.app.master_node
         conn.answer(Packets.AnswerPrimary(master_node.getUUID(), []))
 
