@@ -506,6 +506,7 @@ class Connection(BaseConnection):
         self._handlers.clear()
         if self.connecting:
             handler.connectionFailed(self)
+            self.connecting = False
         else:
             handler.connectionClosed(self)
 

@@ -731,7 +731,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkConnectionCompleted(1)
         self._checkReaderAdded(1)
         bc.writable()
-        self.assertTrue(bc.connecting)
+        self.assertFalse(bc.connecting)
         self.assertFalse(bc.pending())
         self.assertFalse(bc.aborted)
         self._checkWriteBuf(bc, '')
