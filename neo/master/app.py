@@ -151,6 +151,7 @@ class Application(object):
         self.unconnected_master_node_set.clear()
         self.negotiating_master_node_set.clear()
         self.listening_conn.setHandler(election.ServerElectionHandler(self))
+        getByAddress = self.nm.getByAddress
 
         while True:
 
@@ -166,7 +167,10 @@ class Application(object):
                 while (self.unconnected_master_node_set or
                         self.negotiating_master_node_set):
                     for addr in self.unconnected_master_node_set:
-                        ClientConnection(self.em, client_handler, addr=addr,
+                        ClientConnection(self.em, client_handler,
+                            # XXX: Ugly, but the whole election code will be
+                            # replaced soon
+                            node=getByAddress(addr),
                             connector=self.connector_handler())
                         self.negotiating_master_node_set.add(addr)
                     self.unconnected_master_node_set.clear()
@@ -297,7 +301,7 @@ class Application(object):
                 node = nm.getByUUID(conn_uuid)
                 assert node is not None
                 assert node.isMaster() and not conn.isClient()
-                assert node._connection is None and node.isUnknown()
+                assert node.isUnknown()
                 # this may trigger 'unexpected answer' warnings on remote side
                 conn.close()
 
@@ -331,13 +335,13 @@ class Application(object):
 
         # Restart completely. Non-optimized
         # but lower level code needs to be stabilized first.
-        addr = self.primary_master_node.getAddress()
         for conn in self.em.getConnectionList():
             conn.close()
 
         # Reconnect to primary master node.
         primary_handler = secondary.PrimaryHandler(self)
-        ClientConnection(self.em, primary_handler, addr=addr,
+        ClientConnection(self.em, primary_handler,
+            node=self.primary_master_node,
             connector=self.connector_handler())
 
         # and another for the future incoming connections

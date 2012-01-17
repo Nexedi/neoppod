@@ -783,7 +783,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # fourth iteration : connection to primary master succeeded
         def _ask5(_):
             app.trying_master_node = app.primary_master_node = Mock({
-                'getAddress': ('192.168.1.1', 10000),
+                'getAddress': ('127.0.0.1', 10011),
                 '__str__': 'Fake master node',
             })
         # third iteration : node not ready
@@ -792,19 +792,23 @@ class ClientApplicationTests(NeoUnitTestBase):
         # second iteration : master node changed
         def _ask3(_):
             app.primary_master_node = Mock({
-                'getAddress': ('192.168.1.1', 10000),
+                'getAddress': ('127.0.0.1', 10010),
                 '__str__': 'Fake master node',
             })
         # first iteration : connection failed
         def _ask2(_):
             app.trying_master_node = None
         # do nothing for the first call
+        # Case of an unknown primary_uuid (XXX: handler should probably raise,
+        # it's not normal for a node to inform of a primary uuid without
+        # telling us what its address is.)
         def _ask1(_):
             pass
         ask_func_list = [_ask1, _ask2, _ask3, _ask4, _ask5, _ask6, _ask7,
             _ask8]
         def _ask_base(conn, _, handler=None):
             ask_func_list.pop(0)(conn)
+            app.nm.getByAddress(conn.getAddress())._connection = None
         app._ask = _ask_base
         # faked environnement
         app.connector_handler = DoNothingConnector

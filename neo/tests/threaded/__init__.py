@@ -346,9 +346,6 @@ class NeoCTL(neo.neoctl.app.NeoCTL):
         super(NeoCTL, self).__init__(cluster.admin.getVirtualAddress())
         self.em._timeout = -1
 
-    server = property(lambda self: ServerNode.resolv(self._server),
-                      lambda self, address: setattr(self, '_server', address))
-
 
 class LoggerThreadName(str):
 

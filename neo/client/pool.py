@@ -56,12 +56,10 @@ class ConnectionPool(object):
     @profiler_decorator
     def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
-        addr = node.getAddress()
-        assert addr is not None
         app = self.app
         neo.lib.logging.debug('trying to connect to %s - %s', node,
             node.getState())
-        conn = MTClientConnection(app.em, app.storage_event_handler, addr,
+        conn = MTClientConnection(app.em, app.storage_event_handler, node,
             connector=app.connector_handler(), dispatcher=app.dispatcher)
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
             app.uuid, None, app.name)

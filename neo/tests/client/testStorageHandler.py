@@ -57,7 +57,7 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
     def test_acceptIdentification2(self):
         uuid = self.getNewUUID()
         conn = self.getConnection()
-        node = Mock()
+        node = Mock({'getConnection': conn})
         self.app.nm = Mock({'getByAddress': node})
         self.handler.acceptIdentification(conn, NodeTypes.STORAGE, uuid,
             10, 0, None)

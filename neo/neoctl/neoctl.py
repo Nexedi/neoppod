@@ -20,6 +20,7 @@ from neo.lib.connection import ClientConnection
 from neo.lib.event import EventManager
 from neo.lib.protocol import ClusterStates, NodeStates, ErrorCodes, Packets
 from neo.lib.util import getConnectorFromAddress
+from neo.lib.node import NodeManager
 from .handler import CommandEventHandler
 
 class NotReadyException(Exception):
@@ -33,19 +34,21 @@ class NeoCTL(object):
     def __init__(self, address):
         connector_name = getConnectorFromAddress(address)
         self.connector_handler = getConnectorHandler(connector_name)
-        self.server = address
+        self.nm = nm = NodeManager()
+        self.server = nm.createAdmin(address=address)
         self.em = EventManager()
         self.handler = CommandEventHandler(self)
         self.response_queue = []
 
     def close(self):
         self.em.close()
+        self.nm.close()
         del self.__dict__
 
     def __getConnection(self):
         if not self.connected:
             self.connection = ClientConnection(self.em, self.handler,
-                    addr=self.server, connector=self.connector_handler())
+                    node=self.server, connector=self.connector_handler())
             while self.connection is not None:
                 if self.connected:
                     break

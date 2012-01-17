@@ -59,7 +59,7 @@ class StorageBootstrapHandler(AnswerBaseHandler):
         assert node is not None, conn.getAddress()
         conn.setUUID(uuid)
         node.setUUID(uuid)
-        node.setConnection(conn)
+        assert node.getConnection() is conn, (node.getConnection(), conn)
 
 class StorageAnswersHandler(AnswerBaseHandler):
     """ Handle all messages related to ZODB operations """

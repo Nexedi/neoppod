@@ -39,6 +39,7 @@ class ConnectionTests(NeoUnitTestBase):
         self.em = Mock({'__repr__': 'Fake Em'})
         self.handler = Mock({'__repr__': 'Fake Handler'})
         self.address = ("127.0.0.7", 93413)
+        self.node = Mock({'getAddress': self.address})
 
     def _makeListeningConnection(self, addr):
         # create instance after monkey patches
@@ -54,7 +55,7 @@ class ConnectionTests(NeoUnitTestBase):
     def _makeClientConnection(self):
         self.connector = DoNothingConnector()
         return ClientConnection(event_manager=self.em, handler=self.handler,
-                connector=self.connector, addr=self.address)
+                connector=self.connector, node=self.node)
 
     def _makeServerConnection(self):
         self.connector = DoNothingConnector()
@@ -843,7 +844,7 @@ class MTConnectionTests(ConnectionTests):
     def _makeClientConnection(self):
         self.connector = DoNothingConnector()
         return MTClientConnection(event_manager=self.em, handler=self.handler,
-                connector=self.connector, addr=self.address,
+                connector=self.connector, node=self.node,
                 dispatcher=self.dispatcher)
 
     def test_MTClientConnectionQueueParameter(self):

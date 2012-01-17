@@ -250,7 +250,7 @@ class Replicator(object):
         if connection is None or connection.getAddress() != addr:
             handler = replication.ReplicationHandler(app)
             self.current_connection = ClientConnection(app.em, handler,
-                   addr=addr, connector=app.connector_handler())
+                   node=node, connector=app.connector_handler())
             p = Packets.RequestIdentification(NodeTypes.STORAGE,
                     app.uuid, app.server, app.name)
             self.current_connection.ask(p)

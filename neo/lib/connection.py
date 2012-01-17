@@ -632,8 +632,10 @@ class ClientConnection(Connection):
 
     connecting = True
 
-    def __init__(self, event_manager, handler, addr, connector):
+    def __init__(self, event_manager, handler, node, connector):
+        addr = node.getAddress()
         Connection.__init__(self, event_manager, handler, connector, addr)
+        node.setConnection(self)
         handler.connectionStarted(self)
         try:
             try:

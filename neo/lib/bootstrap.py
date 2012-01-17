@@ -144,8 +144,8 @@ class BootstrapManager(EventHandler):
                     sleep(1)
             if conn is None:
                 # open the connection
-                addr = self.current.getAddress()
-                conn = ClientConnection(em, self, addr, connector_handler())
+                conn = ClientConnection(em, self, self.current,
+                    connector_handler())
             # still processing
             em.poll(1)
         node = nm.getByUUID(conn.getUUID())
