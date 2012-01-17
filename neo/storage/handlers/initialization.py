@@ -48,9 +48,8 @@ class InitializationHandler(BaseMasterHandler):
                     unassigned_set.remove(offset)
         # delete objects database
         if unassigned_set:
-            neo.lib.logging.debug(
-                            'drop data for partitions %r' % unassigned_set)
-            app.dm.dropPartitions(num_partitions, unassigned_set)
+            neo.lib.logging.debug('drop data for partitions %r', unassigned_set)
+            app.dm.dropPartitions(unassigned_set)
 
         app.dm.setPartitionTable(ptid, cell_list)
 

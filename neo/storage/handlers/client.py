@@ -98,14 +98,11 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
             data_serial, ttid, unlock, time.time())
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition_list):
-        app = self.app
-        getReplicationTIDList = app.dm.getReplicationTIDList
-        partitions = app.pt.getPartitions()
+        getReplicationTIDList = self.app.dm.getReplicationTIDList
         tid_list = []
         extend = tid_list.extend
         for partition in partition_list:
-            extend(getReplicationTIDList(min_tid, max_tid, length,
-                partitions, partition))
+            extend(getReplicationTIDList(min_tid, max_tid, length, partition))
         conn.answer(Packets.AnswerTIDsFrom(tid_list))
 
     def askTIDs(self, conn, first, last, partition):
@@ -120,8 +117,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         else:
             partition_list = [partition]
 
-        tid_list = app.dm.getTIDList(first, last - first,
-                             app.pt.getPartitions(), partition_list)
+        tid_list = app.dm.getTIDList(first, last - first, partition_list)
         conn.answer(Packets.AnswerTIDs(tid_list))
 
     def askObjectUndoSerial(self, conn, ttid, ltid, undone_tid, oid_list):

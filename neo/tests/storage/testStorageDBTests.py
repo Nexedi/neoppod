@@ -64,7 +64,7 @@ class StorageDBTests(NeoUnitTestBase):
                 if num_partitions == n:
                     return
                 if num_partitions < n:
-                    db.dropPartitions(n, range(num_partitions, n))
+                    db.dropPartitions(n)
         db.setNumPartitions(num_partitions)
         self.assertEqual(num_partitions, db.getNumPartitions())
         uuid = self.getNewUUID()
@@ -374,7 +374,7 @@ class StorageDBTests(NeoUnitTestBase):
             txn, objs = self.getTransaction([oid1])
             self.db.storeTransaction(tid, objs, txn)
             self.db.finishTransaction(tid)
-        self.db.deleteTransactionsAbove(2, 0, tid2, tid3)
+        self.db.deleteTransactionsAbove(0, tid2, tid3)
         # Right partition, below cutoff
         self.assertNotEqual(self.db.getTransaction(tid1, True), None)
         # Wrong partition, above cutoff
@@ -411,11 +411,11 @@ class StorageDBTests(NeoUnitTestBase):
             txn, objs = self.getTransaction([oid1, oid2, oid3])
             self.db.storeTransaction(tid, objs, txn)
             self.db.finishTransaction(tid)
-        self.db.deleteObjectsAbove(2, 0, oid1, tid2, tid3)
+        self.db.deleteObjectsAbove(0, oid1, tid2, tid3)
         # Check getObjectHistoryFrom because MySQL adapter use two tables
         # that must be synchronized
         self.assertEqual(self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID,
-            MAX_TID, 10, 2, 0), {oid1: [tid1]})
+            MAX_TID, 10, 0), {oid1: [tid1]})
         # Right partition, below cutoff
         self.assertNotEqual(self.db.getObject(oid1, tid=tid1), None)
         # Right partition, above tid cutoff
@@ -492,34 +492,32 @@ class StorageDBTests(NeoUnitTestBase):
         self.db.finishTransaction(tid5)
         # Check full result
         result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 10,
-            2, 0)
+            0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2, tid4],
         })
         # Lower bound is inclusive
-        result = self.db.getObjectHistoryFrom(oid1, tid1, MAX_TID, 10, 2, 0)
+        result = self.db.getObjectHistoryFrom(oid1, tid1, MAX_TID, 10, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2, tid4],
         })
         # Upper bound is inclusive
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, tid3, 10,
-            2, 0)
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, tid3, 10, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2],
         })
         # Length is total number of serials
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 3,
-            2, 0)
+        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 3, 0)
         self.assertEqual(result, {
             oid1: [tid1, tid3],
             oid2: [tid2],
         })
         # Partition constraints are honored
         result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 10,
-            2, 1)
+            1)
         self.assertEqual(result, {
             oid3: [tid5],
         })
@@ -539,19 +537,19 @@ class StorageDBTests(NeoUnitTestBase):
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # get tids
         # - all partitions
-        result = self.db.getTIDList(0, 4, 2, [0, 1])
+        result = self.db.getTIDList(0, 4, [0, 1])
         self.checkSet(result, [tid1, tid2, tid3, tid4])
         # - one partition
-        result = self.db.getTIDList(0, 4, 2, [0])
+        result = self.db.getTIDList(0, 4, [0])
         self.checkSet(result, [tid1, tid3])
-        result = self.db.getTIDList(0, 4, 2, [1])
+        result = self.db.getTIDList(0, 4, [1])
         self.checkSet(result, [tid2, tid4])
         # get a subset of tids
-        result = self.db.getTIDList(0, 1, 2, [0])
+        result = self.db.getTIDList(0, 1, [0])
         self.checkSet(result, [tid3]) # desc order
-        result = self.db.getTIDList(1, 1, 2, [1])
+        result = self.db.getTIDList(1, 1, [1])
         self.checkSet(result, [tid2])
-        result = self.db.getTIDList(2, 2, 2, [0])
+        result = self.db.getTIDList(2, 2, [0])
         self.checkSet(result, [])
 
     def test_getReplicationTIDList(self):
@@ -559,22 +557,22 @@ class StorageDBTests(NeoUnitTestBase):
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
         # get tids
         # - all
-        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 2, 0)
+        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 0)
         self.checkSet(result, [tid1, tid3])
         # - one partition
-        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 2, 0)
+        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 0)
         self.checkSet(result, [tid1, tid3])
         # - another partition
-        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 2, 1)
+        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 1)
         self.checkSet(result, [tid2, tid4])
         # - min_tid is inclusive
-        result = self.db.getReplicationTIDList(tid3, MAX_TID, 10, 2, 0)
+        result = self.db.getReplicationTIDList(tid3, MAX_TID, 10, 0)
         self.checkSet(result, [tid3])
         # - max tid is inclusive
-        result = self.db.getReplicationTIDList(ZERO_TID, tid2, 10, 2, 0)
+        result = self.db.getReplicationTIDList(ZERO_TID, tid2, 10, 0)
         self.checkSet(result, [tid1])
         # - limit
-        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 1, 2, 0)
+        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 1, 0)
         self.checkSet(result, [tid1])
 
     def test_findUndoTID(self):

@@ -92,35 +92,35 @@ class ReplicationTests(NeoUnitTestBase):
             oapp.replicator.processDelayedTasks()
             process |= rconn.process(ohandler, oconn)
         # check transactions
-        for tid in reference.getTIDList(0, MAX_TRANSACTIONS, 1, [0]):
+        for tid in reference.getTIDList(0, MAX_TRANSACTIONS, [0]):
             self.assertEqual(
                 reference.getTransaction(tid),
                 outdated.getTransaction(tid),
             )
-        for tid in outdated.getTIDList(0, MAX_TRANSACTIONS, 1, [0]):
+        for tid in outdated.getTIDList(0, MAX_TRANSACTIONS, [0]):
             self.assertEqual(
                 outdated.getTransaction(tid),
                 reference.getTransaction(tid),
             )
         # check transactions
-        params = (ZERO_TID, '\xFF' * 8, MAX_TRANSACTIONS, 1, 0)
+        params = ZERO_TID, '\xFF' * 8, MAX_TRANSACTIONS, 0
         self.assertEqual(
             reference.getReplicationTIDList(*params),
             outdated.getReplicationTIDList(*params),
         )
         # check objects
-        params = (ZERO_OID, ZERO_TID, '\xFF' * 8, MAX_OBJECTS, 1, 0)
+        params = ZERO_OID, ZERO_TID, '\xFF' * 8, MAX_OBJECTS, 0
         self.assertEqual(
             reference.getObjectHistoryFrom(*params),
             outdated.getObjectHistoryFrom(*params),
         )
 
-    def buildStorage(self, transactions, objects, name='BTree', config=None):
+    def buildStorage(self, transactions, objects, name='BTree', database=None):
         def makeid(oid_or_tid):
             return pack('!Q', oid_or_tid)
-        storage = buildDatabaseManager(name, config)
-        storage.getNumPartitions = lambda: 1
+        storage = buildDatabaseManager(name, database)
         storage.setup(reset=True)
+        storage.setNumPartitions(1)
         storage._transactions = transactions
         storage._objects = objects
         # store transactions

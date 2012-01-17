@@ -380,7 +380,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         # ...and delete partition tail
         calls = app.dm.mockGetNamedCalls('deleteTransactionsAbove')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(num_partitions, rid, add64(max_tid, 1), ZERO_TID)
+        calls[0].checkArgs(rid, add64(max_tid, 1), ZERO_TID)
 
     def test_answerCheckTIDRangeDifferentBigChunk(self):
         min_tid = self.getNextTID()
@@ -531,8 +531,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         # ...and delete partition tail
         calls = app.dm.mockGetNamedCalls('deleteObjectsAbove')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(num_partitions, rid, max_oid, add64(max_serial, 1),
-            ZERO_TID)
+        calls[0].checkArgs(rid, max_oid, add64(max_serial, 1), ZERO_TID)
 
     def test_answerCheckSerialRangeDifferentBigChunk(self):
         min_oid = self.getOID(1)
@@ -626,8 +625,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         # ...and delete partition tail
         calls = app.dm.mockGetNamedCalls('deleteObjectsAbove')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(num_partitions, rid, max_oid, add64(max_serial, 1),
-            critical_tid)
+        calls[0].checkArgs(rid, max_oid, add64(max_serial, 1), critical_tid)
 
 if __name__ == "__main__":
     unittest.main()

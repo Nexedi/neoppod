@@ -149,7 +149,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.operation.askTIDs(conn, 1, 2, 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(1, 1, 1, [1, ])
+        calls[0].checkArgs(1, 1, [1, ])
         self.checkAnswerTids(conn)
 
     def test_25_askTIDs3(self):
@@ -166,7 +166,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.assertEqual(len(self.app.pt.mockGetNamedCalls('getAssignedPartitionList')), 1)
         calls = self.app.dm.mockGetNamedCalls('getTIDList')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(1, 1, 1, [0])
+        calls[0].checkArgs(1, 1, [0])
         self.checkAnswerTids(conn)
 
     def test_26_askObjectHistory1(self):

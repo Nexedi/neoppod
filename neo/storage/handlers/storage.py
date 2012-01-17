@@ -34,32 +34,27 @@ class StorageOperationHandler(BaseClientAndStorageOperationHandler):
 
     def askTIDsFrom(self, conn, min_tid, max_tid, length, partition_list):
         assert len(partition_list) == 1, partition_list
-        partition = partition_list[0]
-        app = self.app
-        tid_list = app.dm.getReplicationTIDList(min_tid, max_tid, length,
-            app.pt.getPartitions(), partition)
+        tid_list = self.app.dm.getReplicationTIDList(min_tid, max_tid, length,
+            partition_list[0])
         conn.answer(Packets.AnswerTIDsFrom(tid_list))
 
     def askObjectHistoryFrom(self, conn, min_oid, min_serial, max_serial,
             length, partition):
-        app = self.app
-        object_dict = app.dm.getObjectHistoryFrom(min_oid, min_serial, max_serial,
-            length, app.pt.getPartitions(), partition)
+        object_dict = self.app.dm.getObjectHistoryFrom(min_oid, min_serial,
+            max_serial, length, partition)
         conn.answer(Packets.AnswerObjectHistoryFrom(object_dict))
 
     def askCheckTIDRange(self, conn, min_tid, max_tid, length, partition):
-        app = self.app
-        count, tid_checksum, max_tid = app.dm.checkTIDRange(min_tid, max_tid,
-            length, app.pt.getPartitions(), partition)
+        count, tid_checksum, max_tid = self.app.dm.checkTIDRange(min_tid,
+            max_tid, length, partition)
         conn.answer(Packets.AnswerCheckTIDRange(min_tid, length,
             count, tid_checksum, max_tid))
 
     def askCheckSerialRange(self, conn, min_oid, min_serial, max_tid, length,
             partition):
-        app = self.app
         count, oid_checksum, max_oid, serial_checksum, max_serial = \
-            app.dm.checkSerialRange(min_oid, min_serial, max_tid, length,
-                app.pt.getPartitions(), partition)
+            self.app.dm.checkSerialRange(min_oid, min_serial, max_tid, length,
+                partition)
         conn.answer(Packets.AnswerCheckSerialRange(min_oid, min_serial, length,
             count, oid_checksum, max_oid, serial_checksum, max_serial))
 

@@ -300,8 +300,7 @@ class ReplicationHandler(EventHandler):
                 " length=%s, count=%s, max_tid=%x, last_tid=%x,"
                 " critical_tid=%x)", offset, u64(pkt_min_tid), length, count,
                 u64(max_tid), u64(last_tid), u64(critical_tid))
-            app.dm.deleteTransactionsAbove(app.pt.getPartitions(),
-                offset, last_tid, critical_tid)
+            app.dm.deleteTransactionsAbove(offset, last_tid, critical_tid)
             # If no more TID, a replication of transactions is finished.
             # So start to replicate objects now.
             ask(self._doAskCheckSerialRange(ZERO_OID, ZERO_TID, critical_tid))
@@ -339,8 +338,7 @@ class ReplicationHandler(EventHandler):
                 offset, u64(min_oid), u64(min_serial), length, count,
                 u64(max_oid), u64(max_serial), u64(last_oid), u64(last_serial),
                 u64(max_tid))
-            app.dm.deleteObjectsAbove(app.pt.getPartitions(),
-                offset, last_oid, last_serial, max_tid)
+            app.dm.deleteObjectsAbove(offset, last_oid, last_serial, max_tid)
             # Nothing remains, so the replication for this partition is
             # finished.
             replicator.setReplicationDone()

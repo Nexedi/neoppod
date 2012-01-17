@@ -125,6 +125,10 @@ class BTreeDatabaseManager(DatabaseManager):
         super(BTreeDatabaseManager, self).__init__()
         self.setup(reset=1)
 
+    @property
+    def _num_partitions(self):
+        return self._config['partitions']
+
     def setup(self, reset=0):
         if reset:
             self._data = OOBTree()
@@ -289,8 +293,9 @@ class BTreeDatabaseManager(DatabaseManager):
         self.unlockData(checksum_list)
         self._pruneData(checksum_set)
 
-    def dropPartitions(self, num_partitions, offset_list):
+    def dropPartitions(self, offset_list):
         offset_list = frozenset(offset_list)
+        num_partitions = self._num_partitions
         def same_partition(key, _):
             return key % num_partitions in offset_list
         batchDelete(self._obj, same_partition, self._objDeleterCallback)
@@ -400,7 +405,8 @@ class BTreeDatabaseManager(DatabaseManager):
         except KeyError:
             pass
 
-    def deleteTransactionsAbove(self, num_partitions, partition, tid, max_tid):
+    def deleteTransactionsAbove(self, partition, tid, max_tid):
+        num_partitions = self._num_partitions
         def same_partition(key, _):
             return key % num_partitions == partition
         batchDelete(self._trans, same_partition,
@@ -421,13 +427,13 @@ class BTreeDatabaseManager(DatabaseManager):
         if not tserial:
             del obj[oid]
 
-    def deleteObjectsAbove(self, num_partitions, partition, oid, serial,
-                           max_tid):
+    def deleteObjectsAbove(self, partition, oid, serial, max_tid):
         obj = self._obj
         u64 = util.u64
         oid = u64(oid)
         serial = u64(serial)
         max_tid = u64(max_tid)
+        num_partitions = self._num_partitions
         if oid % num_partitions == partition:
             try:
                 tserial = obj[oid]
@@ -458,20 +464,6 @@ class BTreeDatabaseManager(DatabaseManager):
         if result is not None:
             oid_list, user, desc, ext, packed = result
             result = (list(oid_list), user, desc, ext, packed)
-        return result
-
-    def getOIDList(self, min_oid, length, num_partitions,
-            partition_list):
-        p64 = util.p64
-        partition_list = frozenset(partition_list)
-        result = []
-        append = result.append
-        for oid in safeIter(self._obj.keys, min=min_oid):
-            if oid % num_partitions in partition_list:
-                if length == 0:
-                    break
-                length -= 1
-                append(p64(oid))
         return result
 
     def _getObjectLength(self, oid, value_serial):
@@ -521,13 +513,14 @@ class BTreeDatabaseManager(DatabaseManager):
         return result
 
     def getObjectHistoryFrom(self, min_oid, min_serial, max_serial, length,
-            num_partitions, partition):
+            partition):
         u64 = util.u64
         p64 = util.p64
         min_oid = u64(min_oid)
         min_serial = u64(min_serial)
         max_serial = u64(max_serial)
         result = {}
+        num_partitions = self._num_partitions
         for oid, tserial in safeIter(self._obj.items, min=min_oid):
             if oid % num_partitions == partition:
                 if length == 0:
@@ -553,12 +546,13 @@ class BTreeDatabaseManager(DatabaseManager):
                 break
         return result
 
-    def getTIDList(self, offset, length, num_partitions, partition_list):
+    def getTIDList(self, offset, length, partition_list):
         p64 = util.p64
         partition_list = frozenset(partition_list)
         result = []
         append = result.append
         trans_iter = descKeys(self._trans)
+        num_partitions = self._num_partitions
         while offset > 0:
             tid = trans_iter.next()
             if tid % num_partitions in partition_list:
@@ -571,12 +565,12 @@ class BTreeDatabaseManager(DatabaseManager):
                 append(p64(tid))
         return result
 
-    def getReplicationTIDList(self, min_tid, max_tid, length, num_partitions,
-            partition):
+    def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         p64 = util.p64
         u64 = util.u64
         result = []
         append = result.append
+        num_partitions = self._num_partitions
         for tid in safeIter(self._trans.keys, min=u64(min_tid), max=u64(max_tid)):
             if tid % num_partitions == partition:
                 if length == 0:
@@ -633,9 +627,10 @@ class BTreeDatabaseManager(DatabaseManager):
             return not tserial
         batchDelete(self._obj, obj_callback, self._objDeleterCallback)
 
-    def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
+    def checkTIDRange(self, min_tid, max_tid, length, partition):
         if length:
             tid_list = []
+            num_partitions = self._num_partitions
             for tid in safeIter(self._trans.keys, min=util.u64(min_tid),
                                                   max=util.u64(max_tid)):
                 if tid % num_partitions == partition:
@@ -648,14 +643,14 @@ class BTreeDatabaseManager(DatabaseManager):
                         util.p64(tid_list[-1]))
         return 0, ZERO_HASH, ZERO_TID
 
-    def checkSerialRange(self, min_oid, min_serial, max_tid, length,
-            num_partitions, partition):
+    def checkSerialRange(self, min_oid, min_serial, max_tid, length, partition):
         if length:
             u64 = util.u64
             min_oid = u64(min_oid)
             max_tid = u64(max_tid)
             oid_list = []
             serial_list = []
+            num_partitions = self._num_partitions
             for oid, tserial in safeIter(self._obj.items, min=min_oid):
                 if oid % num_partitions == partition:
                     try:

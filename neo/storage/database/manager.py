@@ -282,7 +282,7 @@ class DatabaseManager(object):
         thrown away."""
         raise NotImplementedError
 
-    def dropPartitions(self, num_partitions, offset_list):
+    def dropPartitions(self, offset_list):
         """ Drop any data of non-assigned partitions for a given UUID """
         raise NotImplementedError('this method must be overriden')
 
@@ -461,7 +461,7 @@ class DatabaseManager(object):
         an oid list"""
         raise NotImplementedError
 
-    def deleteTransactionsAbove(self, num_partitions, partition, tid, max_tid):
+    def deleteTransactionsAbove(self, partition, tid, max_tid):
         """Delete all transactions above given TID (inclued) in given
         partition, but never above max_tid (in case transactions are committed
         during replication)."""
@@ -472,8 +472,7 @@ class DatabaseManager(object):
         given oid."""
         raise NotImplementedError
 
-    def deleteObjectsAbove(self, num_partitions, partition, oid, serial,
-            max_tid):
+    def deleteObjectsAbove(self, partition, oid, serial, max_tid):
         """Delete all objects above given OID and serial (inclued) in given
         partition, but never above max_tid (in case objects are stored during
         replication)"""
@@ -495,20 +494,19 @@ class DatabaseManager(object):
         raise NotImplementedError
 
     def getObjectHistoryFrom(self, oid, min_serial, max_serial, length,
-            num_partitions, partition):
+            partition):
         """Return a dict of length serials grouped by oid at (or above)
         min_oid and min_serial and below max_serial, for given partition,
         sorted in ascending order."""
         raise NotImplementedError
 
-    def getTIDList(self, offset, length, num_partitions, partition_list):
+    def getTIDList(self, offset, length, partition_list):
         """Return a list of TIDs in ascending order from an offset,
         at most the specified length. The list of partitions are passed
         to filter out non-applicable TIDs."""
         raise NotImplementedError
 
-    def getReplicationTIDList(self, min_tid, max_tid, length, num_partitions,
-        partition):
+    def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         """Return a list of TIDs in ascending order from an initial tid value,
         at most the specified length up to max_tid. The partition number is
         passed to filter out non-applicable TIDs."""
@@ -531,15 +529,13 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
+    def checkTIDRange(self, min_tid, max_tid, length, partition):
         """
         Generate a diggest from transaction list.
         min_tid (packed)
             TID at which verification starts.
         length (int)
             Maximum number of records to include in result.
-        num_partitions, partition (int, int)
-            Specifies concerned partition.
 
         Returns a 3-tuple:
             - number of records actually found
@@ -550,8 +546,7 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def checkSerialRange(self, min_oid, min_serial, max_tid, length,
-            num_partitions, partition):
+    def checkSerialRange(self, min_oid, min_serial, max_tid, length, partition):
         """
         Generate a diggest from object list.
         min_oid (packed)
@@ -560,8 +555,6 @@ class DatabaseManager(object):
             Serial of min_oid object at which search should start.
         length
             Maximum number of records to include in result.
-        num_partitions, partition (int, int)
-            Specifies concerned partition.
 
         Returns a 5-tuple:
             - number of records actually found

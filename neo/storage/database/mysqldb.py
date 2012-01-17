@@ -380,7 +380,7 @@ class MySQLDatabaseManager(DatabaseManager):
     def setPartitionTable(self, ptid, cell_list):
         self.doSetPartitionTable(ptid, cell_list, True)
 
-    def dropPartitions(self, num_partitions, offset_list):
+    def dropPartitions(self, offset_list):
         q = self.query
         self.begin()
         try:
@@ -566,7 +566,7 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def deleteTransactionsAbove(self, num_partitions, partition, tid, max_tid):
+    def deleteTransactionsAbove(self, partition, tid, max_tid):
         self.begin()
         try:
             self.query('DELETE FROM trans WHERE partition=%(partition)d AND '
@@ -598,8 +598,7 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def deleteObjectsAbove(self, num_partitions, partition, oid, serial,
-                           max_tid):
+    def deleteObjectsAbove(self, partition, oid, serial, max_tid):
         q = self.query
         u64 = util.u64
         oid = u64(oid)
@@ -675,7 +674,7 @@ class MySQLDatabaseManager(DatabaseManager):
         return None
 
     def getObjectHistoryFrom(self, min_oid, min_serial, max_serial, length,
-            num_partitions, partition):
+            partition):
         q = self.query
         u64 = util.u64
         p64 = util.p64
@@ -703,15 +702,14 @@ class MySQLDatabaseManager(DatabaseManager):
             serial_list.append(p64(serial))
         return dict((p64(x), y) for x, y in result.iteritems())
 
-    def getTIDList(self, offset, length, num_partitions, partition_list):
+    def getTIDList(self, offset, length, partition_list):
         q = self.query
         r = q("""SELECT tid FROM trans WHERE partition in (%s)
                     ORDER BY tid DESC LIMIT %d,%d""" \
                 % (','.join(map(str, partition_list)), offset, length))
         return [util.p64(t[0]) for t in r]
 
-    def getReplicationTIDList(self, min_tid, max_tid, length, num_partitions,
-            partition):
+    def getReplicationTIDList(self, min_tid, max_tid, length, partition):
         q = self.query
         u64 = util.u64
         p64 = util.p64
@@ -794,7 +792,7 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def checkTIDRange(self, min_tid, max_tid, length, num_partitions, partition):
+    def checkTIDRange(self, min_tid, max_tid, length, partition):
         count, tid_checksum, max_tid = self.query(
             """SELECT COUNT(*), SHA1(GROUP_CONCAT(tid SEPARATOR ",")), MAX(tid)
                FROM (SELECT tid FROM trans
@@ -811,8 +809,7 @@ class MySQLDatabaseManager(DatabaseManager):
             return count, a2b_hex(tid_checksum), util.p64(max_tid)
         return 0, ZERO_HASH, ZERO_TID
 
-    def checkSerialRange(self, min_oid, min_serial, max_tid, length,
-            num_partitions, partition):
+    def checkSerialRange(self, min_oid, min_serial, max_tid, length, partition):
         u64 = util.u64
         # We don't ask MySQL to compute everything (like in checkTIDRange)
         # because it's difficult to get the last serial _for the last oid_.

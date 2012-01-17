@@ -124,7 +124,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         self.operation.askTIDsFrom(conn, tid, tid2, 2, [1])
         calls = self.app.dm.mockGetNamedCalls('getReplicationTIDList')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(tid, tid2, 2, 1, 1)
+        calls[0].checkArgs(tid, tid2, 2, 1)
         self.checkAnswerTidsFrom(conn)
 
     def test_26_askObjectHistoryFrom(self):
@@ -145,8 +145,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         self.checkAnswerObjectHistoryFrom(conn)
         calls = self.app.dm.mockGetNamedCalls('getObjectHistoryFrom')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(min_oid, min_serial, max_serial, length,
-            num_partitions, partition)
+        calls[0].checkArgs(min_oid, min_serial, max_serial, length, partition)
 
     def test_askCheckTIDRange(self):
         count = 1
@@ -162,7 +161,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
         self.operation.askCheckTIDRange(conn, min_tid, max_tid, length, partition)
         calls = self.app.dm.mockGetNamedCalls('checkTIDRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(min_tid, max_tid, length, num_partitions, partition)
+        calls[0].checkArgs(min_tid, max_tid, length, partition)
         pmin_tid, plength, pcount, ptid_checksum, pmax_tid = \
             self.checkAnswerPacket(conn, Packets.AnswerCheckTIDRange,
             decode=True)
@@ -191,8 +190,7 @@ class StorageStorageHandlerTests(NeoUnitTestBase):
             max_serial, length, partition)
         calls = self.app.dm.mockGetNamedCalls('checkSerialRange')
         self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(min_oid, min_serial, max_serial, length,
-            num_partitions, partition)
+        calls[0].checkArgs(min_oid, min_serial, max_serial, length, partition)
         pmin_oid, pmin_serial, plength, pcount, poid_checksum, pmax_oid, \
             pserial_checksum, pmax_serial = self.checkAnswerPacket(conn,
             Packets.AnswerCheckSerialRange, decode=True)

@@ -342,29 +342,23 @@ class Replicator(object):
             self.task_list = []
 
     def checkTIDRange(self, min_tid, max_tid, length, partition):
-        app = self.app
-        self._addTask(('TID', min_tid, length), app.dm.checkTIDRange,
-            (min_tid, max_tid, length, app.pt.getPartitions(), partition))
+        self._addTask(('TID', min_tid, length),
+            self.app.dm.checkTIDRange, (min_tid, max_tid, length, partition))
 
     def checkSerialRange(self, min_oid, min_serial, max_tid, length,
             partition):
-        app = self.app
         self._addTask(('Serial', min_oid, min_serial, length),
-            app.dm.checkSerialRange, (min_oid, min_serial, max_tid, length,
-            app.pt.getPartitions(), partition))
+            self.app.dm.checkSerialRange, (min_oid, min_serial, max_tid, length,
+            partition))
 
     def getTIDsFrom(self, min_tid, max_tid, length, partition):
-        app = self.app
-        self._addTask('TIDsFrom',
-            app.dm.getReplicationTIDList, (min_tid, max_tid, length,
-            app.pt.getPartitions(), partition))
+        self._addTask('TIDsFrom', self.app.dm.getReplicationTIDList,
+            (min_tid, max_tid, length, partition))
 
     def getObjectHistoryFrom(self, min_oid, min_serial, max_serial, length,
             partition):
-        app = self.app
-        self._addTask('ObjectHistoryFrom',
-            app.dm.getObjectHistoryFrom, (min_oid, min_serial, max_serial,
-            length, app.pt.getPartitions(), partition))
+        self._addTask('ObjectHistoryFrom', self.app.dm.getObjectHistoryFrom,
+            (min_oid, min_serial, max_serial, length, partition))
 
     def _getCheckResult(self, key):
         return self.task_dict.pop(key).getResult()
