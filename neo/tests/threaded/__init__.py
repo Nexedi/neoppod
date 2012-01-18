@@ -203,17 +203,23 @@ class ServerNode(Node):
         return cls._node_list[address[1]].getListeningAddress()
 
     @SerializedEventManager.decorate
-    def __init__(self, cluster, address=None, **kw):
+    def __init__(self, cluster=None, address=None, **kw):
         if not address:
             address = self.newAddress()
+        if cluster is None:
+            master_nodes = kw['master_nodes']
+            name = kw['name']
+        else:
+            master_nodes = kw.get('master_nodes', cluster.master_nodes)
+            name = kw.get('name', cluster.name)
         port = address[1]
         self._node_list[port] = weakref.proxy(self)
         self._init_args = (cluster, address), kw.copy()
         threading.Thread.__init__(self)
         self.daemon = True
         self.node_name = '%s_%u' % (self.node_type, port)
-        kw.update(getCluster=cluster.name, getBind=address,
-                  getMasters=parseMasterList(cluster.master_nodes, address))
+        kw.update(getCluster=name, getBind=address,
+                  getMasters=parseMasterList(master_nodes, address))
         super(ServerNode, self).__init__(Mock(kw))
 
     def getVirtualAddress(self):
@@ -321,9 +327,8 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
 class ClientApplication(Node, neo.client.app.Application):
 
     @SerializedEventManager.decorate
-    def __init__(self, cluster):
-        super(ClientApplication, self).__init__(
-            cluster.master_nodes, cluster.name)
+    def __init__(self, master_nodes, name):
+        super(ClientApplication, self).__init__(master_nodes, name)
         self.em._lock = threading.Lock()
 
     def setPoll(self, master=False):
@@ -357,9 +362,8 @@ class ClientApplication(Node, neo.client.app.Application):
 class NeoCTL(neo.neoctl.app.NeoCTL):
 
     @SerializedEventManager.decorate
-    def __init__(self, cluster):
-        self._cluster = cluster
-        super(NeoCTL, self).__init__(cluster.admin.getVirtualAddress())
+    def __init__(self, *args, **kw):
+        super(NeoCTL, self).__init__(*args, **kw)
         self.em._timeout = -1
 
 
@@ -582,8 +586,9 @@ class NEOCluster(object):
         self.storage_list = [StorageApplication(getDatabase=db % x, **kw)
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]
-        self.client = ClientApplication(weak_self)
-        self.neoctl = NeoCTL(weak_self)
+        self.client = ClientApplication(name=self.name,
+            master_nodes=self.master_nodes)
+        self.neoctl = NeoCTL(self.admin.getVirtualAddress())
 
     # A few shortcuts that work when there's only 1 master/storage/admin
     @property
@@ -607,8 +612,9 @@ class NEOCluster(object):
                 kw['clear_database'] = clear_database
             for node in getattr(self, node_type + '_list'):
                 node.resetNode(**kw)
-        self.client = ClientApplication(self)
-        self.neoctl = NeoCTL(weakref.proxy(self))
+        self.client = ClientApplication(name=self.name,
+            master_nodes=self.master_nodes)
+        self.neoctl = NeoCTL(self.admin.getVirtualAddress())
 
     def start(self, storage_list=None, fast_startup=False):
         self._patch()
