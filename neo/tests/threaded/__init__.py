@@ -17,6 +17,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import os, random, socket, sys, tempfile, threading, time, types, weakref
+import traceback
 from collections import deque
 from itertools import count
 from functools import wraps
@@ -665,12 +666,16 @@ class NEOCluster(object):
         txn = transaction.TransactionManager()
         return txn, self.db.open(transaction_manager=txn)
 
-    def __del__(self):
-        self.neoctl.close()
-        for node_type in 'admin', 'storage', 'master':
-            for node in getattr(self, node_type + '_list'):
-                node.close()
-        self.client.em.close()
+    def __del__(self, __print_exc=traceback.print_exc):
+        try:
+            self.neoctl.close()
+            for node_type in 'admin', 'storage', 'master':
+                for node in getattr(self, node_type + '_list'):
+                    node.close()
+            self.client.em.close()
+        except:
+            __print_exc()
+            raise
 
     def extraCellSortKey(self, key):
         return Patch(self.client.cp, _getCellSortKey=lambda orig, *args:
