@@ -214,7 +214,9 @@ class ServerNode(Node):
             name = kw.get('name', cluster.name)
         port = address[1]
         self._node_list[port] = weakref.proxy(self)
-        self._init_args = (cluster, address), kw.copy()
+        self._init_args = init_args = kw.copy()
+        init_args['cluster'] = cluster
+        init_args['address'] = address
         threading.Thread.__init__(self)
         self.daemon = True
         self.node_name = '%s_%u' % (self.node_type, port)
@@ -223,14 +225,14 @@ class ServerNode(Node):
         super(ServerNode, self).__init__(Mock(kw))
 
     def getVirtualAddress(self):
-        return self._init_args[0][1]
+        return self._init_args['address']
 
     def resetNode(self):
         assert not self.isAlive()
-        args, kw = self._init_args
+        kw = self._init_args
         kw['getUUID'] = self.uuid
         self.__dict__.clear()
-        self.__init__(*args, **kw)
+        self.__init__(**kw)
 
     def start(self):
         Serialized.pending = 1
@@ -276,7 +278,7 @@ class MasterApplication(ServerNode, neo.master.app.Application):
 class StorageApplication(ServerNode, neo.storage.app.Application):
 
     def resetNode(self, clear_database=False):
-        self._init_args[1]['getReset'] = clear_database
+        self._init_args['getReset'] = clear_database
         dm = self.dm
         super(StorageApplication, self).resetNode()
         if dm and not clear_database:
@@ -291,7 +293,7 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
             pass
 
     def switchTables(self):
-        adapter = self._init_args[1]['getAdapter']
+        adapter = self._init_args['getAdapter']
         dm = self.dm
         if adapter == 'BTree':
             dm._obj, dm._tobj = dm._tobj, dm._obj
@@ -312,7 +314,7 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
             assert False
 
     def getDataLockInfo(self):
-        adapter = self._init_args[1]['getAdapter']
+        adapter = self._init_args['getAdapter']
         dm = self.dm
         if adapter == 'BTree':
             checksum_dict = dict((x, x) for x in dm._data)
