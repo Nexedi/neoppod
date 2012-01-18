@@ -482,7 +482,7 @@ class NEOCluster(object):
                 self.remote_addr = addr
         def send(self, msg):
             result = cls.SocketConnector_send(self, msg)
-            if Serialized.pending is not None:
+            if type(Serialized.pending) is not frozenset:
                 Serialized.pending = 1
             return result
         # TODO: 'sleep' should 'tic' in a smart way, so that storages can be
@@ -617,6 +617,8 @@ class NEOCluster(object):
             return db
 
     def stop(self):
+        if hasattr(self, '_db') and self.client.em._timeout == 0:
+            self.client.setPoll(True)
         self.__dict__.pop('_db', self.client).close()
         #self.neoctl.setClusterState(ClusterStates.STOPPING) # TODO
         try:
