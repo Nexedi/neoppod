@@ -182,6 +182,11 @@ class ServerNode(Node):
                     LOCAL_IP[:-1] + chr(2 + len(cls._server_class_dict)))
                 cls._server_class_dict[cls._virtual_ip] = cls
 
+    @staticmethod
+    def resetPorts():
+        for cls in ServerNode._server_class_dict.itervalues():
+            del cls._node_list[:]
+
     @classmethod
     def newAddress(cls):
         address = cls._virtual_ip, len(cls._node_list)
@@ -241,6 +246,13 @@ class ServerNode(Node):
             self.listening_conn.close()
         except AttributeError:
             pass
+
+    def stop(self):
+        try:
+            Serialized.release(stop=(self,))
+            self.join()
+        finally:
+            Serialized.acquire()
 
     def getListeningAddress(self):
         try:
@@ -469,8 +481,9 @@ class NEOCluster(object):
         self._resource_dict[result] = self
         return result[1]
 
-    def _patch(cluster):
-        cls = cluster.__class__
+    @staticmethod
+    def _patch():
+        cls = NEOCluster
         cls._patch_count += 1
         if cls._patch_count > 1:
             return
@@ -496,8 +509,9 @@ class NEOCluster(object):
         Storage.setupLog = lambda *args, **kw: None
         Serialized.init()
 
-    @classmethod
-    def _unpatch(cls):
+    @staticmethod
+    def _unpatch():
+        cls = NEOCluster
         assert cls._patch_count > 0
         cls._patch_count -= 1
         if cls._patch_count:
@@ -632,7 +646,9 @@ class NEOCluster(object):
             Serialized.acquire()
         self._unpatch()
 
-    def tic(self, force=False):
+    @staticmethod
+    def tic(force=False):
+        # XXX: Should we automatically switch client in slave mode if it isn't ?
         if force:
             Serialized.tic()
         while Serialized.pending:
@@ -655,14 +671,14 @@ class NEOCluster(object):
             self.client.setPoll(True)
         return Storage.Storage(None, self.name, _app=self.client, **kw)
 
-    def populate(self, dummy_zodb=None):
+    def populate(self, dummy_zodb=None, random=random):
         if dummy_zodb is None:
             from ..stat_zodb import PROD1
-            dummy_zodb = PROD1()
-        importFrom = self.getZODBStorage().importFrom
+            dummy_zodb = PROD1(random)
         preindex = {}
         as_storage = dummy_zodb.as_storage
-        return lambda count: importFrom(as_storage(count), preindex=preindex)
+        return lambda count: self.getZODBStorage().importFrom(
+            as_storage(count), preindex=preindex)
 
     def getTransaction(self):
         txn = transaction.TransactionManager()
@@ -689,6 +705,10 @@ class NEOThreadedTest(NeoTestBase):
     def setupLog(self):
         log_file = os.path.join(getTempDirectory(), self.id() + '.log')
         setupLog(LoggerThreadName(), log_file, True)
+
+    def tearDown(self):
+        super(NEOThreadedTest, self).tearDown()
+        ServerNode.resetPorts()
 
     def getUnpickler(self, conn):
         reader = conn._reader
