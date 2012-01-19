@@ -15,9 +15,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-
+import random
 import unittest
-from mock import Mock
+from mock import Mock, ReturnValues
 from .. import NeoUnitTestBase
 from neo.storage.transactions import Transaction, TransactionManager
 from neo.storage.transactions import ConflictError, DelayedError
@@ -125,6 +125,8 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def testSimpleCase(self):
         """ One node, one transaction, not abort """
+        data_id_list = random.random(), random.random()
+        self.app.dm.mockAddReturnValues(storeData=ReturnValues(*data_id_list))
         uuid = self.getNewUUID()
         ttid = self.getNextTID()
         tid, txn = self._getTransaction()
@@ -137,8 +139,8 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.assertTrue(ttid in self.manager)
         self.manager.lock(ttid, tid, txn[0])
         self._checkTransactionStored(tid, [
-            (object1[0], object1[2], object1[4]),
-            (object2[0], object2[2], object2[4]),
+            (object1[0], data_id_list[0], object1[4]),
+            (object2[0], data_id_list[1], object2[4]),
             ], txn)
         self.manager.unlock(ttid)
         self.assertFalse(ttid in self.manager)
@@ -331,6 +333,8 @@ class TransactionManagerTests(NeoUnitTestBase):
             self.assertFalse(self.manager.loadLocked(oid))
 
     def test_getObjectFromTransaction(self):
+        data_id = random.random()
+        self.app.dm.mockAddReturnValues(storeData=ReturnValues(data_id))
         uuid = self.getNewUUID()
         tid1, txn1 = self._getTransaction()
         tid2, txn2 = self._getTransaction()
@@ -343,7 +347,7 @@ class TransactionManagerTests(NeoUnitTestBase):
         self.assertEqual(self.manager.getObjectFromTransaction(tid1, obj2[0]),
             None)
         self.assertEqual(self.manager.getObjectFromTransaction(tid1, obj1[0]),
-            (obj1[0], obj1[2], obj1[4]))
+            (obj1[0], data_id, obj1[4]))
 
     def test_getLockingTID(self):
         uuid = self.getNewUUID()

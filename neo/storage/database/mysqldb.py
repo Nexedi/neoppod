@@ -83,6 +83,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.conn = MySQLdb.connect(**kwd)
         self.conn.autocommit(False)
         self.conn.query("SET SESSION group_concat_max_len = -1")
+        self.conn.set_sql_mode("TRADITIONAL,NO_ENGINE_SUBSTITUTION")
 
     def _begin(self):
         self.query("""BEGIN""")
@@ -172,20 +173,23 @@ class MySQLDatabaseManager(DatabaseManager):
                  PRIMARY KEY (partition, tid)
              ) ENGINE = InnoDB""" + p)
 
-        # The table "obj" stores committed object data.
+        # The table "obj" stores committed object metadata.
         q("""CREATE TABLE IF NOT EXISTS obj (
                  partition SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
                  serial BIGINT UNSIGNED NOT NULL,
-                 hash BINARY(20) NULL,
+                 data_id BIGINT UNSIGNED NULL,
                  value_serial BIGINT UNSIGNED NULL,
                  PRIMARY KEY (partition, oid, serial),
-                 KEY (hash(4))
+                 KEY (data_id)
              ) ENGINE = InnoDB""" + p)
 
-        #
+        # The table "data" stores object data.
+        # We'd like to have partial index on 'hash' colum (e.g. hash(4))
+        # but 'UNIQUE' constraint would not work as expected.
         q("""CREATE TABLE IF NOT EXISTS data (
-                 hash BINARY(20) NOT NULL PRIMARY KEY,
+                 id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                 hash BINARY(20) NOT NULL UNIQUE,
                  compression TINYINT UNSIGNED NULL,
                  value LONGBLOB NULL
              ) ENGINE = InnoDB""")
@@ -201,18 +205,18 @@ class MySQLDatabaseManager(DatabaseManager):
                  ext BLOB NOT NULL
              ) ENGINE = InnoDB""")
 
-        # The table "tobj" stores uncommitted object data.
+        # The table "tobj" stores uncommitted object metadata.
         q("""CREATE TABLE IF NOT EXISTS tobj (
                  partition SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
                  serial BIGINT UNSIGNED NOT NULL,
-                 hash BINARY(20) NULL,
+                 data_id BIGINT UNSIGNED NULL,
                  value_serial BIGINT UNSIGNED NULL,
                  PRIMARY KEY (serial, oid)
              ) ENGINE = InnoDB""")
 
-        self._uncommitted_data = dict(q("SELECT hash, count(*)"
-            " FROM tobj WHERE hash IS NOT NULL GROUP BY hash") or ())
+        self._uncommitted_data = dict(q("SELECT data_id, count(*)"
+            " FROM tobj WHERE data_id IS NOT NULL GROUP BY data_id") or ())
 
     def getConfiguration(self, key):
         if key in self._config:
@@ -313,8 +317,8 @@ class MySQLDatabaseManager(DatabaseManager):
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
         partition = self._getPartition(oid)
-        sql = ('SELECT serial, compression, obj.hash, value, value_serial'
-               ' FROM obj LEFT JOIN data ON (obj.hash = data.hash)'
+        sql = ('SELECT serial, compression, data.hash, value, value_serial'
+               ' FROM obj LEFT JOIN data ON (obj.data_id = data.id)'
                ' WHERE partition = %d AND oid = %d') % (partition, oid)
         if tid is not None:
             sql += ' AND serial = %d' % tid
@@ -389,12 +393,12 @@ class MySQLDatabaseManager(DatabaseManager):
             # delete. It should be done as an idle task, by chunks.
             for partition in offset_list:
                 where = " WHERE partition=%d" % partition
-                checksum_list = [x for x, in
-                    q("SELECT DISTINCT hash FROM obj" + where) if x]
+                data_id_list = [x for x, in
+                    q("SELECT DISTINCT data_id FROM obj" + where) if x]
                 if not self._use_partition:
                     q("DELETE FROM obj" + where)
                     q("DELETE FROM trans" + where)
-                self._pruneData(checksum_list)
+                self._pruneData(data_id_list)
         except:
             self.rollback()
             raise
@@ -413,14 +417,14 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         self.begin()
         try:
-            checksum_list = [x for x, in q("SELECT hash FROM tobj") if x]
+            data_id_list = [x for x, in q("SELECT data_id FROM tobj") if x]
             q("""TRUNCATE tobj""")
             q("""TRUNCATE ttrans""")
         except:
             self.rollback()
             raise
         self.commit()
-        self.unlockData(checksum_list, True)
+        self.unlockData(data_id_list, True)
 
     def storeTransaction(self, tid, object_list, transaction, temporary = True):
         q = self.query
@@ -437,24 +441,20 @@ class MySQLDatabaseManager(DatabaseManager):
 
         self.begin()
         try:
-            for oid, checksum, value_serial in object_list:
+            for oid, data_id, value_serial in object_list:
                 oid = u64(oid)
                 partition = self._getPartition(oid)
                 if value_serial:
                     value_serial = u64(value_serial)
-                    (checksum,), = q("SELECT hash FROM obj"
+                    (data_id,), = q("SELECT data_id FROM obj"
                         " WHERE partition=%d AND oid=%d AND serial=%d"
                         % (partition, oid, value_serial))
                     if temporary:
-                        self.storeData(checksum)
+                        self.storeData(data_id)
                 else:
                     value_serial = 'NULL'
-                if checksum:
-                    checksum = "'%s'" % e(checksum)
-                else:
-                    checksum = 'NULL'
-                q("REPLACE INTO %s VALUES (%d, %d, %d, %s, %s)" %
-                  (obj_table, partition, oid, tid, checksum, value_serial))
+                q("REPLACE INTO %s VALUES (%d, %d, %d, %s, %s)" % (obj_table,
+                    partition, oid, tid, data_id or 'NULL', value_serial))
 
             if transaction is not None:
                 oid_list, user, desc, ext, packed = transaction
@@ -472,13 +472,13 @@ class MySQLDatabaseManager(DatabaseManager):
             raise
         self.commit()
 
-    def _pruneData(self, checksum_list):
-        checksum_list = set(checksum_list).difference(self._uncommitted_data)
-        if checksum_list:
+    def _pruneData(self, data_id_list):
+        data_id_list = set(data_id_list).difference(self._uncommitted_data)
+        if data_id_list:
             self.query("DELETE data FROM data"
-                " LEFT JOIN obj ON (data.hash = obj.hash)"
-                " WHERE data.hash IN ('%s') AND obj.hash IS NULL"
-                % "','".join(map(self.escape, checksum_list)))
+                " LEFT JOIN obj ON (id = data_id)"
+                " WHERE id IN (%s) AND data_id IS NULL"
+                % ",".join(map(str, data_id_list)))
 
     def _storeData(self, checksum, data, compression):
         e = self.escape
@@ -486,22 +486,25 @@ class MySQLDatabaseManager(DatabaseManager):
         self.begin()
         try:
             try:
-                self.query("INSERT INTO data VALUES ('%s', %d, '%s')" %
+                self.query("INSERT INTO data VALUES (NULL, '%s', %d, '%s')" %
                     (checksum, compression,  e(data)))
             except IntegrityError, (code, _):
                 if code != DUP_ENTRY:
                     raise
-                r, = self.query("SELECT compression, value FROM data"
-                                " WHERE hash='%s'" % checksum)
-                if r != (compression, data):
+                (r, c, d), = self.query("SELECT id, compression, value"
+                                        " FROM data WHERE hash='%s'" % checksum)
+                if c != compression or d != data:
                     raise
+            else:
+                r = self.conn.insert_id()
         except:
             self.rollback()
             raise
         self.commit()
+        return r
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
-        sql = ('SELECT serial, hash, value_serial FROM obj'
+        sql = ('SELECT serial, data_id, value_serial FROM obj'
                ' WHERE partition = %d AND oid = %d'
               ) % (self._getPartition(oid), oid)
         if tid is not None:
@@ -514,8 +517,8 @@ class MySQLDatabaseManager(DatabaseManager):
             sql += ' ORDER BY serial DESC LIMIT 1'
         r = self.query(sql)
         if r:
-            (serial, checksum, value_serial), = r
-            if value_serial is None and checksum:
+            (serial, data_id, value_serial), = r
+            if value_serial is None and data_id:
                 return serial, serial
             return serial, value_serial
         return None, None
@@ -526,7 +529,7 @@ class MySQLDatabaseManager(DatabaseManager):
         self.begin()
         try:
             sql = " FROM tobj WHERE serial=%d" % tid
-            checksum_list = [x for x, in q("SELECT hash" + sql) if x]
+            data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
             q("INSERT INTO obj SELECT *" + sql)
             q("DELETE FROM tobj WHERE serial=%d" % tid)
             q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
@@ -535,7 +538,7 @@ class MySQLDatabaseManager(DatabaseManager):
             self.rollback()
             raise
         self.commit()
-        self.unlockData(checksum_list)
+        self.unlockData(data_id_list)
 
     def deleteTransaction(self, tid, oid_list=()):
         q = self.query
@@ -545,22 +548,22 @@ class MySQLDatabaseManager(DatabaseManager):
         self.begin()
         try:
             sql = " FROM tobj WHERE serial=%d" % tid
-            checksum_list = [x for x, in q("SELECT hash" + sql) if x]
-            self.unlockData(checksum_list)
+            data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
+            self.unlockData(data_id_list)
             q("DELETE" + sql)
             q("""DELETE FROM ttrans WHERE tid = %d""" % tid)
             q("""DELETE FROM trans WHERE partition = %d AND tid = %d""" %
                 (getPartition(tid), tid))
             # delete from obj using indexes
-            checksum_set = set()
+            data_id_set = set()
             for oid in oid_list:
                 oid = u64(oid)
                 sql = " FROM obj WHERE partition=%d AND oid=%d AND serial=%d" \
                    % (getPartition(oid), oid, tid)
-                checksum_set.update(*q("SELECT hash" + sql))
+                data_id_set.update(*q("SELECT data_id" + sql))
                 q("DELETE" + sql)
-            checksum_set.discard(None)
-            self._pruneData(checksum_set)
+            data_id_set.discard(None)
+            self._pruneData(data_id_set)
         except:
             self.rollback()
             raise
@@ -590,9 +593,9 @@ class MySQLDatabaseManager(DatabaseManager):
             sql += ' AND serial=%d' % u64(serial)
         self.begin()
         try:
-            checksum_list = [x for x, in q("SELECT DISTINCT hash" + sql) if x]
+            data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql) if x]
             q("DELETE" + sql)
-            self._pruneData(checksum_list)
+            self._pruneData(data_id_list)
         except:
             self.rollback()
             raise
@@ -607,9 +610,9 @@ class MySQLDatabaseManager(DatabaseManager):
             (partition, u64(max_tid), oid, oid, u64(serial)))
         self.begin()
         try:
-            checksum_list = [x for x, in q("SELECT DISTINCT hash" + sql) if x]
+            data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql) if x]
             q("DELETE" + sql)
-            self._pruneData(checksum_list)
+            self._pruneData(data_id_list)
         except:
             self.rollback()
             raise
@@ -637,7 +640,7 @@ class MySQLDatabaseManager(DatabaseManager):
         if value_serial is None:
             raise CreationUndone
         r = self.query("""SELECT LENGTH(value), value_serial
-                    FROM obj LEFT JOIN data ON (obj.hash = data.hash)
+                    FROM obj LEFT JOIN data ON (obj.data_id = data.id)
                     WHERE partition = %d AND oid = %d AND serial = %d""" %
             (self._getPartition(oid), oid, value_serial))
         length, value_serial = r[0]
@@ -656,7 +659,7 @@ class MySQLDatabaseManager(DatabaseManager):
         p64 = util.p64
         pack_tid = self._getPackTID()
         r = self.query("""SELECT serial, LENGTH(value), value_serial
-                    FROM obj LEFT JOIN data ON (obj.hash = data.hash)
+                    FROM obj LEFT JOIN data ON (obj.data_id = data.id)
                     WHERE partition = %d AND oid = %d AND serial >= %d
                     ORDER BY serial DESC LIMIT %d, %d""" \
                 % (self._getPartition(oid), oid, pack_tid, offset, length))
@@ -768,25 +771,25 @@ class MySQLDatabaseManager(DatabaseManager):
                     % tid):
                 partition = getPartition(oid)
                 if q("SELECT 1 FROM obj WHERE partition = %d"
-                     " AND oid = %d AND serial = %d AND hash IS NULL"
+                     " AND oid = %d AND serial = %d AND data_id IS NULL"
                      % (partition, oid, max_serial)):
                     max_serial += 1
                 elif not count:
                     continue
                 # There are things to delete for this object
-                checksum_set = set()
+                data_id_set = set()
                 sql = ' FROM obj WHERE partition=%d AND oid=%d' \
                     ' AND serial<%d' % (partition, oid, max_serial)
-                for serial, checksum in q('SELECT serial, hash' + sql):
-                    checksum_set.add(checksum)
+                for serial, data_id in q('SELECT serial, data_id' + sql):
+                    data_id_set.add(data_id)
                     new_serial = updatePackFuture(oid, serial, max_serial)
                     if new_serial:
                         new_serial = p64(new_serial)
                     updateObjectDataForPack(p64(oid), p64(serial),
-                                            new_serial, checksum)
+                                            new_serial, data_id)
                 q('DELETE' + sql)
-                checksum_set.discard(None)
-                self._pruneData(checksum_set)
+                data_id_set.discard(None)
+                self._pruneData(data_id_set)
         except:
             self.rollback()
             raise

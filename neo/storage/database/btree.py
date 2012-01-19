@@ -347,6 +347,7 @@ class BTreeDatabaseManager(DatabaseManager):
                 raise AssertionError("hash collision")
         except KeyError:
             self._data[checksum] = compression, data, set()
+        return checksum
 
     def finishTransaction(self, tid):
         tid = util.u64(tid)

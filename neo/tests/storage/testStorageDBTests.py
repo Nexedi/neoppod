@@ -122,9 +122,8 @@ class StorageDBTests(NeoUnitTestBase):
     def getTransaction(self, oid_list):
         transaction = (oid_list, 'user', 'desc', 'ext', False)
         H = "0" * 20
-        for _ in oid_list:
-            self.db.storeData(H, '', 1)
-        object_list = [(oid, H, None) for oid in oid_list]
+        object_list = [(oid, self.db.storeData(H, '', 1), None)
+                       for oid in oid_list]
         return (transaction, object_list)
 
     def checkSet(self, list1, list2):
@@ -584,10 +583,8 @@ class StorageDBTests(NeoUnitTestBase):
         tid4 = self.getNextTID()
         tid5 = self.getNextTID()
         oid1 = self.getOID(1)
-        foo = "3" * 20
-        bar = "4" * 20
-        db.storeData(foo, 'foo', 0)
-        db.storeData(bar, 'bar', 0)
+        foo = db.storeData("3" * 20, 'foo', 0)
+        bar = db.storeData("4" * 20, 'bar', 0)
         db.unlockData((foo, bar))
         db.storeTransaction(
             tid1, (

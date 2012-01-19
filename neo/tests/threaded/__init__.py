@@ -308,13 +308,14 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
         adapter = self._init_args[1]['getAdapter']
         dm = self.dm
         if adapter == 'BTree':
-            checksum_list = dm._data
+            checksum_dict = dict((x, x) for x in dm._data)
         elif adapter == 'MySQL':
-            checksum_list = [x for x, in dm.query("SELECT hash FROM data")]
+            checksum_dict = dict(dm.query("SELECT id, hash FROM data"))
         else:
             assert False
-        assert set(dm._uncommitted_data).issubset(checksum_list)
-        return dict((x, dm._uncommitted_data.get(x, 0)) for x in checksum_list)
+        assert set(dm._uncommitted_data).issubset(checksum_dict)
+        get = dm._uncommitted_data.get
+        return dict((v, get(k, 0)) for k, v in checksum_dict.iteritems())
 
 class ClientApplication(Node, neo.client.app.Application):
 

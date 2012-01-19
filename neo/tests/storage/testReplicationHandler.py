@@ -271,6 +271,7 @@ class StorageReplicationHandlerTests(NeoUnitTestBase):
         checksum = "0" * 20
         data = 'foo'
         data_serial = None
+        app.dm.mockAddReturnValues(storeData=checksum)
         ReplicationHandler(app).answerObject(conn, oid, serial_start,
             serial_end, compression, checksum, data, data_serial)
         calls = app.dm.mockGetNamedCalls('storeTransaction')

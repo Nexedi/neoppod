@@ -98,12 +98,12 @@ class Transaction(object):
         # assert self._transaction is not None
         self._transaction = (oid_list, user, desc, ext, packed)
 
-    def addObject(self, oid, checksum, value_serial):
+    def addObject(self, oid, data_id, value_serial):
         """
             Add an object to the transaction
         """
         assert oid not in self._checked_set, dump(oid)
-        self._object_dict[oid] = oid, checksum, value_serial
+        self._object_dict[oid] = oid, data_id, value_serial
 
     def delObject(self, oid):
         try:
@@ -241,9 +241,9 @@ class TransactionManager(object):
             # drop the lock it held on this object, and drop object data for
             # consistency.
             del self._store_lock_dict[oid]
-            checksum = self._transaction_dict[ttid].delObject(oid)
-            if checksum:
-                self._app.dm.pruneData((checksum,))
+            data_id = self._transaction_dict[ttid].delObject(oid)
+            if data_id:
+                self._app.dm.pruneData((data_id,))
             # Give a chance to pending events to take that lock now.
             self._app.executeQueuedEvents()
             # Attemp to acquire lock again.
@@ -303,10 +303,10 @@ class TransactionManager(object):
         # store object
         assert ttid in self, "Transaction not registered"
         if data is None:
-            checksum = None
+            data_id = None
         else:
-            self._app.dm.storeData(checksum, data, compression)
-        self._transaction_dict[ttid].addObject(oid, checksum, value_serial)
+            data_id = self._app.dm.storeData(checksum, data, compression)
+        self._transaction_dict[ttid].addObject(oid, data_id, value_serial)
 
     def abort(self, ttid, even_if_locked=False):
         """
@@ -328,9 +328,9 @@ class TransactionManager(object):
             if not even_if_locked:
                 return
         else:
-            self._app.dm.unlockData([checksum
-                for oid, checksum, value_serial in transaction.getObjectList()
-                if checksum], True)
+            self._app.dm.unlockData([data_id
+                for oid, data_id, value_serial in transaction.getObjectList()
+                if data_id], True)
         # unlock any object
         for oid in transaction.getLockedOIDList():
             if has_load_lock:
@@ -379,13 +379,13 @@ class TransactionManager(object):
         for oid, ttid in self._store_lock_dict.items():
             neo.lib.logging.info('    %r by %r', dump(oid), dump(ttid))
 
-    def updateObjectDataForPack(self, oid, orig_serial, new_serial, checksum):
+    def updateObjectDataForPack(self, oid, orig_serial, new_serial, data_id):
         lock_tid = self.getLockingTID(oid)
         if lock_tid is not None:
             transaction = self._transaction_dict[lock_tid]
             if transaction.getObject(oid)[2] == orig_serial:
                 if new_serial:
-                    checksum = None
+                    data_id = None
                 else:
-                    self._app.dm.storeData(checksum)
-                transaction.addObject(oid, checksum, new_serial)
+                    self._app.dm.storeData(data_id)
+                transaction.addObject(oid, data_id, new_serial)

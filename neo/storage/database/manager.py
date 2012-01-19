@@ -68,7 +68,7 @@ class DatabaseManager(object):
         _uncommitted_data is a dict containing refcounts to data of
         write-locked objects, except in case of undo, where the refcount is
         increased later, when the object is read-locked.
-        Keys are checksums and values are number of references.
+        Keys are data ids and values are number of references.
 
         If reset is true, existing data must be discarded and
         self._uncommitted_data must be an empty dict.
@@ -294,19 +294,19 @@ class DatabaseManager(object):
         """Store a transaction temporarily, if temporary is true. Note
         that this transaction is not finished yet. The list of objects
         contains tuples, each of which consists of an object ID,
-        a checksum and object serial.
+        a data_id and object serial.
         The transaction is either None or a tuple of the list of OIDs,
         user information, a description, extension information and transaction
         pack state (True for packed)."""
         raise NotImplementedError
 
-    def _pruneData(self, checksum_list):
+    def _pruneData(self, data_id_list):
         """To be overriden by the backend to delete any unreferenced data
 
         'unreferenced' means:
         - not in self._uncommitted_data
         - and not referenced by a fully-committed object (storage should have
-          an index or a refcound of all data checksums of all objects)
+          an index or a refcound of all data ids of all objects)
         """
         raise NotImplementedError
 
@@ -318,38 +318,39 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def storeData(self, checksum, data=None, compression=None):
+    def storeData(self, checksum_or_id, data=None, compression=None):
         """Store object raw data
 
-        'checksum' must be the result of neo.lib.util.makeChecksum(data)
+        checksum must be the result of neo.lib.util.makeChecksum(data)
         'compression' indicates if 'data' is compressed.
         A volatile reference is set to this data until 'unlockData' is called
         with this checksum.
-        If called with only a checksum, it only increment the volatile
-        reference to the data matching the checksum.
+        If called with only an id, it only increment the volatile
+        reference to the data matching the id.
         """
         refcount = self._uncommitted_data
-        refcount[checksum] = 1 + refcount.get(checksum, 0)
         if data is not None:
-            self._storeData(checksum, data, compression)
+            checksum_or_id = self._storeData(checksum_or_id, data, compression)
+        refcount[checksum_or_id] = 1 + refcount.get(checksum_or_id, 0)
+        return checksum_or_id
 
-    def unlockData(self, checksum_list, prune=False):
+    def unlockData(self, data_id_list, prune=False):
         """Release 1 volatile reference to given list of checksums
 
         If 'prune' is true, any data that is not referenced anymore (either by
         a volatile reference or by a fully-committed object) is deleted.
         """
         refcount = self._uncommitted_data
-        for checksum in checksum_list:
-            count = refcount[checksum] - 1
+        for data_id in data_id_list:
+            count = refcount[data_id] - 1
             if count:
-                refcount[checksum] = count
+                refcount[data_id] = count
             else:
-                del refcount[checksum]
+                del refcount[data_id]
         if prune:
             self.begin()
             try:
-                self._pruneData(checksum_list)
+                self._pruneData(data_id_list)
             except:
                 self.rollback()
                 raise
@@ -379,8 +380,8 @@ class DatabaseManager(object):
                 " of _getDataTID. It should be overriden by backend storage.")
         r = self._getObject(oid, tid, before_tid)
         if r:
-            serial, _, _, checksum, _, value_serial = r
-            if value_serial is None and checksum:
+            serial, _, _, data_id, _, value_serial = r
+            if value_serial is None and data_id:
                 return serial, serial
             return serial, value_serial
         return None, None
@@ -524,7 +525,7 @@ class DatabaseManager(object):
             to it.
         - getObjectData function
             To call if value_serial is None and an object needs to be updated.
-            Takes no parameter, returns a 3-tuple: compression, checksum,
+            Takes no parameter, returns a 3-tuple: compression, data_id,
             value
         """
         raise NotImplementedError

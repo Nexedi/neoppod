@@ -173,11 +173,11 @@ class ReplicationHandler(EventHandler):
             serial_end, compression, checksum, data, data_serial):
         dm = self.app.dm
         if data or checksum != ZERO_HASH:
-            dm.storeData(checksum, data, compression)
+            data_id = dm.storeData(checksum, data, compression)
         else:
-            checksum = None
+            data_id = None
         # Directly store the transaction.
-        obj = oid, checksum, data_serial
+        obj = oid, data_id, data_serial
         dm.storeTransaction(serial_start, [obj], None, False)
 
     def _doAskCheckSerialRange(self, min_oid, min_tid, max_tid,
