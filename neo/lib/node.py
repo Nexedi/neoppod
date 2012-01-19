@@ -86,6 +86,8 @@ class Node(object):
         self._uuid = uuid
         self._manager._updateUUID(self, old_uuid)
         self._manager._updateIdentified(self)
+        if self._connection is not None:
+            self._connection.setUUID(uuid)
 
     def getUUID(self):
         return self._uuid
@@ -104,6 +106,8 @@ class Node(object):
         """
         assert connection is not None
         assert self._connection is None, attributeTracker.whoSet(self, '_connection')
+        assert connection.getUUID() in (None, self._uuid), connection
+        connection.setUUID(self._uuid)
         self._connection = connection
         connection.setOnClose(self.onConnectionClosed)
         self._manager._updateIdentified(self)

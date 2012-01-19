@@ -57,7 +57,6 @@ class StorageBootstrapHandler(AnswerBaseHandler):
 
         node = self.app.nm.getByAddress(conn.getAddress())
         assert node is not None, conn.getAddress()
-        conn.setUUID(uuid)
         node.setUUID(uuid)
         assert node.getConnection() is conn, (node.getConnection(), conn)
 

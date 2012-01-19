@@ -78,7 +78,6 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
         self.handler.acceptIdentification(conn, NodeTypes.MASTER, uuid,
             partitions, replicas, your_uuid)
         self.assertEqual(self.app.uuid, your_uuid)
-        self.checkUUIDSet(conn, uuid)
         self.checkUUIDSet(node, uuid)
         self.assertTrue(isinstance(self.app.pt, PartitionTable))
 

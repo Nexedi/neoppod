@@ -59,7 +59,6 @@ class IdentificationHandler(MasterHandler):
         node.setState(state)
         node.setConnection(conn)
         # set up the connection
-        conn.setUUID(uuid)
         conn.setHandler(handler)
         # answer
         args = (NodeTypes.MASTER, app.uuid, app.pt.getPartitions(),

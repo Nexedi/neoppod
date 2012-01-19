@@ -89,7 +89,6 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
         self.assertTrue(node.isConnected())
         self.assertEqual(node.getUUID(), uuid)
         self.assertTrue(node.getConnection() is conn)
-        self.checkUUIDSet(conn, uuid)
         args = self.checkAcceptIdentification(conn, decode=True)
         node_type, address, _np, _nr, _uuid = args
         self.assertEqual(node_type, NodeTypes.STORAGE)

@@ -62,7 +62,6 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
         self.handler.acceptIdentification(conn, NodeTypes.STORAGE, uuid,
             10, 0, None)
         self.checkUUIDSet(node, uuid)
-        self.checkUUIDSet(conn, uuid)
 
 
 class StorageAnswerHandlerTests(NeoUnitTestBase):

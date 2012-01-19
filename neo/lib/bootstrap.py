@@ -119,7 +119,6 @@ class BootstrapManager(EventHandler):
             # got an uuid from the primary master
             self.uuid = your_uuid
             neo.lib.logging.info('Got a new UUID : %s' % dump(self.uuid))
-        conn.setUUID(uuid)
         self.accepted = True
 
     def getPrimaryConnection(self, connector_handler):

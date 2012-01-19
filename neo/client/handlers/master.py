@@ -43,9 +43,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         app.uuid = your_uuid
         neo.lib.logging.info('Got an UUID: %s', dump(app.uuid))
 
-        node = app.nm.getByAddress(conn.getAddress())
-        conn.setUUID(uuid)
-        node.setUUID(uuid)
+        app.nm.getByAddress(conn.getAddress()).setUUID(uuid)
 
         # Always create partition table
         app.pt = PartitionTable(num_partitions, num_replicas)

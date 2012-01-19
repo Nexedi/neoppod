@@ -94,8 +94,6 @@ class ReplicationHandler(EventHandler):
 
     def acceptIdentification(self, conn, node_type,
                        uuid, num_partitions, num_replicas, your_uuid):
-        # set the UUID on the connection
-        conn.setUUID(uuid)
         self.startReplication(conn)
 
     def startReplication(self, conn):
