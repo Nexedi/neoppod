@@ -539,6 +539,7 @@ def _fixMockForInspect():
         def f(self):
             pass
     if not inspect.getmembers(A, inspect.ismethod):
+        from mock import Mock, MockCallable
         # _setupSubclassMethodInterceptors is under the FreeBSD license.
         # See pyMock module for the whole license.
         def _setupSubclassMethodInterceptors(self):
@@ -549,6 +550,5 @@ def _fixMockForInspect():
                 # Don't record calls to methods of Mock base class.
                 if not name in baseMethods:
                     self.__dict__[name] = MockCallable(name, self, handcrafted=True)
-        from mock import Mock
         Mock._setupSubclassMethodInterceptors = _setupSubclassMethodInterceptors
 _fixMockForInspect()
