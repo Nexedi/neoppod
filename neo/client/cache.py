@@ -212,12 +212,11 @@ class ClientCache(object):
                                 break
                         item_list.insert(i, item)
                     else:
-                        if item_list:
-                            prev = item_list[-1]
-                            item.counter = prev.counter
-                            prev.counter = 0
-                            if prev.level > 1:
-                                self._fetched(prev)
+                        prev = item_list[-1]
+                        item.counter = prev.counter
+                        prev.counter = 0
+                        if prev.level > 1:
+                            self._fetched(prev)
                         item_list.append(item)
             item.data = data
             self._fetched(item)
