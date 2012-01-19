@@ -263,7 +263,6 @@ class Application(object):
             try:
                 self.new_oid_list = []
                 result = self._connectToPrimaryNode()
-                self.master_conn = result
             finally:
                 self._connecting_to_master_node_release()
         return result
@@ -347,7 +346,8 @@ class Application(object):
         # Identify to primary master and request initial data
         p = Packets.RequestIdentification(NodeTypes.CLIENT, self.uuid, None,
             self.name)
-        while conn.getUUID() is None:
+        assert self.master_conn is None, self.master_conn
+        while self.master_conn is None:
             ask(conn, p, handler=handler)
             if conn.getUUID() is None:
                 # Node identification was refused by master, it is considered

@@ -49,6 +49,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
 
         # Always create partition table
         app.pt = PartitionTable(num_partitions, num_replicas)
+        app.master_conn = conn
 
     def answerPrimary(self, conn, primary_uuid,
                                   known_master_list):

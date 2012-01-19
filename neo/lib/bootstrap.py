@@ -29,6 +29,7 @@ class BootstrapManager(EventHandler):
     """
     Manage the bootstrap stage, lookup for the primary master then connect to it
     """
+    accepted = False
 
     def __init__(self, app, name, node_type, uuid=None, server=NO_SERVER):
         """
@@ -119,6 +120,7 @@ class BootstrapManager(EventHandler):
             self.uuid = your_uuid
             neo.lib.logging.info('Got a new UUID : %s' % dump(self.uuid))
         conn.setUUID(uuid)
+        self.accepted = True
 
     def getPrimaryConnection(self, connector_handler):
         """
@@ -131,7 +133,7 @@ class BootstrapManager(EventHandler):
         self.current = nm.getMasterList()[0]
         conn = None
         # retry until identified to the primary
-        while self.primary is None or conn.getUUID() != self.primary.getUUID():
+        while not self.accepted:
             if self.current is None:
                 # conn closed
                 conn = None
