@@ -778,7 +778,7 @@ class ClientApplicationTests(NeoUnitTestBase):
             app.pt = Mock({'operational': True})
         # fifth packet : request node identification succeeded
         def _ask6(conn):
-            conn.setUUID('D' * 16)
+            app.master_conn = conn
             app.uuid = 'C' * 16
         # fourth iteration : connection to primary master succeeded
         def _ask5(_):
