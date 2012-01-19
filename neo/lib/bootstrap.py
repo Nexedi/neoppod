@@ -129,7 +129,7 @@ class BootstrapManager(EventHandler):
         neo.lib.logging.info('connecting to a primary master node')
         em, nm = self.app.em, self.app.nm
         index = 0
-        self.current = nm.getMasterList()[0]
+        self.current = None
         conn = None
         # retry until identified to the primary
         while not self.accepted:
