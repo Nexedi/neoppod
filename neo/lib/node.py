@@ -104,7 +104,7 @@ class Node(object):
         """
             Define the connection that is currently available to this node.
         """
-        assert connection is not None
+        assert not connection.isClosed(), connection
         assert self._connection is None, attributeTracker.whoSet(self, '_connection')
         assert connection.getUUID() in (None, self._uuid), connection
         connection.setUUID(self._uuid)
