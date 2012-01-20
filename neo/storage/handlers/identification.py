@@ -44,7 +44,7 @@ class IdentificationHandler(EventHandler):
             from .client import ClientOperationHandler
             handler = ClientOperationHandler
             if node is None:
-                node = app.nm.createClient()
+                node = app.nm.createClient(uuid=uuid)
             elif node.isConnected():
                 # cut previous connection
                 node.getConnection().close()
@@ -61,9 +61,7 @@ class IdentificationHandler(EventHandler):
             raise ProtocolError('reject non-client-or-storage node')
         # apply the handler and set up the connection
         handler = handler(self.app)
-        conn.setUUID(uuid)
         conn.setHandler(handler)
-        node.setUUID(uuid)
         node.setConnection(conn)
         args = (NodeTypes.STORAGE, app.uuid, app.pt.getPartitions(),
             app.pt.getReplicas(), uuid)
