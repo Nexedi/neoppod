@@ -151,8 +151,7 @@ class Storage(BaseStorage.BaseStorage,
 
     @check_read_only
     def deleteObject(self, oid, serial, transaction):
-        self.app.store(oid=oid, serial=serial, data='', version=None,
-            transaction=transaction)
+        self.app.store(oid, serial, None, None, transaction)
 
     # mutliple revisions
     def loadSerial(self, oid, serial):

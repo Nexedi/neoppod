@@ -21,6 +21,7 @@ import transaction
 import unittest
 from thread import get_ident
 from persistent import Persistent
+from ZODB import POSException
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import MTClientConnection
@@ -62,6 +63,31 @@ class Test(NEOThreadedTest):
                 storage._cache.clear()
                 self.assertEqual((data, serial), storage.load(oid, ''))
                 self.assertEqual((data, serial), storage.load(oid, ''))
+        finally:
+            cluster.stop()
+
+    def testDeleteObject(self):
+        cluster = NEOCluster()
+        try:
+            cluster.start()
+            storage = cluster.getZODBStorage()
+            for clear_cache in 0, 1:
+                for tst in 'a.', 'bcd.':
+                    oid = storage.new_oid()
+                    serial = None
+                    for data in tst:
+                        txn = transaction.Transaction()
+                        storage.tpc_begin(txn)
+                        if data == '.':
+                            storage.deleteObject(oid, serial, txn)
+                        else:
+                            storage.store(oid, serial, data, '', txn)
+                        storage.tpc_vote(txn)
+                        serial = storage.tpc_finish(txn)
+                        if clear_cache:
+                            storage._cache.clear()
+                    self.assertRaises(POSException.POSKeyError,
+                        storage.load, oid, '')
         finally:
             cluster.stop()
 
