@@ -402,7 +402,7 @@ class NodeManager(object):
         self.__updateSet(self._state_dict, old_state, node.getState(), node)
 
     def getList(self, node_filter=None):
-        if filter is None:
+        if node_filter is None:
             return list(self._node_set)
         return filter(node_filter, self._node_set)
 
