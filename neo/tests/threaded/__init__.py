@@ -553,8 +553,13 @@ class NEOCluster(object):
             index = count().next
             db_list = ['%s%u' % (DB_PREFIX, self._allocate('db', index))
                        for _ in xrange(storage_count)]
-        setupMySQLdb(db_list, db_user, db_password, clear_databases)
-        db = '%s:%s@%%s' % (db_user, db_password)
+        if adapter == 'MySQL':
+            setupMySQLdb(db_list, db_user, db_password, clear_databases)
+            db = '%s:%s@%%s' % (db_user, db_password)
+        elif adapter == 'BTree':
+            db = '%s'
+        else:
+            assert False, adapter
         self.storage_list = [StorageApplication(getDatabase=db % x, **kw)
                              for x in db_list]
         self.admin_list = [AdminApplication(**kw)]
