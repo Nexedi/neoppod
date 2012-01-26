@@ -168,7 +168,7 @@ class Application(object):
         try:
             self._run()
         except:
-            neo.lib.logging.info('\nPre-mortem informations:')
+            neo.lib.logging.exception('Pre-mortem data:')
             self.log()
             raise
 

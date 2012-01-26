@@ -97,6 +97,14 @@ class Application(object):
             self.pt.log()
 
     def run(self):
+        try:
+            self._run()
+        except:
+            neo.lib.logging.exception('Pre-mortem data:')
+            self.log()
+            raise
+
+    def _run(self):
         """Make sure that the status is sane and start a loop."""
         if len(self.name) == 0:
             raise RuntimeError, 'cluster name must be non-empty'
