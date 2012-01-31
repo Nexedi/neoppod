@@ -82,10 +82,11 @@ class Serialized(object):
         if lock is None:
             lock = cls._global_lock
         lock.acquire()
-        if type(cls.pending) is frozenset: # XXX
+        pending = cls.pending # XXX: getattr once to avoid race conditions
+        if type(pending) is frozenset: # XXX
             if lock is cls._global_lock:
                 cls.pending = 0
-            elif threading.currentThread() in cls.pending:
+            elif threading.currentThread() in pending:
                 sys.exit()
         if cls._pdb:
             cls._pdb = False
