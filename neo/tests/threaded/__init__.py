@@ -30,7 +30,7 @@ from neo.client import Storage
 from neo.lib import bootstrap, setupLog
 from neo.lib.connection import BaseConnection, Connection
 from neo.lib.connector import SocketConnector, \
-    ConnectorConnectionRefusedException
+    ConnectorConnectionRefusedException, ConnectorTryAgainException
 from neo.lib.event import EventManager
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import SOCKET_CONNECTORS_DICT, parseMasterList
@@ -471,6 +471,7 @@ class NEOCluster(object):
         SocketConnector.makeClientConnection)
     SocketConnector_makeListeningConnection = staticmethod(
         SocketConnector.makeListeningConnection)
+    SocketConnector_receive = staticmethod(SocketConnector.receive)
     SocketConnector_send = staticmethod(SocketConnector.send)
     Storage__init__ = staticmethod(Storage.__init__)
     _patch_count = 0
@@ -500,6 +501,20 @@ class NEOCluster(object):
             if type(Serialized.pending) is not frozenset:
                 Serialized.pending = 1
             return result
+        def receive(self):
+            # If the peer sent an entire packet, make sure we read it entirely,
+            # otherwise Serialize.pending would be reset to 0.
+            data = ''
+            try:
+                while True:
+                    d = cls.SocketConnector_receive(self)
+                    if not d:
+                        return data
+                    data += d
+            except ConnectorTryAgainException:
+                if data:
+                    return data
+                raise
         # TODO: 'sleep' should 'tic' in a smart way, so that storages can be
         #       safely started even if the cluster isn't.
         bootstrap.sleep = lambda seconds: None
@@ -507,6 +522,7 @@ class NEOCluster(object):
         SocketConnector.makeClientConnection = makeClientConnection
         SocketConnector.makeListeningConnection = lambda self, addr: \
             cls.SocketConnector_makeListeningConnection(self, BIND)
+        SocketConnector.receive = receive
         SocketConnector.send = send
         Storage.setupLog = lambda *args, **kw: None
         Serialized.init()
@@ -524,6 +540,7 @@ class NEOCluster(object):
             cls.SocketConnector_makeClientConnection
         SocketConnector.makeListeningConnection = \
             cls.SocketConnector_makeListeningConnection
+        SocketConnector.receive = cls.SocketConnector_receive
         SocketConnector.send = cls.SocketConnector_send
         Storage.setupLog = setupLog
 
