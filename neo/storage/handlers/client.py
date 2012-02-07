@@ -63,8 +63,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
                     checksum, data, data_serial, unlock)
         except ConflictError, err:
             # resolvable or not
-            ttid_or_serial = err.getTID()
-            conn.answer(Packets.AnswerStoreObject(1, oid, ttid_or_serial))
+            conn.answer(Packets.AnswerStoreObject(1, oid, err.getTID()))
         except DelayedError:
             # locked by a previous transaction, retry later
             # If we are unlocking, we want queueEvent to raise
