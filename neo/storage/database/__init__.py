@@ -38,11 +38,11 @@ else:
 if not DATABASE_MANAGER_DICT:
     raise ImportError('No database back-end available.')
 
-def buildDatabaseManager(name, config):
+def buildDatabaseManager(name, args=(), kw={}):
     if name is None:
         name = DATABASE_MANAGER_DICT.keys()[0]
     adapter_klass = DATABASE_MANAGER_DICT.get(name, None)
     if adapter_klass is None:
         raise DatabaseFailure('Cannot find a database adapter <%s>' % name)
-    return adapter_klass(config)
+    return adapter_klass(*args, **kw)
 

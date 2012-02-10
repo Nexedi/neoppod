@@ -118,7 +118,7 @@ class ReplicationTests(NeoUnitTestBase):
     def buildStorage(self, transactions, objects, name='BTree', database=None):
         def makeid(oid_or_tid):
             return pack('!Q', oid_or_tid)
-        storage = buildDatabaseManager(name, database)
+        storage = buildDatabaseManager(name, (database, ))
         storage.setup(reset=True)
         storage.setNumPartitions(1)
         storage._transactions = transactions

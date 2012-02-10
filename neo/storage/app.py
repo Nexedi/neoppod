@@ -48,7 +48,9 @@ class Application(object):
         self.em = EventManager()
         self.nm = NodeManager(config.getDynamicMasterList())
         self.tm = TransactionManager(self)
-        self.dm = buildDatabaseManager(config.getAdapter(), config.getDatabase())
+        self.dm = buildDatabaseManager(config.getAdapter(),
+            (config.getDatabase(), )
+        )
 
         # load master nodes
         master_addresses, connector_name = config.getMasters()
