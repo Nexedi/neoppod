@@ -63,7 +63,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
     def _parse(self, database):
         """ Get the database credentials (username, password, database) """
-        # expected pattern : [user[:password]@]database[unix_socket]
+        # expected pattern : [user[:password]@]database[(.|/)unix_socket]
         self.user, self.passwd, self.db, self.socket = re.match(
             '(?:([^:]+)(?::(.*))?@)?([^./]+)(.+)?$', database).groups()
 
