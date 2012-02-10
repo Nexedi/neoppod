@@ -92,7 +92,28 @@ class StorageAnswersHandler(AnswerBaseHandler):
                 conflict_serial_dict = txn_context['conflict_serial_dict']
                 conflict_serial_dict.setdefault(oid, set()).add(serial)
         else:
-            uuid_set = object_stored_counter_dict.setdefault(serial, set())
+            uuid_set = object_stored_counter_dict.get(serial)
+            if uuid_set is None: # store to first storage node
+                object_stored_counter_dict[serial] = uuid_set = set()
+                try:
+                    data = txn_context['data_dict'].pop(oid)
+                except KeyError: # multiple undo
+                    assert txn_context['cache_dict'][oid] is None, oid
+                else:
+                    if type(data) is str:
+                        size = len(data)
+                        txn_context['data_size'] -= size
+                        size += txn_context['cache_size']
+                        if size < self.app._cache._max_size:
+                            txn_context['cache_size'] = size
+                        else:
+                            # Do not cache data past cache max size, as it
+                            # would just flush it on tpc_finish. This also
+                            # prevents memory errors for big transactions.
+                            data = None
+                    txn_context['cache_dict'][oid] = data
+            else: # replica
+                assert oid not in txn_context['data_dict'], oid
             uuid_set.add(conn.getUUID())
 
     answerCheckCurrentSerial = answerStoreObject

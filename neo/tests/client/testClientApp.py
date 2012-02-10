@@ -313,7 +313,6 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.nm.createStorage(address=storage_address)
         data_dict = txn_context['data_dict']
         data_dict[oid] = 'BEFORE'
-        txn_context['data_list'].append(oid)
         app.store(oid, tid, '', None, txn)
         txn_context['queue'].put((conn, packet))
         self.assertRaises(ConflictError, app.waitStoreResponses, txn_context,
@@ -348,7 +347,8 @@ class ClientApplicationTests(NeoUnitTestBase):
         app.waitStoreResponses(txn_context, resolving_tryToResolveConflict)
         self.assertEqual(txn_context['object_stored_counter_dict'][oid],
             {tid: set([uuid])})
-        self.assertEqual(txn_context['data_dict'].get(oid, None), 'DATA')
+        self.assertEqual(txn_context['cache_dict'][oid], 'DATA')
+        self.assertFalse(oid in txn_context['data_dict'])
         self.assertFalse(oid in txn_context['conflict_serial_dict'])
 
     def test_tpc_vote1(self):

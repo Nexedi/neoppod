@@ -175,9 +175,10 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         object_stored_counter_dict = {oid: {}}
         conflict_serial_dict = {}
         resolved_conflict_serial_dict = {}
-        self._getAnswerStoreObjectHandler(object_stored_counter_dict,
-            conflict_serial_dict, resolved_conflict_serial_dict,
-            ).answerStoreObject(conn, 0, oid, tid)
+        h = self._getAnswerStoreObjectHandler(object_stored_counter_dict,
+            conflict_serial_dict, resolved_conflict_serial_dict)
+        h.app.getHandlerData()['cache_dict'] = {oid: None}
+        h.answerStoreObject(conn, 0, oid, tid)
         self.assertFalse(oid in conflict_serial_dict)
         self.assertFalse(oid in resolved_conflict_serial_dict)
         self.assertEqual(object_stored_counter_dict[oid], {tid: set([uuid])})

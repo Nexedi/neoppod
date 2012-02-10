@@ -330,7 +330,6 @@ class PList(PStructItem):
         self._item = item
 
     def _encode(self, writer, items):
-        assert isinstance(items, (list, tuple, set)), (type(items), items)
         writer(self.pack(len(items)))
         item = self._item
         for value in items:
