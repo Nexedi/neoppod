@@ -59,6 +59,9 @@ class ConfigurationManager(object):
     def getDatabase(self):
         return self.__get('database')
 
+    def getWait(self):
+        return self.__get('wait')
+
     def getDynamicMasterList(self):
         return self.__get('dynamic_master_list', optional=True)
 

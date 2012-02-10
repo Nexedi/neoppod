@@ -49,7 +49,7 @@ class Application(object):
         self.nm = NodeManager(config.getDynamicMasterList())
         self.tm = TransactionManager(self)
         self.dm = buildDatabaseManager(config.getAdapter(),
-            (config.getDatabase(), )
+            (config.getDatabase(), config.getWait())
         )
 
         # load master nodes

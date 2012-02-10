@@ -24,7 +24,7 @@ class StorageBTreeTests(StorageDBTests):
 
     def getDB(self, reset=0):
         # db manager
-        db = BTreeDatabaseManager('')
+        db = BTreeDatabaseManager('', 0)
         db.setup(reset)
         return db
 

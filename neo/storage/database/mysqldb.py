@@ -25,6 +25,7 @@ from array import array
 from hashlib import sha1
 import re
 import string
+import time
 
 from . import DatabaseManager
 from .manager import CreationUndone
@@ -55,8 +56,8 @@ class MySQLDatabaseManager(DatabaseManager):
     # (tested with testOudatedCellsOnDownStorage).
     _use_partition = False
 
-    def __init__(self, database):
-        super(MySQLDatabaseManager, self).__init__(database)
+    def __init__(self, database, wait):
+        super(MySQLDatabaseManager, self).__init__(database, wait)
         self.conn = None
         self._config = {}
         self._connect()
@@ -79,7 +80,21 @@ class MySQLDatabaseManager(DatabaseManager):
         neo.lib.logging.info(
                         'connecting to MySQL on the database %s with user %s',
                      self.db, self.user)
-        self.conn = MySQLdb.connect(**kwd)
+        if self._wait < 0:
+            timeout_at = None
+        else:
+            timeout_at = time.time() + self._wait
+        while True:
+            try:
+                self.conn = MySQLdb.connect(**kwd)
+            except Exception:
+                if timeout_at is not None and time.time() >= timeout_at:
+                    raise
+                neo.lib.logging.exception('Connection to MySQL failed, '
+                    'retrying.')
+                time.sleep(1)
+            else:
+                break
         self.conn.autocommit(False)
         self.conn.query("SET SESSION group_concat_max_len = -1")
         self.conn.set_sql_mode("TRADITIONAL,NO_ENGINE_SUBSTITUTION")

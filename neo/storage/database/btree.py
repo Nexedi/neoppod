@@ -121,8 +121,8 @@ def safeIter(func, *args, **kw):
 
 class BTreeDatabaseManager(DatabaseManager):
 
-    def __init__(self, database):
-        super(BTreeDatabaseManager, self).__init__(database)
+    def __init__(self, database, wait):
+        super(BTreeDatabaseManager, self).__init__(database, wait)
         self.setup(reset=1)
 
     @property

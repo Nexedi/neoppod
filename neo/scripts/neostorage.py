@@ -42,6 +42,8 @@ parser.add_option('-a', '--adapter', help = 'database adapter to use')
 parser.add_option('-d', '--database', help = 'database connections string')
 parser.add_option('-D', '--dynamic-master-list', help='path of the file '
     'containing dynamic master node list')
+parser.add_option('-w', '--wait', help='seconds to wait for backend to be '
+    'available, before erroring-out (-1 = infinite)', type='float', default=0)
 
 defaults = dict(
     name = 'storage',
@@ -61,6 +63,7 @@ def main(args=None):
         database = options.database,
         reset = options.reset,
         adapter = options.adapter,
+        wait = options.wait,
     )
     config = ConfigurationManager(
             defaults,

@@ -31,7 +31,7 @@ class StorageMySQSLdbTests(StorageDBTests):
         self.prepareDatabase(number=1, prefix=NEO_SQL_DATABASE[:-1])
         # db manager
         database = '%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE)
-        db = MySQLDatabaseManager(database)
+        db = MySQLDatabaseManager(database, 0)
         db.setup(reset)
         return db
 
@@ -41,7 +41,8 @@ class StorageMySQSLdbTests(StorageDBTests):
         call.checkArgs('BEGIN')
 
     def test_MySQLDatabaseManagerInit(self):
-        db = MySQLDatabaseManager('%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE))
+        db = MySQLDatabaseManager('%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE),
+            0)
         # init
         self.assertEqual(db.db, NEO_SQL_DATABASE)
         self.assertEqual(db.user, NEO_SQL_USER)
