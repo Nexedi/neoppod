@@ -25,13 +25,16 @@ class CreationUndone(Exception):
 class DatabaseManager(object):
     """This class only describes an interface for database managers."""
 
-
-
-    def __init__(self):
+    def __init__(self, database):
         """
             Initialize the object.
         """
         self._under_transaction = False
+        self._parse(database)
+
+    def _parse(self, database):
+        """Called during instanciation, to process database parameter."""
+        pass
 
     def isUnderTransaction(self):
         return self._under_transaction

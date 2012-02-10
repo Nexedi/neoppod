@@ -56,8 +56,7 @@ class MySQLDatabaseManager(DatabaseManager):
     _use_partition = False
 
     def __init__(self, database):
-        super(MySQLDatabaseManager, self).__init__()
-        self.user, self.passwd, self.db, self.socket = self._parse(database)
+        super(MySQLDatabaseManager, self).__init__(database)
         self.conn = None
         self._config = {}
         self._connect()
@@ -65,8 +64,8 @@ class MySQLDatabaseManager(DatabaseManager):
     def _parse(self, database):
         """ Get the database credentials (username, password, database) """
         # expected pattern : [user[:password]@]database[unix_socket]
-        return re.match('(?:([^:]+)(?::(.*))?@)?([^./]+)(.+)?$',
-                        database).groups()
+        self.user, self.passwd, self.db, self.socket = re.match(
+            '(?:([^:]+)(?::(.*))?@)?([^./]+)(.+)?$', database).groups()
 
     def close(self):
         self.conn.close()

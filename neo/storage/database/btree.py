@@ -122,7 +122,7 @@ def safeIter(func, *args, **kw):
 class BTreeDatabaseManager(DatabaseManager):
 
     def __init__(self, database):
-        super(BTreeDatabaseManager, self).__init__()
+        super(BTreeDatabaseManager, self).__init__(database)
         self.setup(reset=1)
 
     @property
