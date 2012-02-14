@@ -18,15 +18,15 @@
 import neo
 
 from neo.lib.handler import EventHandler
-from neo.lib import protocol
 from neo.lib.util import dump
 from neo.lib.exception import PrimaryFailure, OperationFailure
-from neo.lib.protocol import NodeStates, NodeTypes, Packets, Errors, ZERO_HASH
+from neo.lib.protocol import NodeStates, NodeTypes
 
 class BaseMasterHandler(EventHandler):
 
     def connectionLost(self, conn, new_state):
         if self.app.listening_conn: # if running
+            self.app.master_node = None
             raise PrimaryFailure('connection lost')
 
     def stopOperation(self, conn):
@@ -62,44 +62,5 @@ class BaseMasterHandler(EventHandler):
                         dump(uuid))
                 self.app.tm.abortFor(uuid)
 
-
-class BaseClientAndStorageOperationHandler(EventHandler):
-    """ Accept requests common to client and storage nodes """
-
-    def askTransactionInformation(self, conn, tid):
-        app = self.app
-        t = app.dm.getTransaction(tid)
-        if t is None:
-            p = Errors.TidNotFound('%s does not exist' % dump(tid))
-        else:
-            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3],
-                    t[4], t[0])
-        conn.answer(p)
-
-    def _askObject(self, oid, serial, tid):
-        raise NotImplementedError
-
-    def askObject(self, conn, oid, serial, tid):
-        app = self.app
-        if self.app.tm.loadLocked(oid):
-            # Delay the response.
-            app.queueEvent(self.askObject, conn, (oid, serial, tid))
-            return
-        o = self._askObject(oid, serial, tid)
-        if o is None:
-            neo.lib.logging.debug('oid = %s does not exist', dump(oid))
-            p = Errors.OidDoesNotExist(dump(oid))
-        elif o is False:
-            neo.lib.logging.debug('oid = %s not found', dump(oid))
-            p = Errors.OidNotFound(dump(oid))
-        else:
-            serial, next_serial, compression, checksum, data, data_serial = o
-            neo.lib.logging.debug('oid = %s, serial = %s, next_serial = %s',
-                          dump(oid), dump(serial), dump(next_serial))
-            if checksum is None:
-                checksum = ZERO_HASH
-                data = ''
-            p = Packets.AnswerObject(oid, serial, next_serial,
-                compression, checksum, data, data_serial)
-        conn.answer(p)
-
+    def answerUnfinishedTransactions(self, conn, *args, **kw):
+        self.app.replicator.setUnfinishedTIDList(*args, **kw)

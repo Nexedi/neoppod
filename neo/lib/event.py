@@ -79,6 +79,9 @@ class EpollEventManager(object):
         self.epoll.unregister(fd)
         del self.connection_dict[fd]
 
+    def isIdle(self):
+        return not (self._pending_processing or self.writer_set)
+
     def _addPendingConnection(self, conn):
         pending_processing = self._pending_processing
         if conn not in pending_processing:

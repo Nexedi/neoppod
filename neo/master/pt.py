@@ -17,11 +17,25 @@
 
 import neo.lib.pt
 from struct import pack, unpack
-from neo.lib.protocol import CellStates
-from neo.lib.pt import PartitionTableException
-from neo.lib.pt import PartitionTable
+from neo.lib.protocol import CellStates, ZERO_TID
 
-class PartitionTable(PartitionTable):
+
+class Cell(neo.lib.pt.Cell):
+
+    replicating = ZERO_TID
+
+    def setState(self, state):
+        try:
+            if CellStates.OUT_OF_DATE == state != self.state:
+                del self.backup_tid, self.replicating
+        except AttributeError:
+            pass
+        return super(Cell, self).setState(state)
+
+neo.lib.pt.Cell = Cell
+
+
+class PartitionTable(neo.lib.pt.PartitionTable):
     """This class manages a partition table for the primary master node"""
 
     def setID(self, id):
@@ -54,7 +68,7 @@ class PartitionTable(PartitionTable):
             row = []
             for _ in xrange(repeats):
                 node = node_list[index]
-                row.append(neo.lib.pt.Cell(node))
+                row.append(Cell(node))
                 self.count_dict[node] = self.count_dict.get(node, 0) + 1
                 index += 1
                 if index == len(node_list):
@@ -88,7 +102,7 @@ class PartitionTable(PartitionTable):
                         node_list = [c.getNode() for c in row]
                         n = self.findLeastUsedNode(node_list)
                         if n is not None:
-                            row.append(neo.lib.pt.Cell(n,
+                            row.append(Cell(n,
                                     CellStates.OUT_OF_DATE))
                             self.count_dict[n] += 1
                             cell_list.append((offset, n.getUUID(),
@@ -132,11 +146,11 @@ class PartitionTable(PartitionTable):
         # check the partition is assigned and known as outdated
         for cell in self.getCellList(offset):
             if cell.getUUID() == uuid:
-                if not cell.isOutOfDate():
-                    raise PartitionTableException('Non-oudated partition')
-                break
+                if cell.isOutOfDate():
+                    break
+                return
         else:
-            raise PartitionTableException('Non-assigned partition')
+            raise neo.lib.pt.PartitionTableException('Non-assigned partition')
 
         # update the partition table
         cell_list = [self.setCell(offset, node, CellStates.UP_TO_DATE)]
@@ -177,7 +191,7 @@ class PartitionTable(PartitionTable):
 
             else:
                 if num_cells <= self.nr:
-                    row.append(neo.lib.pt.Cell(node, CellStates.OUT_OF_DATE))
+                    row.append(Cell(node, CellStates.OUT_OF_DATE))
                     cell_list.append((offset, node.getUUID(),
                         CellStates.OUT_OF_DATE))
                     node_count += 1
@@ -196,7 +210,7 @@ class PartitionTable(PartitionTable):
                                           CellStates.FEEDING))
                         # Don't count a feeding cell.
                         self.count_dict[max_cell.getNode()] -= 1
-                    row.append(neo.lib.pt.Cell(node, CellStates.OUT_OF_DATE))
+                    row.append(Cell(node, CellStates.OUT_OF_DATE))
                     cell_list.append((offset, node.getUUID(),
                                       CellStates.OUT_OF_DATE))
                     node_count += 1
@@ -277,7 +291,7 @@ class PartitionTable(PartitionTable):
                 node = self.findLeastUsedNode([cell.getNode() for cell in row])
                 if node is None:
                     break
-                row.append(neo.lib.pt.Cell(node, CellStates.OUT_OF_DATE))
+                row.append(Cell(node, CellStates.OUT_OF_DATE))
                 changed_cell_list.append((offset, node.getUUID(),
                     CellStates.OUT_OF_DATE))
                 self.count_dict[node] += 1
@@ -309,6 +323,13 @@ class PartitionTable(PartitionTable):
                         CellStates.OUT_OF_DATE))
         return change_list
 
+    def iterNodeCell(self, node):
+        for offset, row in enumerate(self.partition_list):
+            for cell in row:
+                if cell.getNode() is node:
+                    yield offset, cell
+                    break
+
     def getUpToDateCellNodeSet(self):
         """
         Return a set of all nodes which are part of at least one UP TO DATE
@@ -329,3 +350,16 @@ class PartitionTable(PartitionTable):
             for cell in row
             if cell.isOutOfDate())
 
+    def setBackupTidDict(self, backup_tid_dict):
+        for row in self.partition_list:
+            for cell in row:
+                cell.backup_tid = backup_tid_dict.get(cell.getUUID(),
+                                                      ZERO_TID)
+
+    def getBackupTid(self):
+        try:
+            return min(max(cell.backup_tid for cell in row
+                                           if not cell.isOutOfDate())
+                       for row in self.partition_list)
+        except ValueError:
+            return ZERO_TID

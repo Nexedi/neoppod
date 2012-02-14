@@ -15,363 +15,300 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
-import neo.lib
-from random import choice
+"""
+Replication algorithm
 
-from .handlers import replication
-from neo.lib.protocol import NodeTypes, NodeStates, Packets
+Purpose: replicate the content of a reference node into a replicating node,
+bringing it up-to-date. This happens in the following cases:
+- A new storage is added to en existing cluster.
+- A node was separated from cluster and rejoins it.
+- In a backup cluster, the master notifies a node that new data exists upstream
+  (note that in this case, the cell is always marked as UP_TO_DATE).
+
+Replication happens per partition. Reference node can change between
+partitions.
+
+2 parts, done sequentially:
+- Transaction (metadata) replication
+- Object (data) replication
+
+Both parts follow the same mechanism:
+- The range of data to replicate is split into chunks of FETCH_COUNT items
+  (transaction or object).
+- For every chunk, the requesting node sends to seeding node the list of items
+  it already has.
+- Before answering, the seeding node sends 1 packet for every missing item.
+- The seeding node finally answers with the list of items to delete (usually
+  empty).
+
+Replication is partial, starting from the greatest stored tid in the partition:
+- For transactions, this tid is excluded from replication.
+- For objects, this tid is included unless the storage already knows it has
+  all oids for it.
+
+There is no check that item values on both nodes matches.
+
+TODO: Packing and replication currently fail when then happen at the same time.
+"""
+
+import random
+
+import neo.lib
+from neo.lib.protocol import CellStates, NodeTypes, NodeStates, Packets, \
+    INVALID_TID, ZERO_TID, ZERO_OID
 from neo.lib.connection import ClientConnection
-from neo.lib.util import dump
+from neo.lib.util import add64, u64
+from .handlers.storage import StorageOperationHandler
+
+FETCH_COUNT = 1000
+
 
 class Partition(object):
-    """This class abstracts the state of a partition."""
 
-    def __init__(self, offset, max_tid, ttid_list):
-        # Possible optimization:
-        #   _pending_ttid_list & _critical_tid can be shared amongst partitions
-        #   created at the same time (cf Replicator.setUnfinishedTIDList).
-        #   Replicator.transactionFinished would only have to iterate on these
-        #   different sets, instead of all partitions.
-        self._offset = offset
-        self._pending_ttid_list = set(ttid_list)
-        # pending upper bound
-        self._critical_tid = max_tid
-
-    def getOffset(self):
-        return self._offset
-
-    def getCriticalTID(self):
-        return self._critical_tid
-
-    def transactionFinished(self, ttid, max_tid):
-        self._pending_ttid_list.remove(ttid)
-        assert max_tid is not None
-        # final upper bound
-        self._critical_tid = max_tid
-
-    def safe(self):
-        return not self._pending_ttid_list
-
-class Task(object):
-    """
-    A Task is a callable to execute at another time, with given parameters.
-    Execution result is kept and can be retrieved later.
-    """
-
-    _func = None
-    _args = None
-    _kw = None
-    _result = None
-    _processed = False
-
-    def __init__(self, func, args=(), kw=None):
-        self._func = func
-        self._args = args
-        if kw is None:
-            kw = {}
-        self._kw = kw
-
-    def process(self):
-        if self._processed:
-            raise ValueError, 'You cannot process a single Task twice'
-        self._processed = True
-        self._result = self._func(*self._args, **self._kw)
-
-    def getResult(self):
-        # Should we instead execute immediately rather than raising ?
-        if not self._processed:
-            raise ValueError, 'You cannot get a result until task is executed'
-        return self._result
+    __slots__ = 'next_trans', 'next_obj', 'max_ttid'
 
     def __repr__(self):
-        fmt = '<%s at %x %r(*%r, **%r)%%s>' % (self.__class__.__name__,
-            id(self), self._func, self._args, self._kw)
-        if self._processed:
-            extra = ' => %r' % (self._result, )
-        else:
-            extra = ''
-        return fmt % (extra, )
+        return '<%s(%s) at 0x%x>' % (self.__class__.__name__,
+            ', '.join('%s=%r' % (x, getattr(self, x)) for x in self.__slots__
+                                                      if hasattr(self, x)),
+            id(self))
 
 class Replicator(object):
-    """This class handles replications of objects and transactions.
 
-    Assumptions:
-
-        - Client nodes recognize partition changes reasonably quickly.
-
-        - When an out of date partition is added, next transaction ID
-          is given after the change is notified and serialized.
-
-    Procedures:
-
-        - Get the last TID right after a partition is added. This TID
-          is called a "critical TID", because this and TIDs before this
-          may not be present in this storage node yet. After a critical
-          TID, all transactions must exist in this storage node.
-
-        - Check if a primary master node still has pending transactions
-          before and at a critical TID. If so, I must wait for them to be
-          committed or aborted.
-
-        - In order to copy data, first get the list of TIDs. This is done
-          part by part, because the list can be very huge. When getting
-          a part of the list, I verify if they are in my database, and
-          ask data only for non-existing TIDs. This is performed until
-          the check reaches a critical TID.
-
-        - Next, get the list of OIDs. And, for each OID, ask the history,
-          namely, a list of serials. This is also done part by part, and
-          I ask only non-existing data. """
-
-    # new_partition_set
-    #   outdated partitions for which no pending transactions was asked to
-    #   primary master yet
-    # partition_dict
-    #   outdated partitions with pending transaction and temporary critical
-    #   tid
-    # current_partition
-    #   partition being currently synchronised
-    # current_connection
-    #   connection to a storage node we are replicating from
-    # waiting_for_unfinished_tids
-    #   unfinished tids have been asked to primary master node, but it
-    #   didn't answer yet.
-    # replication_done
-    #   False if we know there is something to replicate.
-    #   True when current_partition is replicated, or we don't know yet if
-    #   there is something to replicate
-
+    current_node = None
     current_partition = None
-    current_connection = None
-    waiting_for_unfinished_tids = False
-    replication_done = True
 
     def __init__(self, app):
         self.app = app
-        self.new_partition_set = set()
-        self.partition_dict = {}
-        self.task_list = []
-        self.task_dict = {}
 
-    def masterLost(self):
-        """
-        When connection to primary master is lost, stop waiting for unfinished
-        transactions.
-        """
-        self.waiting_for_unfinished_tids = False
+    def getCurrentConnection(self):
+        node = self.current_node
+        if node is not None and node.isConnected():
+            return node.getConnection()
 
-    def storageLost(self):
-        """
-        Restart replicating.
-        """
-        self.reset()
-
-    def populate(self):
-        """
-        Populate partitions to replicate. Must be called when partition
-        table is the one accepted by primary master.
-        Implies a reset.
-        """
-        partition_list = self.app.pt.getOutdatedOffsetListFor(self.app.uuid)
-        self.new_partition_set = set(partition_list)
-        self.partition_dict = {}
-        self.reset()
-
-    def reset(self):
-        """Reset attributes to restart replicating."""
-        self.task_list = []
-        self.task_dict = {}
-        self.current_partition = None
-        self.current_connection = None
-        self.replication_done = True
-
-    def pending(self):
-        """Return whether there is any pending partition."""
-        return bool(self.partition_dict or self.new_partition_set)
-
-    def getCurrentOffset(self):
-        assert self.current_partition is not None
-        return self.current_partition.getOffset()
-
-    def getCurrentCriticalTID(self):
-        assert self.current_partition is not None
-        return self.current_partition.getCriticalTID()
-
-    def setReplicationDone(self):
-        """ Callback from ReplicationHandler """
-        self.replication_done = True
-
-    def isCurrentConnection(self, conn):
-        return self.current_connection is conn
-
-    def setUnfinishedTIDList(self, max_tid, ttid_list):
+    def setUnfinishedTIDList(self, max_tid, ttid_list, offset_list):
         """This is a callback from MasterOperationHandler."""
-        neo.lib.logging.debug('setting unfinished TTIDs %s',
-                              ','.join(map(dump, ttid_list)))
-        # all new outdated partition must wait those ttid
-        new_partition_set = self.new_partition_set
-        while new_partition_set:
-            offset = new_partition_set.pop()
-            self.partition_dict[offset] = Partition(offset, max_tid, ttid_list)
-        self.waiting_for_unfinished_tids = False
+        if ttid_list:
+            self.ttid_set.update(ttid_list)
+            max_ttid = max(ttid_list)
+        else:
+            max_ttid = None
+        for offset in offset_list:
+            self.partition_dict[offset].max_ttid = max_ttid
+            self.replicate_dict[offset] = max_tid
+        self._nextPartition()
 
     def transactionFinished(self, ttid, max_tid):
         """ Callback from MasterOperationHandler """
-        for partition in self.partition_dict.itervalues():
-            partition.transactionFinished(ttid, max_tid)
+        self.ttid_set.remove(ttid)
+        min_ttid = min(self.ttid_set) if self.ttid_set else INVALID_TID
+        for offset, p in self.partition_dict.iteritems():
+            if p.max_ttid and p.max_ttid < min_ttid:
+                p.max_ttid = None
+                self.replicate_dict[offset] = max_tid
+        self._nextPartition()
 
-    def _askUnfinishedTIDs(self):
-        conn = self.app.master_conn
-        conn.ask(Packets.AskUnfinishedTransactions())
-        self.waiting_for_unfinished_tids = True
+    def getBackupTID(self):
+        outdated_set = set(self.app.pt.getOutdatedOffsetListFor(self.app.uuid))
+        tid = INVALID_TID
+        for offset, p in self.partition_dict.iteritems():
+            if offset not in outdated_set:
+                tid = min(tid, p.next_trans, p.next_obj)
+        if tid not in (ZERO_TID, INVALID_TID):
+            return add64(tid, -1)
 
-    def _startReplication(self):
-        # Choose a storage node for the source.
+    def populate(self):
         app = self.app
-        cell_list = app.pt.getCellList(self.current_partition.getOffset(),
-                                       readable=True)
-        node_list = [cell.getNode() for cell in cell_list
-                        if cell.getNodeState() == NodeStates.RUNNING]
-        try:
-            node = choice(node_list)
-        except IndexError:
-            # Not operational.
-            neo.lib.logging.error('not operational', exc_info = 1)
-            self.current_partition = None
+        pt = app.pt
+        uuid = app.uuid
+        self.partition_dict = p = {}
+        self.replicate_dict = {}
+        self.source_dict = {}
+        self.ttid_set = set()
+        last_tid, last_trans_dict, last_obj_dict = app.dm.getLastTIDs()
+        backup_tid = app.dm.getBackupTID()
+        if backup_tid and last_tid < backup_tid:
+            last_tid = backup_tid
+        outdated_list = []
+        for offset in xrange(pt.getPartitions()):
+            for cell in pt.getCellList(offset):
+                if cell.getUUID() == uuid:
+                    self.partition_dict[offset] = p = Partition()
+                    if cell.isOutOfDate():
+                        outdated_list.append(offset)
+                        try:
+                            p.next_trans = add64(last_trans_dict[offset], 1)
+                        except KeyError:
+                            p.next_trans = ZERO_TID
+                        p.next_obj = last_obj_dict.get(offset, ZERO_TID)
+                        p.max_ttid = INVALID_TID
+                    else:
+                        p.next_trans = p.next_obj = last_tid
+                        p.max_ttid = None
+        if outdated_list:
+            self.app.master_conn.ask(Packets.AskUnfinishedTransactions(),
+                                     offset_list=outdated_list)
+
+    def notifyPartitionChanges(self, cell_list):
+        """This is a callback from MasterOperationHandler."""
+        abort = False
+        added_list = []
+        app = self.app
+        for offset, uuid, state in cell_list:
+            if uuid == app.uuid:
+                if state == CellStates.DISCARDED:
+                    del self.partition_dict[offset]
+                    self.replicate_dict.pop(offset, None)
+                    self.source_dict.pop(offset, None)
+                    abort = abort or self.current_partition == offset
+                elif state == CellStates.OUT_OF_DATE:
+                    assert offset not in self.partition_dict
+                    self.partition_dict[offset] = p = Partition()
+                    p.next_trans = p.next_obj = ZERO_TID
+                    p.max_ttid = INVALID_TID
+                    added_list.append(offset)
+        if added_list:
+            self.app.master_conn.ask(Packets.AskUnfinishedTransactions(),
+                                     offset_list=added_list)
+        if abort:
+            self.abort()
+
+    def backup(self, tid, source_dict):
+        for offset in source_dict:
+            self.replicate_dict[offset] = tid
+        self.source_dict.update(source_dict)
+        self._nextPartition()
+
+    def _nextPartition(self):
+        # XXX: One connection to another storage may remain open forever.
+        #      All other previous connections are automatically closed
+        #      after some time of inactivity.
+        #      This should be improved in several ways:
+        #      - Keeping connections open between 2 clusters (backup case) is
+        #        quite a good thing because establishing a connection costs
+        #        time/bandwidth and replication is actually never finished.
+        #      - When all storages of a non-backup cluster are up-to-date,
+        #        there's no reason to keep any connection open.
+        if self.current_partition is not None or not self.replicate_dict:
             return
-
-        addr = node.getAddress()
-        if addr is None:
-            neo.lib.logging.error("no address known for the selected node %s" %
-                    (dump(node.getUUID()), ))
-            return
-
-        connection = self.current_connection
-        if connection is None or connection.getAddress() != addr:
-            handler = replication.ReplicationHandler(app)
-            self.current_connection = ClientConnection(app.em, handler,
-                   node=node, connector=app.connector_handler())
-            p = Packets.RequestIdentification(NodeTypes.STORAGE,
-                    app.uuid, app.server, app.name)
-            self.current_connection.ask(p)
-            if connection is not None:
-                connection.close()
-        else:
-            connection.getHandler().startReplication(connection)
-        self.replication_done = False
-
-    def _finishReplication(self):
-        # TODO: remove try..except: pass
-        try:
-            # Notify to a primary master node that my cell is now up-to-date.
-            conn = self.app.master_conn
-            offset = self.current_partition.getOffset()
-            self.partition_dict.pop(offset)
-            conn.notify(Packets.NotifyReplicationDone(offset))
-        except KeyError:
-            pass
-        if self.pending():
-            self.current_partition = None
-        else:
-            self.current_connection.close()
-
-    def act(self):
-
-        if self.current_partition is not None:
-            # Don't end replication until we have received all expected
-            # answers, as we might have asked object data just before the last
-            # AnswerCheckSerialRange.
-            if self.replication_done and \
-                    not self.current_connection.isPending():
-                # finish a replication
-                neo.lib.logging.info('replication is done for %s' %
-                        (self.current_partition.getOffset(), ))
-                self._finishReplication()
-            return
-
-        if self.waiting_for_unfinished_tids:
-            # Still waiting.
-            neo.lib.logging.debug('waiting for unfinished tids')
-            return
-
-        if self.new_partition_set:
-            # Ask pending transactions.
-            neo.lib.logging.debug('asking unfinished tids')
-            self._askUnfinishedTIDs()
-            return
-
-        # Try to select something.
-        for partition in self.partition_dict.values():
-            # XXX: replication could start up to the initial critical tid, that
-            # is below the pending transactions, then finish when all pending
-            # transactions are committed.
-            if partition.safe():
-                self.current_partition = partition
+        app = self.app
+        # Choose a partition with no unfinished transaction if possible.
+        for offset in self.replicate_dict:
+            if not self.partition_dict[offset].max_ttid:
                 break
+        try:
+            addr, name = self.source_dict[offset]
+        except KeyError:
+            assert self.app.pt.getCell(offset, self.app.uuid).isOutOfDate()
+            node = random.choice([cell.getNode()
+                for cell in app.pt.getCellList(offset, readable=True)
+                if cell.getNodeState() == NodeStates.RUNNING])
+            name = None
         else:
-            # Not yet.
-            neo.lib.logging.debug('not ready yet')
+            node = app.nm.getByAddress(addr)
+            if node is None:
+                assert name, addr
+                node = app.nm.createStorage(address=addr)
+        self.current_partition = offset
+        previous_node = self.current_node
+        self.current_node = node
+        if node.isConnected():
+            node.getConnection().asClient()
+            self.fetchTransactions()
+            if node is previous_node:
+                return
+        else:
+            assert name or node.getUUID() != app.uuid, "loopback connection"
+            conn = ClientConnection(app.em, StorageOperationHandler(app),
+                node=node, connector=app.connector_handler())
+            conn.ask(Packets.RequestIdentification(NodeTypes.STORAGE,
+                None if name else app.uuid, app.server, name or app.name))
+        if previous_node is not None and previous_node.isConnected():
+            previous_node.getConnection().closeClient()
+
+    def fetchTransactions(self, min_tid=None):
+        offset = self.current_partition
+        p = self.partition_dict[offset]
+        if min_tid:
+            p.next_trans = min_tid
+        else:
+            try:
+                addr, name = self.source_dict[offset]
+            except KeyError:
+                pass
+            else:
+                if addr != self.current_node.getAddress():
+                    return self.abort()
+            min_tid = p.next_trans
+            self.replicate_tid = self.replicate_dict.pop(offset)
+            neo.lib.logging.debug("starting replication of <partition=%u"
+                " min_tid=%u max_tid=%u> from %r", offset, u64(min_tid),
+                u64(self.replicate_tid), self.current_node)
+        max_tid = self.replicate_tid
+        tid_list = self.app.dm.getReplicationTIDList(min_tid, max_tid,
+            FETCH_COUNT, offset)
+        self.current_node.getConnection().ask(Packets.AskFetchTransactions(
+            offset, FETCH_COUNT, min_tid, max_tid, tid_list))
+
+    def fetchObjects(self, min_tid=None, min_oid=ZERO_OID):
+        offset = self.current_partition
+        p = self.partition_dict[offset]
+        max_tid = self.replicate_tid
+        if min_tid:
+            if p.next_obj < self.next_backup_tid:
+                self.app.dm.setBackupTID(min_tid)
+        else:
+            min_tid = p.next_obj
+            p.next_trans = p.next_obj = add64(max_tid, 1)
+            if self.app.dm.getBackupTID() is None or \
+               self.app.pt.getCell(offset, self.app.uuid).isOutOfDate():
+                self.next_backup_tid = ZERO_TID
+            else:
+                self.next_backup_tid = self.getBackupTID()
+        p.next_obj = min_tid
+        object_dict = {}
+        for serial, oid in self.app.dm.getReplicationObjectList(min_tid,
+                max_tid, FETCH_COUNT, offset, min_oid):
+            try:
+                object_dict[serial].append(oid)
+            except KeyError:
+                object_dict[serial] = [oid]
+        self.current_node.getConnection().ask(Packets.AskFetchObjects(
+            offset, FETCH_COUNT, min_tid, max_tid, min_oid, object_dict))
+
+    def finish(self):
+        offset = self.current_partition
+        tid = self.replicate_tid
+        del self.current_partition, self.replicate_tid, self.next_backup_tid
+        p = self.partition_dict[offset]
+        p.next_obj = add64(tid, 1)
+        self.app.dm.setBackupTID(self.getBackupTID())
+        if not p.max_ttid:
+            p = Packets.NotifyReplicationDone(offset, tid)
+            self.app.master_conn.notify(p)
+        neo.lib.logging.debug("partition %u replicated up to %u from %r",
+                              offset, u64(tid), self.current_node)
+        self._nextPartition()
+
+    def abort(self, message=''):
+        offset = self.current_partition
+        if offset is None:
             return
-
-        self._startReplication()
-
-    def removePartition(self, offset):
-        """This is a callback from MasterOperationHandler."""
-        self.partition_dict.pop(offset, None)
-        self.new_partition_set.discard(offset)
-
-    def addPartition(self, offset):
-        """This is a callback from MasterOperationHandler."""
-        if not self.partition_dict.has_key(offset):
-            self.new_partition_set.add(offset)
-
-    def _addTask(self, key, func, args=(), kw=None):
-        task = Task(func, args, kw)
-        task_dict = self.task_dict
-        if key in task_dict:
-            raise ValueError, 'Task with key %r already exists (%r), cannot ' \
-                'add %r' % (key, task_dict[key], task)
-        task_dict[key] = task
-        self.task_list.append(task)
-
-    def processDelayedTasks(self):
-        task_list = self.task_list
-        if task_list:
-            for task in task_list:
-                task.process()
-            self.task_list = []
-
-    def checkTIDRange(self, min_tid, max_tid, length, partition):
-        self._addTask(('TID', min_tid, length),
-            self.app.dm.checkTIDRange, (min_tid, max_tid, length, partition))
-
-    def checkSerialRange(self, min_oid, min_serial, max_tid, length,
-            partition):
-        self._addTask(('Serial', min_oid, min_serial, length),
-            self.app.dm.checkSerialRange, (min_oid, min_serial, max_tid, length,
-            partition))
-
-    def getTIDsFrom(self, min_tid, max_tid, length, partition):
-        self._addTask('TIDsFrom', self.app.dm.getReplicationTIDList,
-            (min_tid, max_tid, length, partition))
-
-    def getObjectHistoryFrom(self, min_oid, min_serial, max_serial, length,
-            partition):
-        self._addTask('ObjectHistoryFrom', self.app.dm.getObjectHistoryFrom,
-            (min_oid, min_serial, max_serial, length, partition))
-
-    def _getCheckResult(self, key):
-        return self.task_dict.pop(key).getResult()
-
-    def getTIDCheckResult(self, min_tid, length):
-        return self._getCheckResult(('TID', min_tid, length))
-
-    def getSerialCheckResult(self, min_oid, min_serial, length):
-        return self._getCheckResult(('Serial', min_oid, min_serial, length))
-
-    def getTIDsFromResult(self):
-        return self._getCheckResult('TIDsFrom')
-
-    def getObjectHistoryFromResult(self):
-        return self._getCheckResult('ObjectHistoryFrom')
-
+        del self.current_partition
+        neo.lib.logging.warning('replication aborted for partition %u%s',
+                                offset, message and ' (%s)' % message)
+        if self.app.master_node is None:
+            return
+        if offset in self.partition_dict:
+            # XXX: Try another partition if possible, to increase probability to
+            #      connect to another node. It would be better to explicitely
+            #      search for another node instead.
+            tid = self.replicate_dict.pop(offset, None) or self.replicate_tid
+            if self.replicate_dict:
+                self._nextPartition()
+                self.replicate_dict[offset] = tid
+            else:
+                self.replicate_dict[offset] = tid
+                self._nextPartition()
+        else: # partition removed
+            self._nextPartition()

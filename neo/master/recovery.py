@@ -33,6 +33,7 @@ class RecoveryManager(MasterHandler):
         super(RecoveryManager, self).__init__(app)
         # The target node's uuid to request next.
         self.target_ptid = None
+        self.backup_tid_dict = {}
 
     def getHandler(self):
         return self
@@ -98,6 +99,9 @@ class RecoveryManager(MasterHandler):
             app.tm.setLastOID(ZERO_OID)
             pt.make(allowed_node_set)
             self._broadcastPartitionTable(pt.getID(), pt.getRowList())
+        elif app.backup_tid:
+            pt.setBackupTidDict(self.backup_tid_dict)
+            app.backup_tid = pt.getBackupTid()
 
         app.setLastTransaction(app.tm.getLastTID())
         neo.lib.logging.debug(
@@ -118,7 +122,7 @@ class RecoveryManager(MasterHandler):
         # ask the last IDs to perform the recovery
         conn.ask(Packets.AskLastIDs())
 
-    def answerLastIDs(self, conn, loid, ltid, lptid):
+    def answerLastIDs(self, conn, loid, ltid, lptid, backup_tid):
         # Get max values.
         if loid is not None:
             self.app.tm.setLastOID(loid)
@@ -128,6 +132,7 @@ class RecoveryManager(MasterHandler):
             # something newer
             self.target_ptid = lptid
             conn.ask(Packets.AskPartitionTable())
+        self.backup_tid_dict[conn.getUUID()] = backup_tid
 
     def answerPartitionTable(self, conn, ptid, row_list):
         if ptid != self.target_ptid:
@@ -136,6 +141,7 @@ class RecoveryManager(MasterHandler):
                     dump(self.target_ptid))
         else:
             self._broadcastPartitionTable(ptid, row_list)
+            self.app.backup_tid = self.backup_tid_dict[conn.getUUID()]
 
     def _broadcastPartitionTable(self, ptid, row_list):
         try:

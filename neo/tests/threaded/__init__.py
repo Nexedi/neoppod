@@ -32,8 +32,9 @@ from neo.lib.connection import BaseConnection, Connection
 from neo.lib.connector import SocketConnector, \
     ConnectorConnectionRefusedException, ConnectorTryAgainException
 from neo.lib.event import EventManager
-from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
-from neo.lib.util import SOCKET_CONNECTORS_DICT, parseMasterList
+from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes, \
+    UUID_NAMESPACES, INVALID_UUID
+from neo.lib.util import SOCKET_CONNECTORS_DICT, parseMasterList, p64
 from .. import NeoTestBase, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_USER
 
@@ -293,38 +294,18 @@ class StorageApplication(ServerNode, neo.storage.app.Application):
             pass
 
     def switchTables(self):
-        adapter = self._init_args['getAdapter']
-        dm = self.dm
-        if adapter == 'BTree':
-            dm._obj, dm._tobj = dm._tobj, dm._obj
-            dm._trans, dm._ttrans = dm._ttrans, dm._trans
-            uncommitted_data = dm._uncommitted_data
-            for checksum, (_, _, index) in dm._data.iteritems():
-                uncommitted_data[checksum] = len(index)
-                index.clear()
-        elif adapter == 'MySQL':
-            q = dm.query
-            dm.begin()
+        with self.dm as q:
             for table in ('trans', 'obj'):
-                q('RENAME TABLE %s to tmp' % table)
-                q('RENAME TABLE t%s to %s' % (table, table))
-                q('RENAME TABLE tmp to t%s' % table)
-            dm.commit()
-        else:
-            assert False
+                q('ALTER TABLE %s RENAME TO tmp' % table)
+                q('ALTER TABLE t%s RENAME TO %s' % (table, table))
+                q('ALTER TABLE tmp RENAME TO t%s' % table)
 
     def getDataLockInfo(self):
-        adapter = self._init_args['getAdapter']
         dm = self.dm
-        if adapter == 'BTree':
-            checksum_dict = dict((x, x) for x in dm._data)
-        elif adapter == 'MySQL':
-            checksum_dict = dict(dm.query("SELECT id, hash FROM data"))
-        else:
-            assert False
+        checksum_dict = dict(dm.query("SELECT id, hash FROM data"))
         assert set(dm._uncommitted_data).issubset(checksum_dict)
         get = dm._uncommitted_data.get
-        return dict((v, get(k, 0)) for k, v in checksum_dict.iteritems())
+        return dict((str(v), get(k, 0)) for k, v in checksum_dict.iteritems())
 
 class ClientApplication(Node, neo.client.app.Application):
 
@@ -406,13 +387,15 @@ class Patch(object):
 
 class ConnectionFilter(object):
 
+    filtered_count = 0
+
     def __init__(self, *conns):
         self.filter_dict = {}
         self.lock = threading.Lock()
         self.conn_list = [(conn, self._patch(conn)) for conn in conns]
 
     def _patch(self, conn):
-        assert '_addPacket' not in conn.__dict__
+        assert '_addPacket' not in conn.__dict__, "already patched"
         lock = self.lock
         filter_dict = self.filter_dict
         orig = conn.__class__._addPacket
@@ -423,6 +406,7 @@ class ConnectionFilter(object):
                 if not queue:
                     for filter in filter_dict:
                         if filter(conn, packet):
+                            self.filtered_count += 1
                             break
                     else:
                         return orig(conn, packet)
@@ -551,8 +535,8 @@ class NEOCluster(object):
         SocketConnector.send = cls.SocketConnector_send
         Storage.setupLog = setupLog
 
-    def __init__(self, master_count=1, partitions=1, replicas=0,
-                       adapter=os.getenv('NEO_TESTS_ADAPTER', 'BTree'),
+    def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
+                       adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
                        db_user=DB_USER, db_password='', verbose=None):
         if verbose is not None:
@@ -570,6 +554,10 @@ class NEOCluster(object):
         weak_self = weakref.proxy(self)
         kw = dict(cluster=weak_self, getReplicas=replicas, getAdapter=adapter,
                   getPartitions=partitions, getReset=clear_databases)
+        if upstream is not None:
+          self.upstream = weakref.proxy(upstream)
+          kw.update(getUpstreamCluster=upstream.name,
+                    getUpstreamMasters=parseMasterList(upstream.master_nodes))
         self.master_list = [MasterApplication(address=x, **kw)
                             for x in master_list]
         if db_list is None:
@@ -581,8 +569,8 @@ class NEOCluster(object):
         if adapter == 'MySQL':
             setupMySQLdb(db_list, db_user, db_password, clear_databases)
             db = '%s:%s@%%s' % (db_user, db_password)
-        elif adapter == 'BTree':
-            db = '%s'
+        elif adapter == 'SQLite':
+            db = os.path.join(getTempDirectory(), '%s.sqlite')
         else:
             assert False, adapter
         self.storage_list = [StorageApplication(getDatabase=db % x, **kw)
@@ -606,6 +594,11 @@ class NEOCluster(object):
         admin, = self.admin_list
         return admin
     ###
+
+    @property
+    def primary_master(self):
+        master, = [master for master in self.master_list if master.primary]
+        return master
 
     def reset(self, clear_database=False):
         for node_type in 'master', 'storage', 'admin':
@@ -635,7 +628,7 @@ class NEOCluster(object):
             self._startCluster()
             self.tic()
         state = self.neoctl.getClusterState()
-        assert state == ClusterStates.RUNNING, state
+        assert state in (ClusterStates.RUNNING, ClusterStates.BACKINGUP), state
         self.enableStorageList(storage_list)
 
     def _startCluster(self):
@@ -644,6 +637,7 @@ class NEOCluster(object):
         except RuntimeError:
             self.tic()
             if self.neoctl.getClusterState() not in (
+                      ClusterStates.BACKINGUP,
                       ClusterStates.RUNNING,
                       ClusterStates.VERIFYING,
                   ):
@@ -704,7 +698,7 @@ class NEOCluster(object):
             self.client.setPoll(True)
         return Storage.Storage(None, self.name, _app=self.client, **kw)
 
-    def populate(self, dummy_zodb=None, random=random):
+    def importZODB(self, dummy_zodb=None, random=random):
         if dummy_zodb is None:
             from ..stat_zodb import PROD1
             dummy_zodb = PROD1(random)
@@ -712,6 +706,20 @@ class NEOCluster(object):
         as_storage = dummy_zodb.as_storage
         return lambda count: self.getZODBStorage().importFrom(
             as_storage(count), preindex=preindex)
+
+    def populate(self, transaction_list, tid=lambda i: p64(i+1),
+                                         oid=lambda i: p64(i+1)):
+        storage = self.getZODBStorage()
+        tid_dict = {}
+        for i, oid_list in enumerate(transaction_list):
+            txn = transaction.Transaction()
+            storage.tpc_begin(txn, tid(i))
+            for o in oid_list:
+                storage.store(p64(o), tid_dict.get(o), repr((i, o)), '', txn)
+            storage.tpc_vote(txn)
+            i = storage.tpc_finish(txn)
+            for o in oid_list:
+                tid_dict[o] = i
 
     def getTransaction(self):
         txn = transaction.TransactionManager()
@@ -774,3 +782,28 @@ class NEOThreadedTest(NeoTestBase):
                 etype, value, tb = self.__exc_info
                 del self.__exc_info
                 raise etype, value, tb
+
+
+def predictable_random(seed=None):
+    # Because we have 2 running threads when client works, we can't
+    # patch neo.client.pool (and cluster should have 1 storage).
+    from neo.master import backup_app
+    from neo.storage import replicator
+    def decorator(wrapped):
+        def wrapper(*args, **kw):
+            s = repr(time.time()) if seed is None else seed
+            neo.lib.logging.info("using seed %r", s)
+            r = random.Random(s)
+            try:
+                MasterApplication.getNewUUID = lambda self, node_type: (
+                    super(MasterApplication, self).getNewUUID(node_type)
+                    if node_type == NodeTypes.CLIENT else
+                    UUID_NAMESPACES[node_type] + ''.join(
+                    chr(r.randrange(256)) for _ in xrange(15)))
+                backup_app.random = replicator.random = r
+                return wrapped(*args, **kw)
+            finally:
+                del MasterApplication.getNewUUID
+                backup_app.random = replicator.random = random
+        return wraps(wrapped)(wrapper)
+    return decorator

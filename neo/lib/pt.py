@@ -150,6 +150,11 @@ class PartitionTable(object):
                 return True
         return False
 
+    def getCell(self, offset, uuid):
+        for cell in self.partition_list[offset]:
+            if cell.getUUID() == uuid:
+                return cell
+
     def setCell(self, offset, node, state):
         if state == CellStates.DISCARDED:
             return self.removeCell(offset, node)
@@ -157,28 +162,19 @@ class PartitionTable(object):
             raise PartitionTableException('Invalid node state')
 
         self.count_dict.setdefault(node, 0)
-        row = self.partition_list[offset]
-        if len(row) == 0:
-            # Create a new row.
-            row = [Cell(node, state), ]
-            if state != CellStates.FEEDING:
-                self.count_dict[node] += 1
-            self.partition_list[offset] = row
-
-            self.num_filled_rows += 1
+        for cell in self.partition_list[offset]:
+            if cell.getNode() is node:
+                if not cell.isFeeding():
+                    self.count_dict[node] -= 1
+                cell.setState(state)
+                break
         else:
-            # XXX this can be slow, but it is necessary to remove a duplicate,
-            # if any.
-            for cell in row:
-                if cell.getNode() == node:
-                    row.remove(cell)
-                    if not cell.isFeeding():
-                        self.count_dict[node] -= 1
-                    break
+            row = self.partition_list[offset]
+            self.num_filled_rows += not row
             row.append(Cell(node, state))
-            if state != CellStates.FEEDING:
-                self.count_dict[node] += 1
-        return (offset, node.getUUID(), state)
+        if state != CellStates.FEEDING:
+            self.count_dict[node] += 1
+        return offset, node.getUUID(), state
 
     def removeCell(self, offset, node):
         row = self.partition_list[offset]

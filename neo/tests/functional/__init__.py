@@ -25,6 +25,7 @@ import signal
 import random
 import weakref
 import MySQLdb
+import sqlite3
 import unittest
 import tempfile
 import traceback
@@ -242,9 +243,15 @@ class NEOCluster(object):
         self.cleanup_on_delete = cleanup_on_delete
         self.verbose = verbose
         self.uuid_set = set()
-        self.db_user = db_user
-        self.db_password = db_password
         self.db_list = db_list
+        if adapter == 'MySQL':
+            self.db_user = db_user
+            self.db_password = db_password
+            self.db_template = '%s:%s@%%s' % (db_user, db_password)
+        elif adapter == 'SQLite':
+            self.db_template = os.path.join(temp_dir, '%s.sqlite')
+        else:
+            assert False, adapter
         self.address_type = address_type
         self.local_ip = local_ip = IP_VERSION_FORMAT_DICT[self.address_type]
         self.setupDB(clear_databases)
@@ -290,7 +297,7 @@ class NEOCluster(object):
                                         self.local_ip),
                                         0 ),
                 '--masters': self.master_nodes,
-                '--database': '%s:%s@%s' % (db_user, db_password, db),
+                '--database': self.db_template % db,
                 '--adapter': adapter,
             })
         # create neoctl
@@ -316,6 +323,17 @@ class NEOCluster(object):
         if self.adapter == 'MySQL':
             setupMySQLdb(self.db_list, self.db_user, self.db_password,
                          clear_databases)
+        elif self.adapter == 'SQLite':
+            if clear_databases:
+                for db in self.db_list:
+                    try:
+                        os.remove(self.db_template % db)
+                    except OSError, e:
+                        if e.errno != errno.ENOENT:
+                            raise
+                    else:
+                        neo.lib.logging.debug('%r deleted',
+                                              db_template % db)
 
     def run(self, except_storages=()):
         """ Start cluster processes except some storage nodes """
@@ -402,11 +420,14 @@ class NEOCluster(object):
         db = ZODB.DB(storage=self.getZODBStorage(**kw))
         return (db, db.open())
 
-    def getSQLConnection(self, db, autocommit=False):
+    def getSQLConnection(self, db):
         assert db in self.db_list
-        conn = MySQLdb.Connect(user=self.db_user, passwd=self.db_password,
-                               db=db)
-        conn.autocommit(autocommit)
+        if self.adapter == 'MySQL':
+            conn = MySQLdb.Connect(user=self.db_user, passwd=self.db_password,
+                                   db=db)
+            conn.autocommit(True)
+        elif self.adapter == 'SQLite':
+            conn = sqlite3.connect(self.db_template % db, isolation_level=None)
         return conn
 
     def _getProcessList(self, type):

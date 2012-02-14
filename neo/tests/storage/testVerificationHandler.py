@@ -68,40 +68,6 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
         # nothing happens
         self.checkNoPacketSent(conn)
 
-    def test_07_askLastIDs(self):
-        conn = self.getClientConnection()
-        last_ptid = self.getPTID(1)
-        last_oid = self.getOID(2)
-        self.app.pt = Mock({'getID': last_ptid})
-        class DummyDM(object):
-            def getLastOID(self):
-                raise KeyError
-            getLastTID = getLastOID
-        self.app.dm = DummyDM()
-        self.verification.askLastIDs(conn)
-        oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
-        self.assertEqual(oid, None)
-        self.assertEqual(tid, None)
-        self.assertEqual(ptid, last_ptid)
-
-        # return value stored in db
-        conn = self.getClientConnection()
-        self.app.dm = Mock({
-            'getLastOID': last_oid,
-            'getLastTID': p64(4),
-        })
-        self.verification.askLastIDs(conn)
-        oid, tid, ptid = self.checkAnswerLastIDs(conn, decode=True)
-        self.assertEqual(oid, last_oid)
-        self.assertEqual(u64(tid), 4)
-        self.assertEqual(ptid, self.app.pt.getID())
-        call_list = self.app.dm.mockGetNamedCalls('getLastOID')
-        self.assertEqual(len(call_list), 1)
-        call_list[0].checkArgs()
-        call_list = self.app.dm.mockGetNamedCalls('getLastTID')
-        self.assertEqual(len(call_list), 1)
-        call_list[0].checkArgs()
-
     def test_08_askPartitionTable(self):
         node = self.app.nm.createStorage(
             address=("127.7.9.9", 1),

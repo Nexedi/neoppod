@@ -959,7 +959,7 @@ class Application(object):
         tid_list = []
         # request a tid list for each partition
         for offset in xrange(self.pt.getPartitions()):
-            p = Packets.AskTIDsFrom(start, stop, limit, [offset])
+            p = Packets.AskTIDsFrom(start, stop, limit, offset)
             for node, conn in self.cp.iterateForObject(offset, readable=True):
                 try:
                     r = self._askStorage(conn, p)

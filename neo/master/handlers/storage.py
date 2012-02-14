@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import neo.lib
-from neo.lib.protocol import Packets, ProtocolError
+from neo.lib.protocol import ClusterStates, Packets, ProtocolError
 from neo.lib.exception import OperationFailure
 from neo.lib.util import dump
 from neo.lib.connector import ConnectorConnectionClosedException
@@ -45,14 +45,18 @@ class StorageServiceHandler(BaseServiceHandler):
         if not app.pt.operational():
             raise OperationFailure, 'cannot continue operation'
         app.tm.forget(conn.getUUID())
+        if app.getClusterState() == ClusterStates.BACKINGUP:
+            app.backup_app.nodeLost(node)
         if app.packing is not None:
             self.answerPack(conn, False)
 
     def askLastIDs(self, conn):
         app = self.app
-        loid = app.tm.getLastOID()
-        ltid = app.tm.getLastTID()
-        conn.answer(Packets.AnswerLastIDs(loid, ltid, app.pt.getID()))
+        conn.answer(Packets.AnswerLastIDs(
+            app.tm.getLastOID(),
+            app.tm.getLastTID(),
+            app.pt.getID(),
+            app.backup_tid))
 
     def askUnfinishedTransactions(self, conn):
         tm = self.app.tm
@@ -68,14 +72,25 @@ class StorageServiceHandler(BaseServiceHandler):
         # transaction locked on this storage node
         self.app.tm.lock(ttid, conn.getUUID())
 
-    def notifyReplicationDone(self, conn, offset):
-        node = self.app.nm.getByUUID(conn.getUUID())
-        neo.lib.logging.debug("%s is up for offset %s" % (node, offset))
-        try:
-            cell_list = self.app.pt.setUpToDate(node, offset)
-        except PartitionTableException, e:
-            raise ProtocolError(str(e))
+    def notifyReplicationDone(self, conn, offset, tid):
+        app = self.app
+        node = app.nm.getByUUID(conn.getUUID())
+        if app.backup_tid:
+            cell_list = app.backup_app.notifyReplicationDone(node, offset, tid)
+            if not cell_list:
+                return
+        else:
+            try:
+                cell_list = self.app.pt.setUpToDate(node, offset)
+                if not cell_list:
+                    raise ProtocolError('Non-oudated partition')
+            except PartitionTableException, e:
+                raise ProtocolError(str(e))
+        neo.lib.logging.debug("%s is up for offset %s", node, offset)
         self.app.broadcastPartitionChanges(cell_list)
+
+    def answerTruncate(self, conn):
+        pass
 
     def answerPack(self, conn, status):
         app = self.app

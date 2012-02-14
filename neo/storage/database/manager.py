@@ -18,6 +18,7 @@
 import neo.lib
 from neo.lib import util
 from neo.lib.exception import DatabaseFailure
+from neo.lib.protocol import ZERO_TID
 
 class CreationUndone(Exception):
     pass
@@ -37,34 +38,6 @@ class DatabaseManager(object):
         """Called during instanciation, to process database parameter."""
         pass
 
-    def isUnderTransaction(self):
-        return self._under_transaction
-
-    def begin(self):
-        """
-            Begin a transaction
-        """
-        if self._under_transaction:
-            raise DatabaseFailure('A transaction has already begun')
-        self._begin()
-        self._under_transaction = True
-
-    def commit(self):
-        """
-            Commit the current transaction
-        """
-        if not self._under_transaction:
-            raise DatabaseFailure('The transaction has not begun')
-        self._commit()
-        self._under_transaction = False
-
-    def rollback(self):
-        """
-            Rollback the current transaction
-        """
-        self._rollback()
-        self._under_transaction = False
-
     def setup(self, reset = 0):
         """Set up a database
 
@@ -79,14 +52,33 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def _begin(self):
-        raise NotImplementedError
+    def __enter__(self):
+        """
+            Begin a transaction
+        """
+        if self._under_transaction:
+            raise DatabaseFailure('A transaction has already begun')
+        r = self.begin()
+        self._under_transaction = True
+        return r
 
-    def _commit(self):
-        raise NotImplementedError
+    def __exit__(self, exc_type, exc_value, tb):
+        if not self._under_transaction:
+            raise DatabaseFailure('The transaction has not begun')
+        self._under_transaction = False
+        if exc_type is None:
+            self.commit()
+        else:
+            self.rollback()
 
-    def _rollback(self):
-        raise NotImplementedError
+    def begin(self):
+        pass
+
+    def commit(self):
+        pass
+
+    def rollback(self):
+        pass
 
     def _getPartition(self, oid_or_tid):
         return oid_or_tid % self.getNumPartitions()
@@ -104,13 +96,8 @@ class DatabaseManager(object):
         if self._under_transaction:
             self._setConfiguration(key, value)
         else:
-            self.begin()
-            try:
+            with self:
                 self._setConfiguration(key, value)
-            except:
-                self.rollback()
-                raise
-            self.commit()
 
     def _setConfiguration(self, key, value):
         raise NotImplementedError
@@ -171,7 +158,9 @@ class DatabaseManager(object):
         """
             Load a Partition Table ID from a database.
         """
-        return long(self.getConfiguration('ptid'))
+        ptid = self.getConfiguration('ptid')
+        if ptid is not None:
+            return long(ptid)
 
     def setPTID(self, ptid):
         """
@@ -194,17 +183,30 @@ class DatabaseManager(object):
         """
         self.setConfiguration('loid', util.dump(loid))
 
+    def getBackupTID(self):
+        return util.bin(self.getConfiguration('backup_tid'))
+
+    def setBackupTID(self, backup_tid):
+        return self.setConfiguration('backup_tid', util.dump(backup_tid))
+
     def getPartitionTable(self):
         """Return a whole partition table as a tuple of rows. Each row
         is again a tuple of an offset (row ID), an UUID of a storage
         node, and a cell state."""
         raise NotImplementedError
 
-    def getLastTID(self, all = True):
-        """Return the last TID in a database. If all is true,
-        unfinished transactions must be taken account into. If there
-        is no TID in the database, return None."""
+    def _getLastTIDs(self, all=True):
         raise NotImplementedError
+
+    def getLastTIDs(self, all=True):
+        trans, obj = self._getLastTIDs()
+        if trans:
+            tid = max(trans.itervalues())
+            if obj:
+                tid = max(tid, max(obj.itervalues()))
+        else:
+            tid = max(obj.itervalues()) if obj else None
+        return tid, trans, obj
 
     def getUnfinishedTIDList(self):
         """Return a list of unfinished transaction's IDs."""
@@ -352,13 +354,8 @@ class DatabaseManager(object):
             else:
                 del refcount[data_id]
         if prune:
-            self.begin()
-            try:
+            with self:
                 self._pruneData(data_id_list)
-            except:
-                self.rollback()
-                raise
-            self.commit()
 
     __getDataTID = set()
     def _getDataTID(self, oid, tid=None, before_tid=None):
@@ -466,22 +463,23 @@ class DatabaseManager(object):
         an oid list"""
         raise NotImplementedError
 
-    def deleteTransactionsAbove(self, partition, tid, max_tid):
-        """Delete all transactions above given TID (inclued) in given
-        partition, but never above max_tid (in case transactions are committed
-        during replication)."""
-        raise NotImplementedError
-
     def deleteObject(self, oid, serial=None):
         """Delete given object. If serial is given, only delete that serial for
         given oid."""
         raise NotImplementedError
 
-    def deleteObjectsAbove(self, partition, oid, serial, max_tid):
-        """Delete all objects above given OID and serial (inclued) in given
-        partition, but never above max_tid (in case objects are stored during
-        replication)"""
+    def _deleteRange(self, partition, min_tid=None, max_tid=None):
+        """Delete all objects and transactions between given min_tid (excluded)
+        and max_tid (included)"""
         raise NotImplementedError
+
+    def truncate(self, tid):
+        assert tid not in (None, ZERO_TID), tid
+        with self:
+            assert self.getBackupTID()
+            self.setBackupTID(tid)
+            for partition in xrange(self.getNumPartitions()):
+                self._deleteRange(partition, tid)
 
     def getTransaction(self, tid, all = False):
         """Return a tuple of the list of OIDs, user information,
@@ -498,10 +496,10 @@ class DatabaseManager(object):
         If there is no such object ID in a database, return None."""
         raise NotImplementedError
 
-    def getObjectHistoryFrom(self, oid, min_serial, max_serial, length,
-            partition):
-        """Return a dict of length serials grouped by oid at (or above)
-        min_oid and min_serial and below max_serial, for given partition,
+    def getReplicationObjectList(self, min_tid, max_tid, length, partition,
+            min_oid):
+        """Return a dict of length oids grouped by serial at (or above)
+        min_tid and min_oid and below max_tid, for given partition,
         sorted in ascending order."""
         raise NotImplementedError
 

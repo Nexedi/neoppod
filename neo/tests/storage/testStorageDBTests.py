@@ -18,11 +18,10 @@
 import unittest
 from mock import Mock
 from neo.lib.util import dump, p64, u64
-from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID
+from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, MAX_TID
 from .. import NeoUnitTestBase
 from neo.lib.exception import DatabaseFailure
 
-MAX_TID = '\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFE' # != INVALID_TID
 
 class StorageDBTests(NeoUnitTestBase):
 
@@ -74,7 +73,7 @@ class StorageDBTests(NeoUnitTestBase):
 
     def checkConfigEntry(self, get_call, set_call, value):
         # generic test for all configuration entries accessors
-        self.assertRaises(KeyError, get_call)
+        self.assertEqual(get_call(), None)
         set_call(value)
         self.assertEqual(get_call(), value)
         set_call(value * 2)
@@ -91,6 +90,29 @@ class StorageDBTests(NeoUnitTestBase):
     def test_15_PTID(self):
         db = self.getDB()
         self.checkConfigEntry(db.getPTID, db.setPTID, self.getPTID(1))
+
+    def test_transaction(self):
+        db = self.getDB()
+        x = []
+        class DB(db.__class__):
+            begin    = lambda self: x.append('begin')
+            commit   = lambda self: x.append('commit')
+            rollback = lambda self: x.append('rollback')
+        db.__class__ = DB
+        with db:
+            self.assertEqual(x.pop(), 'begin')
+        self.assertEqual(x.pop(), 'commit')
+        try:
+            with db:
+                self.assertEqual(x.pop(), 'begin')
+                with db:
+                    self.fail()
+            self.fail()
+        except DatabaseFailure:
+            pass
+        self.assertEqual(x.pop(), 'rollback')
+        self.assertRaises(DatabaseFailure, db.__exit__, None, None, None)
+        self.assertFalse(x)
 
     def test_getPartitionTable(self):
         db = self.getDB()
@@ -128,21 +150,22 @@ class StorageDBTests(NeoUnitTestBase):
     def checkSet(self, list1, list2):
         self.assertEqual(set(list1), set(list2))
 
-    def test_getLastTID(self):
+    def test_getLastTIDs(self):
         tid1, tid2, tid3, tid4 = self.getTIDs(4)
         oid1, oid2 = self.getOIDs(2)
         txn, objs = self.getTransaction([oid1, oid2])
-        # max TID is in obj table
         self.db.storeTransaction(tid1, objs, txn, False)
         self.db.storeTransaction(tid2, objs, txn, False)
-        self.assertEqual(self.db.getLastTID(), tid2)
-        # max tid is in ttrans table
+        self.assertEqual(self.db.getLastTIDs(), (tid2, {0: tid2}, {0: tid2}))
         self.db.storeTransaction(tid3, objs, txn)
-        result = self.db.getLastTID()
-        self.assertEqual(self.db.getLastTID(), tid3)
-        # max tid is in tobj (serial)
+        tids = {0: tid2, None: tid3}
+        self.assertEqual(self.db.getLastTIDs(), (tid3, tids, tids))
         self.db.storeTransaction(tid4, objs, None)
-        self.assertEqual(self.db.getLastTID(), tid4)
+        self.assertEqual(self.db.getLastTIDs(),
+            (tid4, tids, {0: tid2, None: tid4}))
+        self.db.finishTransaction(tid3)
+        self.assertEqual(self.db.getLastTIDs(),
+            (tid4, {0: tid3}, {0: tid3, None: tid4}))
 
     def test_getUnfinishedTIDList(self):
         tid1, tid2, tid3, tid4 = self.getTIDs(4)
@@ -294,7 +317,7 @@ class StorageDBTests(NeoUnitTestBase):
         txn1, objs1 = self.getTransaction([oid1])
         txn2, objs2 = self.getTransaction([oid2])
         # nothing in database
-        self.assertEqual(self.db.getLastTID(), None)
+        self.assertEqual(self.db.getLastTIDs(), (None, {}, {}))
         self.assertEqual(self.db.getUnfinishedTIDList(), [])
         self.assertEqual(self.db.getObject(oid1), None)
         self.assertEqual(self.db.getObject(oid2), None)
@@ -362,24 +385,6 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(self.db.getTransaction(tid1, True), None)
         self.assertEqual(self.db.getTransaction(tid2, True), None)
 
-    def test_deleteTransactionsAbove(self):
-        self.setNumPartitions(2)
-        tid1 = self.getOID(0)
-        tid2 = self.getOID(1)
-        tid3 = self.getOID(2)
-        oid1 = self.getOID(1)
-        for tid in (tid1, tid2, tid3):
-            txn, objs = self.getTransaction([oid1])
-            self.db.storeTransaction(tid, objs, txn)
-            self.db.finishTransaction(tid)
-        self.db.deleteTransactionsAbove(0, tid2, tid3)
-        # Right partition, below cutoff
-        self.assertNotEqual(self.db.getTransaction(tid1, True), None)
-        # Wrong partition, above cutoff
-        self.assertNotEqual(self.db.getTransaction(tid2, True), None)
-        # Right partition, above cutoff
-        self.assertEqual(self.db.getTransaction(tid3, True), None)
-
     def test_deleteObject(self):
         oid1, oid2 = self.getOIDs(2)
         tid1, tid2 = self.getTIDs(2)
@@ -397,34 +402,28 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(self.db.getObject(oid2, tid=tid2),
             (tid2, None, 1, "0" * 20, '', None))
 
-    def test_deleteObjectsAbove(self):
-        self.setNumPartitions(2)
-        tid1 = self.getOID(1)
-        tid2 = self.getOID(2)
-        tid3 = self.getOID(3)
-        oid1 = self.getOID(0)
-        oid2 = self.getOID(1)
-        oid3 = self.getOID(2)
-        for tid in (tid1, tid2, tid3):
-            txn, objs = self.getTransaction([oid1, oid2, oid3])
+    def test_deleteRange(self):
+        np = 4
+        self.setNumPartitions(np)
+        t1, t2, t3 = map(self.getOID, (1, 2, 3))
+        oid_list = self.getOIDs(np * 2)
+        for tid in t1, t2, t3:
+            txn, objs = self.getTransaction(oid_list)
             self.db.storeTransaction(tid, objs, txn)
             self.db.finishTransaction(tid)
-        self.db.deleteObjectsAbove(0, oid1, tid2, tid3)
-        # Check getObjectHistoryFrom because MySQL adapter use two tables
-        # that must be synchronized
-        self.assertEqual(self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID,
-            MAX_TID, 10, 0), {oid1: [tid1]})
-        # Right partition, below cutoff
-        self.assertNotEqual(self.db.getObject(oid1, tid=tid1), None)
-        # Right partition, above tid cutoff
-        self.assertFalse(self.db.getObject(oid1, tid=tid2))
-        self.assertFalse(self.db.getObject(oid1, tid=tid3))
-        # Wrong partition, above cutoff
-        self.assertNotEqual(self.db.getObject(oid2, tid=tid1), None)
-        self.assertNotEqual(self.db.getObject(oid2, tid=tid2), None)
-        self.assertNotEqual(self.db.getObject(oid2, tid=tid3), None)
-        # Right partition, above cutoff
-        self.assertEqual(self.db.getObject(oid3), None)
+        def check(offset, tid_list, *tids):
+            self.assertEqual(self.db.getReplicationTIDList(ZERO_TID,
+                MAX_TID, len(tid_list) + 1, offset), tid_list)
+            expected = [(t, oid_list[offset+i]) for t in tids for i in 0, np]
+            self.assertEqual(self.db.getReplicationObjectList(ZERO_TID,
+                MAX_TID, len(expected) + 1, offset, ZERO_OID), expected)
+        self.db._deleteRange(0, MAX_TID)
+        self.db._deleteRange(0, max_tid=ZERO_TID)
+        check(0, [], t1, t2, t3)
+        self.db._deleteRange(0);             check(0, [])
+        self.db._deleteRange(1, t2);         check(1, [t1], t1, t2)
+        self.db._deleteRange(2, max_tid=t2); check(2, [], t3)
+        self.db._deleteRange(3, t1, t2);     check(3, [t3], t1, t3)
 
     def test_getTransaction(self):
         oid1, oid2 = self.getOIDs(2)
@@ -466,59 +465,6 @@ class StorageDBTests(NeoUnitTestBase):
         self.assertEqual(result, [(tid1, 0)])
         result = self.db.getObjectHistory(oid, 2, 3)
         self.assertEqual(result, None)
-
-    def test_getObjectHistoryFrom(self):
-        self.setNumPartitions(2)
-        oid1 = self.getOID(0)
-        oid2 = self.getOID(2)
-        oid3 = self.getOID(1)
-        tid1, tid2, tid3, tid4, tid5 = self.getTIDs(5)
-        txn1, objs1 = self.getTransaction([oid1])
-        txn2, objs2 = self.getTransaction([oid2])
-        txn3, objs3 = self.getTransaction([oid1])
-        txn4, objs4 = self.getTransaction([oid2])
-        txn5, objs5 = self.getTransaction([oid3])
-        self.db.storeTransaction(tid1, objs1, txn1)
-        self.db.storeTransaction(tid2, objs2, txn2)
-        self.db.storeTransaction(tid3, objs3, txn3)
-        self.db.storeTransaction(tid4, objs4, txn4)
-        self.db.storeTransaction(tid5, objs5, txn5)
-        self.db.finishTransaction(tid1)
-        self.db.finishTransaction(tid2)
-        self.db.finishTransaction(tid3)
-        self.db.finishTransaction(tid4)
-        self.db.finishTransaction(tid5)
-        # Check full result
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 10,
-            0)
-        self.assertEqual(result, {
-            oid1: [tid1, tid3],
-            oid2: [tid2, tid4],
-        })
-        # Lower bound is inclusive
-        result = self.db.getObjectHistoryFrom(oid1, tid1, MAX_TID, 10, 0)
-        self.assertEqual(result, {
-            oid1: [tid1, tid3],
-            oid2: [tid2, tid4],
-        })
-        # Upper bound is inclusive
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, tid3, 10, 0)
-        self.assertEqual(result, {
-            oid1: [tid1, tid3],
-            oid2: [tid2],
-        })
-        # Length is total number of serials
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 3, 0)
-        self.assertEqual(result, {
-            oid1: [tid1, tid3],
-            oid2: [tid2],
-        })
-        # Partition constraints are honored
-        result = self.db.getObjectHistoryFrom(ZERO_OID, ZERO_TID, MAX_TID, 10,
-            1)
-        self.assertEqual(result, {
-            oid3: [tid5],
-        })
 
     def _storeTransactions(self, count):
         # use OID generator to know result of tid % N

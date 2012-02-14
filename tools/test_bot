@@ -78,21 +78,22 @@ def main():
                 if subprocess.call((os.path.join(bin, 'buildout'), '-v'),
                                    cwd=test_home):
                     continue
-                title = '[%s:%s-g%s:%s]' % (branch,
-                  git('rev-list', '--topo-order', '--count', revision),
-                  revision[:7], os.path.basename(test_home))
-                if tests:
-                    subprocess.call([os.path.join(bin, 'neotestrunner'),
-                                     '-' + tests, '--title',
-                                     'NEO tests ' + title,
-                                    ] + sys.argv[1:arg_count])
-                if 'm' in tasks:
-                    subprocess.call([os.path.join(bin, 'python'),
-                                     'tools/matrix', '--repeat=2',
-                                     '--min-storages=1', '--max-storages=24',
-                                     '--min-replicas=0', '--max-replicas=3',
-                                     '--title', 'Matrix ' + title,
-                                    ] + sys.argv[1:arg_count])
+                for backend in 'SQLite', 'MySQL':
+                    os.environ['NEO_TESTS_ADAPTER'] = backend
+                    title = '[%s:%s-g%s:%s:%s]' % (branch,
+                        git('rev-list', '--topo-order', '--count', revision),
+                        revision[:7], os.path.basename(test_home), backend)
+                    if tests:
+                        subprocess.call([os.path.join(bin, 'neotestrunner'),
+                            '-' + tests, '--title', 'NEO tests ' + title,
+                            ] + sys.argv[1:arg_count])
+                    if 'm' in tasks:
+                        subprocess.call([os.path.join(bin, 'python'),
+                            'tools/matrix', '--repeat=2',
+                            '--min-storages=1', '--max-storages=24',
+                            '--min-replicas=0', '--max-replicas=3',
+                            '--title', 'Matrix ' + title,
+                            ] + sys.argv[1:arg_count])
         finally:
             s.close()
         clean()

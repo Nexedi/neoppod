@@ -28,6 +28,10 @@ from neo.lib.event import EventManager
 from neo.lib.connection import ListeningConnection, ClientConnection
 from neo.lib.exception import ElectionFailure, PrimaryFailure, OperationFailure
 from neo.lib.util import dump
+
+class StateChangedException(Exception): pass
+
+from .backup_app import BackupApplication
 from .handlers import election, identification, secondary
 from .handlers import administration, client, storage, shutdown
 from .pt import PartitionTable
@@ -41,6 +45,8 @@ class Application(object):
     packing = None
     # Latest completely commited TID
     last_transaction = ZERO_TID
+    backup_tid = None
+    backup_app = None
 
     def __init__(self, config):
         # Internal attributes.
@@ -90,16 +96,29 @@ class Application(object):
 
         self._current_manager = None
 
+        # backup
+        upstream_cluster = config.getUpstreamCluster()
+        if upstream_cluster:
+            if upstream_cluster == self.name:
+                raise ValueError("upstream cluster name must be"
+                                 " different from cluster name")
+            self.backup_app = BackupApplication(self, upstream_cluster,
+                                                *config.getUpstreamMasters())
+
         registerLiveDebugger(on_log=self.log)
 
     def close(self):
         self.listening_conn = None
+        if self.backup_app is not None:
+            self.backup_app.close()
         self.nm.close()
         self.em.close()
         del self.__dict__
 
     def log(self):
         self.em.log()
+        if self.backup_app is not None:
+            self.backup_app.log()
         self.nm.log()
         self.tm.log()
         if self.pt is not None:
@@ -257,27 +276,29 @@ class Application(object):
         a shutdown.
         """
         neo.lib.logging.info('provide service')
-        em = self.em
+        poll = self.em.poll
         self.tm.reset()
 
         self.changeClusterState(ClusterStates.RUNNING)
 
         # Now everything is passive.
-        while True:
-            try:
-                em.poll(1)
-            except OperationFailure:
-                # If not operational, send Stop Operation packets to storage
-                # nodes and client nodes. Abort connections to client nodes.
-                neo.lib.logging.critical('No longer operational')
-                for node in self.nm.getIdentifiedList():
-                    if node.isStorage() or node.isClient():
-                        node.notify(Packets.StopOperation())
-                        if node.isClient():
-                            node.getConnection().abort()
-
-                # Then, go back, and restart.
-                return
+        try:
+            while True:
+                poll(1)
+        except OperationFailure:
+            # If not operational, send Stop Operation packets to storage
+            # nodes and client nodes. Abort connections to client nodes.
+            neo.lib.logging.critical('No longer operational')
+        except StateChangedException, e:
+            assert e.args[0] == ClusterStates.STARTING_BACKUP
+            self.backup_tid = tid = self.getLastTransaction()
+            self.pt.setBackupTidDict(dict((node.getUUID(), tid)
+                for node in self.nm.getStorageList(only_identified=True)))
+        for node in self.nm.getIdentifiedList():
+            if node.isStorage() or node.isClient():
+                node.notify(Packets.StopOperation())
+                if node.isClient():
+                    node.getConnection().abort()
 
     def playPrimaryRole(self):
         neo.lib.logging.info(
@@ -314,7 +335,13 @@ class Application(object):
         self.runManager(RecoveryManager)
         while True:
             self.runManager(VerificationManager)
-            self.provideService()
+            if self.backup_tid:
+                if self.backup_app is None:
+                    raise RuntimeError("No upstream cluster to backup"
+                                       " defined in configuration")
+                self.backup_app.provideService()
+            else:
+                self.provideService()
 
     def playSecondaryRole(self):
         """
@@ -364,7 +391,8 @@ class Application(object):
 
         # select the storage handler
         client_handler = client.ClientServiceHandler(self)
-        if state == ClusterStates.RUNNING:
+        if state in (ClusterStates.RUNNING, ClusterStates.STARTING_BACKUP,
+                     ClusterStates.BACKINGUP, ClusterStates.STOPPING_BACKUP):
             storage_handler = storage.StorageServiceHandler(self)
         elif self._current_manager is not None:
             storage_handler = self._current_manager.getHandler()
@@ -389,8 +417,9 @@ class Application(object):
                 handler = storage_handler
             else:
                 continue # keep handler
-            conn.setHandler(handler)
-            handler.connectionCompleted(conn)
+            if type(handler) is not type(conn.getLastHandler()):
+                conn.setHandler(handler)
+                handler.connectionCompleted(conn)
         self.cluster_state = state
 
     def getNewUUID(self, node_type):
@@ -437,19 +466,13 @@ class Application(object):
         sys.exit()
 
     def identifyStorageNode(self, uuid, node):
-        state = NodeStates.RUNNING
-        handler = None
-        if self.cluster_state == ClusterStates.RUNNING:
-            if uuid is None or node is None:
-                # same as for verification
-                state = NodeStates.PENDING
-            handler = storage.StorageServiceHandler(self)
-        elif self.cluster_state == ClusterStates.STOPPING:
+        if self.cluster_state == ClusterStates.STOPPING:
             raise NotReadyError
-        else:
-            raise RuntimeError('unhandled cluster state: %s' %
-                    (self.cluster_state, ))
-        return (uuid, state, handler)
+        state = NodeStates.RUNNING
+        if uuid is None or node is None:
+            # same as for verification
+            state = NodeStates.PENDING
+        return uuid, state, storage.StorageServiceHandler(self)
 
     def identifyNode(self, node_type, uuid, node):
 

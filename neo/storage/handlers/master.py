@@ -24,11 +24,8 @@ from . import BaseMasterHandler
 class MasterOperationHandler(BaseMasterHandler):
     """ This handler is used for the primary master """
 
-    def answerUnfinishedTransactions(self, conn, max_tid, ttid_list):
-        self.app.replicator.setUnfinishedTIDList(max_tid, ttid_list)
-
-    def notifyTransactionFinished(self, conn, ttid, max_tid):
-        self.app.replicator.transactionFinished(ttid, max_tid)
+    def notifyTransactionFinished(self, conn, *args, **kw):
+        self.app.replicator.transactionFinished(*args, **kw)
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         """This is very similar to Send Partition Table, except that
@@ -44,14 +41,7 @@ class MasterOperationHandler(BaseMasterHandler):
         app.dm.changePartitionTable(ptid, cell_list)
 
         # Check changes for replications
-        if app.replicator is not None:
-            for offset, uuid, state in cell_list:
-                if uuid == app.uuid:
-                    # If this is for myself, this can affect replications.
-                    if state == CellStates.DISCARDED:
-                        app.replicator.removePartition(offset)
-                    elif state == CellStates.OUT_OF_DATE:
-                        app.replicator.addPartition(offset)
+        app.replicator.notifyPartitionChanges(cell_list)
 
     def askLockInformation(self, conn, ttid, tid, oid_list):
         if not ttid in self.app.tm:
@@ -74,3 +64,11 @@ class MasterOperationHandler(BaseMasterHandler):
         if not conn.isClosed():
             conn.answer(Packets.AnswerPack(True))
 
+    def replicate(self, conn, tid, upstream_name, source_dict):
+        self.app.replicator.backup(tid,
+            dict((p, (a, upstream_name))
+                 for p, a in source_dict.iteritems()))
+
+    def askTruncate(self, conn, tid):
+        self.app.dm.truncate(tid)
+        conn.answer(Packets.AnswerTruncate())

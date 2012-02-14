@@ -15,10 +15,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+LOG_QUERIES = False
+
 from neo.lib.exception import DatabaseFailure
 from .manager import DatabaseManager
+from .sqlite import SQLiteDatabaseManager
 
-DATABASE_MANAGER_DICT = {}
+DATABASE_MANAGER_DICT = {'SQLite': SQLiteDatabaseManager}
 
 try:
     from .mysqldb import MySQLDatabaseManager
@@ -26,17 +29,6 @@ except ImportError:
     pass
 else:
     DATABASE_MANAGER_DICT['MySQL'] = MySQLDatabaseManager
-
-try:
-    from .btree import BTreeDatabaseManager
-except ImportError:
-    pass
-else:
-    # XXX: warning: name might change in the future.
-    DATABASE_MANAGER_DICT['BTree'] = BTreeDatabaseManager
-
-if not DATABASE_MANAGER_DICT:
-    raise ImportError('No database back-end available.')
 
 def buildDatabaseManager(name, args=(), kw={}):
     if name is None:

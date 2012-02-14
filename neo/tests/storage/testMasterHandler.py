@@ -164,19 +164,6 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         calls[0].checkArgs(tid)
         self.checkNoPacketSent(conn)
 
-    def test_31_answerUnfinishedTransactions(self):
-        # set unfinished TID on replicator
-        conn = self.getFakeConnection()
-        self.app.replicator = Mock()
-        self.operation.answerUnfinishedTransactions(
-            conn=conn,
-            max_tid=INVALID_TID,
-            ttid_list=(INVALID_TID, ),
-        )
-        calls = self.app.replicator.mockGetNamedCalls('setUnfinishedTIDList')
-        self.assertEqual(len(calls), 1)
-        calls[0].checkArgs(INVALID_TID, (INVALID_TID, ))
-
     def test_askPack(self):
         self.app.dm = Mock({'pack': None})
         conn = self.getFakeConnection()

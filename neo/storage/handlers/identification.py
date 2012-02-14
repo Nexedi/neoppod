@@ -21,6 +21,7 @@ from neo.lib.handler import EventHandler
 from neo.lib.protocol import NodeTypes, Packets, NotReadyError
 from neo.lib.protocol import ProtocolError, BrokenNodeDisallowedError
 from neo.lib.util import dump
+from .storage import StorageOperationHandler
 
 class IdentificationHandler(EventHandler):
     """ Handler used for incoming connections during operation state """
@@ -35,37 +36,42 @@ class IdentificationHandler(EventHandler):
         if not self.app.ready:
             raise NotReadyError
         app = self.app
-        node = app.nm.getByUUID(uuid)
-        # If this node is broken, reject it.
-        if node is not None and node.isBroken():
-            raise BrokenNodeDisallowedError
-        # choose the handler according to the node type
-        if node_type == NodeTypes.CLIENT:
-            from .client import ClientOperationHandler
-            handler = ClientOperationHandler
-            if node is None:
-                node = app.nm.createClient(uuid=uuid)
-            elif node.isConnected():
-                # cut previous connection
-                node.getConnection().close()
-                assert not node.isConnected()
-            node.setRunning()
-        elif node_type == NodeTypes.STORAGE:
-            from .storage import StorageOperationHandler
-            handler = StorageOperationHandler
-            if node is None:
-                neo.lib.logging.error('reject an unknown storage node %s',
-                    dump(uuid))
-                raise NotReadyError
+        if uuid is None:
+            if node_type != NodeTypes.STORAGE:
+                raise ProtocolError('reject anonymous non-storage node')
+            handler = StorageOperationHandler(self.app)
+            conn.setHandler(handler)
         else:
-            raise ProtocolError('reject non-client-or-storage node')
-        # apply the handler and set up the connection
-        handler = handler(self.app)
-        conn.setHandler(handler)
-        node.setConnection(conn)
-        args = (NodeTypes.STORAGE, app.uuid, app.pt.getPartitions(),
-            app.pt.getReplicas(), uuid)
+            if uuid == app.uuid:
+                raise ProtocolError("uuid conflict or loopback connection")
+            node = app.nm.getByUUID(uuid)
+            # If this node is broken, reject it.
+            if node is not None and node.isBroken():
+                raise BrokenNodeDisallowedError
+            # choose the handler according to the node type
+            if node_type == NodeTypes.CLIENT:
+                from .client import ClientOperationHandler
+                handler = ClientOperationHandler
+                if node is None:
+                    node = app.nm.createClient(uuid=uuid)
+                elif node.isConnected():
+                    # cut previous connection
+                    node.getConnection().close()
+                    assert not node.isConnected()
+                node.setRunning()
+            elif node_type == NodeTypes.STORAGE:
+                if node is None:
+                    neo.lib.logging.error('reject an unknown storage node %s',
+                        dump(uuid))
+                    raise NotReadyError
+                handler = StorageOperationHandler
+            else:
+                raise ProtocolError('reject non-client-or-storage node')
+            # apply the handler and set up the connection
+            handler = handler(self.app)
+            conn.setHandler(handler)
+            node.setConnection(conn, app.uuid < uuid)
         # accept the identification and trigger an event
-        conn.answer(Packets.AcceptIdentification(*args))
+        conn.answer(Packets.AcceptIdentification(NodeTypes.STORAGE, uuid and
+            app.uuid, app.pt.getPartitions(), app.pt.getReplicas(), uuid))
         handler.connectionCompleted(conn)
-

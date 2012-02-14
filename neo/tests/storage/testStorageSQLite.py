@@ -16,15 +16,13 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import unittest
-from mock import Mock
 from .testStorageDBTests import StorageDBTests
-from neo.storage.database.btree import BTreeDatabaseManager
+from neo.storage.database.sqlite import SQLiteDatabaseManager
 
-class StorageBTreeTests(StorageDBTests):
+class StorageSQLiteTests(StorageDBTests):
 
     def getDB(self, reset=0):
-        # db manager
-        db = BTreeDatabaseManager('', 0)
+        db = SQLiteDatabaseManager(':memory:', 0)
         db.setup(reset)
         return db
 

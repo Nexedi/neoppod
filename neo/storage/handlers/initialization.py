@@ -25,10 +25,6 @@ class InitializationHandler(BaseMasterHandler):
     def answerNodeInformation(self, conn):
         pass
 
-    def notifyNodeInformation(self, conn, node_list):
-        # the whole node list is received here
-        BaseMasterHandler.notifyNodeInformation(self, conn, node_list)
-
     def answerPartitionTable(self, conn, ptid, row_list):
         app = self.app
         pt = app.pt
@@ -53,8 +49,9 @@ class InitializationHandler(BaseMasterHandler):
 
         app.dm.setPartitionTable(ptid, cell_list)
 
-    def answerLastIDs(self, conn, loid, ltid, lptid):
+    def answerLastIDs(self, conn, loid, ltid, lptid, backup_tid):
         self.app.dm.setLastOID(loid)
+        self.app.dm.setBackupTID(backup_tid)
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         # XXX: This is safe to ignore those notifications because all of the

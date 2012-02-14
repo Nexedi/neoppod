@@ -35,7 +35,7 @@ class ClusterTests(NEOFunctionalTest):
 
     def testClusterStartup(self):
         neo = NEOCluster(['test_neo1', 'test_neo2'], replicas=1,
-            adapter='MySQL', temp_dir=self.getTempDirectory())
+                         temp_dir=self.getTempDirectory())
         neoctl = neo.getNEOCTL()
         neo.run()
         # Runing a new cluster doesn't exit Recovery state.

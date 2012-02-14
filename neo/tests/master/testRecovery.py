@@ -85,7 +85,7 @@ class MasterRecoveryTests(NeoUnitTestBase):
         self.assertTrue(ptid2 > self.app.pt.getID())
         self.assertTrue(oid2 > self.app.tm.getLastOID())
         self.assertTrue(tid2 > self.app.tm.getLastTID())
-        recovery.answerLastIDs(conn, oid2, tid2, ptid2)
+        recovery.answerLastIDs(conn, oid2, tid2, ptid2, None)
         self.assertEqual(oid2, self.app.tm.getLastOID())
         self.assertEqual(tid2, self.app.tm.getLastTID())
         self.assertEqual(ptid2, recovery.target_ptid)

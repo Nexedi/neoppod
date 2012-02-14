@@ -131,6 +131,11 @@ class NeoTestBase(unittest.TestCase):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
+    class failureException(AssertionError):
+        def __init__(self, msg=None):
+            neo.lib.logging.error(msg)
+            AssertionError.__init__(self, msg)
+
     failIfEqual = failUnlessEqual = assertEquals = assertNotEquals = None
 
     def assertNotEqual(self, first, second, msg=None):

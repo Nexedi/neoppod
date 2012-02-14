@@ -113,19 +113,21 @@ class VerificationManager(BaseServiceHandler):
 
     def verifyData(self):
         """Verify the data in storage nodes and clean them up, if necessary."""
-
-        em, nm = self.app.em, self.app.nm
+        app = self.app
 
         # wait for any missing node
         neo.lib.logging.debug('waiting for the cluster to be operational')
-        while not self.app.pt.operational():
-            em.poll(1)
+        while not app.pt.operational():
+            app.em.poll(1)
+        if app.backup_tid:
+            return
 
         neo.lib.logging.info('start to verify data')
+        getIdentifiedList = app.nm.getIdentifiedList
 
         # Gather all unfinished transactions.
         self._askStorageNodesAndWait(Packets.AskUnfinishedTransactions(),
-            [x for x in self.app.nm.getIdentifiedList() if x.isStorage()])
+            [x for x in getIdentifiedList() if x.isStorage()])
 
         # Gather OIDs for each unfinished TID, and verify whether the
         # transaction can be finished or must be aborted. This could be
@@ -136,17 +138,16 @@ class VerificationManager(BaseServiceHandler):
             if uuid_set is None:
                 packet = Packets.DeleteTransaction(tid, self._oid_set or [])
                 # Make sure that no node has this transaction.
-                for node in self.app.nm.getIdentifiedList():
+                for node in getIdentifiedList():
                     if node.isStorage():
                         node.notify(packet)
             else:
                 packet = Packets.CommitTransaction(tid)
-                for node in self.app.nm.getIdentifiedList(pool_set=uuid_set):
+                for node in getIdentifiedList(pool_set=uuid_set):
                     node.notify(packet)
             self._oid_set = set()
-
             # If possible, send the packets now.
-            em.poll(0)
+            app.em.poll(0)
 
     def verifyTransaction(self, tid):
         em = self.app.em
@@ -189,11 +190,11 @@ class VerificationManager(BaseServiceHandler):
 
         return uuid_set
 
-    def answerLastIDs(self, conn, loid, ltid, lptid):
+    def answerLastIDs(self, conn, loid, ltid, lptid, backup_tid):
         # FIXME: this packet should not allowed here, the master already
         # accepted the current partition table end IDs. As there were manually
         # approved during recovery, there is no need to check them here.
-        pass
+        raise RuntimeError
 
     def answerUnfinishedTransactions(self, conn, max_tid, tid_list):
         uuid = conn.getUUID()

@@ -130,10 +130,11 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         self.app.tm.setLastTID(tid)
         service.askLastIDs(conn)
         packet = self.checkAnswerLastIDs(conn)
-        loid, ltid, lptid = packet.decode()
+        loid, ltid, lptid, backup_tid = packet.decode()
         self.assertEqual(loid, oid)
         self.assertEqual(ltid, tid)
         self.assertEqual(lptid, ptid)
+        self.assertEqual(backup_tid, None)
 
     def test_13_askUnfinishedTransactions(self):
         service = self.service

@@ -113,28 +113,21 @@ class Application(object):
         """Load persistent configuration data from the database.
         If data is not present, generate it."""
 
-        def NoneOnKeyError(getter):
-            try:
-                return getter()
-            except KeyError:
-                return None
         dm = self.dm
 
         # check cluster name
-        try:
-            dm_name = dm.getName()
-        except KeyError:
+        name = dm.getName()
+        if name is None:
             dm.setName(self.name)
-        else:
-            if dm_name != self.name:
-                raise RuntimeError('name %r does not match with the '
-                    'database: %r' % (self.name, dm_name))
+        elif name != self.name:
+            raise RuntimeError('name %r does not match with the database: %r'
+                               % (self.name, dm_name))
 
         # load configuration
-        self.uuid = NoneOnKeyError(dm.getUUID)
-        num_partitions = NoneOnKeyError(dm.getNumPartitions)
-        num_replicas = NoneOnKeyError(dm.getNumReplicas)
-        ptid = NoneOnKeyError(dm.getPTID)
+        self.uuid = dm.getUUID()
+        num_partitions = dm.getNumPartitions()
+        num_replicas = dm.getNumReplicas()
+        ptid = dm.getPTID()
 
         # check partition table configuration
         if num_partitions is not None and num_replicas is not None:
@@ -152,10 +145,7 @@ class Application(object):
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
-        try:
-            ptid = self.dm.getPTID()
-        except KeyError:
-            ptid = None
+        ptid = self.dm.getPTID()
         cell_list = self.dm.getPartitionTable()
         new_cell_list = []
         for offset, uuid, state in cell_list:
@@ -216,9 +206,7 @@ class Application(object):
             except OperationFailure, msg:
                 neo.lib.logging.error('operation stopped: %s', msg)
             except PrimaryFailure, msg:
-                self.replicator.masterLost()
                 neo.lib.logging.error('primary master is down: %s', msg)
-                self.master_node = None
 
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.
@@ -296,6 +284,7 @@ class Application(object):
         neo.lib.logging.info('doing operation')
 
         _poll = self._poll
+        isIdle = self.em.isIdle
 
         handler = master.MasterOperationHandler(self)
         self.master_conn.setHandler(handler)
@@ -304,16 +293,21 @@ class Application(object):
         self.dm.dropUnfinishedData()
         self.tm.reset()
 
-        while True:
-            _poll()
-            if self.replicator.pending():
-                # Call processDelayedTasks before act, so tasks added in the
-                # act call are executed after one poll call, so that sent
-                # packets are already on the network and delayed task
-                # processing happens in parallel with the same task on the
-                # other storage node.
-                self.replicator.processDelayedTasks()
-                self.replicator.act()
+        self.task_queue = task_queue = deque()
+        try:
+            while True:
+                while task_queue and isIdle():
+                    try:
+                        task_queue[-1].next()
+                        task_queue.rotate()
+                    except StopIteration:
+                        task_queue.pop()
+                _poll()
+        finally:
+            del self.task_queue
+            # Abort any replication, whether we are feeding or out-of-date.
+            for node in self.nm.getStorageList(only_identified=True):
+                node.getConnection().close()
 
     def wait(self):
         # change handler
@@ -367,6 +361,13 @@ class Application(object):
         for key, event, _msg_id, _conn, args in self.event_queue:
             neo.lib.logging.info('  %r:%r: %r:%r %r %r', key, event.__name__,
                 _msg_id, _conn, args)
+
+    def newTask(self, iterator):
+        try:
+            iterator.next()
+        except StopIteration:
+            return
+        self.task_queue.appendleft(iterator)
 
     def shutdown(self, erase=False):
         """Close all connections and exit"""

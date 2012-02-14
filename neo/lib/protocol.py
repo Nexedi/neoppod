@@ -48,6 +48,7 @@ class ErrorCodes(Enum):
     PROTOCOL_ERROR = Enum.Item(4)
     BROKEN_NODE = Enum.Item(5)
     ALREADY_PENDING = Enum.Item(7)
+    REPLICATION_ERROR = Enum.Item(8)
 ErrorCodes = ErrorCodes()
 
 class ClusterStates(Enum):
@@ -55,6 +56,9 @@ class ClusterStates(Enum):
     VERIFYING = Enum.Item(2)
     RUNNING = Enum.Item(3)
     STOPPING = Enum.Item(4)
+    STARTING_BACKUP = Enum.Item(5)
+    BACKINGUP = Enum.Item(6)
+    STOPPING_BACKUP = Enum.Item(7)
 ClusterStates = ClusterStates()
 
 class NodeTypes(Enum):
@@ -117,6 +121,7 @@ ZERO_TID = '\0' * 8
 ZERO_OID = '\0' * 8
 OID_LEN = len(INVALID_OID)
 TID_LEN = len(INVALID_TID)
+MAX_TID = '\x7f' + '\xff' * 7 # SQLite does not accept numbers above 2^63-1
 
 UUID_NAMESPACES = {
     NodeTypes.STORAGE: 'S',
@@ -723,6 +728,7 @@ class LastIDs(Packet):
         POID('last_oid'),
         PTID('last_tid'),
         PPTID('last_ptid'),
+        PTID('backup_tid'),
     )
 
 class PartitionTable(Packet):
@@ -758,16 +764,6 @@ class PartitionChanges(Packet):
                 PFCellState,
             ),
         ),
-    )
-
-class ReplicationDone(Packet):
-    """
-    Notify the master node that a partition has been successully replicated from
-    a storage to another.
-    S -> M
-    """
-    _fmt = PStruct('notify_replication_done',
-        PNumber('offset'),
     )
 
 class StartOperation(Packet):
@@ -965,7 +961,7 @@ class GetObject(Packet):
     """
     Ask a stored object by its OID and a serial or a TID if given. If a serial
     is specified, the specified revision of an object will be returned. If
-    a TID is specified, an object right before the TID will be returned. S,C -> S.
+    a TID is specified, an object right before the TID will be returned. C -> S.
     Answer the requested object. S -> C.
     """
     _fmt = PStruct('ask_object',
@@ -1003,16 +999,14 @@ class TIDList(Packet):
 class TIDListFrom(Packet):
     """
     Ask for length TIDs starting at min_tid. The order of TIDs is ascending.
-    S -> S.
-    Answer the requested TIDs. S -> S
+    C -> S.
+    Answer the requested TIDs. S -> C
     """
     _fmt = PStruct('tid_list_from',
         PTID('min_tid'),
         PTID('max_tid'),
         PNumber('length'),
-        PList('partition_list',
-            PNumber('partition'),
-        ),
+        PNumber('partition'),
     )
 
     _answer = PStruct('answer_tids',
@@ -1052,27 +1046,6 @@ class ObjectHistory(Packet):
     _answer = PStruct('answer_object_history',
         POID('oid'),
         PFHistoryList,
-    )
-
-class ObjectHistoryFrom(Packet):
-    """
-    Ask history information for a given object. The order of serials is
-    ascending, and starts at (or above) min_serial for min_oid. S -> S.
-    Answer the requested serials. S -> S.
-    """
-    _fmt = PStruct('ask_object_history',
-        POID('min_oid'),
-        PTID('min_serial'),
-        PTID('max_serial'),
-        PNumber('length'),
-        PNumber('partition'),
-    )
-
-    _answer = PStruct('ask_finish_transaction',
-        PDict('object_dict',
-            POID('oid'),
-            PFTidList,
-        ),
     )
 
 class PartitionList(Packet):
@@ -1341,6 +1314,110 @@ class NotifyReady(Packet):
     """
     pass
 
+# replication
+
+class FetchTransactions(Packet):
+    """
+    S -> S
+    """
+    _fmt = PStruct('ask_transaction_list',
+        PNumber('partition'),
+        PNumber('length'),
+        PTID('min_tid'),
+        PTID('max_tid'),
+        PFTidList,           # already known transactions
+    )
+    _answer = PStruct('answer_transaction_list',
+        PTID('pack_tid'),
+        PTID('next_tid'),
+        PFTidList,           # transactions to delete
+    )
+
+class AddTransaction(Packet):
+    """
+    S -> S
+    """
+    _fmt = PStruct('add_transaction',
+        PTID('tid'),
+        PString('user'),
+        PString('description'),
+        PString('extension'),
+        PBoolean('packed'),
+        PFOidList,
+    )
+
+class FetchObjects(Packet):
+    """
+    S -> S
+    """
+    _fmt = PStruct('ask_object_list',
+        PNumber('partition'),
+        PNumber('length'),
+        PTID('min_tid'),
+        PTID('max_tid'),
+        POID('min_oid'),
+        PDict('object_dict', # already known objects
+            PTID('serial'),
+            PFOidList,
+        ),
+    )
+    _answer = PStruct('answer_object_list',
+        PTID('pack_tid'),
+        PTID('next_tid'),
+        POID('next_oid'),
+        PDict('object_dict', # objects to delete
+            PTID('serial'),
+            PFOidList,
+        ),
+    )
+
+class AddObject(Packet):
+    """
+    S -> S
+    """
+    _fmt = PStruct('add_object',
+        POID('oid'),
+        PTID('serial'),
+        PBoolean('compression'),
+        PChecksum('checksum'),
+        PString('data'),
+        PTID('data_serial'),
+    )
+
+class Replicate(Packet):
+    """
+    M -> S
+    """
+    _fmt = PStruct('replicate',
+        PTID('tid'),
+        PString('upstream_name'),
+        PDict('source_dict',
+            PNumber('partition'),
+            PAddress('address'),
+        )
+    )
+
+class ReplicationDone(Packet):
+    """
+    Notify the master node that a partition has been successully replicated from
+    a storage to another.
+    S -> M
+    """
+    _fmt = PStruct('notify_replication_done',
+        PNumber('offset'),
+        PTID('tid'),
+    )
+
+class Truncate(Packet):
+    """
+    M -> S
+    """
+    _fmt = PStruct('ask_truncate',
+        PTID('tid'),
+    )
+    _answer = PFEmpty
+
+
 StaticRegistry = {}
 def register(request, ignore_when_closed=None):
     """ Register a packet in the packet registry """
@@ -1516,16 +1593,12 @@ class Packets(dict):
                     ClusterState)
     NotifyLastOID = register(
                     NotifyLastOID)
-    NotifyReplicationDone = register(
-                    ReplicationDone)
     AskObjectUndoSerial, AnswerObjectUndoSerial = register(
                     ObjectUndoSerial)
     AskHasLock, AnswerHasLock = register(
                     HasLock)
     AskTIDsFrom, AnswerTIDsFrom = register(
                     TIDListFrom)
-    AskObjectHistoryFrom, AnswerObjectHistoryFrom = register(
-                    ObjectHistoryFrom)
     AskPack, AnswerPack = register(
                     Pack, ignore_when_closed=False)
     AskCheckTIDRange, AnswerCheckTIDRange = register(
@@ -1540,6 +1613,20 @@ class Packets(dict):
                     CheckCurrentSerial)
     NotifyTransactionFinished = register(
                     NotifyTransactionFinished)
+    Replicate = register(
+                    Replicate)
+    NotifyReplicationDone = register(
+                    ReplicationDone)
+    AskFetchTransactions, AnswerFetchTransactions = register(
+                    FetchTransactions)
+    AskFetchObjects, AnswerFetchObjects = register(
+                    FetchObjects)
+    AddTransaction = register(
+                    AddTransaction)
+    AddObject = register(
+                    AddObject)
+    AskTruncate, AnswerTruncate = register(
+                    Truncate)
 
 def Errors():
     registry_dict = {}

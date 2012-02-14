@@ -54,15 +54,10 @@ UNIT_TEST_MODULES = [
     'neo.tests.storage.testInitializationHandler',
     'neo.tests.storage.testMasterHandler',
     'neo.tests.storage.testStorageApp',
-    'neo.tests.storage.testStorageHandler',
-    'neo.tests.storage.testStorageMySQLdb',
-    'neo.tests.storage.testStorageBTree',
+    'neo.tests.storage.testStorage' + os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
     'neo.tests.storage.testVerificationHandler',
     'neo.tests.storage.testIdentificationHandler',
     'neo.tests.storage.testTransactions',
-    'neo.tests.storage.testReplicationHandler',
-    'neo.tests.storage.testReplicator',
-    'neo.tests.storage.testReplication',
     # client application
     'neo.tests.client.testClientApp',
     'neo.tests.client.testMasterHandler',
@@ -70,6 +65,7 @@ UNIT_TEST_MODULES = [
     'neo.tests.client.testConnectionPool',
     # light functional tests
     'neo.tests.threaded.test',
+    'neo.tests.threaded.testReplication',
 ]
 
 FUNC_TEST_MODULES = [

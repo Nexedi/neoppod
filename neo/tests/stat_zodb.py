@@ -3,7 +3,7 @@
 import math, os, random, sys, time
 from cStringIO import StringIO
 from persistent.TimeStamp import TimeStamp
-from ZODB.utils import p64, newTid
+from ZODB.utils import p64, u64
 from ZODB.BaseStorage import TransactionRecord
 from ZODB.FileStorage import FileStorage
 
@@ -44,6 +44,7 @@ class DummyZODB(object):
         self.new_ratio = new_ratio
         self.next_oid = 0
         self.err_count = 0
+        self.tid = u64('TID\0\0\0\0\0')
 
     def __call__(self):
         variate = self.random.lognormvariate
@@ -63,9 +64,11 @@ class DummyZODB(object):
             yield p64(oid), int(round(variate(self.obj_size_mu,
                                               self.obj_size_sigma))) or 1
 
-    def as_storage(self, transaction_count, dummy_data_file=None):
+    def as_storage(self, stop, dummy_data_file=None):
         if dummy_data_file is None:
             dummy_data_file = DummyData(self.random)
+        if isinstance(stop, int):
+            stop = (lambda x: lambda y: x <= y)(stop)
         class dummy_change(object):
             data_txn = None
             version = ''
@@ -97,12 +100,14 @@ class DummyZODB(object):
             size = 0
             def iterator(storage, *args):
                 args = ' ', '', '', {}
-                tid = None
-                for i in xrange(1, transaction_count+1):
-                    tid = newTid(tid)
-                    t =  dummy_transaction(tid, *args)
+                i = 0
+                variate = self.random.lognormvariate
+                while not stop(i):
+                    self.tid += max(1, int(variate(10, 3)))
+                    t =  dummy_transaction(p64(self.tid), *args)
                     storage.size += t.size
                     yield t
+                    i += 1
             def getSize(self):
                 return self.size
         return dummy_storage()

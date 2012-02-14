@@ -18,15 +18,18 @@
 import neo
 
 from . import MasterHandler
+from ..app import StateChangedException
 from neo.lib.protocol import ClusterStates, NodeStates, Packets, ProtocolError
 from neo.lib.protocol import Errors
 from neo.lib.util import dump
 
 CLUSTER_STATE_WORKFLOW = {
     # destination: sources
-    ClusterStates.VERIFYING: set([ClusterStates.RECOVERING]),
-    ClusterStates.STOPPING: set([ClusterStates.RECOVERING,
-            ClusterStates.VERIFYING, ClusterStates.RUNNING]),
+    ClusterStates.VERIFYING: (ClusterStates.RECOVERING,),
+    ClusterStates.STARTING_BACKUP: (ClusterStates.RUNNING,
+                                    ClusterStates.STOPPING_BACKUP),
+    ClusterStates.STOPPING_BACKUP: (ClusterStates.BACKINGUP,
+                                    ClusterStates.STARTING_BACKUP),
 }
 
 class AdministrationHandler(MasterHandler):
@@ -42,16 +45,17 @@ class AdministrationHandler(MasterHandler):
         conn.answer(Packets.AnswerPrimary(app.uuid, []))
 
     def setClusterState(self, conn, state):
+        app = self.app
         # check request
-        if state not in CLUSTER_STATE_WORKFLOW:
+        try:
+            if app.cluster_state not in CLUSTER_STATE_WORKFLOW[state]:
+                raise ProtocolError('Can not switch to this state')
+        except KeyError:
             raise ProtocolError('Invalid state requested')
-        valid_current_states = CLUSTER_STATE_WORKFLOW[state]
-        if self.app.cluster_state not in valid_current_states:
-            raise ProtocolError('Cannot switch to this state')
 
         # change state
         if state == ClusterStates.VERIFYING:
-            storage_list = self.app.nm.getStorageList(only_identified=True)
+            storage_list = app.nm.getStorageList(only_identified=True)
             if not storage_list:
                 raise ProtocolError('Cannot exit recovery without any '
                     'storage node')
@@ -60,15 +64,18 @@ class AdministrationHandler(MasterHandler):
                 if node.getConnection().isPending():
                     raise ProtocolError('Cannot exit recovery now: node %r is '
                         'entering cluster' % (node, ))
-            self.app._startup_allowed = True
-        else:
-            self.app.changeClusterState(state)
+            app._startup_allowed = True
+            state = app.cluster_state
+        elif state == ClusterStates.STARTING_BACKUP:
+            if app.tm.hasPending() or app.nm.getClientList(True):
+                raise ProtocolError("Can not switch to %s state with pending"
+                    " transactions or connected clients" % state)
+        elif state != ClusterStates.STOPPING_BACKUP:
+            app.changeClusterState(state)
 
-        # answer
         conn.answer(Errors.Ack('Cluster state changed'))
-        if state == ClusterStates.STOPPING:
-            self.app.cluster_state = state
-            self.app.shutdown()
+        if state != app.cluster_state:
+            raise StateChangedException(state)
 
     def setNodeState(self, conn, uuid, state, modify_partition_table):
         neo.lib.logging.info("set node state for %s-%s : %s" %

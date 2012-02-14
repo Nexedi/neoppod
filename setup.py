@@ -29,7 +29,7 @@ extras_require = {
     'client': ['ZODB3'], # ZODB3 >= 3.10
     'ctl': [],
     'master': [],
-    'storage-btree': ['ZODB3'],
+    'storage-sqlite': [],
     'storage-mysqldb': ['MySQL-python'],
 }
 extras_require['tests'] = ['zope.testing', 'psutil',

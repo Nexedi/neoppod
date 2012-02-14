@@ -90,3 +90,8 @@ class ConfigurationManager(object):
         # only from command line
         return util.bin(self.argument_list.get('uuid', None))
 
+    def getUpstreamCluster(self):
+        return self.__get('upstream_cluster', True)
+
+    def getUpstreamMasters(self):
+        return util.parseMasterList(self.__get('upstream_masters'))

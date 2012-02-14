@@ -35,11 +35,6 @@ class StorageMySQSLdbTests(StorageDBTests):
         db.setup(reset)
         return db
 
-    def checkCalledQuery(self, query=None, call=0):
-        self.assertTrue(len(self.db.conn.mockGetNamedCalls('query')) > call)
-        call = self.db.conn.mockGetNamedCalls('query')[call]
-        call.checkArgs('BEGIN')
-
     def test_MySQLDatabaseManagerInit(self):
         db = MySQLDatabaseManager('%s@%s' % (NEO_SQL_USER, NEO_SQL_DATABASE),
             0)
@@ -48,30 +43,6 @@ class StorageMySQSLdbTests(StorageDBTests):
         self.assertEqual(db.user, NEO_SQL_USER)
         # & connect
         self.assertTrue(isinstance(db.conn, MySQLdb.connection))
-        self.assertFalse(db.isUnderTransaction())
-
-    def test_begin(self):
-        # no current transaction
-        self.db.conn = Mock({ })
-        self.assertFalse(self.db.isUnderTransaction())
-        self.db.begin()
-        self.checkCalledQuery(query='COMMIT')
-        self.assertTrue(self.db.isUnderTransaction())
-
-    def test_commit(self):
-        self.db.conn = Mock()
-        self.db.begin()
-        self.db.commit()
-        self.assertEqual(len(self.db.conn.mockGetNamedCalls('commit')), 1)
-        self.assertFalse(self.db.isUnderTransaction())
-
-    def test_rollback(self):
-        # rollback called and no current transaction
-        self.db.conn = Mock({ })
-        self.db.under_transaction = True
-        self.db.rollback()
-        self.assertEqual(len(self.db.conn.mockGetNamedCalls('rollback')), 1)
-        self.assertFalse(self.db.isUnderTransaction())
 
     def test_query1(self):
         # fake result object

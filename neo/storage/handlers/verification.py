@@ -27,15 +27,11 @@ class VerificationHandler(BaseMasterHandler):
 
     def askLastIDs(self, conn):
         app = self.app
-        try:
-            oid = app.dm.getLastOID()
-        except KeyError:
-            oid = None
-        try:
-            tid = app.dm.getLastTID()
-        except KeyError:
-            tid = None
-        conn.answer(Packets.AnswerLastIDs(oid, tid, app.pt.getID()))
+        conn.answer(Packets.AnswerLastIDs(
+            app.dm.getLastOID(),
+            app.dm.getLastTIDs()[0],
+            app.pt.getID(),
+            app.dm.getBackupTID()))
 
     def askPartitionTable(self, conn):
         pt = self.app.pt

@@ -23,7 +23,7 @@ from persistent import Persistent
 from . import NEOCluster, NEOFunctionalTest
 from neo.lib.protocol import ClusterStates, NodeStates
 from ZODB.tests.StorageTestBase import zodb_pickle
-from MySQLdb import ProgrammingError
+import MySQLdb, sqlite3
 from MySQLdb.constants.ER import NO_SUCH_TABLE
 
 class PObject(Persistent):
@@ -46,9 +46,11 @@ class StorageTests(NEOFunctionalTest):
         NEOFunctionalTest.tearDown(self)
 
     def queryCount(self, db, query):
-        db.query(query)
-        result = db.store_result().fetch_row()[0][0]
-        return result
+        try:
+            db.query(query)
+        except AttributeError:
+            return db.execute(query).fetchone()[0]
+        return db.store_result().fetch_row()[0][0]
 
     def __setup(self, storage_number=2, pending_number=0, replicas=1,
             partitions=10, master_count=2):
@@ -58,7 +60,6 @@ class StorageTests(NEOFunctionalTest):
             partitions=partitions, replicas=replicas,
             temp_dir=self.getTempDirectory(),
             clear_databases=True,
-            adapter='MySQL',
         )
         # too many pending storage nodes requested
         assert pending_number <= storage_number
@@ -80,7 +81,7 @@ class StorageTests(NEOFunctionalTest):
         db.close()
 
     def __checkDatabase(self, db_name):
-        db = self.neo.getSQLConnection(db_name, autocommit=True)
+        db = self.neo.getSQLConnection(db_name)
         # wait for the sql transaction to be commited
         def callback(last_try):
             object_number = self.queryCount(db, 'select count(*) from obj')
@@ -124,13 +125,16 @@ class StorageTests(NEOFunctionalTest):
     def __checkReplicateCount(self, db_name, target_count, timeout=0, delay=1):
         db = self.neo.getSQLConnection(db_name, autocommit=True)
         def callback(last_try):
+            replicate_count = 0
             try:
                 replicate_count = self.queryCount(db,
                     'select count(distinct uuid) from pt')
-            except ProgrammingError, exc:
-                if exc[0] != NO_SUCH_TABLE:
+            except MySQLdb.ProgrammingError, e:
+                if e[0] != NO_SUCH_TABLE:
                     raise
-                replicate_count = 0
+            except sqlite3.OperationalError, e:
+                if not e[0].startswith('no such table:'):
+                    raise
             if last_try is not None and last_try < replicate_count:
                 raise AssertionError, 'Regression: %s became %s' % \
                     (last_try, replicate_count)

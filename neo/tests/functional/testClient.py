@@ -234,6 +234,9 @@ class ClientTests(NEOFunctionalTest):
                 temp_dir=self.getTempDirectory())
             neoctl = self.neo.getNEOCTL()
             self.neo.start()
+            # BUG: The following 2 lines creates 2 app, i.e. 2 TCP connections
+            #      to the storage, so there may be a race condition at network
+            #      level and 'st2.store' may be effective before 'st1.store'.
             db1, conn1 = self.neo.getZODBConnection()
             db2, conn2 = self.neo.getZODBConnection()
             st1, st2 = conn1._storage, conn2._storage

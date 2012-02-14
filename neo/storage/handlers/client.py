@@ -16,10 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import neo.lib
-from neo.lib import protocol
+from neo.lib.handler import EventHandler
 from neo.lib.util import dump, makeChecksum
-from neo.lib.protocol import Packets, LockState, Errors, ZERO_HASH
-from . import BaseClientAndStorageOperationHandler
+from neo.lib.protocol import Packets, LockState, Errors, ProtocolError, \
+    ZERO_HASH, INVALID_PARTITION
 from ..transactions import ConflictError, DelayedError
 from ..exception import AlreadyPendingError
 import time
@@ -28,10 +28,40 @@ import time
 # Set to None to disable.
 SLOW_STORE = 2
 
-class ClientOperationHandler(BaseClientAndStorageOperationHandler):
+class ClientOperationHandler(EventHandler):
 
-    def _askObject(self, oid, serial, ttid):
-        return self.app.dm.getObject(oid, serial, ttid)
+    def askTransactionInformation(self, conn, tid):
+        t = self.app.dm.getTransaction(tid)
+        if t is None:
+            p = Errors.TidNotFound('%s does not exist' % dump(tid))
+        else:
+            p = Packets.AnswerTransactionInformation(tid, t[1], t[2], t[3],
+                    t[4], t[0])
+        conn.answer(p)
+
+    def askObject(self, conn, oid, serial, tid):
+        app = self.app
+        if app.tm.loadLocked(oid):
+            # Delay the response.
+            app.queueEvent(self.askObject, conn, (oid, serial, tid))
+            return
+        o = app.dm.getObject(oid, serial, tid)
+        if o is None:
+            neo.lib.logging.debug('oid = %s does not exist', dump(oid))
+            p = Errors.OidDoesNotExist(dump(oid))
+        elif o is False:
+            neo.lib.logging.debug('oid = %s not found', dump(oid))
+            p = Errors.OidNotFound(dump(oid))
+        else:
+            serial, next_serial, compression, checksum, data, data_serial = o
+            neo.lib.logging.debug('oid = %s, serial = %s, next_serial = %s',
+                          dump(oid), dump(serial), dump(next_serial))
+            if checksum is None:
+                checksum = ZERO_HASH
+                data = ''
+            p = Packets.AnswerObject(oid, serial, next_serial,
+                compression, checksum, data, data_serial)
+        conn.answer(p)
 
     def connectionLost(self, conn, new_state):
         uuid = conn.getUUID()
@@ -96,22 +126,18 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
         self._askStoreObject(conn, oid, serial, compression, checksum, data,
             data_serial, ttid, unlock, time.time())
 
-    def askTIDsFrom(self, conn, min_tid, max_tid, length, partition_list):
-        getReplicationTIDList = self.app.dm.getReplicationTIDList
-        tid_list = []
-        extend = tid_list.extend
-        for partition in partition_list:
-            extend(getReplicationTIDList(min_tid, max_tid, length, partition))
-        conn.answer(Packets.AnswerTIDsFrom(tid_list))
+    def askTIDsFrom(self, conn, min_tid, max_tid, length, partition):
+        conn.answer(Packets.AnswerTIDsFrom(self.app.dm.getReplicationTIDList(
+            min_tid, max_tid, length, partition)))
 
     def askTIDs(self, conn, first, last, partition):
         # This method is complicated, because I must return TIDs only
         # about usable partitions assigned to me.
         if first >= last:
-            raise protocol.ProtocolError('invalid offsets')
+            raise ProtocolError('invalid offsets')
 
         app = self.app
-        if partition == protocol.INVALID_PARTITION:
+        if partition == INVALID_PARTITION:
             partition_list = app.pt.getAssignedPartitionList(app.uuid)
         else:
             partition_list = [partition]
@@ -149,7 +175,7 @@ class ClientOperationHandler(BaseClientAndStorageOperationHandler):
 
     def askObjectHistory(self, conn, oid, first, last):
         if first >= last:
-            raise protocol.ProtocolError( 'invalid offsets')
+            raise ProtocolError('invalid offsets')
 
         app = self.app
         history_list = app.dm.getObjectHistory(oid, first, last - first)
