@@ -394,13 +394,15 @@ class Connection(BaseConnection):
     """A connection."""
 
     connecting = False
+    client = False
+    server = False
+    peer_id = None
 
     def __init__(self, event_manager, *args, **kw):
         BaseConnection.__init__(self, event_manager, *args, **kw)
         self.read_buf = ReadBuffer()
         self.write_buf = []
         self.cur_id = 0
-        self.peer_id = 0
         self.aborted = False
         self.uuid = None
         self._queue = []
@@ -409,8 +411,35 @@ class Connection(BaseConnection):
         event_manager.addReader(self)
 
     def setOnClose(self, callback):
-        assert self._on_close is None
         self._on_close = callback
+
+    def isClient(self):
+        return self.client
+
+    def isServer(self):
+        return self.server
+
+    def asClient(self):
+        try:
+            del self.idle
+            assert self.client
+        except AttributeError:
+            self.client = True
+
+    def asServer(self):
+        self.server = True
+
+    def _closeClient(self):
+        if self.server:
+            del self.idle
+            self.client = False
+            self.notify(Packets.CloseClient())
+        else:
+            self.close()
+
+    def closeClient(self):
+        if self.connector is not None:
+            self.idle = self._closeClient
 
     def isAborted(self):
         return self.aborted
@@ -632,6 +661,7 @@ class ClientConnection(Connection):
     """A connection from this node to a remote node."""
 
     connecting = True
+    client = True
 
     def __init__(self, event_manager, handler, node, connector):
         addr = node.getAddress()
@@ -669,9 +699,6 @@ class ClientConnection(Connection):
         else:
             Connection.writable(self)
 
-    def isClient(self):
-        return True
-
 
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
@@ -683,12 +710,11 @@ class ServerConnection(Connection):
     # ping the client. Otherwise, it would do it about half of the time.
     KEEP_ALIVE = Connection.KEEP_ALIVE + 5
 
+    server = True
+
     def __init__(self, *args, **kw):
         Connection.__init__(self, *args, **kw)
         self.updateTimeout(time())
-
-    def isServer(self):
-        return True
 
 
 class MTClientConnection(ClientConnection):

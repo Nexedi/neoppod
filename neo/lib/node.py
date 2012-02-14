@@ -21,7 +21,7 @@ import json
 
 import neo.lib
 from .util import dump
-from .protocol import NodeTypes, NodeStates
+from .protocol import NodeTypes, NodeStates, ProtocolError
 
 from . import attributeTracker
 
@@ -100,15 +100,29 @@ class Node(object):
         del self._connection
         self._manager._updateIdentified(self)
 
-    def setConnection(self, connection):
+    def setConnection(self, connection, force=None):
         """
             Define the connection that is currently available to this node.
+            If there is already a connection set, 'force' must be given:
+            the new connection replaces the old one if it is true. In any case,
+            the node must be managed by the same handler for the client and
+            server parts.
         """
-        assert not connection.isClosed(), connection
-        assert self._connection is None, attributeTracker.whoSet(self, '_connection')
         assert connection.getUUID() in (None, self._uuid), connection
         connection.setUUID(self._uuid)
-        self._connection = connection
+        conn = self._connection
+        if conn is None:
+            self._connection = connection
+        else:
+            assert force is not None, \
+                attributeTracker.whoSet(self, '_connection')
+            # The test on peer_id is there to protect against buggy nodes.
+            if not force or conn.getPeerId() is not None or \
+               type(conn.getHandler()) is not type(connection.getHandler()):
+                raise ProtocolError("already connected")
+            conn.setOnClose(lambda: setattr(self, '_connection', connection))
+            conn.close()
+        assert not connection.isClosed(), connection
         connection.setOnClose(self.onConnectionClosed)
         self._manager._updateIdentified(self)
 

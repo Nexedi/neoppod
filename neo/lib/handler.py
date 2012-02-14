@@ -132,6 +132,11 @@ class EventHandler(object):
     def notify(self, conn, message):
         neo.lib.logging.info('notification from %r: %s', conn, message)
 
+    def closeClient(self, conn):
+        conn.server = False
+        if not conn.client:
+            conn.close()
+
     # Error packet handlers.
 
     def error(self, conn, code, message):

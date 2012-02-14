@@ -25,7 +25,7 @@ from struct import Struct
 from .util import Enum, getAddressType
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (5, 1)
+PROTOCOL_VERSION = (6, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -648,6 +648,11 @@ class Ping(Packet):
     Check if a peer is still alive. Any -> Any.
     """
     _answer = PFEmpty
+
+class CloseClient(Packet):
+    """
+    Tell peer it can close the connection if it has finished with us. Any -> Any
+    """
 
 class RequestIdentification(Packet):
     """
@@ -1433,6 +1438,8 @@ class Packets(dict):
                     Error)
     Ping, Pong = register(
                     Ping)
+    CloseClient  = register(
+                    CloseClient)
     Notify = register(
                     Notify)
     RequestIdentification, AcceptIdentification = register(
