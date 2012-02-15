@@ -541,6 +541,8 @@ class Connection(BaseConnection):
 
     def _closure(self):
         assert self.connector is not None, self.whoSetConnector()
+        while self._queue:
+            self._handlers.handle(self, self._queue.pop(0))
         self.close()
 
     @profiler_decorator
