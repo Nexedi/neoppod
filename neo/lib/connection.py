@@ -26,7 +26,7 @@ from .connector import ConnectorException, ConnectorTryAgainException, \
 from .locking import RLock
 from .logger import PACKET_LOGGER
 from .profiling import profiler_decorator
-from .protocol import PacketMalformedError, Packets, ParserState
+from .protocol import Errors, PacketMalformedError, Packets, ParserState
 from .util import dump, ReadBuffer
 
 CRITICAL_TIMEOUT = 30
@@ -98,6 +98,19 @@ class HandlerSwitcher(object):
 
     def isPending(self):
         return bool(self._pending[0][0])
+
+    def cancelRequests(self, conn, message):
+        if self.isPending():
+            p = Errors.ProtocolError(message)
+            while True:
+                request_dict, handler = self._pending[0]
+                while request_dict:
+                    msg_id, request = request_dict.popitem()
+                    p.setId(msg_id)
+                    handler.packetReceived(conn, p, request[3])
+                if len(self._pending) == 1:
+                    break
+                del self._pending[0]
 
     def getHandler(self):
         return self._pending[0][1]
@@ -244,8 +257,12 @@ class BaseConnection(object):
         self._handlers = HandlerSwitcher(handler)
         event_manager.register(self)
 
-    def isPending(self):
-        return self._handlers.isPending()
+    getHandler      = property(lambda self: self._handlers.getHandler)
+    getLastHandler  = property(lambda self: self._handlers.getLastHandler)
+    isPending       = property(lambda self: self._handlers.isPending)
+
+    def cancelRequests(self, *args, **kw):
+        return self._handlers.cancelRequests(self, *args, **kw)
 
     def updateTimeout(self, t=None):
         if not self._queue:
@@ -312,9 +329,6 @@ class BaseConnection(object):
         )
 
     __del__ = close
-
-    def getHandler(self):
-        return self._handlers.getHandler()
 
     def setHandler(self, handler):
         if self._handlers.setHandler(handler):
@@ -532,12 +546,12 @@ class Connection(BaseConnection):
             self._on_close = None
         del self.write_buf[:]
         self.read_buf.clear()
-        self._handlers.clear()
         if self.connecting:
             handler.connectionFailed(self)
             self.connecting = False
         else:
             handler.connectionClosed(self)
+        self._handlers.clear()
 
     def _closure(self):
         assert self.connector is not None, self.whoSetConnector()

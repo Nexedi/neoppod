@@ -29,29 +29,6 @@ from neo.lib.pt import PartitionTable
 from neo.lib.protocol import NodeTypes, NodeStates, Packets, Errors
 from neo.lib.debug import register as registerLiveDebugger
 
-class Dispatcher:
-    """Dispatcher use to redirect master request to handler"""
-
-    def __init__(self):
-        # associate conn/message_id to dispatch
-        # message to connection
-        self.message_table = {}
-
-    def register(self, msg_id, conn, kw=None):
-        self.message_table[msg_id] = conn, kw
-
-    def pop(self, msg_id):
-        return self.message_table.pop(msg_id)
-
-    def registered(self, msg_id):
-        return self.message_table.has_key(msg_id)
-
-    def clear(self):
-        """
-            Unregister packet expected for a given connection
-        """
-        self.message_table.clear()
-
 class Application(object):
     """The storage node application."""
 
@@ -74,7 +51,6 @@ class Application(object):
         self.primary_master_node = None
         self.request_handler = MasterRequestEventHandler(self)
         self.master_event_handler = MasterEventHandler(self)
-        self.dispatcher = Dispatcher()
         self.cluster_state = None
         self.reset()
         registerLiveDebugger(on_log=self.log)
@@ -122,7 +98,6 @@ class Application(object):
             except PrimaryFailure:
                 neo.lib.logging.error('primary master is down')
 
-
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.
 
@@ -161,6 +136,7 @@ class Application(object):
 
         # passive handler
         self.master_conn.setHandler(self.master_event_handler)
+        self.master_conn.ask(Packets.AskClusterState())
         self.master_conn.ask(Packets.AskNodeInformation())
         self.master_conn.ask(Packets.AskPartitionTable())
 
@@ -175,16 +151,12 @@ class Application(object):
                 row = []
                 try:
                     for cell in self.pt.getCellList(offset):
-                        if uuid is not None and cell.getUUID() != uuid:
-                            continue
-                        else:
+                        if uuid is None or cell.getUUID() == uuid:
                             row.append((cell.getUUID(), cell.getState()))
                 except TypeError:
                     pass
                 row_list.append((offset, row))
         except IndexError:
-            p = Errors.ProtocolError('invalid partition table offset')
-            conn.notify(p)
-            return
-        p = Packets.AnswerPartitionList(self.pt.getID(), row_list)
-        conn.answer(p)
+            conn.notify(Errors.ProtocolError('invalid partition table offset'))
+        else:
+            conn.answer(Packets.AnswerPartitionList(self.pt.getID(), row_list))
