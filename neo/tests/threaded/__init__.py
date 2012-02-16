@@ -339,7 +339,8 @@ class ClientApplication(Node, neo.client.app.Application):
         try:
             super(ClientApplication, self).__del__()
         finally:
-            Serialized.background()
+            if self.poll_thread.isAlive():
+                Serialized.background()
     close = __del__
 
     def filterConnection(self, *peers):
