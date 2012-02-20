@@ -128,7 +128,7 @@ class HandlerSwitcher(object):
             # be excpected for the current handler...
             (request_dict, _) = _pending[0]
         else:
-            # ...otherwise, queue for for the latest handler
+            # ...otherwise, queue for the latest handler
             assert len(_pending) == 1 or _pending[0][0]
             (request_dict, _) = _pending[-1]
         msg_id = request.getId()

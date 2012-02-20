@@ -830,7 +830,7 @@ class MySQLDatabaseManager(DatabaseManager):
         u64 = util.u64
         # We don't ask MySQL to compute everything (like in checkTIDRange)
         # because it's difficult to get the last serial _for the last oid_.
-        # We would need a function (that be named 'LAST') that return the
+        # We would need a function (that could be named 'LAST') that returns the
         # last grouped value, instead of the greatest one.
         r = self.query(
             """SELECT oid, serial
