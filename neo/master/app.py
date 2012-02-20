@@ -395,15 +395,10 @@ class Application(object):
         self.cluster_state = state
 
     def getNewUUID(self, node_type):
-        # build an UUID
-        uuid = os.urandom(15)
-        while uuid == protocol.INVALID_UUID[1:]:
-            uuid = os.urandom(15)
-        # look for the prefix
-        prefix = UUID_NAMESPACES.get(node_type, None)
-        if prefix is None:
+        try:
+            return UUID_NAMESPACES[node_type] + os.urandom(15)
+        except KeyError:
             raise RuntimeError, 'No UUID namespace found for this node type'
-        return prefix + uuid
 
     def isValidUUID(self, uuid, addr):
         if uuid == self.uuid:
