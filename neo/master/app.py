@@ -19,10 +19,9 @@ import neo
 import os, sys
 from time import time
 
-from neo.lib import protocol
 from neo.lib.connector import getConnectorHandler
 from neo.lib.debug import register as registerLiveDebugger
-from neo.lib.protocol import UUID_NAMESPACES, ZERO_TID
+from neo.lib.protocol import UUID_NAMESPACES, ZERO_TID, NotReadyError
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
@@ -446,7 +445,7 @@ class Application(object):
                 state = NodeStates.PENDING
             handler = storage.StorageServiceHandler(self)
         elif self.cluster_state == ClusterStates.STOPPING:
-            raise protocol.NotReadyError
+            raise NotReadyError
         else:
             raise RuntimeError('unhandled cluster state: %s' %
                     (self.cluster_state, ))
@@ -470,7 +469,7 @@ class Application(object):
             # refuse any client before running
             if self.cluster_state != ClusterStates.RUNNING:
                 neo.lib.logging.info('Reject a connection from a client')
-                raise protocol.NotReadyError
+                raise NotReadyError
             node_ctor = self.nm.createClient
             handler = client.ClientServiceHandler(self)
             neo.lib.logging.info('Accept a client %s' % (dump(uuid), ))
