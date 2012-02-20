@@ -452,7 +452,7 @@ class Connection(BaseConnection):
             self.close()
 
     def closeClient(self):
-        if self.connector is not None:
+        if self.connector is not None and self.client:
             self.idle = self._closeClient
 
     def isAborted(self):
