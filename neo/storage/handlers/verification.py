@@ -38,9 +38,8 @@ class VerificationHandler(BaseMasterHandler):
         conn.answer(Packets.AnswerLastIDs(oid, tid, app.pt.getID()))
 
     def askPartitionTable(self, conn):
-        ptid = self.app.pt.getID()
-        row_list = self.app.pt.getRowList()
-        conn.answer(Packets.AnswerPartitionTable(ptid, row_list))
+        pt = self.app.pt
+        conn.answer(Packets.AnswerPartitionTable(pt.getID(), pt.getRowList()))
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         """This is very similar to Send Partition Table, except that

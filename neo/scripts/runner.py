@@ -300,9 +300,7 @@ class TestRunner(BenchmarkRunner):
 def main(args=None):
     runner = TestRunner()
     runner.run()
-    if not runner.was_successful():
-        sys.exit(1)
-    sys.exit(0)
+    return sys.exit(not runner.was_successful())
 
 if __name__ == "__main__":
     main()

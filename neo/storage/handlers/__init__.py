@@ -36,7 +36,7 @@ class BaseMasterHandler(EventHandler):
         raise PrimaryFailure('re-election occurs')
 
     def notifyClusterInformation(self, conn, state):
-        neo.lib.logging.warning('ignoring notify cluster information in %s' %
+        neo.lib.logging.warning('ignoring notify cluster information in %s',
                 self.__class__.__name__)
 
     def notifyLastOID(self, conn, oid):
@@ -49,7 +49,7 @@ class BaseMasterHandler(EventHandler):
         for node_type, addr, uuid, state in node_list:
             if uuid == self.app.uuid:
                 # This is me, do what the master tell me
-                neo.lib.logging.info("I was told I'm %s" %(state))
+                neo.lib.logging.info("I was told I'm %s", state)
                 if state in (NodeStates.DOWN, NodeStates.TEMPORARILY_DOWN,
                         NodeStates.BROKEN):
                     erase = state == NodeStates.DOWN
