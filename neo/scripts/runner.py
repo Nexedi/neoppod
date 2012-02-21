@@ -251,8 +251,10 @@ class NeoTestRunner(unittest.TestResult):
 
     def buildReport(self, add_status):
         self.time = sum([s.time for s in self.modulesStats.values()])
-        self.subject = "%s Tests, %s Errors, %s Failures" % (
-            self.testsRun, len(self.errors), len(self.failures))
+        # TODO: Add 'Broken' for known failures (not a regression)
+        #       and 'Fixed' for unexpected successes.
+        self.subject = "%s Tests, %s Failed" % (
+            self.testsRun, len(self.errors) + len(self.failures))
         summary = self._buildSummary(add_status)
         errors = self._buildErrors()
         warnings = self._buildWarnings()
