@@ -193,11 +193,11 @@ class MySQLDatabaseManager(DatabaseManager):
         q("""CREATE TABLE IF NOT EXISTS obj (
                  partition SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
-                 serial BIGINT UNSIGNED NOT NULL,
+                 tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
-                 value_serial BIGINT UNSIGNED NULL,
-                 PRIMARY KEY (partition, serial, oid),
-                 KEY (partition, oid, serial),
+                 value_tid BIGINT UNSIGNED NULL,
+                 PRIMARY KEY (partition, tid, oid),
+                 KEY (partition, oid, tid),
                  KEY (data_id)
              ) ENGINE = InnoDB""" + p)
 
@@ -226,10 +226,10 @@ class MySQLDatabaseManager(DatabaseManager):
         q("""CREATE TABLE IF NOT EXISTS tobj (
                  partition SMALLINT UNSIGNED NOT NULL,
                  oid BIGINT UNSIGNED NOT NULL,
-                 serial BIGINT UNSIGNED NOT NULL,
+                 tid BIGINT UNSIGNED NOT NULL,
                  data_id BIGINT UNSIGNED NULL,
-                 value_serial BIGINT UNSIGNED NULL,
-                 PRIMARY KEY (serial, oid)
+                 value_tid BIGINT UNSIGNED NULL,
+                 PRIMARY KEY (tid, oid)
              ) ENGINE = InnoDB""")
 
         self._uncommitted_data = dict(q("SELECT data_id, count(*)"
@@ -284,13 +284,13 @@ class MySQLDatabaseManager(DatabaseManager):
                 for partition, tid in q("SELECT partition, MAX(tid)"
                                         " FROM trans GROUP BY partition"))
             obj = dict((partition, p64(tid))
-                for partition, tid in q("SELECT partition, MAX(serial)"
+                for partition, tid in q("SELECT partition, MAX(tid)"
                                         " FROM obj GROUP BY partition"))
             if all:
                 tid = q("SELECT MAX(tid) FROM ttrans")[0][0]
                 if tid is not None:
                     trans[None] = p64(tid)
-                tid = q("SELECT MAX(serial) FROM tobj")[0][0]
+                tid = q("SELECT MAX(tid) FROM tobj")[0][0]
                 if tid is not None:
                     obj[None] = p64(tid)
         return trans, obj
@@ -300,7 +300,7 @@ class MySQLDatabaseManager(DatabaseManager):
         with self as q:
             r = q("""SELECT tid FROM ttrans""")
             tid_set.update((util.p64(t[0]) for t in r))
-            r = q("""SELECT serial FROM tobj""")
+            r = q("""SELECT tid FROM tobj""")
         tid_set.update((util.p64(t[0]) for t in r))
         return list(tid_set)
 
@@ -310,32 +310,31 @@ class MySQLDatabaseManager(DatabaseManager):
         partition = self._getPartition(oid)
         with self as q:
             return q("SELECT oid FROM obj WHERE partition=%d AND oid=%d AND "
-                     "serial=%d" % (partition, oid, tid)) or all and \
-                   q("SELECT oid FROM tobj WHERE serial=%d AND oid=%d"
+                     "tid=%d" % (partition, oid, tid)) or all and \
+                   q("SELECT oid FROM tobj WHERE tid=%d AND oid=%d"
                      % (tid, oid))
 
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
         partition = self._getPartition(oid)
-        sql = ('SELECT serial, compression, data.hash, value, value_serial'
+        sql = ('SELECT tid, compression, data.hash, value, value_tid'
                ' FROM obj LEFT JOIN data ON (obj.data_id = data.id)'
                ' WHERE partition = %d AND oid = %d') % (partition, oid)
         if tid is not None:
-            sql += ' AND serial = %d' % tid
+            sql += ' AND tid = %d' % tid
         elif before_tid is not None:
-            sql += ' AND serial < %d ORDER BY serial DESC LIMIT 1' % before_tid
+            sql += ' AND tid < %d ORDER BY tid DESC LIMIT 1' % before_tid
         else:
-            # XXX I want to express "HAVING serial = MAX(serial)", but
+            # XXX I want to express "HAVING tid = MAX(tid)", but
             # MySQL does not use an index for a HAVING clause!
-            sql += ' ORDER BY serial DESC LIMIT 1'
+            sql += ' ORDER BY tid DESC LIMIT 1'
         r = q(sql)
         try:
             serial, compression, checksum, data, value_serial = r[0]
         except IndexError:
             return None
-        r = q("""SELECT serial FROM obj
-                    WHERE partition = %d AND oid = %d AND serial > %d
-                    ORDER BY serial LIMIT 1""" % (partition, oid, serial))
+        r = q("SELECT tid FROM obj WHERE partition=%d AND oid=%d AND tid>%d"
+              " ORDER BY tid LIMIT 1" % (partition, oid, serial))
         try:
             next_serial = r[0][0]
         except IndexError:
@@ -427,7 +426,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 if value_serial:
                     value_serial = u64(value_serial)
                     (data_id,), = q("SELECT data_id FROM obj"
-                        " WHERE partition=%d AND oid=%d AND serial=%d"
+                        " WHERE partition=%d AND oid=%d AND tid=%d"
                         % (partition, oid, value_serial))
                     if temporary:
                         self.storeData(data_id)
@@ -475,17 +474,17 @@ class MySQLDatabaseManager(DatabaseManager):
         return r
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
-        sql = ('SELECT serial, data_id, value_serial FROM obj'
+        sql = ('SELECT tid, data_id, value_tid FROM obj'
                ' WHERE partition = %d AND oid = %d'
               ) % (self._getPartition(oid), oid)
         if tid is not None:
-            sql += ' AND serial = %d' % tid
+            sql += ' AND tid = %d' % tid
         elif before_tid is not None:
-            sql += ' AND serial < %d ORDER BY serial DESC LIMIT 1' % before_tid
+            sql += ' AND tid < %d ORDER BY tid DESC LIMIT 1' % before_tid
         else:
-            # XXX I want to express "HAVING serial = MAX(serial)", but
+            # XXX I want to express "HAVING tid = MAX(tid)", but
             # MySQL does not use an index for a HAVING clause!
-            sql += ' ORDER BY serial DESC LIMIT 1'
+            sql += ' ORDER BY tid DESC LIMIT 1'
         r = self.query(sql)
         if r:
             (serial, data_id, value_serial), = r
@@ -498,10 +497,10 @@ class MySQLDatabaseManager(DatabaseManager):
         q = self.query
         tid = util.u64(tid)
         with self as q:
-            sql = " FROM tobj WHERE serial=%d" % tid
+            sql = " FROM tobj WHERE tid=%d" % tid
             data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
             q("INSERT INTO obj SELECT *" + sql)
-            q("DELETE FROM tobj WHERE serial=%d" % tid)
+            q("DELETE FROM tobj WHERE tid=%d" % tid)
             q("INSERT INTO trans SELECT * FROM ttrans WHERE tid=%d" % tid)
             q("DELETE FROM ttrans WHERE tid=%d" % tid)
         self.unlockData(data_id_list)
@@ -511,7 +510,7 @@ class MySQLDatabaseManager(DatabaseManager):
         tid = u64(tid)
         getPartition = self._getPartition
         with self as q:
-            sql = " FROM tobj WHERE serial=%d" % tid
+            sql = " FROM tobj WHERE tid=%d" % tid
             data_id_list = [x for x, in q("SELECT data_id" + sql) if x]
             self.unlockData(data_id_list)
             q("DELETE" + sql)
@@ -522,7 +521,7 @@ class MySQLDatabaseManager(DatabaseManager):
             data_id_set = set()
             for oid in oid_list:
                 oid = u64(oid)
-                sql = " FROM obj WHERE partition=%d AND oid=%d AND serial=%d" \
+                sql = " FROM obj WHERE partition=%d AND oid=%d AND tid=%d" \
                    % (getPartition(oid), oid, tid)
                 data_id_set.update(*q("SELECT data_id" + sql))
                 q("DELETE" + sql)
@@ -535,7 +534,7 @@ class MySQLDatabaseManager(DatabaseManager):
         sql = " FROM obj WHERE partition=%d AND oid=%d" \
             % (self._getPartition(oid), oid)
         if serial:
-            sql += ' AND serial=%d' % u64(serial)
+            sql += ' AND tid=%d' % u64(serial)
         with self as q:
             data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql) if x]
             q("DELETE" + sql)
@@ -549,7 +548,7 @@ class MySQLDatabaseManager(DatabaseManager):
             sql += " AND tid <= %d" % util.u64(max_tid)
         q = self.query
         q("DELETE FROM trans" + sql)
-        sql = " FROM obj" + sql.replace('tid', 'serial')
+        sql = " FROM obj" + sql
         data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql) if x]
         q("DELETE" + sql)
         self._pruneData(data_id_list)
@@ -571,9 +570,9 @@ class MySQLDatabaseManager(DatabaseManager):
     def _getObjectLength(self, oid, value_serial):
         if value_serial is None:
             raise CreationUndone
-        r = self.query("""SELECT LENGTH(value), value_serial
+        r = self.query("""SELECT LENGTH(value), value_tid
                     FROM obj LEFT JOIN data ON (obj.data_id = data.id)
-                    WHERE partition = %d AND oid = %d AND serial = %d""" %
+                    WHERE partition = %d AND oid = %d AND tid = %d""" %
             (self._getPartition(oid), oid, value_serial))
         length, value_serial = r[0]
         if length is None:
@@ -590,10 +589,10 @@ class MySQLDatabaseManager(DatabaseManager):
         oid = util.u64(oid)
         p64 = util.p64
         pack_tid = self._getPackTID()
-        r = self.query("""SELECT serial, LENGTH(value), value_serial
+        r = self.query("""SELECT tid, LENGTH(value), value_tid
                     FROM obj LEFT JOIN data ON (obj.data_id = data.id)
-                    WHERE partition = %d AND oid = %d AND serial >= %d
-                    ORDER BY serial DESC LIMIT %d, %d""" \
+                    WHERE partition = %d AND oid = %d AND tid >= %d
+                    ORDER BY tid DESC LIMIT %d, %d""" \
                 % (self._getPartition(oid), oid, pack_tid, offset, length))
         if r:
             result = []
@@ -613,10 +612,10 @@ class MySQLDatabaseManager(DatabaseManager):
         u64 = util.u64
         p64 = util.p64
         min_tid = u64(min_tid)
-        r = self.query('SELECT serial, oid FROM obj'
-                       ' WHERE partition = %d AND serial <= %d'
-                       ' AND (serial = %d AND %d <= oid OR %d < serial)'
-                       ' ORDER BY serial ASC, oid ASC LIMIT %d' % (
+        r = self.query('SELECT tid, oid FROM obj'
+                       ' WHERE partition = %d AND tid <= %d'
+                       ' AND (tid = %d AND %d <= oid OR %d < tid)'
+                       ' ORDER BY tid ASC, oid ASC LIMIT %d' % (
             partition, u64(max_tid), min_tid, u64(min_oid), min_tid, length))
         return [(p64(serial), p64(oid)) for serial, oid in r]
 
@@ -653,21 +652,21 @@ class MySQLDatabaseManager(DatabaseManager):
         kw = {
           'partition': self._getPartition(oid),
           'oid': oid,
-          'orig_serial': orig_serial,
-          'max_serial': max_serial,
-          'new_serial': 'NULL',
+          'orig_tid': orig_serial,
+          'max_tid': max_serial,
+          'new_tid': 'NULL',
         }
         for kw['table'] in 'obj', 'tobj':
-            for kw['serial'], in q('SELECT serial FROM %(table)s'
+            for kw['tid'], in q('SELECT tid FROM %(table)s'
                   ' WHERE partition=%(partition)d AND oid=%(oid)d'
-                  ' AND serial>=%(max_serial)d AND value_serial=%(orig_serial)d'
-                  ' ORDER BY serial ASC' % kw):
-                q('UPDATE %(table)s SET value_serial=%(new_serial)s'
+                  ' AND tid>=%(max_tid)d AND value_tid=%(orig_tid)d'
+                  ' ORDER BY tid ASC' % kw):
+                q('UPDATE %(table)s SET value_tid=%(new_tid)s'
                   ' WHERE partition=%(partition)d AND oid=%(oid)d'
-                  ' AND serial=%(serial)d' % kw)
+                  ' AND tid=%(tid)d' % kw)
                 if value_serial is None:
                     # First found, mark its serial for future reference.
-                    kw['new_serial'] = value_serial = kw['serial']
+                    kw['new_tid'] = value_serial = kw['tid']
         return value_serial
 
     def pack(self, tid, updateObjectDataForPack):
@@ -679,11 +678,11 @@ class MySQLDatabaseManager(DatabaseManager):
         with self as q:
             self._setPackTID(tid)
             for count, oid, max_serial in q('SELECT COUNT(*) - 1, oid, '
-                    'MAX(serial) FROM obj WHERE serial <= %d GROUP BY oid'
+                    'MAX(tid) FROM obj WHERE tid <= %d GROUP BY oid'
                     % tid):
                 partition = getPartition(oid)
                 if q("SELECT 1 FROM obj WHERE partition = %d"
-                     " AND oid = %d AND serial = %d AND data_id IS NULL"
+                     " AND oid = %d AND tid = %d AND data_id IS NULL"
                      % (partition, oid, max_serial)):
                     max_serial += 1
                 elif not count:
@@ -691,8 +690,8 @@ class MySQLDatabaseManager(DatabaseManager):
                 # There are things to delete for this object
                 data_id_set = set()
                 sql = ' FROM obj WHERE partition=%d AND oid=%d' \
-                    ' AND serial<%d' % (partition, oid, max_serial)
-                for serial, data_id in q('SELECT serial, data_id' + sql):
+                    ' AND tid<%d' % (partition, oid, max_serial)
+                for serial, data_id in q('SELECT tid, data_id' + sql):
                     data_id_set.add(data_id)
                     new_serial = updatePackFuture(oid, serial, max_serial)
                     if new_serial:
@@ -727,15 +726,15 @@ class MySQLDatabaseManager(DatabaseManager):
         # We would need a function (that could be named 'LAST') that returns the
         # last grouped value, instead of the greatest one.
         r = self.query(
-            """SELECT oid, serial
+            """SELECT oid, tid
                FROM obj
                WHERE partition = %(partition)s
-                 AND serial <= %(max_tid)d
+                 AND tid <= %(max_tid)d
                  AND (oid > %(min_oid)d OR
-                      oid = %(min_oid)d AND serial >= %(min_serial)d)
-               ORDER BY oid ASC, serial ASC %(limit)s""" % {
+                      oid = %(min_oid)d AND tid >= %(min_tid)d)
+               ORDER BY oid ASC, tid ASC %(limit)s""" % {
             'min_oid': u64(min_oid),
-            'min_serial': u64(min_serial),
+            'min_tid': u64(min_serial),
             'max_tid': u64(max_tid),
             'limit': '' if length is None else 'LIMIT %(length)d' % length,
             'partition': partition,

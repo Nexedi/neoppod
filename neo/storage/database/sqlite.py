@@ -130,13 +130,13 @@ class SQLiteDatabaseManager(DatabaseManager):
         q("""CREATE TABLE IF NOT EXISTS obj (
                  partition INTEGER NOT NULL,
                  oid INTEGER NOT NULL,
-                 serial INTEGER NOT NULL,
+                 tid INTEGER NOT NULL,
                  data_id INTEGER,
-                 value_serial INTEGER,
-                 PRIMARY KEY (partition, serial, oid))
+                 value_tid INTEGER,
+                 PRIMARY KEY (partition, tid, oid))
           """)
         q("""CREATE INDEX IF NOT EXISTS _obj_i1 ON
-                 obj(partition, oid, serial)
+                 obj(partition, oid, tid)
           """)
         q("""CREATE INDEX IF NOT EXISTS _obj_i2 ON
                  obj(data_id)
@@ -165,10 +165,10 @@ class SQLiteDatabaseManager(DatabaseManager):
         q("""CREATE TABLE IF NOT EXISTS tobj (
                  partition INTEGER NOT NULL,
                  oid INTEGER NOT NULL,
-                 serial INTEGER NOT NULL,
+                 tid INTEGER NOT NULL,
                  data_id INTEGER,
-                 value_serial INTEGER,
-                 PRIMARY KEY (serial, oid))
+                 value_tid INTEGER,
+                 PRIMARY KEY (tid, oid))
           """)
 
         self._uncommitted_data = dict(q("SELECT data_id, count(*)"
@@ -215,13 +215,13 @@ class SQLiteDatabaseManager(DatabaseManager):
                 for partition, tid in q("SELECT partition, MAX(tid)"
                                         " FROM trans GROUP BY partition"))
             obj = dict((partition, p64(tid))
-                for partition, tid in q("SELECT partition, MAX(serial)"
+                for partition, tid in q("SELECT partition, MAX(tid)"
                                         " FROM obj GROUP BY partition"))
             if all:
                 tid = q("SELECT MAX(tid) FROM ttrans").fetchone()[0]
                 if tid is not None:
                     trans[None] = p64(tid)
-                tid = q("SELECT MAX(serial) FROM tobj").fetchone()[0]
+                tid = q("SELECT MAX(tid) FROM tobj").fetchone()[0]
                 if tid is not None:
                     obj[None] = p64(tid)
         return trans, obj
@@ -231,40 +231,40 @@ class SQLiteDatabaseManager(DatabaseManager):
         tid_set = set()
         with self as q:
             tid_set.update((p64(t[0]) for t in q("SELECT tid FROM ttrans")))
-            tid_set.update((p64(t[0]) for t in q("SELECT serial FROM tobj")))
+            tid_set.update((p64(t[0]) for t in q("SELECT tid FROM tobj")))
         return list(tid_set)
 
     def objectPresent(self, oid, tid, all=True):
         oid = util.u64(oid)
         tid = util.u64(tid)
         with self as q:
-            r = q("SELECT 1 FROM obj WHERE partition=? AND oid=? AND serial=?",
+            r = q("SELECT 1 FROM obj WHERE partition=? AND oid=? AND tid=?",
                   (self._getPartition(oid), oid, tid)).fetchone()
             if not r and all:
-                r = q("SELECT 1 FROM tobj WHERE serial=? AND oid=?",
+                r = q("SELECT 1 FROM tobj WHERE tid=? AND oid=?",
                       (tid, oid)).fetchone()
         return bool(r)
 
     def _getObject(self, oid, tid=None, before_tid=None):
         q = self.query
         partition = self._getPartition(oid)
-        sql = ('SELECT serial, compression, data.hash, value, value_serial'
+        sql = ('SELECT tid, compression, data.hash, value, value_tid'
                ' FROM obj LEFT JOIN data ON obj.data_id = data.id'
                ' WHERE partition=? AND oid=?')
         if tid is not None:
-            r = q(sql + ' AND serial=?', (partition, oid, tid))
+            r = q(sql + ' AND tid=?', (partition, oid, tid))
         elif before_tid is not None:
-            r = q(sql + ' AND serial<? ORDER BY serial DESC LIMIT 1',
+            r = q(sql + ' AND tid<? ORDER BY tid DESC LIMIT 1',
                   (partition, oid, before_tid))
         else:
-            r = q(sql + ' ORDER BY serial DESC LIMIT 1', (partition, oid))
+            r = q(sql + ' ORDER BY tid DESC LIMIT 1', (partition, oid))
         try:
             serial, compression, checksum, data, value_serial = r.fetchone()
         except TypeError:
             return None
-        r = q("""SELECT serial FROM obj
-                 WHERE partition=? AND oid=? AND serial>?
-                 ORDER BY serial LIMIT 1""",
+        r = q("""SELECT tid FROM obj
+                 WHERE partition=? AND oid=? AND tid>?
+                 ORDER BY tid LIMIT 1""",
               (partition, oid, serial)).fetchone()
         if checksum:
             checksum = str(checksum)
@@ -325,7 +325,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                 if value_serial:
                     value_serial = u64(value_serial)
                     (data_id,), = q("SELECT data_id FROM obj"
-                        " WHERE partition=? AND oid=? AND serial=?",
+                        " WHERE partition=? AND oid=? AND tid=?",
                         (partition, oid, value_serial))
                     if temporary:
                         self.storeData(data_id)
@@ -335,8 +335,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                     # This may happen if a previous replication of 'obj' was
                     # interrupted.
                     if not T:
-                        r, = q("SELECT data_id, value_serial FROM obj"
-                               " WHERE partition=? AND oid=? AND serial=?",
+                        r, = q("SELECT data_id, value_tid FROM obj"
+                               " WHERE partition=? AND oid=? AND tid=?",
                                (partition, oid, tid))
                         if r == (data_id, value_serial):
                             continue
@@ -376,15 +376,15 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     def _getDataTID(self, oid, tid=None, before_tid=None):
         partition = self._getPartition(oid)
-        sql = 'SELECT serial, data_id, value_serial FROM obj' \
+        sql = 'SELECT tid, data_id, value_tid FROM obj' \
               ' WHERE partition=? AND oid=?'
         if tid is not None:
-            r = self.query(sql + ' AND serial=?', (partition, oid, tid))
+            r = self.query(sql + ' AND tid=?', (partition, oid, tid))
         elif before_tid is not None:
-            r = self.query(sql + ' AND serial<? ORDER BY serial DESC LIMIT 1',
+            r = self.query(sql + ' AND tid<? ORDER BY tid DESC LIMIT 1',
                            (partition, oid, before_tid))
         else:
-            r = self.query(sql + ' ORDER BY serial DESC LIMIT 1',
+            r = self.query(sql + ' ORDER BY tid DESC LIMIT 1',
                            (partition, oid))
         r = r.fetchone()
         if r:
@@ -397,10 +397,10 @@ class SQLiteDatabaseManager(DatabaseManager):
     def finishTransaction(self, tid):
         args = util.u64(tid),
         with self as q:
-            sql = " FROM tobj WHERE serial=?"
+            sql = " FROM tobj WHERE tid=?"
             data_id_list = [x for x, in q("SELECT data_id" + sql, args) if x]
             q("INSERT OR FAIL INTO obj SELECT *" + sql, args)
-            q("DELETE FROM tobj WHERE serial=?", args)
+            q("DELETE FROM tobj WHERE tid=?", args)
             q("INSERT OR FAIL INTO trans SELECT * FROM ttrans WHERE tid=?",
               args)
             q("DELETE FROM ttrans WHERE tid=?", args)
@@ -411,7 +411,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         tid = u64(tid)
         getPartition = self._getPartition
         with self as q:
-            sql = " FROM tobj WHERE serial=?"
+            sql = " FROM tobj WHERE tid=?"
             data_id_list = [x for x, in q("SELECT data_id" + sql, (tid,)) if x]
             self.unlockData(data_id_list)
             q("DELETE" + sql, (tid,))
@@ -422,7 +422,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             data_id_set = set()
             for oid in oid_list:
                 oid = u64(oid)
-                sql = " FROM obj WHERE partition=? AND oid=? AND serial=?"
+                sql = " FROM obj WHERE partition=? AND oid=? AND tid=?"
                 args = getPartition(oid), oid, tid
                 data_id_set.update(*q("SELECT data_id" + sql, args))
                 q("DELETE" + sql, args)
@@ -434,7 +434,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         sql = " FROM obj WHERE partition=? AND oid=?"
         args = [self._getPartition(oid), oid]
         if serial:
-            sql += " AND serial=?"
+            sql += " AND tid=?"
             args.append(util.u64(serial))
         with self as q:
             data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql, args)
@@ -453,7 +453,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             args.append(util.u64(max_tid))
         q = self.query
         q("DELETE FROM trans" + sql, args)
-        sql = " FROM obj" + sql.replace('tid', 'serial')
+        sql = " FROM obj" + sql
         data_id_list = [x for x, in q("SELECT DISTINCT data_id" + sql, args)
                           if x]
         q("DELETE" + sql, args)
@@ -476,9 +476,9 @@ class SQLiteDatabaseManager(DatabaseManager):
     def _getObjectLength(self, oid, value_serial):
         if value_serial is None:
             raise CreationUndone
-        length, value_serial = self.query("""SELECT LENGTH(value), value_serial
+        length, value_serial = self.query("""SELECT LENGTH(value), value_tid
             FROM obj LEFT JOIN data ON obj.data_id=data.id
-            WHERE partition=? AND oid=? AND serial=?""",
+            WHERE partition=? AND oid=? AND tid=?""",
             (self._getPartition(oid), oid, value_serial)).fetchone()
         if length is None:
             neo.lib.logging.info("Multiple levels of indirection"
@@ -498,10 +498,10 @@ class SQLiteDatabaseManager(DatabaseManager):
         append = result.append
         with self as q:
             for serial, length, value_serial in q("""\
-                    SELECT serial, LENGTH(value), value_serial
+                    SELECT tid, LENGTH(value), value_tid
                     FROM obj LEFT JOIN data ON obj.data_id = data.id
-                    WHERE partition=? AND oid=? AND serial>=?
-                    ORDER BY serial DESC LIMIT ?,?""",
+                    WHERE partition=? AND oid=? AND tid>=?
+                    ORDER BY tid DESC LIMIT ?,?""",
                     (self._getPartition(oid), oid, pack_tid, offset, length)):
                 if length is None:
                     try:
@@ -517,10 +517,10 @@ class SQLiteDatabaseManager(DatabaseManager):
         p64 = util.p64
         min_tid = u64(min_tid)
         return [(p64(serial), p64(oid)) for serial, oid in self.query("""\
-            SELECT serial, oid FROM obj
-            WHERE partition=? AND serial<=?
-            AND (serial=? AND ?<=oid OR ?<serial)
-            ORDER BY serial ASC, oid ASC LIMIT ?""",
+            SELECT tid, oid FROM obj
+            WHERE partition=? AND tid<=?
+            AND (tid=? AND ?<=oid OR ?<tid)
+            ORDER BY tid ASC, oid ASC LIMIT ?""",
             (partition, u64(max_tid), min_tid, u64(min_oid), min_tid, length))]
 
     def getTIDList(self, offset, length, partition_list):
@@ -550,11 +550,11 @@ class SQLiteDatabaseManager(DatabaseManager):
         value_serial = None
         q = self.query
         for T in '', 't':
-            update = """UPDATE OR FAIL %sobj SET value_serial=?
-                         WHERE partition=? AND oid=? AND serial=?""" % T
-            for serial, in q("""SELECT serial FROM %sobj
-                    WHERE partition=? AND oid=? AND serial>=? AND value_serial=?
-                    ORDER BY serial ASC""" % T,
+            update = """UPDATE OR FAIL %sobj SET value_tid=?
+                         WHERE partition=? AND oid=? AND tid=?""" % T
+            for serial, in q("""SELECT tid FROM %sobj
+                    WHERE partition=? AND oid=? AND tid>=? AND value_tid=?
+                    ORDER BY tid ASC""" % T,
                     (partition, oid, max_serial, orig_serial)):
                 q(update, (value_serial, partition, oid, serial))
                 if value_serial is None:
@@ -571,20 +571,20 @@ class SQLiteDatabaseManager(DatabaseManager):
         with self as q:
             self._setPackTID(tid)
             for count, oid, max_serial in q("SELECT COUNT(*) - 1, oid,"
-                    " MAX(serial) FROM obj WHERE serial<=? GROUP BY oid",
+                    " MAX(tid) FROM obj WHERE tid<=? GROUP BY oid",
                     (tid,)):
                 partition = getPartition(oid)
                 if q("SELECT 1 FROM obj WHERE partition=?"
-                     " AND oid=? AND serial=? AND data_id IS NULL",
+                     " AND oid=? AND tid=? AND data_id IS NULL",
                      (partition, oid, max_serial)).fetchone():
                     max_serial += 1
                 elif not count:
                     continue
                 # There are things to delete for this object
                 data_id_set = set()
-                sql = " FROM obj WHERE partition=? AND oid=? AND serial<?"
+                sql = " FROM obj WHERE partition=? AND oid=? AND tid<?"
                 args = partition, oid, max_serial
-                for serial, data_id in q("SELECT serial, data_id" + sql, args):
+                for serial, data_id in q("SELECT tid, data_id" + sql, args):
                     data_id_set.add(data_id)
                     new_serial = updatePackFuture(oid, serial, max_serial)
                     if new_serial:
@@ -615,11 +615,11 @@ class SQLiteDatabaseManager(DatabaseManager):
         # last grouped value, instead of the greatest one.
         min_oid = u64(min_oid)
         r = self.query("""\
-            SELECT oid, serial
+            SELECT oid, tid
             FROM obj
-            WHERE partition=? AND serial<=?
-              AND (oid>? OR oid=? AND serial>=?)
-            ORDER BY oid ASC, serial ASC LIMIT ?""",
+            WHERE partition=? AND tid<=?
+              AND (oid>? OR oid=? AND tid>=?)
+            ORDER BY oid ASC, tid ASC LIMIT ?""",
             (partition, u64(max_tid), min_oid, min_oid, u64(min_serial),
              -1 if length is None else length)).fetchall()
         if r:
