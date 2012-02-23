@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+import math
 from functools import wraps
 import neo
 
@@ -238,19 +239,19 @@ class PartitionTable(object):
         """Help debugging partition table management.
 
         Output sample:
-        DEBUG:root:pt: node 0: ad7ffe8ceef4468a0c776f3035c7a543, R
-        DEBUG:root:pt: node 1: a68a01e8bf93e287bd505201c1405bc2, R
-        DEBUG:root:pt: node 2: 67ae354b4ed240a0594d042cf5c01b28, R
-        DEBUG:root:pt: node 3: df57d7298678996705cd0092d84580f4, R
-        DEBUG:root:pt: 00000000: .UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.
-        DEBUG:root:pt: 00000009: U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U
+          pt: node 0: 67ae354b4ed240a0594d042cf5c01b28, R
+          pt: node 1: a68a01e8bf93e287bd505201c1405bc2, R
+          pt: node 2: ad7ffe8ceef4468a0c776f3035c7a543, R
+          pt: node 3: df57d7298678996705cd0092d84580f4, R
+          pt: 00: .UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.
+          pt: 11: U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U|.UU.|U..U
 
         Here, there are 4 nodes in RUNNING state.
         The first partition has 2 replicas in UP_TO_DATE state, on nodes 1 and
         2 (nodes 0 and 3 are displayed as unused for that partition by
         displaying a dot).
-        The 8-digits number on the left represents the number of the first
-        partition on the line (here, line length is 9 to keep the docstring
+        The first number on the left represents the number of the first
+        partition on the line (here, line length is 11 to keep the docstring
         width under 80 column).
         """
         result = []
@@ -267,11 +268,13 @@ class PartitionTable(object):
         line = []
         max_line_len = 20 # XXX: hardcoded number of partitions per line
         cell_state_dict = protocol.cell_state_prefix_dict
+        prefix = 0
+        prefix_len = int(math.ceil(math.log10(self.np)))
         for offset, row in enumerate(self.partition_list):
             if len(line) == max_line_len:
-                append('pt: %08d: %s' % (offset - max_line_len,
-                              '|'.join(line)))
+                append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
                 line = []
+                prefix = offset
             if row is None:
                 line.append('X' * len(node_list))
             else:
@@ -285,8 +288,7 @@ class PartitionTable(object):
                         cell.append('.')
                 line.append(''.join(cell))
         if len(line):
-            append('pt: %08d: %s' % (offset - len(line) + 1,
-                          '|'.join(line)))
+            append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
         return result
 
     def operational(self):
