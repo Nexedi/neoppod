@@ -53,6 +53,10 @@ defaults = dict(
 )
 
 def main(args=None):
+    # TODO: Forbid using "reset" along with any unneeded argument.
+    #       "reset" is too dangerous to let user a chance of accidentally
+    #       letting it slip through in a long option list.
+    #       We should drop support configation files to make such check useful.
     (options, args) = parser.parse_args(args=args)
     arguments = dict(
         uuid = options.uuid,
@@ -65,19 +69,6 @@ def main(args=None):
         adapter = options.adapter,
         wait = options.wait,
     )
-    if arguments['reset']:
-        # Forbid using "reset" along with any unneeded argument.
-        # "reset" is too dangerous to let user a chance of accidentally
-        # letting it slip through in a long option list.
-        forbidden = set(x for x, y in arguments.iteritems()
-            if y).difference((
-                'reset',
-                'adapter',
-                'database',
-            ))
-        if forbidden:
-            raise ValueError('Cannot reset database when the following '
-                'parameters are also provided: ' + ' '.join(forbidden))
     config = ConfigurationManager(
             defaults,
             options.file,
@@ -91,5 +82,5 @@ def main(args=None):
     # and then, load and run the application
     from neo.storage.app import Application
     app = Application(config)
-    app.run()
-
+    if not config.getReset():
+        app.run()
