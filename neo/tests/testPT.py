@@ -198,24 +198,8 @@ class PartitionTableTests(NeoUnitTestBase):
                 self.assertTrue(sn2 in all_nodes)
                 self.assertTrue(sn3 in all_nodes)
                 self.assertTrue(sn4 not in all_nodes)
-                # writable nodes
-                all_cell = pt.getCellList(0, writable=True)
-                all_nodes = [x.getNode() for x in all_cell]
-                self.assertEqual(len(all_cell), 3)
-                self.assertTrue(sn1 in all_nodes)
-                self.assertTrue(sn2 in all_nodes)
-                self.assertTrue(sn3 in all_nodes)
-                self.assertTrue(sn4 not in all_nodes)
                 # readable nodes
                 all_cell = pt.getCellList(0, readable=True)
-                all_nodes = [x.getNode() for x in all_cell]
-                self.assertEqual(len(all_cell), 2)
-                self.assertTrue(sn1 in all_nodes)
-                self.assertTrue(sn2 not in all_nodes)
-                self.assertTrue(sn3 in all_nodes)
-                self.assertTrue(sn4 not in all_nodes)
-                # writable & readable nodes
-                all_cell = pt.getCellList(0, readable=True, writable=True)
                 all_nodes = [x.getNode() for x in all_cell]
                 self.assertEqual(len(all_cell), 2)
                 self.assertTrue(sn1 in all_nodes)

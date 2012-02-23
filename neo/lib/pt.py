@@ -33,7 +33,7 @@ class Cell(object):
 
     def __init__(self, node, state = CellStates.UP_TO_DATE):
         self.node = node
-        self.state = state
+        self.setState(state)
 
     def __repr__(self):
         return "<Cell(uuid=%s, address=%s, state=%s)>" % (
@@ -46,6 +46,7 @@ class Cell(object):
         return self.state
 
     def setState(self, state):
+        assert state != CellStates.DISCARDED
         self.state = state
 
     def isUpToDate(self):
@@ -125,20 +126,11 @@ class PartitionTable(object):
         return [node for node, count in self.count_dict.iteritems() \
                 if count > 0]
 
-    def getCellList(self, offset, readable=False, writable=False):
-        # allow all cell states
-        state_set = set(CellStates.values())
-        if readable or writable:
-            # except non readables
-            state_set.remove(CellStates.DISCARDED)
+    def getCellList(self, offset, readable=False):
         if readable:
-            # except non writables
-            state_set.remove(CellStates.OUT_OF_DATE)
-        try:
-            return [cell for cell in self.partition_list[offset] \
-                    if cell is not None and cell.getState() in state_set]
-        except (TypeError, KeyError):
-            return []
+            return [cell for cell in self.partition_list[offset]
+                         if not cell.isOutOfDate()]
+        return list(self.partition_list[offset])
 
     def getPartition(self, oid_or_tid):
         return u64(oid_or_tid) % self.getPartitions()
@@ -189,7 +181,6 @@ class PartitionTable(object):
 
     def removeCell(self, offset, node):
         row = self.partition_list[offset]
-        assert row is not None
         for cell in row:
             if cell.getNode() == node:
                 row.remove(cell)
@@ -303,8 +294,7 @@ class PartitionTable(object):
             return False
         for row in self.partition_list:
             for cell in row:
-                if (cell.isUpToDate() or cell.isFeeding()) and \
-                        cell.getNode().isRunning():
+                if not cell.isOutOfDate() and cell.getNode().isRunning():
                     break
             else:
                 return False

@@ -302,7 +302,7 @@ class PartitionTable(PartitionTable):
             lost = lost_node
             cell_list = []
             for cell in row:
-                if cell.isUpToDate() or cell.isFeeding():
+                if not cell.isOutOfDate():
                     if cell.getNode().isRunning():
                         lost = None
                     else :
@@ -322,8 +322,7 @@ class PartitionTable(PartitionTable):
         return set(cell.getNode()
             for row in self.partition_list
             for cell in row
-            if cell.isUpToDate() or cell.isFeeding()
-        )
+            if not cell.isOutOfDate())
 
     def getOutOfDateCellNodeSet(self):
         """
@@ -332,6 +331,6 @@ class PartitionTable(PartitionTable):
         """
         return set(cell.getNode()
             for row in self.partition_list
-            for cell in row if cell.isOutOfDate()
-        )
+            for cell in row
+            if cell.isOutOfDate())
 

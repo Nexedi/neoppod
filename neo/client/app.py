@@ -540,7 +540,7 @@ class Application(object):
         add_involved_nodes = involved_nodes.add
         packet = Packets.AskStoreObject(oid, serial, compression,
             checksum, compressed_data, data_serial, ttid, unlock)
-        for node, conn in self.cp.iterateForObject(oid, writable=True):
+        for node, conn in self.cp.iterateForObject(oid):
             try:
                 conn.ask(packet, on_timeout=on_timeout, queue=queue)
                 add_involved_nodes(node)
@@ -715,7 +715,7 @@ class Application(object):
             str(transaction.description), dumps(transaction._extension),
             txn_context['cache_dict'])
         add_involved_nodes = txn_context['involved_nodes'].add
-        for node, conn in self.cp.iterateForObject(ttid, writable=True):
+        for node, conn in self.cp.iterateForObject(ttid):
             neo.lib.logging.debug("voting object %s on %s", dump(ttid),
                 dump(conn.getUUID()))
             try:
@@ -1096,7 +1096,7 @@ class Application(object):
         assert oid not in txn_context['cache_dict'], (oid, txn_context)
         txn_context['data_dict'].setdefault(oid, CHECKED_SERIAL)
         packet = Packets.AskCheckCurrentSerial(ttid, serial, oid)
-        for node, conn in self.cp.iterateForObject(oid, writable=True):
+        for node, conn in self.cp.iterateForObject(oid):
             try:
                 conn.ask(packet, queue=queue)
             except ConnectionClosed:
