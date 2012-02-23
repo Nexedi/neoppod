@@ -65,6 +65,19 @@ def main(args=None):
         adapter = options.adapter,
         wait = options.wait,
     )
+    if arguments['reset']:
+        # Forbid using "reset" along with any unneeded argument.
+        # "reset" is too dangerous to let user a chance of accidentally
+        # letting it slip through in a long option list.
+        forbidden = set(x for x, y in arguments.iteritems()
+            if y).difference((
+                'reset',
+                'adapter',
+                'database',
+            ))
+        if forbidden:
+            raise ValueError('Cannot reset database when the following '
+                'parameters are also provided: ' + ' '.join(forbidden))
     config = ConfigurationManager(
             defaults,
             options.file,

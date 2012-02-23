@@ -41,6 +41,19 @@ class Application(object):
     """The storage node application."""
 
     def __init__(self, config):
+        self.dm = buildDatabaseManager(config.getAdapter(),
+            (config.getDatabase(), config.getWait())
+        )
+        reset = config.getReset()
+        self.dm.setup(reset=reset)
+        if reset:
+            # Abort ctor and prevent instance from running.
+            # This is done to prevent mistakes where user would use a storage
+            # started with reset option, and restart that storage later without
+            # dropping that option.
+            self.run = lambda: None
+            return
+
         # set the cluster name
         self.name = config.getCluster()
 
@@ -48,10 +61,6 @@ class Application(object):
         self.em = EventManager()
         self.nm = NodeManager(config.getDynamicMasterList())
         self.tm = TransactionManager(self)
-        self.dm = buildDatabaseManager(config.getAdapter(),
-            (config.getDatabase(), config.getWait())
-        )
-
         # load master nodes
         master_addresses, connector_name = config.getMasters()
         self.connector_handler = getConnectorHandler(connector_name)
@@ -79,7 +88,6 @@ class Application(object):
         # ready is True when operational and got all informations
         self.ready = False
 
-        self.dm.setup(reset=config.getReset())
         self.loadConfiguration()
 
         # force node uuid from command line argument, for testing purpose only
