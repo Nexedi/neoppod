@@ -755,7 +755,7 @@ class PartitionChanges(Packet):
             PStruct('cell',
                 PNumber('offset'),
                 PUUID('uuid'),
-                PFNodeState,
+                PFCellState,
             ),
         ),
     )
