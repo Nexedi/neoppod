@@ -163,10 +163,8 @@ class PartitionTable(PartitionTable):
             max_count = 0
             max_cell = None
             num_cells = 0
-            skip = False
             for cell in row:
-                if cell.getNode() == node:
-                    skip = True
+                if cell.getNode() is node:
                     break
                 if cell.isFeeding():
                     feeding_cell = cell
@@ -177,16 +175,13 @@ class PartitionTable(PartitionTable):
                         max_count = count
                         max_cell = cell
 
-            if skip:
-                continue
-
-            if num_cells <= self.nr:
-                row.append(neo.lib.pt.Cell(node, CellStates.OUT_OF_DATE))
-                cell_list.append((offset, node.getUUID(),
-                    CellStates.OUT_OF_DATE))
-                node_count += 1
             else:
-                if max_count - node_count > 1:
+                if num_cells <= self.nr:
+                    row.append(neo.lib.pt.Cell(node, CellStates.OUT_OF_DATE))
+                    cell_list.append((offset, node.getUUID(),
+                        CellStates.OUT_OF_DATE))
+                    node_count += 1
+                elif node_count + 1 < max_count:
                     if feeding_cell is not None or max_cell.isOutOfDate():
                         # If there is a feeding cell already or it is
                         # out-of-date, just drop the node.
