@@ -254,17 +254,11 @@ class PartitionTable(object):
         partition on the line (here, line length is 11 to keep the docstring
         width under 80 column).
         """
-        result = []
+        node_list = sorted(self.count_dict)
+        result = ['pt: node %u: %s, %s' % (i, dump(node.getUUID()),
+                     protocol.node_state_prefix_dict[node.getState()])
+                  for i, node in enumerate(node_list)]
         append = result.append
-        node_list = self.count_dict.keys()
-        node_list = [k for k, v in self.count_dict.items() if v != 0]
-        node_list.sort()
-        node_dict = {}
-        for i, node in enumerate(node_list):
-            uuid = node.getUUID()
-            node_dict[uuid] = i
-            append('pt: node %d: %s, %s' % (i, dump(uuid),
-                protocol.node_state_prefix_dict[node.getState()]))
         line = []
         max_line_len = 20 # XXX: hardcoded number of partitions per line
         cell_state_dict = protocol.cell_state_prefix_dict
@@ -278,16 +272,10 @@ class PartitionTable(object):
             if row is None:
                 line.append('X' * len(node_list))
             else:
-                cell = []
-                cell_dict = dict([(node_dict.get(x.getUUID(), None), x)
-                    for x in row])
-                for node in xrange(len(node_list)):
-                    if node in cell_dict:
-                        cell.append(cell_state_dict[cell_dict[node].getState()])
-                    else:
-                        cell.append('.')
-                line.append(''.join(cell))
-        if len(line):
+                cell_dict = dict((x.getNode(), cell_state_dict[x.getState()])
+                                 for x in row)
+                line.append(''.join(cell_dict.get(x, '.') for x in node_list))
+        if line:
             append('pt: %0*u: %s' % (prefix_len, prefix, '|'.join(line)))
         return result
 
