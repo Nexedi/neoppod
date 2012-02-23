@@ -130,10 +130,13 @@ class Application(object):
 
         # check cluster name
         try:
-            if dm.getName() != self.name:
-                raise RuntimeError('name does not match with the database')
+            dm_name = dm.getName()
         except KeyError:
             dm.setName(self.name)
+        else:
+            if dm_name != self.name:
+                raise RuntimeError('name %r does not match with the '
+                    'database: %r' % (self.name, dm_name))
 
         # load configuration
         self.uuid = NoneOnKeyError(dm.getUUID)
