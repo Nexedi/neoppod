@@ -48,7 +48,7 @@ class ConfigurationManager(object):
     def getMasters(self):
         """ Get the master node list except itself """
         masters = self.__get('masters')
-        # lod master node list except itself
+        # load master node list except itself
         return util.parseMasterList(masters, except_node=self.getBind())
 
     def getBind(self):
