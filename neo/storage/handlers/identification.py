@@ -22,6 +22,7 @@ from neo.lib.protocol import NodeTypes, Packets, NotReadyError
 from neo.lib.protocol import ProtocolError, BrokenNodeDisallowedError
 from neo.lib.util import dump
 from .storage import StorageOperationHandler
+from .client import ClientOperationHandler
 
 class IdentificationHandler(EventHandler):
     """ Handler used for incoming connections during operation state """
@@ -50,7 +51,6 @@ class IdentificationHandler(EventHandler):
                 raise BrokenNodeDisallowedError
             # choose the handler according to the node type
             if node_type == NodeTypes.CLIENT:
-                from .client import ClientOperationHandler
                 handler = ClientOperationHandler
                 if node is None:
                     node = app.nm.createClient(uuid=uuid)
