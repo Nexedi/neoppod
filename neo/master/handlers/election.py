@@ -22,15 +22,11 @@ from neo.lib.protocol import NotReadyError, ProtocolError, \
                               UnexpectedPacketError
 from neo.lib.protocol import BrokenNodeDisallowedError
 from neo.lib.exception import ElectionFailure
+from neo.lib.handler import EventHandler
 from neo.lib.util import dump
 from . import MasterHandler
 
-class ClientElectionHandler(MasterHandler):
-
-    # FIXME: this packet is not allowed here, but handled in MasterHandler
-    # a global handler review is required.
-    def askPrimary(self, conn):
-        raise UnexpectedPacketError, "askPrimary on server connection"
+class ClientElectionHandler(EventHandler):
 
     def connectionFailed(self, conn):
         addr = conn.getAddress()

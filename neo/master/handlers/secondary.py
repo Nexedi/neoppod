@@ -16,6 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 from . import MasterHandler
+from neo.lib.handler import EventHandler
 from neo.lib.exception import ElectionFailure, PrimaryFailure
 from neo.lib.protocol import NodeTypes, Packets
 
@@ -34,7 +35,7 @@ class SecondaryMasterHandler(MasterHandler):
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 
-class PrimaryHandler(MasterHandler):
+class PrimaryHandler(EventHandler):
     """ Handler used by secondaries to handle primary master"""
 
     def connectionLost(self, conn, new_state):
