@@ -51,7 +51,7 @@ class PrimaryHandler(MasterHandler):
         # connection successfull, set it as running
         node.setRunning()
         conn.ask(Packets.AskPrimary())
-        MasterHandler.connectionCompleted(self, conn)
+        super(PrimaryHandler, self).connectionCompleted(conn)
 
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'

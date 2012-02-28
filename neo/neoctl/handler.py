@@ -24,7 +24,7 @@ class CommandEventHandler(EventHandler):
     def connectionCompleted(self, conn):
         # connected to admin node
         self.app.connected = True
-        EventHandler.connectionCompleted(self, conn)
+        super(CommandEventHandler, self).connectionCompleted(conn)
 
     def __disconnected(self):
         app = self.app
