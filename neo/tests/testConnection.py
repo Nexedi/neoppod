@@ -165,15 +165,18 @@ class ConnectionTests(NeoUnitTestBase):
             return self, ('', 0)
         DoNothingConnector.getNewConnection = getNewConnection
         addr = ("127.0.0.7", 93413)
-        bc = self._makeListeningConnection(addr=addr)
-        self.assertEqual(bc.getAddress(), addr)
-        self._checkRegistered()
-        self._checkReaderAdded()
-        self._checkMakeListeningConnection()
-        # test readable
-        bc.readable()
-        self._checkGetNewConnection()
-        self._checkConnectionAccepted()
+        try:
+            bc = self._makeListeningConnection(addr=addr)
+            self.assertEqual(bc.getAddress(), addr)
+            self._checkRegistered()
+            self._checkReaderAdded()
+            self._checkMakeListeningConnection()
+            # test readable
+            bc.readable()
+            self._checkGetNewConnection()
+            self._checkConnectionAccepted()
+        finally:
+            del DoNothingConnector.getNewConnection
 
     def test_02_ListeningConnection2(self):
         # test with exception raise when getting new connection
@@ -181,15 +184,18 @@ class ConnectionTests(NeoUnitTestBase):
             raise ConnectorTryAgainException
         DoNothingConnector.getNewConnection = getNewConnection
         addr = ("127.0.0.7", 93413)
-        bc = self._makeListeningConnection(addr=addr)
-        self.assertEqual(bc.getAddress(), addr)
-        self._checkRegistered()
-        self._checkReaderAdded()
-        self._checkMakeListeningConnection()
-        # test readable
-        bc.readable()
-        self._checkGetNewConnection(1)
-        self._checkConnectionAccepted(0)
+        try:
+            bc = self._makeListeningConnection(addr=addr)
+            self.assertEqual(bc.getAddress(), addr)
+            self._checkRegistered()
+            self._checkReaderAdded()
+            self._checkMakeListeningConnection()
+            # test readable
+            bc.readable()
+            self._checkGetNewConnection(1)
+            self._checkConnectionAccepted(0)
+        finally:
+            del DoNothingConnector.getNewConnection
 
     def test_03_Connection(self):
         bc = self._makeConnection()
@@ -230,48 +236,60 @@ class ConnectionTests(NeoUnitTestBase):
         def receive(self):
             return "testdata"
         DoNothingConnector.receive = receive
-        bc = self._makeConnection()
-        self._checkReadBuf(bc, '')
-        bc._recv()
-        self._checkReadBuf(bc, 'testdata')
+        try:
+            bc = self._makeConnection()
+            self._checkReadBuf(bc, '')
+            bc._recv()
+            self._checkReadBuf(bc, 'testdata')
+        finally:
+            del DoNothingConnector.receive
 
     def test_Connection_recv2(self):
         # patch receive method to raise try again
         def receive(self):
             raise ConnectorTryAgainException
         DoNothingConnector.receive = receive
-        bc = self._makeConnection()
-        self._checkReadBuf(bc, '')
-        bc._recv()
-        self._checkReadBuf(bc, '')
-        self._checkConnectionClosed(0)
-        self._checkUnregistered(0)
+        try:
+            bc = self._makeConnection()
+            self._checkReadBuf(bc, '')
+            bc._recv()
+            self._checkReadBuf(bc, '')
+            self._checkConnectionClosed(0)
+            self._checkUnregistered(0)
+        finally:
+            del DoNothingConnector.receive
 
     def test_Connection_recv3(self):
         # patch receive method to raise ConnectorConnectionRefusedException
         def receive(self):
             raise ConnectorConnectionRefusedException
         DoNothingConnector.receive = receive
-        bc = self._makeConnection()
-        self._checkReadBuf(bc, '')
-        # fake client connection instance with connecting attribute
-        bc.connecting = True
-        bc._recv()
-        self._checkReadBuf(bc, '')
-        self._checkConnectionFailed(1)
-        self._checkUnregistered(1)
+        try:
+            bc = self._makeConnection()
+            self._checkReadBuf(bc, '')
+            # fake client connection instance with connecting attribute
+            bc.connecting = True
+            bc._recv()
+            self._checkReadBuf(bc, '')
+            self._checkConnectionFailed(1)
+            self._checkUnregistered(1)
+        finally:
+            del DoNothingConnector.receive
 
     def test_Connection_recv4(self):
         # patch receive method to raise any other connector error
         def receive(self):
             raise ConnectorException
         DoNothingConnector.receive = receive
-        bc = self._makeConnection()
-        self._checkReadBuf(bc, '')
-        self.assertRaises(ConnectorException, bc._recv)
-        self._checkReadBuf(bc, '')
-        self._checkConnectionClosed(1)
-        self._checkUnregistered(1)
+        try:
+            bc = self._makeConnection()
+            self._checkReadBuf(bc, '')
+            self.assertRaises(ConnectorException, bc._recv)
+            self._checkReadBuf(bc, '')
+            self._checkConnectionClosed(1)
+            self._checkUnregistered(1)
+        finally:
+            del DoNothingConnector.receive
 
     def test_Connection_send1(self):
         # no data, nothing done
@@ -288,86 +306,104 @@ class ConnectionTests(NeoUnitTestBase):
         def send(self, data):
             return len(data)
         DoNothingConnector.send = send
-        bc = self._makeConnection()
-        self._checkWriteBuf(bc, '')
-        bc.write_buf = ["testdata"]
-        bc._send()
-        self._checkSend(1, "testdata")
-        self._checkWriteBuf(bc, '')
-        self._checkConnectionClosed(0)
-        self._checkUnregistered(0)
+        try:
+            bc = self._makeConnection()
+            self._checkWriteBuf(bc, '')
+            bc.write_buf = ["testdata"]
+            bc._send()
+            self._checkSend(1, "testdata")
+            self._checkWriteBuf(bc, '')
+            self._checkConnectionClosed(0)
+            self._checkUnregistered(0)
+        finally:
+            del DoNothingConnector.send
 
     def test_Connection_send3(self):
         # send part of the data
         def send(self, data):
             return len(data)/2
         DoNothingConnector.send = send
-        bc = self._makeConnection()
-        self._checkWriteBuf(bc, '')
-        bc.write_buf = ["testdata"]
-        bc._send()
-        self._checkSend(1, "testdata")
-        self._checkWriteBuf(bc, 'data')
-        self._checkConnectionClosed(0)
-        self._checkUnregistered(0)
+        try:
+            bc = self._makeConnection()
+            self._checkWriteBuf(bc, '')
+            bc.write_buf = ["testdata"]
+            bc._send()
+            self._checkSend(1, "testdata")
+            self._checkWriteBuf(bc, 'data')
+            self._checkConnectionClosed(0)
+            self._checkUnregistered(0)
+        finally:
+            del DoNothingConnector.send
 
     def test_Connection_send4(self):
         # send multiple packet
         def send(self, data):
             return len(data)
         DoNothingConnector.send = send
-        bc = self._makeConnection()
-        self._checkWriteBuf(bc, '')
-        bc.write_buf = ["testdata", "second", "third"]
-        bc._send()
-        self._checkSend(1, "testdatasecondthird")
-        self._checkWriteBuf(bc, '')
-        self._checkConnectionClosed(0)
-        self._checkUnregistered(0)
+        try:
+            bc = self._makeConnection()
+            self._checkWriteBuf(bc, '')
+            bc.write_buf = ["testdata", "second", "third"]
+            bc._send()
+            self._checkSend(1, "testdatasecondthird")
+            self._checkWriteBuf(bc, '')
+            self._checkConnectionClosed(0)
+            self._checkUnregistered(0)
+        finally:
+            del DoNothingConnector.send
 
     def test_Connection_send5(self):
         # send part of multiple packet
         def send(self, data):
             return len(data)/2
         DoNothingConnector.send = send
-        bc = self._makeConnection()
-        self._checkWriteBuf(bc, '')
-        bc.write_buf = ["testdata", "second", "third"]
-        bc._send()
-        self._checkSend(1, "testdatasecondthird")
-        self._checkWriteBuf(bc, 'econdthird')
-        self._checkConnectionClosed(0)
-        self._checkUnregistered(0)
+        try:
+            bc = self._makeConnection()
+            self._checkWriteBuf(bc, '')
+            bc.write_buf = ["testdata", "second", "third"]
+            bc._send()
+            self._checkSend(1, "testdatasecondthird")
+            self._checkWriteBuf(bc, 'econdthird')
+            self._checkConnectionClosed(0)
+            self._checkUnregistered(0)
+        finally:
+            del DoNothingConnector.send
 
     def test_Connection_send6(self):
         # raise try again
         def send(self, data):
             raise ConnectorTryAgainException
         DoNothingConnector.send = send
-        bc = self._makeConnection()
-        self._checkWriteBuf(bc, '')
-        bc.write_buf = ["testdata", "second", "third"]
-        bc._send()
-        self._checkSend(1, "testdatasecondthird")
-        self._checkWriteBuf(bc, 'testdatasecondthird')
-        self._checkConnectionClosed(0)
-        self._checkUnregistered(0)
+        try:
+            bc = self._makeConnection()
+            self._checkWriteBuf(bc, '')
+            bc.write_buf = ["testdata", "second", "third"]
+            bc._send()
+            self._checkSend(1, "testdatasecondthird")
+            self._checkWriteBuf(bc, 'testdatasecondthird')
+            self._checkConnectionClosed(0)
+            self._checkUnregistered(0)
+        finally:
+            del DoNothingConnector.send
 
     def test_Connection_send7(self):
         # raise other error
         def send(self, data):
             raise ConnectorException
         DoNothingConnector.send = send
-        bc = self._makeConnection()
-        self._checkWriteBuf(bc, '')
-        bc.write_buf = ["testdata", "second", "third"]
-        self.assertRaises(ConnectorException, bc._send)
-        self._checkSend(1, "testdatasecondthird")
-        # connection closed -> buffers flushed
-        self._checkWriteBuf(bc, '')
-        self._checkReaderRemoved(1)
-        self._checkConnectionClosed(1)
-        self._checkUnregistered(1)
+        try:
+            bc = self._makeConnection()
+            self._checkWriteBuf(bc, '')
+            bc.write_buf = ["testdata", "second", "third"]
+            self.assertRaises(ConnectorException, bc._send)
+            self._checkSend(1, "testdatasecondthird")
+            # connection closed -> buffers flushed
+            self._checkWriteBuf(bc, '')
+            self._checkReaderRemoved(1)
+            self._checkConnectionClosed(1)
+            self._checkUnregistered(1)
+        finally:
+            del DoNothingConnector.send
 
     def test_07_Connection_addPacket(self):
         # new packet
@@ -511,73 +547,82 @@ class ConnectionTests(NeoUnitTestBase):
         def send(self, data):
             return len(data)/2
         DoNothingConnector.send = send
-        bc = self._makeConnection()
-        self._checkWriteBuf(bc, '')
-        bc.write_buf = ["testdata"]
-        self.assertTrue(bc.pending())
-        self.assertFalse(bc.aborted)
-        bc.writable()
-        # test send was called
-        self._checkSend(1, "testdata")
-        self._checkWriteBuf(bc, "data")
-        self._checkConnectionClosed(0)
-        self._checkClose(0)
-        self._checkUnregistered(0)
-        # pending, so nothing called
-        self.assertTrue(bc.pending())
-        self._checkWriterRemoved(0)
-        self._checkReaderRemoved(0)
-        self._checkShutdown(0)
-        self._checkClose(0)
+        try:
+            bc = self._makeConnection()
+            self._checkWriteBuf(bc, '')
+            bc.write_buf = ["testdata"]
+            self.assertTrue(bc.pending())
+            self.assertFalse(bc.aborted)
+            bc.writable()
+            # test send was called
+            self._checkSend(1, "testdata")
+            self._checkWriteBuf(bc, "data")
+            self._checkConnectionClosed(0)
+            self._checkClose(0)
+            self._checkUnregistered(0)
+            # pending, so nothing called
+            self.assertTrue(bc.pending())
+            self._checkWriterRemoved(0)
+            self._checkReaderRemoved(0)
+            self._checkShutdown(0)
+            self._checkClose(0)
+        finally:
+            del DoNothingConnector.send
 
     def test_Connection_writable2(self):
         # without pending operation after send
         def send(self, data):
             return len(data)
         DoNothingConnector.send = send
-        bc = self._makeConnection()
-        self._checkWriteBuf(bc, '')
-        bc.write_buf = ["testdata"]
-        self.assertTrue(bc.pending())
-        self.assertFalse(bc.aborted)
-        bc.writable()
-        # test send was called
-        self._checkSend(1, "testdata")
-        self._checkWriteBuf(bc, '')
-        self._checkConnectionClosed(0)
-        self._checkClose(0)
-        self._checkUnregistered(0)
-        # nothing else pending, so writer has been removed
-        self.assertFalse(bc.pending())
-        self._checkWriterRemoved(1)
-        self._checkReaderRemoved(0)
-        self._checkShutdown(0)
-        self._checkClose(0)
+        try:
+            bc = self._makeConnection()
+            self._checkWriteBuf(bc, '')
+            bc.write_buf = ["testdata"]
+            self.assertTrue(bc.pending())
+            self.assertFalse(bc.aborted)
+            bc.writable()
+            # test send was called
+            self._checkSend(1, "testdata")
+            self._checkWriteBuf(bc, '')
+            self._checkConnectionClosed(0)
+            self._checkClose(0)
+            self._checkUnregistered(0)
+            # nothing else pending, so writer has been removed
+            self.assertFalse(bc.pending())
+            self._checkWriterRemoved(1)
+            self._checkReaderRemoved(0)
+            self._checkShutdown(0)
+            self._checkClose(0)
+        finally:
+            del DoNothingConnector.send
 
     def test_Connection_writable3(self):
         # without pending operation after send and aborted set to true
         def send(self, data):
             return len(data)
         DoNothingConnector.send = send
-        bc = self._makeConnection()
-        self._checkWriteBuf(bc, '')
-        bc.write_buf = ["testdata"]
-        self.assertTrue(bc.pending())
-        bc.abort()
-        self.assertTrue(bc.aborted)
-        bc.writable()
-        # test send was called
-        self._checkSend(1, "testdata")
-        self._checkWriteBuf(bc, '')
-        self._checkConnectionClosed(1)
-        self._checkClose(1)
-        self._checkUnregistered(1)
-        # nothing else pending, so writer has been removed
-        self.assertFalse(bc.pending())
-        self._checkWriterRemoved(1)
-        self._checkReaderRemoved(1)
-        self._checkShutdown(1)
-        self._checkClose(1)
+        try:
+            bc = self._makeConnection()
+            self._checkWriteBuf(bc, '')
+            bc.write_buf = ["testdata"]
+            self.assertTrue(bc.pending())
+            bc.abort()
+            self.assertTrue(bc.aborted)
+            bc.writable()
+            # test send was called
+            self._checkSend(1, "testdata")
+            self._checkWriteBuf(bc, '')
+            self._checkConnectionClosed(1)
+            self._checkClose(1)
+            self._checkUnregistered(1)
+            # nothing else pending, so writer has been removed
+            self.assertFalse(bc.pending())
+            self._checkWriterRemoved(1)
+            self._checkReaderRemoved(1)
+            self._checkShutdown(1)
+            self._checkClose(1)
+        finally:
+            del DoNothingConnector.send
 
     def test_Connection_readable(self):
         # With aborted set to false
@@ -596,26 +641,29 @@ class ConnectionTests(NeoUnitTestBase):
             p.setId(1)
             return ''.join(p.encode())
         DoNothingConnector.receive = receive
-        bc = self._makeConnection()
-        bc._queue = Mock()
-        self._checkReadBuf(bc, '')
-        self.assertFalse(bc.aborted)
-        bc.readable()
-        # check packet decoded
-        self._checkReadBuf(bc, '')
-        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 1)
-        call = bc._queue.mockGetNamedCalls("append")[0]
-        data = call.getParam(0)
-        self.assertEqual(type(data), Packets.AnswerPrimary)
-        self.assertEqual(data.getId(), 1)
-        self._checkReadBuf(bc, '')
-        # check not aborted
-        self.assertFalse(bc.aborted)
-        self._checkUnregistered(0)
-        self._checkWriterRemoved(0)
-        self._checkReaderRemoved(0)
-        self._checkShutdown(0)
-        self._checkClose(0)
+        try:
+            bc = self._makeConnection()
+            bc._queue = Mock()
+            self._checkReadBuf(bc, '')
+            self.assertFalse(bc.aborted)
+            bc.readable()
+            # check packet decoded
+            self._checkReadBuf(bc, '')
+            self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 1)
+            call = bc._queue.mockGetNamedCalls("append")[0]
+            data = call.getParam(0)
+            self.assertEqual(type(data), Packets.AnswerPrimary)
+            self.assertEqual(data.getId(), 1)
+            self._checkReadBuf(bc, '')
+            # check not aborted
+            self.assertFalse(bc.aborted)
+            self._checkUnregistered(0)
+            self._checkWriterRemoved(0)
+            self._checkReaderRemoved(0)
+            self._checkShutdown(0)
+            self._checkClose(0)
+        finally:
+            del DoNothingConnector.receive
 
     def test_ClientConnection_init1(self):
         # create a good client connection
@@ -687,32 +735,35 @@ class ConnectionTests(NeoUnitTestBase):
         DoNothingConnector.send = send
         DoNothingConnector.makeClientConnection = makeClientConnection
         try:
-            bc = self._makeClientConnection()
+            try:
+                bc = self._makeClientConnection()
+            finally:
+                DoNothingConnector.makeClientConnection = makeClientConnection_org
+            # check connector created and connection initialize
+            self.assertFalse(bc.connecting)
+            self._checkWriteBuf(bc, '')
+            bc.write_buf = ["testdata"]
+            self.assertTrue(bc.pending())
+            self.assertFalse(bc.aborted)
+            # call
+            self._checkConnectionCompleted(1)
+            self._checkReaderAdded(1)
+            bc.writable()
+            self.assertFalse(bc.pending())
+            self.assertFalse(bc.aborted)
+            self.assertFalse(bc.connecting)
+            self._checkSend(1, "testdata")
+            self._checkConnectionClosed(0)
+            self._checkConnectionCompleted(1)
+            self._checkConnectionFailed(0)
+            self._checkUnregistered(0)
+            self._checkReaderAdded(1)
+            self._checkWriterRemoved(1)
+            self._checkReaderRemoved(0)
+            self._checkShutdown(0)
+            self._checkClose(0)
         finally:
-            DoNothingConnector.makeClientConnection = makeClientConnection_org
-        # check connector created and connection initialize
-        self.assertFalse(bc.connecting)
-        self._checkWriteBuf(bc, '')
-        bc.write_buf = ["testdata"]
-        self.assertTrue(bc.pending())
-        self.assertFalse(bc.aborted)
-        # call
-        self._checkConnectionCompleted(1)
-        self._checkReaderAdded(1)
-        bc.writable()
-        self.assertFalse(bc.pending())
-        self.assertFalse(bc.aborted)
-        self.assertFalse(bc.connecting)
-        self._checkSend(1, "testdata")
-        self._checkConnectionClosed(0)
-        self._checkConnectionCompleted(1)
-        self._checkConnectionFailed(0)
-        self._checkUnregistered(0)
-        self._checkReaderAdded(1)
-        self._checkWriterRemoved(1)
-        self._checkReaderRemoved(0)
-        self._checkShutdown(0)
-        self._checkClose(0)
+            del DoNothingConnector.send
 
     def test_ClientConnection_writable2(self):
         # with a connecting connection, must not call parent's method
@@ -720,9 +771,11 @@ class ConnectionTests(NeoUnitTestBase):
         def getError(self):
             return True
         DoNothingConnector.getError = getError
-        bc = self._makeClientConnection()
+        try:
+            bc = self._makeClientConnection()
+        finally:
+            del DoNothingConnector.getError
         # check connector created and connection initialize
-        bc.connecting = True
         self._checkWriteBuf(bc, '')
         bc.write_buf = ["testdata"]
         self.assertTrue(bc.pending())
@@ -735,9 +788,9 @@ class ConnectionTests(NeoUnitTestBase):
         self.assertFalse(bc.pending())
         self.assertFalse(bc.aborted)
         self._checkWriteBuf(bc, '')
-        self._checkConnectionClosed(0)
+        self._checkConnectionClosed(1)
         self._checkConnectionCompleted(1)
-        self._checkConnectionFailed(1)
+        self._checkConnectionFailed(0)
         self._checkUnregistered(1)
         self._checkReaderAdded(1)
         self._checkWriterRemoved(1)
