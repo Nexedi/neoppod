@@ -706,7 +706,6 @@ class ClientConnection(Connection):
             err = self.connector.getError()
             if err:
                 self._closure()
-                return
             else:
                 self.connecting = False
                 self.updateTimeout(time())

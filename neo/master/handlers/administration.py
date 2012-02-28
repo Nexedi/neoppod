@@ -39,11 +39,6 @@ class AdministrationHandler(MasterHandler):
         node = self.app.nm.getByUUID(conn.getUUID())
         self.app.nm.remove(node)
 
-    def askPrimary(self, conn):
-        app = self.app
-        # I'm the primary
-        conn.answer(Packets.AnswerPrimary(app.uuid, []))
-
     def setClusterState(self, conn, state):
         app = self.app
         # check request
