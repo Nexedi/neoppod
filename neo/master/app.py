@@ -362,7 +362,8 @@ class Application(object):
         # Restart completely. Non-optimized
         # but lower level code needs to be stabilized first.
         for conn in self.em.getConnectionList():
-            conn.close()
+            if not conn.isListening():
+                conn.close()
 
         # Reconnect to primary master node.
         primary_handler = secondary.PrimaryHandler(self)
