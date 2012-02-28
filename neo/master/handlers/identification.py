@@ -52,19 +52,13 @@ class IdentificationHandler(MasterHandler):
             # no valid uuid, give it one
             uuid = app.getNewUUID(node_type)
         if node is None:
-            # new node
             node = node_ctor(uuid=uuid, address=address)
-        # set up the node
         node.setUUID(uuid)
         node.setState(state)
         node.setConnection(conn)
-        # set up the connection
         conn.setHandler(handler)
-        # answer
-        args = (NodeTypes.MASTER, app.uuid, app.pt.getPartitions(),
-            app.pt.getReplicas(), uuid)
-        conn.answer(Packets.AcceptIdentification(*args))
-        # trigger the event
+        conn.answer(Packets.AcceptIdentification(NodeTypes.MASTER, app.uuid,
+            app.pt.getPartitions(), app.pt.getReplicas(), uuid))
         handler.connectionCompleted(conn)
         app.broadcastNodesInformation([node])
 
