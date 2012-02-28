@@ -24,10 +24,6 @@ from neo.lib.util import dump
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
-    def protocolError(self, conn, message):
-        neo.lib.logging.error(
-                        'Protocol error %s %s', message, conn.getAddress())
-
     def askPrimary(self, conn):
         app = self.app
         if app.primary:
