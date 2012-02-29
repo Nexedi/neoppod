@@ -294,11 +294,6 @@ class Application(object):
             self.backup_tid = tid = self.getLastTransaction()
             self.pt.setBackupTidDict(dict((node.getUUID(), tid)
                 for node in self.nm.getStorageList(only_identified=True)))
-        for node in self.nm.getIdentifiedList():
-            if node.isStorage() or node.isClient():
-                node.notify(Packets.StopOperation())
-                if node.isClient():
-                    node.getConnection().abort()
 
     def playPrimaryRole(self):
         neo.lib.logging.info(
@@ -342,6 +337,11 @@ class Application(object):
                 self.backup_app.provideService()
             else:
                 self.provideService()
+            for node in self.nm.getIdentifiedList():
+                if node.isStorage() or node.isClient():
+                    node.notify(Packets.StopOperation())
+                    if node.isClient():
+                        node.getConnection().abort()
 
     def playSecondaryRole(self):
         """
