@@ -244,6 +244,9 @@ class NEOCluster(object):
         self.verbose = verbose
         self.uuid_set = set()
         self.db_list = db_list
+        if temp_dir is None:
+            temp_dir = tempfile.mkdtemp(prefix='neo_')
+            print 'Using temp directory ' + temp_dir
         if adapter == 'MySQL':
             self.db_user = db_user
             self.db_password = db_password
@@ -256,9 +259,6 @@ class NEOCluster(object):
         self.local_ip = local_ip = IP_VERSION_FORMAT_DICT[self.address_type]
         self.setupDB(clear_databases)
         self.process_dict = {}
-        if temp_dir is None:
-            temp_dir = tempfile.mkdtemp(prefix='neo_')
-            print 'Using temp directory %r.' % (temp_dir, )
         self.temp_dir = temp_dir
         self.port_allocator = PortAllocator()
         admin_port = self.port_allocator.allocate(address_type, local_ip)
