@@ -256,6 +256,7 @@ class BaseConnection(object):
         self.addr = addr
         self._handlers = HandlerSwitcher(handler)
         event_manager.register(self)
+        event_manager.addReader(self)
 
     getHandler      = property(lambda self: self._handlers.getHandler)
     getLastHandler  = property(lambda self: self._handlers.getLastHandler)
@@ -381,7 +382,6 @@ class ListeningConnection(BaseConnection):
         BaseConnection.__init__(self, event_manager, handler,
                                 addr=addr, connector=connector)
         self.connector.makeListeningConnection(addr)
-        self.em.addReader(self)
 
     def readable(self):
         try:
@@ -422,7 +422,6 @@ class Connection(BaseConnection):
         self._queue = []
         self._on_close = None
         self._parser_state = ParserState()
-        event_manager.addReader(self)
 
     def setOnClose(self, callback):
         self._on_close = callback
