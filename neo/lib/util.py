@@ -71,7 +71,7 @@ def getAddressType(address):
     "Return the type (IPv4 or IPv6) of an ip"
     (host, port) = address
 
-    for af_type in SOCKET_CONNECTORS_DICT.keys():
+    for af_type in SOCKET_CONNECTORS_DICT:
         try :
             socket.inet_pton(af_type, host)
         except:
