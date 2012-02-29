@@ -689,9 +689,7 @@ class ClientConnection(Connection):
             except ConnectorInProgressException:
                 event_manager.addWriter(self)
             else:
-                self.connecting = False
-                self.updateTimeout(time())
-                self.getHandler().connectionCompleted(self)
+                self._connectionCompleted()
         except ConnectorConnectionRefusedException:
             self._closure()
         except ConnectorException:
@@ -701,18 +699,16 @@ class ClientConnection(Connection):
 
     def writable(self):
         """Called when self is writable."""
-        if self.connecting:
-            err = self.connector.getError()
-            if err:
-                self._closure()
-            else:
-                self.connecting = False
-                self.updateTimeout(time())
-                self.getHandler().connectionCompleted(self)
-                self.em.addReader(self)
+        if self.connector.getError():
+            self._closure()
         else:
-            Connection.writable(self)
+            self._connectionCompleted()
 
+    def _connectionCompleted(self):
+        self.writable = super(ClientConnection, self).writable
+        self.connecting = False
+        self.updateTimeout(time())
+        self.getHandler().connectionCompleted(self)
 
 class ServerConnection(Connection):
     """A connection from a remote node to this node."""
