@@ -19,20 +19,12 @@ import neo.lib
 from neo.lib import protocol
 from . import BaseServiceHandler
 
+def reject(*args, **kw):
+    raise protocol.ProtocolError('cluster is shutting down')
+
 class ShutdownHandler(BaseServiceHandler):
     """This class deals with events for a shutting down phase."""
 
-    def requestIdentification(self, conn, node_type,
-                                        uuid, address, name):
-        neo.lib.logging.error('reject any new connection')
-        raise protocol.ProtocolError('cluster is shutting down')
-
-
-    def askPrimary(self, conn):
-        neo.lib.logging.error('reject any new demand for primary master')
-        raise protocol.ProtocolError('cluster is shutting down')
-
-    def askBeginTransaction(self, conn, tid):
-        neo.lib.logging.error('reject any new demand for new tid')
-        raise protocol.ProtocolError('cluster is shutting down')
-
+    requestIdentification = reject
+    askPrimary = reject
+    askBeginTransaction = reject
