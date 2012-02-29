@@ -373,7 +373,7 @@ class Application(object):
 
         # and another for the future incoming connections
         self.listening_conn.setHandler(
-            identification.IdentificationHandler(self))
+            identification.SecondaryIdentificationHandler(self))
 
         while True:
             self.em.poll(1)

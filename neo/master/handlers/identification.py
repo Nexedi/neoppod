@@ -62,3 +62,10 @@ class IdentificationHandler(MasterHandler):
         handler.connectionCompleted(conn)
         app.broadcastNodesInformation([node])
 
+class SecondaryIdentificationHandler(MasterHandler):
+
+    def _setupNode(self, conn, node_type, uuid, address, node):
+        # Nothing to do, storage will disconnect when it receives our answer.
+        # Primary will do the checks.
+        return uuid
+
