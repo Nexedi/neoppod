@@ -411,7 +411,7 @@ class Application(object):
             node.notify(notification_packet)
             if node.isClient():
                 if state != ClusterStates.RUNNING:
-                    conn.close()
+                    conn.abort()
                     continue
                 handler = client_handler
             elif node.isStorage():
