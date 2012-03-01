@@ -480,6 +480,9 @@ class Connection(BaseConnection):
         neo.lib.logging.debug('aborting a connector for %r', self)
         self.aborted = True
         assert self.write_buf
+        if self._on_close is not None:
+            self._on_close()
+            self._on_close = None
 
     def writable(self):
         """Called when self is writable."""

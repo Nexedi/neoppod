@@ -406,8 +406,6 @@ class Application(object):
             if node.isMaster():
                 continue
             conn = node.getConnection()
-            if node.isClient() and conn.isAborted():
-                continue
             node.notify(notification_packet)
             if node.isClient():
                 if state != ClusterStates.RUNNING:
