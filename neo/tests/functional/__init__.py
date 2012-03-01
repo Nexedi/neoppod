@@ -68,6 +68,10 @@ class PortAllocator(object):
 
     def __init__(self):
         self.socket_list = []
+        # WKRD: this is a workaround for a weird bug allowing the same port to
+        # be bound more than once, causing later failure in tests, when
+        # different processes try to bind to the same port.
+        self.sock_port_set = set()
 
     def allocate(self, address_type, local_ip):
         s = socket.socket(address_type, socket.SOCK_STREAM)
@@ -76,17 +80,24 @@ class PortAllocator(object):
             self.lock.acquire()
         self.allocator_set[self] = None
         self.socket_list.append(s)
+        sock_port_set = self.sock_port_set
         while True:
             # Do not let the system choose the port to avoid conflicts
             # with other software. IOW, use a range different than:
             # - /proc/sys/net/ipv4/ip_local_port_range on Linux
             # - what IANA recommends (49152 to 65535)
+            port = random.randint(16384, 32767)
             try:
-                s.bind((local_ip, random.randint(16384, 32767)))
-                return s.getsockname()[1]
+                s.bind((local_ip, port))
             except socket.error, e:
                 if e.errno != errno.EADDRINUSE:
                     raise
+            else:
+                if port not in sock_port_set:
+                    sock_port_set.add(port)
+                    return port
+                neo.lib.logging.warning('Same port allocated twice: %s in %s',
+                    port, sock_port_set)
 
     def release(self):
         for s in self.socket_list:
