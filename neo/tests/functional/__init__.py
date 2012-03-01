@@ -85,8 +85,8 @@ class PortAllocator(object):
                 s.bind((local_ip, random.randint(16384, 32767)))
                 return s.getsockname()[1]
             except socket.error, e:
-              if e.errno != errno.EADDRINUSE:
-                raise
+                if e.errno != errno.EADDRINUSE:
+                    raise
 
     def release(self):
         for s in self.socket_list:
