@@ -258,6 +258,7 @@ class BaseConnection(object):
         event_manager.register(self)
         event_manager.addReader(self)
 
+    # XXX: do not use getHandler
     getHandler      = property(lambda self: self._handlers.getHandler)
     getLastHandler  = property(lambda self: self._handlers.getLastHandler)
     isPending       = property(lambda self: self._handlers.isPending)

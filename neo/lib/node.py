@@ -117,6 +117,13 @@ class Node(object):
             assert force is not None, \
                 attributeTracker.whoSet(self, '_connection')
             # The test on peer_id is there to protect against buggy nodes.
+            # XXX: handler comparison does not cover all cases: there may
+            # be a pending handler change, which won't be detected, or a future
+            # handler change which is not prevented. Complete implementation
+            # should allow different handlers for each connection direction,
+            # with in-packets client/server indicators to decide which handler
+            # (server-ish or client-ish) to use. There is currently no need for
+            # the full-fledged functionality, and it is simpler this way.
             if not force or conn.getPeerId() is not None or \
                type(conn.getHandler()) is not type(connection.getHandler()):
                 raise ProtocolError("already connected")
