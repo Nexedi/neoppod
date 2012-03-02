@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from functools import wraps
 import neo.lib
 from .protocol import (
     NodeStates, Packets, ErrorCodes, Errors, BrokenNodeDisallowedError,
@@ -120,6 +121,19 @@ class EventHandler(object):
 
 
     # Packet handlers.
+
+    def acceptIdentification(self, conn, node_type, *args):
+        try:
+            acceptIdentification = self._acceptIdentification
+        except AttributeError:
+            raise UnexpectedPacketError('no handler found')
+        node = self.app.nm.getByAddress(conn.getAddress())
+        assert node.getConnection() is conn, (node.getConnection(), conn)
+        if node.getType() == node_type:
+            node.setIdentified()
+            acceptIdentification(node, *args)
+            return
+        conn.close()
 
     def ping(self, conn):
         conn.answer(Packets.Pong())

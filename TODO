@@ -133,6 +133,11 @@ RC  - Review output of pylint (CODE)
       be done ? hope to find a storage with valid checksum ? assume that data
       is correct in storage but was altered when it travelled through network
       as we loaded it ?).
+    - Check replicas: (HIGH AVAILABILITY)
+      - Automatically tell corrupted cells to fix their data when a good source
+        is known.
+      - Add an option to also check all rows of trans/obj/data, instead of only
+        keys (trans.tid & obj.{tid,oid}).
 
     Master
     - Master node data redundancy (HIGH AVAILABILITY)

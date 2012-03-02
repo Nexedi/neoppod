@@ -83,6 +83,7 @@ class AdminEventHandler(EventHandler):
 
     addPendingNodes = forward_ask(Packets.AddPendingNodes)
     setClusterState = forward_ask(Packets.SetClusterState)
+    checkReplicas = forward_ask(Packets.CheckReplicas)
 
 
 class MasterEventHandler(EventHandler):

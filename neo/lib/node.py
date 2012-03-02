@@ -37,6 +37,7 @@ class Node(object):
         self._uuid = uuid
         self._manager = manager
         self._last_state_change = time()
+        self._identified = False
         manager.add(self)
 
     def notify(self, packet):
@@ -98,6 +99,7 @@ class Node(object):
         """
         assert self._connection is not None
         del self._connection
+        self._identified = False
         self._manager._updateIdentified(self)
 
     def setConnection(self, connection, force=None):
@@ -113,6 +115,8 @@ class Node(object):
         conn = self._connection
         if conn is None:
             self._connection = connection
+            if connection.isServer():
+                self.setIdentified()
         else:
             assert force is not None, \
                 attributeTracker.whoSet(self, '_connection')
@@ -127,7 +131,11 @@ class Node(object):
             if not force or conn.getPeerId() is not None or \
                type(conn.getHandler()) is not type(connection.getHandler()):
                 raise ProtocolError("already connected")
-            conn.setOnClose(lambda: setattr(self, '_connection', connection))
+            def on_closed():
+                self._connection = connection
+                assert connection.isServer()
+                self.setIdentified()
+            conn.setOnClose(on_closed)
             conn.close()
         assert not connection.isClosed(), connection
         connection.setOnClose(self.onConnectionClosed)
@@ -147,11 +155,15 @@ class Node(object):
         return self._connection is not None and (connecting or
             not self._connection.connecting)
 
+    def setIdentified(self):
+        assert self._connection is not None
+        self._identified = True
+
     def isIdentified(self):
         """
-            Returns True is the node is connected and identified
+            Returns True if identification packets have been exchanged
         """
-        return self._connection is not None and self._uuid is not None
+        return self._identified
 
     def __repr__(self):
         return '<%s(uuid=%s, address=%s, state=%s, connection=%r) at %x>' % (
@@ -396,10 +408,13 @@ class NodeManager(object):
 
     def _updateIdentified(self, node):
         uuid = node.getUUID()
-        if node.isIdentified():
-            self._identified_dict[uuid] = node
-        else:
-            self._identified_dict.pop(uuid, None)
+        if uuid:
+            # XXX: It's probably a bug to include connecting nodes but there's
+            #      no API yet to update manager when connection is established.
+            if node.isConnected(connecting=True):
+                self._identified_dict[uuid] = node
+            else:
+                self._identified_dict.pop(uuid, None)
 
     def _updateAddress(self, node, old_address):
         self.__update(self._address_dict, old_address, node.getAddress(), node)

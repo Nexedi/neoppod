@@ -532,7 +532,7 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def checkTIDRange(self, min_tid, max_tid, length, partition):
+    def checkTIDRange(self, partition, length, min_tid, max_tid):
         """
         Generate a diggest from transaction list.
         min_tid (packed)
@@ -549,12 +549,12 @@ class DatabaseManager(object):
         """
         raise NotImplementedError
 
-    def checkSerialRange(self, min_oid, min_serial, max_tid, length, partition):
+    def checkSerialRange(self, partition, length, min_tid, max_tid, min_oid):
         """
         Generate a diggest from object list.
         min_oid (packed)
             OID at which verification starts.
-        min_serial (packed)
+        min_tid (packed)
             Serial of min_oid object at which search should start.
         length
             Maximum number of records to include in result.

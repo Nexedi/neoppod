@@ -17,7 +17,7 @@
 
 from .neoctl import NeoCTL, NotReadyException
 from neo.lib.util import bin, dump
-from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes
+from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, ZERO_TID
 
 action_dict = {
     'print': {
@@ -30,6 +30,7 @@ action_dict = {
         'node': 'setNodeState',
         'cluster': 'setClusterState',
     },
+    'check': 'checkReplicas',
     'start': 'startCluster',
     'add': 'enableStorageList',
     'drop': 'dropNode',
@@ -186,6 +187,33 @@ class TerminalNeoCTL(object):
           Get primary master node.
         """
         return self.formatUUID(self.neoctl.getPrimary())
+
+    def checkReplicas(self, params):
+        """
+          Parameters: [partition]:[reference] ... [min_tid [max_tid]]
+        """
+        partition_dict = {}
+        params = iter(params)
+        min_tid = ZERO_TID
+        max_tid = None
+        for p in params:
+            try:
+                partition, source = p.split(':')
+            except ValueError:
+                min_tid = p64(p)
+                try:
+                    max_tid = p64(params.next())
+                except StopIteration:
+                    pass
+                break
+            source = bin(source) if source else None
+            if partition:
+                partition_dict[int(partition)] = source
+            else:
+                assert not partition_dict
+                np = len(self.neoctl.getPartitionRowList()[1])
+                partition_dict = dict.fromkeys(xrange(np), source)
+        self.neoctl.checkReplicas(partition_dict, min_tid, max_tid)
 
 class Application(object):
     """The storage node application."""

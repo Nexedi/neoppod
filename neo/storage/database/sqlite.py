@@ -595,7 +595,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                 data_id_set.discard(None)
                 self._pruneData(data_id_set)
 
-    def checkTIDRange(self, min_tid, max_tid, length, partition):
+    def checkTIDRange(self, partition, length, min_tid, max_tid):
         count, tids, max_tid = self.query("""\
             SELECT COUNT(*), GROUP_CONCAT(tid), MAX(tid)
             FROM (SELECT tid FROM trans
@@ -607,20 +607,19 @@ class SQLiteDatabaseManager(DatabaseManager):
             return count, sha1(tids).digest(), util.p64(max_tid)
         return 0, ZERO_HASH, ZERO_TID
 
-    def checkSerialRange(self, min_oid, min_serial, max_tid, length, partition):
+    def checkSerialRange(self, partition, length, min_tid, max_tid, min_oid):
         u64 = util.u64
         # We don't ask MySQL to compute everything (like in checkTIDRange)
         # because it's difficult to get the last serial _for the last oid_.
         # We would need a function (that could be named 'LAST') that returns the
         # last grouped value, instead of the greatest one.
-        min_oid = u64(min_oid)
+        min_tid = u64(min_tid)
         r = self.query("""\
-            SELECT oid, tid
+            SELECT tid, oid
             FROM obj
-            WHERE partition=? AND tid<=?
-              AND (oid>? OR oid=? AND tid>=?)
-            ORDER BY oid ASC, tid ASC LIMIT ?""",
-            (partition, u64(max_tid), min_oid, min_oid, u64(min_serial),
+            WHERE partition=? AND tid<=? AND (tid>? OR tid=? AND oid>=?)
+            ORDER BY tid, oid LIMIT ?""",
+            (partition, u64(max_tid), min_tid, min_tid, u64(min_oid),
              -1 if length is None else length)).fetchall()
         if r:
             p64 = util.p64
@@ -629,4 +628,4 @@ class SQLiteDatabaseManager(DatabaseManager):
                     p64(r[-1][0]),
                     sha1(','.join(str(x[1]) for x in r)).digest(),
                     p64(r[-1][1]))
-        return 0, ZERO_HASH, ZERO_OID, ZERO_HASH, ZERO_TID
+        return 0, ZERO_HASH, ZERO_TID, ZERO_HASH, ZERO_OID

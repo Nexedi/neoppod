@@ -25,12 +25,13 @@ class Cell(neo.lib.pt.Cell):
     replicating = ZERO_TID
 
     def setState(self, state):
-        try:
-            if CellStates.OUT_OF_DATE == state != self.state:
+        readable = self.isReadable()
+        super(Cell, self).setState(state)
+        if readable and not self.isReadable():
+            try:
                 del self.backup_tid, self.replicating
-        except AttributeError:
-            pass
-        return super(Cell, self).setState(state)
+            except AttributeError:
+                pass
 
 neo.lib.pt.Cell = Cell
 
@@ -196,7 +197,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                         CellStates.OUT_OF_DATE))
                     node_count += 1
                 elif node_count + 1 < max_count:
-                    if feeding_cell is not None or max_cell.isOutOfDate():
+                    if feeding_cell is not None or not max_cell.isReadable():
                         # If there is a feeding cell already or it is
                         # out-of-date, just drop the node.
                         row.remove(max_cell)
@@ -239,10 +240,10 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     else:
                         # Remove an excessive feeding cell.
                         removed_cell_list.append(cell)
-                elif cell.isOutOfDate():
-                    out_of_date_cell_list.append(cell)
-                else:
+                elif cell.isUpToDate():
                     up_to_date_cell_list.append(cell)
+                else:
+                    out_of_date_cell_list.append(cell)
 
             # If all cells are up-to-date, a feeding cell is not required.
             if len(out_of_date_cell_list) == 0 and feeding_cell is not None:
@@ -311,7 +312,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
             lost = lost_node
             cell_list = []
             for cell in row:
-                if not cell.isOutOfDate():
+                if cell.isReadable():
                     if cell.getNode().isRunning():
                         lost = None
                     else :
@@ -330,7 +331,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
                     yield offset, cell
                     break
 
-    def getUpToDateCellNodeSet(self):
+    def getReadableCellNodeSet(self):
         """
         Return a set of all nodes which are part of at least one UP TO DATE
         partition.
@@ -338,17 +339,7 @@ class PartitionTable(neo.lib.pt.PartitionTable):
         return set(cell.getNode()
             for row in self.partition_list
             for cell in row
-            if not cell.isOutOfDate())
-
-    def getOutOfDateCellNodeSet(self):
-        """
-        Return a set of all nodes which are part of at least one OUT OF DATE
-        partition.
-        """
-        return set(cell.getNode()
-            for row in self.partition_list
-            for cell in row
-            if cell.isOutOfDate())
+            if cell.isReadable())
 
     def setBackupTidDict(self, backup_tid_dict):
         for row in self.partition_list:
@@ -358,8 +349,16 @@ class PartitionTable(neo.lib.pt.PartitionTable):
 
     def getBackupTid(self):
         try:
-            return min(max(cell.backup_tid for cell in row
-                                           if not cell.isOutOfDate())
+            return min(max(cell.backup_tid for cell in row if cell.isReadable())
                        for row in self.partition_list)
+        except ValueError:
+            return ZERO_TID
+
+    def getCheckTid(self, partition_list):
+        try:
+            return min(min(cell.backup_tid
+                           for cell in self.partition_list[offset]
+                           if cell.isReadable())
+                       for offset in partition_list)
         except ValueError:
             return ZERO_TID

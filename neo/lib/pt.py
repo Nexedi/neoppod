@@ -34,7 +34,7 @@ class Cell(object):
 
     def __init__(self, node, state = CellStates.UP_TO_DATE):
         self.node = node
-        self.setState(state)
+        self.state = state
 
     def __repr__(self):
         return "<Cell(uuid=%s, address=%s, state=%s)>" % (
@@ -58,6 +58,13 @@ class Cell(object):
 
     def isFeeding(self):
         return self.state == CellStates.FEEDING
+
+    def isCorrupted(self):
+        return self.state == CellStates.CORRUPTED
+
+    def isReadable(self):
+        return self.state == CellStates.UP_TO_DATE or \
+               self.state == CellStates.FEEDING
 
     def getNode(self):
         return self.node
@@ -122,6 +129,12 @@ class PartitionTable(object):
         except IndexError:
             return False
 
+    def getNodeSet(self):
+        return set(x.getNode() for row in self.partition_list for x in row)
+
+    def getConnectedNodeList(self):
+        return [node for node in self.getNodeSet() if node.isConnected()]
+
     def getNodeList(self):
         """Return all used nodes."""
         return [node for node, count in self.count_dict.iteritems() \
@@ -129,8 +142,7 @@ class PartitionTable(object):
 
     def getCellList(self, offset, readable=False):
         if readable:
-            return [cell for cell in self.partition_list[offset]
-                         if not cell.isOutOfDate()]
+            return filter(Cell.isReadable, self.partition_list[offset])
         return list(self.partition_list[offset])
 
     def getPartition(self, oid_or_tid):
@@ -280,7 +292,7 @@ class PartitionTable(object):
             return False
         for row in self.partition_list:
             for cell in row:
-                if not cell.isOutOfDate() and cell.getNode().isRunning():
+                if cell.isReadable() and cell.getNode().isRunning():
                     break
             else:
                 return False

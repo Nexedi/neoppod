@@ -28,6 +28,7 @@ from neo.lib.connector import getConnectorHandler
 from neo.lib.pt import PartitionTable
 from neo.lib.util import dump
 from neo.lib.bootstrap import BootstrapManager
+from .checker import Checker
 from .database import buildDatabaseManager
 from .exception import AlreadyPendingError
 from .handlers import identification, verification, initialization
@@ -66,6 +67,7 @@ class Application(object):
         # partitions.
         self.pt = None
 
+        self.checker = Checker(self)
         self.replicator = Replicator(self)
         self.listening_conn = None
         self.master_conn = None
@@ -207,6 +209,8 @@ class Application(object):
                 neo.lib.logging.error('operation stopped: %s', msg)
             except PrimaryFailure, msg:
                 neo.lib.logging.error('primary master is down: %s', msg)
+            finally:
+                self.checker = Checker(self)
 
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.
@@ -368,6 +372,11 @@ class Application(object):
         except StopIteration:
             return
         self.task_queue.appendleft(iterator)
+
+    def closeClient(self, connection):
+        if connection is not self.replicator.getCurrentConnection() and \
+           connection not in self.checker.conn_dict:
+            connection.closeClient()
 
     def shutdown(self, erase=False):
         """Close all connections and exit"""

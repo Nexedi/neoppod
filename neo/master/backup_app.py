@@ -279,7 +279,7 @@ class BackupApplication(object):
         primary = primary_node is node
         result = None if primary else app.pt.setUpToDate(node, offset)
         if app.getClusterState() == ClusterStates.BACKINGUP:
-            assert not cell.isOutOfDate()
+            assert cell.isReadable()
             if result: # was out-of-date
                 max_tid, = [x.backup_tid for x in cell_list
                                          if x.getNode() is primary_node]

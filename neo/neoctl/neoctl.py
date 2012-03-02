@@ -163,3 +163,8 @@ class NeoCTL(object):
             raise RuntimeError(response)
         return response[1]
 
+    def checkReplicas(self, *args):
+        response = self.__ask(Packets.CheckReplicas(*args))
+        if response[0] != Packets.Error or response[1] != ErrorCodes.ACK:
+            raise RuntimeError(response)
+        return response[2]

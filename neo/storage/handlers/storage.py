@@ -25,26 +25,42 @@ from neo.lib.protocol import Errors, NodeStates, Packets, \
 from neo.lib.util import add64
 
 def checkConnectionIsReplicatorConnection(func):
-    def decorator(self, conn, *args, **kw):
+    def wrapper(self, conn, *args, **kw):
         assert self.app.replicator.getCurrentConnection() is conn
         return func(self, conn, *args, **kw)
-    return wraps(func)(decorator)
+    return wraps(func)(wrapper)
+
+def checkFeedingConnection(check):
+    def decorator(func):
+        def wrapper(self, conn, partition, *args, **kw):
+            app = self.app
+            cell = app.pt.getCell(partition, app.uuid)
+            if cell is None or (cell.isOutOfDate() if check else
+                                not cell.isReadable()):
+                p = Errors.CheckingError if check else Errors.ReplicationError
+                return conn.answer(p("partition %u not readable" % partition))
+            conn.asServer()
+            return func(self, conn, partition, *args, **kw)
+        return wraps(func)(wrapper)
+    return decorator
 
 class StorageOperationHandler(EventHandler):
     """This class handles events for replications."""
 
     def connectionLost(self, conn, new_state):
-        if self.app.listening_conn and conn.isClient():
+        app = self.app
+        if app.listening_conn and conn.isClient():
             # XXX: Connection and Node should merged.
             uuid = conn.getUUID()
             if uuid:
-                node = self.app.nm.getByUUID(uuid)
+                node = app.nm.getByUUID(uuid)
             else:
-                node = self.app.nm.getByAddress(conn.getAddress())
+                node = app.nm.getByAddress(conn.getAddress())
                 node.setState(NodeStates.DOWN)
-            replicator = self.app.replicator
+            replicator = app.replicator
             if replicator.current_node is node:
                 replicator.abort()
+            app.checker.connectionLost(conn)
 
     # Client
 
@@ -52,10 +68,9 @@ class StorageOperationHandler(EventHandler):
         if self.app.listening_conn:
             self.app.replicator.abort()
 
-    @checkConnectionIsReplicatorConnection
-    def acceptIdentification(self, conn, node_type,
-                       uuid, num_partitions, num_replicas, your_uuid):
-        self.app.replicator.fetchTransactions()
+    def _acceptIdentification(self, node, *args):
+        self.app.replicator.connected(node)
+        self.app.checker.connected(node)
 
     @checkConnectionIsReplicatorConnection
     def answerFetchTransactions(self, conn, pack_tid, next_tid, tid_list):
@@ -105,33 +120,53 @@ class StorageOperationHandler(EventHandler):
     def replicationError(self, conn, message):
         self.app.replicator.abort('source message: ' + message)
 
+    def checkingError(self, conn, message):
+        try:
+            self.app.checker.connectionLost(conn)
+        finally:
+            self.app.closeClient(conn)
+
+    @property
+    def answerCheckTIDRange(self):
+        return self.app.checker.checkRange
+
+    @property
+    def answerCheckSerialRange(self):
+        return self.app.checker.checkRange
+
     # Server (all methods must set connection as server so that it isn't closed
     #         if client tasks are finished)
 
-    def askCheckTIDRange(self, conn, min_tid, max_tid, length, partition):
-        conn.asServer()
-        count, tid_checksum, max_tid = self.app.dm.checkTIDRange(min_tid,
-            max_tid, length, partition)
-        conn.answer(Packets.AnswerCheckTIDRange(min_tid, length,
-            count, tid_checksum, max_tid))
+    @checkFeedingConnection(check=True)
+    def askCheckTIDRange(self, conn, *args):
+        msg_id = conn.getPeerId()
+        conn = weakref.proxy(conn)
+        def check():
+            r = self.app.dm.checkTIDRange(*args)
+            try:
+                conn.answer(Packets.AnswerCheckTIDRange(*r), msg_id)
+            except (weakref.ReferenceError, ConnectorConnectionClosedException):
+                pass
+            yield
+        self.app.newTask(check())
 
-    def askCheckSerialRange(self, conn, min_oid, min_serial, max_tid, length,
-            partition):
-        conn.asServer()
-        count, oid_checksum, max_oid, serial_checksum, max_serial = \
-            self.app.dm.checkSerialRange(min_oid, min_serial, max_tid, length,
-                partition)
-        conn.answer(Packets.AnswerCheckSerialRange(min_oid, min_serial, length,
-            count, oid_checksum, max_oid, serial_checksum, max_serial))
+    @checkFeedingConnection(check=True)
+    def askCheckSerialRange(self, conn, *args):
+        msg_id = conn.getPeerId()
+        conn = weakref.proxy(conn)
+        def check():
+            r = self.app.dm.checkSerialRange(*args)
+            try:
+                conn.answer(Packets.AnswerCheckSerialRange(*r), msg_id)
+            except (weakref.ReferenceError, ConnectorConnectionClosedException):
+                pass
+            yield
+        self.app.newTask(check())
 
+    @checkFeedingConnection(check=False)
     def askFetchTransactions(self, conn, partition, length, min_tid, max_tid,
             tid_list):
         app = self.app
-        cell = app.pt.getCell(partition, app.uuid)
-        if cell is None or cell.isOutOfDate():
-            return conn.answer(Errors.ReplicationError(
-                "partition %u not readable" % partition))
-        conn.asServer()
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         peer_tid_set = set(tid_list)
@@ -162,14 +197,10 @@ class StorageOperationHandler(EventHandler):
                 pass
         app.newTask(push())
 
+    @checkFeedingConnection(check=False)
     def askFetchObjects(self, conn, partition, length, min_tid, max_tid,
             min_oid, object_dict):
         app = self.app
-        cell = app.pt.getCell(partition, app.uuid)
-        if cell is None or cell.isOutOfDate():
-            return conn.answer(Errors.ReplicationError(
-                "partition %u not readable" % partition))
-        conn.asServer()
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         dm = app.dm

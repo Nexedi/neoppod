@@ -15,6 +15,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+import random
 import neo
 
 from . import MasterHandler
@@ -162,3 +163,48 @@ class AdministrationHandler(MasterHandler):
         # broadcast the new partition table
         app.broadcastPartitionChanges(cell_list)
         conn.answer(Errors.Ack('Nodes added: %s' % (uuids, )))
+
+    def checkReplicas(self, conn, partition_dict, min_tid, max_tid):
+        app = self.app
+        pt = app.pt
+        backingup = app.cluster_state == ClusterStates.BACKINGUP
+        if not max_tid:
+            max_tid = pt.getCheckTid(partition_dict) if backingup else \
+                app.getLastTransaction()
+        if min_tid > max_tid:
+            neo.lib.logging.warning("nothing to check: min_tid=%s > max_tid=%s",
+                                    dump(min_tid), dump(max_tid))
+        else:
+            getByUUID = app.nm.getByUUID
+            node_set = set()
+            for offset, source in partition_dict.iteritems():
+                # XXX: For the moment, code checking replicas is unable to fix
+                #      corrupted partitions (when a good cell is known)
+                #      so only check readable ones.
+                #      (see also Checker._nextPartition of storage)
+                cell_list = pt.getCellList(offset, True)
+                #cell_list = [cell for cell in pt.getCellList(offset)
+                #                  if not cell.isOutOfDate()]
+                if len(cell_list) + (backingup and not source) <= 1:
+                    continue
+                for cell in cell_list:
+                    node = cell.getNode()
+                    if node in node_set:
+                        break
+                else:
+                    node_set.add(node)
+                if source:
+                    source = '', getByUUID(source).getAddress()
+                else:
+                    readable = [cell for cell in cell_list if cell.isReadable()]
+                    if 1 == len(readable) < len(cell_list):
+                        source = '', readable[0].getAddress()
+                    elif backingup:
+                        source = app.backup_app.name, random.choice(
+                            app.backup_app.pt.getCellList(offset, readable=True)
+                            ).getAddress()
+                    else:
+                        source = '', None
+                node.getConnection().notify(Packets.CheckPartition(
+                    offset, source, min_tid, max_tid))
+        conn.answer(Errors.Ack(''))

@@ -15,10 +15,11 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
+from binascii import a2b_hex
 import unittest
 from mock import Mock
 from neo.lib.util import dump, p64, u64
-from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, MAX_TID
+from neo.lib.protocol import CellStates, ZERO_HASH, ZERO_OID, ZERO_TID, MAX_TID
 from .. import NeoUnitTestBase
 from neo.lib.exception import DatabaseFailure
 
@@ -499,10 +500,6 @@ class StorageDBTests(NeoUnitTestBase):
     def test_getReplicationTIDList(self):
         self.setNumPartitions(2, True)
         tid1, tid2, tid3, tid4 = self._storeTransactions(4)
-        # get tids
-        # - all
-        result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 0)
-        self.checkSet(result, [tid1, tid3])
         # - one partition
         result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 10, 0)
         self.checkSet(result, [tid1, tid3])
@@ -518,6 +515,37 @@ class StorageDBTests(NeoUnitTestBase):
         # - limit
         result = self.db.getReplicationTIDList(ZERO_TID, MAX_TID, 1, 0)
         self.checkSet(result, [tid1])
+
+    def test_checkRange(self):
+        def check(trans, obj, *args):
+            self.assertEqual(trans, self.db.checkTIDRange(*args))
+            self.assertEqual(obj, self.db.checkSerialRange(*(args+(ZERO_OID,))))
+        self.setNumPartitions(2, True)
+        tid1, tid2, tid3, tid4 = self._storeTransactions(4)
+        z = 0, ZERO_HASH, ZERO_TID, ZERO_HASH, ZERO_OID
+        # - one partition
+        check((2, a2b_hex('84320eb8dbbe583f67055c15155ab6794f11654d'), tid3),
+            z,
+            0, 10, ZERO_TID, MAX_TID)
+        # - another partition
+        check((2, a2b_hex('1f02f98cf775a9e0ce9252ff5972dce728c4ddb0'), tid4),
+            (4, a2b_hex('e5b47bddeae2096220298df686737d939a27d736'), tid4,
+                a2b_hex('1e9093698424b5370e19acd2d5fc20dcd56a32cd'), p64(1)),
+            1, 10, ZERO_TID, MAX_TID)
+        self.assertEqual(
+            (3, a2b_hex('b85e2d4914e22b5ad3b82b312b3dc405dc17dcb8'), tid4,
+                a2b_hex('1b6d73ecdc064595fe915a5c26da06b195caccaa'), p64(1)),
+            self.db.checkSerialRange(1, 10, ZERO_TID, MAX_TID, p64(2)))
+        # - min_tid is inclusive
+        check((1, a2b_hex('da4b9237bacccdf19c0760cab7aec4a8359010b0'), tid3),
+            z,
+            0, 10, tid3, MAX_TID)
+        # - max tid is inclusive
+        x = 1, a2b_hex('b6589fc6ab0dc82cf12099d1c2d40ab994e8410c'), tid1
+        check(x, z, 0, 10, ZERO_TID, tid2)
+        # - limit
+        y = 1, a2b_hex('356a192b7913b04c54574d18c28d46e6395428ab'), tid2
+        check(y, x + y[1:], 1, 1, ZERO_TID, MAX_TID)
 
     def test_findUndoTID(self):
         self.setNumPartitions(4, True)

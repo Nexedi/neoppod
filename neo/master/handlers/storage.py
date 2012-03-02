@@ -16,7 +16,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 import neo.lib
-from neo.lib.protocol import ClusterStates, Packets, ProtocolError
+from neo.lib.protocol import CellStates, ClusterStates, Packets, ProtocolError
 from neo.lib.exception import OperationFailure
 from neo.lib.util import dump
 from neo.lib.connector import ConnectorConnectionClosedException
@@ -71,6 +71,17 @@ class StorageServiceHandler(BaseServiceHandler):
             raise ProtocolError('Unknown transaction')
         # transaction locked on this storage node
         self.app.tm.lock(ttid, conn.getUUID())
+
+    def notifyPartitionCorrupted(self, conn, partition, cell_list):
+        change_list = []
+        for cell in self.app.pt.getCellList(partition):
+            if cell.getUUID() in cell_list:
+                cell.setState(CellStates.CORRUPTED)
+                change_list.append((partition, cell.getUUID(),
+                                    CellStates.CORRUPTED))
+        self.app.broadcastPartitionChanges(change_list)
+        if not self.app.pt.operational():
+            raise OperationFailure('cannot continue operation')
 
     def notifyReplicationDone(self, conn, offset, tid):
         app = self.app

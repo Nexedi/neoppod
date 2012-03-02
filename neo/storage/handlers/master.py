@@ -72,3 +72,6 @@ class MasterOperationHandler(BaseMasterHandler):
     def askTruncate(self, conn, tid):
         self.app.dm.truncate(tid)
         conn.answer(Packets.AnswerTruncate())
+
+    def checkPartition(self, conn, *args):
+        self.app.checker(*args)

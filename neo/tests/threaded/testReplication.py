@@ -23,11 +23,13 @@ import threading
 import transaction
 import unittest
 import neo.lib
+from neo.storage.checker import CHECK_COUNT
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import MTClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
     ZERO_OID, ZERO_TID, MAX_TID
+from neo.lib.util import p64
 from . import NEOCluster, NEOThreadedTest, Patch, predictable_random
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 
@@ -36,8 +38,9 @@ class ReplicationTests(NEOThreadedTest):
 
     def checksumPartition(self, storage, partition):
         dm = storage.dm
-        args = ZERO_TID, MAX_TID, None, partition
-        return dm.checkTIDRange(*args), dm.checkSerialRange(ZERO_TID, *args)
+        args = partition, None, ZERO_TID, MAX_TID
+        return dm.checkTIDRange(*args), \
+            dm.checkSerialRange(min_oid=ZERO_OID, *args)
 
     def checkPartitionReplicated(self, source, destination, partition):
         self.assertEqual(self.checksumPartition(source, partition),
@@ -60,25 +63,28 @@ class ReplicationTests(NEOThreadedTest):
         return checked
 
     def testBackupNormalCase(self):
-        upstream = NEOCluster(partitions=7, replicas=1, storage_count=3)
+        np = 7
+        nr = 2
+        check_dict = dict.fromkeys(xrange(np))
+        upstream = NEOCluster(partitions=np, replicas=nr-1, storage_count=3)
         try:
             upstream.start()
             importZODB = upstream.importZODB()
             importZODB(3)
             upstream.client.setPoll(0)
-            backup = NEOCluster(partitions=7, replicas=1, storage_count=5,
+            backup = NEOCluster(partitions=np, replicas=nr-1, storage_count=5,
                                 upstream=upstream)
             try:
                 backup.start()
                 # Initialize & catch up.
                 backup.neoctl.setClusterState(ClusterStates.STARTING_BACKUP)
                 backup.tic()
-                self.assertEqual(14, self.checkBackup(backup))
+                self.assertEqual(np*nr, self.checkBackup(backup))
                 # Normal case, following upstream cluster closely.
                 importZODB(17)
                 upstream.client.setPoll(0)
                 backup.tic()
-                self.assertEqual(14, self.checkBackup(backup))
+                self.assertEqual(np*nr, self.checkBackup(backup))
             # Check that a backup cluster can be restarted.
             finally:
                 backup.stop()
@@ -90,11 +96,13 @@ class ReplicationTests(NEOThreadedTest):
                 importZODB(17)
                 upstream.client.setPoll(0)
                 backup.tic()
-                self.assertEqual(14, self.checkBackup(backup))
+                self.assertEqual(np*nr, self.checkBackup(backup))
+                backup.neoctl.checkReplicas(check_dict, ZERO_TID, None)
+                backup.tic()
                 # Stop backing up, nothing truncated.
                 backup.neoctl.setClusterState(ClusterStates.STOPPING_BACKUP)
                 backup.tic()
-                self.assertEqual(14, self.checkBackup(backup))
+                self.assertEqual(np*nr, self.checkBackup(backup))
                 self.assertEqual(backup.neoctl.getClusterState(),
                                  ClusterStates.RUNNING)
             finally:
@@ -110,6 +118,8 @@ class ReplicationTests(NEOThreadedTest):
         - primary storage disconnected from backup master
         - non-primary storage disconnected from backup master
         """
+        np = 4
+        check_dict = dict.fromkeys(xrange(np))
         from neo.master.backup_app import random
         def fetchObjects(orig, min_tid=None, min_oid=ZERO_OID):
             if min_tid is None:
@@ -124,11 +134,11 @@ class ReplicationTests(NEOThreadedTest):
                 node_list.remove(txn.getNode())
                 node_list[0].getConnection().close()
             return orig(txn)
-        upstream = NEOCluster(partitions=4, replicas=0, storage_count=1)
+        upstream = NEOCluster(partitions=np, replicas=0, storage_count=1)
         try:
             upstream.start()
             importZODB = upstream.importZODB(random=random)
-            backup = NEOCluster(partitions=4, replicas=2, storage_count=4,
+            backup = NEOCluster(partitions=np, replicas=2, storage_count=4,
                                 upstream=upstream)
             try:
                 backup.start()
@@ -160,8 +170,10 @@ class ReplicationTests(NEOThreadedTest):
                     finally:
                         del p
                     upstream.client.setPoll(0)
+                    if event > 5:
+                        backup.neoctl.checkReplicas(check_dict, ZERO_TID, None)
                     backup.tic()
-                    self.assertEqual(12, self.checkBackup(backup))
+                    self.assertEqual(np*3, self.checkBackup(backup))
             finally:
                 backup.stop()
         finally:
@@ -196,12 +208,13 @@ class ReplicationTests(NEOThreadedTest):
                 #      default for performance reason
                 orig.im_self.dropPartitions((offset,))
             return orig(ptid, cell_list)
-        cluster = NEOCluster(partitions=3, replicas=1, storage_count=3)
+        np = 3
+        cluster = NEOCluster(partitions=np, replicas=1, storage_count=3)
         s0, s1, s2 = cluster.storage_list
         for delayed in Packets.AskFetchTransactions, Packets.AskFetchObjects:
             try:
                 cluster.start([s0])
-                cluster.populate([range(6)] * 3)
+                cluster.populate([range(np*2)] * np)
                 cluster.client.setPoll(0)
                 s1.start()
                 s2.start()
@@ -223,6 +236,50 @@ class ReplicationTests(NEOThreadedTest):
                 cluster.stop()
             cluster.reset(True)
 
+    def testCheckReplicas(self):
+        from neo.storage import checker
+        def corrupt(offset):
+            s0, s1, s2 = (storage_dict[cell.getUUID()]
+                for cell in cluster.master.pt.getCellList(offset, True))
+            s1.dm.deleteObject(p64(np+offset), p64(corrupt_tid))
+            return s0.uuid
+        def check(expected_state, expected_count):
+            self.assertEqual(expected_count, len([None
+              for row in cluster.neoctl.getPartitionRowList()[1]
+              for cell in row[1]
+              if cell[1] == CellStates.CORRUPTED]))
+            self.assertEqual(expected_state, cluster.neoctl.getClusterState())
+        np = 5
+        tid_count = np * 3
+        corrupt_tid = tid_count // 2
+        check_dict = dict.fromkeys(xrange(np))
+        cluster = NEOCluster(partitions=np, replicas=2, storage_count=3)
+        try:
+            checker.CHECK_COUNT = 2
+            cluster.start()
+            cluster.populate([range(np*2)] * tid_count)
+            cluster.client.setPoll(0)
+            storage_dict = dict((x.uuid, x) for x in cluster.storage_list)
+            cluster.neoctl.checkReplicas(check_dict, ZERO_TID, None)
+            cluster.tic()
+            check(ClusterStates.RUNNING, 0)
+            source = corrupt(0)
+            cluster.neoctl.checkReplicas(check_dict, p64(corrupt_tid+1), None)
+            cluster.tic()
+            check(ClusterStates.RUNNING, 0)
+            cluster.neoctl.checkReplicas({0: source}, ZERO_TID, None)
+            cluster.tic()
+            check(ClusterStates.RUNNING, 1)
+            corrupt(1)
+            cluster.neoctl.checkReplicas(check_dict, p64(corrupt_tid+1), None)
+            cluster.tic()
+            check(ClusterStates.RUNNING, 1)
+            cluster.neoctl.checkReplicas(check_dict, ZERO_TID, None)
+            cluster.tic()
+            check(ClusterStates.VERIFYING, 4)
+        finally:
+            checker.CHECK_COUNT = CHECK_COUNT
+            cluster.stop()
 
 if __name__ == "__main__":
     unittest.main()

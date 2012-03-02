@@ -25,7 +25,7 @@ from struct import Struct
 from .util import Enum, getAddressType
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (6, 1)
+PROTOCOL_VERSION = (7, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -49,6 +49,7 @@ class ErrorCodes(Enum):
     BROKEN_NODE = Enum.Item(5)
     ALREADY_PENDING = Enum.Item(7)
     REPLICATION_ERROR = Enum.Item(8)
+    CHECKING_ERROR = Enum.Item(9)
 ErrorCodes = ErrorCodes()
 
 class ClusterStates(Enum):
@@ -83,6 +84,7 @@ class CellStates(Enum):
     OUT_OF_DATE = Enum.Item(2)
     FEEDING = Enum.Item(3)
     DISCARDED = Enum.Item(4)
+    CORRUPTED = Enum.Item(5)
 CellStates = CellStates()
 
 class LockState(Enum):
@@ -108,6 +110,7 @@ cell_state_prefix_dict = {
     CellStates.OUT_OF_DATE: 'O',
     CellStates.FEEDING: 'F',
     CellStates.DISCARDED: 'D',
+    CellStates.CORRUPTED: 'C',
 }
 
 # Other constants.
@@ -1239,6 +1242,35 @@ class Pack(Packet):
         PBoolean('status'),
     )
 
+class CheckReplicas(Packet):
+    """
+    ctl -> A
+    A -> M
+    """
+    _fmt = PStruct('check_replicas',
+        PDict('partition_dict',
+            PNumber('partition'),
+            PUUID('source'),
+        ),
+        PTID('min_tid'),
+        PTID('max_tid'),
+    )
+    _answer = Error
+
+class CheckPartition(Packet):
+    """
+    M -> S
+    """
+    _fmt = PStruct('check_partition',
+        PNumber('partition'),
+        PStruct('source',
+            PString('upstream_name'),
+            PAddress('address'),
+        ),
+        PTID('min_tid'),
+        PTID('max_tid'),
+    )
+
 class CheckTIDRange(Packet):
     """
     Ask some stats about a range of transactions.
@@ -1251,15 +1283,13 @@ class CheckTIDRange(Packet):
     S -> S
     """
     _fmt = PStruct('ask_check_tid_range',
+        PNumber('partition'),
+        PNumber('length'),
         PTID('min_tid'),
         PTID('max_tid'),
-        PNumber('length'),
-        PNumber('partition'),
     )
 
     _answer = PStruct('answer_check_tid_range',
-        PTID('min_tid'),
-        PNumber('length'),
         PNumber('count'),
         PChecksum('checksum'),
         PTID('max_tid'),
@@ -1277,22 +1307,30 @@ class CheckSerialRange(Packet):
     S -> S
     """
     _fmt = PStruct('ask_check_serial_range',
-        POID('min_oid'),
-        PTID('min_serial'),
-        PTID('max_tid'),
-        PNumber('length'),
         PNumber('partition'),
+        PNumber('length'),
+        PTID('min_tid'),
+        PTID('max_tid'),
+        POID('min_oid'),
     )
 
     _answer = PStruct('answer_check_serial_range',
-        POID('min_oid'),
-        PTID('min_serial'),
-        PNumber('length'),
         PNumber('count'),
+        PChecksum('tid_checksum'),
+        PTID('max_tid'),
         PChecksum('oid_checksum'),
         POID('max_oid'),
-        PChecksum('serial_checksum'),
-        PTID('max_serial'),
+    )
+
+class PartitionCorrupted(Packet):
+    """
+    S -> M
+    """
+    _fmt = PStruct('partition_corrupted',
+        PNumber('partition'),
+        PList('cell_list',
+            PUUID('uuid'),
+        ),
     )
 
 class LastTransaction(Packet):
@@ -1601,10 +1639,16 @@ class Packets(dict):
                     TIDListFrom)
     AskPack, AnswerPack = register(
                     Pack, ignore_when_closed=False)
+    CheckReplicas = register(
+                    CheckReplicas)
+    CheckPartition = register(
+                    CheckPartition)
     AskCheckTIDRange, AnswerCheckTIDRange = register(
                     CheckTIDRange)
     AskCheckSerialRange, AnswerCheckSerialRange = register(
                     CheckSerialRange)
+    NotifyPartitionCorrupted = register(
+                    PartitionCorrupted)
     NotifyReady = register(
                     NotifyReady)
     AskLastTransaction, AnswerLastTransaction = register(

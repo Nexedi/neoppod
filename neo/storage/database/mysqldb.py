@@ -702,7 +702,7 @@ class MySQLDatabaseManager(DatabaseManager):
                 data_id_set.discard(None)
                 self._pruneData(data_id_set)
 
-    def checkTIDRange(self, min_tid, max_tid, length, partition):
+    def checkTIDRange(self, partition, length, min_tid, max_tid):
         count, tid_checksum, max_tid = self.query(
             """SELECT COUNT(*), SHA1(GROUP_CONCAT(tid SEPARATOR ",")), MAX(tid)
                FROM (SELECT tid FROM trans
@@ -713,30 +713,30 @@ class MySQLDatabaseManager(DatabaseManager):
             'partition': partition,
             'min_tid': util.u64(min_tid),
             'max_tid': util.u64(max_tid),
-            'limit': '' if length is None else 'LIMIT %(length)d' % length,
+            'limit': '' if length is None else 'LIMIT %u' % length,
         })[0]
         if count:
             return count, a2b_hex(tid_checksum), util.p64(max_tid)
         return 0, ZERO_HASH, ZERO_TID
 
-    def checkSerialRange(self, min_oid, min_serial, max_tid, length, partition):
+    def checkSerialRange(self, partition, length, min_tid, max_tid, min_oid):
         u64 = util.u64
         # We don't ask MySQL to compute everything (like in checkTIDRange)
         # because it's difficult to get the last serial _for the last oid_.
         # We would need a function (that could be named 'LAST') that returns the
         # last grouped value, instead of the greatest one.
         r = self.query(
-            """SELECT oid, tid
+            """SELECT tid, oid
                FROM obj
                WHERE partition = %(partition)s
                  AND tid <= %(max_tid)d
-                 AND (oid > %(min_oid)d OR
-                      oid = %(min_oid)d AND tid >= %(min_tid)d)
-               ORDER BY oid ASC, tid ASC %(limit)s""" % {
+                 AND (tid > %(min_tid)d OR
+                      tid = %(min_tid)d AND oid >= %(min_oid)d)
+               ORDER BY tid, oid %(limit)s""" % {
             'min_oid': u64(min_oid),
-            'min_tid': u64(min_serial),
+            'min_tid': u64(min_tid),
             'max_tid': u64(max_tid),
-            'limit': '' if length is None else 'LIMIT %(length)d' % length,
+            'limit': '' if length is None else 'LIMIT %u' % length,
             'partition': partition,
         })
         if r:
@@ -746,4 +746,4 @@ class MySQLDatabaseManager(DatabaseManager):
                     p64(r[-1][0]),
                     sha1(','.join(str(x[1]) for x in r)).digest(),
                     p64(r[-1][1]))
-        return 0, ZERO_HASH, ZERO_OID, ZERO_HASH, ZERO_TID
+        return 0, ZERO_HASH, ZERO_TID, ZERO_HASH, ZERO_OID

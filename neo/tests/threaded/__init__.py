@@ -715,7 +715,7 @@ class NEOCluster(object):
             txn = transaction.Transaction()
             storage.tpc_begin(txn, tid(i))
             for o in oid_list:
-                storage.store(p64(o), tid_dict.get(o), repr((i, o)), '', txn)
+                storage.store(oid(o), tid_dict.get(o), repr((i, o)), '', txn)
             storage.tpc_vote(txn)
             i = storage.tpc_finish(txn)
             for o in oid_list:
@@ -788,6 +788,7 @@ def predictable_random(seed=None):
     # Because we have 2 running threads when client works, we can't
     # patch neo.client.pool (and cluster should have 1 storage).
     from neo.master import backup_app
+    from neo.master.handlers import administration
     from neo.storage import replicator
     def decorator(wrapped):
         def wrapper(*args, **kw):
@@ -800,10 +801,12 @@ def predictable_random(seed=None):
                     if node_type == NodeTypes.CLIENT else
                     UUID_NAMESPACES[node_type] + ''.join(
                     chr(r.randrange(256)) for _ in xrange(15)))
-                backup_app.random = replicator.random = r
+                administration.random = backup_app.random = replicator.random \
+                    = r
                 return wrapped(*args, **kw)
             finally:
                 del MasterApplication.getNewUUID
-                backup_app.random = replicator.random = random
+                administration.random = backup_app.random = replicator.random \
+                    = random
         return wraps(wrapped)(wrapper)
     return decorator

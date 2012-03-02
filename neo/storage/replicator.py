@@ -132,7 +132,7 @@ class Replicator(object):
         outdated_list = []
         for offset in xrange(pt.getPartitions()):
             for cell in pt.getCellList(offset):
-                if cell.getUUID() == uuid:
+                if cell.getUUID() == uuid and not cell.isCorrupted():
                     self.partition_dict[offset] = p = Partition()
                     if cell.isOutOfDate():
                         outdated_list.append(offset)
@@ -154,17 +154,25 @@ class Replicator(object):
         abort = False
         added_list = []
         app = self.app
+        last_tid, last_trans_dict, last_obj_dict = app.dm.getLastTIDs()
         for offset, uuid, state in cell_list:
             if uuid == app.uuid:
-                if state == CellStates.DISCARDED:
-                    del self.partition_dict[offset]
+                if state in (CellStates.DISCARDED, CellStates.CORRUPTED):
+                    try:
+                        del self.partition_dict[offset]
+                    except KeyError:
+                        continue
                     self.replicate_dict.pop(offset, None)
                     self.source_dict.pop(offset, None)
                     abort = abort or self.current_partition == offset
                 elif state == CellStates.OUT_OF_DATE:
                     assert offset not in self.partition_dict
                     self.partition_dict[offset] = p = Partition()
-                    p.next_trans = p.next_obj = ZERO_TID
+                    try:
+                        p.next_trans = add64(last_trans_dict[offset], 1)
+                    except KeyError:
+                        p.next_trans = ZERO_TID
+                    p.next_obj = last_obj_dict.get(offset, ZERO_TID)
                     p.max_ttid = INVALID_TID
                     added_list.append(offset)
         if added_list:
@@ -212,11 +220,10 @@ class Replicator(object):
         self.current_partition = offset
         previous_node = self.current_node
         self.current_node = node
-        if node.isConnected():
-            node.getConnection().asClient()
-            self.fetchTransactions()
-            if node is previous_node:
-                return
+        if node.isConnected(connecting=True):
+            if node.isIdentified():
+                node.getConnection().asClient()
+                self.fetchTransactions()
         else:
             assert name or node.getUUID() != app.uuid, "loopback connection"
             conn = ClientConnection(app.em, StorageOperationHandler(app),
@@ -224,7 +231,11 @@ class Replicator(object):
             conn.ask(Packets.RequestIdentification(NodeTypes.STORAGE,
                 None if name else app.uuid, app.server, name or app.name))
         if previous_node is not None and previous_node.isConnected():
-            previous_node.getConnection().closeClient()
+            app.closeClient(previous_node.getConnection())
+
+    def connected(self, node):
+        if self.current_node is node and self.current_partition is not None:
+            self.fetchTransactions()
 
     def fetchTransactions(self, min_tid=None):
         offset = self.current_partition

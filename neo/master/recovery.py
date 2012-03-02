@@ -65,39 +65,39 @@ class RecoveryManager(MasterHandler):
             if pt.filled():
                 # A partition table exists, we are starting an existing
                 # cluster.
-                partition_node_set = pt.getUpToDateCellNodeSet()
+                partition_node_set = pt.getReadableCellNodeSet()
                 pending_node_set = set(x for x in partition_node_set
                     if x.isPending())
                 if app._startup_allowed or \
                         partition_node_set == pending_node_set:
                     allowed_node_set = pending_node_set
-                    extra_node_set = pt.getOutOfDateCellNodeSet()
+                    node_list = pt.getConnectedNodeList
             elif app._startup_allowed:
                 # No partition table and admin allowed startup, we are
                 # creating a new cluster out of all pending nodes.
                 allowed_node_set = set(app.nm.getStorageList(
                     only_identified=True))
-                extra_node_set = set()
+                node_list = lambda: allowed_node_set
             if allowed_node_set:
                 for node in allowed_node_set:
                     assert node.isPending(), node
                     if node.getConnection().isPending():
                         break
                 else:
-                    allowed_node_set |= extra_node_set
+                    node_list = node_list()
                     break
 
         neo.lib.logging.info('startup allowed')
 
-        for node in allowed_node_set:
+        for node in node_list:
             node.setRunning()
-        app.broadcastNodesInformation(allowed_node_set)
+        app.broadcastNodesInformation(node_list)
 
         if pt.getID() is None:
             neo.lib.logging.info('creating a new partition table')
             # reset IDs generators & build new partition with running nodes
             app.tm.setLastOID(ZERO_OID)
-            pt.make(allowed_node_set)
+            pt.make(node_list)
             self._broadcastPartitionTable(pt.getID(), pt.getRowList())
         elif app.backup_tid:
             pt.setBackupTidDict(self.backup_tid_dict)
