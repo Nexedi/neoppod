@@ -57,7 +57,7 @@ import neo.lib
 from neo.lib.protocol import CellStates, NodeTypes, NodeStates, Packets, \
     INVALID_TID, ZERO_TID, ZERO_OID
 from neo.lib.connection import ClientConnection
-from neo.lib.util import add64, u64
+from neo.lib.util import add64, dump
 from .handlers.storage import StorageOperationHandler
 
 FETCH_COUNT = 1000
@@ -242,8 +242,8 @@ class Replicator(object):
             min_tid = p.next_trans
             self.replicate_tid = self.replicate_dict.pop(offset)
             neo.lib.logging.debug("starting replication of <partition=%u"
-                " min_tid=%u max_tid=%u> from %r", offset, u64(min_tid),
-                u64(self.replicate_tid), self.current_node)
+                " min_tid=%s max_tid=%s> from %r", offset, dump(min_tid),
+                dump(self.replicate_tid), self.current_node)
         max_tid = self.replicate_tid
         tid_list = self.app.dm.getReplicationTIDList(min_tid, max_tid,
             FETCH_COUNT, offset)
@@ -286,8 +286,8 @@ class Replicator(object):
         if not p.max_ttid:
             p = Packets.NotifyReplicationDone(offset, tid)
             self.app.master_conn.notify(p)
-        neo.lib.logging.debug("partition %u replicated up to %u from %r",
-                              offset, u64(tid), self.current_node)
+        neo.lib.logging.debug("partition %u replicated up to %s from %r",
+                              offset, dump(tid), self.current_node)
         self._nextPartition()
 
     def abort(self, message=''):

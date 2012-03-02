@@ -22,7 +22,7 @@ from neo.lib.connector import ConnectorConnectionClosedException
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import Errors, NodeStates, Packets, \
     ZERO_HASH, ZERO_TID, ZERO_OID
-from neo.lib.util import add64, u64
+from neo.lib.util import add64
 
 def checkConnectionIsReplicatorConnection(func):
     def decorator(self, conn, *args, **kw):
