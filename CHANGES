@@ -4,7 +4,31 @@ Change History
 1.0 (unreleased)
 ----------------
 
-- Drop compatibility with Python < 2.6 and ZODB < 3.9
+This version mainly comes with stabilized SQL tables format and efficient backup
+feature, relying on replication, which has been fully reimplemented:
+
+- It is now incremental, instead of being done on whole partitions.
+  Schema of MySQL tables have been changed in order to optimize storage layout,
+  for good partial replication performance.
+- It runs at lowest priority not to degrade performance for client nodes.
+- A cluster in the new BACKINGUP state is a client to a normal cluster and all
+  its storage nodes are notified of invalidations and replicate from upstream
+  nodes.
+
+Other changes are:
+
+- Compatibility with Python < 2.6 and ZODB < 3.9 has been dropped.
+- Cluster is now automatically started when all storage nodes of UP_TO_DATE
+  cells are available, similarly to ``mdadm assemble --no-degraded`` behaviour.
+- NEO learned to check replicas, to detect data corruption or bugs during
+  replication. When done on a backup cluster, upstream data is used as
+  reference. This is still limited to data indexes (tid & oid/serial).
+- Master addresses must be separated by spaces. '/' can't be used anymore.
+- Adding and removing master nodes is now easier: unknown incoming master nodes
+  are now accepted instead of rejected, and nodes can be given a path to a file
+  that maintains a list of known master nodes.
+
+Also contains code clean-ups and bugfixes.
 
 0.10.1 (unreleased)
 -------------------
