@@ -8,7 +8,6 @@ RC = Release Critical (for next release)
     - Clarify the use of each error codes:
       - NOT_READY removed (connection kept opened until ready)
       - Split PROTOCOL_ERROR (BAD IDENTIFICATION, ...)
-RC  - Clarify cell state signification
     - Add docstrings (think of doctests)
 
   Code

@@ -80,10 +80,21 @@ class NodeStates(Enum):
 NodeStates = NodeStates()
 
 class CellStates(Enum):
+    # Normal state: cell is writable/readable, and it isn't planned to drop it.
     UP_TO_DATE = Enum.Item(1)
+    # Write-only cell. Last transactions are missing because storage is/was down
+    # for a while, or because it is new for the partition. It usually becomes
+    # UP_TO_DATE when replication is done.
     OUT_OF_DATE = Enum.Item(2)
+    # Same as UP_TO_DATE, except that it will be discarded as soon as another
+    # node finishes to replicate it. It means a partition is moved from 1 node
+    # to another.
     FEEDING = Enum.Item(3)
+    # Not really a state: only used in network packets to tell storages to drop
+    # partitions.
     DISCARDED = Enum.Item(4)
+    # A check revealed that data differs from other replicas. Cell is neither
+    # readable nor writable.
     CORRUPTED = Enum.Item(5)
 CellStates = CellStates()
 
