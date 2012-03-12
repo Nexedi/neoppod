@@ -464,6 +464,7 @@ class Connection(BaseConnection):
         self.uuid = uuid
 
     def setPeerId(self, peer_id):
+        assert peer_id is not None
         self.peer_id = peer_id
 
     def getPeerId(self):

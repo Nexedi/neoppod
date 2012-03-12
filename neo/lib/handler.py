@@ -46,12 +46,12 @@ class EventHandler(object):
     def dispatch(self, conn, packet, kw={}):
         """This is a helper method to handle various packet types."""
         try:
+            conn.setPeerId(packet.getId())
             try:
                 method = getattr(self, packet.handler_method_name)
             except AttributeError:
                 raise UnexpectedPacketError('no handler found')
             args = packet.decode() or ()
-            conn.setPeerId(packet.getId())
             method(conn, *args, **kw)
         except UnexpectedPacketError, e:
             self.__unexpectedPacket(conn, packet, *e.args)
