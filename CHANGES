@@ -6,6 +6,12 @@ Change History
 
 - Drop compatibility with Python < 2.6 and ZODB < 3.9
 
+0.10.1 (unreleased)
+-------------------
+
+- Client didn't limit its memory usage when committing big transactions.
+- Master failed to disconnect clients when cluster leaves RUNNING state.
+
 0.10 (2011-10-17)
 -----------------
 
