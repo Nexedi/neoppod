@@ -336,14 +336,14 @@ class NEOCluster(object):
         elif self.adapter == 'SQLite':
             if clear_databases:
                 for db in self.db_list:
+                    db = self.db_template % db
                     try:
-                        os.remove(self.db_template % db)
+                        os.remove(db)
                     except OSError, e:
                         if e.errno != errno.ENOENT:
                             raise
                     else:
-                        neo.lib.logging.debug('%r deleted',
-                                              db_template % db)
+                        neo.lib.logging.debug('%r deleted', db)
 
     def run(self, except_storages=()):
         """ Start cluster processes except some storage nodes """
