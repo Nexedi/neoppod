@@ -47,18 +47,18 @@ class ImportBenchmark(BenchmarkRunner):
             master_count=config.masters,
             verbose=False,
         )
-
         # import datafs
-        neo.start()
         try:
+            neo.start()
             try:
-                return self.buildReport(*self.runImport(neo))
-            except:
-                summary = 'Perf : import failed'
-                report = ''.join(traceback.format_exc())
-                return summary, report
-        finally:
-            neo.stop()
+                result = self.buildReport(*self.runImport(neo))
+            finally:
+                neo.stop()
+            # Clear DB if no error happened.
+            neo.setupDB()
+            return result
+        except:
+            return 'Perf: import failed', ''.join(traceback.format_exc())
 
     def runImport(self, neo):
 

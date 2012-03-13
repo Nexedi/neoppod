@@ -108,9 +108,11 @@ class MatrixImportBenchmark(BenchmarkRunner):
                     self._size = size
                 else:
                     assert self._size == size
-                return end - start
             finally:
                 neo.stop()
+            # Clear DB if no error happened.
+            neo.setupDB()
+            return end - start
         except:
             traceback.print_exc()
             self.error_log += "Import with m=%s, s=%s, r=%s, p=%s:" % (
