@@ -706,6 +706,7 @@ class ClientConnection(Connection):
             self._closure()
         else:
             self._connectionCompleted()
+            self.writable()
 
     def _connectionCompleted(self):
         self.writable = super(ClientConnection, self).writable

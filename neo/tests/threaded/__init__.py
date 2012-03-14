@@ -154,6 +154,11 @@ class SerializedEventManager(EventManager):
                     Serialized.pending = timeout = 0
         EventManager._poll(self, timeout)
 
+    def addReader(self, conn):
+        EventManager.addReader(self, conn)
+        if type(Serialized.pending) is not frozenset:
+            Serialized.pending = 1
+
 
 class Node(object):
 
@@ -674,10 +679,13 @@ class NEOCluster(object):
     @staticmethod
     def tic(force=False):
         # XXX: Should we automatically switch client in slave mode if it isn't ?
+        neo.lib.logging.info('tic ...')
         if force:
             Serialized.tic()
+            neo.lib.logging.info('forced tic')
         while Serialized.pending:
             Serialized.tic()
+            neo.lib.logging.info('tic')
 
     def getNodeState(self, node):
         uuid = node.uuid
