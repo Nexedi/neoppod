@@ -1052,7 +1052,7 @@ class HandlerSwitcherTests(NeoUnitTestBase):
         self._checkCurrentHandler(h3)
 
     def testHandleAnswer4(self):
-        # process in disorder
+        # process out of order
         r1 = self._makeRequest(1)
         r2 = self._makeRequest(2)
         r3 = self._makeRequest(3)
@@ -1075,7 +1075,7 @@ class HandlerSwitcherTests(NeoUnitTestBase):
         self._checkCurrentHandler(h)
 
     def testHandleUnexpected(self):
-        # process in disorder
+        # process out of order
         r1 = self._makeRequest(1)
         r2 = self._makeRequest(2)
         a2 = self._makeAnswer(2)
