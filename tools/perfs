@@ -45,7 +45,6 @@ class ImportBenchmark(BenchmarkRunner):
             partitions=config.partitions,
             replicas=config.replicas,
             master_count=config.masters,
-            verbose=False,
         )
         # import datafs
         try:

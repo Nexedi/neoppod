@@ -72,9 +72,6 @@ class ConfigurationManager(object):
         assert cluster != '', "Cluster name must be non-empty"
         return cluster
 
-    def getName(self):
-        return self.__get('name')
-
     def getReplicas(self):
         return int(self.__get('replicas'))
 

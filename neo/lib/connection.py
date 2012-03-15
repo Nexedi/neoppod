@@ -23,7 +23,6 @@ from .connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorInProgressException, ConnectorConnectionRefusedException, \
         ConnectorConnectionClosedException
 from .locking import RLock
-from .logger import PACKET_LOGGER
 from .profiling import profiler_decorator
 from .protocol import Errors, PacketMalformedError, Packets, ParserState
 from .util import dump, ReadBuffer
@@ -166,7 +165,7 @@ class HandlerSwitcher(object):
     @profiler_decorator
     def _handle(self, connection, packet):
         assert len(self._pending) == 1 or self._pending[0][0]
-        PACKET_LOGGER.dispatch(connection, packet, False)
+        neo.lib.logging.packet(connection, packet, False)
         if connection.isClosed() and packet.ignoreOnClosedConnection():
             neo.lib.logging.debug('Ignoring packet %r on closed connection %r',
                 packet, connection)
@@ -638,7 +637,7 @@ class Connection(BaseConnection):
         if was_empty:
             # enable polling for writing.
             self.em.addWriter(self)
-        PACKET_LOGGER.dispatch(self, packet, True)
+        neo.lib.logging.packet(self, packet, True)
 
     @not_closed
     def notify(self, packet):

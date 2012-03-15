@@ -27,10 +27,10 @@ class ClusterTests(NEOFunctionalTest):
         NEOFunctionalTest.setUp(self)
         self.neo = None
 
-    def tearDown(self):
+    def _tearDown(self, success):
         if self.neo is not None:
             self.neo.stop()
-        NEOFunctionalTest.tearDown(self)
+        NEOFunctionalTest._tearDown(self, success)
 
     def testClusterStartup(self):
         neo = NEOCluster(['test_neo1', 'test_neo2'], replicas=1,

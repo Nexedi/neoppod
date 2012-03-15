@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2011  Nexedi SA
+# Copyright (C) 2006-2012  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,57 +14,203 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from base64 import b64encode
-import neo
-from .protocol import PacketMalformedError
-from .util import dump
-from .handler import EventHandler
-from .profiling import profiler_decorator
+# WARNING: Log rotating should not be implemented here.
+#          SQLite does not access database only by file descriptor,
+#          and an OperationalError exception would be raised if a log is emitted
+#          between a rename and a reopen.
+#          Fortunately, SQLite allow multiple process to access the same DB,
+#          so an external tool should be able to dump and empty tables.
 
-LOGGER_ENABLED = False
+from binascii import b2a_hex
+from collections import deque
+from functools import wraps
+from logging import getLogger, Formatter, Logger, LogRecord, StreamHandler, \
+    DEBUG, WARNING
+from time import time
+from traceback import format_exception
+import neo, os, signal, sqlite3, threading
 
-class PacketLogger(object):
-    """ Logger at packet level (for debugging purpose) """
+# Stats for storage node of matrix test (py2.7:SQLite)
+RECORD_SIZE = ( 234360832 # extra memory used
+              - 16777264  # sum of raw data ('msg' attribute)
+              ) // 187509 # number of records
+
+FMT = ('%(asctime)s %(levelname)-9s %(name)-10s'
+       ' [%(module)14s:%(lineno)3d] \n%(message)s')
+
+class _Formatter(Formatter):
+
+    def formatTime(self, record, datefmt=None):
+        return Formatter.formatTime(self, record,
+           '%Y-%m-%d %H:%M:%S') + '.%04d' % (record.msecs * 10)
+
+    def format(self, record):
+        lines = iter(Formatter.format(self, record).splitlines())
+        prefix = lines.next()
+        return '\n'.join(prefix + line for line in lines)
+
+
+class PacketRecord(object):
+
+    args = None
+    levelno = DEBUG
+    __init__ = property(lambda self: self.__dict__.update)
+
+
+class logging(Logger):
+
+    default_root_handler = StreamHandler()
+    default_root_handler.setFormatter(_Formatter(FMT))
 
     def __init__(self):
-        self.enable(LOGGER_ENABLED)
+        Logger.__init__(self, None)
+        self.parent = root = getLogger()
+        if not root.handlers:
+            root.addHandler(self.default_root_handler)
+        self.db = None
+        self._record_queue = deque()
+        self._record_size = 0
+        self._async = set()
+        l = threading.Lock()
+        self._acquire = l.acquire
+        release = l.release
+        def _release():
+            try:
+                while self._async:
+                    self._async.pop()(self)
+            finally:
+                release()
+        self._release = _release
+        self.backlog()
 
-    def enable(self, enabled):
-        self.dispatch = enabled and self._dispatch or (lambda *args, **kw: None)
+    def __async(wrapped):
+        def wrapper(self):
+            self._async.add(wrapped)
+            if self._acquire(0):
+                self._release()
+        return wraps(wrapped)(wrapper)
 
-    def _dispatch(self, conn, packet, outgoing):
-        """This is a helper method to handle various packet types."""
-        # default log message
-        uuid = dump(conn.getUUID())
-        ip, port = conn.getAddress()
-        packet_name = packet.__class__.__name__
-        neo.lib.logging.debug('#0x%04x %-30s %s %s (%s:%d) %s', packet.getId(),
-                packet_name, outgoing and '>' or '<', uuid, ip, port,
-                b64encode(packet._body[:96]))
-        # look for custom packet logger
-        logger = getattr(self, packet.handler_method_name, None)
-        if logger is None:
+    @__async
+    def flush(self):
+        if self.db is None:
             return
-        # enhanced log
+        self.db.execute("BEGIN")
+        for r in self._record_queue:
+            self._emit(r)
+        self.db.commit()
+        self._record_queue.clear()
+        self._record_size = 0
+
+    def backlog(self, max_size=1<<24):
+        self._acquire()
         try:
-            args = packet.decode() or ()
-        except PacketMalformedError:
-            neo.lib.logging.warning("Can't decode packet for logging")
-            return
-        log_message = logger(conn, *args)
-        if log_message is not None:
-            neo.lib.logging.debug('#0x%04x %s', packet.getId(), log_message)
-
-    def error(self, conn, code, message):
-        return "%s (%s)" % (code, message)
-
-    def notifyNodeInformation(self, conn, node_list):
-        for node_type, address, uuid, state in node_list:
-            if address is not None:
-                address = '%s:%d' % address
+            self._max_size = max_size
+            if max_size is None:
+                self.flush()
             else:
-                address = '?'
-            node = (dump(uuid), node_type, address, state)
-            neo.lib.logging.debug(' ! %s | %8s | %22s | %s' % node)
+                q = self._record_queue
+                while max_size < self._record_size:
+                    self._record_size -= RECORD_SIZE + len(q.popleft().msg)
+        finally:
+            self._release()
 
-PACKET_LOGGER = PacketLogger()
+    def setup(self, filename=None, reset=False):
+        self._acquire()
+        try:
+            if self.db is not None:
+                self.db.close()
+                if not filename:
+                    self.db = None
+                    self._record_queue.clear()
+                    self._record_size = 0
+                    return
+            if filename:
+                self.db = sqlite3.connect(filename, isolation_level=None,
+                                                    check_same_thread=False)
+                q = self.db.execute
+                if reset:
+                    for t in 'log', 'packet':
+                        q('DROP TABLE IF EXISTS ' + t)
+                q("""CREATE TABLE IF NOT EXISTS log (
+                        date REAL NOT NULL,
+                        name TEXT,
+                        level INTEGER NOT NULL,
+                        pathname TEXT,
+                        lineno INTEGER,
+                        msg TEXT)
+                  """)
+                q("""CREATE INDEX IF NOT EXISTS _log_i1 ON log(date)""")
+                q("""CREATE TABLE IF NOT EXISTS packet (
+                        date REAL NOT NULL,
+                        name TEXT,
+                        msg_id INTEGER NOT NULL,
+                        code INTEGER NOT NULL,
+                        peer TEXT NOT NULL,
+                        body BLOB)
+                  """)
+                q("""CREATE INDEX IF NOT EXISTS _packet_i1 ON packet(date)""")
+        finally:
+            self._release()
+    __del__ = setup
+
+    def isEnabledFor(self, level):
+        return True
+
+    def _emit(self, r):
+        if type(r) is PacketRecord:
+            ip, port = r.addr
+            peer = '%s %s (%s:%u)' % ('>' if r.outgoing else '<',
+                                      r.uuid and b2a_hex(r.uuid), ip, port)
+            self.db.execute("INSERT INTO packet VALUES (?,?,?,?,?,?)",
+                (r.created, r._name, r.msg_id, r.code, peer, buffer(r.msg)))
+        else:
+            pathname = os.path.relpath(r.pathname, *neo.__path__)
+            self.db.execute("INSERT INTO log VALUES (?,?,?,?,?,?)",
+                (r.created, r._name, r.levelno, pathname, r.lineno, r.msg))
+
+    def _queue(self, record):
+        record._name = self.name and str(self.name)
+        self._acquire()
+        try:
+            if self._max_size is None:
+                self._emit(record)
+            else:
+                self._record_size += RECORD_SIZE + len(record.msg)
+                q = self._record_queue
+                q.append(record)
+                if record.levelno < WARNING:
+                    while self._max_size < self._record_size:
+                        self._record_size -= RECORD_SIZE + len(q.popleft().msg)
+                else:
+                    self.flush()
+        finally:
+            self._release()
+
+    def callHandlers(self, record):
+        if self.db is not None:
+            record.msg = record.getMessage()
+            record.args = None
+            if record.exc_info:
+                record.msg += '\n' + ''.join(
+                    format_exception(*record.exc_info)).strip()
+                record.exc_info = None
+            self._queue(record)
+        if Logger.isEnabledFor(self, record.levelno):
+            record.name = self.name or 'NEO'
+            self.parent.callHandlers(record)
+
+    def packet(self, connection, packet, outgoing):
+        if self.db is not None:
+            ip, port = connection.getAddress()
+            self._queue(PacketRecord(
+                created=time(),
+                msg_id=packet._id,
+                code=packet._code,
+                outgoing=outgoing,
+                uuid=connection.getUUID(),
+                addr=connection.getAddress(),
+                msg=packet._body))
+
+
+logging = logging()
+signal.signal(signal.SIGRTMIN, lambda signum, frame: logging.flush())

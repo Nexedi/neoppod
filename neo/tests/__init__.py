@@ -22,11 +22,10 @@ import sys
 import tempfile
 import unittest
 import MySQLdb
-import neo
 import transaction
 
 from mock import Mock
-from neo.lib import debug, logger, protocol, setupLog
+from neo.lib import debug, logging, protocol
 from neo.lib.protocol import Packets
 from neo.lib.util import getAddressType
 from time import time, gmtime
@@ -44,10 +43,12 @@ IP_VERSION_FORMAT_DICT = {
 
 ADDRESS_TYPE = socket.AF_INET
 
-debug.ENABLED = True
+logging.default_root_handler.handle = lambda record: None
+logging.backlog(None)
+
 debug.register()
 # prevent "signal only works in main thread" errors in subprocesses
-debug.ENABLED = False
+debug.register = lambda on_log=None: None
 
 def mockDefaultValue(name, function):
     def method(self, *args, **kw):
@@ -109,30 +110,31 @@ def setupMySQLdb(db_list, user=DB_USER, password='', clear_databases=True):
     conn.close()
 
 class NeoTestBase(unittest.TestCase):
+
     def setUp(self):
-        logger.PACKET_LOGGER.enable(True)
         sys.stdout.write(' * %s ' % (self.id(), ))
         sys.stdout.flush()
-        self.setupLog()
+        logging.name = self.setupLog()
         unittest.TestCase.setUp(self)
 
     def setupLog(self):
-        test_case, test_method = self.id().rsplit('.', 1)
-        log_file = os.path.join(getTempDirectory(), test_case + '.log')
-        setupLog(test_method, log_file, True)
+        test_case, logging.name = self.id().rsplit('.', 1)
+        logging.setup(os.path.join(getTempDirectory(), test_case + '.log'))
 
-    def tearDown(self):
+    def tearDown(self, success='ok' if sys.version_info < (2,7) else 'success'):
+        assert self.tearDown.im_func is NeoTestBase.tearDown.im_func
+        self._tearDown(sys._getframe(1).f_locals[success])
+
+    def _tearDown(self, success):
         # Kill all unfinished transactions for next test.
         # Note we don't even abort them because it may require a valid
         # connection to a master node (see Storage.sync()).
         transaction.manager.__init__()
-        unittest.TestCase.tearDown(self)
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        print
 
     class failureException(AssertionError):
         def __init__(self, msg=None):
-            neo.lib.logging.error(msg)
+            logging.error(msg)
             AssertionError.__init__(self, msg)
 
     failIfEqual = failUnlessEqual = assertEquals = assertNotEquals = None
@@ -180,7 +182,6 @@ class NeoUnitTestBase(NeoTestBase):
         database = '%s@%s%s' % (DB_USER, prefix, index)
         return Mock({
                 'getCluster': cluster,
-                'getName': 'storage',
                 'getBind': (masters[0], 10020 + index),
                 'getMasters': (masters, getAddressType((
                         self.local_ip, 0))),
@@ -510,7 +511,7 @@ connector_cpt = 0
 
 class DoNothingConnector(Mock):
     def __init__(self, s=None):
-        neo.lib.logging.info("initializing connector")
+        logging.info("initializing connector")
         global connector_cpt
         self.desc = connector_cpt
         connector_cpt += 1

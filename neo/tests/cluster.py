@@ -288,4 +288,5 @@ class ClusterPdb(object):
 
 __builtin__.pdb = ClusterPdb()
 
-signal.signal(signal.SIGUSR2, debug.decorate(lambda sig, frame: pdb(depth=2)))
+signal.signal(signal.SIGUSR1, debug.safe_handler(
+    lambda sig, frame: pdb(depth=2)))

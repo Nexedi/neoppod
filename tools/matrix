@@ -91,7 +91,6 @@ class MatrixImportBenchmark(BenchmarkRunner):
             master_count=masters,
             partitions=partitions,
             replicas=replicas,
-            verbose=self._config.verbose,
         )
         try:
             neo.start()

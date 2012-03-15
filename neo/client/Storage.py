@@ -20,7 +20,6 @@ import ZODB.interfaces
 
 import neo.lib
 from functools import wraps
-from neo.lib import setupLog
 from neo.lib.util import add64
 from neo.lib.protocol import ZERO_TID
 from .app import Application
@@ -63,7 +62,7 @@ class Storage(BaseStorage.BaseStorage,
     )))
 
     def __init__(self, master_nodes, name, read_only=False,
-            compress=None, logfile=None, verbose=False, _app=None,
+            compress=None, logfile=None, _app=None,
             dynamic_master_list=None, **kw):
         """
         Do not pass those parameters (used internally):
@@ -71,7 +70,8 @@ class Storage(BaseStorage.BaseStorage,
         """
         if compress is None:
             compress = True
-        setupLog('CLIENT', filename=logfile, verbose=verbose)
+        if logfile:
+            neo.lib.logging.setup(logfile)
         BaseStorage.BaseStorage.__init__(self, 'NEOStorage(%s)' % (name, ))
         # Warning: _is_read_only is used in BaseStorage, do not rename it.
         self._is_read_only = read_only
@@ -84,8 +84,6 @@ class Storage(BaseStorage.BaseStorage,
         self._init_kw = {
             'read_only': read_only,
             'compress': compress,
-            'logfile': logfile,
-            'verbose': verbose,
             'dynamic_master_list': dynamic_master_list,
             '_app': _app,
         }

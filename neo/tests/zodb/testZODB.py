@@ -26,9 +26,9 @@ class NEOZODBTests(ZODBTestCase, testZODB.ZODBTests):
         super(NEOZODBTests, self).setUp()
         self._db = ZODB.DB(self._storage)
 
-    def tearDown(self):
+    def _tearDown(self, success):
         self._db.close()
-        super(NEOZODBTests, self).tearDown()
+        super(NEOZODBTests, self)._tearDown(success)
 
     def checkMultipleUndoInOneTransaction(self):
         # XXX: Upstream test accesses a persistent object outside a transaction

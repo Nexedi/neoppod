@@ -35,10 +35,10 @@ class StorageAppTests(NeoUnitTestBase):
         self.app.event_queue = deque()
         self.app.event_queue_dict = {}
 
-    def tearDown(self):
+    def _tearDown(self, success):
         self.app.close()
         del self.app
-        super(StorageAppTests, self).tearDown()
+        super(StorageAppTests, self)._tearDown(success)
 
     def test_01_loadPartitionTable(self):
         self.app.dm = Mock({

@@ -2,7 +2,7 @@
 #
 # neostorage - run a storage node of NEO
 #
-# Copyright (C) 2006  Nexedi SA
+# Copyright (C) 2006-2012  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,13 +18,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from optparse import OptionParser
-from neo.lib import setupLog
+from neo.lib import logging
 from neo.lib.config import ConfigurationManager
 
 
 parser = OptionParser()
-parser.add_option('-v', '--verbose', action = 'store_true',
-                  help = 'print verbose messages')
 parser.add_option('-u', '--uuid', help='specify an UUID to use for this ' \
                   'process. Previously assigned UUID takes precedence (ie ' \
                   'you should always use -R with this switch)')
@@ -33,7 +31,6 @@ parser.add_option('-s', '--section', help = 'specify a configuration section')
 parser.add_option('-l', '--logfile', help = 'specify a logging file')
 parser.add_option('-R', '--reset', action = 'store_true',
                   help = 'remove an existing database if any')
-parser.add_option('-n', '--name', help = 'the node name (impove logging)')
 parser.add_option('-b', '--bind', help = 'the local address to bind to')
 parser.add_option('-c', '--cluster', help = 'the cluster name')
 parser.add_option('-m', '--masters', help = 'master node list')
@@ -45,7 +42,6 @@ parser.add_option('-w', '--wait', help='seconds to wait for backend to be '
     'available, before erroring-out (-1 = infinite)', type='float', default=0)
 
 defaults = dict(
-    name = 'storage',
     bind = '127.0.0.1',
     masters = '127.0.0.1:10000',
     adapter = 'MySQL',
@@ -60,7 +56,6 @@ def main(args=None):
     arguments = dict(
         uuid = options.uuid,
         bind = options.bind,
-        name = options.name or options.section,
         cluster = options.cluster,
         masters = options.masters,
         database = options.database,
@@ -76,7 +71,7 @@ def main(args=None):
     )
 
     # setup custom logging
-    setupLog(config.getName().upper(), options.logfile or None, options.verbose)
+    logging.setup(options.logfile)
 
     # and then, load and run the application
     from neo.storage.app import Application

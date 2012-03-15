@@ -70,10 +70,10 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
         ClientConnection._addPacket = _addPacket
         super(MasterClientElectionTests, self).setUp()
 
-    def tearDown(self):
+    def _tearDown(self, success):
         # restore patched methods
         ClientConnection._addPacket = self._addPacket
-        NeoUnitTestBase.tearDown(self)
+        NeoUnitTestBase._tearDown(self, success)
 
     def _checkUnconnected(self, node):
         addr = node.getAddress()
@@ -233,8 +233,8 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         ClientConnection._addPacket = _addPacket
         super(MasterServerElectionTests, self).setUp()
 
-    def tearDown(self):
-        NeoUnitTestBase.tearDown(self)
+    def _tearDown(self, success):
+        NeoUnitTestBase._tearDown(self, success)
         # restore environnement
         ClientConnection._addPacket = self._addPacket
 

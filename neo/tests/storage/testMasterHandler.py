@@ -52,10 +52,10 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         self.app.primary_master_node = pmn
         self.master_port = 10010
 
-    def tearDown(self):
+    def _tearDown(self, success):
         self.app.close()
         del self.app
-        super(StorageMasterHandlerTests, self).tearDown()
+        super(StorageMasterHandlerTests, self)._tearDown(success)
 
     def getMasterConnection(self):
         address = ("127.0.0.1", self.master_port)

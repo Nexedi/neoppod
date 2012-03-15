@@ -34,10 +34,10 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
         self.app.pt = PartitionTable(4, 1)
         self.identification = IdentificationHandler(self.app)
 
-    def tearDown(self):
+    def _tearDown(self, success):
         self.app.close()
         del self.app
-        super(StorageIdentificationHandlerTests, self).tearDown()
+        super(StorageIdentificationHandlerTests, self)._tearDown(success)
 
     def test_requestIdentification1(self):
         """ nodes are rejected during election or if unknown storage """

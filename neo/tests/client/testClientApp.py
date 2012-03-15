@@ -77,7 +77,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         Application.getPartitionTable = getPartitionTable
         self._to_stop_list = []
 
-    def tearDown(self):
+    def _tearDown(self, success):
         # stop threads
         for app in self._to_stop_list:
             app.close()
@@ -85,7 +85,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         Application._getMasterConnection = self._getMasterConnection
         Application._ask = self._ask
         Application.getPartitionTable = self.getPartitionTable
-        NeoUnitTestBase.tearDown(self)
+        NeoUnitTestBase._tearDown(self, success)
 
     # some helpers
 

@@ -2,7 +2,7 @@
 #
 # neomaster - run a master node of NEO
 #
-# Copyright (C) 2006  Nexedi SA
+# Copyright (C) 2006-2012  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -18,16 +18,13 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from optparse import OptionParser
-from neo.lib import setupLog
+from neo.lib import logging
 from neo.lib.config import ConfigurationManager
 
 parser = OptionParser()
-parser.add_option('-v', '--verbose', action = 'store_true',
-                  help = 'print verbose messages')
 parser.add_option('-f', '--file', help = 'specify a configuration file')
 parser.add_option('-s', '--section', help = 'specify a configuration section')
 parser.add_option('-u', '--uuid', help='the node UUID (testing purpose)')
-parser.add_option('-n', '--name', help = 'the node name (impove logging)')
 parser.add_option('-b', '--bind', help = 'the local address to bind to')
 parser.add_option('-c', '--cluster', help = 'the cluster name')
 parser.add_option('-m', '--masters', help = 'master node list')
@@ -38,7 +35,6 @@ parser.add_option('-D', '--dynamic-master-list', help='path of the file '
     'containing dynamic master node list')
 
 defaults = dict(
-    name = 'master',
     bind = '127.0.0.1:10000',
     masters = '',
     replicas = 0,
@@ -51,7 +47,6 @@ def main(args=None):
     arguments = dict(
         uuid = options.uuid or None,
         bind = options.bind,
-        name = options.name or options.section,
         cluster = options.cluster,
         masters = options.masters,
         replicas = options.replicas,
@@ -65,7 +60,7 @@ def main(args=None):
     )
 
     # setup custom logging
-    setupLog(config.getName().upper(), options.logfile or None, options.verbose)
+    logging.setup(options.logfile)
 
     # and then, load and run the application
     from neo.master.app import Application

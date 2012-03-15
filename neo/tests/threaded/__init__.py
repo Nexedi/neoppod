@@ -25,7 +25,7 @@ import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
 from neo.client import Storage
-from neo.lib import bootstrap, setupLog
+from neo.lib import bootstrap
 from neo.lib.connection import BaseConnection, Connection
 from neo.lib.connector import SocketConnector, \
     ConnectorConnectionRefusedException, ConnectorTryAgainException
@@ -518,7 +518,6 @@ class NEOCluster(object):
             cls.SocketConnector_makeListeningConnection(self, BIND)
         SocketConnector.receive = receive
         SocketConnector.send = send
-        Storage.setupLog = lambda *args, **kw: None
         Serialized.init()
 
     @staticmethod
@@ -536,19 +535,11 @@ class NEOCluster(object):
             cls.SocketConnector_makeListeningConnection
         SocketConnector.receive = cls.SocketConnector_receive
         SocketConnector.send = cls.SocketConnector_send
-        Storage.setupLog = setupLog
 
     def __init__(self, master_count=1, partitions=1, replicas=0, upstream=None,
                        adapter=os.getenv('NEO_TESTS_ADAPTER', 'SQLite'),
                        storage_count=None, db_list=None, clear_databases=True,
-                       db_user=DB_USER, db_password='', verbose=None):
-        if verbose is not None:
-            temp_dir = os.getenv('TEMP') or \
-                os.path.join(tempfile.gettempdir(), 'neo_tests')
-            os.path.exists(temp_dir) or os.makedirs(temp_dir)
-            log_file = tempfile.mkstemp('.log', '', temp_dir)[1]
-            print 'Logging to %r' % log_file
-            setupLog(LoggerThreadName(), log_file, verbose)
+                       db_user=DB_USER, db_password=''):
         self.name = 'neo_%s' % self._allocate('name',
             lambda: random.randint(0, 100))
         master_list = [MasterApplication.newAddress()
@@ -751,11 +742,16 @@ class NEOThreadedTest(NeoTestBase):
 
     def setupLog(self):
         log_file = os.path.join(getTempDirectory(), self.id() + '.log')
-        setupLog(LoggerThreadName(), log_file, True)
+        neo.lib.logging.setup(log_file)
+        return LoggerThreadName()
 
-    def tearDown(self):
-        super(NEOThreadedTest, self).tearDown()
+    def _tearDown(self, success):
+        super(NEOThreadedTest, self)._tearDown(success)
         ServerNode.resetPorts()
+        if success:
+            q = neo.lib.logging.db.execute
+            q("UPDATE packet SET body=NULL")
+            q("VACUUM")
 
     def getUnpickler(self, conn):
         reader = conn._reader

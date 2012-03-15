@@ -25,7 +25,7 @@ from . import DoNothingConnector
 from neo.lib.connector import ConnectorException, ConnectorTryAgainException, \
      ConnectorInProgressException, ConnectorConnectionRefusedException
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import Packets, ParserState
+from neo.lib.protocol import Packets, ParserState, PACKET_HEADER_FORMAT
 from . import NeoUnitTestBase
 from neo.lib.util import ReadBuffer
 from neo.lib.locking import Queue
@@ -406,13 +406,12 @@ class ConnectionTests(NeoUnitTestBase):
 
     def test_07_Connection_addPacket(self):
         # new packet
-        p = Mock({"encode" : "testdata", "getId": 0})
-        p._body = ''
-        p.handler_method_name = 'testmethod'
+        p = Packets.Ping()
+        p._id = 0
         bc = self._makeConnection()
         self._checkWriteBuf(bc, '')
         bc._addPacket(p)
-        self._checkWriteBuf(bc, 'testdata')
+        self._checkWriteBuf(bc, PACKET_HEADER_FORMAT.pack(0, p._code, 10))
         self._checkWriterAdded(1)
 
     def test_Connection_analyse1(self):

@@ -36,12 +36,12 @@ class StorageDBTests(NeoUnitTestBase):
             self.setNumPartitions(1)
             return self._db
 
-    def tearDown(self):
+    def _tearDown(self, success):
         try:
             self.__dict__.pop('_db', None).close()
         except AttributeError:
             pass
-        NeoUnitTestBase.tearDown(self)
+        NeoUnitTestBase._tearDown(self, success)
 
     def getDB(self):
         raise NotImplementedError

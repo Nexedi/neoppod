@@ -55,6 +55,7 @@ setup(
             # (eg. we don't want neotestrunner if nothing depends on tests)
             'neoadmin=neo.scripts.neoadmin:main',
             'neoctl=neo.scripts.neoctl:main',
+            'neolog=neo.scripts.neolog:main',
             'neomaster=neo.scripts.neomaster:main',
             'neomigrate=neo.scripts.neomigrate:main',
             'neostorage=neo.scripts.neostorage:main',

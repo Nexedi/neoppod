@@ -74,7 +74,6 @@ class ReplicationBenchmark(BenchmarkRunner):
             partitions=config.partitions,
             replicas=1,
             master_count=1,
-            verbose=False,
         )
         neo.start()
         p_time = r_time = None

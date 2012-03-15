@@ -27,9 +27,9 @@
         and is still allowed on a read-only neostorage.
       </description>
     </key>
-    <key name="verbose" datatype="boolean">
+    <key name="logfile" datatype="path">
       <description>
-        Log debugging information
+        Log debugging information to specified SQLite DB.
       </description>
     </key>
     <key name="dynamic_master_list" datatype="path">

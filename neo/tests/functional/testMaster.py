@@ -32,9 +32,9 @@ class MasterTests(NEOFunctionalTest):
         self.storage = self.neo.getZODBStorage()
         self.neoctl = self.neo.getNEOCTL()
 
-    def tearDown(self):
+    def _tearDown(self, success):
         self.neo.stop()
-        NEOFunctionalTest.tearDown(self)
+        NEOFunctionalTest._tearDown(self, success)
 
     def testStoppingSecondaryMaster(self):
         # Wait for masters to stabilize

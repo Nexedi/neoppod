@@ -33,7 +33,6 @@ import psutil
 
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
-from neo.lib import setupLog
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
 from neo.lib.util import dump
 from .. import DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
@@ -171,6 +170,8 @@ class NEOProcess(object):
             # prevent child from killing anything
             del self.__class__.__del__
             try:
+                # release SQLite debug log
+                neo.lib.logging.setup()
                 # release system-wide lock
                 for allocator in PortAllocator.allocator_set.copy():
                     allocator.reset()
@@ -243,7 +244,6 @@ class NEOCluster(object):
                  db_user=DB_USER, db_password='',
                  cleanup_on_delete=False, temp_dir=None, clear_databases=True,
                  adapter=os.getenv('NEO_TESTS_ADAPTER'),
-                 verbose=True,
                  address_type=ADDRESS_TYPE,
         ):
         if not adapter:
@@ -251,7 +251,6 @@ class NEOCluster(object):
         self.adapter = adapter
         self.zodb_storage_list = []
         self.cleanup_on_delete = cleanup_on_delete
-        self.verbose = verbose
         self.uuid_set = set()
         self.db_list = db_list
         if temp_dir is None:
@@ -282,16 +281,16 @@ class NEOCluster(object):
         # create admin node
         self.__newProcess(NEO_ADMIN, {
             '--cluster': self.cluster_name,
-            '--name': 'admin',
+            '--logfile': os.path.join(self.temp_dir, 'admin.log'),
             '--bind': '%s:%d' % (buildUrlFromString(
                       self.local_ip), admin_port, ),
             '--masters': self.master_nodes,
         })
         # create master nodes
-        for index, port in enumerate(master_node_list):
+        for i, port in enumerate(master_node_list):
             self.__newProcess(NEO_MASTER, {
                 '--cluster': self.cluster_name,
-                '--name': 'master_%d' % index,
+                '--logfile': os.path.join(self.temp_dir, 'master_%u.log' % i),
                 '--bind': '%s:%d' % (buildUrlFromString(
                           self.local_ip), port, ),
                 '--masters': self.master_nodes,
@@ -299,10 +298,10 @@ class NEOCluster(object):
                 '--partitions': partitions,
             })
         # create storage nodes
-        for index, db in enumerate(db_list):
+        for i, db in enumerate(db_list):
             self.__newProcess(NEO_STORAGE, {
                 '--cluster': self.cluster_name,
-                '--name': 'storage_%d' % index,
+                '--logfile': os.path.join(self.temp_dir, 'storage_%u.log' % i),
                 '--bind': '%s:%d' % (buildUrlFromString(
                                         self.local_ip),
                                         0 ),
@@ -316,11 +315,6 @@ class NEOCluster(object):
     def __newProcess(self, command, arguments):
         uuid = self.__allocateUUID()
         arguments['--uuid'] = uuid
-        if self.verbose:
-            arguments['--verbose'] = True
-        logfile = arguments['--name']
-        arguments['--logfile'] = os.path.join(self.temp_dir, '%s.log' % (logfile, ))
-
         self.process_dict.setdefault(command, []).append(
             NEOProcess(command, uuid, arguments))
 
@@ -419,8 +413,6 @@ class NEOCluster(object):
         result = Storage(
             master_nodes=master_nodes,
             name=self.cluster_name,
-            logfile=os.path.join(self.temp_dir, 'client.log'),
-            verbose=self.verbose,
             **kw)
         self.zodb_storage_list.append(result)
         return result
@@ -649,8 +641,7 @@ class NEOCluster(object):
 class NEOFunctionalTest(NeoTestBase):
 
     def setupLog(self):
-        log_file = os.path.join(self.getTempDirectory(), 'test.log')
-        setupLog('TEST', log_file, True)
+        neo.lib.logging.setup(os.path.join(self.getTempDirectory(), 'test.log'))
 
     def getTempDirectory(self):
         # build the full path based on test case and current test method

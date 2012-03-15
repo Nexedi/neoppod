@@ -8,9 +8,10 @@ import datetime
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEText import MIMEText
 
-from neo.lib import logger
-
 MAIL_SERVER = '127.0.0.1:25'
+
+from neo.lib import logging
+logging.backlog()
 
 class AttributeDict(dict):
 
@@ -28,7 +29,6 @@ class BenchmarkRunner(object):
         parser = optparse.OptionParser()
         # register common options
         parser.add_option('', '--title')
-        parser.add_option('-v', '--verbose', action='store_true')
         parser.add_option('', '--mail-to', action='append')
         parser.add_option('', '--mail-from')
         parser.add_option('', '--mail-server')
@@ -44,7 +44,6 @@ class BenchmarkRunner(object):
         self._config.update(self.load_options(options, self._args))
         self._config.update(
             title = options.title or self.__class__.__name__,
-            verbose = bool(options.verbose),
             mail_from = options.mail_from,
             mail_to = options.mail_to,
             mail_server = mail_server.split(':'),
@@ -93,7 +92,6 @@ class BenchmarkRunner(object):
         s.close()
 
     def run(self):
-        logger.PACKET_LOGGER.enable(self._config.verbose)
         subject, report = self.start()
         report = self.build_report(report)
         if self._config.mail_to:

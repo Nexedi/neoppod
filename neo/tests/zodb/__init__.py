@@ -41,11 +41,11 @@ class ZODBTestCase(TestCase):
         self.neo.start()
         self._storage = self.neo.getZODBStorage()
 
-    def tearDown(self):
+    def _tearDown(self, success):
         self._storage.cleanup()
         self.neo.stop()
         del self.neo, self._storage
-        super(ZODBTestCase, self).tearDown()
+        super(ZODBTestCase, self)._tearDown(success)
 
     assertEquals = failUnlessEqual = TestCase.assertEqual
     assertNotEquals = failIfEqual = TestCase.assertNotEqual

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2011  Nexedi SA
+# Copyright (C) 2011-2012  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,8 +17,10 @@
 
 import inspect, random, signal, sys
 from optparse import OptionParser
-from neo.lib import logger, logging
+from neo.lib import logging
 from neo.tests import functional
+logging.backlog()
+del logging.default_root_handler.handle
 
 def main():
     args, _, _, defaults = inspect.getargspec(functional.NEOCluster.__init__)
@@ -40,8 +42,6 @@ def main():
         parser.add_option('--' + option, **kw)
     parser.set_defaults(**defaults)
     options, args = parser.parse_args()
-    if options.verbose:
-        logger.PACKET_LOGGER.enable(True)
     if options.seed:
         functional.random = random.Random(options.seed)
     cluster = functional.NEOCluster(args, **dict((x, getattr(options, x))

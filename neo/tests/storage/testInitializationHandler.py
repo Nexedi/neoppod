@@ -42,10 +42,10 @@ class StorageInitializationHandlerTests(NeoUnitTestBase):
         self.app.load_lock_dict = {}
         self.app.pt = PartitionTable(self.num_partitions, self.num_replicas)
 
-    def tearDown(self):
+    def _tearDown(self, success):
         self.app.close()
         del self.app
-        super(StorageInitializationHandlerTests, self).tearDown()
+        super(StorageInitializationHandlerTests, self)._tearDown(success)
 
     # Common methods
     def getLastUUID(self):

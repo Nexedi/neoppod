@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006-2011  Nexedi SA
+# Copyright (C) 2006-2012  Nexedi SA
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,49 +14,4 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging as logging_std
-
-FMT = ('%(asctime)s %(levelname)-9s %(name)-10s'
-       ' [%(module)14s:%(lineno)3d] \n%(message)s')
-
-class Formatter(logging_std.Formatter):
-
-    def formatTime(self, record, datefmt=None):
-        return logging_std.Formatter.formatTime(self, record,
-           '%Y-%m-%d %H:%M:%S') + '.%04d' % (record.msecs * 10)
-
-    def format(self, record):
-        lines = iter(logging_std.Formatter.format(self, record).splitlines())
-        prefix = lines.next()
-        return '\n'.join(prefix + line for line in lines)
-
-def setupLog(name='NEO', filename=None, verbose=False):
-    global logging
-    if verbose:
-        level = logging_std.DEBUG
-    else:
-        level = logging_std.INFO
-    if logging is not None:
-        for handler in logging.handlers:
-            handler.acquire()
-            try:
-                handler.close()
-            finally:
-                handler.release()
-        del logging.manager.loggerDict[logging.name]
-    logging = logging_std.getLogger(name)
-    for handler in logging.handlers[:]:
-        logging.removeHandler(handler)
-    if filename is None:
-        handler = logging_std.StreamHandler()
-    else:
-        handler = logging_std.FileHandler(filename)
-    handler.setFormatter(Formatter(FMT))
-    logging.setLevel(level)
-    logging.addHandler(handler)
-    logging.propagate = 0
-
-# Create default logger
-logging = None
-setupLog()
-
+from .logger import logging

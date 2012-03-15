@@ -39,8 +39,8 @@ class RecoveryTests(ZODBTestCase, StorageTestBase, RecoveryStorage):
         self._dst = self.neo.getZODBStorage()
         self._dst_db = ZODB.DB(self._dst)
 
-    def tearDown(self):
-        super(RecoveryTests, self).tearDown()
+    def _tearDown(self, success):
+        super(RecoveryTests, self)._tearDown(success)
         self._dst_db.close()
         self._dst.cleanup()
         self.neo_dst.stop()
