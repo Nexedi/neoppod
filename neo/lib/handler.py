@@ -54,25 +54,30 @@ class EventHandler(object):
             args = packet.decode() or ()
             method(conn, *args, **kw)
         except UnexpectedPacketError, e:
-            self.__unexpectedPacket(conn, packet, *e.args)
+            if not conn.isClosed():
+                self.__unexpectedPacket(conn, packet, *e.args)
         except PacketMalformedError:
-            neo.lib.logging.error('malformed packet from %r', conn)
-            conn.notify(Packets.Notify('Malformed packet: %r' % (packet, )))
-            conn.abort()
-            # self.peerBroken(conn)
+            if not conn.isClosed():
+                neo.lib.logging.error('malformed packet from %r', conn)
+                conn.notify(Packets.Notify('Malformed packet: %r' % (packet, )))
+                conn.abort()
+                # self.peerBroken(conn)
         except BrokenNodeDisallowedError:
-            conn.answer(Errors.BrokenNode('go away'))
-            conn.abort()
+            if not conn.isClosed():
+                conn.answer(Errors.BrokenNode('go away'))
+                conn.abort()
         except NotReadyError, message:
-            if not message.args:
-                message = 'Retry Later'
-            message = str(message)
-            conn.answer(Errors.NotReady(message))
-            conn.abort()
+            if not conn.isClosed():
+                if not message.args:
+                    message = 'Retry Later'
+                message = str(message)
+                conn.answer(Errors.NotReady(message))
+                conn.abort()
         except ProtocolError, message:
-            message = str(message)
-            conn.answer(Errors.ProtocolError(message))
-            conn.abort()
+            if not conn.isClosed():
+                message = str(message)
+                conn.answer(Errors.ProtocolError(message))
+                conn.abort()
 
     def checkClusterName(self, name):
         # raise an exception if the given name mismatch the current cluster name
