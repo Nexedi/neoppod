@@ -78,7 +78,7 @@ class AdminEventHandler(EventHandler):
     @check_primary_master
     def askPrimary(self, conn):
         master_node = self.app.master_node
-        conn.answer(Packets.AnswerPrimary(master_node.getUUID(), []))
+        conn.answer(Packets.AnswerPrimary(master_node.getUUID()))
 
     addPendingNodes = forward_ask(Packets.AddPendingNodes)
     setClusterState = forward_ask(Packets.SetClusterState)

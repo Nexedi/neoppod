@@ -692,6 +692,13 @@ class RequestIdentification(Packet):
         PNumber('num_partitions'),
         PNumber('num_replicas'),
         PUUID('your_uuid'),
+        PUUID('primary_uuid'),
+        PList('known_master_list',
+            PStruct('master',
+                PAddress('address'),
+                PUUID('uuid'),
+            ),
+        ),
     )
 
     def __init__(self, *args, **kw):
@@ -706,19 +713,10 @@ class RequestIdentification(Packet):
 
 class PrimaryMaster(Packet):
     """
-    Ask a current primary master node. This must be the second message when
-    connecting to a master node. Any -> M.
-    Reply to Ask Primary Master. This message includes a list of known master
-    nodes to make sure that a peer has the same information. M -> Any.
+    Ask current primary master's uuid. CTL -> A.
     """
     _answer = PStruct('answer_primary',
         PUUID('primary_uuid'),
-        PList('known_master_list',
-            PStruct('master',
-                PAddress('address'),
-                PUUID('uuid'),
-            ),
-        ),
     )
 
 class AnnouncePrimary(Packet):

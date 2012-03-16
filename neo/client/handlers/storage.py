@@ -48,7 +48,10 @@ class StorageBootstrapHandler(AnswerBaseHandler):
         raise NodeNotReady(message)
 
     def acceptIdentification(self, conn, node_type,
-           uuid, num_partitions, num_replicas, your_uuid):
+           uuid, num_partitions, num_replicas, your_uuid, primary_uuid,
+           master_list):
+        assert primary_uuid == self.app.primary_master_node.getUUID(), (
+            dump(primary_uuid), dump(self.app.primary_master_node.getUUID()))
         # this must be a storage node
         if node_type != NodeTypes.STORAGE:
             conn.close()

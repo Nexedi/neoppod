@@ -19,13 +19,37 @@ import neo.lib
 from neo.lib.protocol import NodeTypes, NodeStates, Packets
 from neo.lib.protocol import NotReadyError, ProtocolError, \
                               UnexpectedPacketError
-from neo.lib.protocol import BrokenNodeDisallowedError
 from neo.lib.exception import ElectionFailure
 from neo.lib.handler import EventHandler
 from neo.lib.util import dump
 from . import MasterHandler
 
-class ClientElectionHandler(EventHandler):
+def elect(app, peer_uuid, peer_address):
+    if app.uuid < peer_uuid:
+        app.primary = False
+    app.negotiating_master_node_set.discard(peer_address)
+
+class BaseElectionHandler(EventHandler):
+
+    def reelectPrimary(self, conn):
+        raise ElectionFailure, 'reelection requested'
+
+    def announcePrimary(self, conn):
+        uuid = conn.getUUID()
+        if uuid is None:
+            raise ProtocolError('Not identified')
+        app = self.app
+        if app.primary:
+            # I am also the primary... So restart the election.
+            raise ElectionFailure, 'another primary arises'
+        node = app.nm.getByUUID(uuid)
+        app.primary = False
+        app.primary_master_node = node
+        app.negotiating_master_node_set.clear()
+        neo.lib.logging.info('%s is the primary', node)
+
+
+class ClientElectionHandler(BaseElectionHandler):
 
     def connectionFailed(self, conn):
         addr = conn.getAddress()
@@ -38,21 +62,30 @@ class ClientElectionHandler(EventHandler):
         super(ClientElectionHandler, self).connectionFailed(conn)
 
     def connectionCompleted(self, conn):
-        conn.ask(Packets.AskPrimary())
+        app = self.app
+        conn.ask(Packets.RequestIdentification(
+            NodeTypes.MASTER,
+            app.uuid,
+            app.server,
+            app.name,
+        ))
         super(ClientElectionHandler, self).connectionCompleted(conn)
 
     def connectionLost(self, conn, new_state):
+        # Retry connection. Either the node just died (and we will end up in
+        # connectionFailed) or it just got elected (and we must not ignore
+        # that node).
         addr = conn.getAddress()
+        self.app.unconnected_master_node_set.add(addr)
         self.app.negotiating_master_node_set.discard(addr)
 
-    def acceptIdentification(self, conn, node_type,
-            uuid, num_partitions, num_replicas, your_uuid):
+    def acceptIdentification(self, conn, node_type, peer_uuid, num_partitions,
+            num_replicas, your_uuid, primary_uuid, known_master_list):
         app = self.app
-        node = app.nm.getByAddress(conn.getAddress())
         if node_type != NodeTypes.MASTER:
             # The peer is not a master node!
             neo.lib.logging.error('%r is not a master node', conn)
-            app.nm.remove(node)
+            app.nm.remove(app.nm.getByAddress(conn.getAddress()))
             conn.close()
             return
 
@@ -63,21 +96,13 @@ class ClientElectionHandler(EventHandler):
                             dump(your_uuid))
             raise ElectionFailure, 'new uuid supplied'
 
-        conn.setUUID(uuid)
-        node.setUUID(uuid)
+        conn.setUUID(peer_uuid)
 
-        if app.uuid < uuid:
-            # I lost.
-            app.primary = False
-
-        app.negotiating_master_node_set.discard(conn.getAddress())
-
-    def answerPrimary(self, conn, primary_uuid, known_master_list):
-        app = self.app
         # Register new master nodes.
         for address, uuid in known_master_list:
             if app.server == address:
                 # This is self.
+                assert peer_uuid != primary_uuid or uuid == your_uuid, (dump(uuid), dump(your_uuid))
                 continue
             n = app.nm.getByAddress(address)
             if n is None:
@@ -108,84 +133,27 @@ class ClientElectionHandler(EventHandler):
                 # Stop waiting for connections than primary master's to
                 # complete to exit election phase ASAP.
                 app.negotiating_master_node_set.clear()
+                return
 
-        primary_node = app.primary_master_node
-        if (primary_node is None or \
-            conn.getAddress() == primary_node.getAddress()) and \
-                not conn.isClosed():
-            # Request a node identification.
-            # There are 3 cases here:
-            # - Peer doesn't know primary node
-            #   We must ask its identification so we exchange our uuids, to
-            #   know which of us is secondary.
-            # - Peer knows primary node
-            #   - He is the primary
-            #     We must ask its identification, as part of the normal
-            #     connection process
-            #   - He is not the primary
-            #     We don't need to ask its identification, as we will close
-            #     this connection anyway (exiting election).
-            # Also, connection can be closed by peer after he sent
-            # AnswerPrimary if he finds the primary master before we
-            # give him our UUID.
-            # The connection gets closed before this message gets processed
-            # because this message might have been queued, but connection
-            # interruption takes effect as soon as received.
-            conn.ask(Packets.RequestIdentification(
-                NodeTypes.MASTER,
-                app.uuid,
-                app.server,
-                app.name
-            ))
+        elect(app, peer_uuid, conn.getAddress())
 
 
-class ServerElectionHandler(MasterHandler):
+class ServerElectionHandler(BaseElectionHandler, MasterHandler):
 
-    def reelectPrimary(self, conn):
-        raise ElectionFailure, 'reelection requested'
-
-    def requestIdentification(self, conn, node_type,
-                                        uuid, address, name):
-        self.checkClusterName(name)
+    def _setupNode(self, conn, node_type, uuid, address, node):
         app = self.app
         if node_type != NodeTypes.MASTER:
             neo.lib.logging.info('reject a connection from a non-master')
             raise NotReadyError
-        node = app.nm.getByAddress(address)
+
         if node is None:
             node = app.nm.createMaster(address=address)
-        # If this node is broken, reject it.
-        if node.getUUID() == uuid:
-            if node.isBroken():
-                raise BrokenNodeDisallowedError
-
         # supplied another uuid in case of conflict
         while not app.isValidUUID(uuid, address):
             uuid = app.getNewUUID(node_type)
 
         node.setUUID(uuid)
         conn.setUUID(uuid)
-
-        p = Packets.AcceptIdentification(
-            NodeTypes.MASTER,
-            app.uuid,
-            app.pt.getPartitions(),
-            app.pt.getReplicas(),
-            uuid
-        )
-        conn.answer(p)
-
-    def announcePrimary(self, conn):
-        uuid = conn.getUUID()
-        if uuid is None:
-            raise ProtocolError('Not identified')
-        app = self.app
-        if app.primary:
-            # I am also the primary... So restart the election.
-            raise ElectionFailure, 'another primary arises'
-        node = app.nm.getByUUID(uuid)
-        app.primary = False
-        app.primary_master_node = node
-        app.negotiating_master_node_set.clear()
-        neo.lib.logging.info('%s is the primary', node)
+        elect(app, uuid, address)
+        return uuid
 

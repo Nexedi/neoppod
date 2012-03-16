@@ -46,11 +46,17 @@ class PrimaryHandler(EventHandler):
         raise PrimaryFailure, 'primary master is dead'
 
     def connectionCompleted(self, conn):
+        app = self.app
         addr = conn.getAddress()
-        node = self.app.nm.getByAddress(addr)
+        node = app.nm.getByAddress(addr)
         # connection successfull, set it as running
         node.setRunning()
-        conn.ask(Packets.AskPrimary())
+        conn.ask(Packets.RequestIdentification(
+            NodeTypes.MASTER,
+            app.uuid,
+            app.server,
+            app.name,
+        ))
         super(PrimaryHandler, self).connectionCompleted(conn)
 
     def reelectPrimary(self, conn):
@@ -78,10 +84,11 @@ class PrimaryHandler(EventHandler):
                     if n.getUUID() is None:
                         n.setUUID(uuid)
 
-    def acceptIdentification(self, conn, node_type,
-                                       uuid, num_partitions,
-                                       num_replicas, your_uuid):
+    def acceptIdentification(self, conn, node_type, uuid, num_partitions,
+            num_replicas, your_uuid, primary_uuid, known_master_list):
         app = self.app
+        if primary_uuid != app.primary_master_node.getUUID():
+            raise PrimaryFailure('unexpected primary uuid')
         node = app.nm.getByAddress(conn.getAddress())
         assert node_type == NodeTypes.MASTER
 
@@ -91,15 +98,4 @@ class PrimaryHandler(EventHandler):
 
         conn.setUUID(uuid)
         node.setUUID(uuid)
-
-    def answerPrimary(self, conn, primary_uuid, known_master_list):
-        app = self.app
-        if primary_uuid != app.primary_master_node.getUUID():
-            raise PrimaryFailure, 'unexpected primary uuid'
-        conn.ask(Packets.RequestIdentification(
-            NodeTypes.MASTER,
-            app.uuid,
-            app.server,
-            app.name
-        ))
 

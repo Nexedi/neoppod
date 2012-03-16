@@ -46,6 +46,15 @@ class BootstrapManager(EventHandler):
         self.num_partitions = None
         self.current = None
 
+    def notifyNodeInformation(self, conn, node_list):
+        pass
+
+    def announcePrimary(self, conn):
+        # We found the primary master early enough to be notified of election
+        # end. Lucky. Anyway, we must carry on with identification request, so
+        # nothing to do here.
+        pass
+
     def connectionCompleted(self, conn):
         """
         Triggered when the network connection is successful.
@@ -53,7 +62,8 @@ class BootstrapManager(EventHandler):
         """
         EventHandler.connectionCompleted(self, conn)
         self.current.setRunning()
-        conn.ask(Packets.AskPrimary())
+        conn.ask(Packets.RequestIdentification(self.node_type, self.uuid,
+            self.server, self.name))
 
     def connectionFailed(self, conn):
         """
@@ -79,12 +89,8 @@ class BootstrapManager(EventHandler):
         """
         conn.close()
 
-    def answerPrimary(self, conn, primary_uuid, known_master_list):
-        """
-        A master answer who's the primary. If it's another node, connect to it.
-        If it's itself then the primary is successfully found, ask
-        identification.
-        """
+    def acceptIdentification(self, conn, node_type, uuid, num_partitions,
+            num_replicas, your_uuid, primary_uuid, known_master_list):
         nm  = self.app.nm
 
         # Register new master nodes.
@@ -104,14 +110,6 @@ class BootstrapManager(EventHandler):
             return
 
         neo.lib.logging.info('connected to a primary master node')
-        conn.ask(Packets.RequestIdentification(self.node_type,
-                self.uuid, self.server, self.name))
-
-    def acceptIdentification(self, conn, node_type,
-           uuid, num_partitions, num_replicas, your_uuid):
-        """
-        The primary master has accepted the node.
-        """
         self.num_partitions = num_partitions
         self.num_replicas = num_replicas
         if self.uuid != your_uuid:

@@ -281,7 +281,6 @@ class Application(object):
         neo.lib.logging.debug('connecting to primary master...')
         ready = False
         nm = self.nm
-        packet = Packets.AskPrimary()
         while not ready:
             # Get network connection to primary master
             index = 0
@@ -315,7 +314,8 @@ class Application(object):
                                   self.trying_master_node)
                     continue
                 try:
-                    self._ask(conn, packet,
+                    self._ask(conn, Packets.RequestIdentification(
+                            NodeTypes.CLIENT, self.uuid, None, self.name),
                         handler=self.primary_bootstrap_handler)
                 except ConnectionClosed:
                     continue
@@ -342,16 +342,6 @@ class Application(object):
         neo.lib.logging.info('Initializing from master')
         ask = self._ask
         handler = self.primary_bootstrap_handler
-        # Identify to primary master and request initial data
-        p = Packets.RequestIdentification(NodeTypes.CLIENT, self.uuid, None,
-            self.name)
-        assert self.master_conn is None, self.master_conn
-        while self.master_conn is None:
-            ask(conn, p, handler=handler)
-            if conn.getUUID() is None:
-                # Node identification was refused by master, it is considered
-                # as the primary as long as we are connected to it.
-                time.sleep(1)
         ask(conn, Packets.AskNodeInformation(), handler=handler)
         ask(conn, Packets.AskPartitionTable(), handler=handler)
         return self.pt.operational()

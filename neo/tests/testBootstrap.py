@@ -51,7 +51,7 @@ class BootstrapManagerTests(NeoUnitTestBase):
         conn = self.getFakeConnection(address=address)
         self.bootstrap.current = self.app.nm.createMaster(address=address)
         self.bootstrap.connectionCompleted(conn)
-        self.checkAskPrimary(conn)
+        self.checkRequestIdentification(conn)
 
     def testHandleNotReady(self):
         # the primary is not ready

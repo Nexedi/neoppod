@@ -45,21 +45,23 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
     def test_acceptIdentification1(self):
         """ Not a storage node """
         uuid = self.getNewUUID()
+        node_uuid = self.getNewUUID()
         conn = self.getConnection()
-        conn = self.getConnection()
-        node = Mock()
+        self.app.primary_master_node = node = Mock({'getUUID': node_uuid})
         self.app.nm = Mock({'getByAddress': node})
         self.handler.acceptIdentification(conn, NodeTypes.CLIENT, uuid,
-            10, 0, None)
+            10, 0, None, node_uuid, [])
         self.checkClosed(conn)
 
     def test_acceptIdentification2(self):
         uuid = self.getNewUUID()
+        node_uuid = self.getNewUUID()
         conn = self.getConnection()
-        node = Mock({'getConnection': conn})
+        self.app.primary_master_node = node = Mock({'getConnection': conn,
+            'getUUID': node_uuid})
         self.app.nm = Mock({'getByAddress': node})
         self.handler.acceptIdentification(conn, NodeTypes.STORAGE, uuid,
-            10, 0, None)
+            10, 0, None, node_uuid, [])
         self.checkUUIDSet(node, uuid)
 
 

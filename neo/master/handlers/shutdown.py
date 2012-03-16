@@ -25,5 +25,4 @@ class ShutdownHandler(BaseServiceHandler):
     """This class deals with events for a shutting down phase."""
 
     requestIdentification = reject
-    askPrimary = reject
     askBeginTransaction = reject

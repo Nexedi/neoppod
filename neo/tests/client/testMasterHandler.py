@@ -55,15 +55,19 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
         conn = self.getConnection()
         uuid = self.getNewUUID()
         self.handler.acceptIdentification(conn, NodeTypes.CLIENT,
-            uuid, 100, 0, None)
+            uuid, 100, 0, None, None, [])
         self.checkClosed(conn)
 
     def test_acceptIdentification2(self):
         """ No UUID supplied """
         conn = self.getConnection()
         uuid = self.getNewUUID()
+        node = Mock()
+        self.app.nm = Mock({'getByAddress': node, 'getByUUID': node})
         self.checkProtocolErrorRaised(self.handler.acceptIdentification,
-            conn, NodeTypes.MASTER, uuid, 100, 0, None)
+            conn, NodeTypes.MASTER, uuid, 100, 0, None,
+            uuid, [(conn.getAddress(), uuid)],
+        )
 
     def test_acceptIdentification3(self):
         """ identification accepted  """
@@ -73,9 +77,9 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
         your_uuid = self.getNewUUID()
         partitions = 100
         replicas = 2
-        self.app.nm = Mock({'getByAddress': node})
+        self.app.nm = Mock({'getByAddress': node, 'getByUUID': node})
         self.handler.acceptIdentification(conn, NodeTypes.MASTER, uuid,
-            partitions, replicas, your_uuid)
+            partitions, replicas, your_uuid, uuid, [(conn.getAddress(), uuid)])
         self.assertEqual(self.app.uuid, your_uuid)
         self.checkUUIDSet(node, uuid)
         self.assertTrue(isinstance(self.app.pt, PartitionTable))
@@ -87,38 +91,6 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
             master_list.append((('127.0.0.1', port), uuid))
             port += 1
         return master_list
-
-    def test_answerPrimary1(self):
-        """ Primary not known, master udpated """
-        node, uuid = Mock(), self.getNewUUID()
-        conn = self.getConnection()
-        master_list = [(('127.0.0.1', 1000), uuid)]
-        self.app.primary_master_node = Mock()
-        self.app.trying_master_node = Mock()
-        self.app.nm = Mock({'getByAddress': node})
-        self.handler.answerPrimary(conn, None, master_list)
-        self.checkUUIDSet(node, uuid)
-        # previously known primary master forgoten
-        self.assertEqual(self.app.primary_master_node, None)
-        self.assertEqual(self.app.trying_master_node, None)
-        self.checkClosed(conn)
-
-    def test_answerPrimary2(self):
-        """ Primary known """
-        current_node = Mock({'__repr__': '1'})
-        node, uuid = Mock({'__repr__': '2'}), self.getNewUUID()
-        conn = self.getConnection()
-        master_list = [(('127.0.0.1', 1000), uuid)]
-        self.app.primary_master_node = None
-        self.app.trying_master_node = current_node
-        self.app.nm = Mock({
-            'getByAddress': node,
-            'getByUUID': node,
-        })
-        self.handler.answerPrimary(conn, uuid, [])
-        self.assertEqual(self.app.trying_master_node, None)
-        self.assertTrue(self.app.primary_master_node is node)
-        self.checkClosed(conn)
 
     def test_answerPartitionTable(self):
         conn = self.getConnection()

@@ -81,7 +81,7 @@ class MasterClientElectionTests(NeoUnitTestBase):
         self.election.connectionCompleted(conn)
         self._checkUnconnected(node)
         self.assertTrue(node.isUnknown())
-        self.checkAskPrimary(conn)
+        self.checkRequestIdentification(conn)
 
     def _setNegociating(self, node):
         self._checkUnconnected(node)
@@ -99,17 +99,85 @@ class MasterClientElectionTests(NeoUnitTestBase):
     def test_acceptIdentification1(self):
         """ A non-master node accept identification """
         node, conn = self.identifyToMasterNode()
-        args = (node.getUUID(), 0, 10, self.app.uuid)
+        args = (node.getUUID(), 0, 10, self.app.uuid, None,
+            self._getMasterList())
         self.election.acceptIdentification(conn,
             NodeTypes.CLIENT, *args)
         self.assertFalse(node in self.app.negotiating_master_node_set)
         self.checkClosed(conn)
 
+    def test_acceptIdentificationDoesNotKnowPrimary(self):
+        master1_uuid = self.getNewUUID()
+        master1_address = ('127.0.0.1', 2001)
+        master1_conn = self.getFakeConnection(address=master1_address)
+        self.election.acceptIdentification(
+            master1_conn,
+            NodeTypes.MASTER,
+            master1_uuid,
+            1,
+            0,
+            self.app.uuid,
+            None,
+            [(master1_address, master1_uuid)],
+        )
+        self.assertEqual(self.app.primary_master_node, None)
+
+    def test_acceptIdentificationKnowsPrimary(self):
+        master1_uuid = self.getNewUUID()
+        master1_address = ('127.0.0.1', 2001)
+        master1_conn = self.getFakeConnection(address=master1_address)
+        self.election.acceptIdentification(
+            master1_conn,
+            NodeTypes.MASTER,
+            master1_uuid,
+            1,
+            0,
+            self.app.uuid,
+            master1_uuid,
+            [(master1_address, master1_uuid)],
+        )
+        self.assertNotEqual(self.app.primary_master_node, None)
+
+    def test_acceptIdentificationMultiplePrimaries(self):
+        master1_uuid = self.getNewUUID()
+        master2_uuid = self.getNewUUID()
+        master3_uuid = self.getNewUUID()
+        master1_address = ('127.0.0.1', 2001)
+        master2_address = ('127.0.0.1', 2002)
+        master3_address = ('127.0.0.1', 2003)
+        master1_conn = self.getFakeConnection(address=master1_address)
+        master2_conn = self.getFakeConnection(address=master2_address)
+        self.election.acceptIdentification(
+            master1_conn,
+            NodeTypes.MASTER,
+            master1_uuid,
+            1,
+            0,
+            self.app.uuid,
+            master1_uuid,
+            [(master1_address, master1_uuid)],
+        )
+        self.assertRaises(ElectionFailure, self.election.acceptIdentification,
+            master2_conn,
+            NodeTypes.MASTER,
+            master2_uuid,
+            1,
+            0,
+            self.app.uuid,
+            master3_uuid,
+            [
+                (master1_address, master1_uuid),
+                (master2_address, master2_uuid),
+                (master3_address, master3_uuid),
+            ],
+        )
+
     def test_acceptIdentification2(self):
         """ UUID conflict """
         node, conn = self.identifyToMasterNode()
         new_uuid = self._makeUUID('M')
-        args = (node.getUUID(), 0, 10, new_uuid)
+        args = (node.getUUID(), 0, 10, new_uuid, None,
+            self._getMasterList())
         self.assertRaises(ElectionFailure, self.election.acceptIdentification,
             conn, NodeTypes.MASTER, *args)
         self.assertEqual(self.app.uuid, new_uuid)
@@ -117,7 +185,8 @@ class MasterClientElectionTests(NeoUnitTestBase):
     def test_acceptIdentification3(self):
         """ Identification accepted """
         node, conn = self.identifyToMasterNode()
-        args = (node.getUUID(), 0, 10, self.app.uuid)
+        args = (node.getUUID(), 0, 10, self.app.uuid, None,
+            self._getMasterList())
         self.election.acceptIdentification(conn, NodeTypes.MASTER, *args)
         self.checkUUIDSet(conn, node.getUUID())
         self.assertTrue(self.app.primary or node.getUUID() < self.app.uuid)
@@ -126,34 +195,6 @@ class MasterClientElectionTests(NeoUnitTestBase):
     def _getMasterList(self, with_node=None):
         master_list = self.app.nm.getMasterList()
         return [(x.getAddress(), x.getUUID()) for x in master_list]
-
-    def test_answerPrimary1(self):
-        """ Multiple primary masters -> election failure raised """
-        node, conn = self.identifyToMasterNode()
-        self.app.primary = True
-        self.app.primary_master_node = node
-        master_list = self._getMasterList()
-        self.assertRaises(ElectionFailure, self.election.answerPrimary,
-                conn, self.app.uuid, master_list)
-
-    def test_answerPrimary2(self):
-        """ Don't known who's the primary """
-        node, conn = self.identifyToMasterNode()
-        master_list = self._getMasterList()
-        self.election.answerPrimary(conn, None, master_list)
-        self.assertFalse(self.app.primary)
-        self.assertEqual(self.app.primary_master_node, None)
-        self.checkRequestIdentification(conn)
-
-    def test_answerPrimary3(self):
-        """ Answer who's the primary """
-        node, conn = self.identifyToMasterNode()
-        master_list = self._getMasterList()
-        self.election.answerPrimary(conn, node.getUUID(), master_list)
-        self.assertEqual(len(self.app.negotiating_master_node_set), 0)
-        self.assertFalse(self.app.primary)
-        self.assertEqual(self.app.primary_master_node, node)
-        self.checkRequestIdentification(conn)
 
 
 class MasterServerElectionTests(NeoUnitTestBase):
@@ -223,7 +264,8 @@ class MasterServerElectionTests(NeoUnitTestBase):
             NodeTypes.MASTER, *args)
         self.checkUUIDSet(conn, node.getUUID())
         args = self.checkAcceptIdentification(conn, decode=True)
-        node_type, uuid, partitions, replicas, new_uuid = args
+        (node_type, uuid, partitions, replicas, new_uuid, primary_uuid,
+            master_list) = args
         self.assertEqual(node.getUUID(), new_uuid)
         self.assertNotEqual(node.getUUID(), uuid)
 
@@ -235,7 +277,8 @@ class MasterServerElectionTests(NeoUnitTestBase):
             NodeTypes.MASTER, *args)
         self.checkUUIDSet(conn)
         args = self.checkAcceptIdentification(conn, decode=True)
-        node_type, uuid, partitions, replicas, new_uuid = args
+        (node_type, uuid, partitions, replicas, new_uuid, primary_uuid,
+            master_list) = args
         self.assertNotEqual(self.app.uuid, new_uuid)
         self.assertEqual(self.app.uuid, uuid)
 
@@ -269,6 +312,49 @@ class MasterServerElectionTests(NeoUnitTestBase):
             name=self.app.name
         )
 
+    def _requestIdentification(self):
+        conn = self.getFakeConnection()
+        peer_uuid = self.getNewUUID()
+        address = ('127.0.0.1', 2001)
+        self.election.requestIdentification(
+            conn,
+            NodeTypes.MASTER,
+            peer_uuid,
+            address,
+            self.app.name,
+        )
+        node_type, uuid, partitions, replicas, _peer_uuid, primary_uuid, \
+            master_list = self.checkAcceptIdentification(conn, decode=True)
+        self.assertEqual(node_type, NodeTypes.MASTER)
+        self.assertEqual(uuid, self.app.uuid)
+        self.assertEqual(partitions, self.app.pt.getPartitions())
+        self.assertEqual(replicas, self.app.pt.getReplicas())
+        self.assertTrue((address, peer_uuid) in master_list)
+        self.assertTrue(self.app.server in [x[0] for x in master_list])
+        self.assertEqual(peer_uuid, _peer_uuid)
+        return primary_uuid
+
+    def testRequestIdentificationDoesNotKnowPrimary(self):
+        self.app.primary = False
+        self.app.primary_master_node = None
+        self.assertEqual(self._requestIdentification(), None)
+
+    def testRequestIdentificationKnowsPrimary(self):
+        self.app.primary = False
+        primary_uuid = self.getNewUUID()
+        self.app.primary_master_node = Mock({
+            'getUUID': primary_uuid,
+        })
+        self.assertEqual(self._requestIdentification(), primary_uuid)
+
+    def testRequestIdentificationIsPrimary(self):
+        self.app.primary = True
+        primary_uuid = self.app.uuid
+        self.app.primary_master_node = Mock({
+            'getUUID': primary_uuid,
+        })
+        self.assertEqual(self._requestIdentification(), primary_uuid)
+
     def testAnnouncePrimary1(self):
         """ check the wrong cases """
         announce = self.election.announcePrimary
@@ -293,47 +379,6 @@ class MasterServerElectionTests(NeoUnitTestBase):
         announce(conn)
         self.assertFalse(self.app.primary)
         self.assertEqual(self.app.primary_master_node, node)
-
-    def test_askPrimary1(self):
-        """ Ask the primary to the primary """
-        node, conn = self.identifyToMasterNode()
-        self.app.primary = True
-        self.election.askPrimary(conn)
-        uuid, master_list = self.checkAnswerPrimary(conn, decode=True)
-        self.assertEqual(uuid, self.app.uuid)
-        self.assertEqual(len(master_list), 2)
-        self.assertEqual(master_list[0], (self.app.server, self.app.uuid))
-        master_node = self.app.nm.getMasterList()[0]
-        master_node = (master_node.getAddress(), master_node.getUUID())
-        self.assertEqual(master_list[1], master_node)
-
-    def test_askPrimary2(self):
-        """ Ask the primary to a secondary that known who's te primary """
-        node, conn = self.identifyToMasterNode()
-        self.app.primary = False
-        # it will answer ourself as primary
-        self.app.primary_master_node = node
-        self.election.askPrimary(conn)
-        uuid, master_list = self.checkAnswerPrimary(conn, decode=True)
-        self.assertEqual(uuid, node.getUUID())
-        self.assertEqual(len(master_list), 2)
-        self.assertEqual(master_list[0], (self.app.server, self.app.uuid))
-        master_node = (node.getAddress(), node.getUUID())
-        self.assertEqual(master_list[1], master_node)
-
-    def test_askPrimary3(self):
-        """ Ask the primary to a master that don't known who's the primary """
-        node, conn = self.identifyToMasterNode()
-        self.app.primary = False
-        self.app.primary_master_node = None
-        self.election.askPrimary(conn)
-        uuid, master_list = self.checkAnswerPrimary(conn, decode=True)
-        self.assertEqual(uuid, None)
-        self.assertEqual(len(master_list), 2)
-        self.assertEqual(master_list[0], (self.app.server, self.app.uuid))
-        master_node = self.app.nm.getMasterList()[0]
-        master_node = (node.getAddress(), node.getUUID())
-        self.assertEqual(master_list[1], master_node)
 
     def test_reelectPrimary(self):
         node, conn = self.identifyToMasterNode()

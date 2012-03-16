@@ -297,31 +297,32 @@ class Application(object):
     def playPrimaryRole(self):
         neo.lib.logging.info(
                         'play the primary role with %r', self.listening_conn)
-        packet = Packets.AnnouncePrimary()
-        for conn in self.em.getClientList():
-            conn.notify(packet)
-            conn.abort()
-        self.listening_conn.setHandler(
-                identification.IdentificationHandler(self))
-
         em = self.em
-        nm = self.nm
-
-        # Close all remaining connections to other masters,
-        # for the same reason as in playSecondaryRole.
+        packet = Packets.AnnouncePrimary()
         for conn in em.getConnectionList():
-            conn_uuid = conn.getUUID()
-            if conn_uuid is not None:
-                node = nm.getByUUID(conn_uuid)
-                assert node is not None
-                assert node.isMaster() and not conn.isClient()
-                assert node.isUnknown()
-                # this may trigger 'unexpected answer' warnings on remote side
-                conn.close()
+            if conn.isListening():
+                conn.setHandler(identification.IdentificationHandler(self))
+            else:
+                conn.notify(packet)
+                # Primary master should rather establish connections to all
+                # secondaries, rather than the other way around. This requires
+                # a bit more work when a new master joins a cluster but makes
+                # it easier to resolve UUID conflicts with minimal cluster
+                # impact, and ensure primary master unicity (primary masters
+                # become noisy, in that they actively try to maintain
+                # connections to all other master nodes, so duplicate
+                # primaries will eventually get in touch with each other and
+                # resolve the situation with a duel).
+                # TODO: only abort client connections, don't close server
+                # connections as we want to have them in the end. Secondary
+                # masters will reconnect nevertheless, but it's dirty.
+                # Currently, it's not trivial to preserve connected nodes,
+                # because of poor node status tracking during election.
+                conn.abort()
 
         # If I know any storage node, make sure that they are not in the
         # running state, because they are not connected at this stage.
-        for node in nm.getStorageList():
+        for node in self.nm.getStorageList():
             if node.isRunning():
                 node.setTemporarilyDown()
 

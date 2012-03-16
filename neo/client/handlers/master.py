@@ -28,36 +28,27 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         app = self.app
         app.trying_master_node = None
 
-    def acceptIdentification(self, conn, node_type,
-                   uuid, num_partitions, num_replicas, your_uuid):
+    def acceptIdentification(self, conn, node_type, uuid, num_partitions,
+            num_replicas, your_uuid, primary_uuid, known_master_list):
         app = self.app
         # this must be a master node
         if node_type != NodeTypes.MASTER:
             conn.close()
             return
 
-        # the master must give an UUID
-        if your_uuid is None:
-            raise ProtocolError('No UUID supplied')
-        app.uuid = your_uuid
-        neo.lib.logging.info('Got an UUID: %s', dump(app.uuid))
-
-        app.nm.getByAddress(conn.getAddress()).setUUID(uuid)
-
-        # Always create partition table
-        app.pt = PartitionTable(num_partitions, num_replicas)
-        app.master_conn = conn
-
-    def answerPrimary(self, conn, primary_uuid,
-                                  known_master_list):
-        app = self.app
         # Register new master nodes.
-        for address, uuid in known_master_list:
-            n = app.nm.getByAddress(address)
+        found = False
+        conn_address = conn.getAddress()
+        for node_address, node_uuid in known_master_list:
+            if node_address == conn_address:
+                assert uuid == node_uuid, (dump(uuid), dump(node_uuid))
+                found = True
+            n = app.nm.getByAddress(node_address)
             if n is None:
-                app.nm.createMaster(address=address)
-            if uuid is not None and n.getUUID() != uuid:
-                n.setUUID(uuid)
+                n = app.nm.createMaster(address=node_address)
+            if node_uuid is not None and n.getUUID() != node_uuid:
+                n.setUUID(node_uuid)
+        assert found, (conn, dump(uuid), known_master_list)
 
         if primary_uuid is not None:
             primary_node = app.nm.getByUUID(primary_uuid)
@@ -66,6 +57,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
                 # is old. So ignore it.
                 neo.lib.logging.warning('Unknown primary master UUID: %s. ' \
                                 'Ignoring.' % dump(primary_uuid))
+                return
             else:
                 if app.trying_master_node is not primary_node:
                     app.trying_master_node = None
@@ -79,6 +71,17 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
 
             app.trying_master_node = None
             conn.close()
+            return
+
+        # the master must give an UUID
+        if your_uuid is None:
+            raise ProtocolError('No UUID supplied')
+        app.uuid = your_uuid
+        neo.lib.logging.info('Got an UUID: %s', dump(app.uuid))
+
+        # Always create partition table
+        app.pt = PartitionTable(num_partitions, num_replicas)
+        app.master_conn = conn
 
     def answerPartitionTable(self, conn, ptid, row_list):
         assert row_list

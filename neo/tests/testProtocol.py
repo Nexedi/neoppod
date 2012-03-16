@@ -91,16 +91,33 @@ class ProtocolTests(NeoUnitTestBase):
         self.assertEqual(port, 9080)
         self.assertEqual(name, "unittest")
 
-    def test_12_AcceptIdentification(self):
+    def _testAcceptIdentification(self, master_list):
         uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
+        uuid3 = self.getNewUUID()
         p = Packets.AcceptIdentification(NodeTypes.CLIENT, uuid1,
-            10, 20, uuid2)
-        node, p_uuid, nb_partitions, nb_replicas, your_uuid  = p.decode()
+            10, 20, uuid2, uuid3, master_list)
+        (node, p_uuid, nb_partitions, nb_replicas, your_uuid, primary_uuid,
+            pmaster_list) = p.decode()
         self.assertEqual(node, NodeTypes.CLIENT)
         self.assertEqual(p_uuid, uuid1)
         self.assertEqual(nb_partitions, 10)
         self.assertEqual(nb_replicas, 20)
         self.assertEqual(your_uuid, uuid2)
+        self.assertEqual(primary_uuid, uuid3)
+        self.assertEqual(pmaster_list, master_list)
+
+    def test_12_AcceptIdentification(self):
+        self._testAcceptIdentification([
+            (("0.0.0.0", 1), None),
+            (("255.255.255.255", 2), self.getNewUUID()),
+        ])
+
+    def test_12_AcceptIdentificationIPv6(self):
+        self._testAcceptIdentification([
+            (("::", 1), None),
+            (("ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff", 2),
+                self.getNewUUID()),
+        ])
 
     def test_13_askPrimary(self):
         p = Packets.AskPrimary()
@@ -111,28 +128,9 @@ class ProtocolTests(NeoUnitTestBase):
         uuid1 = self.getNewUUID()
         uuid2 = self.getNewUUID()
         uuid3 = self.getNewUUID()
-        master_list = [(("127.0.0.1", 1), uuid1),
-                       (("127.0.0.2", 2), uuid2),
-                       (("127.0.0.3", 3), uuid3)]
-        p = Packets.AnswerPrimary(uuid, master_list)
-        primary_uuid, p_master_list  = p.decode()
+        p = Packets.AnswerPrimary(uuid)
+        primary_uuid, = p.decode()
         self.assertEqual(primary_uuid, uuid)
-        self.assertEqual(master_list, p_master_list)
-
-    def test_14_bis_answerPrimaryIPv6(self):
-        """ Try to get primary master through IPv6 """
-        self.address_type = socket.AF_INET6
-        uuid = self.getNewUUID()
-        uuid1 = self.getNewUUID()
-        uuid2 = self.getNewUUID()
-        uuid3 = self.getNewUUID()
-        master_list = [(("::1", 1), uuid1),
-                       (("::2", 2), uuid2),
-                       (("::3", 3), uuid3)]
-        p = Packets.AnswerPrimary(uuid, master_list)
-        primary_uuid, p_master_list  = p.decode()
-        self.assertEqual(primary_uuid, uuid)
-        self.assertEqual(master_list, p_master_list)
 
     def test_15_announcePrimary(self):
         p = Packets.AnnouncePrimary()

@@ -17,14 +17,26 @@
 import neo
 
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import NodeTypes, NodeStates, Packets
+from neo.lib.protocol import (NodeTypes, NodeStates, Packets,
+    BrokenNodeDisallowedError,
+)
 from neo.lib.util import dump
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
 
-    def askPrimary(self, conn):
+    def requestIdentification(self, conn, node_type, uuid, address, name):
+        self.checkClusterName(name)
         app = self.app
+        node = app.nm.getByUUID(uuid)
+        if node:
+            assert node_type is not NodeTypes.MASTER or node.getAddress() in (
+                address, None), (node, address)
+            if node.isBroken():
+                raise BrokenNodeDisallowedError
+        else:
+            node = app.nm.getByAddress(address)
+        peer_uuid = self._setupNode(conn, node_type, uuid, address, node)
         if app.primary:
             primary_uuid = app.uuid
         elif app.primary_master_node is not None:
@@ -32,12 +44,17 @@ class MasterHandler(EventHandler):
         else:
             primary_uuid = None
 
-        known_master_list = [(app.server, app.uuid, )]
+        known_master_list = [(app.server, app.uuid)]
         for n in app.nm.getMasterList():
             if n.isBroken():
                 continue
-            known_master_list.append((n.getAddress(), n.getUUID(), ))
-        conn.answer(Packets.AnswerPrimary(
+            known_master_list.append((n.getAddress(), n.getUUID()))
+        conn.answer(Packets.AcceptIdentification(
+            NodeTypes.MASTER,
+            app.uuid,
+            app.pt.getPartitions(),
+            app.pt.getReplicas(),
+            peer_uuid,
             primary_uuid,
             known_master_list),
         )
