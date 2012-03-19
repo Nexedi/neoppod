@@ -24,9 +24,6 @@ from neo.client.handlers.master import PrimaryNotificationsHandler, \
        PrimaryAnswersHandler
 from neo.client.exception import NEOStorageError
 
-MARKER = []
-
-
 class MasterHandlerTests(NeoUnitTestBase):
 
     def getConnection(self):
