@@ -333,13 +333,15 @@ class NeoUnitTestBase(NeoTestBase):
         """ ensure no UUID was set on the connection """
         self.assertEqual(len(conn.mockGetNamedCalls('setUUID')), 0)
 
-    def checkUUIDSet(self, conn, uuid=None):
-        """ ensure no UUID was set on the connection """
+    def checkUUIDSet(self, conn, uuid=None, check_intermediate=True):
+        """ ensure UUID was set on the connection """
         calls = conn.mockGetNamedCalls('setUUID')
-        self.assertEqual(len(calls), 1)
-        call = calls.pop()
+        found_uuid = calls.pop().getParam(0)
+        if check_intermediate:
+            for call in calls:
+                self.assertEqual(found_uuid, call.getParam(0))
         if uuid is not None:
-            self.assertEqual(call.getParam(0), uuid)
+            self.assertEqual(found_uuid, uuid)
 
     # in check(Ask|Answer|Notify)Packet we return the packet so it can be used
     # in tests if more accurates checks are required

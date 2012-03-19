@@ -24,6 +24,7 @@ from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
 from ZODB.POSException import ConflictError
 from neo.lib.exception import NodeNotReady
+from neo.lib.node import NodeManager
 from ZODB.TimeStamp import TimeStamp
 
 MARKER = []
@@ -33,7 +34,24 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
     def setUp(self):
         super(NeoUnitTestBase, self).setUp()
         self.app = Mock()
+        self.app.nm = NodeManager()
         self.handler = StorageBootstrapHandler(self.app)
+        self.app.primary_master_node = node = Mock({
+            'getConnection': self.getFakeConnection(),
+            'getUUID': self.getNewUUID(),
+        })
+        self._next_port = 3000
+
+    def getKnownStorage(self):
+        node = self.app.nm.createStorage(
+            uuid=self.getNewUUID(),
+            address=(self.local_ip, self._next_port),
+        )
+        self._next_port += 1
+        conn = self.getFakeConnection(address=node.getAddress(),
+            uuid=node.getUUID())
+        node.setConnection(conn)
+        return node, conn
 
     def test_notReady(self):
         conn = self.getFakeConnection()
@@ -41,26 +59,18 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
 
     def test_acceptIdentification1(self):
         """ Not a storage node """
-        uuid = self.getNewUUID()
-        node_uuid = self.getNewUUID()
-        conn = self.getFakeConnection()
-        self.app.primary_master_node = node = Mock({'getUUID': node_uuid})
-        self.app.nm = Mock({'getByAddress': node})
-        self.handler.acceptIdentification(conn, NodeTypes.CLIENT, uuid,
-            10, 0, None, node_uuid, [])
+        node, conn = self.getKnownStorage()
+        self.handler.acceptIdentification(conn, NodeTypes.CLIENT,
+            node.getUUID(),
+            10, 0, None, self.app.primary_master_node.getUUID(), [])
         self.checkClosed(conn)
 
     def test_acceptIdentification2(self):
-        uuid = self.getNewUUID()
-        node_uuid = self.getNewUUID()
-        conn = self.getFakeConnection()
-        self.app.primary_master_node = node = Mock({'getConnection': conn,
-            'getUUID': node_uuid})
-        self.app.nm = Mock({'getByAddress': node})
-        self.handler.acceptIdentification(conn, NodeTypes.STORAGE, uuid,
-            10, 0, None, node_uuid, [])
-        self.checkUUIDSet(node, uuid)
-
+        node, conn = self.getKnownStorage()
+        self.handler.acceptIdentification(conn, NodeTypes.STORAGE,
+            node.getUUID(),
+            10, 0, None, self.app.primary_master_node.getUUID(), [])
+        self.checkNotClosed(conn)
 
 class StorageAnswerHandlerTests(NeoUnitTestBase):
 

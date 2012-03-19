@@ -28,17 +28,13 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         app = self.app
         app.trying_master_node = None
 
-    def acceptIdentification(self, conn, node_type, uuid, num_partitions,
+    def _acceptIdentification(self, node, uuid, num_partitions,
             num_replicas, your_uuid, primary_uuid, known_master_list):
         app = self.app
-        # this must be a master node
-        if node_type != NodeTypes.MASTER:
-            conn.close()
-            return
 
         # Register new master nodes.
         found = False
-        conn_address = conn.getAddress()
+        conn_address = node.getAddress()
         for node_address, node_uuid in known_master_list:
             if node_address == conn_address:
                 assert uuid == node_uuid, (dump(uuid), dump(node_uuid))
@@ -48,8 +44,9 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
                 n = app.nm.createMaster(address=node_address)
             if node_uuid is not None and n.getUUID() != node_uuid:
                 n.setUUID(node_uuid)
-        assert found, (conn, dump(uuid), known_master_list)
+        assert found, (node, dump(uuid), known_master_list)
 
+        conn = node.getConnection()
         if primary_uuid is not None:
             primary_node = app.nm.getByUUID(primary_uuid)
             if primary_node is None:

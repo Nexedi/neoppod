@@ -47,20 +47,12 @@ class StorageBootstrapHandler(AnswerBaseHandler):
     def notReady(self, conn, message):
         raise NodeNotReady(message)
 
-    def acceptIdentification(self, conn, node_type,
+    def _acceptIdentification(self, node,
            uuid, num_partitions, num_replicas, your_uuid, primary_uuid,
            master_list):
         assert primary_uuid == self.app.primary_master_node.getUUID(), (
             dump(primary_uuid), dump(self.app.primary_master_node.getUUID()))
-        # this must be a storage node
-        if node_type != NodeTypes.STORAGE:
-            conn.close()
-            return
-
-        node = self.app.nm.getByAddress(conn.getAddress())
-        assert node is not None, conn.getAddress()
         node.setUUID(uuid)
-        assert node.getConnection() is conn, (node.getConnection(), conn)
 
 class StorageAnswersHandler(AnswerBaseHandler):
     """ Handle all messages related to ZODB operations """

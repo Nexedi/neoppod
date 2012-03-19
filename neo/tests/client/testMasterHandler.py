@@ -32,6 +32,16 @@ class MasterHandlerTests(NeoUnitTestBase):
         self.app = Mock({'getDB': self.db})
         self.app.nm = NodeManager()
         self.app.dispatcher = Mock()
+        self._next_port = 3000
+
+    def getKnownMaster(self):
+        node = self.app.nm.createMaster(address=(
+            self.local_ip, self._next_port),
+        )
+        self._next_port += 1
+        conn = self.getFakeConnection(address=node.getAddress())
+        node.setConnection(conn)
+        return node, conn
 
 class MasterBootstrapHandlerTests(MasterHandlerTests):
 
@@ -51,18 +61,15 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
 
     def test_acceptIdentification1(self):
         """ Non-master node """
-        conn = self.getFakeConnection()
-        uuid = self.getNewUUID()
+        node, conn = self.getKnownMaster()
         self.handler.acceptIdentification(conn, NodeTypes.CLIENT,
-            uuid, 100, 0, None, None, [])
+            node.getUUID(), 100, 0, None, None, [])
         self.checkClosed(conn)
 
     def test_acceptIdentification2(self):
         """ No UUID supplied """
-        conn = self.getFakeConnection()
+        node, conn = self.getKnownMaster()
         uuid = self.getNewUUID()
-        node = Mock()
-        self.app.nm = Mock({'getByAddress': node, 'getByUUID': node})
         self.checkProtocolErrorRaised(self.handler.acceptIdentification,
             conn, NodeTypes.MASTER, uuid, 100, 0, None,
             uuid, [(conn.getAddress(), uuid)],
@@ -70,17 +77,13 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
 
     def test_acceptIdentification3(self):
         """ identification accepted  """
-        node = Mock()
-        conn = self.getFakeConnection()
+        node, conn = self.getKnownMaster()
         uuid = self.getNewUUID()
         your_uuid = self.getNewUUID()
-        partitions = 100
-        replicas = 2
-        self.app.nm = Mock({'getByAddress': node, 'getByUUID': node})
         self.handler.acceptIdentification(conn, NodeTypes.MASTER, uuid,
-            partitions, replicas, your_uuid, uuid, [(conn.getAddress(), uuid)])
+            100, 2, your_uuid, uuid, [(conn.getAddress(), uuid)])
         self.assertEqual(self.app.uuid, your_uuid)
-        self.checkUUIDSet(node, uuid)
+        self.assertEqual(node.getUUID(), uuid)
         self.assertTrue(isinstance(self.app.pt, PartitionTable))
 
     def _getMasterList(self, uuid_list):

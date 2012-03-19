@@ -89,16 +89,16 @@ class BootstrapManager(EventHandler):
         """
         conn.close()
 
-    def acceptIdentification(self, conn, node_type, uuid, num_partitions,
+    def _acceptIdentification(self, node, uuid, num_partitions,
             num_replicas, your_uuid, primary_uuid, known_master_list):
         nm  = self.app.nm
 
         # Register new master nodes.
         for address, uuid in known_master_list:
-            node = nm.getByAddress(address)
-            if node is None:
-                node = nm.createMaster(address=address)
-            node.setUUID(uuid)
+            master_node = nm.getByAddress(address)
+            if master_node is None:
+                master_node = nm.createMaster(address=address)
+            master_node.setUUID(uuid)
 
         self.primary = nm.getByUUID(primary_uuid)
         if self.primary is None or self.current is not self.primary:
@@ -106,7 +106,7 @@ class BootstrapManager(EventHandler):
             # - something goes wrong (unknown UUID)
             # - this master doesn't know who's the primary
             # - got the primary's uuid, so cut here
-            conn.close()
+            node.getConnection().close()
             return
 
         neo.lib.logging.info('connected to a primary master node')

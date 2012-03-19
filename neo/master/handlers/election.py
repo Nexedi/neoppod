@@ -79,15 +79,9 @@ class ClientElectionHandler(BaseElectionHandler):
         self.app.unconnected_master_node_set.add(addr)
         self.app.negotiating_master_node_set.discard(addr)
 
-    def acceptIdentification(self, conn, node_type, peer_uuid, num_partitions,
+    def _acceptIdentification(self, node, peer_uuid, num_partitions,
             num_replicas, your_uuid, primary_uuid, known_master_list):
         app = self.app
-        if node_type != NodeTypes.MASTER:
-            # The peer is not a master node!
-            neo.lib.logging.error('%r is not a master node', conn)
-            app.nm.remove(app.nm.getByAddress(conn.getAddress()))
-            conn.close()
-            return
 
         if your_uuid != app.uuid:
             # uuid conflict happened, accept the new one and restart election
@@ -96,7 +90,7 @@ class ClientElectionHandler(BaseElectionHandler):
                             dump(your_uuid))
             raise ElectionFailure, 'new uuid supplied'
 
-        conn.setUUID(peer_uuid)
+        node.setUUID(peer_uuid)
 
         # Register new master nodes.
         for address, uuid in known_master_list:
@@ -135,7 +129,7 @@ class ClientElectionHandler(BaseElectionHandler):
                 app.negotiating_master_node_set.clear()
                 return
 
-        elect(app, peer_uuid, conn.getAddress())
+        elect(app, peer_uuid, node.getAddress())
 
 
 class ServerElectionHandler(BaseElectionHandler, MasterHandler):

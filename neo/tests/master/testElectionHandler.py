@@ -31,7 +31,26 @@ def _addPacket(self, packet):
     if self.connector is not None:
         self.connector._addPacket(packet)
 
-class MasterClientElectionTests(NeoUnitTestBase):
+class MasterClientElectionTestBase(NeoUnitTestBase):
+
+    def setUp(self):
+        super(MasterClientElectionTestBase, self).setUp()
+        self._master_port = 3001
+
+    def identifyToMasterNode(self, uuid=True):
+        if uuid is True:
+            uuid = self.getNewUUID()
+        node = self.app.nm.createMaster(uuid=uuid)
+        node.setAddress((self.local_ip, self._master_port))
+        self._master_port += 1
+        conn = self.getFakeConnection(
+                uuid=node.getUUID(),
+                address=node.getAddress(),
+        )
+        node.setConnection(conn)
+        return (node, conn)
+
+class MasterClientElectionTests(MasterClientElectionTestBase):
 
     def setUp(self):
         NeoUnitTestBase.setUp(self)
@@ -49,18 +68,12 @@ class MasterClientElectionTests(NeoUnitTestBase):
         # apply monkey patches
         self._addPacket = ClientConnection._addPacket
         ClientConnection._addPacket = _addPacket
+        super(MasterClientElectionTests, self).setUp()
 
     def tearDown(self):
         # restore patched methods
         ClientConnection._addPacket = self._addPacket
         NeoUnitTestBase.tearDown(self)
-
-    def identifyToMasterNode(self):
-        node = self.app.nm.getMasterList()[0]
-        node.setUUID(self.getNewUUID())
-        conn = self.getFakeConnection(uuid=node.getUUID(),
-                address=node.getAddress())
-        return (node, conn)
 
     def _checkUnconnected(self, node):
         addr = node.getAddress()
@@ -107,9 +120,8 @@ class MasterClientElectionTests(NeoUnitTestBase):
         self.checkClosed(conn)
 
     def test_acceptIdentificationDoesNotKnowPrimary(self):
-        master1_uuid = self.getNewUUID()
-        master1_address = ('127.0.0.1', 2001)
-        master1_conn = self.getFakeConnection(address=master1_address)
+        master1, master1_conn = self.identifyToMasterNode()
+        master1_uuid = master1.getUUID()
         self.election.acceptIdentification(
             master1_conn,
             NodeTypes.MASTER,
@@ -118,14 +130,13 @@ class MasterClientElectionTests(NeoUnitTestBase):
             0,
             self.app.uuid,
             None,
-            [(master1_address, master1_uuid)],
+            [(master1.getAddress(), master1_uuid)],
         )
         self.assertEqual(self.app.primary_master_node, None)
 
     def test_acceptIdentificationKnowsPrimary(self):
-        master1_uuid = self.getNewUUID()
-        master1_address = ('127.0.0.1', 2001)
-        master1_conn = self.getFakeConnection(address=master1_address)
+        master1, master1_conn = self.identifyToMasterNode()
+        master1_uuid = master1.getUUID()
         self.election.acceptIdentification(
             master1_conn,
             NodeTypes.MASTER,
@@ -134,19 +145,20 @@ class MasterClientElectionTests(NeoUnitTestBase):
             0,
             self.app.uuid,
             master1_uuid,
-            [(master1_address, master1_uuid)],
+            [(master1.getAddress(), master1_uuid)],
         )
         self.assertNotEqual(self.app.primary_master_node, None)
 
     def test_acceptIdentificationMultiplePrimaries(self):
-        master1_uuid = self.getNewUUID()
-        master2_uuid = self.getNewUUID()
-        master3_uuid = self.getNewUUID()
-        master1_address = ('127.0.0.1', 2001)
-        master2_address = ('127.0.0.1', 2002)
-        master3_address = ('127.0.0.1', 2003)
-        master1_conn = self.getFakeConnection(address=master1_address)
-        master2_conn = self.getFakeConnection(address=master2_address)
+        master1, master1_conn = self.identifyToMasterNode()
+        master2, master2_conn = self.identifyToMasterNode()
+        master3, _ = self.identifyToMasterNode()
+        master1_uuid = master1.getUUID()
+        master2_uuid = master2.getUUID()
+        master3_uuid = master3.getUUID()
+        master1_address = master1.getAddress()
+        master2_address = master2.getAddress()
+        master3_address = master3.getAddress()
         self.election.acceptIdentification(
             master1_conn,
             NodeTypes.MASTER,
@@ -197,7 +209,7 @@ class MasterClientElectionTests(NeoUnitTestBase):
         return [(x.getAddress(), x.getUUID()) for x in master_list]
 
 
-class MasterServerElectionTests(NeoUnitTestBase):
+class MasterServerElectionTests(MasterClientElectionTestBase):
 
     def setUp(self):
         NeoUnitTestBase.setUp(self)
@@ -219,25 +231,12 @@ class MasterServerElectionTests(NeoUnitTestBase):
         # apply monkey patches
         self._addPacket = ClientConnection._addPacket
         ClientConnection._addPacket = _addPacket
+        super(MasterServerElectionTests, self).setUp()
 
     def tearDown(self):
         NeoUnitTestBase.tearDown(self)
         # restore environnement
         ClientConnection._addPacket = self._addPacket
-
-    def identifyToMasterNode(self, uuid=True):
-        node = self.app.nm.getMasterList()[0]
-        if uuid is True:
-            uuid = self.getNewUUID()
-        node.setUUID(uuid)
-        conn = self.getFakeConnection(
-                uuid=node.getUUID(),
-                address=node.getAddress(),
-        )
-        return (node, conn)
-
-
-    # Tests
 
     def test_requestIdentification1(self):
         """ A non-master node request identification """
@@ -275,7 +274,7 @@ class MasterServerElectionTests(NeoUnitTestBase):
         args = (self.app.uuid, node.getAddress(), self.app.name)
         self.election.requestIdentification(conn,
             NodeTypes.MASTER, *args)
-        self.checkUUIDSet(conn)
+        self.checkUUIDSet(conn, check_intermediate=False)
         args = self.checkAcceptIdentification(conn, decode=True)
         (node_type, uuid, partitions, replicas, new_uuid, primary_uuid,
             master_list) = args

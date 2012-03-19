@@ -84,18 +84,15 @@ class PrimaryHandler(EventHandler):
                     if n.getUUID() is None:
                         n.setUUID(uuid)
 
-    def acceptIdentification(self, conn, node_type, uuid, num_partitions,
+    def _acceptIdentification(self, node, uuid, num_partitions,
             num_replicas, your_uuid, primary_uuid, known_master_list):
         app = self.app
         if primary_uuid != app.primary_master_node.getUUID():
             raise PrimaryFailure('unexpected primary uuid')
-        node = app.nm.getByAddress(conn.getAddress())
-        assert node_type == NodeTypes.MASTER
 
         if your_uuid != app.uuid:
             # uuid conflict happened, accept the new one
             app.uuid = your_uuid
 
-        conn.setUUID(uuid)
         node.setUUID(uuid)
 
