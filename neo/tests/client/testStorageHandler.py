@@ -31,22 +31,19 @@ MARKER = []
 class StorageBootstrapHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
-        NeoUnitTestBase.setUp(self)
+        super(NeoUnitTestBase, self).setUp()
         self.app = Mock()
         self.handler = StorageBootstrapHandler(self.app)
 
-    def getConnection(self):
-        return self.getFakeConnection()
-
     def test_notReady(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         self.assertRaises(NodeNotReady, self.handler.notReady, conn, 'message')
 
     def test_acceptIdentification1(self):
         """ Not a storage node """
         uuid = self.getNewUUID()
         node_uuid = self.getNewUUID()
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         self.app.primary_master_node = node = Mock({'getUUID': node_uuid})
         self.app.nm = Mock({'getByAddress': node})
         self.handler.acceptIdentification(conn, NodeTypes.CLIENT, uuid,
@@ -56,7 +53,7 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
     def test_acceptIdentification2(self):
         uuid = self.getNewUUID()
         node_uuid = self.getNewUUID()
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         self.app.primary_master_node = node = Mock({'getConnection': conn,
             'getUUID': node_uuid})
         self.app.nm = Mock({'getByAddress': node})
@@ -68,12 +65,9 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
 class StorageAnswerHandlerTests(NeoUnitTestBase):
 
     def setUp(self):
-        NeoUnitTestBase.setUp(self)
+        super(StorageAnswerHandlerTests, self).setUp()
         self.app = Mock()
         self.handler = StorageAnswersHandler(self.app)
-
-    def getConnection(self):
-        return self.getFakeConnection()
 
     def _checkHandlerData(self, ref):
         calls = self.app.mockGetNamedCalls('setHandlerData')
@@ -81,7 +75,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         calls[0].checkArgs(ref)
 
     def test_answerObject(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         oid = self.getOID(0)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID(tid1)
@@ -101,7 +95,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         return StorageAnswersHandler(app)
 
     def test_answerStoreObject_1(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         oid = self.getOID(0)
         tid = self.getNextTID()
         # conflict
@@ -120,7 +114,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
             conn, 1, oid, tid)
 
     def test_answerStoreObject_2(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         oid = self.getOID(0)
         tid = self.getNextTID()
         tid_2 = self.getNextTID()
@@ -144,7 +138,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
             ).answerStoreObject(conn, 1, oid, tid_2)
 
     def test_answerStoreObject_3(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         oid = self.getOID(0)
         tid = self.getNextTID()
         tid_2 = self.getNextTID()
@@ -184,7 +178,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         self.assertEqual(object_stored_counter_dict[oid], {tid: set([uuid])})
 
     def test_answerTransactionInformation(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         tid = self.getNextTID()
         user = 'USER'
         desc = 'DESC'
@@ -203,17 +197,17 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         }, ext))
 
     def test_oidNotFound(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         self.assertRaises(NEOStorageNotFoundError, self.handler.oidNotFound,
             conn, 'message')
 
     def test_oidDoesNotExist(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         self.assertRaises(NEOStorageDoesNotExistError,
             self.handler.oidDoesNotExist, conn, 'message')
 
     def test_tidNotFound(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         self.assertRaises(NEOStorageNotFoundError, self.handler.tidNotFound,
             conn, 'message')
 

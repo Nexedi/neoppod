@@ -25,16 +25,17 @@ from neo.client.handlers.master import PrimaryNotificationsHandler, \
 from neo.client.exception import NEOStorageError
 
 class MasterHandlerTests(NeoUnitTestBase):
-
-    def getConnection(self):
-        return self.getFakeConnection()
-
+    def setUp(self):
+        super(MasterHandlerTests, self).setUp()
+        self.db = Mock()
+        self.app = Mock({'getDB': self.db})
+        self.app.nm = Mock()
+        self.app.dispatcher = Mock()
 
 class MasterBootstrapHandlerTests(MasterHandlerTests):
 
     def setUp(self):
-        NeoUnitTestBase.setUp(self)
-        self.app = Mock()
+        super(MasterBootstrapHandlerTests, self).setUp()
         self.handler = PrimaryBootstrapHandler(self.app)
 
     def checkCalledOnApp(self, method, index=0):
@@ -43,13 +44,13 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
         return calls[index].params
 
     def test_notReady(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         self.handler.notReady(conn, 'message')
         self.assertEqual(self.app.trying_master_node, None)
 
     def test_acceptIdentification1(self):
         """ Non-master node """
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         uuid = self.getNewUUID()
         self.handler.acceptIdentification(conn, NodeTypes.CLIENT,
             uuid, 100, 0, None, None, [])
@@ -57,7 +58,7 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
 
     def test_acceptIdentification2(self):
         """ No UUID supplied """
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         uuid = self.getNewUUID()
         node = Mock()
         self.app.nm = Mock({'getByAddress': node, 'getByUUID': node})
@@ -69,7 +70,7 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
     def test_acceptIdentification3(self):
         """ identification accepted  """
         node = Mock()
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         uuid = self.getNewUUID()
         your_uuid = self.getNewUUID()
         partitions = 100
@@ -90,7 +91,7 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
         return master_list
 
     def test_answerPartitionTable(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         self.app.pt = Mock()
         ptid = 0
         row_list = ([], [])
@@ -103,15 +104,11 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
 class MasterNotificationsHandlerTests(MasterHandlerTests):
 
     def setUp(self):
-        NeoUnitTestBase.setUp(self)
-        self.db = Mock()
-        self.app = Mock({'getDB': self.db})
-        self.app.nm = Mock()
-        self.app.dispatcher = Mock()
+        super(MasterNotificationsHandlerTests, self).setUp()
         self.handler = PrimaryNotificationsHandler(self.app)
 
     def test_connectionClosed(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         node = Mock()
         self.app.master_conn = conn
         self.app.primary_master_node = node
@@ -120,7 +117,7 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
         self.assertEqual(self.app.primary_master_node, None)
 
     def test_invalidateObjects(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         tid = self.getNextTID()
         oid1, oid2, oid3 = self.getOID(1), self.getOID(2), self.getOID(3)
         self.app._cache = Mock({
@@ -136,7 +133,7 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
         invalidation_calls[0].checkArgs(tid, [oid1, oid3])
 
     def test_notifyPartitionChanges(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         self.app.pt = Mock({'filled': True})
         ptid = 0
         cell_list = (Mock(), Mock())
@@ -149,26 +146,25 @@ class MasterNotificationsHandlerTests(MasterHandlerTests):
 class MasterAnswersHandlerTests(MasterHandlerTests):
 
     def setUp(self):
-        NeoUnitTestBase.setUp(self)
-        self.app = Mock()
+        super(MasterAnswersHandlerTests, self).setUp()
         self.handler = PrimaryAnswersHandler(self.app)
 
     def test_answerBeginTransaction(self):
         tid = self.getNextTID()
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         self.handler.answerBeginTransaction(conn, tid)
         calls = self.app.mockGetNamedCalls('setHandlerData')
         self.assertEqual(len(calls), 1)
         calls[0].checkArgs(tid)
 
     def test_answerNewOIDs(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         oid1, oid2, oid3 = self.getOID(0), self.getOID(1), self.getOID(2)
         self.handler.answerNewOIDs(conn, [oid1, oid2, oid3])
         self.assertEqual(self.app.new_oid_list, [oid1, oid2, oid3])
 
     def test_answerTransactionFinished(self):
-        conn = self.getConnection()
+        conn = self.getFakeConnection()
         ttid2 = self.getNextTID()
         tid2 = self.getNextTID()
         self.handler.answerTransactionFinished(conn, ttid2, tid2)
