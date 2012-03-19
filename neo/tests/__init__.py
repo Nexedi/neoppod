@@ -353,7 +353,6 @@ class NeoUnitTestBase(NeoTestBase):
         self.assertEqual(type(packet), Packets.Error)
         if decode:
             return packet.decode()
-            return protocol.decode_table[type(packet)](packet._body)
         return packet
 
     def checkAskPacket(self, conn, packet_type, decode=False):
