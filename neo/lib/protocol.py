@@ -24,7 +24,7 @@ from struct import Struct
 from .util import Enum, getAddressType
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (7, 1)
+PROTOCOL_VERSION = (8, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -1559,14 +1559,19 @@ class Packets(dict):
     # notifications
     Error = register(
                     Error)
+    RequestIdentification, AcceptIdentification = register(
+                    RequestIdentification)
+    # Code of RequestIdentification packet must never change so that 2
+    # incompatible nodes can reject themselves gracefully (i.e. comparing
+    # protocol versions) instead of raising PacketMalformedError.
+    assert RequestIdentification._code == 1
+
     Ping, Pong = register(
                     Ping)
     CloseClient  = register(
                     CloseClient)
     Notify = register(
                     Notify)
-    RequestIdentification, AcceptIdentification = register(
-                    RequestIdentification)
     AskPrimary, AnswerPrimary = register(
                     PrimaryMaster)
     AnnouncePrimary = register(
