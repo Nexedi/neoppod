@@ -139,7 +139,7 @@ class ServerElectionHandler(BaseElectionHandler, MasterHandler):
 
         if node is None:
             node = app.nm.createMaster(address=address)
-        # supplied another uuid in case of conflict
+        # supply another uuid in case of conflict
         while not app.isValidUUID(uuid, address):
             uuid = app.getNewUUID(node_type)
 
