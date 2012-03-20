@@ -94,7 +94,8 @@ class ClientElectionHandler(BaseElectionHandler):
         for address, uuid in known_master_list:
             if app.server == address:
                 # This is self.
-                assert peer_uuid != primary_uuid or uuid == your_uuid, (dump(uuid), dump(your_uuid))
+                assert peer_uuid != primary_uuid or uuid == your_uuid, (
+                    dump(uuid), dump(your_uuid))
                 continue
             n = app.nm.getByAddress(address)
             if n is None:
