@@ -499,16 +499,15 @@ class Connection(BaseConnection):
 
     def analyse(self):
         """Analyse received data."""
-        while True:
-            # parse a packet
-            try:
+        try:
+            while True:
                 packet = Packets.parse(self.read_buf, self._parser_state)
                 if packet is None:
                     break
-            except PacketMalformedError, msg:
-                self.getHandler()._packetMalformed(self, msg)
-                return
-            self._queue.append(packet)
+                self._queue.append(packet)
+        except PacketMalformedError, e:
+            logging.error('malformed packet from %r: %s', self, e)
+            self._closure()
 
     def hasPendingMessages(self):
         """

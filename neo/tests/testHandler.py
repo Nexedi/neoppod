@@ -59,8 +59,7 @@ class HandlerTests(NeoUnitTestBase):
             raise PacketMalformedError('message')
         self.setFakeMethod(fake)
         self.handler.dispatch(conn, packet)
-        self.checkNotify(conn)
-        self.checkAborted(conn)
+        self.checkClosed(conn)
         # raise BrokenNodeDisallowedError
         conn.mockCalledMethods = {}
         def fake(c):

@@ -56,12 +56,10 @@ class EventHandler(object):
         except UnexpectedPacketError, e:
             if not conn.isClosed():
                 self.__unexpectedPacket(conn, packet, *e.args)
-        except PacketMalformedError:
-            if not conn.isClosed():
-                logging.error('malformed packet from %r', conn)
-                conn.notify(Packets.Notify('Malformed packet: %r' % (packet, )))
-                conn.abort()
-                # self.peerBroken(conn)
+        except PacketMalformedError, e:
+            logging.error('malformed packet from %r: %s', conn, e)
+            conn.close()
+            # self.peerBroken(conn)
         except BrokenNodeDisallowedError:
             if not conn.isClosed():
                 conn.answer(Errors.BrokenNode('go away'))

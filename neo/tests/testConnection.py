@@ -477,12 +477,12 @@ class ConnectionTests(NeoUnitTestBase):
     def test_Connection_analyse3(self):
         # give a bad packet, won't be decoded
         bc = self._makeConnection()
-        bc._queue = Mock()
-        self._appendToReadBuf(bc, 'datadatadatadata')
+        p = Packets.Ping()
+        p.setId(1)
+        self._appendToReadBuf(bc, '%s%sdatadatadatadata' % p.encode())
         bc.analyse()
-        self.assertEqual(len(bc._queue.mockGetNamedCalls("append")), 0)
-        self.assertEqual(
-            len(self.handler.mockGetNamedCalls("_packetMalformed")), 1)
+        self._checkPacketReceived(1) # ping packet
+        self._checkClose(1) # malformed packet
 
     def test_Connection_analyse4(self):
         # give an expected packet
