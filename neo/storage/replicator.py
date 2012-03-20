@@ -52,7 +52,7 @@ TODO: Packing and replication currently fail when then happen at the same time.
 
 import random
 
-import neo.lib
+from neo.lib import bootstrap, logging
 from neo.lib.protocol import CellStates, NodeTypes, NodeStates, Packets, \
     INVALID_TID, ZERO_TID, ZERO_OID
 from neo.lib.connection import ClientConnection
@@ -251,7 +251,7 @@ class Replicator(object):
                     return self.abort()
             min_tid = p.next_trans
             self.replicate_tid = self.replicate_dict.pop(offset)
-            neo.lib.logging.debug("starting replication of <partition=%u"
+            logging.debug("starting replication of <partition=%u"
                 " min_tid=%s max_tid=%s> from %r", offset, dump(min_tid),
                 dump(self.replicate_tid), self.current_node)
         max_tid = self.replicate_tid
@@ -296,8 +296,8 @@ class Replicator(object):
         if not p.max_ttid:
             p = Packets.NotifyReplicationDone(offset, tid)
             self.app.master_conn.notify(p)
-        neo.lib.logging.debug("partition %u replicated up to %s from %r",
-                              offset, dump(tid), self.current_node)
+        logging.debug("partition %u replicated up to %s from %r",
+                      offset, dump(tid), self.current_node)
         self._nextPartition()
 
     def abort(self, message=''):
@@ -305,8 +305,8 @@ class Replicator(object):
         if offset is None:
             return
         del self.current_partition
-        neo.lib.logging.warning('replication aborted for partition %u%s',
-                                offset, message and ' (%s)' % message)
+        logging.warning('replication aborted for partition %u%s',
+                        offset, message and ' (%s)' % message)
         if self.app.master_node is None:
             return
         if offset in self.partition_dict:

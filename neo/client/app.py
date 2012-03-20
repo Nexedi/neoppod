@@ -27,7 +27,7 @@ from ZODB.POSException import ReadConflictError
 from ZODB.ConflictResolution import ResolvedSerial
 from persistent.TimeStamp import TimeStamp
 
-import neo.lib
+from neo.lib import logging
 from neo.lib.protocol import NodeTypes, Packets, \
     INVALID_PARTITION, ZERO_HASH, ZERO_TID
 from neo.lib.event import EventManager
@@ -278,7 +278,7 @@ class Application(object):
         """
             Lookup for the current primary master node
         """
-        neo.lib.logging.debug('connecting to primary master...')
+        logging.debug('connecting to primary master...')
         ready = False
         nm = self.nm
         while not ready:
@@ -309,8 +309,7 @@ class Application(object):
                 # Query for primary master node
                 if conn.getConnector() is None:
                     # This happens if a connection could not be established.
-                    neo.lib.logging.error(
-                                    'Connection to master node %s failed',
+                    logging.error('Connection to master node %s failed',
                                   self.trying_master_node)
                     continue
                 try:
@@ -322,15 +321,13 @@ class Application(object):
                 # If we reached the primary master node, mark as connected
                 connected = self.primary_master_node is not None and \
                         self.primary_master_node is self.trying_master_node
-            neo.lib.logging.info(
-                            'Connected to %s' % (self.primary_master_node, ))
+            logging.info('Connected to %s', self.primary_master_node)
             try:
                 ready = self.identifyToPrimaryNode(conn)
             except ConnectionClosed:
-                neo.lib.logging.error('Connection to %s lost',
-                    self.trying_master_node)
+                logging.error('Connection to %s lost', self.trying_master_node)
                 self.primary_master_node = None
-        neo.lib.logging.info("Connected and ready")
+        logging.info("Connected and ready")
         return conn
 
     def identifyToPrimaryNode(self, conn):
@@ -339,7 +336,7 @@ class Application(object):
             Might raise ConnectionClosed so that the new primary can be
             looked-up again.
         """
-        neo.lib.logging.info('Initializing from master')
+        logging.info('Initializing from master')
         ask = self._ask
         handler = self.primary_bootstrap_handler
         ask(conn, Packets.AskNodeInformation(), handler=handler)
@@ -437,7 +434,7 @@ class Application(object):
 
             if data or checksum != ZERO_HASH:
                 if checksum != makeChecksum(data):
-                    neo.lib.logging.error('wrong checksum from %s for oid %s',
+                    logging.error('wrong checksum from %s for oid %s',
                               conn, dump(oid))
                     continue
                 if compression:
@@ -486,8 +483,7 @@ class Application(object):
         txn_context = self._txn_container.get(transaction)
         if txn_context is None:
             raise StorageTransactionError(self, transaction)
-        neo.lib.logging.debug(
-                        'storing oid %s serial %s', dump(oid), dump(serial))
+        logging.debug('storing oid %s serial %s', dump(oid), dump(serial))
         self._store(txn_context, oid, serial, data)
         return None
 
@@ -570,7 +566,7 @@ class Application(object):
             if ZERO_TID in conflict_serial_set:
               if 1:
                 # XXX: disable deadlock avoidance code until it is fixed
-                neo.lib.logging.info('Deadlock avoidance on %r:%r',
+                logging.info('Deadlock avoidance on %r:%r',
                     dump(oid), dump(serial))
                 # 'data' parameter of ConflictError is only used to report the
                 # class of the object. It doesn't matter if 'data' is None
@@ -591,7 +587,7 @@ class Application(object):
                 # XXX: currently, brute-force is implemented: we send
                 # object data again.
                 # WARNING: not maintained code
-                neo.lib.logging.info('Deadlock avoidance triggered on %r:%r',
+                logging.info('Deadlock avoidance triggered on %r:%r',
                     dump(oid), dump(serial))
                 for store_oid, store_data in data_dict.iteritems():
                     store_serial = object_serial_dict[store_oid]
@@ -601,9 +597,8 @@ class Application(object):
                     else:
                         if store_data is None:
                             # Some undo
-                            neo.lib.logging.warning('Deadlock avoidance cannot'
-                                ' reliably work with undo, this must be '
-                                'implemented.')
+                            logging.warning('Deadlock avoidance cannot reliably'
+                                ' work with undo, this must be implemented.')
                             conflict_serial = ZERO_TID
                             break
                         self._store(txn_context, store_oid, store_serial,
@@ -627,7 +622,7 @@ class Application(object):
                 new_data = tryToResolveConflict(oid, conflict_serial,
                     serial, data)
                 if new_data is not None:
-                    neo.lib.logging.info('Conflict resolution succeed for ' \
+                    logging.info('Conflict resolution succeed for '
                         '%r:%r with %r', dump(oid), dump(serial),
                         dump(conflict_serial))
                     # Mark this conflict as resolved
@@ -639,7 +634,7 @@ class Application(object):
                     append(oid)
                     continue
                 else:
-                    neo.lib.logging.info('Conflict resolution failed for ' \
+                    logging.info('Conflict resolution failed for '
                         '%r:%r with %r', dump(oid), dump(serial),
                         dump(conflict_serial))
             raise ConflictError(oid=oid, serials=(txn_context['ttid'],
@@ -681,7 +676,7 @@ class Application(object):
         for oid, store_dict in \
                 txn_context['object_stored_counter_dict'].iteritems():
             if not store_dict:
-                neo.lib.logging.error('tpc_store failed')
+                logging.error('tpc_store failed')
                 raise NEOStorageError('tpc_store failed')
             elif oid in resolved_oid_set:
                 append((oid, ResolvedSerial))
@@ -705,7 +700,7 @@ class Application(object):
             txn_context['cache_dict'])
         add_involved_nodes = txn_context['involved_nodes'].add
         for node, conn in self.cp.iterateForObject(ttid):
-            neo.lib.logging.debug("voting object %s on %s", dump(ttid),
+            logging.debug("voting object %s on %s", dump(ttid),
                 dump(conn.getUUID()))
             try:
                 self._askStorage(conn, packet)
@@ -716,7 +711,7 @@ class Application(object):
 
         # check at least one storage node accepted
         if txn_stored_counter == 0:
-            neo.lib.logging.error('tpc_vote failed')
+            logging.error('tpc_vote failed')
             raise NEOStorageError('tpc_vote failed')
         # Check if master connection is still alive.
         # This is just here to lower the probability of detecting a problem
@@ -746,10 +741,8 @@ class Application(object):
             try:
                 conn.notify(p)
             except:
-                neo.lib.logging.error(
-                    'Exception in tpc_abort while notifying' \
-                    'storage node %r of abortion, ignoring.',
-                    conn, exc_info=1)
+                logging.exception('Exception in tpc_abort while notifying'
+                    'storage node %r of abortion, ignoring.', conn)
         self._getMasterConnection().notify(p)
         queue = txn_context['queue']
         # We don't need to flush queue, as it won't be reused by future
@@ -924,7 +917,7 @@ class Application(object):
 
         # Reorder tids
         ordered_tids = sorted(tid_set, reverse=True)
-        neo.lib.logging.debug("UndoLog tids %s", map(dump, ordered_tids))
+        logging.debug("UndoLog tids %s", map(dump, ordered_tids))
         # For each transaction, get info
         undo_info = []
         append = undo_info.append
@@ -1045,7 +1038,7 @@ class Application(object):
         self.cp.flush()
         self.master_conn = None
         # Stop polling thread
-        neo.lib.logging.debug('Stopping %s', self.poll_thread)
+        logging.debug('Stopping %s', self.poll_thread)
         self.poll_thread.stop()
         psThreadedPoll()
     close = __del__

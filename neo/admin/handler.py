@@ -14,10 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo
-
+from neo.lib import logging, protocol
 from neo.lib.handler import EventHandler
-from neo.lib import protocol
 from neo.lib.protocol import Packets, Errors
 from neo.lib.exception import PrimaryFailure
 from neo.lib.util import dump
@@ -39,8 +37,8 @@ class AdminEventHandler(EventHandler):
 
     @check_primary_master
     def askPartitionList(self, conn, min_offset, max_offset, uuid):
-        neo.lib.logging.info("ask partition list from %s to %s for %s",
-                             min_offset, max_offset, dump(uuid))
+        logging.info("ask partition list from %s to %s for %s",
+                     min_offset, max_offset, dump(uuid))
         self.app.sendPartitionTable(conn, min_offset, max_offset, uuid)
 
     @check_primary_master
@@ -50,7 +48,7 @@ class AdminEventHandler(EventHandler):
             node_filter = None
         else:
             node_filter = lambda n: n.getType() is node_type
-        neo.lib.logging.info("ask list of %s nodes", node_type)
+        logging.info("ask list of %s nodes", node_type)
         node_list = self.app.nm.getList(node_filter)
         node_information_list = [node.asTuple() for node in node_list ]
         p = Packets.AnswerNodeList(node_information_list)
@@ -58,7 +56,7 @@ class AdminEventHandler(EventHandler):
 
     @check_primary_master
     def setNodeState(self, conn, uuid, state, modify_partition_table):
-        neo.lib.logging.info("set node state for %s-%s", dump(uuid), state)
+        logging.info("set node state for %s-%s", dump(uuid), state)
         node = self.app.nm.getByUUID(uuid)
         if node is None:
             raise protocol.ProtocolError('invalid uuid')
@@ -121,7 +119,7 @@ class MasterEventHandler(EventHandler):
     def answerNodeInformation(self, conn):
         # XXX: This will no more exists when the initialization module will be
         # implemented for factorize code (as done for bootstrap)
-        neo.lib.logging.debug("answerNodeInformation")
+        logging.debug("answerNodeInformation")
 
     def notifyPartitionChanges(self, conn, ptid, cell_list):
         self.app.pt.update(ptid, cell_list, self.app.nm)

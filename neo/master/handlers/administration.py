@@ -15,10 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import random
-import neo
 
 from . import MasterHandler
 from ..app import StateChangedException
+from neo.lib import logging
 from neo.lib.protocol import ClusterStates, NodeStates, Packets, ProtocolError
 from neo.lib.protocol import Errors
 from neo.lib.util import dump
@@ -73,8 +73,8 @@ class AdministrationHandler(MasterHandler):
             raise StateChangedException(state)
 
     def setNodeState(self, conn, uuid, state, modify_partition_table):
-        neo.lib.logging.info("set node state for %s-%s : %s" %
-                (dump(uuid), state, modify_partition_table))
+        logging.info("set node state for %s-%s : %s",
+                     dump(uuid), state, modify_partition_table)
         app = self.app
         node = app.nm.getByUUID(uuid)
         if node is None:
@@ -129,7 +129,7 @@ class AdministrationHandler(MasterHandler):
 
     def addPendingNodes(self, conn, uuid_list):
         uuids = ', '.join(map(dump, uuid_list))
-        neo.lib.logging.debug('Add nodes %s' % uuids)
+        logging.debug('Add nodes %s', uuids)
         app = self.app
         nm = app.nm
         em = app.em
@@ -146,11 +146,11 @@ class AdministrationHandler(MasterHandler):
                 uuid_set = uuid_set.intersection(set(uuid_list))
         # nothing to do
         if not uuid_set:
-            neo.lib.logging.warning('No nodes added')
+            logging.warning('No nodes added')
             conn.answer(Errors.Ack('No nodes added'))
             return
         uuids = ', '.join(map(dump, uuid_set))
-        neo.lib.logging.info('Adding nodes %s' % uuids)
+        logging.info('Adding nodes %s', uuids)
         # switch nodes to running state
         node_list = map(nm.getByUUID, uuid_set)
         for node in node_list:
@@ -171,8 +171,8 @@ class AdministrationHandler(MasterHandler):
             max_tid = pt.getCheckTid(partition_dict) if backingup else \
                 app.getLastTransaction()
         if min_tid > max_tid:
-            neo.lib.logging.warning("nothing to check: min_tid=%s > max_tid=%s",
-                                    dump(min_tid), dump(max_tid))
+            logging.warning("nothing to check: min_tid=%s > max_tid=%s",
+                            dump(min_tid), dump(max_tid))
         else:
             getByUUID = app.nm.getByUUID
             node_set = set()

@@ -19,7 +19,6 @@ import MySQLdb
 from MySQLdb import IntegrityError, OperationalError
 from MySQLdb.constants.CR import SERVER_GONE_ERROR, SERVER_LOST
 from MySQLdb.constants.ER import DUP_ENTRY
-import neo.lib
 from array import array
 from hashlib import sha1
 import re
@@ -28,9 +27,9 @@ import time
 
 from . import DatabaseManager, LOG_QUERIES
 from .manager import CreationUndone
+from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
-from neo.lib import util
 
 def splitOIDField(tid, oids):
     if (len(oids) % 8) != 0 or len(oids) == 0:
@@ -74,8 +73,7 @@ class MySQLDatabaseManager(DatabaseManager):
             kwd['passwd'] = self.passwd
         if self.socket:
             kwd['unix_socket'] = self.socket
-        neo.lib.logging.info(
-                        'connecting to MySQL on the database %s with user %s',
+        logging.info('connecting to MySQL on the database %s with user %s',
                      self.db, self.user)
         if self._wait < 0:
             timeout_at = None
@@ -87,8 +85,7 @@ class MySQLDatabaseManager(DatabaseManager):
             except Exception:
                 if timeout_at is not None and time.time() >= timeout_at:
                     raise
-                neo.lib.logging.exception('Connection to MySQL failed, '
-                    'retrying.')
+                logging.exception('Connection to MySQL failed, retrying.')
                 time.sleep(1)
             else:
                 break
@@ -103,11 +100,11 @@ class MySQLDatabaseManager(DatabaseManager):
 
     if LOG_QUERIES:
         def commit(self):
-            neo.lib.logging.debug('committing...')
+            logging.debug('committing...')
             self.conn.commit()
 
         def rollback(self):
-            neo.lib.logging.debug('aborting...')
+            logging.debug('aborting...')
             self.conn.rollback()
     else:
         commit = property(lambda self: self.conn.commit)
@@ -124,7 +121,7 @@ class MySQLDatabaseManager(DatabaseManager):
                         c = '\\x%02x' % ord(c)
                     printable_char_list.append(c)
                 query_part = ''.join(printable_char_list)
-                neo.lib.logging.debug('querying %s...', query_part)
+                logging.debug('querying %s...', query_part)
 
             conn.query(query)
             r = conn.store_result()
@@ -141,7 +138,7 @@ class MySQLDatabaseManager(DatabaseManager):
 
         except OperationalError, m:
             if m[0] in (SERVER_GONE_ERROR, SERVER_LOST):
-                neo.lib.logging.info('the MySQL server is gone; reconnecting')
+                logging.info('the MySQL server is gone; reconnecting')
                 self._connect()
                 return self.query(query)
             raise DatabaseFailure('MySQL error %d: %s' % (m[0], m[1]))
@@ -575,9 +572,9 @@ class MySQLDatabaseManager(DatabaseManager):
             (self._getPartition(oid), oid, value_serial))
         length, value_serial = r[0]
         if length is None:
-            neo.lib.logging.info("Multiple levels of indirection when " \
-                "searching for object data for oid %d at tid %d. This " \
-                "causes suboptimal performance." % (oid, value_serial))
+            logging.info("Multiple levels of indirection when "
+                "searching for object data for oid %d at tid %d."
+                " This causes suboptimal performance.", oid, value_serial)
             length = self._getObjectLength(oid, value_serial)
         return length
 

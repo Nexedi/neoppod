@@ -16,7 +16,7 @@
 
 from struct import pack
 
-import neo
+from neo.lib import logging
 from neo.lib.util import dump
 from neo.lib.protocol import Packets, ProtocolError, ClusterStates, NodeStates
 from neo.lib.protocol import NotReadyError, ZERO_OID, ZERO_TID
@@ -50,7 +50,7 @@ class RecoveryManager(MasterHandler):
         back the latest partition table or make a new table from scratch,
         if this is the first time.
         """
-        neo.lib.logging.info('begin the recovery of the status')
+        logging.info('begin the recovery of the status')
         app = self.app
         pt = app.pt
         app.changeClusterState(ClusterStates.RECOVERING)
@@ -86,14 +86,14 @@ class RecoveryManager(MasterHandler):
                     node_list = node_list()
                     break
 
-        neo.lib.logging.info('startup allowed')
+        logging.info('startup allowed')
 
         for node in node_list:
             node.setRunning()
         app.broadcastNodesInformation(node_list)
 
         if pt.getID() is None:
-            neo.lib.logging.info('creating a new partition table')
+            logging.info('creating a new partition table')
             # reset IDs generators & build new partition with running nodes
             app.tm.setLastOID(ZERO_OID)
             pt.make(node_list)
@@ -103,9 +103,8 @@ class RecoveryManager(MasterHandler):
             app.backup_tid = pt.getBackupTid()
 
         app.setLastTransaction(app.tm.getLastTID())
-        neo.lib.logging.debug(
-                        'cluster starts with loid=%s and this partition ' \
-                        'table :', dump(app.tm.getLastOID()))
+        logging.debug('cluster starts with loid=%s and this partition table :',
+                      dump(app.tm.getLastOID()))
         pt.log()
 
     def connectionLost(self, conn, new_state):
@@ -136,7 +135,7 @@ class RecoveryManager(MasterHandler):
     def answerPartitionTable(self, conn, ptid, row_list):
         if ptid != self.target_ptid:
             # If this is not from a target node, ignore it.
-            neo.lib.logging.warn('Got %s while waiting %s', dump(ptid),
+            logging.warn('Got %s while waiting %s', dump(ptid),
                     dump(self.target_ptid))
         else:
             self._broadcastPartitionTable(ptid, row_list)

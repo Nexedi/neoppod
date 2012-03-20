@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo.lib
+from neo.lib import logging
 from neo.lib.util import dump
 from neo.lib.protocol import CellStates, Packets, ProtocolError
 from . import BaseMasterHandler
@@ -32,7 +32,7 @@ class MasterOperationHandler(BaseMasterHandler):
         app = self.app
         if ptid <= app.pt.getID():
             # Ignore this packet.
-            neo.lib.logging.debug('ignoring older partition changes')
+            logging.debug('ignoring older partition changes')
             return
 
         # update partition table in memory and the database
@@ -57,9 +57,9 @@ class MasterOperationHandler(BaseMasterHandler):
 
     def askPack(self, conn, tid):
         app = self.app
-        neo.lib.logging.info('Pack started, up to %s...', dump(tid))
+        logging.info('Pack started, up to %s...', dump(tid))
         app.dm.pack(tid, app.tm.updateObjectDataForPack)
-        neo.lib.logging.info('Pack finished.')
+        logging.info('Pack finished.')
         if not conn.isClosed():
             conn.answer(Packets.AnswerPack(True))
 

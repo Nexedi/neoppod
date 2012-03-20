@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from time import time
-import neo.lib
+from neo.lib import logging
 from neo.lib.util import dump
 from neo.lib.protocol import ZERO_TID
 
@@ -148,7 +148,7 @@ class TransactionManager(object):
         """
             Register a transaction, it may be already registered
         """
-        neo.lib.logging.debug('Register TXN %s for %s', dump(ttid), dump(uuid))
+        logging.debug('Register TXN %s for %s', dump(ttid), dump(uuid))
         transaction = self._transaction_dict.get(ttid, None)
         if transaction is None:
             transaction = Transaction(uuid, ttid)
@@ -179,7 +179,7 @@ class TransactionManager(object):
         """
             Lock a transaction
         """
-        neo.lib.logging.debug('Lock TXN %s (ttid=%s)', dump(tid), dump(ttid))
+        logging.debug('Lock TXN %s (ttid=%s)', dump(tid), dump(ttid))
         transaction = self._transaction_dict[ttid]
         # remember that the transaction has been locked
         transaction.lock()
@@ -208,7 +208,7 @@ class TransactionManager(object):
         """
             Unlock transaction
         """
-        neo.lib.logging.debug('Unlock TXN %s', dump(ttid))
+        logging.debug('Unlock TXN %s', dump(ttid))
         self._app.dm.finishTransaction(self.getTIDFromTTID(ttid))
         self.abort(ttid, even_if_locked=True)
 
@@ -234,8 +234,7 @@ class TransactionManager(object):
         # check if the object if locked
         locking_tid = self._store_lock_dict.get(oid)
         if locking_tid == ttid and unlock:
-            neo.lib.logging.info('Deadlock resolution on %r:%r', dump(oid),
-                dump(ttid))
+            logging.info('Deadlock resolution on %r:%r', dump(oid), dump(ttid))
             # A duplicate store means client is resolving a deadlock, so
             # drop the lock it held on this object, and drop object data for
             # consistency.
@@ -256,15 +255,15 @@ class TransactionManager(object):
             if previous_serial is None:
                 # XXX: use some special serial when previous store was not
                 # an undo ? Maybe it should just not happen.
-                neo.lib.logging.info('Transaction %s storing %s more than '
-                    'once', dump(ttid), dump(oid))
+                logging.info('Transaction %s storing %s more than once',
+                             dump(ttid), dump(oid))
         elif locking_tid < ttid:
             # We have a bigger TTID than locking transaction, so we are younger:
             # enter waiting queue so we are handled when lock gets released.
             # We also want to delay (instead of conflict) if the client is
             # so faster that it is committing another transaction before we
             # processed UnlockInformation from the master.
-            neo.lib.logging.info('Store delayed for %r:%r by %r', dump(oid),
+            logging.info('Store delayed for %r:%r by %r', dump(oid),
                     dump(ttid), dump(locking_tid))
             raise DelayedError
         else:
@@ -272,7 +271,7 @@ class TransactionManager(object):
             # this is a possible deadlock case, as we might already hold locks
             # the younger transaction is waiting upon. Make client release
             # locks & reacquire them by notifying it of the possible deadlock.
-            neo.lib.logging.info('Possible deadlock on %r:%r with %r',
+            logging.info('Possible deadlock on %r:%r with %r',
                 dump(oid), dump(ttid), dump(locking_tid))
             raise ConflictError(ZERO_TID)
         if previous_serial is None:
@@ -280,11 +279,10 @@ class TransactionManager(object):
             if history_list:
                 previous_serial = history_list[0][0]
         if previous_serial is not None and previous_serial != serial:
-            neo.lib.logging.info('Resolvable conflict on %r:%r',
+            logging.info('Resolvable conflict on %r:%r',
                 dump(oid), dump(ttid))
             raise ConflictError(previous_serial)
-        neo.lib.logging.debug('Transaction %s storing %s',
-            dump(ttid), dump(oid))
+        logging.debug('Transaction %s storing %s', dump(ttid), dump(oid))
         self._store_lock_dict[oid] = ttid
 
     def checkCurrentSerial(self, ttid, serial, oid):
@@ -319,7 +317,7 @@ class TransactionManager(object):
             # of the partition, even if no data was received (eg. conflict on
             # another node)
             return
-        neo.lib.logging.debug('Abort TXN %s', dump(ttid))
+        logging.debug('Abort TXN %s', dump(ttid))
         transaction = self._transaction_dict[ttid]
         has_load_lock = transaction.isLocked()
         # if the transaction is locked, ensure we can drop it
@@ -355,7 +353,7 @@ class TransactionManager(object):
         """
             Abort any non-locked transaction of a node
         """
-        neo.lib.logging.debug('Abort for %s', dump(uuid))
+        logging.debug('Abort for %s', dump(uuid))
         # abort any non-locked transaction of this node
         for ttid in [x.getTTID() for x in self._uuid_dict.get(uuid, [])]:
             self.abort(ttid)
@@ -368,15 +366,15 @@ class TransactionManager(object):
         return oid in self._load_lock_dict
 
     def log(self):
-        neo.lib.logging.info("Transactions:")
+        logging.info("Transactions:")
         for txn in self._transaction_dict.values():
-            neo.lib.logging.info('    %r', txn)
-        neo.lib.logging.info('  Read locks:')
+            logging.info('    %r', txn)
+        logging.info('  Read locks:')
         for oid, ttid in self._load_lock_dict.items():
-            neo.lib.logging.info('    %r by %r', dump(oid), dump(ttid))
-        neo.lib.logging.info('  Write locks:')
+            logging.info('    %r by %r', dump(oid), dump(ttid))
+        logging.info('  Write locks:')
         for oid, ttid in self._store_lock_dict.items():
-            neo.lib.logging.info('    %r by %r', dump(oid), dump(ttid))
+            logging.info('    %r by %r', dump(oid), dump(ttid))
 
     def updateObjectDataForPack(self, oid, orig_serial, new_serial, data_id):
         lock_tid = self.getLockingTID(oid)

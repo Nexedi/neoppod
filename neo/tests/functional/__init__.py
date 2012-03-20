@@ -33,6 +33,7 @@ import psutil
 
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
+from neo.lib import logging
 from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
 from neo.lib.util import dump
 from .. import DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
@@ -94,7 +95,7 @@ class PortAllocator(object):
                 if port not in sock_port_set:
                     sock_port_set.add(port)
                     return port
-                neo.lib.logging.warning('Same port allocated twice: %s in %s',
+                logging.warning('Same port allocated twice: %s in %s',
                     port, sock_port_set)
 
     def release(self):
@@ -171,7 +172,7 @@ class NEOProcess(object):
             del self.__class__.__del__
             try:
                 # release SQLite debug log
-                neo.lib.logging.setup()
+                logging.setup()
                 # release system-wide lock
                 for allocator in PortAllocator.allocator_set.copy():
                     allocator.reset()
@@ -180,12 +181,12 @@ class NEOProcess(object):
                 sys.exit()
             except:
                 raise ChildException(*sys.exc_info())
-        neo.lib.logging.info('pid %u: %s %s',
-                             self.pid, command, ' '.join(map(repr, args)))
+        logging.info('pid %u: %s %s',
+            self.pid, command, ' '.join(map(repr, args)))
 
     def kill(self, sig=signal.SIGTERM):
         if self.pid:
-            neo.lib.logging.info('kill pid %u', self.pid)
+            logging.info('kill pid %u', self.pid)
             try:
                 pdb.kill(self.pid, sig)
             except OSError:
@@ -337,7 +338,7 @@ class NEOCluster(object):
                         if e.errno != errno.ENOENT:
                             raise
                     else:
-                        neo.lib.logging.debug('%r deleted', db)
+                        logging.debug('%r deleted', db)
 
     def run(self, except_storages=()):
         """ Start cluster processes except some storage nodes """
@@ -641,7 +642,7 @@ class NEOCluster(object):
 class NEOFunctionalTest(NeoTestBase):
 
     def setupLog(self):
-        neo.lib.logging.setup(os.path.join(self.getTempDirectory(), 'test.log'))
+        logging.setup(os.path.join(self.getTempDirectory(), 'test.log'))
 
     def getTempDirectory(self):
         # build the full path based on test case and current test method

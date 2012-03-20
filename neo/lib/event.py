@@ -15,9 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from time import time
-import neo.lib
 from select import epoll, EPOLLIN, EPOLLOUT, EPOLLERR, EPOLLHUP
 from errno import EINTR, EAGAIN
+from . import logging
 from .profiling import profiler_decorator
 
 class EpollEventManager(object):
@@ -113,8 +113,8 @@ class EpollEventManager(object):
             event_list = self.epoll.poll(timeout)
         except IOError, exc:
             if exc.errno in (0, EAGAIN):
-                neo.lib.logging.info('epoll.poll triggered undocumented '
-                  'error %r', exc.errno)
+                logging.info('epoll.poll triggered undocumented error %r',
+                    exc.errno)
             elif exc.errno != EINTR:
                 raise
             event_list = ()
@@ -206,13 +206,13 @@ class EpollEventManager(object):
             self.epoll.modify(fd, fd in self.reader_set and EPOLLIN)
 
     def log(self):
-        neo.lib.logging.info('Event Manager:')
-        neo.lib.logging.info('  Readers: %r', [x for x in self.reader_set])
-        neo.lib.logging.info('  Writers: %r', [x for x in self.writer_set])
-        neo.lib.logging.info('  Connections:')
+        logging.info('Event Manager:')
+        logging.info('  Readers: %r', list(self.reader_set))
+        logging.info('  Writers: %r', list(self.writer_set))
+        logging.info('  Connections:')
         pending_set = set(self._pending_processing)
         for fd, conn in self.connection_dict.items():
-            neo.lib.logging.info('    %r: %r (pending=%r)', fd, conn,
+            logging.info('    %r: %r (pending=%r)', fd, conn,
                 conn in pending_set)
 
 

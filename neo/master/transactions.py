@@ -18,8 +18,8 @@ from time import time, gmtime
 from struct import pack, unpack
 from neo.lib.protocol import ZERO_TID
 from datetime import timedelta, datetime
+from neo.lib import logging
 from neo.lib.util import dump, u64, p64
-import neo.lib
 
 TID_LOW_OVERFLOW = 2**32
 TID_LOW_MAX = TID_LOW_OVERFLOW - 1
@@ -374,7 +374,7 @@ class TransactionManager(object):
         txn = Transaction(node, ttid)
         self._ttid_dict[ttid] = txn
         self._node_dict.setdefault(node, {})[ttid] = txn
-        neo.lib.logging.debug('Begin %s', txn)
+        logging.debug('Begin %s', txn)
         return ttid
 
     def prepare(self, ttid, divisor, oid_list, uuid_list, msg_id):
@@ -390,8 +390,8 @@ class TransactionManager(object):
         else:
             tid = self._nextTID(ttid, divisor)
             self._queue.append((node.getUUID(), ttid))
-        neo.lib.logging.debug('Finish TXN %s for %s (was %s)',
-                        dump(tid), node, dump(ttid))
+        logging.debug('Finish TXN %s for %s (was %s)',
+                      dump(tid), node, dump(ttid))
         txn.prepare(tid, oid_list, uuid_list, msg_id)
         return tid
 
@@ -399,7 +399,7 @@ class TransactionManager(object):
         """
             Remove a transaction, commited or aborted
         """
-        neo.lib.logging.debug('Remove TXN %s', dump(ttid))
+        logging.debug('Remove TXN %s', dump(ttid))
         try:
             # only in case of an import:
             self._queue.remove((uuid, ttid))
@@ -420,7 +420,7 @@ class TransactionManager(object):
             If transaction is completely locked, calls function given at
             instanciation time.
         """
-        neo.lib.logging.debug('Lock TXN %s for %s', dump(ttid), dump(uuid))
+        logging.debug('Lock TXN %s for %s', dump(ttid), dump(uuid))
         assert ttid in self._ttid_dict, "Transaction not started"
         txn = self._ttid_dict[ttid]
         if txn.lock(uuid) and self._queue[0][1] == ttid:
@@ -461,7 +461,7 @@ class TransactionManager(object):
         """
             Abort pending transactions initiated by a node
         """
-        neo.lib.logging.debug('Abort TXN for %s', node)
+        logging.debug('Abort TXN for %s', node)
         uuid = node.getUUID()
         # XXX: this loop is usefull only during an import
         for nuuid, ntid in list(self._queue):
@@ -477,7 +477,7 @@ class TransactionManager(object):
             del self._node_dict[node]
 
     def log(self):
-        neo.lib.logging.info('Transactions:')
+        logging.info('Transactions:')
         for txn in self._ttid_dict.itervalues():
-            neo.lib.logging.info('  %r', txn)
+            logging.info('  %r', txn)
 

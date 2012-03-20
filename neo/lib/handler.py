@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from functools import wraps
-import neo.lib
+from . import logging
 from .protocol import (
     NodeStates, Packets, ErrorCodes, Errors, BrokenNodeDisallowedError,
     NotReadyError, PacketMalformedError, ProtocolError, UnexpectedPacketError)
@@ -38,7 +38,7 @@ class EventHandler(object):
         else:
             message = 'unexpected packet: %s in %s' % (message,
                     self.__class__.__name__)
-        neo.lib.logging.error(message)
+        logging.error(message)
         conn.answer(Errors.ProtocolError(message))
         conn.abort()
         # self.peerBroken(conn)
@@ -58,7 +58,7 @@ class EventHandler(object):
                 self.__unexpectedPacket(conn, packet, *e.args)
         except PacketMalformedError:
             if not conn.isClosed():
-                neo.lib.logging.error('malformed packet from %r', conn)
+                logging.error('malformed packet from %r', conn)
                 conn.notify(Packets.Notify('Malformed packet: %r' % (packet, )))
                 conn.abort()
                 # self.peerBroken(conn)
@@ -82,7 +82,7 @@ class EventHandler(object):
     def checkClusterName(self, name):
         # raise an exception if the given name mismatch the current cluster name
         if self.app.name != name:
-            neo.lib.logging.error('reject an alien cluster')
+            logging.error('reject an alien cluster')
             raise ProtocolError('invalid cluster name')
 
 
@@ -94,28 +94,28 @@ class EventHandler(object):
 
     def connectionStarted(self, conn):
         """Called when a connection is started."""
-        neo.lib.logging.debug('connection started for %r', conn)
+        logging.debug('connection started for %r', conn)
 
     def connectionCompleted(self, conn):
         """Called when a connection is completed."""
-        neo.lib.logging.debug('connection completed for %r (from %s:%u)',
-                              conn, *conn.getConnector().getAddress())
+        logging.debug('connection completed for %r (from %s:%u)',
+                      conn, *conn.getConnector().getAddress())
 
     def connectionFailed(self, conn):
         """Called when a connection failed."""
-        neo.lib.logging.debug('connection failed for %r', conn)
+        logging.debug('connection failed for %r', conn)
 
     def connectionAccepted(self, conn):
         """Called when a connection is accepted."""
 
     def connectionClosed(self, conn):
         """Called when a connection is closed by the peer."""
-        neo.lib.logging.debug('connection closed for %r', conn)
+        logging.debug('connection closed for %r', conn)
         self.connectionLost(conn, NodeStates.TEMPORARILY_DOWN)
 
     #def peerBroken(self, conn):
     #    """Called when a peer is broken."""
-    #    neo.lib.logging.error('%r is broken', conn)
+    #    logging.error('%r is broken', conn)
     #    # NodeStates.BROKEN
 
     def connectionLost(self, conn, new_state):
@@ -153,7 +153,7 @@ class EventHandler(object):
         pass
 
     def notify(self, conn, message):
-        neo.lib.logging.info('notification from %r: %s', conn, message)
+        logging.info('notification from %r: %s', conn, message)
 
     def closeClient(self, conn):
         conn.server = False
@@ -170,16 +170,16 @@ class EventHandler(object):
 
     def protocolError(self, conn, message):
         # the connection should have been closed by the remote peer
-        neo.lib.logging.error('protocol error: %s' % (message,))
+        logging.error('protocol error: %s', message)
 
     def timeoutError(self, conn, message):
-        neo.lib.logging.error('timeout error: %s' % (message,))
+        logging.error('timeout error: %s', message)
 
     def brokenNodeDisallowedError(self, conn, message):
         raise RuntimeError, 'broken node disallowed error: %s' % (message,)
 
     def alreadyPendingError(self, conn, message):
-        neo.lib.logging.error('already pending error: %s' % (message, ))
+        logging.error('already pending error: %s', message)
 
     def ack(self, conn, message):
-        neo.lib.logging.debug("no error message : %s" % (message))
+        logging.debug("no error message: %s", message)

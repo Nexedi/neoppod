@@ -14,8 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo.lib
-
+from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import NodeTypes, Packets, NotReadyError
 from neo.lib.protocol import ProtocolError, BrokenNodeDisallowedError
@@ -27,7 +26,7 @@ class IdentificationHandler(EventHandler):
     """ Handler used for incoming connections during operation state """
 
     def connectionLost(self, conn, new_state):
-        neo.lib.logging.warning('A connection was lost during identification')
+        logging.warning('A connection was lost during identification')
 
     def requestIdentification(self, conn, node_type,
                                         uuid, address, name):
@@ -60,7 +59,7 @@ class IdentificationHandler(EventHandler):
                 node.setRunning()
             elif node_type == NodeTypes.STORAGE:
                 if node is None:
-                    neo.lib.logging.error('reject an unknown storage node %s',
+                    logging.error('reject an unknown storage node %s',
                         dump(uuid))
                     raise NotReadyError
                 handler = StorageOperationHandler

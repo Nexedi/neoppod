@@ -14,10 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo
 import os, sys
 from time import time
 
+from neo.lib import logging
 from neo.lib.connector import getConnectorHandler
 from neo.lib.debug import register as registerLiveDebugger
 from neo.lib.protocol import UUID_NAMESPACES, ZERO_TID, NotReadyError
@@ -62,7 +62,7 @@ class Application(object):
         for master_address in master_addresses:
             self.nm.createMaster(address=master_address)
 
-        neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))
+        logging.debug('IP address is %s, port is %d', *self.server)
 
         # Partition table
         replicas, partitions = config.getReplicas(), config.getPartitions()
@@ -71,10 +71,10 @@ class Application(object):
         if partitions <= 0:
             raise RuntimeError, 'partitions must be more than zero'
         self.pt = PartitionTable(partitions, replicas)
-        neo.lib.logging.info('Configuration:')
-        neo.lib.logging.info('Partitions: %d', partitions)
-        neo.lib.logging.info('Replicas  : %d', replicas)
-        neo.lib.logging.info('Name      : %s', self.name)
+        logging.info('Configuration:')
+        logging.info('Partitions: %d', partitions)
+        logging.info('Replicas  : %d', replicas)
+        logging.info('Name      : %s', self.name)
 
         self.listening_conn = None
         self.primary = None
@@ -87,7 +87,7 @@ class Application(object):
         if uuid is None or uuid == '':
             uuid = self.getNewUUID(NodeTypes.MASTER)
         self.uuid = uuid
-        neo.lib.logging.info('UUID      : %s', dump(uuid))
+        logging.info('UUID      : %s', dump(uuid))
 
         # election related data
         self.unconnected_master_node_set = set()
@@ -127,7 +127,7 @@ class Application(object):
         try:
             self._run()
         except:
-            neo.lib.logging.exception('Pre-mortem data:')
+            logging.exception('Pre-mortem data:')
             self.log()
             raise
 
@@ -162,7 +162,7 @@ class Application(object):
         others while attempting to connect to other master nodes at the
         same time. Note that storage nodes and client nodes may connect
         to self as well as master nodes."""
-        neo.lib.logging.info('begin the election of a primary master')
+        logging.info('begin the election of a primary master')
 
         client_handler = election.ClientElectionHandler(self)
         self.unconnected_master_node_set.clear()
@@ -194,7 +194,7 @@ class Application(object):
                     self.em.poll(1)
             except ElectionFailure, m:
                 # something goes wrong, clean then restart
-                neo.lib.logging.error('election failed: %s', (m, ))
+                logging.error('election failed: %s', m)
 
                 # Ask all connected nodes to reelect a single primary master.
                 for conn in self.em.getClientList():
@@ -246,7 +246,7 @@ class Application(object):
 
     def broadcastPartitionChanges(self, cell_list, selector=None):
         """Broadcast a Notify Partition Changes packet."""
-        neo.lib.logging.debug('broadcastPartitionChanges')
+        logging.debug('broadcastPartitionChanges')
         if not cell_list:
             return
         if not selector:
@@ -262,8 +262,7 @@ class Application(object):
 
     def broadcastLastOID(self):
         oid = self.tm.getLastOID()
-        neo.lib.logging.debug(
-                        'Broadcast last OID to storages : %s' % dump(oid))
+        logging.debug('Broadcast last OID to storages : %s', dump(oid))
         packet = Packets.NotifyLastOID(oid)
         for node in self.nm.getStorageList(only_identified=True):
             node.notify(packet)
@@ -274,7 +273,7 @@ class Application(object):
         and stop the service only if a catastrophy happens or the user commits
         a shutdown.
         """
-        neo.lib.logging.info('provide service')
+        logging.info('provide service')
         poll = self.em.poll
         self.tm.reset()
 
@@ -287,7 +286,7 @@ class Application(object):
         except OperationFailure:
             # If not operational, send Stop Operation packets to storage
             # nodes and client nodes. Abort connections to client nodes.
-            neo.lib.logging.critical('No longer operational')
+            logging.critical('No longer operational')
         except StateChangedException, e:
             assert e.args[0] == ClusterStates.STARTING_BACKUP
             self.backup_tid = tid = self.getLastTransaction()
@@ -295,8 +294,7 @@ class Application(object):
                 for node in self.nm.getStorageList(only_identified=True)))
 
     def playPrimaryRole(self):
-        neo.lib.logging.info(
-                        'play the primary role with %r', self.listening_conn)
+        logging.info('play the primary role with %r', self.listening_conn)
         em = self.em
         packet = Packets.AnnouncePrimary()
         for conn in em.getConnectionList():
@@ -347,8 +345,7 @@ class Application(object):
         """
         I play a secondary role, thus only wait for a primary master to fail.
         """
-        neo.lib.logging.info('play the secondary role with %r',
-            self.listening_conn)
+        logging.info('play the secondary role with %r', self.listening_conn)
 
         # Wait for an announcement. If this is too long, probably
         # the primary master is down.
@@ -451,7 +448,7 @@ class Application(object):
             self.em.poll(1)
 
         if self.cluster_state != ClusterStates.RUNNING:
-            neo.lib.logging.info("asking all nodes to shutdown")
+            logging.info("asking all nodes to shutdown")
             # This code sends packets but never polls, so they never reach
             # network.
             for node in self.nm.getIdentifiedList():
@@ -481,28 +478,27 @@ class Application(object):
             # always accept admin nodes
             node_ctor = self.nm.createAdmin
             handler = administration.AdministrationHandler(self)
-            neo.lib.logging.info('Accept an admin %s' % (dump(uuid), ))
+            logging.info('Accept an admin %s', dump(uuid))
         elif node_type == NodeTypes.MASTER:
             # always put other master in waiting state
             node_ctor = self.nm.createMaster
             handler = secondary.SecondaryMasterHandler(self)
-            neo.lib.logging.info('Accept a master %s' % (dump(uuid), ))
+            logging.info('Accept a master %s', dump(uuid))
         elif node_type == NodeTypes.CLIENT:
             # refuse any client before running
             if self.cluster_state != ClusterStates.RUNNING:
-                neo.lib.logging.info('Reject a connection from a client')
+                logging.info('Reject a connection from a client')
                 raise NotReadyError
             node_ctor = self.nm.createClient
             handler = client.ClientServiceHandler(self)
-            neo.lib.logging.info('Accept a client %s' % (dump(uuid), ))
+            logging.info('Accept a client %s', dump(uuid))
         elif node_type == NodeTypes.STORAGE:
             node_ctor = self.nm.createStorage
             manager = self._current_manager
             if manager is None:
                 manager = self
             (uuid, state, handler) = manager.identifyStorageNode(uuid, node)
-            neo.lib.logging.info('Accept a storage %s (%s)' %
-                            (dump(uuid), state))
+            logging.info('Accept a storage %s (%s)', dump(uuid), state)
         else:
             handler = identification.IdentificationHandler(self)
         return (uuid, node, state, handler, node_ctor)

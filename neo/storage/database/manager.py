@@ -14,8 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo.lib
-from neo.lib import util
+from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import ZERO_TID
 
@@ -376,7 +375,7 @@ class DatabaseManager(object):
         """
         if self.__class__ not in self.__getDataTID:
             self.__getDataTID.add(self.__class__)
-            neo.lib.logging.warning("Fallback to generic/slow implementation"
+            logging.warning("Fallback to generic/slow implementation"
                 " of _getDataTID. It should be overriden by backend storage.")
         r = self._getObject(oid, tid, before_tid)
         if r:
@@ -431,9 +430,9 @@ class DatabaseManager(object):
                                      " oid %d at tid %d: reference = %d"
                                      % (oid, value_serial, tid))
                 if value_serial != getDataTID(value_serial)[1]:
-                    neo.lib.logging.warning("Multiple levels of indirection"
+                    logging.warning("Multiple levels of indirection"
                         " when getting data serial for oid %d at tid %d."
-                        " This causes suboptimal performance." % (oid, tid))
+                        " This causes suboptimal performance.", oid, tid)
             return tid, value_serial
         if transaction_object:
             current_tid = current_data_tid = u64(transaction_object[2])

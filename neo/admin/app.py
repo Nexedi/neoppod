@@ -14,8 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo.lib
-
+from neo.lib import logging
 from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
 from neo.lib.connection import ListeningConnection
@@ -41,7 +40,7 @@ class Application(object):
 
         self.master_addresses, connector_name = config.getMasters()
         self.connector_handler = getConnectorHandler(connector_name)
-        neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))
+        logging.debug('IP address is %s, port is %d', *self.server)
 
         # The partition table is initialized after getting the number of
         # partitions.
@@ -75,7 +74,7 @@ class Application(object):
         try:
             self._run()
         except:
-            neo.lib.logging.exception('Pre-mortem data:')
+            logging.exception('Pre-mortem data:')
             self.log()
             raise
 
@@ -95,7 +94,7 @@ class Application(object):
                 while True:
                     self.em.poll(1)
             except PrimaryFailure:
-                neo.lib.logging.error('primary master is down')
+                logging.error('primary master is down')
 
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.

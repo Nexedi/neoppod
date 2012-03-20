@@ -14,9 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo
-
 from . import BaseMasterHandler
+from neo.lib import logging
 from neo.lib.protocol import Packets, Errors, ProtocolError, INVALID_TID
 from neo.lib.util import dump
 from neo.lib.exception import OperationFailure
@@ -42,7 +41,7 @@ class VerificationHandler(BaseMasterHandler):
         app = self.app
         if ptid <= app.pt.getID():
             # Ignore this packet.
-            neo.lib.logging.debug('ignoring older partition changes')
+            logging.debug('ignoring older partition changes')
             return
         # update partition table in memory and the database
         app.pt.update(ptid, cell_list, app.nm)

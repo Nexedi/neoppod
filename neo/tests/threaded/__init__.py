@@ -25,7 +25,7 @@ import transaction, ZODB
 import neo.admin.app, neo.master.app, neo.storage.app
 import neo.client.app, neo.neoctl.app
 from neo.client import Storage
-from neo.lib import bootstrap
+from neo.lib import bootstrap, logging
 from neo.lib.connection import BaseConnection, Connection
 from neo.lib.connector import SocketConnector, \
     ConnectorConnectionRefusedException, ConnectorTryAgainException
@@ -251,7 +251,7 @@ class ServerNode(Node):
             super(ServerNode, self).run()
         finally:
             self._afterRun()
-            neo.lib.logging.debug('stopping %r', self)
+            logging.debug('stopping %r', self)
             Serialized.background()
 
     def _afterRun(self):
@@ -670,13 +670,13 @@ class NEOCluster(object):
     @staticmethod
     def tic(force=False):
         # XXX: Should we automatically switch client in slave mode if it isn't ?
-        neo.lib.logging.info('tic ...')
+        logging.info('tic ...')
         if force:
             Serialized.tic()
-            neo.lib.logging.info('forced tic')
+            logging.info('forced tic')
         while Serialized.pending:
             Serialized.tic()
-            neo.lib.logging.info('tic')
+            logging.info('tic')
 
     def getNodeState(self, node):
         uuid = node.uuid
@@ -742,14 +742,14 @@ class NEOThreadedTest(NeoTestBase):
 
     def setupLog(self):
         log_file = os.path.join(getTempDirectory(), self.id() + '.log')
-        neo.lib.logging.setup(log_file)
+        logging.setup(log_file)
         return LoggerThreadName()
 
     def _tearDown(self, success):
         super(NEOThreadedTest, self)._tearDown(success)
         ServerNode.resetPorts()
         if success:
-            q = neo.lib.logging.db.execute
+            q = logging.db.execute
             q("UPDATE packet SET body=NULL")
             q("VACUUM")
 
@@ -795,7 +795,7 @@ def predictable_random(seed=None):
     def decorator(wrapped):
         def wrapper(*args, **kw):
             s = repr(time.time()) if seed is None else seed
-            neo.lib.logging.info("using seed %r", s)
+            logging.info("using seed %r", s)
             r = random.Random(s)
             try:
                 MasterApplication.getNewUUID = lambda self, node_type: (

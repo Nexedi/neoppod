@@ -20,7 +20,7 @@ import time
 import threading
 import transaction
 import unittest
-import neo.lib
+from neo.lib import logging
 from neo.storage.checker import CHECK_COUNT
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
@@ -239,8 +239,7 @@ class ReplicationTests(NEOThreadedTest):
         def corrupt(offset):
             s0, s1, s2 = (storage_dict[cell.getUUID()]
                 for cell in cluster.master.pt.getCellList(offset, True))
-            neo.lib.logging.info('corrupt partition %u of %s',
-                                 offset, dump(s1.uuid))
+            logging.info('corrupt partition %u of %s', offset, dump(s1.uuid))
             s1.dm.deleteObject(p64(np+offset), p64(corrupt_tid))
             return s0.uuid
         def check(expected_state, expected_count):

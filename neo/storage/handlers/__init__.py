@@ -14,8 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo
-
+from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.util import dump
 from neo.lib.exception import PrimaryFailure, OperationFailure
@@ -35,7 +34,7 @@ class BaseMasterHandler(EventHandler):
         raise PrimaryFailure('re-election occurs')
 
     def notifyClusterInformation(self, conn, state):
-        neo.lib.logging.warning('ignoring notify cluster information in %s',
+        logging.warning('ignoring notify cluster information in %s',
                 self.__class__.__name__)
 
     def notifyLastOID(self, conn, oid):
@@ -48,7 +47,7 @@ class BaseMasterHandler(EventHandler):
         for node_type, addr, uuid, state in node_list:
             if uuid == self.app.uuid:
                 # This is me, do what the master tell me
-                neo.lib.logging.info("I was told I'm %s", state)
+                logging.info("I was told I'm %s", state)
                 if state in (NodeStates.DOWN, NodeStates.TEMPORARILY_DOWN,
                         NodeStates.BROKEN):
                     erase = state == NodeStates.DOWN
@@ -56,8 +55,7 @@ class BaseMasterHandler(EventHandler):
                 elif state == NodeStates.HIDDEN:
                     raise OperationFailure
             elif node_type == NodeTypes.CLIENT and state != NodeStates.RUNNING:
-                neo.lib.logging.info(
-                                'Notified of non-running client, abort (%r)',
+                logging.info('Notified of non-running client, abort (%r)',
                         dump(uuid))
                 self.app.tm.abortFor(uuid)
 

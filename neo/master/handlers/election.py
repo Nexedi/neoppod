@@ -14,8 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo.lib
-
+from neo.lib import logging
 from neo.lib.protocol import NodeTypes, NodeStates, Packets
 from neo.lib.protocol import NotReadyError, ProtocolError, \
                               UnexpectedPacketError
@@ -46,7 +45,7 @@ class BaseElectionHandler(EventHandler):
         app.primary = False
         app.primary_master_node = node
         app.negotiating_master_node_set.clear()
-        neo.lib.logging.info('%s is the primary', node)
+        logging.info('%s is the primary', node)
 
 
 class ClientElectionHandler(BaseElectionHandler):
@@ -86,8 +85,7 @@ class ClientElectionHandler(BaseElectionHandler):
         if your_uuid != app.uuid:
             # uuid conflict happened, accept the new one and restart election
             app.uuid = your_uuid
-            neo.lib.logging.info('UUID conflict, new UUID: %s',
-                            dump(your_uuid))
+            logging.info('UUID conflict, new UUID: %s', dump(your_uuid))
             raise ElectionFailure, 'new uuid supplied'
 
         node.setUUID(peer_uuid)
@@ -118,8 +116,7 @@ class ClientElectionHandler(BaseElectionHandler):
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
-                neo.lib.logging.warning(
-                                'received an unknown primary node UUID')
+                logging.warning('received an unknown primary node UUID')
             else:
                 # Whatever the situation is, I trust this master.
                 app.primary = False
@@ -137,7 +134,7 @@ class ServerElectionHandler(BaseElectionHandler, MasterHandler):
     def _setupNode(self, conn, node_type, uuid, address, node):
         app = self.app
         if node_type != NodeTypes.MASTER:
-            neo.lib.logging.info('reject a connection from a non-master')
+            logging.info('reject a connection from a non-master')
             raise NotReadyError
 
         if node is None:

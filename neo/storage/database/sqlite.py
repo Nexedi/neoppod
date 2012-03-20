@@ -15,7 +15,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import sqlite3
-import neo.lib
 from array import array
 from hashlib import sha1
 import re
@@ -23,9 +22,9 @@ import string
 
 from . import DatabaseManager, LOG_QUERIES
 from .manager import CreationUndone
+from neo.lib import logging, util
 from neo.lib.exception import DatabaseFailure
 from neo.lib.protocol import CellStates, ZERO_OID, ZERO_TID, ZERO_HASH
-from neo.lib import util
 
 def splitOIDField(tid, oids):
     if (len(oids) % 8) != 0 or len(oids) == 0:
@@ -58,7 +57,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         self.conn.close()
 
     def _connect(self):
-        neo.lib.logging.info('connecting to SQLite database %r', self.db)
+        logging.info('connecting to SQLite database %r', self.db)
         self.conn = sqlite3.connect(self.db, isolation_level=None,
             check_same_thread=False)
 
@@ -69,11 +68,11 @@ class SQLiteDatabaseManager(DatabaseManager):
 
     if LOG_QUERIES:
         def commit(self):
-            neo.lib.logging.debug('committing...')
+            logging.debug('committing...')
             self.conn.commit()
 
         def rollback(self):
-            neo.lib.logging.debug('aborting...')
+            logging.debug('aborting...')
             self.conn.rollback()
 
         def query(self, query):
@@ -82,8 +81,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                 if c not in string.printable or c in '\t\x0b\x0c\r':
                     c = '\\x%02x' % ord(c)
                 printable_char_list.append(c)
-            neo.lib.logging.debug('querying %s...',
-                ''.join(printable_char_list))
+            logging.debug('querying %s...', ''.join(printable_char_list))
             return self.conn.execute(query)
     else:
         commit = property(lambda self: self.conn.commit)
@@ -480,7 +478,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             WHERE partition=? AND oid=? AND tid=?""",
             (self._getPartition(oid), oid, value_serial)).fetchone()
         if length is None:
-            neo.lib.logging.info("Multiple levels of indirection"
+            logging.info("Multiple levels of indirection"
                 " when searching for object data for oid %d at tid %d."
                 " This causes suboptimal performance.", oid, value_serial)
             length = self._getObjectLength(oid, value_serial)

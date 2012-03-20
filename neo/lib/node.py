@@ -18,11 +18,10 @@ from time import time
 from os.path import exists, getsize
 import json
 
-import neo.lib
+from . import attributeTracker, logging
 from .util import dump
 from .protocol import NodeTypes, NodeStates, ProtocolError
 
-from . import attributeTracker
 
 class Node(object):
     """This class represents a node."""
@@ -311,7 +310,7 @@ class MasterDB(object):
         try:
             db = open(self._path, 'w')
         except IOError:
-            neo.lib.logging.warning('failed opening master database at %r '
+            logging.warning('failed opening master database at %r '
                 'for writing, update skipped', self._path)
         else:
             json.dump(list(self._set), db)
@@ -357,7 +356,7 @@ class NodeManager(object):
 
     def add(self, node):
         if node in self._node_set:
-            neo.lib.logging.warning('adding a known node %r, ignoring', node)
+            logging.warning('adding a known node %r, ignoring', node)
             return
         assert not node.isDown(), node
         self._node_set.add(node)
@@ -371,7 +370,7 @@ class NodeManager(object):
 
     def remove(self, node):
         if node not in self._node_set:
-            neo.lib.logging.warning('removing unknown node %r, ignoring', node)
+            logging.warning('removing unknown node %r, ignoring', node)
             return
         self._node_set.remove(node)
         self.__drop(self._address_dict, node.getAddress())
@@ -578,12 +577,11 @@ class NodeManager(object):
             log_args = (node_type, dump(uuid), addr, state)
             if node is None:
                 if state == NodeStates.DOWN:
-                    neo.lib.logging.debug('NOT creating node %s %s %s %s',
-                        *log_args)
+                    logging.debug('NOT creating node %s %s %s %s', *log_args)
                 else:
                     node = self._createNode(klass, address=addr, uuid=uuid,
                             state=state)
-                    neo.lib.logging.debug('creating node %r', node)
+                    logging.debug('creating node %r', node)
             else:
                 assert isinstance(node, klass), 'node %r is not ' \
                     'of expected type: %r' % (node, klass)
@@ -592,15 +590,14 @@ class NodeManager(object):
                     'Discrepancy between node_by_uuid (%r) and ' \
                     'node_by_addr (%r)' % (node_by_uuid, node_by_addr)
                 if state == NodeStates.DOWN:
-                    neo.lib.logging.debug(
-                                    'droping node %r (%r), found with %s ' \
+                    logging.debug('droping node %r (%r), found with %s '
                         '%s %s %s', node, node.isConnected(), *log_args)
                     if node.isConnected():
                         # cut this connection, node removed by handler
                         node.getConnection().close()
                     self.remove(node)
                 else:
-                    neo.lib.logging.debug('updating node %r to %s %s %s %s',
+                    logging.debug('updating node %r to %s %s %s %s',
                         node, *log_args)
                     node.setUUID(uuid)
                     node.setAddress(addr)
@@ -608,12 +605,11 @@ class NodeManager(object):
         self.log()
 
     def log(self):
-        neo.lib.logging.info('Node manager : %d nodes' % len(self._node_set))
+        logging.info('Node manager : %u nodes', len(self._node_set))
         for node in sorted(list(self._node_set)):
             uuid = dump(node.getUUID()) or '-' * 32
             address = node.getAddress() or ''
             if address:
                 address = '%s:%d' % address
-            neo.lib.logging.info(' * %32s | %8s | %22s | %s' % (
-                uuid, node.getType(), address, node.getState()))
-
+            logging.info(' * %32s | %8s | %22s | %s',
+                uuid, node.getType(), address, node.getState())

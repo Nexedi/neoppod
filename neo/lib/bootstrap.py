@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo
 from time import sleep
 
+from . import logging
 from .handler import EventHandler
 from .protocol import Packets
 from .util import dump
@@ -109,13 +109,13 @@ class BootstrapManager(EventHandler):
             node.getConnection().close()
             return
 
-        neo.lib.logging.info('connected to a primary master node')
+        logging.info('connected to a primary master node')
         self.num_partitions = num_partitions
         self.num_replicas = num_replicas
         if self.uuid != your_uuid:
             # got an uuid from the primary master
             self.uuid = your_uuid
-            neo.lib.logging.info('Got a new UUID : %s' % dump(self.uuid))
+            logging.info('Got a new UUID: %s', dump(self.uuid))
         self.accepted = True
 
     def getPrimaryConnection(self, connector_handler):
@@ -123,7 +123,7 @@ class BootstrapManager(EventHandler):
         Primary lookup/connection process.
         Returns when the connection is made.
         """
-        neo.lib.logging.info('connecting to a primary master node')
+        logging.info('connecting to a primary master node')
         em, nm = self.app.em, self.app.nm
         index = 0
         self.current = None

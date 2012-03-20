@@ -17,7 +17,7 @@
 import time
 from random import shuffle
 
-import neo.lib
+from neo.lib import logging
 from neo.lib.locking import RLock
 from neo.lib.protocol import NodeTypes, Packets
 from neo.lib.connection import MTClientConnection, ConnectionClosed
@@ -56,8 +56,7 @@ class ConnectionPool(object):
     def _initNodeConnection(self, node):
         """Init a connection to a given storage node."""
         app = self.app
-        neo.lib.logging.debug('trying to connect to %s - %s', node,
-            node.getState())
+        logging.debug('trying to connect to %s - %s', node, node.getState())
         conn = MTClientConnection(app.em, app.storage_event_handler, node,
             connector=app.connector_handler(), dispatcher=app.dispatcher)
         p = Packets.RequestIdentification(NodeTypes.CLIENT,
@@ -65,15 +64,15 @@ class ConnectionPool(object):
         try:
             app._ask(conn, p, handler=app.storage_bootstrap_handler)
         except ConnectionClosed:
-            neo.lib.logging.error('Connection to %r failed', node)
+            logging.error('Connection to %r failed', node)
             self.notifyFailure(node)
             conn = None
         except NodeNotReady:
-            neo.lib.logging.info('%r not ready', node)
+            logging.info('%r not ready', node)
             self.notifyFailure(node)
             conn = None
         else:
-            neo.lib.logging.info('Connected %r', node)
+            logging.info('Connected %r', node)
         return conn
 
     @profiler_decorator
@@ -87,8 +86,8 @@ class ConnectionPool(object):
                         not self.app.dispatcher.registered(conn):
                     del self.connection_dict[conn.getUUID()]
                     conn.close()
-                    neo.lib.logging.debug('_dropConnections : connection to ' \
-                        'storage node %s:%d closed', *(conn.getAddress()))
+                    logging.debug('_dropConnections: connection to '
+                        'storage node %s:%d closed', *conn.getAddress())
                     if len(self.connection_dict) <= self.max_pool_size:
                         break
             finally:

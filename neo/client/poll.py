@@ -16,8 +16,8 @@
 
 from logging import DEBUG, ERROR
 from threading import Thread, Event, enumerate as thread_enum
+from neo.lib import logging
 from neo.lib.locking import Lock
-import neo.lib
 
 class _ThreadedPoll(Thread):
     """Polling thread."""
@@ -29,7 +29,7 @@ class _ThreadedPoll(Thread):
         self._stop = Event()
 
     def run(self):
-        _log = neo.lib.logging.log
+        _log = logging.log
         def log(*args, **kw):
             # Ignore errors due to garbage collection on exit
             try:
@@ -112,7 +112,7 @@ def psThreadedPoll(log=None):
     Logs alive ThreadedPoll threads.
     """
     if log is None:
-        log = neo.lib.logging.debug
+        log = logging.debug
     for thread in thread_enum():
         if not isinstance(thread, ThreadedPoll):
             continue

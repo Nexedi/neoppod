@@ -16,9 +16,8 @@
 
 import math
 from functools import wraps
-import neo
 
-from . import protocol
+from . import logging, protocol
 from .protocol import CellStates
 from .util import dump, u64
 from .locking import RLock
@@ -212,7 +211,7 @@ class PartitionTable(object):
                 # the node must be known by the node manager
                 assert node is not None
                 self.setCell(offset, node, state)
-        neo.lib.logging.debug('partition table loaded (ptid=%s)', ptid)
+        logging.debug('partition table loaded (ptid=%s)', ptid)
         self.log()
 
     def update(self, ptid, cell_list, nm):
@@ -222,22 +221,21 @@ class PartitionTable(object):
         is not known, it is created in the node manager and set as unavailable
         """
         if ptid <= self._id:
-            neo.lib.logging.warning('ignoring older partition changes')
+            logging.warning('ignoring older partition changes')
             return
         self._id = ptid
         for offset, uuid, state in cell_list:
             node = nm.getByUUID(uuid)
             assert node is not None, 'No node found for uuid %r' % (dump(uuid), )
             self.setCell(offset, node, state)
-        neo.lib.logging.debug('partition table updated (ptid=%s)', ptid)
+        logging.debug('partition table updated (ptid=%s)', ptid)
         self.log()
 
     def filled(self):
         return self.num_filled_rows == self.np
 
     def log(self):
-        for line in self._format():
-            neo.lib.logging.debug(line)
+        logging.debug(self.format())
 
     def format(self):
         return '\n'.join(self._format())

@@ -14,10 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo
 import sys
 from collections import deque
 
+from neo.lib import logging
 from neo.lib.protocol import NodeTypes, CellStates, Packets
 from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
@@ -60,7 +60,7 @@ class Application(object):
 
         # set the bind address
         self.server = config.getBind()
-        neo.lib.logging.debug('IP address is %s, port is %d', *(self.server))
+        logging.debug('IP address is %s, port is %d', *self.server)
 
         # The partition table is initialized after getting the number of
         # partitions.
@@ -137,12 +137,12 @@ class Application(object):
             # create a partition table
             self.pt = PartitionTable(num_partitions, num_replicas)
 
-        neo.lib.logging.info('Configuration loaded:')
-        neo.lib.logging.info('UUID      : %s', dump(self.uuid))
-        neo.lib.logging.info('PTID      : %s', dump(ptid))
-        neo.lib.logging.info('Name      : %s', self.name)
-        neo.lib.logging.info('Partitions: %s', num_partitions)
-        neo.lib.logging.info('Replicas  : %s', num_replicas)
+        logging.info('Configuration loaded:')
+        logging.info('UUID      : %s', dump(self.uuid))
+        logging.info('PTID      : %s', dump(ptid))
+        logging.info('Name      : %s', self.name)
+        logging.info('Partitions: %s', num_partitions)
+        logging.info('Replicas  : %s', num_replicas)
 
     def loadPartitionTable(self):
         """Load a partition table from the database."""
@@ -164,7 +164,7 @@ class Application(object):
         try:
             self._run()
         except:
-            neo.lib.logging.exception('Pre-mortem data:')
+            logging.exception('Pre-mortem data:')
             self.log()
             raise
 
@@ -205,9 +205,9 @@ class Application(object):
                 self.doOperation()
                 raise RuntimeError, 'should not reach here'
             except OperationFailure, msg:
-                neo.lib.logging.error('operation stopped: %s', msg)
+                logging.error('operation stopped: %s', msg)
             except PrimaryFailure, msg:
-                neo.lib.logging.error('primary master is down: %s', msg)
+                logging.error('primary master is down: %s', msg)
             finally:
                 self.checker = Checker(self)
 
@@ -233,7 +233,7 @@ class Application(object):
         (node, conn, uuid, num_partitions, num_replicas) = data
         self.master_node = node
         self.master_conn = conn
-        neo.lib.logging.info('I am %s', dump(uuid))
+        logging.info('I am %s', dump(uuid))
         self.uuid = uuid
         self.dm.setUUID(uuid)
 
@@ -255,7 +255,7 @@ class Application(object):
     def verifyData(self):
         """Verify data under the control by a primary master node.
         Connections from client nodes may not be accepted at this stage."""
-        neo.lib.logging.info('verifying data')
+        logging.info('verifying data')
 
         handler = verification.VerificationHandler(self)
         self.master_conn.setHandler(handler)
@@ -266,7 +266,7 @@ class Application(object):
 
     def initialize(self):
         """ Retreive partition table and node informations from the primary """
-        neo.lib.logging.debug('initializing...')
+        logging.debug('initializing...')
         _poll = self._poll
         handler = initialization.InitializationHandler(self)
         self.master_conn.setHandler(handler)
@@ -284,7 +284,7 @@ class Application(object):
 
     def doOperation(self):
         """Handle everything, including replications and transactions."""
-        neo.lib.logging.info('doing operation')
+        logging.info('doing operation')
 
         _poll = self._poll
         isIdle = self.em.isIdle
@@ -314,7 +314,7 @@ class Application(object):
 
     def wait(self):
         # change handler
-        neo.lib.logging.info("waiting in hidden state")
+        logging.info("waiting in hidden state")
         _poll = self._poll
         handler = hidden.HiddenHandler(self)
         for conn in self.em.getConnectionList():
@@ -360,9 +360,9 @@ class Application(object):
     def logQueuedEvents(self):
         if self.event_queue is None:
             return
-        neo.lib.logging.info("Pending events:")
+        logging.info("Pending events:")
         for key, event, _msg_id, _conn, args in self.event_queue:
-            neo.lib.logging.info('  %r:%r: %r:%r %r %r', key, event.__name__,
+            logging.info('  %r:%r: %r:%r %r %r', key, event.__name__,
                 _msg_id, _conn, args)
 
     def newTask(self, iterator):
@@ -386,5 +386,5 @@ class Application(object):
                 pass
         # clear database to avoid polluting the cluster at restart
         self.dm.setup(reset=erase)
-        neo.lib.logging.info("Application has been asked to shut down")
+        logging.info("Application has been asked to shut down")
         sys.exit()

@@ -16,7 +16,7 @@
 
 from collections import deque
 from functools import wraps
-import neo.lib
+from neo.lib import logging
 from neo.lib.connection import ClientConnection
 from neo.lib.connector import ConnectorConnectionClosedException
 from neo.lib.protocol import NodeTypes, Packets, ZERO_OID
@@ -92,15 +92,14 @@ class Checker(object):
                     finally:
                         conn_set.update(self.conn_dict)
                     self.conn_dict.clear()
-                neo.lib.logging.error(
-                    "Failed to start checking partition %u (%s)",
+                logging.error("Failed to start checking partition %u (%s)",
                     partition, msg)
             conn_set.difference_update(self.conn_dict)
         finally:
             for conn in conn_set:
                 app.closeClient(conn)
-        neo.lib.logging.debug("start checking partition %u from %s to %s",
-                              partition, dump(min_tid), dump(max_tid))
+        logging.debug("start checking partition %u from %s to %s",
+                      partition, dump(min_tid), dump(max_tid))
         self.min_tid = self.next_tid = min_tid
         self.max_tid = max_tid
         self.next_oid = None
@@ -126,10 +125,10 @@ class Checker(object):
         if self.source is not None and self.source.getConnection() is conn:
             del self.source
         elif len(self.conn_dict) > 1:
-            neo.lib.logging.warning("node lost but keep up checking partition"
-                                    " %u", self.partition)
+            logging.warning("node lost but keep up checking partition %u",
+                            self.partition)
             return
-        neo.lib.logging.warning("check of partition %u aborted", self.partition)
+        logging.warning("check of partition %u aborted", self.partition)
         self._nextPartition()
 
     def _nextRange(self):
@@ -149,7 +148,7 @@ class Checker(object):
         if self.conn_dict.get(conn, self) != conn.getPeerId():
             # Ignore answers to old requests,
             # because we did nothing to cancel them.
-            neo.lib.logging.info("ignored AnswerCheck*Range%r", args)
+            logging.info("ignored AnswerCheck*Range%r", args)
             return
         self.conn_dict[conn] = args
         answer_set = set(self.conn_dict.itervalues())
@@ -177,8 +176,7 @@ class Checker(object):
             p = Packets.NotifyPartitionCorrupted(self.partition, uuid_list)
             self.app.master_conn.notify(p)
             if len(self.conn_dict) <= 1:
-                neo.lib.logging.warning("check of partition %u aborted",
-                                        self.partition)
+                logging.warning("check of partition %u aborted", self.partition)
                 self.queue.clear()
                 self._nextPartition()
                 return
@@ -187,7 +185,7 @@ class Checker(object):
         except ValueError:
             count, _, self.next_tid, _, max_oid = args
             if count < CHECK_COUNT:
-                neo.lib.logging.debug("partition %u checked from %s to %s",
+                logging.debug("partition %u checked from %s to %s",
                     self.partition, dump(self.min_tid), dump(self.max_tid))
                 self._nextPartition()
                 return

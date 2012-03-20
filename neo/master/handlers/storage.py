@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo.lib
+from neo.lib import logging
 from neo.lib.protocol import CellStates, ClusterStates, Packets, ProtocolError
 from neo.lib.exception import OperationFailure
 from neo.lib.util import dump
@@ -37,7 +37,7 @@ class StorageServiceHandler(BaseServiceHandler):
             conn.notify(Packets.StartOperation())
 
     def nodeLost(self, conn, node):
-        neo.lib.logging.info('storage node lost')
+        logging.info('storage node lost')
         assert not node.isRunning(), node.getState()
         app = self.app
         app.broadcastPartitionChanges(app.pt.outdate(node))
@@ -96,7 +96,7 @@ class StorageServiceHandler(BaseServiceHandler):
                     raise ProtocolError('Non-oudated partition')
             except PartitionTableException, e:
                 raise ProtocolError(str(e))
-        neo.lib.logging.debug("%s is up for offset %s", node, offset)
+        logging.debug("%s is up for offset %s", node, offset)
         self.app.broadcastPartitionChanges(cell_list)
 
     def answerTruncate(self, conn):

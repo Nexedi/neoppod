@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo.lib
+from neo.lib import logging
 from neo.lib.pt import MTPartitionTable as PartitionTable
 from neo.lib.protocol import NodeTypes, NodeStates, ProtocolError
 from neo.lib.util import dump
@@ -52,8 +52,8 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
-                neo.lib.logging.warning('Unknown primary master UUID: %s. ' \
-                                'Ignoring.' % dump(primary_uuid))
+                logging.warning('Unknown primary master UUID: %s. Ignoring.',
+                                dump(primary_uuid))
                 return
             else:
                 if app.trying_master_node is not primary_node:
@@ -74,7 +74,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         if your_uuid is None:
             raise ProtocolError('No UUID supplied')
         app.uuid = your_uuid
-        neo.lib.logging.info('Got an UUID: %s', dump(app.uuid))
+        logging.info('Got an UUID: %s', dump(app.uuid))
 
         # Always create partition table
         app.pt = PartitionTable(num_partitions, num_replicas)
@@ -93,13 +93,13 @@ class PrimaryNotificationsHandler(BaseHandler):
     def connectionClosed(self, conn):
         app = self.app
         if app.master_conn is not None:
-            neo.lib.logging.critical("connection to primary master node closed")
+            logging.critical("connection to primary master node closed")
             app.master_conn = None
         app.primary_master_node = None
         super(PrimaryNotificationsHandler, self).connectionClosed(conn)
 
     def stopOperation(self, conn):
-        neo.lib.logging.critical("master node ask to stop operation")
+        logging.critical("master node ask to stop operation")
 
     def invalidateObjects(self, conn, tid, oid_list):
         app = self.app

@@ -18,8 +18,8 @@ from ZODB import BaseStorage, ConflictResolution, POSException
 from zope.interface import implements
 import ZODB.interfaces
 
-import neo.lib
 from functools import wraps
+from neo.lib import logging
 from neo.lib.util import add64
 from neo.lib.protocol import ZERO_TID
 from .app import Application
@@ -71,7 +71,7 @@ class Storage(BaseStorage.BaseStorage,
         if compress is None:
             compress = True
         if logfile:
-            neo.lib.logging.setup(logfile)
+            logging.setup(logfile)
         BaseStorage.BaseStorage.__init__(self, 'NEOStorage(%s)' % (name, ))
         # Warning: _is_read_only is used in BaseStorage, do not rename it.
         self._is_read_only = read_only
@@ -238,9 +238,8 @@ class Storage(BaseStorage.BaseStorage,
 
     def pack(self, t, referencesf, gc=False):
         if gc:
-            neo.lib.logging.warning(
-                'Garbage Collection is not available in NEO, '
-                'please use an external tool. Packing without GC.')
+            logging.warning('Garbage Collection is not available in NEO,'
+                ' please use an external tool. Packing without GC.')
         self.app.pack(t)
 
     def lastSerial(self):

@@ -14,8 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import neo
-
+from neo.lib import logging
 from neo.lib.handler import EventHandler
 from neo.lib.protocol import (NodeTypes, NodeStates, Packets,
     BrokenNodeDisallowedError,
@@ -108,7 +107,7 @@ class BaseServiceHandler(MasterHandler):
         if new_state != NodeStates.BROKEN and was_pending:
             # was in pending state, so drop it from the node manager to forget
             # it and do not set in running state when it comes back
-            neo.lib.logging.info('drop a pending node from the node manager')
+            logging.info('drop a pending node from the node manager')
             self.app.nm.remove(node)
         self.app.broadcastNodesInformation([node])
         # clean node related data in specialized handlers

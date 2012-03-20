@@ -17,7 +17,7 @@
 from ZODB.TimeStamp import TimeStamp
 from ZODB.POSException import ConflictError
 
-import neo.lib
+from neo.lib import logging
 from neo.lib.protocol import NodeTypes, ProtocolError, LockState, ZERO_TID
 from neo.lib.util import dump
 from neo.lib.exception import NodeNotReady
@@ -71,8 +71,8 @@ class StorageAnswersHandler(AnswerBaseHandler):
             # we may process entirely a conflict with S1 (i.e. we received the
             # answer to the store of the resolved object on S1) before we
             # receive the conflict answer from the first store on S2.
-            neo.lib.logging.info('%r report a conflict for %r with %r', conn,
-                        dump(oid), dump(serial))
+            logging.info('%r report a conflict for %r with %r',
+                         conn, dump(oid), dump(serial))
             # If this conflict is not already resolved, mark it for
             # resolution.
             if serial not in txn_context[
@@ -115,7 +115,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
         pass
 
     def answerTIDsFrom(self, conn, tid_list):
-        neo.lib.logging.debug('Get %d TIDs from %r', len(tid_list), conn)
+        logging.debug('Get %u TIDs from %r', len(tid_list), conn)
         self.app.setHandlerData(tid_list)
 
     def answerTransactionInformation(self, conn, tid,
@@ -178,8 +178,7 @@ class StorageAnswersHandler(AnswerBaseHandler):
         #      Anyway, it's not clear that HasLock requests are useful.
         #      Are store requests potentially long to process ? If not,
         #      we should simply raise a ConflictError on store timeout.
-        neo.lib.logging.info('Store of oid %s delayed (storage overload ?)',
-                             dump(oid))
+        logging.info('Store of oid %s delayed (storage overload ?)', dump(oid))
 
     def alreadyPendingError(self, conn, message):
         pass
