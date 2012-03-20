@@ -151,7 +151,7 @@ class EventHandler(object):
         pass
 
     def notify(self, conn, message):
-        logging.info('notification from %r: %s', conn, message)
+        logging.warning('notification from %r: %s', conn, message)
 
     def closeClient(self, conn):
         conn.server = False
