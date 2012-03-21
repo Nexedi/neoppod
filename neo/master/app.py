@@ -104,6 +104,12 @@ class Application(object):
             self.backup_app = BackupApplication(self, upstream_cluster,
                                                 *config.getUpstreamMasters())
 
+        self.administration_handler = administration.AdministrationHandler(
+            self)
+        self.secondary_master_handler = secondary.SecondaryMasterHandler(self)
+        self.client_service_handler = client.ClientServiceHandler(self)
+        self.storage_service_handler = storage.StorageServiceHandler(self)
+
         registerLiveDebugger(on_log=self.log)
 
     def close(self):
@@ -388,10 +394,10 @@ class Application(object):
             return
 
         # select the storage handler
-        client_handler = client.ClientServiceHandler(self)
+        client_handler = self.client_service_handler
         if state in (ClusterStates.RUNNING, ClusterStates.STARTING_BACKUP,
                      ClusterStates.BACKINGUP, ClusterStates.STOPPING_BACKUP):
-            storage_handler = storage.StorageServiceHandler(self)
+            storage_handler = self.storage_service_handler
         elif self._current_manager is not None:
             storage_handler = self._current_manager.getHandler()
         else:
@@ -468,7 +474,7 @@ class Application(object):
         if uuid is None or node is None:
             # same as for verification
             state = NodeStates.PENDING
-        return state, storage.StorageServiceHandler(self)
+        return state, self.storage_service_handler
 
     def identifyNode(self, node_type, uuid, node):
 
@@ -477,12 +483,12 @@ class Application(object):
         if node_type == NodeTypes.ADMIN:
             # always accept admin nodes
             node_ctor = self.nm.createAdmin
-            handler = administration.AdministrationHandler(self)
+            handler = self.administration_handler
             human_readable_node_type = 'n admin '
         elif node_type == NodeTypes.MASTER:
             # always put other master in waiting state
             node_ctor = self.nm.createMaster
-            handler = secondary.SecondaryMasterHandler(self)
+            handler = self.secondary_master_handler
             human_readable_node_type = ' master '
         elif node_type == NodeTypes.CLIENT:
             # refuse any client before running
@@ -490,7 +496,7 @@ class Application(object):
                 logging.info('Reject a connection from a client')
                 raise NotReadyError
             node_ctor = self.nm.createClient
-            handler = client.ClientServiceHandler(self)
+            handler = self.client_service_handler
             human_readable_node_type = ' client '
         elif node_type == NodeTypes.STORAGE:
             node_ctor = self.nm.createStorage
