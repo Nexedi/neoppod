@@ -478,12 +478,12 @@ class Application(object):
             # always accept admin nodes
             node_ctor = self.nm.createAdmin
             handler = administration.AdministrationHandler(self)
-            logging.info('Accept an admin %s', dump(uuid))
+            human_readable_node_type = 'n admin '
         elif node_type == NodeTypes.MASTER:
             # always put other master in waiting state
             node_ctor = self.nm.createMaster
             handler = secondary.SecondaryMasterHandler(self)
-            logging.info('Accept a master %s', dump(uuid))
+            human_readable_node_type = ' master '
         elif node_type == NodeTypes.CLIENT:
             # refuse any client before running
             if self.cluster_state != ClusterStates.RUNNING:
@@ -491,16 +491,17 @@ class Application(object):
                 raise NotReadyError
             node_ctor = self.nm.createClient
             handler = client.ClientServiceHandler(self)
-            logging.info('Accept a client %s', dump(uuid))
+            human_readable_node_type = ' client '
         elif node_type == NodeTypes.STORAGE:
             node_ctor = self.nm.createStorage
             manager = self._current_manager
             if manager is None:
                 manager = self
             (uuid, state, handler) = manager.identifyStorageNode(uuid, node)
-            logging.info('Accept a storage %s (%s)', dump(uuid), state)
+            human_readable_node_type = ' storage (%s) ' % (state, )
         else:
             raise NotImplementedError(node_type)
+        logging.info('Accept a' + human_readable_node_type + dump(uuid))
         return (uuid, node, state, handler, node_ctor)
 
     def onTransactionCommitted(self, txn):
