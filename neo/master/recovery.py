@@ -41,7 +41,7 @@ class RecoveryManager(MasterHandler):
         """
             Returns the handler for storage nodes
         """
-        return uuid, NodeStates.PENDING, self
+        return NodeStates.PENDING, self
 
     def run(self):
         """

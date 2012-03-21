@@ -42,8 +42,8 @@ class IdentificationHandler(MasterHandler):
 
         # ask the app the node identification, if refused, an exception is
         # raised
-        result = app.identifyNode(node_type, uuid, node)
-        (uuid, node, state, handler, node_ctor) = result
+        node, state, handler, node_ctor = app.identifyNode(node_type, uuid,
+            node)
         if uuid is None:
             # no valid uuid, give it one
             uuid = app.getNewUUID(node_type)

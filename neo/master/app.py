@@ -468,7 +468,7 @@ class Application(object):
         if uuid is None or node is None:
             # same as for verification
             state = NodeStates.PENDING
-        return uuid, state, storage.StorageServiceHandler(self)
+        return state, storage.StorageServiceHandler(self)
 
     def identifyNode(self, node_type, uuid, node):
 
@@ -497,12 +497,12 @@ class Application(object):
             manager = self._current_manager
             if manager is None:
                 manager = self
-            (uuid, state, handler) = manager.identifyStorageNode(uuid, node)
+            state, handler = manager.identifyStorageNode(uuid, node)
             human_readable_node_type = ' storage (%s) ' % (state, )
         else:
             raise NotImplementedError(node_type)
         logging.info('Accept a' + human_readable_node_type + dump(uuid))
-        return (uuid, node, state, handler, node_ctor)
+        return node, state, handler, node_ctor
 
     def onTransactionCommitted(self, txn):
         # I have received all the lock answers now:

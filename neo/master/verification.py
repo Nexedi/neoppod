@@ -89,7 +89,7 @@ class VerificationManager(BaseServiceHandler):
             # uuid from the test framework. It's safe since nodes with a
             # conflicting UUID are rejected in the identification handler.
             state = NodeStates.PENDING
-        return (uuid, state, self)
+        return state, self
 
     def run(self):
 
