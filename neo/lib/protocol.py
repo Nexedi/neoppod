@@ -20,11 +20,13 @@ import traceback
 from socket import inet_ntoa, inet_aton
 from cStringIO import StringIO
 from struct import Struct
-
-from .util import Enum, getAddressType
+try:
+    from .util import getAddressType
+except ImportError:
+    pass
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (8, 1)
+PROTOCOL_VERSION = (9, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -38,70 +40,98 @@ assert PACKET_HEADER_FORMAT.size == 10, \
     (PACKET_HEADER_FORMAT.size, )
 RESPONSE_MASK = 0x8000
 
-class ErrorCodes(Enum):
-    ACK = Enum.Item(0)
-    NOT_READY = Enum.Item(1)
-    OID_NOT_FOUND = Enum.Item(2)
-    OID_DOES_NOT_EXIST = Enum.Item(6)
-    TID_NOT_FOUND = Enum.Item(3)
-    PROTOCOL_ERROR = Enum.Item(4)
-    BROKEN_NODE = Enum.Item(5)
-    ALREADY_PENDING = Enum.Item(7)
-    REPLICATION_ERROR = Enum.Item(8)
-    CHECKING_ERROR = Enum.Item(9)
-ErrorCodes = ErrorCodes()
+class Enum(tuple):
 
-class ClusterStates(Enum):
-    RECOVERING = Enum.Item(1)
-    VERIFYING = Enum.Item(2)
-    RUNNING = Enum.Item(3)
-    STOPPING = Enum.Item(4)
-    STARTING_BACKUP = Enum.Item(5)
-    BACKINGUP = Enum.Item(6)
-    STOPPING_BACKUP = Enum.Item(7)
-ClusterStates = ClusterStates()
+    class Item(int):
+        __slots__ = '_name', '_enum'
+        def __str__(self):
+            return self._name
+        def __repr__(self):
+            return "<EnumItem %s (%d)>" % (self._name, self)
+        def __eq__(self, other):
+            if type(other) is self.__class__:
+                assert other._enum is self._enum
+                return other is self
+            return other == int(self)
 
-class NodeTypes(Enum):
-    MASTER = Enum.Item(1)
-    STORAGE = Enum.Item(2)
-    CLIENT = Enum.Item(3)
-    ADMIN = Enum.Item(4)
-NodeTypes = NodeTypes()
+    def __new__(cls, func):
+        names = func.func_code.co_names
+        self = tuple.__new__(cls, map(cls.Item, xrange(len(names))))
+        self._name = func.__name__
+        for item, name in zip(self, names):
+            setattr(self, name, item)
+            item._name = name
+            item._enum = self
+        return self
 
-class NodeStates(Enum):
-    RUNNING = Enum.Item(1)
-    TEMPORARILY_DOWN = Enum.Item(2)
-    DOWN = Enum.Item(3)
-    BROKEN = Enum.Item(4)
-    HIDDEN = Enum.Item(5)
-    PENDING = Enum.Item(6)
-    UNKNOWN = Enum.Item(7)
-NodeStates = NodeStates()
+    def __repr__(self):
+        return "<Enum %s>" % self._name
 
-class CellStates(Enum):
+
+@Enum
+def ErrorCodes():
+    ACK
+    NOT_READY
+    OID_NOT_FOUND
+    TID_NOT_FOUND
+    OID_DOES_NOT_EXIST
+    PROTOCOL_ERROR
+    BROKEN_NODE
+    ALREADY_PENDING
+    REPLICATION_ERROR
+    CHECKING_ERROR
+
+@Enum
+def ClusterStates():
+    RECOVERING
+    VERIFYING
+    RUNNING
+    STOPPING
+    STARTING_BACKUP
+    BACKINGUP
+    STOPPING_BACKUP
+
+@Enum
+def NodeTypes():
+    MASTER
+    STORAGE
+    CLIENT
+    ADMIN
+
+@Enum
+def NodeStates():
+    RUNNING
+    TEMPORARILY_DOWN
+    DOWN
+    BROKEN
+    HIDDEN
+    PENDING
+    UNKNOWN
+
+@Enum
+def CellStates():
     # Normal state: cell is writable/readable, and it isn't planned to drop it.
-    UP_TO_DATE = Enum.Item(1)
+    UP_TO_DATE
     # Write-only cell. Last transactions are missing because storage is/was down
     # for a while, or because it is new for the partition. It usually becomes
     # UP_TO_DATE when replication is done.
-    OUT_OF_DATE = Enum.Item(2)
+    OUT_OF_DATE
     # Same as UP_TO_DATE, except that it will be discarded as soon as another
     # node finishes to replicate it. It means a partition is moved from 1 node
     # to another.
-    FEEDING = Enum.Item(3)
+    FEEDING
     # Not really a state: only used in network packets to tell storages to drop
     # partitions.
-    DISCARDED = Enum.Item(4)
+    DISCARDED
     # A check revealed that data differs from other replicas. Cell is neither
     # readable nor writable.
-    CORRUPTED = Enum.Item(5)
-CellStates = CellStates()
+    CORRUPTED
 
-class LockState(Enum):
-    NOT_LOCKED = Enum.Item(1)
-    GRANTED = Enum.Item(2)
-    GRANTED_TO_OTHER = Enum.Item(3)
-LockState = LockState()
+@Enum
+def LockState():
+    NOT_LOCKED
+    GRANTED
+    GRANTED_TO_OTHER
 
 # used for logging
 node_state_prefix_dict = {
@@ -1690,10 +1720,10 @@ def Errors():
     handler_method_name_dict = {}
     def register_error(code):
         return lambda self, message='': Error(code, message)
-    for code, error in ErrorCodes.iteritems():
+    for error in ErrorCodes:
         name = ''.join(part.capitalize() for part in str(error).split('_'))
-        registry_dict[name] = register_error(error)
-        handler_method_name_dict[code] = name[0].lower() + name[1:]
+        registry_dict[name] = register_error(int(error))
+        handler_method_name_dict[int(error)] = name[0].lower() + name[1:]
     return type('ErrorRegistry', (dict,),
                 registry_dict)(handler_method_name_dict)
 

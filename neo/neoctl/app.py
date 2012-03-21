@@ -44,13 +44,13 @@ class TerminalNeoCTL(object):
 
     # Utility methods (could be functions)
     def asNodeState(self, value):
-        return NodeStates.getByName(value.upper())
+        return getattr(NodeStates, value.upper())
 
     def asNodeType(self, value):
-        return NodeTypes.getByName(value.upper())
+        return getattr(NodeTypes, value.upper())
 
     def asClusterState(self, value):
-        return ClusterStates.getByName(value.upper())
+        return getattr(ClusterStates, value.upper())
 
     def asNode(self, value):
         return bin(value)

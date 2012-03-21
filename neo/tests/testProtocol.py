@@ -614,7 +614,7 @@ class ProtocolTests(NeoUnitTestBase):
 
     def test_AnswerHasLock(self):
         oid = self.getNextTID()
-        for lock_state in LockState.itervalues():
+        for lock_state in LockState:
             p = Packets.AnswerHasLock(oid, lock_state)
             self.assertEqual(p.decode(), (oid, lock_state))
 
