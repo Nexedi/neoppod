@@ -500,7 +500,7 @@ class Application(object):
             (uuid, state, handler) = manager.identifyStorageNode(uuid, node)
             logging.info('Accept a storage %s (%s)', dump(uuid), state)
         else:
-            handler = identification.IdentificationHandler(self)
+            raise NotImplementedError(node_type)
         return (uuid, node, state, handler, node_ctor)
 
     def onTransactionCommitted(self, txn):
