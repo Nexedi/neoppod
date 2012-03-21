@@ -242,7 +242,6 @@ class BaseConnection(object):
     """
 
     KEEP_ALIVE = 60
-    _base_timeout = None
 
     def __init__(self, event_manager, handler, connector, addr=None):
         assert connector is not None, "Need a low-level connector"
@@ -261,28 +260,8 @@ class BaseConnection(object):
     def cancelRequests(self, *args, **kw):
         return self._handlers.cancelRequests(self, *args, **kw)
 
-    def updateTimeout(self, t=None):
-        if not self._queue:
-            if t:
-                self._base_timeout = t
-            self._timeout = self._handlers.getNextTimeout() or self.KEEP_ALIVE
-
     def checkTimeout(self, t):
-        # first make sure we don't timeout on answers we already received
-        if self._base_timeout and not self._queue:
-            timeout = t - self._base_timeout
-            if self._timeout <= timeout:
-                handlers = self._handlers
-                if handlers.isPending():
-                    msg_id = handlers.timeout(self)
-                    if msg_id is None:
-                        self._base_timeout = t
-                    else:
-                        logging.info('timeout for #0x%08x with %r',
-                                     msg_id, self)
-                        self.close()
-                else:
-                    self.idle()
+        pass
 
     def lock(self):
         return 1
@@ -407,6 +386,7 @@ class Connection(BaseConnection):
     client = False
     server = False
     peer_id = None
+    _base_timeout = None
 
     def __init__(self, event_manager, *args, **kw):
         BaseConnection.__init__(self, event_manager, *args, **kw)
@@ -471,6 +451,29 @@ class Connection(BaseConnection):
         next_id = self.cur_id
         self.cur_id = (next_id + 1) & 0xffffffff
         return next_id
+
+    def updateTimeout(self, t=None):
+        if not self._queue:
+            if t:
+                self._base_timeout = t
+            self._timeout = self._handlers.getNextTimeout() or self.KEEP_ALIVE
+
+    def checkTimeout(self, t):
+        # first make sure we don't timeout on answers we already received
+        if self._base_timeout and not self._queue:
+            timeout = t - self._base_timeout
+            if self._timeout <= timeout:
+                handlers = self._handlers
+                if handlers.isPending():
+                    msg_id = handlers.timeout(self)
+                    if msg_id is None:
+                        self._base_timeout = t
+                    else:
+                        logging.info('timeout for #0x%08x with %r',
+                                     msg_id, self)
+                        self.close()
+                else:
+                    self.idle()
 
     def abort(self):
         """Abort dealing with this connection."""

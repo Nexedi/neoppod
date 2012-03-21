@@ -43,7 +43,7 @@ class StorageDBTests(NeoUnitTestBase):
             pass
         NeoUnitTestBase._tearDown(self, success)
 
-    def getDB(self):
+    def getDB(self, reset=0):
         raise NotImplementedError
 
     def setNumPartitions(self, num_partitions, reset=0):

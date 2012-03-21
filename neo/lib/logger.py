@@ -57,7 +57,7 @@ class PacketRecord(object):
     __init__ = property(lambda self: self.__dict__.update)
 
 
-class logging(Logger):
+class NEOLogger(Logger):
 
     default_root_handler = StreamHandler()
     default_root_handler.setFormatter(_Formatter(FMT))
@@ -224,5 +224,5 @@ class logging(Logger):
                 msg=packet._body))
 
 
-logging = logging()
+logging = NEOLogger()
 signal.signal(signal.SIGRTMIN, lambda signum, frame: logging.flush())

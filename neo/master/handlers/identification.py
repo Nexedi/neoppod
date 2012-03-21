@@ -17,8 +17,8 @@
 import neo
 from neo.lib import logging
 from neo.lib.util import dump
-from neo.lib.protocol import NodeTypes, Packets, ProtocolError, NodeStates, \
-    ClusterStates
+from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets, \
+    NotReadyError, ProtocolError
 from . import MasterHandler
 
 class IdentificationHandler(MasterHandler):
@@ -65,7 +65,7 @@ class IdentificationHandler(MasterHandler):
             handler = app.administration_handler
             human_readable_node_type = 'n admin '
         else:
-            raise NotImplementedError(node_type)
+            assert False, node_type
 
         while not app.isValidUUID(uuid, address):
             uuid = app.getNewUUID(node_type)

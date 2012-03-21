@@ -350,7 +350,7 @@ class NodeManager(object):
         if master_db is not None:
             self._master_db = db = MasterDB(master_db)
             for addr in db:
-                self.createMaster(addr)
+                self.createMaster(address=addr)
 
     close = __init__
 

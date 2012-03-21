@@ -5,8 +5,8 @@ import smtplib
 import optparse
 import platform
 import datetime
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMEText import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 MAIL_SERVER = '127.0.0.1:25'
 

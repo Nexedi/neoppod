@@ -334,7 +334,7 @@ class TransactionManager(object):
                 lock_ttid = self._load_lock_dict.pop(oid, None)
                 assert lock_ttid in (ttid, None), 'Transaction %s tried to ' \
                     'release the lock on oid %s, but it was held by %s' % (
-                    dump(ttid), dump(oid), dump(lock_tid))
+                    dump(ttid), dump(oid), dump(lock_ttid))
             write_locking_tid = self._store_lock_dict.pop(oid)
             assert write_locking_tid == ttid, 'Inconsistent locking state: ' \
                 'aborting %s:%s but %s has the lock.' % (dump(ttid), dump(oid),

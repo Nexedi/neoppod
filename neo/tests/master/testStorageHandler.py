@@ -55,9 +55,6 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         return self.identifyToMasterNode(node_type=NodeTypes.STORAGE,
                 ip='127.0.0.1', port=self._allocatePort())
 
-    def getLastUUID(self):
-        return self.uuid
-
     def identifyToMasterNode(self, node_type=NodeTypes.STORAGE, ip="127.0.0.1",
                              port=10021):
         """Do first step of identification to MN

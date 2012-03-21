@@ -15,6 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import __builtin__
+import errno
 import os
 import random
 import socket
@@ -28,7 +29,7 @@ from mock import Mock
 from neo.lib import debug, logging, protocol
 from neo.lib.protocol import Packets
 from neo.lib.util import getAddressType
-from time import time, gmtime
+from time import time
 from struct import pack, unpack
 
 DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo')
@@ -217,27 +218,8 @@ class NeoUnitTestBase(NeoTestBase):
         return self._makeUUID('A')
 
     def getNextTID(self, ltid=None):
-        tm = time()
-        gmt = gmtime(tm)
-        upper = ((((gmt.tm_year - 1900) * 12 + gmt.tm_mon - 1) * 31 \
-                  + gmt.tm_mday - 1) * 24 + gmt.tm_hour) * 60 + gmt.tm_min
-        lower = int((gmt.tm_sec % 60 + (tm - int(tm))) / (60.0 / 65536.0 / 65536.0))
-        tid = pack('!LL', upper, lower)
-        if ltid is not None and tid <= ltid:
-            upper, lower = unpack('!LL', self._last_tid)
-            if lower == 0xffffffff:
-                # This should not happen usually.
-                from datetime import timedelta, datetime
-                d = datetime(gmt.tm_year, gmt.tm_mon, gmt.tm_mday,
-                             gmt.tm_hour, gmt.tm_min) \
-                        + timedelta(0, 60)
-                upper = ((((d.year - 1900) * 12 + d.month - 1) * 31 \
-                          + d.day - 1) * 24 + d.hour) * 60 + d.minute
-                lower = 0
-            else:
-                lower += 1
-            tid = pack('!LL', upper, lower)
-        return tid
+        from ZODB.utils import newTid
+        return newTid(ltid)
 
     def getPTID(self, i=None):
         """ Return an integer PTID """
@@ -489,17 +471,11 @@ class NeoUnitTestBase(NeoTestBase):
     def checkAnswerObjectHistory(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerObjectHistory, **kw)
 
-    def checkAnswerObjectHistoryFrom(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerObjectHistoryFrom, **kw)
-
     def checkAnswerStoreTransaction(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerStoreTransaction, **kw)
 
     def checkAnswerStoreObject(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerStoreObject, **kw)
-
-    def checkAnswerOids(self, conn, **kw):
-        return self.checkAnswerPacket(conn, Packets.AnswerOIDs, **kw)
 
     def checkAnswerPartitionTable(self, conn, **kw):
         return self.checkAnswerPacket(conn, Packets.AnswerPartitionTable, **kw)

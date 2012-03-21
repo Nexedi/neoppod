@@ -49,9 +49,6 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
         super(StorageVerificationHandlerTests, self)._tearDown(success)
 
     # Common methods
-    def getLastUUID(self):
-        return self.uuid
-
     def getClientConnection(self):
         address = ("127.0.0.1", self.client_port)
         return self.getFakeConnection(uuid=self.getNewUUID(), address=address)

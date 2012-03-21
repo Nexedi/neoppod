@@ -27,12 +27,6 @@ from neo.lib.protocol import INVALID_TID, INVALID_OID
 
 class StorageMasterHandlerTests(NeoUnitTestBase):
 
-    def checkHandleUnexpectedPacket(self, _call, _msg_type, _listening=True, **kwargs):
-        conn = self.getMasterConnection(is_server=_listening)
-        # hook
-        self.operation.peerBroken = lambda c: c.peerBrokendCalled()
-        self.checkUnexpectedPacketRaised(_call, conn=conn, **kwargs)
-
     def setUp(self):
         NeoUnitTestBase.setUp(self)
         self.prepareDatabase(number=1)

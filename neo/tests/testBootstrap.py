@@ -41,10 +41,6 @@ class BootstrapManagerTests(NeoUnitTestBase):
         del self.app
         super(BootstrapManagerTests, self)._tearDown(success)
 
-    # Common methods
-    def getLastUUID(self):
-        return self.uuid
-
     # Tests
     def testConnectionCompleted(self):
         address=("127.0.0.1", self.master_port)

@@ -122,7 +122,7 @@ class Application(object):
             dm.setName(self.name)
         elif name != self.name:
             raise RuntimeError('name %r does not match with the database: %r'
-                               % (self.name, dm_name))
+                               % (self.name, name))
 
         # load configuration
         self.uuid = dm.getUUID()

@@ -467,7 +467,6 @@ class NEOCluster(object):
         SocketConnector.makeListeningConnection)
     SocketConnector_receive = staticmethod(SocketConnector.receive)
     SocketConnector_send = staticmethod(SocketConnector.send)
-    Storage__init__ = staticmethod(Storage.__init__)
     _patch_count = 0
     _resource_dict = weakref.WeakValueDictionary()
 

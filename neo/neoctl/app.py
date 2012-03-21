@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from .neoctl import NeoCTL, NotReadyException
-from neo.lib.util import bin, dump
+from neo.lib.util import bin, dump, p64
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, ZERO_TID
 
 action_dict = {

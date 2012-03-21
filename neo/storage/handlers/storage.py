@@ -96,7 +96,7 @@ class StorageOperationHandler(EventHandler):
             deleteObject = self.app.dm.deleteObject
             for serial, oid_list in object_dict.iteritems():
                 for oid in oid_list:
-                    delObject(oid, serial)
+                    deleteObject(oid, serial)
         assert not pack_tid, "TODO"
         if next_tid:
             self.app.replicator.fetchObjects(next_tid, next_oid)

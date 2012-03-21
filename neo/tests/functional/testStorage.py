@@ -22,7 +22,6 @@ from persistent import Persistent
 from . import NEOCluster, NEOFunctionalTest
 from neo.lib.protocol import ClusterStates, NodeStates
 from ZODB.tests.StorageTestBase import zodb_pickle
-import MySQLdb, sqlite3
 from MySQLdb.constants.ER import NO_SUCH_TABLE
 
 class PObject(Persistent):
@@ -120,25 +119,6 @@ class StorageTests(NEOFunctionalTest):
         # check storages state
         storage_list = self.neo.getStorageList(NodeStates.RUNNING)
         self.assertEqual(len(storage_list), 2)
-
-    def __checkReplicateCount(self, db_name, target_count, timeout=0, delay=1):
-        db = self.neo.getSQLConnection(db_name, autocommit=True)
-        def callback(last_try):
-            replicate_count = 0
-            try:
-                replicate_count = self.queryCount(db,
-                    'select count(distinct uuid) from pt')
-            except MySQLdb.ProgrammingError, e:
-                if e[0] != NO_SUCH_TABLE:
-                    raise
-            except sqlite3.OperationalError, e:
-                if not e[0].startswith('no such table:'):
-                    raise
-            if last_try is not None and last_try < replicate_count:
-                raise AssertionError, 'Regression: %s became %s' % \
-                    (last_try, replicate_count)
-            return replicate_count == target_count, replicate_count
-        self.neo.expectCondition(callback, timeout, delay)
 
     def testNewNodesInPendingState(self):
         """ Check that new storage nodes are set as pending, the cluster remains

@@ -330,11 +330,9 @@ class MasterDBTests(NeoUnitTestBase):
         """
         temp_dir = getTempDirectory()
         directory = join(temp_dir, 'read_only')
-        assert not exists(directory), db_file
         db_file = join(directory, 'not_created')
-        mkdir(directory)
+        mkdir(directory, 0400)
         try:
-            chmod(directory, 0400)
             self.assertRaises(IOError, MasterDB, db_file)
         finally:
             rmdir(directory)
@@ -345,7 +343,6 @@ class MasterDBTests(NeoUnitTestBase):
         """
         temp_dir = getTempDirectory()
         directory = join(temp_dir, 'read_write')
-        assert not exists(directory), db_file
         db_file = join(directory, 'db')
         mkdir(directory)
         try:
@@ -370,7 +367,6 @@ class MasterDBTests(NeoUnitTestBase):
     def testPersistence(self):
         temp_dir = getTempDirectory()
         directory = join(temp_dir, 'read_write')
-        assert not exists(directory), db_file
         db_file = join(directory, 'db')
         mkdir(directory)
         try:
