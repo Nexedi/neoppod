@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# neostorage - run a storage node of NEO
+# neolog - read a NEO log
 #
 # Copyright (C) 2012  Nexedi SA
 #
@@ -17,29 +17,67 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging, os, sqlite3, sys, time
-from neo.lib.protocol import Packets, PacketMalformedError
-from neo.lib.util import dump
+import bz2, logging, os, sqlite3, sys, time
+from binascii import b2a_hex
+from logging import getLevelName
 
-def emit(date, name, levelname, msg_list):
-    d = int(date)
-    prefix = '%s.%04u %-9s %-10s ' % (time.strftime('%F %T', time.localtime(d)),
-                                      int((date - d) * 10000), levelname,
-                                      name or default_name)
-    for msg in msg_list:
-        print prefix + msg
+class main(object):
 
-class packet(object):
-
-    def __new__(cls, date, name, msg_id, code, peer, body):
+    def __new__(cls):
+        self = object.__new__(cls)
+        db_path = sys.argv[1]
+        self._default_name, _ = os.path.splitext(os.path.basename(db_path))
+        self._db = db = sqlite3.connect(db_path)
+        nl = db.execute("SELECT * FROM log")
+        np = db.execute("SELECT * FROM packet")
         try:
-            p = Packets[code]
+            p = np.next()
+            self._reload(p[0])
+        except StopIteration:
+            p = None
+        for date, name, level, pathname, lineno, msg in nl:
+            while p and p[0] < date:
+                self._packet(*p)
+                p = np.fetchone()
+            self._emit(date, name, getLevelName(level), msg.splitlines())
+        if p:
+            self._packet(*p)
+            for p in np:
+                self._packet(*p)
+
+    def _reload(self, date):
+        q = self._db.execute
+        g = {}
+        exec bz2.decompress(*q("SELECT text FROM protocol WHERE date<?"
+                               " ORDER BY date DESC", (date,)).next()) in g
+        self.Packets = g['Packets']
+        self.PacketMalformedError = g['PacketMalformedError']
+        try:
+            self._next_protocol, = q("SELECT date FROM protocol WHERE date>=?",
+                                     (date,)).next()
+        except StopIteration:
+            self._next_protocol = float('inf')
+
+    def _emit(self, date, name, levelname, msg_list):
+        d = int(date)
+        prefix = '%s.%04u %-9s %-10s ' % (
+            time.strftime('%F %T', time.localtime(d)),
+            int((date - d) * 10000), levelname,
+            name or self._default_name)
+        for msg in msg_list:
+            print prefix + msg
+
+    def _packet(self, date, name, msg_id, code, peer, body):
+        if self._next_protocol <= date:
+            self._reload(date)
+        try:
+            p = self.Packets[code]
         except KeyError:
             Packets[code] = p = type('UnknownPacket[%u]' % code, (object,), {})
         msg = ['#0x%04x %-30s %s' % (msg_id, p.__name__, peer)]
         if body is not None:
             try:
-                logger = getattr(cls, p.handler_method_name)
+                logger = getattr(self, p.handler_method_name)
             except AttributeError:
                 pass
             else:
@@ -48,47 +86,22 @@ class packet(object):
                 p._body = body
                 try:
                     args = p.decode()
-                except PacketMalformedError:
+                except self.PacketMalformedError:
                     msg.append("Can't decode packet")
                 else:
                     msg += logger(*args)
-        emit(date, name, 'PACKET', msg)
+        self._emit(date, name, 'PACKET', msg)
 
-    @staticmethod
-    def error(code, message):
+    def error(self, code, message):
         return "%s (%s)" % (code, message),
 
-    @staticmethod
-    def notifyNodeInformation(node_list):
+    def notifyNodeInformation(self, node_list):
         for node_type, address, uuid, state in node_list:
             address = '%s:%u' % address if address else '?'
-            yield ' ! %s | %8s | %22s | %s' % (
-                dump(uuid), node_type, address, state)
-
-def main():
-    global default_name
-    db_path = sys.argv[1]
-    default_name, _ = os.path.splitext(os.path.basename(db_path))
-    db = sqlite3.connect(db_path)
-    nl = db.execute('select * from log')
-    np = db.execute('select * from packet')
-    try:
-        p = np.next()
-    except StopIteration:
-        p = None
-    for date, name, level, pathname, lineno, msg in nl:
-        try:
-            while p and p[0] < date:
-                packet(*p)
-                p = np.next()
-        except StopIteration:
-            p = None
-        emit(date, name, logging.getLevelName(level), msg.splitlines())
-    if p:
-        packet(*p)
-        for p in np:
-            packet(*p)
+            if uuid is not None:
+                uuid = b2a_hex(uuid)
+            yield ' ! %s | %8s | %22s | %s' % (uuid, node_type, address, state)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

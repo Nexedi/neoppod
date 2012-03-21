@@ -28,7 +28,7 @@ from logging import getLogger, Formatter, Logger, LogRecord, StreamHandler, \
     DEBUG, WARNING
 from time import time
 from traceback import format_exception
-import neo, os, signal, sqlite3, threading
+import bz2, inspect, neo, os, signal, sqlite3, threading
 
 # Stats for storage node of matrix test (py2.7:SQLite)
 RECORD_SIZE = ( 234360832 # extra memory used
@@ -149,6 +149,18 @@ class logging(Logger):
                         body BLOB)
                   """)
                 q("""CREATE INDEX IF NOT EXISTS _packet_i1 ON packet(date)""")
+                q("""CREATE TABLE IF NOT EXISTS protocol (
+                        date REAL PRIMARY KEY NOT NULL,
+                        text BLOB NOT NULL)
+                  """)
+                from . import protocol as p
+                with open(inspect.getsourcefile(p)) as p:
+                    p = buffer(bz2.compress(p.read()))
+                for t, in q("SELECT text FROM protocol ORDER BY date DESC"):
+                    if p == t:
+                        break
+                else:
+                    q("INSERT INTO protocol VALUES (?,?)", (time(), p))
         finally:
             self._release()
     __del__ = setup
