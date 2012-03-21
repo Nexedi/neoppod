@@ -65,11 +65,10 @@ class IdentificationHandler(MasterHandler):
             human_readable_node_type = 'n admin '
         else:
             raise NotImplementedError(node_type)
-        logging.info('Accept a' + human_readable_node_type + dump(uuid))
 
-        if uuid is None:
-            # no valid uuid, give it one
+        while not app.isValidUUID(uuid, address):
             uuid = app.getNewUUID(node_type)
+        logging.info('Accept a' + human_readable_node_type + dump(uuid))
         if node is None:
             node = node_ctor(uuid=uuid, address=address)
         node.setUUID(uuid)
