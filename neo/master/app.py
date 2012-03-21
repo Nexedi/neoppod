@@ -425,7 +425,7 @@ class Application(object):
             raise RuntimeError, 'No UUID namespace found for this node type'
 
     def isValidUUID(self, uuid, addr):
-        if uuid == self.uuid:
+        if uuid == self.uuid or uuid is None:
             return False
         node = self.nm.getByUUID(uuid)
         return node is None or node.getAddress() in (None, addr)
