@@ -314,7 +314,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
     def _requestIdentification(self):
         conn = self.getFakeConnection()
         peer_uuid = self.getNewUUID()
-        address = ('127.0.0.1', 2001)
+        address = (self.local_ip, 2001)
         self.election.requestIdentification(
             conn,
             NodeTypes.MASTER,
