@@ -53,7 +53,8 @@ class IdentificationHandler(MasterHandler):
             manager = app._current_manager
             if manager is None:
                 manager = app
-            state, handler = manager.identifyStorageNode(uuid, node)
+            state, handler = manager.identifyStorageNode(
+                uuid is not None and node is not None)
             human_readable_node_type = ' storage (%s) ' % (state, )
         elif node_type == NodeTypes.MASTER:
             node_ctor = app.nm.createMaster

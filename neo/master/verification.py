@@ -77,12 +77,13 @@ class VerificationManager(BaseServiceHandler):
     def getHandler(self):
         return self
 
-    def identifyStorageNode(self, uuid, node):
+    def identifyStorageNode(self, known):
         """
             Returns the handler to manager the given node
         """
-        state = NodeStates.RUNNING
-        if uuid is None or node is None:
+        if known:
+            state = NodeStates.RUNNING
+        else:
             # if node is unknown, it has been forget when the current
             # partition was validated by the admin
             # Here the uuid is not cleared to allow lookup pending nodes by

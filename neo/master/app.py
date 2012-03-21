@@ -467,11 +467,12 @@ class Application(object):
         # then shutdown
         sys.exit()
 
-    def identifyStorageNode(self, uuid, node):
+    def identifyStorageNode(self, known):
         if self.cluster_state == ClusterStates.STOPPING:
             raise NotReadyError
-        state = NodeStates.RUNNING
-        if uuid is None or node is None:
+        if known:
+            state = NodeStates.RUNNING
+        else:
             # same as for verification
             state = NodeStates.PENDING
         return state, self.storage_service_handler

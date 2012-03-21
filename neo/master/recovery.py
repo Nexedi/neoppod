@@ -37,7 +37,7 @@ class RecoveryManager(MasterHandler):
     def getHandler(self):
         return self
 
-    def identifyStorageNode(self, uuid, node):
+    def identifyStorageNode(self, _):
         """
             Returns the handler for storage nodes
         """
