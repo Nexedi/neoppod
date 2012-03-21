@@ -35,7 +35,6 @@ UNIT_TEST_MODULES = [
     'neo.tests.testEvent',
     'neo.tests.testHandler',
     'neo.tests.testNodes',
-    'neo.tests.testProtocol',
     'neo.tests.testDispatcher',
     'neo.tests.testUtil',
     'neo.tests.testPT',
