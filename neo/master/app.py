@@ -476,40 +476,6 @@ class Application(object):
             state = NodeStates.PENDING
         return state, self.storage_service_handler
 
-    def identifyNode(self, node_type, uuid, node):
-
-        state = NodeStates.RUNNING
-
-        if node_type == NodeTypes.ADMIN:
-            # always accept admin nodes
-            node_ctor = self.nm.createAdmin
-            handler = self.administration_handler
-            human_readable_node_type = 'n admin '
-        elif node_type == NodeTypes.MASTER:
-            # always put other master in waiting state
-            node_ctor = self.nm.createMaster
-            handler = self.secondary_master_handler
-            human_readable_node_type = ' master '
-        elif node_type == NodeTypes.CLIENT:
-            # refuse any client before running
-            if self.cluster_state != ClusterStates.RUNNING:
-                logging.info('Reject a connection from a client')
-                raise NotReadyError
-            node_ctor = self.nm.createClient
-            handler = self.client_service_handler
-            human_readable_node_type = ' client '
-        elif node_type == NodeTypes.STORAGE:
-            node_ctor = self.nm.createStorage
-            manager = self._current_manager
-            if manager is None:
-                manager = self
-            state, handler = manager.identifyStorageNode(uuid, node)
-            human_readable_node_type = ' storage (%s) ' % (state, )
-        else:
-            raise NotImplementedError(node_type)
-        logging.info('Accept a' + human_readable_node_type + dump(uuid))
-        return node, state, handler, node_ctor
-
     def onTransactionCommitted(self, txn):
         # I have received all the lock answers now:
         # - send a Notify Transaction Finished to the initiated client node

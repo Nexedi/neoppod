@@ -15,9 +15,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import neo
-
-from neo.lib.protocol import NodeTypes, Packets
-from neo.lib.protocol import ProtocolError
+from neo.lib import logging
+from neo.lib.util import dump
+from neo.lib.protocol import NodeTypes, Packets, ProtocolError, NodeStates, \
+    ClusterStates
 from . import MasterHandler
 
 class IdentificationHandler(MasterHandler):
@@ -40,10 +41,32 @@ class IdentificationHandler(MasterHandler):
             node.setAddress(address)
             node.setRunning()
 
-        # ask the app the node identification, if refused, an exception is
-        # raised
-        node, state, handler, node_ctor = app.identifyNode(node_type, uuid,
-            node)
+        state = NodeStates.RUNNING
+        if node_type == NodeTypes.CLIENT:
+            if app.cluster_state != ClusterStates.RUNNING:
+                raise NotReadyError
+            node_ctor = app.nm.createClient
+            handler = app.client_service_handler
+            human_readable_node_type = ' client '
+        elif node_type == NodeTypes.STORAGE:
+            node_ctor = app.nm.createStorage
+            manager = app._current_manager
+            if manager is None:
+                manager = app
+            state, handler = manager.identifyStorageNode(uuid, node)
+            human_readable_node_type = ' storage (%s) ' % (state, )
+        elif node_type == NodeTypes.MASTER:
+            node_ctor = app.nm.createMaster
+            handler = app.secondary_master_handler
+            human_readable_node_type = ' master '
+        elif node_type == NodeTypes.ADMIN:
+            node_ctor = app.nm.createAdmin
+            handler = app.administration_handler
+            human_readable_node_type = 'n admin '
+        else:
+            raise NotImplementedError(node_type)
+        logging.info('Accept a' + human_readable_node_type + dump(uuid))
+
         if uuid is None:
             # no valid uuid, give it one
             uuid = app.getNewUUID(node_type)
