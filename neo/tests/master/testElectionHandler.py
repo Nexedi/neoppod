@@ -186,16 +186,6 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
             ],
         )
 
-    def test_acceptIdentification2(self):
-        """ UUID conflict """
-        node, conn = self.identifyToMasterNode()
-        new_uuid = self._makeUUID('M')
-        args = (node.getUUID(), 0, 10, new_uuid, None,
-            self._getMasterList())
-        self.assertRaises(ElectionFailure, self.election.acceptIdentification,
-            conn, NodeTypes.MASTER, *args)
-        self.assertEqual(self.app.uuid, new_uuid)
-
     def test_acceptIdentification3(self):
         """ Identification accepted """
         node, conn = self.identifyToMasterNode()
@@ -269,20 +259,6 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         self.assertEqual(node.getUUID(), new_uuid)
         self.assertNotEqual(node.getUUID(), uuid)
 
-    def test_requestIdentification5(self):
-        """ UUID conflict """
-        node, conn = self.identifyToMasterNode()
-        args = (self.app.uuid, node.getAddress(), self.app.name)
-        self.election.requestIdentification(conn,
-            NodeTypes.MASTER, *args)
-        self.checkUUIDSet(conn, check_intermediate=False)
-        args = self.checkAcceptIdentification(conn, decode=True)
-        (node_type, uuid, partitions, replicas, new_uuid, primary_uuid,
-            master_list) = args
-        self.assertNotEqual(self.app.uuid, new_uuid)
-        self.assertEqual(self.app.uuid, uuid)
-
-
     def _getNodeList(self):
         return [x.asTuple() for x in self.app.nm.getList()]
 
@@ -329,7 +305,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         self.assertEqual(uuid, self.app.uuid)
         self.assertEqual(partitions, self.app.pt.getPartitions())
         self.assertEqual(replicas, self.app.pt.getReplicas())
-        self.assertTrue((address, peer_uuid) in master_list)
+        self.assertTrue(address in [x[0] for x in master_list])
         self.assertTrue(self.app.server in [x[0] for x in master_list])
         self.assertEqual(peer_uuid, _peer_uuid)
         return primary

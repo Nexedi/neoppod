@@ -82,13 +82,6 @@ class ClientElectionHandler(BaseElectionHandler):
             num_replicas, your_uuid, primary, known_master_list):
         app = self.app
 
-        if your_uuid != app.uuid:
-            # uuid conflict happened, accept the new one
-            app.uuid = your_uuid
-            logging.info('UUID conflict, new UUID: %s', dump(your_uuid))
-
-        node.setUUID(peer_uuid)
-
         # Register new master nodes.
         for address, uuid in known_master_list:
             if app.server == address:
@@ -99,11 +92,6 @@ class ClientElectionHandler(BaseElectionHandler):
             n = app.nm.getByAddress(address)
             if n is None:
                 n = app.nm.createMaster(address=address)
-            if uuid is not None:
-                # If I don't know the UUID yet, believe what the peer
-                # told me at the moment.
-                if n.getUUID() is None or n.getUUID() != uuid:
-                    n.setUUID(uuid)
 
         if primary is not None:
             # The primary master is defined.
@@ -139,11 +127,7 @@ class ServerElectionHandler(BaseElectionHandler, MasterHandler):
 
         if node is None:
             node = app.nm.createMaster(address=address)
-        # supply another uuid in case of conflict
-        uuid = app.getNewUUID(uuid, address, node_type)
 
-        node.setUUID(uuid)
-        conn.setUUID(uuid)
         elect(app, address)
         return uuid
 

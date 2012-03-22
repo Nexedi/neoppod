@@ -93,7 +93,6 @@ class PrimaryHandler(EventHandler):
             raise PrimaryFailure('unexpected primary uuid')
 
         if your_uuid != app.uuid:
-            # uuid conflict happened, accept the new one
             app.uuid = your_uuid
             logging.info('My UUID: ' + dump(your_uuid))
 

@@ -83,12 +83,9 @@ class Application(object):
         self.cluster_state = None
         self._startup_allowed = False
 
-        # Generate an UUID for self
         uuid = config.getUUID()
-        if uuid is None or uuid == '':
-            uuid = self.getNewUUID(None, self.server, NodeTypes.MASTER)
-        self.uuid = uuid
-        logging.info('UUID      : %s', dump(uuid))
+        if uuid:
+            self.uuid = uuid
 
         # election related data
         self.unconnected_master_node_set = set()
@@ -330,6 +327,16 @@ class Application(object):
         for node in self.nm.getStorageList():
             if node.isRunning():
                 node.setTemporarilyDown()
+
+        if self.uuid is None:
+            self.uuid = self.getNewUUID(None, self.server, NodeTypes.MASTER)
+            logging.info('My UUID: ' + dump(self.uuid))
+        else:
+            in_conflict = self.nm.getByUUID(self.uuid)
+            if in_conflict is not None:
+                logging.warning('UUID conflict at election exit with %r',
+                    in_conflict)
+                in_conflict.setUUID(None)
 
         # recover the cluster status at startup
         self.runManager(RecoveryManager)
