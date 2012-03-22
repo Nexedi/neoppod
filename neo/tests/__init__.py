@@ -31,6 +31,10 @@ from neo.lib.protocol import Packets
 from neo.lib.util import getAddressType
 from time import time
 from struct import pack, unpack
+try:
+    from ZODB.utils import newTid
+except ImportError:
+    pass
 
 DB_PREFIX = os.getenv('NEO_DB_PREFIX', 'test_neo')
 DB_ADMIN = os.getenv('NEO_DB_ADMIN', 'root')
@@ -218,7 +222,6 @@ class NeoUnitTestBase(NeoTestBase):
         return self._makeUUID('A')
 
     def getNextTID(self, ltid=None):
-        from ZODB.utils import newTid
         return newTid(ltid)
 
     def getPTID(self, i=None):
