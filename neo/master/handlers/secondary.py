@@ -18,6 +18,8 @@ from . import MasterHandler
 from neo.lib.handler import EventHandler
 from neo.lib.exception import ElectionFailure, PrimaryFailure
 from neo.lib.protocol import NodeTypes, Packets
+from neo.lib import logging
+from neo.lib.util import dump
 
 class SecondaryMasterHandler(MasterHandler):
     """ Handler used by primary to handle secondary masters"""
@@ -93,6 +95,7 @@ class PrimaryHandler(EventHandler):
         if your_uuid != app.uuid:
             # uuid conflict happened, accept the new one
             app.uuid = your_uuid
+            logging.info('My UUID: ' + dump(your_uuid))
 
         node.setUUID(uuid)
 
