@@ -23,6 +23,10 @@ Other changes are:
 - NEO learned to check replicas, to detect data corruption or bugs during
   replication. When done on a backup cluster, upstream data is used as
   reference. This is still limited to data indexes (tid & oid/serial).
+- NEO logs now are SQLite DB that always contain all debugging information
+  including exchanged packets. Records are first kept in RAM, at most 16 MB by
+  default, and there are flushed to disk only upon RTMIN signal or any important
+  record. A 'neolog' script has been written to help reading such DB.
 - Master addresses must be separated by spaces. '/' can't be used anymore.
 - Adding and removing master nodes is now easier: unknown incoming master nodes
   are now accepted instead of rejected, and nodes can be given a path to a file
