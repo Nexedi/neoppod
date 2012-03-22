@@ -234,7 +234,6 @@ class ServerNode(Node):
     def resetNode(self):
         assert not self.isAlive()
         kw = self._init_args
-        kw['getUUID'] = self.uuid
         self.__dict__.clear()
         self.__init__(**kw)
 
