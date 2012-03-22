@@ -65,7 +65,7 @@ class IdentificationHandler(MasterHandler):
             handler = app.administration_handler
             human_readable_node_type = 'n admin '
         else:
-            assert False, node_type
+            raise NotImplementedError(node_type)
 
         while not app.isValidUUID(uuid, address):
             uuid = app.getNewUUID(node_type)
