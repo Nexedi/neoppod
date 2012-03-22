@@ -146,8 +146,8 @@ class BootstrapManager(EventHandler):
                     connector_handler())
             # still processing
             em.poll(1)
-        node = nm.getByUUID(conn.getUUID())
-        return (node, conn, self.uuid, self.num_partitions, self.num_replicas)
+        return (self.current, conn, self.uuid, self.num_partitions,
+            self.num_replicas)
 
 
 
