@@ -53,7 +53,7 @@ class MasterClientElectionTestBase(NeoUnitTestBase):
 class MasterClientElectionTests(MasterClientElectionTestBase):
 
     def setUp(self):
-        NeoUnitTestBase.setUp(self)
+        super(MasterClientElectionTests, self).setUp()
         # create an application object
         config = self.getMasterConfiguration(master_number=1)
         self.app = Application(config)
@@ -68,7 +68,6 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
         # apply monkey patches
         self._addPacket = ClientConnection._addPacket
         ClientConnection._addPacket = _addPacket
-        super(MasterClientElectionTests, self).setUp()
 
     def _tearDown(self, success):
         # restore patched methods
@@ -212,7 +211,7 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
 class MasterServerElectionTests(MasterClientElectionTestBase):
 
     def setUp(self):
-        NeoUnitTestBase.setUp(self)
+        super(MasterServerElectionTests, self).setUp()
         # create an application object
         config = self.getMasterConfiguration(master_number=1)
         self.app = Application(config)
@@ -231,7 +230,6 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         # apply monkey patches
         self._addPacket = ClientConnection._addPacket
         ClientConnection._addPacket = _addPacket
-        super(MasterServerElectionTests, self).setUp()
 
     def _tearDown(self, success):
         NeoUnitTestBase._tearDown(self, success)
