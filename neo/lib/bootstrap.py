@@ -100,7 +100,7 @@ class BootstrapManager(EventHandler):
                 master_node = nm.createMaster(address=address)
             master_node.setUUID(uuid)
 
-        self.primary = nm.getByUUID(primary)
+        self.primary = nm.getByAddress(primary)
         if self.primary is None or self.current is not self.primary:
             # three cases here:
             # - something goes wrong (unknown UUID)

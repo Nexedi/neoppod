@@ -39,6 +39,7 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
         self.app.primary_master_node = node = Mock({
             'getConnection': self.getFakeConnection(),
             'getUUID': self.getNewUUID(),
+            'getAddress': (self.local_ip, 2999)
         })
         self._next_port = 3000
 
@@ -62,14 +63,14 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
         node, conn = self.getKnownStorage()
         self.handler.acceptIdentification(conn, NodeTypes.CLIENT,
             node.getUUID(),
-            10, 0, None, self.app.primary_master_node.getUUID(), [])
+            10, 0, None, self.app.primary_master_node.getAddress(), [])
         self.checkClosed(conn)
 
     def test_acceptIdentification2(self):
         node, conn = self.getKnownStorage()
         self.handler.acceptIdentification(conn, NodeTypes.STORAGE,
             node.getUUID(),
-            10, 0, None, self.app.primary_master_node.getUUID(), [])
+            10, 0, None, self.app.primary_master_node.getAddress(), [])
         self.checkNotClosed(conn)
 
 class StorageAnswerHandlerTests(NeoUnitTestBase):

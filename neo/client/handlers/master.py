@@ -48,12 +48,12 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
 
         conn = node.getConnection()
         if primary is not None:
-            primary_node = app.nm.getByUUID(primary)
+            primary_node = app.nm.getByAddress(primary)
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
                 logging.warning('Unknown primary master: %s. Ignoring.',
-                                dump(primary))
+                                primary)
                 return
             else:
                 if app.trying_master_node is not primary_node:

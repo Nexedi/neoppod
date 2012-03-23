@@ -82,9 +82,9 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
         uuid = self.getNewUUID()
         conn = self.getFakeConnection(uuid=uuid)
         node = self.app.nm.createClient(uuid=uuid)
-        master = self.getNewUUID()
+        master = (self.local_ip, 3000)
         self.app.master_node = Mock({
-          'getUUID': master,
+          'getAddress': master,
         })
         self.identification.requestIdentification(conn, NodeTypes.CLIENT, uuid,
                 None, self.app.name)

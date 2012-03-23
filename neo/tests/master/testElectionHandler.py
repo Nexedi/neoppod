@@ -136,7 +136,7 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
     def test_acceptIdentificationKnowsPrimary(self):
         master1, master1_conn = self.identifyToMasterNode()
         master1_uuid = master1.getUUID()
-        primary1 = master1_uuid
+        primary1 = master1.getAddress()
         self.election.acceptIdentification(
             master1_conn,
             NodeTypes.MASTER,
@@ -156,8 +156,8 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
         master1_uuid = master1.getUUID()
         master2_uuid = master2.getUUID()
         master3_uuid = master3.getUUID()
-        primary1 = master1_uuid
-        primary3 = master3_uuid
+        primary1 = master1.getAddress()
+        primary3 = master3.getAddress()
         master1_address = master1.getAddress()
         master2_address = master2.getAddress()
         master3_address = master3.getAddress()
@@ -341,17 +341,17 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
 
     def testRequestIdentificationKnowsPrimary(self):
         self.app.primary = False
-        primary = self.getNewUUID()
+        primary = (self.local_ip, 3000)
         self.app.primary_master_node = Mock({
-            'getUUID': primary,
+            'getAddress': primary,
         })
         self.assertEqual(self._requestIdentification(), primary)
 
     def testRequestIdentificationIsPrimary(self):
         self.app.primary = True
-        primary = self.app.uuid
+        primary = self.app.server
         self.app.primary_master_node = Mock({
-            'getUUID': primary,
+            'getAddress': primary,
         })
         self.assertEqual(self._requestIdentification(), primary)
 

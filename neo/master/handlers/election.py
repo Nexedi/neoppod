@@ -23,8 +23,8 @@ from neo.lib.handler import EventHandler
 from neo.lib.util import dump
 from . import MasterHandler
 
-def elect(app, peer_uuid, peer_address):
-    if app.uuid < peer_uuid:
+def elect(app, peer_address):
+    if app.server < peer_address:
         app.primary = False
     app.negotiating_master_node_set.discard(peer_address)
 
@@ -83,10 +83,9 @@ class ClientElectionHandler(BaseElectionHandler):
         app = self.app
 
         if your_uuid != app.uuid:
-            # uuid conflict happened, accept the new one and restart election
+            # uuid conflict happened, accept the new one
             app.uuid = your_uuid
             logging.info('UUID conflict, new UUID: %s', dump(your_uuid))
-            raise ElectionFailure, 'new uuid supplied'
 
         node.setUUID(peer_uuid)
 
@@ -94,7 +93,7 @@ class ClientElectionHandler(BaseElectionHandler):
         for address, uuid in known_master_list:
             if app.server == address:
                 # This is self.
-                assert peer_uuid != primary or uuid == your_uuid, (
+                assert node.getAddress() != primary or uuid == your_uuid, (
                     dump(uuid), dump(your_uuid))
                 continue
             n = app.nm.getByAddress(address)
@@ -109,11 +108,11 @@ class ClientElectionHandler(BaseElectionHandler):
         if primary is not None:
             # The primary master is defined.
             if app.primary_master_node is not None \
-                    and app.primary_master_node.getUUID() != primary:
+                    and app.primary_master_node.getAddress() != primary:
                 # There are multiple primary master nodes. This is
                 # dangerous.
                 raise ElectionFailure, 'multiple primary master nodes'
-            primary_node = app.nm.getByUUID(primary)
+            primary_node = app.nm.getByAddress(primary)
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
@@ -127,7 +126,7 @@ class ClientElectionHandler(BaseElectionHandler):
                 app.negotiating_master_node_set.clear()
                 return
 
-        elect(app, peer_uuid, node.getAddress())
+        elect(app, node.getAddress())
 
 
 class ServerElectionHandler(BaseElectionHandler, MasterHandler):
@@ -145,6 +144,6 @@ class ServerElectionHandler(BaseElectionHandler, MasterHandler):
 
         node.setUUID(uuid)
         conn.setUUID(uuid)
-        elect(app, uuid, address)
+        elect(app, address)
         return uuid
 

@@ -722,7 +722,7 @@ class RequestIdentification(Packet):
         PNumber('num_partitions'),
         PNumber('num_replicas'),
         PUUID('your_uuid'),
-        PUUID('primary'),
+        PAddress('primary'),
         PList('known_master_list',
             PStruct('master',
                 PAddress('address'),

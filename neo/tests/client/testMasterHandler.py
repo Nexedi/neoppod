@@ -70,18 +70,20 @@ class MasterBootstrapHandlerTests(MasterHandlerTests):
         """ No UUID supplied """
         node, conn = self.getKnownMaster()
         uuid = self.getNewUUID()
+        addr = conn.getAddress()
         self.checkProtocolErrorRaised(self.handler.acceptIdentification,
             conn, NodeTypes.MASTER, uuid, 100, 0, None,
-            uuid, [(conn.getAddress(), uuid)],
+            addr, [(addr, uuid)],
         )
 
     def test_acceptIdentification3(self):
         """ identification accepted  """
         node, conn = self.getKnownMaster()
         uuid = self.getNewUUID()
+        addr = conn.getAddress()
         your_uuid = self.getNewUUID()
         self.handler.acceptIdentification(conn, NodeTypes.MASTER, uuid,
-            100, 2, your_uuid, uuid, [(conn.getAddress(), uuid)])
+            100, 2, your_uuid, addr, [(addr, uuid)])
         self.assertEqual(self.app.uuid, your_uuid)
         self.assertEqual(node.getUUID(), uuid)
         self.assertTrue(isinstance(self.app.pt, PartitionTable))

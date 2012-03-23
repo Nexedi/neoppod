@@ -37,11 +37,11 @@ class MasterHandler(EventHandler):
             node = app.nm.getByAddress(address)
         peer_uuid = self._setupNode(conn, node_type, uuid, address, node)
         if app.primary:
-            primary_uuid = app.uuid
+            primary_address = app.server
         elif app.primary_master_node is not None:
-            primary_uuid = app.primary_master_node.getUUID()
+            primary_address = app.primary_master_node.getAddress()
         else:
-            primary_uuid = None
+            primary_address = None
 
         known_master_list = [(app.server, app.uuid)]
         for n in app.nm.getMasterList():
@@ -54,7 +54,7 @@ class MasterHandler(EventHandler):
             app.pt.getPartitions(),
             app.pt.getReplicas(),
             peer_uuid,
-            primary_uuid,
+            primary_address,
             known_master_list),
         )
 
