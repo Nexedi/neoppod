@@ -90,7 +90,7 @@ class BootstrapManager(EventHandler):
         conn.close()
 
     def _acceptIdentification(self, node, uuid, num_partitions,
-            num_replicas, your_uuid, primary_uuid, known_master_list):
+            num_replicas, your_uuid, primary, known_master_list):
         nm  = self.app.nm
 
         # Register new master nodes.
@@ -100,7 +100,7 @@ class BootstrapManager(EventHandler):
                 master_node = nm.createMaster(address=address)
             master_node.setUUID(uuid)
 
-        self.primary = nm.getByUUID(primary_uuid)
+        self.primary = nm.getByUUID(primary)
         if self.primary is None or self.current is not self.primary:
             # three cases here:
             # - something goes wrong (unknown UUID)

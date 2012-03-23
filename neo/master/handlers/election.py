@@ -79,7 +79,7 @@ class ClientElectionHandler(BaseElectionHandler):
         self.app.negotiating_master_node_set.discard(addr)
 
     def _acceptIdentification(self, node, peer_uuid, num_partitions,
-            num_replicas, your_uuid, primary_uuid, known_master_list):
+            num_replicas, your_uuid, primary, known_master_list):
         app = self.app
 
         if your_uuid != app.uuid:
@@ -94,7 +94,7 @@ class ClientElectionHandler(BaseElectionHandler):
         for address, uuid in known_master_list:
             if app.server == address:
                 # This is self.
-                assert peer_uuid != primary_uuid or uuid == your_uuid, (
+                assert peer_uuid != primary or uuid == your_uuid, (
                     dump(uuid), dump(your_uuid))
                 continue
             n = app.nm.getByAddress(address)
@@ -106,18 +106,18 @@ class ClientElectionHandler(BaseElectionHandler):
                 if n.getUUID() is None or n.getUUID() != uuid:
                     n.setUUID(uuid)
 
-        if primary_uuid is not None:
+        if primary is not None:
             # The primary master is defined.
             if app.primary_master_node is not None \
-                    and app.primary_master_node.getUUID() != primary_uuid:
+                    and app.primary_master_node.getUUID() != primary:
                 # There are multiple primary master nodes. This is
                 # dangerous.
                 raise ElectionFailure, 'multiple primary master nodes'
-            primary_node = app.nm.getByUUID(primary_uuid)
+            primary_node = app.nm.getByUUID(primary)
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
-                logging.warning('received an unknown primary node UUID')
+                logging.warning('received an unknown primary node')
             else:
                 # Whatever the situation is, I trust this master.
                 app.primary = False

@@ -82,9 +82,9 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
         uuid = self.getNewUUID()
         conn = self.getFakeConnection(uuid=uuid)
         node = self.app.nm.createClient(uuid=uuid)
-        master_uuid = self.getNewUUID()
+        master = self.getNewUUID()
         self.app.master_node = Mock({
-          'getUUID': master_uuid,
+          'getUUID': master,
         })
         self.identification.requestIdentification(conn, NodeTypes.CLIENT, uuid,
                 None, self.app.name)
@@ -93,11 +93,11 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
         self.assertEqual(node.getUUID(), uuid)
         self.assertTrue(node.getConnection() is conn)
         args = self.checkAcceptIdentification(conn, decode=True)
-        node_type, address, _np, _nr, _uuid, _master_uuid, _master_list = args
+        node_type, address, _np, _nr, _uuid, _master, _master_list = args
         self.assertEqual(node_type, NodeTypes.STORAGE)
         self.assertEqual(address, None)
         self.assertEqual(_uuid, uuid)
-        self.assertEqual(_master_uuid, master_uuid)
+        self.assertEqual(_master, master)
         # TODO: check _master_list ?
 
 if __name__ == "__main__":

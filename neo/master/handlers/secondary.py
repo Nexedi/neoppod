@@ -87,9 +87,9 @@ class PrimaryHandler(EventHandler):
                         n.setUUID(uuid)
 
     def _acceptIdentification(self, node, uuid, num_partitions,
-            num_replicas, your_uuid, primary_uuid, known_master_list):
+            num_replicas, your_uuid, primary, known_master_list):
         app = self.app
-        if primary_uuid != app.primary_master_node.getUUID():
+        if primary != app.primary_master_node.getUUID():
             raise PrimaryFailure('unexpected primary uuid')
 
         if your_uuid != app.uuid:

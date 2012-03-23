@@ -136,6 +136,7 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
     def test_acceptIdentificationKnowsPrimary(self):
         master1, master1_conn = self.identifyToMasterNode()
         master1_uuid = master1.getUUID()
+        primary1 = master1_uuid
         self.election.acceptIdentification(
             master1_conn,
             NodeTypes.MASTER,
@@ -143,7 +144,7 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
             1,
             0,
             self.app.uuid,
-            master1_uuid,
+            primary1,
             [(master1.getAddress(), master1_uuid)],
         )
         self.assertNotEqual(self.app.primary_master_node, None)
@@ -155,6 +156,8 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
         master1_uuid = master1.getUUID()
         master2_uuid = master2.getUUID()
         master3_uuid = master3.getUUID()
+        primary1 = master1_uuid
+        primary3 = master3_uuid
         master1_address = master1.getAddress()
         master2_address = master2.getAddress()
         master3_address = master3.getAddress()
@@ -165,7 +168,7 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
             1,
             0,
             self.app.uuid,
-            master1_uuid,
+            primary1,
             [(master1_address, master1_uuid)],
         )
         self.assertRaises(ElectionFailure, self.election.acceptIdentification,
@@ -175,7 +178,7 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
             1,
             0,
             self.app.uuid,
-            master3_uuid,
+            primary3,
             [
                 (master1_address, master1_uuid),
                 (master2_address, master2_uuid),
@@ -320,7 +323,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
             address,
             self.app.name,
         )
-        node_type, uuid, partitions, replicas, _peer_uuid, primary_uuid, \
+        node_type, uuid, partitions, replicas, _peer_uuid, primary, \
             master_list = self.checkAcceptIdentification(conn, decode=True)
         self.assertEqual(node_type, NodeTypes.MASTER)
         self.assertEqual(uuid, self.app.uuid)
@@ -329,7 +332,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         self.assertTrue((address, peer_uuid) in master_list)
         self.assertTrue(self.app.server in [x[0] for x in master_list])
         self.assertEqual(peer_uuid, _peer_uuid)
-        return primary_uuid
+        return primary
 
     def testRequestIdentificationDoesNotKnowPrimary(self):
         self.app.primary = False
@@ -338,19 +341,19 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
 
     def testRequestIdentificationKnowsPrimary(self):
         self.app.primary = False
-        primary_uuid = self.getNewUUID()
+        primary = self.getNewUUID()
         self.app.primary_master_node = Mock({
-            'getUUID': primary_uuid,
+            'getUUID': primary,
         })
-        self.assertEqual(self._requestIdentification(), primary_uuid)
+        self.assertEqual(self._requestIdentification(), primary)
 
     def testRequestIdentificationIsPrimary(self):
         self.app.primary = True
-        primary_uuid = self.app.uuid
+        primary = self.app.uuid
         self.app.primary_master_node = Mock({
-            'getUUID': primary_uuid,
+            'getUUID': primary,
         })
-        self.assertEqual(self._requestIdentification(), primary_uuid)
+        self.assertEqual(self._requestIdentification(), primary)
 
     def testAnnouncePrimary1(self):
         """ check the wrong cases """

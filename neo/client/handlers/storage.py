@@ -48,10 +48,10 @@ class StorageBootstrapHandler(AnswerBaseHandler):
         raise NodeNotReady(message)
 
     def _acceptIdentification(self, node,
-           uuid, num_partitions, num_replicas, your_uuid, primary_uuid,
+           uuid, num_partitions, num_replicas, your_uuid, primary,
            master_list):
-        assert primary_uuid == self.app.primary_master_node.getUUID(), (
-            dump(primary_uuid), dump(self.app.primary_master_node.getUUID()))
+        assert primary == self.app.primary_master_node.getUUID(), (
+            dump(primary), dump(self.app.primary_master_node.getUUID()))
         node.setUUID(uuid)
 
 class StorageAnswersHandler(AnswerBaseHandler):

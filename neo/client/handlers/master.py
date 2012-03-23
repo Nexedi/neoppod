@@ -29,7 +29,7 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         app.trying_master_node = None
 
     def _acceptIdentification(self, node, uuid, num_partitions,
-            num_replicas, your_uuid, primary_uuid, known_master_list):
+            num_replicas, your_uuid, primary, known_master_list):
         app = self.app
 
         # Register new master nodes.
@@ -47,13 +47,13 @@ class PrimaryBootstrapHandler(AnswerBaseHandler):
         assert found, (node, dump(uuid), known_master_list)
 
         conn = node.getConnection()
-        if primary_uuid is not None:
-            primary_node = app.nm.getByUUID(primary_uuid)
+        if primary is not None:
+            primary_node = app.nm.getByUUID(primary)
             if primary_node is None:
                 # I don't know such a node. Probably this information
                 # is old. So ignore it.
-                logging.warning('Unknown primary master UUID: %s. Ignoring.',
-                                dump(primary_uuid))
+                logging.warning('Unknown primary master: %s. Ignoring.',
+                                dump(primary))
                 return
             else:
                 if app.trying_master_node is not primary_node:
