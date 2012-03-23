@@ -44,22 +44,24 @@ class UtilTests(NeoUnitTestBase):
         address_type = getAddressType(('127.0.0.1', 0))
         self.assertEqual(address_type, socket.AF_INET)
 
+    def _assertEqualParsedAddress(self, parsed, *args, **kw):
+        self.assertEqual(parsed, parseNodeAddress(*args, **kw))
+
     def test_parseNodeAddress(self):
         """ Parsing of addesses """
-        ip_address = parseNodeAddress('127.0.0.1:0')
-        self.assertEqual(('127.0.0.1', 0), ip_address)
-        ip_address = parseNodeAddress('127.0.0.1:0', 100)
-        self.assertEqual(('127.0.0.1', 0), ip_address)
-        ip_address = parseNodeAddress('127.0.0.1', 500)
-        self.assertEqual(('127.0.0.1', 500), ip_address)
-        self.assertRaises(ValueError, parseNodeAddress, '127.0.0.1')
-        ip_address = parseNodeAddress('[::1]:0')
-        self.assertEqual(('::1', 0), ip_address)
-        ip_address = parseNodeAddress('[::1]:0', 100)
-        self.assertEqual(('::1', 0), ip_address)
-        ip_address = parseNodeAddress('[::1]', 500)
-        self.assertEqual(('::1', 500), ip_address)
-        self.assertRaises(ValueError, parseNodeAddress, ('[::1]'))
+        test = self._assertEqualParsedAddress
+        local_address = socket.gethostbyname('localhost')
+        http_port = socket.getservbyname('http')
+        test(('127.0.0.1', 0), '127.0.0.1')
+        test(('127.0.0.1', 10), '127.0.0.1:10', 500)
+        test(('127.0.0.1', 500), '127.0.0.1', 500)
+        test(('::1', 0), '[::1]')
+        test(('::1', 10), '[::1]:10', 500)
+        test(('::1', 500), '[::1]', 500)
+        test(('::1', http_port), '[::1]:http')
+        test(('::1', 0), '[0::01]')
+        test((local_address, 0), 'localhost')
+        test((local_address, 10), 'localhost:10')
 
     def testReadBufferRead(self):
         """ Append some chunk then consume the data """

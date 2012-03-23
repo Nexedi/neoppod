@@ -55,17 +55,6 @@ def makeChecksum(s):
     return sha1(s).digest()
 
 
-def resolve(hostname):
-    """
-        Returns the first IP address that match with the given hostname
-    """
-    try:
-        # an IP resolves to itself
-        _, _, address_list = socket.gethostbyname_ex(hostname)
-    except socket.gaierror:
-        return None
-    return address_list[0]
-
 def getAddressType(address):
     "Return the type (IPv4 or IPv6) of an ip"
     (host, port) = address
@@ -86,22 +75,22 @@ def getConnectorFromAddress(address):
     return SOCKET_CONNECTORS_DICT[address_type]
 
 def parseNodeAddress(address, port_opt=None):
-    if ']' in address:
-       (ip, port) = address.split(']')
-       ip = ip.lstrip('[')
-       port = port.lstrip(':')
-       if port == '':
+    if address[:1] == '[':
+       (host, port) = address[1:].split(']')
+       if port[:1] == ':':
+           port = port[1:]
+       else:
            port = port_opt
-    elif ':' in address:
-        (ip, port) = address.split(':')
-        ip = resolve(ip)
+    elif address.count(':') == 1:
+        (host, port) = address.split(':')
     else:
-        ip = address
+        host = address
         port = port_opt
-
-    if port is None:
-        raise ValueError
-    return (ip, int(port))
+    # Resolve (maybe) and cast to cannonical form
+    # XXX: Always pick the first result. This might not be what is desired, and
+    # if so this function should either take a hint on the desired address type
+    # or return either raw host & port or getaddrinfo return value.
+    return socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)[0][4][:2]
 
 def parseMasterList(masters, except_node=None):
     assert masters, 'At least one master must be defined'
