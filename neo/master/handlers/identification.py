@@ -67,8 +67,7 @@ class IdentificationHandler(MasterHandler):
         else:
             raise NotImplementedError(node_type)
 
-        while not app.isValidUUID(uuid, address):
-            uuid = app.getNewUUID(node_type)
+        uuid = app.getNewUUID(uuid, address, node_type)
         logging.info('Accept a' + human_readable_node_type + dump(uuid))
         if node is None:
             node = node_ctor(uuid=uuid, address=address)

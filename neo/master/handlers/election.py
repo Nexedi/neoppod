@@ -141,8 +141,7 @@ class ServerElectionHandler(BaseElectionHandler, MasterHandler):
         if node is None:
             node = app.nm.createMaster(address=address)
         # supply another uuid in case of conflict
-        while not app.isValidUUID(uuid, address):
-            uuid = app.getNewUUID(node_type)
+        uuid = app.getNewUUID(uuid, address, node_type)
 
         node.setUUID(uuid)
         conn.setUUID(uuid)

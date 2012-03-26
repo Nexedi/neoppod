@@ -796,11 +796,18 @@ def predictable_random(seed=None):
             logging.info("using seed %r", s)
             r = random.Random(s)
             try:
-                MasterApplication.getNewUUID = lambda self, node_type: (
-                    super(MasterApplication, self).getNewUUID(node_type)
-                    if node_type == NodeTypes.CLIENT else
-                    UUID_NAMESPACES[node_type] + ''.join(
-                    chr(r.randrange(256)) for _ in xrange(15)))
+                def getNewUUID(self, uuid, address, node_type):
+                    if node_type == NodeTypes.CLIENT:
+                        return super(MasterApplication, self).getNewUUID(uuid,
+                            address, node_type)
+                    while uuid is None or uuid == self.uuid:
+                        node = self.nm.getByUUID(uuid)
+                        if node is None or node.getAddress() in (None, addr):
+                            uuid = UUID_NAMESPACES[node_type] + ''.join(
+                                chr(r.randrange(256)) for _ in xrange(15))
+                    return uuid
+                MasterApplication.getNewUUID = getNewUUID
+
                 administration.random = backup_app.random = replicator.random \
                     = r
                 return wrapped(*args, **kw)

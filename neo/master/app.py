@@ -46,6 +46,7 @@ class Application(object):
     last_transaction = ZERO_TID
     backup_tid = None
     backup_app = None
+    uuid = None
 
     def __init__(self, config):
         # Internal attributes.
@@ -85,7 +86,7 @@ class Application(object):
         # Generate an UUID for self
         uuid = config.getUUID()
         if uuid is None or uuid == '':
-            uuid = self.getNewUUID(NodeTypes.MASTER)
+            uuid = self.getNewUUID(None, self.server, NodeTypes.MASTER)
         self.uuid = uuid
         logging.info('UUID      : %s', dump(uuid))
 
@@ -424,17 +425,14 @@ class Application(object):
                 handler.connectionCompleted(conn)
         self.cluster_state = state
 
-    def getNewUUID(self, node_type):
-        try:
-            return UUID_NAMESPACES[node_type] + os.urandom(15)
-        except KeyError:
-            raise RuntimeError, 'No UUID namespace found for this node type'
-
-    def isValidUUID(self, uuid, addr):
-        if uuid == self.uuid or uuid is None:
-            return False
-        node = self.nm.getByUUID(uuid)
-        return node is None or node.getAddress() in (None, addr)
+    def getNewUUID(self, uuid, address, node_type):
+        if None != uuid != self.uuid and \
+                self.nm.getByAddress(address) is self.nm.getByUUID(uuid):
+            return uuid
+        while True:
+            uuid = UUID_NAMESPACES[node_type] + os.urandom(15)
+            if uuid != self.uuid and self.nm.getByUUID(uuid) is None:
+                return uuid
 
     def getClusterState(self):
         return self.cluster_state
