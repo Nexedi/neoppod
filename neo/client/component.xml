@@ -27,12 +27,12 @@
         and is still allowed on a read-only neostorage.
       </description>
     </key>
-    <key name="logfile" datatype="path">
+    <key name="logfile" datatype="existing-dirpath">
       <description>
         Log debugging information to specified SQLite DB.
       </description>
     </key>
-    <key name="dynamic_master_list" datatype="path">
+    <key name="dynamic_master_list" datatype="existing-dirpath">
       <description>
         The file designated by this option contains an updated list of master
         nodes which are known to be part of current cluster, so new nodes can
