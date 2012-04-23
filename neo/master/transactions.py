@@ -284,10 +284,13 @@ class TransactionManager(object):
         assert isinstance(divisor, (int, long)), repr(divisor)
         tm = time()
         gmt = gmtime(tm)
+        # See leap second handling in epoch:
+        #   https://en.wikipedia.org/wiki/Unix_time
+        assert gmt.tm_sec < 60, tm
         tid = packTID((
             (gmt.tm_year, gmt.tm_mon, gmt.tm_mday, gmt.tm_hour,
                 gmt.tm_min),
-            int((gmt.tm_sec % 60 + (tm - int(tm))) / SECOND_PER_TID_LOW)
+            int((gmt.tm_sec + (tm - int(tm))) / SECOND_PER_TID_LOW)
         ))
         min_tid = self._last_tid
         if tid <= min_tid:
