@@ -219,7 +219,6 @@ class TransactionManager(object):
         Manage current transactions
     """
     _last_tid = ZERO_TID
-    _next_ttid = 0
 
     def __init__(self, on_commit):
         # ttid -> transaction
@@ -270,18 +269,17 @@ class TransactionManager(object):
     def getLastOID(self):
         return self._last_oid
 
-    def _nextTID(self, ttid, divisor):
+    def _nextTID(self, ttid=None, divisor=None):
         """
         Compute the next TID based on the current time and check collisions.
-        Also, adjust it so that
+        Also, if ttid is not None, divisor is mandatory adjust it so that
             tid % divisor == ttid % divisor
         while preserving
             min_tid < tid
+        If ttid is None, divisor is ignored.
         When constraints allow, prefer decreasing generated TID, to avoid
         fast-forwarding to future dates.
         """
-        assert isinstance(ttid, basestring), repr(ttid)
-        assert isinstance(divisor, (int, long)), repr(divisor)
         tm = time()
         gmt = gmtime(tm)
         # See leap second handling in epoch:
@@ -299,21 +297,24 @@ class TransactionManager(object):
             try_decrease = False
         else:
             try_decrease = True
-        ref_remainder = u64(ttid) % divisor
-        remainder = u64(tid) % divisor
-        if ref_remainder != remainder:
-            if try_decrease:
-                new_tid = addTID(tid, ref_remainder - divisor - remainder)
-                assert u64(new_tid) % divisor == ref_remainder, (dump(new_tid),
-                    ref_remainder)
-                if new_tid <= min_tid:
-                    new_tid = addTID(new_tid, divisor)
-            else:
-                if ref_remainder > remainder:
-                    ref_remainder += divisor
-                new_tid = addTID(tid, ref_remainder - remainder)
-            assert min_tid < new_tid, (dump(min_tid), dump(tid), dump(new_tid))
-            tid = new_tid
+        if ttid is not None:
+            assert isinstance(ttid, basestring), repr(ttid)
+            assert isinstance(divisor, (int, long)), repr(divisor)
+            ref_remainder = u64(ttid) % divisor
+            remainder = u64(tid) % divisor
+            if ref_remainder != remainder:
+                if try_decrease:
+                    new_tid = addTID(tid, ref_remainder - divisor - remainder)
+                    assert u64(new_tid) % divisor == ref_remainder, (dump(new_tid),
+                        ref_remainder)
+                    if new_tid <= min_tid:
+                        new_tid = addTID(new_tid, divisor)
+                else:
+                    if ref_remainder > remainder:
+                        ref_remainder += divisor
+                    new_tid = addTID(tid, ref_remainder - remainder)
+                assert min_tid < new_tid, (dump(min_tid), dump(tid), dump(new_tid))
+                tid = new_tid
         self._last_tid = tid
         return self._last_tid
 
@@ -328,14 +329,6 @@ class TransactionManager(object):
             Set the last TID, keep the previous if lower
         """
         self._last_tid = max(self._last_tid, tid)
-
-    def getTTID(self):
-        """
-            Generate a temporary TID, to be used only during a single node's
-            2PC.
-        """
-        self._next_ttid += 1
-        return p64(self._next_ttid)
 
     def reset(self):
         """
@@ -367,7 +360,7 @@ class TransactionManager(object):
         """
         if tid is None:
             # No TID requested, generate a temporary one
-            ttid = self.getTTID()
+            ttid = self._nextTID()
         else:
             # Use of specific TID requested, queue it immediately and update
             # last TID.
