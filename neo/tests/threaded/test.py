@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys
 import threading
 import transaction
 import unittest
@@ -23,7 +24,7 @@ from ZODB import POSException
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import MTClientConnection
-from neo.lib.protocol import NodeStates, Packets, ZERO_TID
+from neo.lib.protocol import ClusterStates, NodeStates, Packets, ZERO_TID
 from . import NEOCluster, NEOThreadedTest, Patch
 from neo.lib.util import makeChecksum
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
@@ -448,6 +449,22 @@ class Test(NEOThreadedTest):
         finally:
             cluster1.stop()
             cluster2.stop()
+
+    def testAbortStorage(self):
+        cluster = NEOCluster(partitions=2, storage_count=2)
+        storage = cluster.storage_list[0]
+        try:
+            cluster.start()
+            # prevent storage to reconnect, in order to easily test
+            # that cluster becomes non-operational
+            storage.connectToPrimary = sys.exit
+            # send an unexpected to master so it aborts connection to storage
+            storage.master_conn.answer(Packets.Pong())
+            cluster.tic(force=1)
+            self.assertEqual(cluster.neoctl.getClusterState(),
+                             ClusterStates.VERIFYING)
+        finally:
+            cluster.stop()
 
 
 if __name__ == "__main__":
