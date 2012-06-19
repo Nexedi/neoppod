@@ -78,7 +78,7 @@ c. Start all required nodes::
 
 d. Tell the cluster it can provide service::
 
-    neoctl start
+    neoctl -a <admin> start
 
 How to use
 ==========
