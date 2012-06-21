@@ -433,9 +433,10 @@ class Application(object):
         self.cluster_state = state
 
     def getNewUUID(self, uuid, address, node_type):
-        if None != uuid != self.uuid and \
-                self.nm.getByAddress(address) is self.nm.getByUUID(uuid):
-            return uuid
+        if None != uuid != self.uuid:
+            node = self.nm.getByUUID(uuid)
+            if node is None or node.getAddress() == address:
+                return uuid
         while True:
             uuid = UUID_NAMESPACES[node_type] + os.urandom(15)
             if uuid != self.uuid and self.nm.getByUUID(uuid) is None:
