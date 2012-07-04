@@ -50,9 +50,13 @@ def packTID(utid):
             offset, multiplicator)
         packed_higher *= multiplicator
         packed_higher += value
-    assert isinstance(lower, (int, long)), lower
-    assert 0 <= lower < TID_LOW_OVERFLOW, hex(lower)
-    return pack('!LL', packed_higher, lower)
+    # If the machine is configured in such way that gmtime() returns leap
+    # seconds (e.g. TZ=right/UTC), then the best we can do is to use
+    # TID_LOW_MAX, because TID format was not designed to support them.
+    # For more information about leap seconds on Unix, see:
+    #   http://en.wikipedia.org/wiki/Unix_time
+    #   http://www.madore.org/~david/computers/unix-leap-seconds.html
+    return pack('!LL', packed_higher, min(lower, TID_LOW_MAX))
 
 def unpackTID(ptid):
     """
@@ -282,9 +286,6 @@ class TransactionManager(object):
         """
         tm = time()
         gmt = gmtime(tm)
-        # See leap second handling in epoch:
-        #   https://en.wikipedia.org/wiki/Unix_time
-        assert gmt.tm_sec < 60, tm
         tid = packTID((
             (gmt.tm_year, gmt.tm_mon, gmt.tm_mday, gmt.tm_hour,
                 gmt.tm_min),
