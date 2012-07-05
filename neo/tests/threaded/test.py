@@ -16,6 +16,7 @@
 
 import sys
 import threading
+import traceback
 import transaction
 import unittest
 from thread import get_ident
@@ -24,7 +25,8 @@ from ZODB import POSException
 from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import MTClientConnection
-from neo.lib.protocol import ClusterStates, NodeStates, Packets, ZERO_TID
+from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
+    ZERO_TID
 from . import NEOCluster, NEOThreadedTest, Patch
 from neo.lib.util import makeChecksum
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
@@ -465,6 +467,41 @@ class Test(NEOThreadedTest):
                              ClusterStates.VERIFYING)
         finally:
             cluster.stop()
+
+    def testShutdown(self):
+        cluster = NEOCluster(master_count=3, partitions=10,
+                             replicas=1, storage_count=3)
+        try:
+            cluster.start()
+            # fill DB a little
+            t, c = cluster.getTransaction()
+            c.root()[''] = ''
+            t.commit()
+            cluster.client.setPoll(0)
+            # tell admin to shutdown the cluster
+            cluster.neoctl.setClusterState(ClusterStates.STOPPING)
+            cluster.tic()
+            # all nodes except clients should exit
+            for master in cluster.master_list:
+                master.join(5)
+                self.assertFalse(master.isAlive())
+            for storage in cluster.storage_list:
+                storage.join(5)
+                self.assertFalse(storage.isAlive())
+            cluster.admin.join(5)
+            self.assertFalse(cluster.admin.isAlive())
+        finally:
+            cluster.stop()
+        cluster.reset() # reopen DB to check partition tables
+        dm = cluster.storage_list[0].dm
+        self.assertEqual(1, dm.getPTID())
+        pt = dm.getPartitionTable()
+        self.assertEqual(20, len(pt))
+        for _, _, state in pt:
+            self.assertEqual(state, CellStates.UP_TO_DATE)
+        for s in cluster.storage_list[1:]:
+            self.assertEqual(s.dm.getPTID(), 1)
+            self.assertEqual(s.dm.getPartitionTable(), pt)
 
 
 if __name__ == "__main__":

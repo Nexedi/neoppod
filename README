@@ -119,14 +119,20 @@ configuration file.
 Shutting down
 -------------
 
-There is no administration command yet to stop properly a running cluster.
-So following manual actions should be done:
+Before shutting down NEO, all clients like Zope instances should be stopped,
+so that cluster become idle. This is required for multi-DB setups, to prevent
+critical failures in second phase of TPC.
 
-a. Make sure all clients like Zope instances are stopped, so that cluster
-   become idle.
-b. Stop all master nodes first with a SIGINT or SIGTERM, so that storage nodes
+A cluster (i.e. masters+storages+admin) can be stopped gracefully by putting it
+in STOPPING state using neoctl::
+
+  neoctl -a <admin> set cluster STOPPING
+
+This can also be done manually, which helps if your cluster is in bad state:
+
+- Stop all master nodes first with a SIGINT or SIGTERM, so that storage nodes
    don't become in OUT_OF_DATE state.
-c. At last stop remaining nodes with a SIGINT or SIGTERM.
+- Next stop remaining nodes with a SIGINT or SIGTERM.
 
 Deployment
 ==========

@@ -24,7 +24,8 @@ from .handler import AdminEventHandler, MasterEventHandler, \
 from neo.lib.connector import getConnectorHandler
 from neo.lib.bootstrap import BootstrapManager
 from neo.lib.pt import PartitionTable
-from neo.lib.protocol import NodeTypes, NodeStates, Packets, Errors
+from neo.lib.protocol import ClusterStates, Errors, \
+    NodeTypes, NodeStates, Packets
 from neo.lib.debug import register as registerLiveDebugger
 
 class Application(object):
@@ -88,13 +89,16 @@ class Application(object):
         self.listening_conn = ListeningConnection(self.em, handler,
             addr=self.server, connector=self.connector_handler())
 
-        while True:
+        while self.cluster_state != ClusterStates.STOPPING:
             self.connectToPrimary()
             try:
                 while True:
                     self.em.poll(1)
             except PrimaryFailure:
                 logging.error('primary master is down')
+        self.listening_conn.close()
+        while not self.em.isIdle():
+            self.em.poll(1)
 
     def connectToPrimary(self):
         """Find a primary master node, and connect to it.

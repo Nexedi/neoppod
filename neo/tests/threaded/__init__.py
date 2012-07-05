@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# XXX: Consider using ClusterStates.STOPPING to stop clusters
+
 import os, random, socket, sys, tempfile, threading, time, types, weakref
 import traceback
 from collections import deque
@@ -56,7 +58,7 @@ class Serialized(object):
         """Suspend lock owner and resume first suspended thread"""
         if lock is None:
             lock = cls._global_lock
-            if stop: # XXX: we should fix ClusterStates.STOPPING
+            if stop:
                 cls.pending = frozenset(stop)
             else:
                 cls.pending = 0
@@ -82,7 +84,7 @@ class Serialized(object):
             lock = cls._global_lock
         lock.acquire()
         pending = cls.pending # XXX: getattr once to avoid race conditions
-        if type(pending) is frozenset: # XXX
+        if type(pending) is frozenset:
             if lock is cls._global_lock:
                 cls.pending = 0
             elif threading.currentThread() in pending:
@@ -652,8 +654,12 @@ class NEOCluster(object):
     def stop(self):
         if hasattr(self, '_db') and self.client.em._timeout == 0:
             self.client.setPoll(True)
-        self.__dict__.pop('_db', self.client).close()
-        #self.neoctl.setClusterState(ClusterStates.STOPPING) # TODO
+        sync = Storage.Storage.sync.im_func
+        Storage.Storage.sync = lambda self, force=True: None
+        try:
+            self.__dict__.pop('_db', self.client).close()
+        finally:
+            Storage.Storage.sync = sync
         try:
             Serialized.release(stop=
                 self.admin_list + self.storage_list + self.master_list)

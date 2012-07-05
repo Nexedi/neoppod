@@ -80,7 +80,7 @@ RC  - tpc_finish might raise while transaction got successfully committed.
       Do the replication process, the verification stage, with or without
       unfinished transactions, cells have to set as outdated, if yes, should the
       partition table changes be broadcasted ? (BANDWITH, SPEED)
-    - Implement proper shutdown (ClusterStates.STOPPING)
+    - Make SIGINT on primary master change cluster in STOPPING state.
     - Review PENDING/HIDDEN/SHUTDOWN states, don't use notifyNodeInformation()
       to do a state-switch, use a exception-based mechanism ? (CODE)
     - Split protocol.py in a 'protocol' module ?

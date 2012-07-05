@@ -64,6 +64,9 @@ class PrimaryHandler(EventHandler):
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 
+    def notifyClusterInformation(self, conn, state):
+        self.app.cluster_state = state
+
     def notifyNodeInformation(self, conn, node_list):
         app = self.app
         for node_type, addr, uuid, state in node_list:

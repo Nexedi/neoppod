@@ -24,6 +24,7 @@ from neo.lib.protocol import UUID_NAMESPACES, ZERO_TID, NotReadyError
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
+from neo.lib.handler import EventHandler
 from neo.lib.connection import ListeningConnection, ClientConnection
 from neo.lib.exception import ElectionFailure, PrimaryFailure, OperationFailure
 from neo.lib.util import dump
@@ -32,7 +33,7 @@ class StateChangedException(Exception): pass
 
 from .backup_app import BackupApplication
 from .handlers import election, identification, secondary
-from .handlers import administration, client, storage, shutdown
+from .handlers import administration, client, storage
 from .pt import PartitionTable
 from .recovery import RecoveryManager
 from .transactions import TransactionManager
@@ -143,7 +144,7 @@ class Application(object):
             addr=self.server, connector=self.connector_handler())
 
         # Start a normal operation.
-        while True:
+        while self.cluster_state != ClusterStates.STOPPING:
             # (Re)elect a new primary master.
             self.primary = not self.nm.getMasterList()
             if not self.primary:
@@ -294,7 +295,8 @@ class Application(object):
             # nodes and client nodes. Abort connections to client nodes.
             logging.critical('No longer operational')
         except StateChangedException, e:
-            assert e.args[0] == ClusterStates.STARTING_BACKUP
+            if e.args[0] != ClusterStates.STARTING_BACKUP:
+                raise
             self.backup_tid = tid = self.getLastTransaction()
             self.pt.setBackupTidDict(dict((node.getUUID(), tid)
                 for node in self.nm.getStorageList(only_identified=True)))
@@ -342,21 +344,25 @@ class Application(object):
                 in_conflict.setUUID(None)
 
         # recover the cluster status at startup
-        self.runManager(RecoveryManager)
-        while True:
-            self.runManager(VerificationManager)
-            if self.backup_tid:
-                if self.backup_app is None:
-                    raise RuntimeError("No upstream cluster to backup"
-                                       " defined in configuration")
-                self.backup_app.provideService()
-            else:
-                self.provideService()
-            for node in self.nm.getIdentifiedList():
-                if node.isStorage() or node.isClient():
-                    node.notify(Packets.StopOperation())
-                    if node.isClient():
-                        node.getConnection().abort()
+        try:
+            self.runManager(RecoveryManager)
+            while True:
+                self.runManager(VerificationManager)
+                if self.backup_tid:
+                    if self.backup_app is None:
+                        raise RuntimeError("No upstream cluster to backup"
+                                           " defined in configuration")
+                    self.backup_app.provideService()
+                else:
+                    self.provideService()
+                for node in self.nm.getIdentifiedList():
+                    if node.isStorage() or node.isClient():
+                        node.notify(Packets.StopOperation())
+                        if node.isClient():
+                            node.getConnection().abort()
+        except StateChangedException, e:
+            assert e.args[0] == ClusterStates.STOPPING
+            self.shutdown()
 
     def playSecondaryRole(self):
         """
@@ -412,22 +418,22 @@ class Application(object):
             storage_handler = self.storage_service_handler
         elif self._current_manager is not None:
             storage_handler = self._current_manager.getHandler()
+        elif state == ClusterStates.STOPPING:
+            storage_handler = None
         else:
             raise RuntimeError('Unexpected cluster state')
 
         # change handlers
         notification_packet = Packets.NotifyClusterInformation(state)
         for node in self.nm.getIdentifiedList():
-            if node.isMaster():
-                continue
             conn = node.getConnection()
-            node.notify(notification_packet)
+            conn.notify(notification_packet)
             if node.isClient():
                 if state != ClusterStates.RUNNING:
                     conn.abort()
                     continue
                 handler = client_handler
-            elif node.isStorage():
+            elif node.isStorage() and storage_handler:
                 handler = storage_handler
             else:
                 continue # keep handler
@@ -451,35 +457,47 @@ class Application(object):
 
     def shutdown(self):
         """Close all connections and exit"""
-        # XXX: This behaviour is probably broken, as it applies the same
-        #   handler to all connection types. It must be carefuly reviewed and
-        #   corrected.
-        # change handler
-        handler = shutdown.ShutdownHandler(self)
-        for node in self.nm.getIdentifiedList():
-            node.getConnection().setHandler(handler)
+        self.changeClusterState(ClusterStates.STOPPING)
+        self.listening_conn.close()
+        for conn in self.em.getConnectionList():
+            node = self.nm.getByUUID(conn.getUUID())
+            if node is None or not node.isIdentified():
+                conn.close()
+        # No need to change handlers in order to reject RequestIdentification
+        # & AskBeginTransaction packets because they won't be any:
+        # the only remaining connected peers are identified non-clients
+        # and we don't accept new connections anymore.
+        try:
+            # wait for all transaction to be finished
+            while self.tm.hasPending():
+                self.em.poll(1)
+        except OperationFailure:
+            # If not operational, send Stop Operation packets to storage
+            # nodes and client nodes. Abort connections to client nodes.
+            logging.critical('No longer operational')
 
-        # wait for all transaction to be finished
-        while self.tm.hasPending():
+        logging.info("asking remaining nodes to shutdown")
+        handler = EventHandler(self)
+        for node in self.nm.getConnectedList():
+            conn = node.getConnection()
+            if node.isStorage():
+                conn.setHandler(handler)
+                conn.notify(Packets.NotifyNodeInformation(((
+                  node.getType(), node.getAddress(), node.getUUID(),
+                  NodeStates.TEMPORARILY_DOWN),)))
+                conn.abort()
+            elif conn.pending():
+                conn.abort()
+            else:
+                conn.close()
+
+        while self.em.connection_dict:
             self.em.poll(1)
-
-        if self.cluster_state != ClusterStates.RUNNING:
-            logging.info("asking all nodes to shutdown")
-            # This code sends packets but never polls, so they never reach
-            # network.
-            for node in self.nm.getIdentifiedList():
-                notification = Packets.NotifyNodeInformation([node.asTuple()])
-                if node.isClient():
-                    node.notify(notification)
-                elif node.isStorage() or node.isMaster():
-                    node.notify(notification)
 
         # then shutdown
         sys.exit()
 
     def identifyStorageNode(self, known):
-        if self.cluster_state == ClusterStates.STOPPING:
-            raise NotReadyError
         if known:
             state = NodeStates.RUNNING
         else:

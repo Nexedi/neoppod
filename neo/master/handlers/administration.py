@@ -46,7 +46,8 @@ class AdministrationHandler(MasterHandler):
             if app.cluster_state not in CLUSTER_STATE_WORKFLOW[state]:
                 raise ProtocolError('Can not switch to this state')
         except KeyError:
-            raise ProtocolError('Invalid state requested')
+            if state != ClusterStates.STOPPING:
+                raise ProtocolError('Invalid state requested')
 
         # change state
         if state == ClusterStates.VERIFYING:
@@ -65,8 +66,6 @@ class AdministrationHandler(MasterHandler):
             if app.tm.hasPending() or app.nm.getClientList(True):
                 raise ProtocolError("Can not switch to %s state with pending"
                     " transactions or connected clients" % state)
-        elif state != ClusterStates.STOPPING_BACKUP:
-            app.changeClusterState(state)
 
         conn.answer(Errors.Ack('Cluster state changed'))
         if state != app.cluster_state:
