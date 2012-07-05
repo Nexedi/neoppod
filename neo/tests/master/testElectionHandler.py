@@ -331,31 +331,6 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         })
         self.assertEqual(self._requestIdentification(), primary)
 
-    def testAnnouncePrimary1(self):
-        """ check the wrong cases """
-        announce = self.election.announcePrimary
-        # No uuid
-        node, conn = self.identifyToMasterNode(uuid=None)
-        self.checkProtocolErrorRaised(announce, conn)
-        # Announce to a primary, raise
-        self.app.primary = True
-        node, conn = self.identifyToMasterNode()
-        self.assertTrue(self.app.primary)
-        self.assertEqual(self.app.primary_master_node, None)
-        self.assertRaises(ElectionFailure, announce, conn)
-
-    def testAnnouncePrimary2(self):
-        """ Check the good case """
-        announce = self.election.announcePrimary
-        # Announce, must set the primary
-        self.app.primary = False
-        node, conn = self.identifyToMasterNode()
-        self.assertFalse(self.app.primary)
-        self.assertFalse(self.app.primary_master_node)
-        announce(conn)
-        self.assertFalse(self.app.primary)
-        self.assertEqual(self.app.primary_master_node, node)
-
     def test_reelectPrimary(self):
         node, conn = self.identifyToMasterNode()
         self.assertRaises(ElectionFailure, self.election.reelectPrimary, conn)

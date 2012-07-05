@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os, sys
+import os, sys, weakref
 from time import time
 
 from neo.lib import logging
@@ -90,6 +90,7 @@ class Application(object):
         # election related data
         self.unconnected_master_node_set = set()
         self.negotiating_master_node_set = set()
+        self.master_address_dict = weakref.WeakKeyDictionary()
 
         self._current_manager = None
 
@@ -171,6 +172,7 @@ class Application(object):
         client_handler = election.ClientElectionHandler(self)
         self.unconnected_master_node_set.clear()
         self.negotiating_master_node_set.clear()
+        self.master_address_dict.clear()
         self.listening_conn.setHandler(election.ServerElectionHandler(self))
         getByAddress = self.nm.getByAddress
 
@@ -299,6 +301,7 @@ class Application(object):
 
     def playPrimaryRole(self):
         logging.info('play the primary role with %r', self.listening_conn)
+        self.master_address_dict.clear()
         em = self.em
         packet = Packets.AnnouncePrimary()
         for conn in em.getConnectionList():
@@ -369,6 +372,7 @@ class Application(object):
             if t < time():
                 # election timeout
                 raise ElectionFailure("Election timeout")
+        self.master_address_dict.clear()
 
         # Restart completely. Non-optimized
         # but lower level code needs to be stabilized first.

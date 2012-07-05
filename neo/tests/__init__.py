@@ -262,6 +262,7 @@ class NeoUnitTestBase(NeoTestBase):
             'getConnector': connector,
             'getPeerId': peer_id,
         })
+        conn.mockAddReturnValues(__hash__ = id(conn))
         conn.connecting = False
         return conn
 

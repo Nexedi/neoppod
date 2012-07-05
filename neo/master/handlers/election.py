@@ -23,29 +23,34 @@ from neo.lib.handler import EventHandler
 from neo.lib.util import dump
 from . import MasterHandler
 
-def elect(app, peer_address):
-    if app.server < peer_address:
-        app.primary = False
-    app.negotiating_master_node_set.discard(peer_address)
-
 class BaseElectionHandler(EventHandler):
 
     def reelectPrimary(self, conn):
         raise ElectionFailure, 'reelection requested'
 
     def announcePrimary(self, conn):
-        uuid = conn.getUUID()
-        if uuid is None:
-            raise ProtocolError('Not identified')
         app = self.app
         if app.primary:
             # I am also the primary... So restart the election.
             raise ElectionFailure, 'another primary arises'
-        node = app.nm.getByUUID(uuid)
+        try:
+            address = app.master_address_dict[conn]
+            assert conn.isServer()
+        except KeyError:
+            address = conn.getAddress()
+            assert conn.isClient()
         app.primary = False
-        app.primary_master_node = node
+        app.primary_master_node = node = app.nm.getByAddress(address)
         app.negotiating_master_node_set.clear()
         logging.info('%s is the primary', node)
+
+    def elect(self, conn, peer_address):
+        app = self.app
+        if app.server < peer_address:
+            app.primary = False
+            if conn is not None:
+                app.master_address_dict[conn] = peer_address
+        app.negotiating_master_node_set.discard(peer_address)
 
 
 class ClientElectionHandler(BaseElectionHandler):
@@ -114,7 +119,7 @@ class ClientElectionHandler(BaseElectionHandler):
                 app.negotiating_master_node_set.clear()
                 return
 
-        elect(app, node.getAddress())
+        self.elect(None, node.getAddress())
 
 
 class ServerElectionHandler(BaseElectionHandler, MasterHandler):
@@ -128,6 +133,6 @@ class ServerElectionHandler(BaseElectionHandler, MasterHandler):
         if node is None:
             node = app.nm.createMaster(address=address)
 
-        elect(app, address)
+        self.elect(conn, address)
         return uuid
 
