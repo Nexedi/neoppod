@@ -57,7 +57,8 @@ class TransactionTests(NeoUnitTestBase):
         oid_list = [self.getOID(1), self.getOID(2)]
         txn_info = (oid_list, 'USER', 'DESC', 'EXT', False)
         txn.prepare(*txn_info)
-        self.assertEqual(txn.getTransactionInformations(), txn_info)
+        self.assertEqual(txn.getTransactionInformations(),
+                         txn_info + (txn.getTTID(),))
 
     def testObjects(self):
         txn = Transaction(self.getNewUUID(), self.getNextTID())
@@ -140,7 +141,7 @@ class TransactionManagerTests(NeoUnitTestBase):
         self._checkTransactionStored(tid, [
             (object1[0], data_id_list[0], object1[4]),
             (object2[0], data_id_list[1], object2[4]),
-            ], txn)
+            ], txn + (ttid,))
         self.manager.unlock(ttid)
         self.assertFalse(ttid in self.manager)
         self._checkTransactionFinished(tid)

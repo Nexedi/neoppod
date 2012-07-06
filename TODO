@@ -19,13 +19,13 @@ RC = Release Critical (for next release)
 RC  - Review XXX in the code (CODE)
 RC  - Review TODO in the code (CODE)
 RC  - Review output of pylint (CODE)
-RC  - tpc_finish might raise while transaction got successfully committed.
+    - tpc_finish might raise while transaction got successfully committed.
       This can happen if it gets disconnected from primary master while waiting
       for AnswerFinishTransaction after primary received it and hence will
       commit transaction independently from client presence. Client could
       legitimaltely think transaction is not committed, and might decide to
-      retry. To solve this, a TTID column must be added in storage nodes so
-      client can know if his TTID got successfuly committed.
+      retry. To solve this, client can know if its TTID got successfuly
+      committed by looking at currently unused '(t)trans.ttid' column.
     - Keep-alive (HIGH AVAILABILITY) (implemented, to be reviewed and tested)
       Consider the need to implement a keep-alive system (packets sent
       automatically when there is no activity on the connection for a period

@@ -1419,6 +1419,7 @@ class AddTransaction(Packet):
         PString('description'),
         PString('extension'),
         PBoolean('packed'),
+        PTID('ttid'),
         PFOidList,
     )
 

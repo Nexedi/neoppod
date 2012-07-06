@@ -182,6 +182,7 @@ class MySQLDatabaseManager(DatabaseManager):
                  user BLOB NOT NULL,
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
+                 ttid BIGINT UNSIGNED NOT NULL,
                  PRIMARY KEY (partition, tid)
              ) ENGINE = InnoDB""" + p)
 
@@ -215,7 +216,8 @@ class MySQLDatabaseManager(DatabaseManager):
                  oids MEDIUMBLOB NOT NULL,
                  user BLOB NOT NULL,
                  description BLOB NOT NULL,
-                 ext BLOB NOT NULL
+                 ext BLOB NOT NULL,
+                 ttid BIGINT UNSIGNED NOT NULL
              ) ENGINE = InnoDB""")
 
         # The table "tobj" stores uncommitted object metadata.
@@ -431,17 +433,13 @@ class MySQLDatabaseManager(DatabaseManager):
                 q("REPLACE INTO %s VALUES (%d, %d, %d, %s, %s)" % (obj_table,
                     partition, oid, tid, data_id or 'NULL', value_serial))
 
-            if transaction is not None:
-                oid_list, user, desc, ext, packed = transaction
-                packed = packed and 1 or 0
-                oids = e(''.join(oid_list))
-                user = e(user)
-                desc = e(desc)
-                ext = e(ext)
+            if transaction:
+                oid_list, user, desc, ext, packed, ttid = transaction
                 partition = self._getPartition(tid)
-                q("REPLACE INTO %s VALUES (%d, %d, %i, '%s', '%s', '%s', '%s')"
-                    % (trans_table, partition, tid, packed, oids, user, desc,
-                        ext))
+                assert packed in (0, 1)
+                q("REPLACE INTO %s VALUES (%d,%d,%i,'%s','%s','%s','%s',%d)" % (
+                    trans_table, partition, tid, packed, e(''.join(oid_list)),
+                    e(user), e(desc), e(ext), u64(ttid)))
 
     def _pruneData(self, data_id_list):
         data_id_list = set(data_id_list).difference(self._uncommitted_data)
@@ -552,16 +550,16 @@ class MySQLDatabaseManager(DatabaseManager):
     def getTransaction(self, tid, all = False):
         tid = util.u64(tid)
         with self as q:
-            r = q("SELECT oids, user, description, ext, packed FROM trans"
-                  " WHERE partition = %d AND tid = %d"
+            r = q("SELECT oids, user, description, ext, packed, ttid"
+                  " FROM trans WHERE partition = %d AND tid = %d"
                   % (self._getPartition(tid), tid))
             if not r and all:
-                r = q("SELECT oids, user, description, ext, packed FROM ttrans"
-                      " WHERE tid = %d" % tid)
+                r = q("SELECT oids, user, description, ext, packed, ttid"
+                      " FROM ttrans WHERE tid = %d" % tid)
         if r:
-            oids, user, desc, ext, packed = r[0]
+            oids, user, desc, ext, packed, ttid = r[0]
             oid_list = splitOIDField(tid, oids)
-            return oid_list, user, desc, ext, bool(packed)
+            return oid_list, user, desc, ext, bool(packed), util.p64(ttid)
 
     def _getObjectLength(self, oid, value_serial):
         if value_serial is None:

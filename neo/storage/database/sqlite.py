@@ -120,6 +120,7 @@ class SQLiteDatabaseManager(DatabaseManager):
                  user BLOB NOT NULL,
                  description BLOB NOT NULL,
                  ext BLOB NOT NULL,
+                 ttid INTEGER NOT NULL,
                  PRIMARY KEY (partition, tid))
           """)
 
@@ -155,7 +156,8 @@ class SQLiteDatabaseManager(DatabaseManager):
                  oids BLOB NOT NULL,
                  user BLOB NOT NULL,
                  description BLOB NOT NULL,
-                 ext BLOB NOT NULL)
+                 ext BLOB NOT NULL,
+                 ttid INTEGER NOT NULL)
           """)
 
         # The table "tobj" stores uncommitted object metadata.
@@ -339,13 +341,13 @@ class SQLiteDatabaseManager(DatabaseManager):
                             continue
                     raise
 
-            if transaction is not None:
-                oid_list, user, desc, ext, packed = transaction
+            if transaction:
+                oid_list, user, desc, ext, packed, ttid = transaction
                 partition = self._getPartition(tid)
                 assert packed in (0, 1)
-                q("INSERT OR FAIL INTO %strans VALUES (?,?,?,?,?,?,?)" % T,
+                q("INSERT OR FAIL INTO %strans VALUES (?,?,?,?,?,?,?,?)" % T,
                     (partition, tid, packed, buffer(''.join(oid_list)),
-                     buffer(user), buffer(desc), buffer(ext)))
+                     buffer(user), buffer(desc), buffer(ext), u64(ttid)))
 
     def _pruneData(self, data_id_list):
         data_id_list = set(data_id_list).difference(self._uncommitted_data)
@@ -459,16 +461,16 @@ class SQLiteDatabaseManager(DatabaseManager):
     def getTransaction(self, tid, all=False):
         tid = util.u64(tid)
         with self as q:
-            r = q("SELECT oids, user, description, ext, packed FROM trans"
-                  " WHERE partition=? AND tid=?",
+            r = q("SELECT oids, user, description, ext, packed, ttid"
+                  " FROM trans WHERE partition=? AND tid=?",
                   (self._getPartition(tid), tid)).fetchone()
             if not r and all:
-                r = q("SELECT oids, user, description, ext, packed FROM ttrans"
-                      " WHERE tid=?", (tid,)).fetchone()
+                r = q("SELECT oids, user, description, ext, packed, ttid"
+                      " FROM ttrans WHERE tid=?", (tid,)).fetchone()
         if r:
-            oids, user, description, ext, packed = r
+            oids, user, description, ext, packed, ttid = r
             return splitOIDField(tid, oids), str(user), \
-                str(description), str(ext), packed
+                str(description), str(ext), packed, util.p64(ttid)
 
     def _getObjectLength(self, oid, value_serial):
         if value_serial is None:

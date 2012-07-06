@@ -95,7 +95,7 @@ class Transaction(object):
             Set the transaction informations
         """
         # assert self._transaction is not None
-        self._transaction = (oid_list, user, desc, ext, packed)
+        self._transaction = oid_list, user, desc, ext, packed, self._ttid
 
     def addObject(self, oid, data_id, value_serial):
         """

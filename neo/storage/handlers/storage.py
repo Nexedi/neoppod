@@ -84,10 +84,11 @@ class StorageOperationHandler(EventHandler):
             self.app.replicator.fetchObjects()
 
     @checkConnectionIsReplicatorConnection
-    def addTransaction(self, conn, tid, user, desc, ext, packed, oid_list):
+    def addTransaction(self, conn, tid, user, desc, ext, packed, ttid,
+                                   oid_list):
         # Directly store the transaction.
         self.app.dm.storeTransaction(tid, (),
-            (oid_list, user, desc, ext, packed), False)
+            (oid_list, user, desc, ext, packed, ttid), False)
 
     @checkConnectionIsReplicatorConnection
     def answerFetchObjects(self, conn, pack_tid, next_tid,
@@ -185,9 +186,9 @@ class StorageOperationHandler(EventHandler):
                             conn.answer(Errors.ReplicationError(
                                 "partition %u dropped" % partition))
                             return
-                        oid_list, user, desc, ext, packed = t
+                        oid_list, user, desc, ext, packed, ttid = t
                         conn.notify(Packets.AddTransaction(
-                            tid, user, desc, ext, packed, oid_list))
+                            tid, user, desc, ext, packed, ttid, oid_list))
                         yield
                 conn.answer(Packets.AnswerFetchTransactions(
                     pack_tid, next_tid, peer_tid_set), msg_id)
