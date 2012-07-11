@@ -16,9 +16,8 @@
 
 from neo.lib import logging
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import NodeTypes, Packets, NotReadyError
+from neo.lib.protocol import uuid_str, NodeTypes, NotReadyError, Packets
 from neo.lib.protocol import ProtocolError, BrokenNodeDisallowedError
-from neo.lib.util import dump
 from .storage import StorageOperationHandler
 from .client import ClientOperationHandler
 
@@ -60,7 +59,7 @@ class IdentificationHandler(EventHandler):
             elif node_type == NodeTypes.STORAGE:
                 if node is None:
                     logging.error('reject an unknown storage node %s',
-                        dump(uuid))
+                        uuid_str(uuid))
                     raise NotReadyError
                 handler = StorageOperationHandler
             else:

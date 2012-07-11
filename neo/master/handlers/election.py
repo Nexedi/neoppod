@@ -15,12 +15,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from neo.lib import logging
-from neo.lib.protocol import NodeTypes, NodeStates, Packets
+from neo.lib.protocol import uuid_str, NodeTypes, NodeStates, Packets
 from neo.lib.protocol import NotReadyError, ProtocolError, \
                               UnexpectedPacketError
 from neo.lib.exception import ElectionFailure
 from neo.lib.handler import EventHandler
-from neo.lib.util import dump
 from . import MasterHandler
 
 class BaseElectionHandler(EventHandler):
@@ -58,8 +57,8 @@ class ClientElectionHandler(BaseElectionHandler):
     def connectionFailed(self, conn):
         addr = conn.getAddress()
         node = self.app.nm.getByAddress(addr)
-        assert node is not None, (dump(self.app.uuid), addr)
-        assert node.isUnknown(), (dump(self.app.uuid), node.whoSetState(),
+        assert node is not None, (uuid_str(self.app.uuid), addr)
+        assert node.isUnknown(), (uuid_str(self.app.uuid), node.whoSetState(),
           node)
         # connection never success, node is still in unknown state
         self.app.negotiating_master_node_set.discard(addr)
@@ -92,7 +91,7 @@ class ClientElectionHandler(BaseElectionHandler):
             if app.server == address:
                 # This is self.
                 assert node.getAddress() != primary or uuid == your_uuid, (
-                    dump(uuid), dump(your_uuid))
+                    uuid_str(uuid), uuid_str(your_uuid))
                 continue
             n = app.nm.getByAddress(address)
             if n is None:

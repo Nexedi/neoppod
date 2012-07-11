@@ -20,7 +20,7 @@ from . import MasterHandler
 from ..app import StateChangedException
 from neo.lib import logging
 from neo.lib.protocol import ClusterStates, NodeStates, Packets, ProtocolError
-from neo.lib.protocol import Errors
+from neo.lib.protocol import Errors, uuid_str
 from neo.lib.util import dump
 
 CLUSTER_STATE_WORKFLOW = {
@@ -73,7 +73,7 @@ class AdministrationHandler(MasterHandler):
 
     def setNodeState(self, conn, uuid, state, modify_partition_table):
         logging.info("set node state for %s-%s : %s",
-                     dump(uuid), state, modify_partition_table)
+                     uuid_str(uuid), state, modify_partition_table)
         app = self.app
         node = app.nm.getByUUID(uuid)
         if node is None:
@@ -127,7 +127,7 @@ class AdministrationHandler(MasterHandler):
         app.broadcastNodesInformation([node])
 
     def addPendingNodes(self, conn, uuid_list):
-        uuids = ', '.join(map(dump, uuid_list))
+        uuids = ', '.join(map(uuid_str, uuid_list))
         logging.debug('Add nodes %s', uuids)
         app = self.app
         nm = app.nm
@@ -148,7 +148,7 @@ class AdministrationHandler(MasterHandler):
             logging.warning('No nodes added')
             conn.answer(Errors.Ack('No nodes added'))
             return
-        uuids = ', '.join(map(dump, uuid_set))
+        uuids = ', '.join(map(uuid_str, uuid_set))
         logging.info('Adding nodes %s', uuids)
         # switch nodes to running state
         node_list = map(nm.getByUUID, uuid_set)

@@ -21,7 +21,6 @@
 #          Fortunately, SQLite allow multiple process to access the same DB,
 #          so an external tool should be able to dump and empty tables.
 
-from binascii import b2a_hex
 from collections import deque
 from functools import wraps
 from logging import getLogger, Formatter, Logger, LogRecord, StreamHandler, \
@@ -117,6 +116,9 @@ class NEOLogger(Logger):
     def setup(self, filename=None, reset=False):
         self._acquire()
         try:
+            from . import protocol as p
+            global uuid_str
+            uuid_str = p.uuid_str
             if self.db is not None:
                 self.db.close()
                 if not filename:
@@ -153,7 +155,6 @@ class NEOLogger(Logger):
                         date REAL PRIMARY KEY NOT NULL,
                         text BLOB NOT NULL)
                   """)
-                from . import protocol as p
                 with open(inspect.getsourcefile(p)) as p:
                     p = buffer(bz2.compress(p.read()))
                 for t, in q("SELECT text FROM protocol ORDER BY date DESC"):
@@ -172,7 +173,7 @@ class NEOLogger(Logger):
         if type(r) is PacketRecord:
             ip, port = r.addr
             peer = '%s %s (%s:%u)' % ('>' if r.outgoing else '<',
-                                      r.uuid and b2a_hex(r.uuid), ip, port)
+                                      uuid_str(r.uuid), ip, port)
             self.db.execute("INSERT INTO packet VALUES (?,?,?,?,?,?)",
                 (r.created, r._name, r.msg_id, r.code, peer, buffer(r.msg)))
         else:

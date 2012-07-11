@@ -6,6 +6,7 @@ compatibility or transparent migration, so you will have to use the following
 SQL commands to migrate each storage from NEO 0.10.x::
 
   -- make sure 'tobj' & 'ttrans' are empty first
+  -        and all storages have up-to-date partition tables
   CREATE TABLE new_data (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, hash BINARY(20) NOT NULL UNIQUE, compression TINYINT UNSIGNED NULL, value LONGBLOB NULL) ENGINE = InnoDB SELECT DISTINCT obj.hash as hash, compression, value FROM obj, data WHERE obj.hash=data.hash ORDER BY serial;
   DROP TABLE data;
   RENAME TABLE new_data TO data;
@@ -16,6 +17,12 @@ SQL commands to migrate each storage from NEO 0.10.x::
   ALTER TABLE trans ADD COLUMN ttid BIGINT UNSIGNED NOT NULL;
   UPDATE trans SET ttid=tid;
   ALTER TABLE ttrans ADD COLUMN ttid BIGINT UNSIGNED NOT NULL;
+
+  CREATE TEMPORARY TABLE uuid (new INT NOT NULL AUTO_INCREMENT PRIMARY KEY, old CHAR(32) NOT NULL, KEY (old)) ENGINE = InnoDB SELECT DISTINCT uuid as old FROM pt ORDER BY uuid;
+  ALTER TABLE pt DROP PRIMARY KEY, CHANGE uuid old CHAR(32) NOT NULL, ADD uuid INT NOT NULL after rid;
+  UPDATE pt, uuid SET pt.uuid=uuid.new WHERE pt.old=uuid.old;
+  ALTER TABLE pt DROP old, ADD PRIMARY KEY (rid, uuid);
+  UPDATE config, uuid SET config.value=uuid.new WHERE config.name='uuid' AND uuid.old=config.value;
 
 NEO 0.10
 ========

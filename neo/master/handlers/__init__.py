@@ -16,10 +16,9 @@
 
 from neo.lib import logging
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import (NodeTypes, NodeStates, Packets,
+from neo.lib.protocol import (uuid_str, NodeTypes, NodeStates, Packets,
     BrokenNodeDisallowedError,
 )
-from neo.lib.util import dump
 
 class MasterHandler(EventHandler):
     """This class implements a generic part of the event handlers."""
@@ -100,7 +99,7 @@ class BaseServiceHandler(MasterHandler):
         assert new_state in (NodeStates.TEMPORARILY_DOWN, NodeStates.DOWN,
             NodeStates.BROKEN), new_state
         assert node.getState() not in (NodeStates.TEMPORARILY_DOWN,
-            NodeStates.DOWN, NodeStates.BROKEN), (dump(self.app.uuid),
+            NodeStates.DOWN, NodeStates.BROKEN), (uuid_str(self.app.uuid),
             node.whoSetState(), new_state)
         was_pending = node.isPending()
         node.setState(new_state)

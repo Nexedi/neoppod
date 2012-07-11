@@ -44,7 +44,7 @@ class NodesTests(NeoUnitTestBase):
     def testInit(self):
         """ Check the node initialization """
         address = ('127.0.0.1', 10000)
-        uuid = self.getNewUUID()
+        uuid = self.getNewUUID(None)
         node = Node(self.manager, address=address, uuid=uuid)
         self.assertEqual(node.getState(), NodeStates.UNKNOWN)
         self.assertEqual(node.getAddress(), address)
@@ -74,7 +74,7 @@ class NodesTests(NeoUnitTestBase):
         """ As for Address but UUID """
         node = Node(self.manager)
         self.assertEqual(node.getAddress(), None)
-        uuid = self.getNewUUID()
+        uuid = self.getNewUUID(None)
         node.setUUID(uuid)
         self._updatedByUUID(node)
 
@@ -131,16 +131,16 @@ class NodeManagerTests(NeoUnitTestBase):
         self.manager = NodeManager()
 
     def _addStorage(self):
-        self.storage = StorageNode(self.manager, ('127.0.0.1', 1000), self.getNewUUID())
+        self.storage = StorageNode(self.manager, ('127.0.0.1', 1000), self.getStorageUUID())
 
     def _addMaster(self):
-        self.master = MasterNode(self.manager, ('127.0.0.1', 2000), self.getNewUUID())
+        self.master = MasterNode(self.manager, ('127.0.0.1', 2000), self.getMasterUUID())
 
     def _addClient(self):
-        self.client = ClientNode(self.manager, None, self.getNewUUID())
+        self.client = ClientNode(self.manager, None, self.getClientUUID())
 
     def _addAdmin(self):
-        self.admin = AdminNode(self.manager, ('127.0.0.1', 4000), self.getNewUUID())
+        self.admin = AdminNode(self.manager, ('127.0.0.1', 4000), self.getAdminUUID())
 
     def checkNodes(self, node_list):
         manager = self.manager
@@ -180,7 +180,7 @@ class NodeManagerTests(NeoUnitTestBase):
         address = ('127.0.0.1', 10000)
         self.assertEqual(manager.getByAddress(address), None)
         self.assertEqual(manager.getByAddress(None), None)
-        uuid = self.getNewUUID()
+        uuid = self.getNewUUID(None)
         self.assertEqual(manager.getByUUID(uuid), None)
         self.assertEqual(manager.getByUUID(None), None)
 
@@ -261,7 +261,7 @@ class NodeManagerTests(NeoUnitTestBase):
         old_address = self.master.getAddress()
         new_address = ('127.0.0.1', 2001)
         old_uuid = self.storage.getUUID()
-        new_uuid = self.getNewUUID()
+        new_uuid = self.getStorageUUID()
         node_list = (
             (NodeTypes.CLIENT, None, self.client.getUUID(), NodeStates.DOWN),
             (NodeTypes.MASTER, new_address, self.master.getUUID(), NodeStates.RUNNING),

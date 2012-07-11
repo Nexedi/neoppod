@@ -16,9 +16,8 @@
 
 import neo
 from neo.lib import logging
-from neo.lib.util import dump
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets, \
-    NotReadyError, ProtocolError
+    NotReadyError, ProtocolError, uuid_str
 from . import MasterHandler
 
 class IdentificationHandler(MasterHandler):
@@ -68,7 +67,7 @@ class IdentificationHandler(MasterHandler):
             raise NotImplementedError(node_type)
 
         uuid = app.getNewUUID(uuid, address, node_type)
-        logging.info('Accept a' + human_readable_node_type + dump(uuid))
+        logging.info('Accept a' + human_readable_node_type + uuid_str(uuid))
         if node is None:
             node = node_ctor(uuid=uuid, address=address)
         node.setUUID(uuid)

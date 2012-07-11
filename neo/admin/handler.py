@@ -16,9 +16,8 @@
 
 from neo.lib import logging, protocol
 from neo.lib.handler import EventHandler
-from neo.lib.protocol import Packets, Errors
+from neo.lib.protocol import uuid_str, Packets, Errors
 from neo.lib.exception import PrimaryFailure
-from neo.lib.util import dump
 
 def check_primary_master(func):
     def wrapper(self, *args, **kw):
@@ -38,7 +37,7 @@ class AdminEventHandler(EventHandler):
     @check_primary_master
     def askPartitionList(self, conn, min_offset, max_offset, uuid):
         logging.info("ask partition list from %s to %s for %s",
-                     min_offset, max_offset, dump(uuid))
+                     min_offset, max_offset, uuid_str(uuid))
         self.app.sendPartitionTable(conn, min_offset, max_offset, uuid)
 
     @check_primary_master
@@ -56,7 +55,7 @@ class AdminEventHandler(EventHandler):
 
     @check_primary_master
     def setNodeState(self, conn, uuid, state, modify_partition_table):
-        logging.info("set node state for %s-%s", dump(uuid), state)
+        logging.info("set node state for %s-%s", uuid_str(uuid), state)
         node = self.app.nm.getByUUID(uuid)
         if node is None:
             raise protocol.ProtocolError('invalid uuid')

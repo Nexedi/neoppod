@@ -49,16 +49,12 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
         super(StorageVerificationHandlerTests, self)._tearDown(success)
 
     # Common methods
-    def getClientConnection(self):
-        address = ("127.0.0.1", self.client_port)
-        return self.getFakeConnection(uuid=self.getNewUUID(), address=address)
-
     def getMasterConnection(self):
         return self.getFakeConnection(address=("127.0.0.1", self.master_port))
 
     # Tests
     def test_03_connectionClosed(self):
-        conn = self.getClientConnection()
+        conn = self.getMasterConnection()
         self.app.listening_conn = object() # mark as running
         self.assertRaises(PrimaryFailure, self.verification.connectionClosed, conn,)
         # nothing happens
@@ -67,11 +63,11 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
     def test_08_askPartitionTable(self):
         node = self.app.nm.createStorage(
             address=("127.7.9.9", 1),
-            uuid=self.getNewUUID()
+            uuid=self.getStorageUUID()
         )
         self.app.pt.setCell(1, node, CellStates.UP_TO_DATE)
         self.assertTrue(self.app.pt.hasOffset(1))
-        conn = self.getClientConnection()
+        conn = self.getMasterConnection()
         self.verification.askPartitionTable(conn)
         ptid, row_list = self.checkAnswerPartitionTable(conn, decode=True)
         self.assertEqual(len(row_list), 1009)
@@ -85,12 +81,12 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
 
         # new node
         conn = self.getMasterConnection()
-        new_uuid = self.getNewUUID()
+        new_uuid = self.getStorageUUID()
         cell = (0, new_uuid, CellStates.UP_TO_DATE)
         self.app.nm.createStorage(uuid=new_uuid)
         self.app.pt = PartitionTable(1, 1)
         self.app.dm = Mock({ })
-        ptid, self.ptid = self.getTwoIDs()
+        ptid = self.getPTID()
         # pt updated
         self.verification.notifyPartitionChanges(conn, ptid, (cell, ))
         # check db update
@@ -150,7 +146,7 @@ class StorageVerificationHandlerTests(NeoUnitTestBase):
         self.app.dm = Mock({
             'getTransaction': ([p64(2)], 'u2', 'd2', 'e2', False),
         })
-        conn = self.getClientConnection()
+        conn = self.getMasterConnection()
         self.verification.askTransactionInformation(conn, p64(1))
         tid, user, desc, ext, packed, oid_list = self.checkAnswerTransactionInformation(conn, decode=True)
         self.assertEqual(u64(tid), 1)

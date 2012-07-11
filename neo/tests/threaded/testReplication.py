@@ -26,8 +26,8 @@ from neo.storage.transactions import TransactionManager, \
     DelayedError, ConflictError
 from neo.lib.connection import MTClientConnection
 from neo.lib.protocol import CellStates, ClusterStates, NodeStates, Packets, \
-    ZERO_OID, ZERO_TID, MAX_TID
-from neo.lib.util import dump, p64
+    ZERO_OID, ZERO_TID, MAX_TID, uuid_str
+from neo.lib.util import p64
 from . import NEOCluster, NEOThreadedTest, Patch, predictable_random
 from neo.client.pool import CELL_CONNECTED, CELL_GOOD
 
@@ -239,7 +239,8 @@ class ReplicationTests(NEOThreadedTest):
         def corrupt(offset):
             s0, s1, s2 = (storage_dict[cell.getUUID()]
                 for cell in cluster.master.pt.getCellList(offset, True))
-            logging.info('corrupt partition %u of %s', offset, dump(s1.uuid))
+            logging.info('corrupt partition %u of %s',
+                         offset, uuid_str(s1.uuid))
             s1.dm.deleteObject(p64(np+offset), p64(corrupt_tid))
             return s0.uuid
         def check(expected_state, expected_count):

@@ -49,7 +49,8 @@ class StorageInitializationHandlerTests(NeoUnitTestBase):
 
     def getClientConnection(self):
         address = ("127.0.0.1", self.client_port)
-        return self.getFakeConnection(uuid=self.getNewUUID(), address=address)
+        return self.getFakeConnection(uuid=self.getClientUUID(),
+                                      address=address)
 
     def test_03_connectionClosed(self):
         conn = self.getClientConnection()
@@ -62,15 +63,15 @@ class StorageInitializationHandlerTests(NeoUnitTestBase):
         # send a table
         conn = self.getClientConnection()
         self.app.pt = PartitionTable(3, 2)
-        node_1 = self.getNewUUID()
-        node_2 = self.getNewUUID()
-        node_3 = self.getNewUUID()
+        node_1 = self.getStorageUUID()
+        node_2 = self.getStorageUUID()
+        node_3 = self.getStorageUUID()
         self.app.uuid = node_1
         # SN already know all nodes
         self.app.nm.createStorage(uuid=node_1)
         self.app.nm.createStorage(uuid=node_2)
         self.app.nm.createStorage(uuid=node_3)
-        self.assertEqual(self.app.dm.getPartitionTable(), [])
+        self.assertEqual(self.app.dm.getPartitionTable(), ())
         row_list = [(0, ((node_1, CellStates.UP_TO_DATE), (node_2, CellStates.UP_TO_DATE))),
                     (1, ((node_3, CellStates.UP_TO_DATE), (node_1, CellStates.UP_TO_DATE))),
                     (2, ((node_2, CellStates.UP_TO_DATE), (node_3, CellStates.UP_TO_DATE)))]

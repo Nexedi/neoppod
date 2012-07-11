@@ -19,8 +19,7 @@ from os.path import exists, getsize
 import json
 
 from . import attributeTracker, logging
-from .util import dump
-from .protocol import NodeTypes, NodeStates, ProtocolError
+from .protocol import uuid_str, NodeTypes, NodeStates, ProtocolError
 
 
 class Node(object):
@@ -166,7 +165,7 @@ class Node(object):
     def __repr__(self):
         return '<%s(uuid=%s, address=%s, state=%s, connection=%r) at %x>' % (
             self.__class__.__name__,
-            dump(self._uuid),
+            uuid_str(self._uuid),
             self._address,
             self._state,
             self._connection,
@@ -511,16 +510,16 @@ class NodeManager(object):
             elif by_address is None:
                 node = by_uuid
             else:
-                raise ValueError('Got different nodes for uuid %r: %r and '
-                    'address %r: %r.' % (dump(uuid), by_uuid, address,
+                raise ValueError('Got different nodes for uuid %s: %r and '
+                    'address %r: %r.' % (uuid_str(uuid), by_uuid, address,
                     by_address))
             if uuid is not None:
                 node_uuid = node.getUUID()
                 if node_uuid is None:
                     node.setUUID(uuid)
                 elif node_uuid != uuid:
-                    raise ValueError('Expected uuid %r on node %r' % (
-                        dump(uuid), node))
+                    raise ValueError('Expected uuid %s on node %r' % (
+                        uuid_str(uuid), node))
             if address is not None:
                 node_address = node.getAddress()
                 if node_address is None:
@@ -574,7 +573,7 @@ class NodeManager(object):
             node_by_addr = self.getByAddress(addr)
             node = node_by_uuid or node_by_addr
 
-            log_args = (node_type, dump(uuid), addr, state)
+            log_args = node_type, uuid_str(uuid), addr, state
             if node is None:
                 if state == NodeStates.DOWN:
                     logging.debug('NOT creating node %s %s %s %s', *log_args)
@@ -606,10 +605,12 @@ class NodeManager(object):
 
     def log(self):
         logging.info('Node manager : %u nodes', len(self._node_set))
-        for node in sorted(list(self._node_set)):
-            uuid = dump(node.getUUID()) or '-' * 32
+        node_list = [(node, uuid_str(node.getUUID()))
+                     for node in sorted(self._node_set)]
+        max_len = max(len(x[1]) for x in node_list)
+        for node, uuid in node_list:
             address = node.getAddress() or ''
             if address:
                 address = '%s:%d' % address
-            logging.info(' * %32s | %8s | %22s | %s',
-                uuid, node.getType(), address, node.getState())
+            logging.info(' * %*s | %8s | %22s | %s',
+                max_len, uuid, node.getType(), address, node.getState())

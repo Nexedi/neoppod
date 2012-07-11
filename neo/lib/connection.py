@@ -23,8 +23,9 @@ from .connector import ConnectorException, ConnectorTryAgainException, \
         ConnectorConnectionClosedException
 from .locking import RLock
 from .profiling import profiler_decorator
-from .protocol import Errors, PacketMalformedError, Packets, ParserState
-from .util import dump, ReadBuffer
+from .protocol import uuid_str, Errors, \
+        PacketMalformedError, Packets, ParserState
+from .util import ReadBuffer
 
 CRITICAL_TIMEOUT = 30
 
@@ -297,7 +298,7 @@ class BaseConnection(object):
         address = self.addr and '%s:%d' % self.addr or '?'
         return '<%s(uuid=%s, address=%s, closed=%s, handler=%s) at %x>' % (
             self.__class__.__name__,
-            dump(self.getUUID()),
+            uuid_str(self.getUUID()),
             address,
             int(self.isClosed()),
             self.getHandler(),

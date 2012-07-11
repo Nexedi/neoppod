@@ -47,7 +47,7 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
                 self.identification.requestIdentification,
                 self.getFakeConnection(),
                 NodeTypes.CLIENT,
-                self.getNewUUID(),
+                self.getClientUUID(),
                 None,
                 self.app.name,
         )
@@ -57,14 +57,14 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
                 self.identification.requestIdentification,
                 self.getFakeConnection(),
                 NodeTypes.STORAGE,
-                self.getNewUUID(),
+                self.getStorageUUID(),
                 None,
                 self.app.name,
         )
 
     def test_requestIdentification3(self):
         """ broken nodes must be rejected """
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         conn = self.getFakeConnection(uuid=uuid)
         node = self.app.nm.createClient(uuid=uuid)
         node.setBroken()
@@ -79,7 +79,7 @@ class StorageIdentificationHandlerTests(NeoUnitTestBase):
 
     def test_requestIdentification2(self):
         """ accepted client must be connected and running """
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         conn = self.getFakeConnection(uuid=uuid)
         node = self.app.nm.createClient(uuid=uuid)
         master = (self.local_ip, 3000)

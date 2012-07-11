@@ -34,16 +34,19 @@ import psutil
 import neo.scripts
 from neo.neoctl.neoctl import NeoCTL, NotReadyException
 from neo.lib import logging
-from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates
+from neo.lib.protocol import ClusterStates, NodeTypes, CellStates, NodeStates, \
+    UUID_NAMESPACES
 from neo.lib.util import dump
 from .. import DB_USER, setupMySQLdb, NeoTestBase, buildUrlFromString, \
         ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, getTempDirectory
 from ..cluster import SocketLock
 from neo.client.Storage import Storage
 
-NEO_MASTER = 'neomaster'
-NEO_STORAGE = 'neostorage'
-NEO_ADMIN = 'neoadmin'
+command_dict = {
+    NodeTypes.MASTER: 'neomaster',
+    NodeTypes.STORAGE: 'neostorage',
+    NodeTypes.ADMIN: 'neoadmin',
+}
 
 DELAY_SAFETY_MARGIN = 10
 MAX_START_TIME = 30
@@ -231,7 +234,7 @@ class NEOProcess(object):
           Note: for this change to take effect, the node must be restarted.
         """
         self.uuid = uuid
-        self.arg_dict['--uuid'] = dump(uuid)
+        self.arg_dict['--uuid'] = str(uuid)
 
     def isAlive(self):
         try:
@@ -252,7 +255,7 @@ class NEOCluster(object):
         self.adapter = adapter
         self.zodb_storage_list = []
         self.cleanup_on_delete = cleanup_on_delete
-        self.uuid_set = set()
+        self.uuid_dict = {}
         self.db_list = db_list
         if temp_dir is None:
             temp_dir = tempfile.mkdtemp(prefix='neo_')
@@ -280,7 +283,7 @@ class NEOCluster(object):
                 for x in master_node_list)
 
         # create admin node
-        self.__newProcess(NEO_ADMIN, {
+        self.__newProcess(NodeTypes.ADMIN, {
             '--cluster': self.cluster_name,
             '--logfile': os.path.join(self.temp_dir, 'admin.log'),
             '--bind': '%s:%d' % (buildUrlFromString(
@@ -289,7 +292,7 @@ class NEOCluster(object):
         })
         # create master nodes
         for i, port in enumerate(master_node_list):
-            self.__newProcess(NEO_MASTER, {
+            self.__newProcess(NodeTypes.MASTER, {
                 '--cluster': self.cluster_name,
                 '--logfile': os.path.join(self.temp_dir, 'master_%u.log' % i),
                 '--bind': '%s:%d' % (buildUrlFromString(
@@ -300,7 +303,7 @@ class NEOCluster(object):
             })
         # create storage nodes
         for i, db in enumerate(db_list):
-            self.__newProcess(NEO_STORAGE, {
+            self.__newProcess(NodeTypes.STORAGE, {
                 '--cluster': self.cluster_name,
                 '--logfile': os.path.join(self.temp_dir, 'storage_%u.log' % i),
                 '--bind': '%s:%d' % (buildUrlFromString(
@@ -313,11 +316,12 @@ class NEOCluster(object):
         # create neoctl
         self.neoctl = NeoCTL((self.local_ip, admin_port))
 
-    def __newProcess(self, command, arguments):
-        uuid = self.__allocateUUID()
+    def __newProcess(self, node_type, arguments):
+        self.uuid_dict[node_type] = uuid = 1 + self.uuid_dict.get(node_type, 0)
+        uuid += UUID_NAMESPACES[node_type] << 24
         arguments['--uuid'] = uuid
-        self.process_dict.setdefault(command, []).append(
-            NEOProcess(command, uuid, arguments))
+        self.process_dict.setdefault(node_type, []).append(
+            NEOProcess(command_dict[node_type], uuid, arguments))
 
     def __allocateUUID(self):
         uuid = ('%032x' % random.getrandbits(128)).decode('hex')
@@ -433,17 +437,14 @@ class NEOCluster(object):
             conn = sqlite3.connect(self.db_template % db, isolation_level=None)
         return conn
 
-    def _getProcessList(self, type):
-        return self.process_dict.get(type)
-
     def getMasterProcessList(self):
-        return self._getProcessList(NEO_MASTER)
+        return self.process_dict.get(NodeTypes.MASTER)
 
     def getStorageProcessList(self):
-        return self._getProcessList(NEO_STORAGE)
+        return self.process_dict.get(NodeTypes.STORAGE)
 
     def getAdminProcessList(self):
-        return self._getProcessList(NEO_ADMIN)
+        return self.process_dict.get(NodeTypes.ADMIN)
 
     def _killMaster(self, primary=False, all=False):
         killed_uuid_list = []

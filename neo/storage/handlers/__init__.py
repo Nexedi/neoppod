@@ -16,9 +16,8 @@
 
 from neo.lib import logging
 from neo.lib.handler import EventHandler
-from neo.lib.util import dump
 from neo.lib.exception import PrimaryFailure, OperationFailure
-from neo.lib.protocol import NodeStates, NodeTypes
+from neo.lib.protocol import uuid_str, NodeStates, NodeTypes
 
 class BaseMasterHandler(EventHandler):
 
@@ -55,8 +54,8 @@ class BaseMasterHandler(EventHandler):
                 elif state == NodeStates.HIDDEN:
                     raise OperationFailure
             elif node_type == NodeTypes.CLIENT and state != NodeStates.RUNNING:
-                logging.info('Notified of non-running client, abort (%r)',
-                        dump(uuid))
+                logging.info('Notified of non-running client, abort (%s)',
+                        uuid_str(uuid))
                 self.app.tm.abortFor(uuid)
 
     def answerUnfinishedTransactions(self, conn, *args, **kw):

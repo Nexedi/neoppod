@@ -67,7 +67,7 @@ class StorageDBTests(NeoUnitTestBase):
                     db.dropPartitions(n)
         db.setNumPartitions(num_partitions)
         self.assertEqual(num_partitions, db.getNumPartitions())
-        uuid = self.getNewUUID()
+        uuid = self.getStorageUUID()
         db.setUUID(uuid)
         self.assertEqual(uuid, db.getUUID())
         db.setPartitionTable(1,
@@ -83,7 +83,7 @@ class StorageDBTests(NeoUnitTestBase):
 
     def test_UUID(self):
         db = self.getDB()
-        self.checkConfigEntry(db.getUUID, db.setUUID, 'TEST_VALUE')
+        self.checkConfigEntry(db.getUUID, db.setUUID, 123)
 
     def test_Name(self):
         db = self.getDB()
@@ -119,7 +119,7 @@ class StorageDBTests(NeoUnitTestBase):
     def test_getPartitionTable(self):
         db = self.getDB()
         ptid = self.getPTID(1)
-        uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
+        uuid1, uuid2 = self.getStorageUUID(), self.getStorageUUID()
         cell1 = (0, uuid1, CellStates.OUT_OF_DATE)
         cell2 = (1, uuid1, CellStates.UP_TO_DATE)
         db.setPartitionTable(ptid, [cell1, cell2])
@@ -249,38 +249,38 @@ class StorageDBTests(NeoUnitTestBase):
     def test_setPartitionTable(self):
         db = self.getDB()
         ptid = self.getPTID(1)
-        uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
-        cell1 = (0, uuid1, CellStates.OUT_OF_DATE)
-        cell2 = (1, uuid1, CellStates.UP_TO_DATE)
-        cell3 = (1, uuid1, CellStates.DISCARDED)
+        uuid = self.getStorageUUID()
+        cell1 = 0, uuid, CellStates.OUT_OF_DATE
+        cell2 = 1, uuid, CellStates.UP_TO_DATE
+        cell3 = 1, uuid, CellStates.DISCARDED
         # no partition table
-        self.assertEqual(db.getPartitionTable(), [])
+        self.assertEqual(list(db.getPartitionTable()), [])
         # set one
         db.setPartitionTable(ptid, [cell1])
         result = db.getPartitionTable()
-        self.assertEqual(result, [cell1])
+        self.assertEqual(list(result), [cell1])
         # then another
         db.setPartitionTable(ptid, [cell2])
         result = db.getPartitionTable()
-        self.assertEqual(result, [cell2])
+        self.assertEqual(list(result), [cell2])
         # drop discarded cells
         db.setPartitionTable(ptid, [cell2, cell3])
         result = db.getPartitionTable()
-        self.assertEqual(result, [])
+        self.assertEqual(list(result), [])
 
     def test_changePartitionTable(self):
         db = self.getDB()
         ptid = self.getPTID(1)
-        uuid1, uuid2 = self.getNewUUID(), self.getNewUUID()
-        cell1 = (0, uuid1, CellStates.OUT_OF_DATE)
-        cell2 = (1, uuid1, CellStates.UP_TO_DATE)
-        cell3 = (1, uuid1, CellStates.DISCARDED)
+        uuid = self.getStorageUUID()
+        cell1 = 0, uuid, CellStates.OUT_OF_DATE
+        cell2 = 1, uuid, CellStates.UP_TO_DATE
+        cell3 = 1, uuid, CellStates.DISCARDED
         # no partition table
-        self.assertEqual(db.getPartitionTable(), [])
+        self.assertEqual(list(db.getPartitionTable()), [])
         # set one
         db.changePartitionTable(ptid, [cell1])
         result = db.getPartitionTable()
-        self.assertEqual(result, [cell1])
+        self.assertEqual(list(result), [cell1])
         # add more entries
         db.changePartitionTable(ptid, [cell2])
         result = db.getPartitionTable()
@@ -288,7 +288,7 @@ class StorageDBTests(NeoUnitTestBase):
         # drop discarded cells
         db.changePartitionTable(ptid, [cell2, cell3])
         result = db.getPartitionTable()
-        self.assertEqual(result, [cell1])
+        self.assertEqual(list(result), [cell1])
 
     def test_dropUnfinishedData(self):
         oid1, oid2 = self.getOIDs(2)

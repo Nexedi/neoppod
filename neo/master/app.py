@@ -20,7 +20,7 @@ from time import time
 from neo.lib import logging
 from neo.lib.connector import getConnectorHandler
 from neo.lib.debug import register as registerLiveDebugger
-from neo.lib.protocol import UUID_NAMESPACES, ZERO_TID, NotReadyError
+from neo.lib.protocol import uuid_str, UUID_NAMESPACES, ZERO_TID, NotReadyError
 from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, Packets
 from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
@@ -335,7 +335,7 @@ class Application(object):
 
         if self.uuid is None:
             self.uuid = self.getNewUUID(None, self.server, NodeTypes.MASTER)
-            logging.info('My UUID: ' + dump(self.uuid))
+            logging.info('My UUID: ' + uuid_str(self.uuid))
         else:
             in_conflict = self.nm.getByUUID(self.uuid)
             if in_conflict is not None:
@@ -443,14 +443,16 @@ class Application(object):
         self.cluster_state = state
 
     def getNewUUID(self, uuid, address, node_type):
+        getByUUID = self.nm.getByUUID
         if None != uuid != self.uuid:
-            node = self.nm.getByUUID(uuid)
+            node = getByUUID(uuid)
             if node is None or node.getAddress() == address:
                 return uuid
-        while True:
-            uuid = UUID_NAMESPACES[node_type] + os.urandom(15)
-            if uuid != self.uuid and self.nm.getByUUID(uuid) is None:
+        hob = UUID_NAMESPACES[node_type]
+        for uuid in xrange((hob << 24) + 1, hob + 0x10 << 24):
+            if uuid != self.uuid and getByUUID(uuid) is None:
                 return uuid
+        raise RuntimeError
 
     def getClusterState(self):
         return self.cluster_state

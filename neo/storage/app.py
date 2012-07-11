@@ -18,7 +18,7 @@ import sys
 from collections import deque
 
 from neo.lib import logging
-from neo.lib.protocol import NodeTypes, CellStates, Packets
+from neo.lib.protocol import uuid_str, CellStates, NodeTypes, Packets
 from neo.lib.node import NodeManager
 from neo.lib.event import EventManager
 from neo.lib.connection import ListeningConnection
@@ -138,7 +138,7 @@ class Application(object):
             self.pt = PartitionTable(num_partitions, num_replicas)
 
         logging.info('Configuration loaded:')
-        logging.info('UUID      : %s', dump(self.uuid))
+        logging.info('UUID      : %s', uuid_str(self.uuid))
         logging.info('PTID      : %s', dump(ptid))
         logging.info('Name      : %s', self.name)
         logging.info('Partitions: %s', num_partitions)
@@ -233,7 +233,7 @@ class Application(object):
         (node, conn, uuid, num_partitions, num_replicas) = data
         self.master_node = node
         self.master_conn = conn
-        logging.info('I am %s', dump(uuid))
+        logging.info('I am %s', uuid_str(uuid))
         self.uuid = uuid
         self.dm.setUUID(uuid)
 

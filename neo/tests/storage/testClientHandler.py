@@ -49,7 +49,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         # handler
         self.operation = ClientOperationHandler(self.app)
         # set pmn
-        self.master_uuid = self.getNewUUID()
+        self.master_uuid = self.getMasterUUID()
         pmn = self.app.nm.getMasterList()[0]
         pmn.setUUID(self.master_uuid)
         self.app.primary_master_node = pmn
@@ -69,7 +69,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         calls[0].checkArgs(uuid)
 
     def test_connectionLost(self):
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         self.app.nm.createClient(uuid=uuid)
         conn = self._getConnection(uuid=uuid)
         self.operation.connectionClosed(conn)
@@ -192,8 +192,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         self.checkAnswerObjectHistory(conn)
 
     def test_askStoreTransaction(self):
-        uuid = self.getNewUUID()
-        conn = self._getConnection(uuid=uuid)
+        conn = self._getConnection(uuid=self.getClientUUID())
         tid = self.getNextTID()
         user = 'USER'
         desc = 'DESC'
@@ -217,8 +216,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
 
     def test_askStoreObject1(self):
         # no conflict => answer
-        uuid = self.getNewUUID()
-        conn = self._getConnection(uuid=uuid)
+        conn = self._getConnection(uuid=self.getClientUUID())
         tid = self.getNextTID()
         oid, serial, comp, checksum, data = self._getObject()
         self.operation.askStoreObject(conn, oid, serial, comp, checksum,
@@ -233,8 +231,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
 
     def test_askStoreObjectWithDataTID(self):
         # same as test_askStoreObject1, but with a non-None data_tid value
-        uuid = self.getNewUUID()
-        conn = self._getConnection(uuid=uuid)
+        conn = self._getConnection(uuid=self.getClientUUID())
         tid = self.getNextTID()
         oid, serial, comp, checksum, data = self._getObject()
         data_tid = self.getNextTID()
@@ -250,8 +247,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
 
     def test_askStoreObject2(self):
         # conflict error
-        uuid = self.getNewUUID()
-        conn = self._getConnection(uuid=uuid)
+        conn = self._getConnection(uuid=self.getClientUUID())
         tid = self.getNextTID()
         locking_tid = self.getNextTID(tid)
         def fakeStoreObject(*args):
@@ -275,8 +271,7 @@ class StorageClientHandlerTests(NeoUnitTestBase):
         calls[0].checkArgs(tid)
 
     def test_askObjectUndoSerial(self):
-        uuid = self.getNewUUID()
-        conn = self._getConnection(uuid=uuid)
+        conn = self._getConnection(uuid=self.getClientUUID())
         tid = self.getNextTID()
         ltid = self.getNextTID()
         undone_tid = self.getNextTID()

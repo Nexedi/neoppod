@@ -18,8 +18,8 @@ import math
 from functools import wraps
 
 from . import logging, protocol
-from .protocol import CellStates
-from .util import dump, u64
+from .protocol import uuid_str, CellStates
+from .util import u64
 from .locking import RLock
 
 class PartitionTableException(Exception):
@@ -36,7 +36,7 @@ class Cell(object):
 
     def __repr__(self):
         return "<Cell(uuid=%s, address=%s, state=%s)>" % (
-            dump(self.getUUID()),
+            uuid_str(self.getUUID()),
             self.getAddress(),
             self.getState(),
         )
@@ -226,7 +226,7 @@ class PartitionTable(object):
         self._id = ptid
         for offset, uuid, state in cell_list:
             node = nm.getByUUID(uuid)
-            assert node is not None, 'No node found for uuid %r' % (dump(uuid), )
+            assert node is not None, 'No node found for uuid ' + uuid_str(uuid)
             self.setCell(offset, node, state)
         logging.debug('partition table updated (ptid=%s)', ptid)
         self.log()
@@ -260,7 +260,7 @@ class PartitionTable(object):
         width under 80 column).
         """
         node_list = sorted(self.count_dict)
-        result = ['pt: node %u: %s, %s' % (i, dump(node.getUUID()),
+        result = ['pt: node %u: %s, %s' % (i, uuid_str(node.getUUID()),
                      protocol.node_state_prefix_dict[node.getState()])
                   for i, node in enumerate(node_list)]
         append = result.append

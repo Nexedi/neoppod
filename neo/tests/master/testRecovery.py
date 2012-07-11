@@ -49,7 +49,7 @@ class MasterRecoveryTests(NeoUnitTestBase):
         """Do first step of identification to MN
         """
         address = (ip, port)
-        uuid = self.getNewUUID()
+        uuid = self.getNewUUID(node_type)
         self.app.nm.createFromNodeType(node_type, address=address, uuid=uuid,
             state=NodeStates.RUNNING)
         return uuid

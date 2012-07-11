@@ -49,7 +49,7 @@ class MasterVerificationTests(NeoUnitTestBase):
                              port=10021):
         """Do first step of identification to MN
         """
-        uuid = self.getNewUUID()
+        uuid = self.getNewUUID(node_type)
         self.app.nm.createFromNodeType(
             node_type,
             address=(ip, port),

@@ -18,7 +18,7 @@ import unittest
 from mock import Mock
 from struct import pack, unpack
 from .. import NeoUnitTestBase
-from neo.lib.protocol import ZERO_TID
+from neo.lib.protocol import NodeTypes, ZERO_TID
 
 from neo.master.transactions import Transaction, TransactionManager
 from neo.master.transactions import packTID, unpackTID, addTID, DelayedError
@@ -31,12 +31,9 @@ class testTransactionManager(NeoUnitTestBase):
     def makeOID(self, i):
         return pack('!Q', i)
 
-    def makeUUID(self, i):
-        return '\0' * 12 + pack('!Q', i)
-
-    def makeNode(self, i):
-        uuid = self.makeUUID(i)
-        node = Mock({'getUUID': uuid, '__hash__': i, '__repr__': 'FakeNode'})
+    def makeNode(self, node_type):
+        uuid = self.getNewUUID(node_type)
+        node = Mock({'getUUID': uuid, '__hash__': uuid, '__repr__': 'FakeNode'})
         return uuid, node
 
     def testTransaction(self):
@@ -45,7 +42,8 @@ class testTransactionManager(NeoUnitTestBase):
         tid = self.makeTID(1)
         ttid = self.makeTID(2)
         oid_list = (oid1, oid2) = [self.makeOID(1), self.makeOID(2)]
-        uuid_list = (uuid1, uuid2) = [self.makeUUID(1), self.makeUUID(2)]
+        uuid_list = (uuid1, uuid2) = [self.getStorageUUID(),
+                                      self.getStorageUUID()]
         msg_id = 1
         # create transaction object
         txn = Transaction(node, ttid)
@@ -63,8 +61,8 @@ class testTransactionManager(NeoUnitTestBase):
         node = Mock({'__hash__': 1})
         msg_id = 1
         oid_list = (oid1, oid2) = self.makeOID(1), self.makeOID(2)
-        uuid_list = (uuid1, uuid2) = self.makeUUID(1), self.makeUUID(2)
-        client_uuid = self.makeUUID(3)
+        uuid_list = uuid1, uuid2 = self.getStorageUUID(), self.getStorageUUID()
+        client_uuid = self.getClientUUID()
         # create transaction manager
         callback = Mock()
         txnman = TransactionManager(on_commit=callback)
@@ -94,9 +92,9 @@ class testTransactionManager(NeoUnitTestBase):
 
     def testAbortFor(self):
         oid_list = [self.makeOID(1), ]
-        storage_1_uuid, node1 = self.makeNode(1)
-        storage_2_uuid, node2 = self.makeNode(2)
-        client_uuid, client = self.makeNode(3)
+        storage_1_uuid, node1 = self.makeNode(NodeTypes.STORAGE)
+        storage_2_uuid, node2 = self.makeNode(NodeTypes.STORAGE)
+        client_uuid, client = self.makeNode(NodeTypes.CLIENT)
         txnman = TransactionManager(lambda tid, txn: None)
         # register 4 transactions made by two nodes
         self.assertEqual(txnman.registerForNotification(storage_1_uuid), [])
@@ -132,10 +130,10 @@ class testTransactionManager(NeoUnitTestBase):
         client1 = Mock({'__hash__': 1})
         client2 = Mock({'__hash__': 2})
         client3 = Mock({'__hash__': 3})
-        storage_1_uuid = self.makeUUID(1)
-        storage_2_uuid = self.makeUUID(2)
+        storage_1_uuid = self.getStorageUUID()
+        storage_2_uuid = self.getStorageUUID()
         oid_list = [self.makeOID(1), ]
-        client_uuid = self.makeUUID(3)
+        client_uuid = self.getClientUUID()
 
         tm = TransactionManager(lambda tid, txn: None)
         # Transaction 1: 2 storage nodes involved, one will die and the other
@@ -213,7 +211,7 @@ class testTransactionManager(NeoUnitTestBase):
         strictly increasing order.
         Note: this implementation might change later, to allow more paralelism.
         """
-        client_uuid, client = self.makeNode(1)
+        client_uuid, client = self.makeNode(NodeTypes.CLIENT)
         tm = TransactionManager(lambda tid, txn: None)
         # With a requested TID, lock spans from begin to remove
         ttid1 = self.getNextTID()
@@ -230,7 +228,7 @@ class testTransactionManager(NeoUnitTestBase):
         tm.prepare(ttid3, 1, [], [], 0)
 
     def testClientDisconectsAfterBegin(self):
-        client_uuid1, node1 = self.makeNode(1)
+        client_uuid1, node1 = self.makeNode(NodeTypes.CLIENT)
         tm = TransactionManager(lambda tid, txn: None)
         tid1 = self.getNextTID()
         tid2 = self.getNextTID()
@@ -240,9 +238,9 @@ class testTransactionManager(NeoUnitTestBase):
 
     def testUnlockPending(self):
         callback = Mock()
-        uuid1, node1 = self.makeNode(1)
-        uuid2, node2 = self.makeNode(2)
-        storage_uuid = self.makeUUID(3)
+        uuid1, node1 = self.makeNode(NodeTypes.CLIENT)
+        uuid2, node2 = self.makeNode(NodeTypes.CLIENT)
+        storage_uuid = self.getStorageUUID()
         tm = TransactionManager(callback)
         ttid1 = tm.begin(node1)
         ttid2 = tm.begin(node2)

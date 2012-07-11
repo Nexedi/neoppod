@@ -495,13 +495,13 @@ class Test(NEOThreadedTest):
         cluster.reset() # reopen DB to check partition tables
         dm = cluster.storage_list[0].dm
         self.assertEqual(1, dm.getPTID())
-        pt = dm.getPartitionTable()
+        pt = list(dm.getPartitionTable())
         self.assertEqual(20, len(pt))
         for _, _, state in pt:
             self.assertEqual(state, CellStates.UP_TO_DATE)
         for s in cluster.storage_list[1:]:
             self.assertEqual(s.dm.getPTID(), 1)
-            self.assertEqual(s.dm.getPartitionTable(), pt)
+            self.assertEqual(list(s.dm.getPartitionTable()), pt)
 
 
 if __name__ == "__main__":

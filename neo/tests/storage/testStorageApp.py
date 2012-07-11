@@ -61,11 +61,11 @@ class StorageAppTests(NeoUnitTestBase):
             self.assertFalse(self.app.pt.hasOffset(x))
 
         # add some node, will be remove when loading table
-        master_uuid = self.getNewUUID()
+        master_uuid = self.getMasterUUID()
         master = self.app.nm.createMaster(uuid=master_uuid)
-        storage_uuid = self.getNewUUID()
+        storage_uuid = self.getStorageUUID()
         storage = self.app.nm.createStorage(uuid=storage_uuid)
-        client_uuid = self.getNewUUID()
+        client_uuid = self.getClientUUID()
 
         self.app.pt.setCell(0, master, CellStates.UP_TO_DATE)
         self.app.pt.setCell(0, storage, CellStates.UP_TO_DATE)

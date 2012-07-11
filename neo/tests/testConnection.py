@@ -207,7 +207,7 @@ class ConnectionTests(NeoUnitTestBase):
         # test uuid
         self.assertEqual(bc.uuid, None)
         self.assertEqual(bc.getUUID(), None)
-        uuid = self.getNewUUID()
+        uuid = self.getNewUUID(None)
         bc.setUUID(uuid)
         self.assertEqual(bc.getUUID(), uuid)
         # test next id
@@ -423,7 +423,7 @@ class ConnectionTests(NeoUnitTestBase):
         self._checkPacketReceived(0)
         self._checkReadBuf(bc, '')
 
-        p = Packets.AnswerPrimary(self.getNewUUID())
+        p = Packets.AnswerPrimary(self.getNewUUID(None))
         p.setId(1)
         p_data = ''.join(p.encode())
         data_edge = len(p_data) - 1
@@ -450,10 +450,10 @@ class ConnectionTests(NeoUnitTestBase):
         # give multiple packet
         bc = self._makeConnection()
         bc._queue = Mock()
-        p1 = Packets.AnswerPrimary(self.getNewUUID())
+        p1 = Packets.AnswerPrimary(self.getNewUUID(None))
         p1.setId(1)
         self._appendPacketToReadBuf(bc, p1)
-        p2 = Packets.AnswerPrimary( self.getNewUUID())
+        p2 = Packets.AnswerPrimary( self.getNewUUID(None))
         p2.setId(2)
         self._appendPacketToReadBuf(bc, p2)
         self.assertEqual(len(bc.read_buf), len(p1) + len(p2))
@@ -488,7 +488,7 @@ class ConnectionTests(NeoUnitTestBase):
         # give an expected packet
         bc = self._makeConnection()
         bc._queue = Mock()
-        p = Packets.AnswerPrimary(self.getNewUUID())
+        p = Packets.AnswerPrimary(self.getNewUUID(None))
         p.setId(1)
         self._appendPacketToReadBuf(bc, p)
         bc.analyse()
@@ -587,7 +587,7 @@ class ConnectionTests(NeoUnitTestBase):
         # With aborted set to false
         # patch receive method to return data
         def receive(self):
-            p = Packets.AnswerPrimary(self.getNewUUID())
+            p = Packets.AnswerPrimary(self.getNewUUID(None))
             p.setId(1)
             return ''.join(p.encode())
         DoNothingConnector.receive = receive
@@ -757,7 +757,7 @@ class ConnectionTests(NeoUnitTestBase):
         # test uuid
         self.assertEqual(bc.uuid, None)
         self.assertEqual(bc.getUUID(), None)
-        uuid = self.getNewUUID()
+        uuid = self.getNewUUID(None)
         bc.setUUID(uuid)
         self.assertEqual(bc.getUUID(), uuid)
         # test next id

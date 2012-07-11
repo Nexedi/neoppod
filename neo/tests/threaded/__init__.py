@@ -32,8 +32,7 @@ from neo.lib.connection import BaseConnection, Connection
 from neo.lib.connector import SocketConnector, \
     ConnectorConnectionRefusedException, ConnectorTryAgainException
 from neo.lib.event import EventManager
-from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes, \
-    UUID_NAMESPACES, INVALID_UUID
+from neo.lib.protocol import CellStates, ClusterStates, NodeStates, NodeTypes
 from neo.lib.util import SOCKET_CONNECTORS_DICT, parseMasterList, p64
 from .. import NeoTestBase, getTempDirectory, setupMySQLdb, \
     ADDRESS_TYPE, IP_VERSION_FORMAT_DICT, DB_PREFIX, DB_USER
@@ -802,27 +801,10 @@ def predictable_random(seed=None):
             logging.info("using seed %r", s)
             r = random.Random(s)
             try:
-                def getNewUUID(self, uuid, address, node_type):
-                    if node_type == NodeTypes.CLIENT:
-                        return super(MasterApplication, self).getNewUUID(uuid,
-                            address, node_type)
-                    if None != uuid != self.uuid and \
-                            self.nm.getByAddress(address) is \
-                            self.nm.getByUUID(uuid):
-                        return uuid
-                    while True:
-                        uuid = UUID_NAMESPACES[node_type] + ''.join(
-                                chr(r.randrange(256)) for _ in xrange(15))
-                        if uuid != self.uuid and \
-                                self.nm.getByUUID(uuid) is None:
-                            return uuid
-                MasterApplication.getNewUUID = getNewUUID
-
                 administration.random = backup_app.random = replicator.random \
                     = r
                 return wrapped(*args, **kw)
             finally:
-                del MasterApplication.getNewUUID
                 administration.random = backup_app.random = replicator.random \
                     = random
         return wraps(wrapped)(wrapper)

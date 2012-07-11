@@ -84,7 +84,9 @@ class ConfigurationManager(object):
 
     def getUUID(self):
         # only from command line
-        return util.bin(self.argument_list.get('uuid', None))
+        uuid = self.argument_list.get('uuid', None)
+        if uuid:
+            return int(uuid)
 
     def getUpstreamCluster(self):
         return self.__get('upstream_cluster', True)

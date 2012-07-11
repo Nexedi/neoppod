@@ -40,7 +40,7 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
         # handler
         self.operation = MasterOperationHandler(self.app)
         # set pmn
-        self.master_uuid = self.getNewUUID()
+        self.master_uuid = self.getMasterUUID()
         pmn = self.app.nm.getMasterList()[0]
         pmn.setUUID(self.master_uuid)
         self.app.primary_master_node = pmn
@@ -79,7 +79,7 @@ class StorageMasterHandlerTests(NeoUnitTestBase):
 
     def test_14_notifyPartitionChanges2(self):
         # cases :
-        uuid1, uuid2, uuid3 = [self.getNewUUID() for i in range(3)]
+        uuid1, uuid2, uuid3 = [self.getStorageUUID() for i in range(3)]
         cells = (
             (0, uuid1, CellStates.UP_TO_DATE),
             (1, uuid2, CellStates.DISCARDED),

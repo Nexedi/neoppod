@@ -27,7 +27,7 @@ import transaction
 
 from mock import Mock
 from neo.lib import debug, logging, protocol
-from neo.lib.protocol import Packets
+from neo.lib.protocol import NodeTypes, Packets, UUID_NAMESPACES
 from neo.lib.util import getAddressType
 from time import time
 from struct import pack, unpack
@@ -159,6 +159,10 @@ class NeoUnitTestBase(NeoTestBase):
 
     local_ip = IP_VERSION_FORMAT_DICT[ADDRESS_TYPE]
 
+    def setUp(self):
+        self.uuid_dict = {}
+        NeoTestBase.setUp(self)
+
     def prepareDatabase(self, number, prefix='test_neo'):
         """ create empties databases """
         setupMySQLdb(['%s%u' % (prefix, i) for i in xrange(number)])
@@ -196,30 +200,26 @@ class NeoUnitTestBase(NeoTestBase):
                 'getAdapter': 'MySQL',
         })
 
-    def _makeUUID(self, prefix):
+    def getNewUUID(self, node_type):
         """
             Retuns a 16-bytes UUID according to namespace 'prefix'
         """
-        assert len(prefix) == 1
-        uuid = protocol.INVALID_UUID
-        while uuid[1:] == protocol.INVALID_UUID[1:]:
-            uuid = prefix + os.urandom(15)
-        return uuid
-
-    def getNewUUID(self):
-        return self._makeUUID('\0')
+        if node_type is None:
+            node_type = random.choice(NodeTypes)
+        self.uuid_dict[node_type] = uuid = 1 + self.uuid_dict.get(node_type, 0)
+        return uuid + (UUID_NAMESPACES[node_type] << 24)
 
     def getClientUUID(self):
-        return self._makeUUID('C')
+        return self.getNewUUID(NodeTypes.CLIENT)
 
     def getMasterUUID(self):
-        return self._makeUUID('M')
+        return self.getNewUUID(NodeTypes.MASTER)
 
     def getStorageUUID(self):
-        return self._makeUUID('S')
+        return self.getNewUUID(NodeTypes.STORAGE)
 
     def getAdminUUID(self):
-        return self._makeUUID('A')
+        return self.getNewUUID(NodeTypes.ADMIN)
 
     def getNextTID(self, ltid=None):
         return newTid(ltid)
@@ -235,12 +235,6 @@ class NeoUnitTestBase(NeoTestBase):
         if i is None:
             return os.urandom(8)
         return pack('!Q', i)
-
-    def getTwoIDs(self):
-        """ Return a tuple of two sorted UUIDs """
-        # generate two ptid, first is lower
-        uuids = self.getNewUUID(), self.getNewUUID()
-        return min(uuids), max(uuids)
 
     def getFakeConnector(self, descriptor=None):
         return Mock({

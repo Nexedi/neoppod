@@ -42,7 +42,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
         self.master_address = ('127.0.0.1', self.master_port)
         self.client_address = ('127.0.0.1', self.client_port)
         self.storage_address = ('127.0.0.1', self.storage_port)
-        self.storage_uuid = self.getNewUUID()
+        self.storage_uuid = self.getStorageUUID()
         # register the storage
         self.app.nm.createStorage(
             uuid=self.storage_uuid,
@@ -53,7 +53,7 @@ class MasterClientHandlerTests(NeoUnitTestBase):
                              port=10021):
         """Do first step of identification to MN """
         # register the master itself
-        uuid = self.getNewUUID()
+        uuid = self.getNewUUID(node_type)
         self.app.nm.createFromNodeType(
             node_type,
             address=(ip, port),

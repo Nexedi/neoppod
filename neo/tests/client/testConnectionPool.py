@@ -26,10 +26,8 @@ class ConnectionPoolTests(NeoUnitTestBase):
     def test_removeConnection(self):
         app = None
         pool = ConnectionPool(app)
-        test_node_uuid = self.getNewUUID()
-        other_node_uuid = test_node_uuid
-        while other_node_uuid == test_node_uuid:
-            other_node_uuid = self.getNewUUID()
+        test_node_uuid = self.getStorageUUID()
+        other_node_uuid = self.getStorageUUID()
         test_node = Mock({'getUUID': test_node_uuid})
         other_node = Mock({'getUUID': other_node_uuid})
         # Test sanity check
@@ -50,9 +48,9 @@ class ConnectionPoolTests(NeoUnitTestBase):
 
     def test_CellSortKey(self):
         pool = ConnectionPool(None)
-        node_uuid_1 = self.getNewUUID()
-        node_uuid_2 = self.getNewUUID()
-        node_uuid_3 = self.getNewUUID()
+        node_uuid_1 = self.getStorageUUID()
+        node_uuid_2 = self.getStorageUUID()
+        node_uuid_3 = self.getStorageUUID()
         # We are connected to node 1
         pool.connection_dict[node_uuid_1] = None
         # A connection to node 3 failed, will be forgotten at 5

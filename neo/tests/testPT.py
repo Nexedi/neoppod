@@ -24,7 +24,7 @@ from . import NeoUnitTestBase
 class PartitionTableTests(NeoUnitTestBase):
 
     def test_01_Cell(self):
-        uuid = self.getNewUUID()
+        uuid = self.getStorageUUID()
         server = ("127.0.0.1", 19001)
         sn = StorageNode(Mock(), server, uuid)
         cell = Cell(sn)
@@ -48,7 +48,7 @@ class PartitionTableTests(NeoUnitTestBase):
         num_partitions = 5
         num_replicas = 2
         pt = PartitionTable(num_partitions, num_replicas)
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         for x in xrange(num_partitions):
@@ -129,7 +129,7 @@ class PartitionTableTests(NeoUnitTestBase):
         num_partitions = 5
         num_replicas = 2
         pt = PartitionTable(num_partitions, num_replicas)
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         for x in xrange(num_partitions):
@@ -169,19 +169,19 @@ class PartitionTableTests(NeoUnitTestBase):
         num_replicas = 2
         pt = PartitionTable(num_partitions, num_replicas)
         # add two kind of node, usable and unsable
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         pt.setCell(0, sn1, CellStates.UP_TO_DATE)
-        uuid2 = self.getNewUUID()
+        uuid2 = self.getStorageUUID()
         server2 = ("127.0.0.2", 19001)
         sn2 = StorageNode(Mock(), server2, uuid2)
         pt.setCell(0, sn2, CellStates.OUT_OF_DATE)
-        uuid3 = self.getNewUUID()
+        uuid3 = self.getStorageUUID()
         server3 = ("127.0.0.3", 19001)
         sn3 = StorageNode(Mock(), server3, uuid3)
         pt.setCell(0, sn3, CellStates.FEEDING)
-        uuid4 = self.getNewUUID()
+        uuid4 = self.getStorageUUID()
         server4 = ("127.0.0.4", 19001)
         sn4 = StorageNode(Mock(), server4, uuid4)
         pt.setCell(0, sn4, CellStates.DISCARDED) # won't be added
@@ -215,15 +215,15 @@ class PartitionTableTests(NeoUnitTestBase):
         num_replicas = 2
         pt = PartitionTable(num_partitions, num_replicas)
         # add two kind of node, usable and unsable
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         pt.setCell(0, sn1, CellStates.UP_TO_DATE)
-        uuid2 = self.getNewUUID()
+        uuid2 = self.getStorageUUID()
         server2 = ("127.0.0.2", 19001)
         sn2 = StorageNode(Mock(), server2, uuid2)
         pt.setCell(1, sn2, CellStates.OUT_OF_DATE)
-        uuid3 = self.getNewUUID()
+        uuid3 = self.getStorageUUID()
         server3 = ("127.0.0.3", 19001)
         sn3 = StorageNode(Mock(), server3, uuid3)
         pt.setCell(2, sn3, CellStates.FEEDING)
@@ -245,19 +245,19 @@ class PartitionTableTests(NeoUnitTestBase):
         num_replicas = 2
         pt = PartitionTable(num_partitions, num_replicas)
         # add two kind of node, usable and unsable
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         pt.setCell(0, sn1, CellStates.UP_TO_DATE)
-        uuid2 = self.getNewUUID()
+        uuid2 = self.getStorageUUID()
         server2 = ("127.0.0.2", 19001)
         sn2 = StorageNode(Mock(), server2, uuid2)
         pt.setCell(0, sn2, CellStates.OUT_OF_DATE)
-        uuid3 = self.getNewUUID()
+        uuid3 = self.getStorageUUID()
         server3 = ("127.0.0.3", 19001)
         sn3 = StorageNode(Mock(), server3, uuid3)
         pt.setCell(0, sn3, CellStates.FEEDING)
-        uuid4 = self.getNewUUID()
+        uuid4 = self.getStorageUUID()
         server4 = ("127.0.0.4", 19001)
         sn4 = StorageNode(Mock(), server4, uuid4)
         pt.setCell(0, sn4, CellStates.DISCARDED) # won't be added
@@ -278,7 +278,7 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertEqual(pt.num_filled_rows, 0)
         self.assertFalse(pt.filled())
         # adding a node in all partition
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         for x in xrange(num_partitions):
@@ -291,7 +291,7 @@ class PartitionTableTests(NeoUnitTestBase):
         num_replicas = 2
         pt = PartitionTable(num_partitions, num_replicas)
         # add two kind of node, usable and unsable
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         pt.setCell(0, sn1, CellStates.UP_TO_DATE)
@@ -308,7 +308,7 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertFalse(pt.filled())
         self.assertFalse(pt.operational())
         # adding a node in all partition
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         for x in xrange(num_partitions):
@@ -322,7 +322,7 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertFalse(pt.filled())
         self.assertFalse(pt.operational())
         # adding a node in all partition
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         for x in xrange(num_partitions):
@@ -337,7 +337,7 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertFalse(pt.filled())
         self.assertFalse(pt.operational())
         # adding a node in all partition
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         sn1.setState(NodeStates.TEMPORARILY_DOWN)
@@ -352,7 +352,7 @@ class PartitionTableTests(NeoUnitTestBase):
         self.assertFalse(pt.filled())
         self.assertFalse(pt.operational())
         # adding a node in all partition
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         for x in xrange(num_partitions):
@@ -366,18 +366,18 @@ class PartitionTableTests(NeoUnitTestBase):
         num_replicas = 2
         pt = PartitionTable(num_partitions, num_replicas)
         # add nodes
-        uuid1 = self.getNewUUID()
+        uuid1 = self.getStorageUUID()
         server1 = ("127.0.0.1", 19001)
         sn1 = StorageNode(Mock(), server1, uuid1)
         pt.setCell(0, sn1, CellStates.UP_TO_DATE)
         pt.setCell(1, sn1, CellStates.UP_TO_DATE)
         pt.setCell(2, sn1, CellStates.UP_TO_DATE)
-        uuid2 = self.getNewUUID()
+        uuid2 = self.getStorageUUID()
         server2 = ("127.0.0.2", 19001)
         sn2 = StorageNode(Mock(), server2, uuid2)
         pt.setCell(0, sn2, CellStates.UP_TO_DATE)
         pt.setCell(1, sn2, CellStates.UP_TO_DATE)
-        uuid3 = self.getNewUUID()
+        uuid3 = self.getStorageUUID()
         server3 = ("127.0.0.3", 19001)
         sn3 = StorageNode(Mock(), server3, uuid3)
         pt.setCell(0, sn3, CellStates.UP_TO_DATE)

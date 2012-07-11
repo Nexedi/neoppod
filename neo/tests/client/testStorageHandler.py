@@ -38,14 +38,14 @@ class StorageBootstrapHandlerTests(NeoUnitTestBase):
         self.handler = StorageBootstrapHandler(self.app)
         self.app.primary_master_node = node = Mock({
             'getConnection': self.getFakeConnection(),
-            'getUUID': self.getNewUUID(),
+            'getUUID': self.getMasterUUID(),
             'getAddress': (self.local_ip, 2999)
         })
         self._next_port = 3000
 
     def getKnownStorage(self):
         node = self.app.nm.createStorage(
-            uuid=self.getNewUUID(),
+            uuid=self.getStorageUUID(),
             address=(self.local_ip, self._next_port),
         )
         self._next_port += 1
@@ -172,7 +172,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
             {oid: set([tid, ])}).answerStoreObject(conn, 1, oid, tid_2)
 
     def test_answerStoreObject_4(self):
-        uuid = self.getNewUUID()
+        uuid = self.getStorageUUID()
         conn = self.getFakeConnection(uuid=uuid)
         oid = self.getOID(0)
         tid = self.getNextTID()
@@ -223,7 +223,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
             conn, 'message')
 
     def test_answerTIDs(self):
-        uuid = self.getNewUUID()
+        uuid = self.getStorageUUID()
         tid1 = self.getNextTID()
         tid2 = self.getNextTID(tid1)
         tid_list = [tid1, tid2]
@@ -233,7 +233,7 @@ class StorageAnswerHandlerTests(NeoUnitTestBase):
         self.assertEqual(tid_set, set(tid_list))
 
     def test_answerObjectUndoSerial(self):
-        uuid = self.getNewUUID()
+        uuid = self.getStorageUUID()
         conn = self.getFakeConnection(uuid=uuid)
         oid1 = self.getOID(1)
         oid2 = self.getOID(2)

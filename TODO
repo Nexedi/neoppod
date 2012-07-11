@@ -30,11 +30,6 @@ RC  - Review output of pylint (CODE)
       Consider the need to implement a keep-alive system (packets sent
       automatically when there is no activity on the connection for a period
       of time).
-    - Factorise packet data when sending partition table cells (BANDWITH)
-      Currently, each cell in a partition table update contains UUIDs of all
-      involved nodes.
-      It must be changed to a correspondance table using shorter keys (sent
-      in the packet) to avoid repeating the same UUIDs many times.
     - Consider using multicast for cluster-wide notifications. (BANDWITH)
       Currently, multi-receivers notifications are sent in unicast to each
       receiver. Multicast should be used.

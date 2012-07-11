@@ -60,7 +60,7 @@ class MasterStorageHandlerTests(NeoUnitTestBase):
         """Do first step of identification to MN
         """
         nm = self.app.nm
-        uuid = self.getNewUUID()
+        uuid = self.getNewUUID(node_type)
         node = nm.createFromNodeType(node_type, address=(ip, port),
                 uuid=uuid)
         conn = self.getFakeConnection(node.getUUID(),node.getAddress())

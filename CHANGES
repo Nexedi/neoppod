@@ -31,6 +31,8 @@ Other changes are:
 - Adding and removing master nodes is now easier: unknown incoming master nodes
   are now accepted instead of rejected, and nodes can be given a path to a file
   that maintains a list of known master nodes.
+- Node UUIDs have been shortened from 16 to 4 bytes, for better performance and
+  easier debugging.
 
 Also contains code clean-ups and bugfixes.
 

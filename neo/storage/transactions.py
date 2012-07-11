@@ -17,7 +17,7 @@
 from time import time
 from neo.lib import logging
 from neo.lib.util import dump
-from neo.lib.protocol import ZERO_TID
+from neo.lib.protocol import uuid_str, ZERO_TID
 
 class ConflictError(Exception):
     """
@@ -55,15 +55,14 @@ class Transaction(object):
         self._checked_set = set()
 
     def __repr__(self):
-        return "<%s(ttid=%r, tid=%r, uuid=%r, locked=%r, age=%.2fs)> at %x" % (
-            self.__class__.__name__,
+        return "<%s(ttid=%r, tid=%r, uuid=%r, locked=%r, age=%.2fs) at 0x%x>" \
+         % (self.__class__.__name__,
             dump(self._ttid),
             dump(self._tid),
-            dump(self._uuid),
+            uuid_str(self._uuid),
             self.isLocked(),
             time() - self._birth,
-            id(self),
-        )
+            id(self))
 
     def addCheckedObject(self, oid):
         assert oid not in self._object_dict, dump(oid)
@@ -148,7 +147,7 @@ class TransactionManager(object):
         """
             Register a transaction, it may be already registered
         """
-        logging.debug('Register TXN %s for %s', dump(ttid), dump(uuid))
+        logging.debug('Register TXN %s for %s', dump(ttid), uuid_str(uuid))
         transaction = self._transaction_dict.get(ttid, None)
         if transaction is None:
             transaction = Transaction(uuid, ttid)
@@ -353,7 +352,7 @@ class TransactionManager(object):
         """
             Abort any non-locked transaction of a node
         """
-        logging.debug('Abort for %s', dump(uuid))
+        logging.debug('Abort for %s', uuid_str(uuid))
         # abort any non-locked transaction of this node
         for ttid in [x.getTTID() for x in self._uuid_dict.get(uuid, [])]:
             self.abort(ttid)

@@ -106,7 +106,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         # The table "pt" stores a partition table.
         q("""CREATE TABLE IF NOT EXISTS pt (
                  rid INTEGER NOT NULL,
-                 uuid BLOB NOT NULL,
+                 uuid INTEGER NOT NULL,
                  state INTEGER NOT NULL,
                  PRIMARY KEY (rid, uuid))
           """)
@@ -203,9 +203,7 @@ class SQLiteDatabaseManager(DatabaseManager):
             return -1
 
     def getPartitionTable(self):
-        return [(offset, util.bin(uuid), state)
-            for offset, uuid, state in self.query(
-                "SELECT rid, uuid, state FROM pt")]
+        return self.query("SELECT * FROM pt")
 
     def _getLastTIDs(self, all=True):
         p64 = util.p64
@@ -275,7 +273,6 @@ class SQLiteDatabaseManager(DatabaseManager):
             if reset:
                 q("DELETE FROM pt")
             for offset, uuid, state in cell_list:
-                uuid = buffer(util.dump(uuid))
                 # TODO: this logic should move out of database manager
                 # add 'dropCells(cell_list)' to API and use one query
                 # WKRD: Why does SQLite need a statement journal file

@@ -22,7 +22,7 @@ from neo.lib.connector import getConnectorHandler
 from neo.lib.exception import PrimaryFailure
 from neo.lib.node import NodeManager
 from neo.lib.protocol import CellStates, ClusterStates, NodeTypes, Packets
-from neo.lib.protocol import INVALID_TID, ZERO_TID
+from neo.lib.protocol import uuid_str, INVALID_TID, ZERO_TID
 from neo.lib.util import add64, dump
 from .app import StateChangedException
 from .pt import PartitionTable
@@ -154,9 +154,9 @@ class BackupApplication(object):
                 cell.replicating = tid
                 if cell.backup_tid < tid:
                     logging.debug(
-                        "ask %s to replicate partition %u up to %s from %r",
-                        dump(cell.getUUID()), offset,  dump(tid),
-                        dump(primary_node.getUUID()))
+                        "ask %s to replicate partition %u up to %s from %s",
+                        uuid_str(cell.getUUID()), offset,  dump(tid),
+                        uuid_str(primary_node.getUUID()))
                     cell.getNode().getConnection().notify(p)
             trigger_set.add(primary_node)
         for node in trigger_set:
@@ -238,7 +238,7 @@ class BackupApplication(object):
                 address_set.add(addr)
             source_dict[offset] = addr
             logging.debug("ask %s to replicate partition %u up to %s from %r",
-                dump(node.getUUID()), offset,  dump(tid), addr)
+                uuid_str(node.getUUID()), offset,  dump(tid), addr)
         node.getConnection().notify(Packets.Replicate(
             tid, self.name, source_dict))
 
@@ -272,9 +272,9 @@ class BackupApplication(object):
                 if tid < max_tid:
                     cell.replicating = max_tid
                     logging.debug(
-                        "ask %s to replicate partition %u up to %s from %r",
-                        dump(node.getUUID()), offset,  dump(max_tid),
-                        dump(primary_node.getUUID()))
+                        "ask %s to replicate partition %u up to %s from %s",
+                        uuid_str(node.getUUID()), offset,  dump(max_tid),
+                        uuid_str(primary_node.getUUID()))
                     node.getConnection().notify(Packets.Replicate(max_tid,
                         '', {offset: primary_node.getAddress()}))
             else:
@@ -288,7 +288,7 @@ class BackupApplication(object):
                             cell.replicating = tid
                             logging.debug(
                                 "ask %s to replicate partition %u up to %s from"
-                                " %r", dump(cell.getUUID()), offset,  dump(tid),
-                                dump(node.getUUID()))
+                                " %s", uuid_str(cell.getUUID()), offset,
+                                dump(tid), uuid_str(node.getUUID()))
                             cell.getNode().getConnection().notify(p)
         return result

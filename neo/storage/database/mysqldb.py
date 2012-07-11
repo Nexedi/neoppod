@@ -165,7 +165,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "pt" stores a partition table.
         q("""CREATE TABLE IF NOT EXISTS pt (
                  rid INT UNSIGNED NOT NULL,
-                 uuid CHAR(32) NOT NULL,
+                 uuid INT NOT NULL,
                  state TINYINT UNSIGNED NOT NULL,
                  PRIMARY KEY (rid, uuid)
              ) ENGINE = InnoDB""")
@@ -267,13 +267,7 @@ class MySQLDatabaseManager(DatabaseManager):
             return -1
 
     def getPartitionTable(self):
-        q = self.query
-        cell_list = q("""SELECT rid, uuid, state FROM pt""")
-        pt = []
-        for offset, uuid, state in cell_list:
-            uuid = util.bin(uuid)
-            pt.append((offset, uuid, state))
-        return pt
+        return self.query("SELECT * FROM pt")
 
     def _getLastTIDs(self, all=True):
         p64 = util.p64
@@ -340,21 +334,19 @@ class MySQLDatabaseManager(DatabaseManager):
         return serial, next_serial, compression, checksum, data, value_serial
 
     def doSetPartitionTable(self, ptid, cell_list, reset):
-        e = self.escape
         offset_list = []
         with self as q:
             if reset:
                 q("""TRUNCATE pt""")
             for offset, uuid, state in cell_list:
-                uuid = e(util.dump(uuid))
                 # TODO: this logic should move out of database manager
                 # add 'dropCells(cell_list)' to API and use one query
                 if state == CellStates.DISCARDED:
-                    q("""DELETE FROM pt WHERE rid = %d AND uuid = '%s'""" \
+                    q("""DELETE FROM pt WHERE rid = %d AND uuid = %d"""
                             % (offset, uuid))
                 else:
                     offset_list.append(offset)
-                    q("""INSERT INTO pt VALUES (%d, '%s', %d)
+                    q("""INSERT INTO pt VALUES (%d, %d, %d)
                             ON DUPLICATE KEY UPDATE state = %d""" \
                                     % (offset, uuid, state, state))
             self.setPTID(ptid)

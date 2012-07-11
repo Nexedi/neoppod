@@ -18,8 +18,7 @@ from time import sleep
 
 from . import logging
 from .handler import EventHandler
-from .protocol import Packets
-from .util import dump
+from .protocol import uuid_str, Packets
 from .connection import ClientConnection
 
 NO_SERVER = ('0.0.0.0', 0)
@@ -115,7 +114,7 @@ class BootstrapManager(EventHandler):
         if self.uuid != your_uuid:
             # got an uuid from the primary master
             self.uuid = your_uuid
-            logging.info('Got a new UUID: %s', dump(self.uuid))
+            logging.info('Got a new UUID: %s', uuid_str(self.uuid))
         self.accepted = True
 
     def getPrimaryConnection(self, connector_handler):

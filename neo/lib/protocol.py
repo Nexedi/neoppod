@@ -26,7 +26,7 @@ except ImportError:
     pass
 
 # The protocol version (major, minor).
-PROTOCOL_VERSION = (9, 1)
+PROTOCOL_VERSION = (10, 1)
 
 # Size restrictions.
 MIN_PACKET_SIZE = 10
@@ -154,7 +154,7 @@ cell_state_prefix_dict = {
 }
 
 # Other constants.
-INVALID_UUID = '\0' * 16
+INVALID_UUID = 0
 INVALID_TID = '\xff' * 8
 INVALID_OID = '\xff' * 8
 INVALID_PARTITION = 0xffffffff
@@ -166,12 +166,24 @@ OID_LEN = len(INVALID_OID)
 TID_LEN = len(INVALID_TID)
 MAX_TID = '\x7f' + '\xff' * 7 # SQLite does not accept numbers above 2^63-1
 
+# High-order byte:
+# 7 6 5 4 3 2 1 0
+# | | | | +-+-+-+-- reserved (0)
+# | +-+-+---------- node type
+# +---------------- temporary if negative
+# UUID namespaces are required to prevent conflicts when the master generate
+# new uuid before it knows uuid of existing storage nodes. So only the high
+# order bit is really important and the 31 other bits could be random.
+# Extra namespace information and non-randomness of 3 LOB help to read logs.
 UUID_NAMESPACES = {
-    NodeTypes.STORAGE: 'S',
-    NodeTypes.MASTER: 'M',
-    NodeTypes.CLIENT: 'C',
-    NodeTypes.ADMIN: 'A',
+    NodeTypes.STORAGE: 0x00,
+    NodeTypes.MASTER: -0x10,
+    NodeTypes.CLIENT: -0x20,
+    NodeTypes.ADMIN: -0x30,
 }
+uuid_str = (lambda ns: lambda uuid:
+    ns[uuid >> 24] + str(uuid & 0xffffff) if uuid else str(uuid)
+    )(dict((v, str(k)[0]) for k, v in UUID_NAMESPACES.iteritems()))
 
 class ProtocolError(Exception):
     """ Base class for protocol errors, close the connection """
@@ -586,21 +598,18 @@ class PChecksum(PItem):
     def _decode(self, reader):
         return reader(20)
 
-class PUUID(PItem):
+class PUUID(PStructItem):
     """
-        An UUID (node identifier)
+        An UUID (node identifier, 4-bytes signed integer)
     """
+    def __init__(self, name):
+        PStructItem.__init__(self, name, '!l')
+
     def _encode(self, writer, uuid):
-        if uuid is None:
-            uuid = INVALID_UUID
-        assert len(uuid) == 16, (len(uuid), uuid)
-        writer(uuid)
+        writer(self.pack(uuid or 0))
 
     def _decode(self, reader):
-        uuid = reader(16)
-        if uuid == INVALID_UUID:
-            uuid = None
-        return uuid
+        return self.unpack(reader(self.size))[0] or None
 
 class PTID(PItem):
     """

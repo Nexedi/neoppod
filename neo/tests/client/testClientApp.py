@@ -22,8 +22,8 @@ from .. import NeoUnitTestBase, buildUrlFromString, ADDRESS_TYPE
 from neo.client.app import Application
 from neo.client.exception import NEOStorageError, NEOStorageNotFoundError
 from neo.client.exception import NEOStorageDoesNotExistError
-from neo.lib.protocol import Packet, Packets, Errors, INVALID_TID, \
-    INVALID_PARTITION
+from neo.lib.protocol import NodeTypes, Packet, Packets, Errors, INVALID_TID, \
+    INVALID_PARTITION, UUID_NAMESPACES
 from neo.lib.util import makeChecksum, SOCKET_CONNECTORS_DICT
 import time
 
@@ -37,7 +37,7 @@ class Dispatcher(object):
 
 def _getMasterConnection(self):
     if self.master_conn is None:
-        self.uuid = 'C' * 16
+        self.uuid = 1 + (UUID_NAMESPACES[NodeTypes.CLIENT] << 24)
         self.num_partitions = 10
         self.num_replicas = 1
         self.pt = Mock({'getCellList': ()})
@@ -323,7 +323,7 @@ class ClientApplicationTests(NeoUnitTestBase):
 
     def test_store3(self):
         app = self.getApp()
-        uuid = self.getNewUUID()
+        uuid = self.getStorageUUID()
         oid = self.makeOID(11)
         tid = self.makeTID()
         txn = self.makeTransactionObject()
@@ -429,10 +429,9 @@ class ClientApplicationTests(NeoUnitTestBase):
         oid1 = self.makeOID(num_partitions + 1) # on partition 1, conflicting
         oid2 = self.makeOID(num_partitions + 2) # on partition 2
         # storage nodes
-        uuid1, uuid2, uuid3 = [self.getNewUUID() for _ in range(3)]
-        address1 = ('127.0.0.1', 10000)
-        address2 = ('127.0.0.1', 10001)
-        address3 = ('127.0.0.1', 10002)
+        address1 = ('127.0.0.1', 10000); uuid1 = self.getMasterUUID()
+        address2 = ('127.0.0.1', 10001); uuid2 = self.getStorageUUID()
+        address3 = ('127.0.0.1', 10002); uuid3 = self.getStorageUUID()
         app.nm.createMaster(address=address1, uuid=uuid1)
         app.nm.createStorage(address=address2, uuid=uuid2)
         app.nm.createStorage(address=address3, uuid=uuid3)
@@ -699,7 +698,7 @@ class ClientApplicationTests(NeoUnitTestBase):
     def test_undoLog(self):
         app = self.getApp()
         app.num_partitions = 2
-        uuid1, uuid2 = '\x00' * 15 + '\x01', '\x00' * 15 + '\x02'
+        uuid1, uuid2 = self.getStorageUUID(), self.getStorageUUID()
         # two nodes, two partition, two transaction, two objects :
         tid1, tid2 = self.makeTID(1), self.makeTID(2)
         oid1, oid2 = self.makeOID(1), self.makeOID(2)
@@ -778,7 +777,7 @@ class ClientApplicationTests(NeoUnitTestBase):
         # fifth packet : request node identification succeeded
         def _ask6(conn):
             app.master_conn = conn
-            app.uuid = 'C' * 16
+            app.uuid = 1 + (UUID_NAMESPACES[NodeTypes.CLIENT] << 24)
             app.trying_master_node = app.primary_master_node = Mock({
                 'getAddress': ('127.0.0.1', 10011),
                 '__str__': 'Fake master node',

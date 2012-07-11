@@ -104,13 +104,15 @@ class DatabaseManager(object):
         """
             Load an UUID from a database.
         """
-        return util.bin(self.getConfiguration('uuid'))
+        uuid = self.getConfiguration('uuid')
+        if uuid is not None:
+            return int(uuid)
 
     def setUUID(self, uuid):
         """
             Store an UUID into a database.
         """
-        self.setConfiguration('uuid', util.dump(uuid))
+        self.setConfiguration('uuid', str(uuid))
 
     def getNumPartitions(self):
         """
@@ -188,7 +190,7 @@ class DatabaseManager(object):
         return self.setConfiguration('backup_tid', util.dump(backup_tid))
 
     def getPartitionTable(self):
-        """Return a whole partition table as a tuple of rows. Each row
+        """Return a whole partition table as a sequence of rows. Each row
         is again a tuple of an offset (row ID), an UUID of a storage
         node, and a cell state."""
         raise NotImplementedError

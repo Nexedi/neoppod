@@ -19,6 +19,7 @@ from struct import pack, unpack
 from neo.lib.protocol import ZERO_TID
 from datetime import timedelta, datetime
 from neo.lib import logging
+from neo.lib.protocol import uuid_str
 from neo.lib.util import dump, u64, p64
 
 TID_LOW_OVERFLOW = 2**32
@@ -118,7 +119,7 @@ class Transaction(object):
                 self._node,
                 dump(self._tid),
                 map(dump, self._oid_list or ()),
-                map(dump, self._uuid_set or ()),
+                map(uuid_str, self._uuid_set or ()),
                 time() - self._birth,
                 id(self),
         )
@@ -417,7 +418,7 @@ class TransactionManager(object):
             If transaction is completely locked, calls function given at
             instanciation time.
         """
-        logging.debug('Lock TXN %s for %s', dump(ttid), dump(uuid))
+        logging.debug('Lock TXN %s for %s', dump(ttid), uuid_str(uuid))
         assert ttid in self._ttid_dict, "Transaction not started"
         txn = self._ttid_dict[ttid]
         if txn.lock(uuid) and self._queue[0][1] == ttid:

@@ -50,8 +50,8 @@ class main(object):
         g = {}
         exec bz2.decompress(*q("SELECT text FROM protocol WHERE date<?"
                                " ORDER BY date DESC", (date,)).next()) in g
-        self.Packets = g['Packets']
-        self.PacketMalformedError = g['PacketMalformedError']
+        for x in 'uuid_str', 'Packets', 'PacketMalformedError':
+            setattr(self, x, g[x])
         try:
             self._next_protocol, = q("SELECT date FROM protocol WHERE date>=?",
                                      (date,)).next()
@@ -96,11 +96,17 @@ class main(object):
         return "%s (%s)" % (code, message),
 
     def notifyNodeInformation(self, node_list):
-        for node_type, address, uuid, state in node_list:
-            address = '%s:%u' % address if address else '?'
-            if uuid is not None:
-                uuid = b2a_hex(uuid)
-            yield ' ! %s | %8s | %22s | %s' % (uuid, node_type, address, state)
+        node_list.sort(key=lambda x: x[2])
+        node_list = [(self.uuid_str(uuid), str(node_type),
+                      '%s:%u' % address if address else '?', state)
+                     for node_type, address, uuid, state in node_list]
+        if node_list:
+            t = ' ! %%%us | %%%us | %%%us | %%s' % (
+                max(len(x[0]) for x in node_list),
+                max(len(x[1]) for x in node_list),
+                max(len(x[2]) for x in node_list))
+            return map(t.__mod__, node_list)
+        return ()
 
 
 if __name__ == "__main__":

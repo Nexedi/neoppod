@@ -15,8 +15,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from .neoctl import NeoCTL, NotReadyException
-from neo.lib.util import bin, dump, p64
-from neo.lib.protocol import ClusterStates, NodeStates, NodeTypes, ZERO_TID
+from neo.lib.util import bin, p64
+from neo.lib.protocol import uuid_str, ClusterStates, NodeStates, NodeTypes, \
+    ZERO_TID
 
 action_dict = {
     'print': {
@@ -57,7 +58,7 @@ class TerminalNeoCTL(object):
 
     def formatRowList(self, row_list):
         return '\n'.join('%03d | %s' % (offset,
-            ''.join('%s - %s |' % (dump(uuid), state)
+            ''.join('%s - %s |' % (uuid_str(uuid), state)
             for (uuid, state) in cell_list))
             for (offset, cell_list) in row_list)
 
@@ -69,12 +70,9 @@ class TerminalNeoCTL(object):
             if address is None:
                 address = (None, None)
             ip, port = address
-            result.append('%s - %s - %s:%s - %s' % (node_type, dump(uuid), ip,
-                                                    port, state))
+            result.append('%s - %s - %s:%s - %s' % (node_type, uuid_str(uuid),
+                                                    ip, port, state))
         return '\n'.join(result)
-
-    def formatUUID(self, uuid):
-        return dump(uuid)
 
     # Actual actions
     def getPartitionRowList(self, params):
@@ -185,7 +183,7 @@ class TerminalNeoCTL(object):
         """
           Get primary master node.
         """
-        return self.formatUUID(self.neoctl.getPrimary())
+        return uuid_str(self.neoctl.getPrimary())
 
     def checkReplicas(self, params):
         """

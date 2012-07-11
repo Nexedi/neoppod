@@ -31,11 +31,11 @@ class MasterAppTests(NeoUnitTestBase):
 
     def test_06_broadcastNodeInformation(self):
         # defined some nodes to which data will be send
-        master_uuid = self.getNewUUID()
+        master_uuid = self.getMasterUUID()
         master = self.app.nm.createMaster(uuid=master_uuid)
-        storage_uuid = self.getNewUUID()
+        storage_uuid = self.getStorageUUID()
         storage = self.app.nm.createStorage(uuid=storage_uuid)
-        client_uuid = self.getNewUUID()
+        client_uuid = self.getClientUUID()
         client = self.app.nm.createClient(uuid=client_uuid)
         # create conn and patch em
         master_conn = self.getFakeConnection()
@@ -51,7 +51,7 @@ class MasterAppTests(NeoUnitTestBase):
         self.app.nm.add(client)
 
         # no address defined, not send to client node
-        c_node = self.app.nm.createClient(uuid = self.getNewUUID())
+        c_node = self.app.nm.createClient(uuid=self.getClientUUID())
         self.app.broadcastNodesInformation([c_node])
         # check conn
         self.checkNoPacketSent(client_conn)
@@ -60,7 +60,7 @@ class MasterAppTests(NeoUnitTestBase):
 
         # address defined and client type
         s_node = self.app.nm.createClient(
-            uuid = self.getNewUUID(),
+            uuid=self.getClientUUID(),
             address=("127.1.0.1", 3361)
         )
         self.app.broadcastNodesInformation([c_node])
@@ -71,7 +71,7 @@ class MasterAppTests(NeoUnitTestBase):
 
         # address defined and storage type
         s_node = self.app.nm.createStorage(
-            uuid=self.getNewUUID(),
+            uuid=self.getStorageUUID(),
             address=("127.0.0.1", 1351)
         )
 
@@ -91,8 +91,8 @@ class MasterAppTests(NeoUnitTestBase):
         self.checkNotifyNodeInformation(storage_conn)
 
     def test_storageReadinessAPI(self):
-        uuid_1 = self.getNewUUID()
-        uuid_2 = self.getNewUUID()
+        uuid_1 = self.getStorageUUID()
+        uuid_2 = self.getStorageUUID()
         self.assertFalse(self.app.isStorageReady(uuid_1))
         self.assertFalse(self.app.isStorageReady(uuid_2))
         # Must not raise, nor change readiness

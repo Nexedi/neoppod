@@ -25,7 +25,7 @@ from neo.storage.transactions import ConflictError, DelayedError
 class TransactionTests(NeoUnitTestBase):
 
     def testInit(self):
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         ttid = self.getNextTID()
         tid = self.getNextTID()
         txn = Transaction(uuid, ttid)
@@ -37,15 +37,8 @@ class TransactionTests(NeoUnitTestBase):
         self.assertEqual(txn.getObjectList(), [])
         self.assertEqual(txn.getOIDList(), [])
 
-    def testRepr(self):
-        """ Just check if the __repr__ implementation will not raise """
-        uuid = self.getNewUUID()
-        tid = self.getNextTID()
-        txn = Transaction(uuid, tid)
-        repr(txn)
-
     def testLock(self):
-        txn = Transaction(self.getNewUUID(), self.getNextTID())
+        txn = Transaction(self.getClientUUID(), self.getNextTID())
         self.assertFalse(txn.isLocked())
         txn.lock()
         self.assertTrue(txn.isLocked())
@@ -53,7 +46,8 @@ class TransactionTests(NeoUnitTestBase):
         self.assertRaises(AssertionError, txn.lock)
 
     def testTransaction(self):
-        txn = Transaction(self.getNewUUID(), self.getNextTID())
+        txn = Transaction(self.getClientUUID(), self.getNextTID())
+        repr(txn) # check __repr__ does not raise
         oid_list = [self.getOID(1), self.getOID(2)]
         txn_info = (oid_list, 'USER', 'DESC', 'EXT', False)
         txn.prepare(*txn_info)
@@ -61,7 +55,7 @@ class TransactionTests(NeoUnitTestBase):
                          txn_info + (txn.getTTID(),))
 
     def testObjects(self):
-        txn = Transaction(self.getNewUUID(), self.getNextTID())
+        txn = Transaction(self.getClientUUID(), self.getNextTID())
         oid1, oid2 = self.getOID(1), self.getOID(2)
         object1 = oid1, "0" * 20, None
         object2 = oid2, "1" * 20, None
@@ -77,7 +71,7 @@ class TransactionTests(NeoUnitTestBase):
     def test_getObject(self):
         oid_1 = self.getOID(1)
         oid_2 = self.getOID(2)
-        txn = Transaction(self.getNewUUID(), self.getNextTID())
+        txn = Transaction(self.getClientUUID(), self.getNextTID())
         object_info = oid_1, None, None
         txn.addObject(*object_info)
         self.assertRaises(KeyError, txn.getObject, oid_2)
@@ -127,7 +121,7 @@ class TransactionManagerTests(NeoUnitTestBase):
         """ One node, one transaction, not abort """
         data_id_list = random.random(), random.random()
         self.app.dm.mockAddReturnValues(storeData=ReturnValues(*data_id_list))
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         ttid = self.getNextTID()
         tid, txn = self._getTransaction()
         serial1, object1 = self._getObject(1)
@@ -148,7 +142,7 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def testDelayed(self):
         """ Two transactions, the first cause the second to be delayed """
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
         tid1, txn1 = self._getTransaction()
@@ -169,7 +163,7 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def testUnresolvableConflict(self):
         """ A newer transaction has already modified an object """
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
         tid1, txn1 = self._getTransaction()
@@ -190,7 +184,7 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def testResolvableConflict(self):
         """ Try to store an object with the lastest revision """
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         tid, txn = self._getTransaction()
         serial, obj = self._getObject(1)
         next_serial = self.getNextTID(serial)
@@ -203,8 +197,8 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def testLockDelayed(self):
         """ Check lock delay """
-        uuid1 = self.getNewUUID()
-        uuid2 = self.getNewUUID()
+        uuid1 = self.getClientUUID()
+        uuid2 = self.getClientUUID()
         self.assertNotEqual(uuid1, uuid2)
         ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
@@ -230,8 +224,8 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def testLockConflict(self):
         """ Check lock conflict """
-        uuid1 = self.getNewUUID()
-        uuid2 = self.getNewUUID()
+        uuid1 = self.getClientUUID()
+        uuid2 = self.getClientUUID()
         self.assertNotEqual(uuid1, uuid2)
         ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
@@ -257,7 +251,7 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def testAbortUnlocked(self):
         """ Abort a non-locked transaction """
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         tid, txn = self._getTransaction()
         serial, obj = self._getObject(1)
         self.manager.register(uuid, tid)
@@ -272,7 +266,7 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def testAbortLockedDoNothing(self):
         """ Try to abort a locked transaction """
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         ttid = self.getNextTID()
         tid, txn = self._getTransaction()
         self.manager.register(uuid, ttid)
@@ -289,8 +283,8 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def testAbortForNode(self):
         """ Abort transaction for a node """
-        uuid1 = self.getNewUUID()
-        uuid2 = self.getNewUUID()
+        uuid1 = self.getClientUUID()
+        uuid2 = self.getClientUUID()
         self.assertNotEqual(uuid1, uuid2)
         ttid1 = self.getNextTID()
         ttid2 = self.getNextTID()
@@ -319,7 +313,7 @@ class TransactionManagerTests(NeoUnitTestBase):
 
     def testReset(self):
         """ Reset the manager """
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         tid, txn = self._getTransaction()
         ttid = self.getNextTID()
         self.manager.register(uuid, ttid)
@@ -335,7 +329,7 @@ class TransactionManagerTests(NeoUnitTestBase):
     def test_getObjectFromTransaction(self):
         data_id = random.random()
         self.app.dm.mockAddReturnValues(storeData=ReturnValues(data_id))
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         tid1, txn1 = self._getTransaction()
         tid2, txn2 = self._getTransaction()
         serial1, obj1 = self._getObject(1)
@@ -350,7 +344,7 @@ class TransactionManagerTests(NeoUnitTestBase):
             (obj1[0], data_id, obj1[4]))
 
     def test_getLockingTID(self):
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         serial1, obj1 = self._getObject(1)
         oid1 = obj1[0]
         tid1, txn1 = self._getTransaction()
@@ -363,7 +357,7 @@ class TransactionManagerTests(NeoUnitTestBase):
         ram_serial = self.getNextTID()
         oid = self.getOID(1)
         orig_serial = self.getNextTID()
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         locking_serial = self.getNextTID()
         other_serial = self.getNextTID()
         new_serial = self.getNextTID()

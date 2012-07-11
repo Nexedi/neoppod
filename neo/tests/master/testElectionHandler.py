@@ -37,10 +37,8 @@ class MasterClientElectionTestBase(NeoUnitTestBase):
         super(MasterClientElectionTestBase, self).setUp()
         self._master_port = 3001
 
-    def identifyToMasterNode(self, uuid=True):
-        if uuid is True:
-            uuid = self.getNewUUID()
-        node = self.app.nm.createMaster(uuid=uuid)
+    def identifyToMasterNode(self):
+        node = self.app.nm.createMaster(uuid=self.getMasterUUID())
         node.setAddress((self.local_ip, self._master_port))
         self._master_port += 1
         conn = self.getFakeConnection(
@@ -59,7 +57,7 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
         self.app = Application(config)
         self.app.pt.clear()
         self.app.em = Mock()
-        self.app.uuid = self._makeUUID('M')
+        self.app.uuid = self.getMasterUUID()
         self.app.server = (self.local_ip, 10000)
         self.app.name = 'NEOCLUSTER'
         self.election = ClientElectionHandler(self.app)
@@ -264,13 +262,13 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
         return [x.asTuple() for x in self.app.nm.getList()]
 
     def __getClient(self):
-        uuid = self.getNewUUID()
+        uuid = self.getClientUUID()
         conn = self.getFakeConnection(uuid=uuid, address=self.client_address)
         self.app.nm.createClient(uuid=uuid, address=self.client_address)
         return conn
 
     def __getMaster(self, port=1000, register=True):
-        uuid = self.getNewUUID()
+        uuid = self.getMasterUUID()
         address = ('127.0.0.1', port)
         conn = self.getFakeConnection(uuid=uuid, address=address)
         if register:
@@ -291,7 +289,7 @@ class MasterServerElectionTests(MasterClientElectionTestBase):
 
     def _requestIdentification(self):
         conn = self.getFakeConnection()
-        peer_uuid = self.getNewUUID()
+        peer_uuid = self.getMasterUUID()
         address = (self.local_ip, 2001)
         self.election.requestIdentification(
             conn,
