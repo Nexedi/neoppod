@@ -193,7 +193,8 @@ class MasterClientElectionTests(MasterClientElectionTestBase):
             self._getMasterList())
         self.election.acceptIdentification(conn, NodeTypes.MASTER, *args)
         self.checkUUIDSet(conn, node.getUUID())
-        self.assertTrue(self.app.primary or node.getUUID() < self.app.uuid)
+        self.assertEqual(self.app.primary is False,
+                         self.app.server < node.getAddress())
         self.assertFalse(node in self.app.negotiating_master_node_set)
 
     def _getMasterList(self, with_node=None):
