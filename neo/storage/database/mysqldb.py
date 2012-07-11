@@ -158,7 +158,7 @@ class MySQLDatabaseManager(DatabaseManager):
         # The table "config" stores configuration parameters which affect the
         # persistent data.
         q("""CREATE TABLE IF NOT EXISTS config (
-                 name VARBINARY(16) NOT NULL PRIMARY KEY,
+                 name VARBINARY(255) NOT NULL PRIMARY KEY,
                  value VARBINARY(255) NULL
              ) ENGINE = InnoDB""")
 

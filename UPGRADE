@@ -17,7 +17,7 @@ SQL commands to migrate each storage from NEO 0.10.x::
   ALTER TABLE trans ADD COLUMN ttid BIGINT UNSIGNED NOT NULL;
   UPDATE trans SET ttid=tid;
   ALTER TABLE ttrans ADD COLUMN ttid BIGINT UNSIGNED NOT NULL;
-
+  ALTER TABLE config MODIFY name VARBINARY(255) NOT NULL;
   CREATE TEMPORARY TABLE uuid (new INT NOT NULL AUTO_INCREMENT PRIMARY KEY, old CHAR(32) NOT NULL, KEY (old)) ENGINE = InnoDB SELECT DISTINCT uuid as old FROM pt ORDER BY uuid;
   ALTER TABLE pt DROP PRIMARY KEY, CHANGE uuid old CHAR(32) NOT NULL, ADD uuid INT NOT NULL after rid;
   UPDATE pt, uuid SET pt.uuid=uuid.new WHERE pt.old=uuid.old;
