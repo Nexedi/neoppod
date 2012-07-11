@@ -100,7 +100,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         # persistent data.
         q("""CREATE TABLE IF NOT EXISTS config (
                  name TEXT NOT NULL PRIMARY KEY,
-                 value BLOB)
+                 value TEXT)
           """)
 
         # The table "pt" stores a partition table.
@@ -178,8 +178,8 @@ class SQLiteDatabaseManager(DatabaseManager):
             return self._config[key]
         except KeyError:
             try:
-                r = str(self.query("SELECT value FROM config WHERE name=?",
-                                   (key,)).fetchone()[0])
+                r = self.query("SELECT value FROM config WHERE name=?",
+                               (key,)).fetchone()[0]
             except TypeError:
                 r = None
             self._config[key] = r
@@ -191,7 +191,7 @@ class SQLiteDatabaseManager(DatabaseManager):
         if value is None:
             q("DELETE FROM config WHERE name=?", (key,))
         else:
-            q("REPLACE INTO config VALUES (?,?)", (key, buffer(str(value))))
+            q("REPLACE INTO config VALUES (?,?)", (key, str(value)))
 
     def _setPackTID(self, tid):
         self._setConfiguration('_pack_tid', tid)
