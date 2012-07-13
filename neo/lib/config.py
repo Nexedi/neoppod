@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from ConfigParser import SafeConfigParser
+from ConfigParser import SafeConfigParser, NoOptionError
 from . import util
 from .util import parseNodeAddress
 
@@ -39,7 +39,10 @@ class ConfigurationManager(object):
             if self.parser is None:
                 value = self.defaults.get(key)
             else:
-                value = self.parser.get(self.section, key)
+                try:
+                    value = self.parser.get(self.section, key)
+                except NoOptionError:
+                    pass
         if value is None and not optional:
             raise RuntimeError("Option '%s' is undefined'" % (key, ))
         return value
