@@ -204,7 +204,7 @@ class StorageOperationHandler(EventHandler):
         msg_id = conn.getPeerId()
         conn = weakref.proxy(conn)
         dm = app.dm
-        object_list = dm.getReplicationObjectList(min_tid, max_tid, length,
+        object_list = dm.getReplicationObjectList(min_tid, max_tid, length + 1,
             partition, min_oid)
         if length < len(object_list):
             next_tid, next_oid = object_list.pop()
