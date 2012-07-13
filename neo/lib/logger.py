@@ -93,10 +93,13 @@ class NEOLogger(Logger):
     def flush(self):
         if self.db is None:
             return
-        self.db.execute("BEGIN")
-        for r in self._record_queue:
-            self._emit(r)
-        self.db.commit()
+        try:
+            self.db.execute("BEGIN")
+            for r in self._record_queue:
+                self._emit(r)
+        finally:
+            # Always commit, to not lose any record that we could emit.
+            self.db.commit()
         self._record_queue.clear()
         self._record_size = 0
 
