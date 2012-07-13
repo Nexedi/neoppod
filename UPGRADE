@@ -7,7 +7,8 @@ SQL commands to migrate each storage from NEO 0.10.x::
 
   -- make sure 'tobj' & 'ttrans' are empty first
   -        and all storages have up-to-date partition tables
-  CREATE TABLE new_data (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, hash BINARY(20) NOT NULL UNIQUE, compression TINYINT UNSIGNED NULL, value LONGBLOB NULL) ENGINE = InnoDB SELECT DISTINCT obj.hash as hash, compression, value FROM obj, data WHERE obj.hash=data.hash ORDER BY serial;
+  CREATE TABLE new_data (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, hash BINARY(20) NOT NULL UNIQUE, compression TINYINT UNSIGNED NULL, value LONGBLOB NULL) ENGINE = InnoDB SELECT DISTINCT obj.hash as hash FROM obj, data WHERE obj.hash=data.hash ORDER BY serial;
+  UPDATE new_data, data SET new_data.compression=data.compression, new_data.value=data.value WHERE new_data.hash=data.hash;
   DROP TABLE data;
   RENAME TABLE new_data TO data;
   CREATE TABLE new_obj (partition SMALLINT UNSIGNED NOT NULL, oid BIGINT UNSIGNED NOT NULL, tid BIGINT UNSIGNED NOT NULL, data_id BIGINT UNSIGNED NULL, value_tid BIGINT UNSIGNED NULL, PRIMARY KEY (partition, tid, oid), KEY (partition, oid, tid), KEY (data_id)) ENGINE = InnoDB SELECT partition, oid, serial as tid, data.id as data_id, value_serial as value_tid FROM obj LEFT JOIN data ON (obj.hash=data.hash);
