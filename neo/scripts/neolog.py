@@ -17,43 +17,82 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import bz2, logging, os, sqlite3, sys, time
+import bz2, logging, optparse, os, signal, sqlite3, sys, time
 from binascii import b2a_hex
 from logging import getLevelName
 
 class main(object):
 
+    _log_id = _packet_id = -1
+    _protocol_date = None
+
     def __new__(cls):
         self = object.__new__(cls)
-        db_path = sys.argv[1]
+        parser = optparse.OptionParser()
+        parser.add_option('-f', '--follow', action="store_true",
+            help='output appended data as the file grows')
+        parser.add_option('-s', '--sleep-interval', type="float", default=1,
+            help='with -f, sleep for approximately N seconds (default 1.0)'
+                 ' between iterations', metavar='N')
+        parser.add_option('-F', '--flush', action="append", type="int",
+            help='with -f, tell process PID to flush logs approximately N'
+                 ' seconds (see -s)', metavar='PID')
+        options, (db_path,) = parser.parse_args()
+        if options.sleep_interval <= 0:
+            parser.error("sleep_interval must be positive")
         self._default_name, _ = os.path.splitext(os.path.basename(db_path))
-        self._db = db = sqlite3.connect(db_path)
-        nl = db.execute("SELECT * FROM log")
-        np = db.execute("SELECT * FROM packet")
+        self._db = sqlite3.connect(db_path)
+        if options.follow:
+            try:
+                pid_list = options.flush or ()
+                while True:
+                    self._emit_many()
+                    for pid in pid_list:
+                        os.kill(pid, signal.SIGRTMIN)
+                    time.sleep(options.sleep_interval)
+            except KeyboardInterrupt:
+                pass
+        else:
+            self._emit_many()
+
+    def _emit_many(self):
+        db =  self._db
         try:
-            p = np.next()
-            self._reload(p[0])
-        except StopIteration:
-            p = None
-        for date, name, level, pathname, lineno, msg in nl:
-            while p and p[0] < date:
+            db.execute("BEGIN")
+            nl = db.execute("SELECT * FROM log WHERE id>?",
+                            (self._log_id,))
+            np = db.execute("SELECT * FROM packet WHERE id>?",
+                            (self._packet_id,))
+            try:
+                p = np.next()
+                self._reload(p[1])
+            except StopIteration:
+                p = None
+            for self._log_id, date, name, level, pathname, lineno, msg in nl:
+                while p and p[1] < date:
+                    self._packet(*p)
+                    p = np.fetchone()
+                self._emit(date, name, getLevelName(level), msg.splitlines())
+            if p:
                 self._packet(*p)
-                p = np.fetchone()
-            self._emit(date, name, getLevelName(level), msg.splitlines())
-        if p:
-            self._packet(*p)
-            for p in np:
-                self._packet(*p)
+                for p in np:
+                    self._packet(*p)
+        finally:
+            db.rollback()
 
     def _reload(self, date):
         q = self._db.execute
+        date, text = q("SELECT * FROM protocol WHERE date<=?"
+                       " ORDER BY date DESC", (date,)).next()
+        if self._protocol_date == date:
+            return
+        self._protocol_date = date
         g = {}
-        exec bz2.decompress(*q("SELECT text FROM protocol WHERE date<?"
-                               " ORDER BY date DESC", (date,)).next()) in g
+        exec bz2.decompress(text) in g
         for x in 'uuid_str', 'Packets', 'PacketMalformedError':
             setattr(self, x, g[x])
         try:
-            self._next_protocol, = q("SELECT date FROM protocol WHERE date>=?",
+            self._next_protocol, = q("SELECT date FROM protocol WHERE date>?",
                                      (date,)).next()
         except StopIteration:
             self._next_protocol = float('inf')
@@ -67,7 +106,8 @@ class main(object):
         for msg in msg_list:
             print prefix + msg
 
-    def _packet(self, date, name, msg_id, code, peer, body):
+    def _packet(self, id, date, name, msg_id, code, peer, body):
+        self._packet_id = id
         if self._next_protocol <= date:
             self._reload(date)
         try:

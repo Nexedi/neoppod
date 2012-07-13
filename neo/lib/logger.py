@@ -137,6 +137,7 @@ class NEOLogger(Logger):
                     for t in 'log', 'packet':
                         q('DROP TABLE IF EXISTS ' + t)
                 q("""CREATE TABLE IF NOT EXISTS log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
                         date REAL NOT NULL,
                         name TEXT,
                         level INTEGER NOT NULL,
@@ -146,6 +147,7 @@ class NEOLogger(Logger):
                   """)
                 q("""CREATE INDEX IF NOT EXISTS _log_i1 ON log(date)""")
                 q("""CREATE TABLE IF NOT EXISTS packet (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
                         date REAL NOT NULL,
                         name TEXT,
                         msg_id INTEGER NOT NULL,
@@ -177,11 +179,11 @@ class NEOLogger(Logger):
             ip, port = r.addr
             peer = '%s %s (%s:%u)' % ('>' if r.outgoing else '<',
                                       uuid_str(r.uuid), ip, port)
-            self.db.execute("INSERT INTO packet VALUES (?,?,?,?,?,?)",
+            self.db.execute("INSERT INTO packet VALUES (NULL,?,?,?,?,?,?)",
                 (r.created, r._name, r.msg_id, r.code, peer, buffer(r.msg)))
         else:
             pathname = os.path.relpath(r.pathname, *neo.__path__)
-            self.db.execute("INSERT INTO log VALUES (?,?,?,?,?,?)",
+            self.db.execute("INSERT INTO log VALUES (NULL,?,?,?,?,?,?)",
                 (r.created, r._name, r.levelno, pathname, r.lineno, r.msg))
 
     def _queue(self, record):
